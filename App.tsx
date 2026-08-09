@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { WarmTripDetail } from "./src/WarmTripDetail";
-import { DaymoNewShell } from "./src/DaymoNewShell";
+import { WarmAppShell } from "./src/WarmAppShell";
 
 type MainTab = "Today" | "Trips" | "Search" | "Me";
 type TripTab = "일정" | "장소" | "음식" | "준비" | "메모" | "사진" | "정보";
@@ -52,7 +52,7 @@ const tripTabs: TripTab[] = [
 export default function App() {
   return (
     <View style={s.webStage}>
-      <DaymoNewShell />
+      <WarmAppShell />
     </View>
   );
 }
