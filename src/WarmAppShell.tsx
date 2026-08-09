@@ -55,7 +55,7 @@ function TripsExplorer({ open }: { open: () => void }) {
   const addTrip = () => { if (!place.trim()) return; const picked = selectedDate || '2026-09-12'; setItems((current) => [{ name: place.trim(), date, note, color: '#19B6A3', mark: picked.slice(5, 7), region: newRegion, start: picked, end: picked }, ...current]); setPlace(''); setCreating(false); setSelectedRegion(null); setDisplay('목록'); };
   const createFromDate = () => { if (selectedDate) { const day = Number(selectedDate.slice(-2)); setDate(`${month.value}월 ${day}일`); } setCreating(true); };
   return <>
-    <ScrollView contentContainerStyle={(s as any).tripExplorerPage} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[(s as any).tripExplorerPage, display === '지도' && (s as any).tripExplorerMapPage]} showsVerticalScrollIndicator={false}>
       <View style={s.screenHead}><View><Text style={s.overline}>우리의 여행 지도</Text><Text style={s.screenTitle}>여행</Text></View><Pressable onPress={() => setCreating(true)} style={({ pressed }) => [s.newTrip, pressed && (s as any).pressed]}><Text style={s.newTripText}>새 여행</Text></Pressable></View>
       <View style={(s as any).viewSwitch}>{(['목록', '지도', '캘린더'] as TripView[]).map((item) => <Pressable key={item} onPress={() => setDisplay(item)} style={[(s as any).viewChoice, display === item && (s as any).viewChoiceActive]}><Text style={[(s as any).viewChoiceText, display === item && (s as any).viewChoiceTextActive]}>{item === '목록' ? '☰  목록' : item === '지도' ? '⌖  지도' : '▦  캘린더'}</Text></Pressable>)}</View>
       {display === '목록' && <><View style={s.tripFilters}>{(['전체', '예정', '추억'] as const).map((item) => <Pressable key={item} onPress={() => setFilter(item)}><Text style={[s.filter, filter === item && s.filterActive]}>{item}</Text></Pressable>)}</View><TripRows items={filtered} open={open} /></>}
@@ -220,6 +220,7 @@ Object.assign(s, {
 
 Object.assign(s, {
   tripExplorerPage: { paddingHorizontal: 21, paddingTop: 8, paddingBottom: 120 },
+  tripExplorerMapPage: { paddingBottom: 8 },
   viewSwitch: { flexDirection: 'row', backgroundColor: '#EDEAE5', borderRadius: 16, padding: 4, marginBottom: 16 },
   viewChoice: { flex: 1, minHeight: 39, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   viewChoiceActive: { backgroundColor: '#17233D', shadowColor: '#17233D', shadowOpacity: .15, shadowRadius: 7, elevation: 2 },
