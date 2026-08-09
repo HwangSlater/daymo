@@ -58,7 +58,6 @@ function TripsExplorer({ open }: { open: () => void }) {
       <View style={(s as any).viewSwitch}>{(['목록', '지도', '캘린더'] as TripView[]).map((item) => <Pressable key={item} onPress={() => setDisplay(item)} style={[(s as any).viewChoice, display === item && (s as any).viewChoiceActive]}><Text style={[(s as any).viewChoiceText, display === item && (s as any).viewChoiceTextActive]}>{item === '목록' ? '☰  목록' : item === '지도' ? '⌖  지도' : '▦  캘린더'}</Text></Pressable>)}</View>
       {display === '목록' && <><View style={s.tripFilters}>{(['전체', '예정', '추억'] as const).map((item) => <Pressable key={item} onPress={() => setFilter(item)}><Text style={[s.filter, filter === item && s.filterActive]}>{item}</Text></Pressable>)}</View><TripRows items={filtered} open={open} /></>}
       {display === '지도' && <KoreaTripMap trips={items} selected={selectedRegion} onSelect={(region) => setSelectedRegion(selectedRegion === region ? null : region)} />}
-      {display === '지도' && <View style={(s as any).mapResults}><View style={(s as any).mapResultHead}><Text style={(s as any).mapResultTitle}>{selectedRegion ? `${selectedRegion} 여행` : '지도 위의 모든 여행'}</Text><Text style={(s as any).mapResultCount}>{visibleTrips.length}개</Text></View><TripRows items={visibleTrips} open={open} compact /></View>}
       {display === '캘린더' && <TripCalendar trips={items} month={month} setMonth={setMonth} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
       {display === '캘린더' && selectedDate && <View style={(s as any).calendarResults}><Text style={(s as any).calendarResultDate}>{Number(selectedDate.slice(-2))}일의 여행</Text>{dateTrips.length ? <TripRows items={dateTrips} open={open} compact /> : <View style={(s as any).emptyDate}><Text style={(s as any).emptyDateTitle}>이날은 아직 비어 있어요.</Text><Pressable onPress={createFromDate}><Text style={(s as any).emptyDateAction}>이 날짜로 여행 만들기 +</Text></Pressable></View>}</View>}
     </ScrollView>
@@ -72,13 +71,14 @@ function TripRows({ items, open, compact }: { items: Trip[]; open: () => void; c
 }
 
 const regionPins = [
-  { name: '서울', x: 40, y: 25 }, { name: '경기', x: 57, y: 34 }, { name: '강원', x: 70, y: 20 },
-  { name: '충청', x: 45, y: 49 }, { name: '전라', x: 34, y: 68 }, { name: '경상', x: 67, y: 62 },
-  { name: '부산', x: 76, y: 75 }, { name: '제주', x: 27, y: 91 },
+  { name: '서울', x: 112, y: 92 }, { name: '경기', x: 91, y: 130 }, { name: '강원', x: 190, y: 82 },
+  { name: '충청', x: 126, y: 191 }, { name: '전라', x: 91, y: 276 }, { name: '경상', x: 192, y: 246 },
+  { name: '부산', x: 224, y: 305 }, { name: '제주', x: 75, y: 382 },
 ];
 
 function KoreaTripMap({ trips, selected, onSelect }: { trips: Trip[]; selected: string | null; onSelect: (region: string) => void }) {
-  return <View style={(s as any).mapCard}><View style={(s as any).mapIntro}><View><Text style={(s as any).mapKicker}>KOREA TRIP MAP</Text><Text style={(s as any).mapTitle}>어디에서 만났나요?</Text></View><View style={(s as any).mapScore}><Text style={(s as any).mapScoreValue}>{new Set(trips.map((trip) => trip.region)).size}</Text><Text style={(s as any).mapScoreLabel}>지역</Text></View></View><View style={(s as any).mapCanvas}><Svg width="100%" height="100%" viewBox="0 0 220 310"><Path d="M110 9 C143 16 164 39 157 67 C181 83 170 111 158 125 C174 147 164 172 147 184 C154 207 139 226 124 239 C112 253 108 277 91 292 C74 278 76 254 62 239 C45 220 51 198 39 180 C26 159 42 139 37 119 C29 93 50 77 55 58 C61 32 79 14 110 9 Z" fill="#DDF4EF" stroke="#19A996" strokeWidth="2" /><Path d="M23 284 C35 276 54 277 65 286 C54 298 32 301 18 293 Z" fill="#DDF4EF" stroke="#19A996" strokeWidth="2" /></Svg>{regionPins.map((pin) => { const count = trips.filter((trip) => trip.region === pin.name).length; const active = selected === pin.name; return <Pressable key={pin.name} onPress={() => onSelect(pin.name)} style={[(s as any).mapPin, { left: `${pin.x}%`, top: `${pin.y}%` }, count > 0 && (s as any).mapPinVisited, active && (s as any).mapPinActive]}><Text style={[(s as any).mapPinText, (count > 0 || active) && (s as any).mapPinTextVisited]}>{pin.name}</Text>{count > 0 && <View style={(s as any).pinCount}><Text style={(s as any).pinCountText}>{count}</Text></View>}</Pressable>; })}</View><Text style={(s as any).mapHint}>지역을 눌러 우리의 여행만 골라보세요 · 다시 누르면 전체 보기</Text></View>;
+  const [size, setSize] = useState({ width: 300, height: 420 });
+  return <View style={(s as any).mapOnly} onLayout={(event) => setSize(event.nativeEvent.layout)}><Svg width="100%" height="100%" viewBox="0 0 300 420" preserveAspectRatio="xMidYMid meet"><Path d="M153 12 C195 18 226 48 214 88 C242 108 229 143 211 160 C231 190 216 220 194 237 C204 270 182 298 160 318 C145 337 141 355 126 370 C106 354 102 329 83 310 C61 286 67 258 50 234 C33 205 51 177 45 151 C35 117 62 96 69 71 C77 38 107 15 153 12 Z" fill="#DDF4EF" stroke="#19A996" strokeWidth="3" /><Path d="M43 372 C63 360 93 362 108 378 C91 395 57 398 35 386 Z" fill="#DDF4EF" stroke="#19A996" strokeWidth="3" /></Svg>{regionPins.map((pin) => { const count = trips.filter((trip) => trip.region === pin.name).length; const active = selected === pin.name; return <Pressable key={pin.name} onPress={() => onSelect(pin.name)} style={[(s as any).mapPin, { left: (pin.x / 300) * size.width, top: (pin.y / 420) * size.height }, count > 0 && (s as any).mapPinVisited, active && (s as any).mapPinActive]}><Text style={[(s as any).mapPinText, (count > 0 || active) && (s as any).mapPinTextVisited]}>{pin.name}</Text>{count > 0 && <View style={(s as any).pinCount}><Text style={(s as any).pinCountText}>{count}</Text></View>}</Pressable>; })}</View>;
 }
 
 function TripCalendar({ trips, month, setMonth, selectedDate, setSelectedDate }: { trips: Trip[]; month: { year: number; value: number }; setMonth: (value: { year: number; value: number }) => void; selectedDate: string | null; setSelectedDate: (value: string | null) => void }) {
@@ -201,6 +201,7 @@ Object.assign(s, {
   viewChoiceTextActive: { color: '#FFFFFF' },
   tripRowCompact: { minHeight: 86 }, noTrips: { paddingVertical: 40, alignItems: 'center' }, noTripsText: { color: '#969A9E', fontSize: 11 },
   mapCard: { backgroundColor: '#17233D', borderRadius: 24, padding: 17, overflow: 'hidden' },
+  mapOnly: { width: '100%', height: 500, position: 'relative', overflow: 'hidden' },
   mapIntro: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   mapKicker: { color: '#5ED8C9', fontSize: 8, letterSpacing: 1.1, fontWeight: '900' },
   mapTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', letterSpacing: -.8, marginTop: 5 },
