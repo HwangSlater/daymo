@@ -106,7 +106,8 @@ export function WarmAppShell() {
     );
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <View style={[s.body, { backgroundColor: theme.background }]}>
+      <PaperBackdrop theme={theme} />
+      <View style={[s.body, { backgroundColor: "transparent" }]}>
         {view === "홈" && (
           <NotebookHome
             open={openTrip}
@@ -133,6 +134,40 @@ export function WarmAppShell() {
   );
 }
 
+function PaperBackdrop({ theme }: { theme: AppTheme }) {
+  return (
+    <View pointerEvents="none" style={(s as any).paperBackdrop}>
+      {[92, 178, 264, 350, 436, 522, 608, 694, 780].map((top) => (
+        <View
+          key={top}
+          style={[
+            (s as any).paperLine,
+            { top, backgroundColor: theme.dark ? "#202A3B" : "#EDE9E1" },
+          ]}
+        />
+      ))}
+      <View
+        style={[
+          (s as any).paperMargin,
+          { backgroundColor: `${theme.primary}18` },
+        ]}
+      />
+      <View
+        style={[
+          (s as any).paperSpeck,
+          { top: 115, right: 24, backgroundColor: `${theme.secondary}35` },
+        ]}
+      />
+      <View
+        style={[
+          (s as any).paperSpeck,
+          { top: 545, left: 18, backgroundColor: `${theme.accent}30` },
+        ]}
+      />
+    </View>
+  );
+}
+
 function NotebookHome({
   open,
   goTrips,
@@ -144,7 +179,7 @@ function NotebookHome({
 }) {
   return (
     <ScrollView
-      style={{ backgroundColor: theme.background }}
+      style={{ backgroundColor: "transparent" }}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={s.page}
     >
@@ -344,7 +379,7 @@ function Home({
 }) {
   return (
     <ScrollView
-      style={{ backgroundColor: theme.background }}
+      style={{ backgroundColor: "transparent" }}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={s.page}
     >
@@ -744,7 +779,7 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
         </View>
       ) : (
         <ScrollView
-          style={{ backgroundColor: theme.background }}
+          style={{ backgroundColor: "transparent" }}
           contentContainerStyle={(s as any).tripExplorerPage}
           showsVerticalScrollIndicator={false}
         >
@@ -917,11 +952,21 @@ function TripRows({
           onPress={open}
           style={({ pressed }) => [
             s.tripRow,
-            { borderColor: theme.border },
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              transform: [{ rotate: index % 2 ? ".25deg" : "-.25deg" }],
+            },
             compact && (s as any).tripRowCompact,
             pressed && (s as any).pressed,
           ]}
         >
+          <View
+            style={[
+              (s as any).tripTape,
+              { backgroundColor: `${trip.color}4D` },
+            ]}
+          />
           <View style={(s as any).tripThumb}>
             <TripArt color={trip.color} date={trip.mark} small />
           </View>
@@ -1707,7 +1752,7 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
   );
   return (
     <ScrollView
-      style={{ backgroundColor: theme.background }}
+      style={{ backgroundColor: "transparent" }}
       contentContainerStyle={(s as any).searchPage}
       keyboardShouldPersistTaps="handled"
     >
@@ -1818,13 +1863,17 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
           {results.length}개
         </Text>
       </View>
-      {results.map((item) => (
+      {results.map((item, index) => (
         <Pressable
           key={item.title}
           onPress={open}
           style={[
             (s as any).searchResultCard,
-            { backgroundColor: theme.surface, borderColor: theme.border },
+            {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+              transform: [{ rotate: index % 2 ? ".18deg" : "-.18deg" }],
+            },
           ]}
         >
           <View
@@ -1927,7 +1976,7 @@ function Together({
   return (
     <>
       <ScrollView
-        style={{ backgroundColor: theme.background }}
+        style={{ backgroundColor: "transparent" }}
         contentContainerStyle={s.page}
       >
         <View style={(s as any).togetherHead}>
@@ -2260,31 +2309,46 @@ function BottomBar({
   theme: AppTheme;
 }) {
   const icons: Record<MainView, string> = {
-    홈: "◆",
-    여행: "⌖",
+    홈: "⌂",
+    여행: "✈",
     찾기: "⌕",
-    우리: "◉",
+    우리: "♡",
   };
   return (
-    <View style={[s.bottom, { backgroundColor: theme.navigation }]}>
+    <View
+      style={[
+        s.bottom,
+        { backgroundColor: theme.surface, borderColor: theme.border },
+      ]}
+    >
       {(["홈", "여행", "찾기", "우리"] as MainView[]).map((item) => (
         <Pressable key={item} onPress={() => setActive(item)} style={s.navItem}>
           <View
             style={[
               (s as any).navIconWrap,
-              active === item && { backgroundColor: theme.surfaceAlt },
+              active === item && {
+                backgroundColor: theme.primarySoft,
+                transform: [{ rotate: item === "여행" ? "-3deg" : "2deg" }],
+              },
             ]}
           >
             <Text
               style={[
                 (s as any).navIcon,
-                active === item && { color: theme.secondary },
+                { color: theme.muted },
+                active === item && { color: theme.primary },
               ]}
             >
               {icons[item]}
             </Text>
           </View>
-          <Text style={[s.navText, active === item && { color: "#FFFFFF" }]}>
+          <Text
+            style={[
+              s.navText,
+              { color: theme.muted },
+              active === item && { color: theme.text },
+            ]}
+          >
             {item}
           </Text>
         </Pressable>
@@ -2926,6 +2990,16 @@ const s = StyleSheet.create({
 });
 
 Object.assign(s, {
+  paperBackdrop: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+  paperLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: StyleSheet.hairlineWidth,
+    opacity: 0.55,
+  },
+  paperMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1 },
+  paperSpeck: { position: "absolute", width: 5, height: 5, borderRadius: 3 },
   notebookHead: {
     flexDirection: "row",
     alignItems: "center",
@@ -4214,6 +4288,15 @@ Object.assign(s, {
     marginBottom: 7,
   },
   tripThumb: { width: 50, height: 58, marginRight: 1 },
+  tripTape: {
+    position: "absolute",
+    width: 34,
+    height: 9,
+    left: 18,
+    top: -5,
+    opacity: 0.8,
+    transform: [{ rotate: "-4deg" }],
+  },
   tripArtSmall: { width: "100%", height: 58, borderRadius: 7, marginBottom: 0 },
   tripInfo: { flex: 1, paddingLeft: 10 },
   tripName: { fontSize: 14, fontWeight: "900" },
@@ -4343,4 +4426,22 @@ Object.assign(s, {
     justifyContent: "space-between",
     marginBottom: 8,
   },
+  bottom: {
+    height: 78,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingTop: 7,
+  },
+  navItem: { width: 64, alignItems: "center" },
+  navIconWrap: {
+    width: 40,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 1,
+  },
+  navIcon: { fontSize: 18, fontWeight: "900" },
+  navText: { fontSize: 9, fontWeight: "800" },
 });

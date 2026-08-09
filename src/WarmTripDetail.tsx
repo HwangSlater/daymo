@@ -174,8 +174,9 @@ export function WarmTripDetail({
             </Text>
           </Pressable>
         </View>
+        <DetailPaperBackdrop theme={appTheme} />
         <ScrollView
-          style={appTheme && { backgroundColor: appTheme.background }}
+          style={{ backgroundColor: "transparent" }}
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}
         >
@@ -295,6 +296,29 @@ export function WarmTripDetail({
         </DetailSheet>
       </SafeAreaView>
     </DetailThemeContext.Provider>
+  );
+}
+
+function DetailPaperBackdrop({ theme }: { theme?: AppTheme }) {
+  if (!theme) return null;
+  return (
+    <View pointerEvents="none" style={(styles as any).detailPaperBackdrop}>
+      {[80, 166, 252, 338, 424, 510, 596, 682, 768].map((top) => (
+        <View
+          key={top}
+          style={[
+            (styles as any).detailPaperLine,
+            { top, backgroundColor: theme.dark ? "#202A3B" : "#EDE9E1" },
+          ]}
+        />
+      ))}
+      <View
+        style={[
+          (styles as any).detailPaperMargin,
+          { backgroundColor: `${theme.primary}16` },
+        ]}
+      />
+    </View>
   );
 }
 
@@ -457,6 +481,7 @@ function TripOverview({
               theme && {
                 backgroundColor: theme.surface,
                 borderColor: theme.border,
+                transform: [{ rotate: ".2deg" }],
               },
             ]}
           >
@@ -1003,6 +1028,7 @@ function Places({
               theme && {
                 backgroundColor: theme.surface,
                 borderColor: theme.border,
+                transform: [{ rotate: index % 2 ? ".2deg" : "-.2deg" }],
               },
             ]}
           >
@@ -1604,7 +1630,7 @@ function Preparation({
         ))}
       </ScrollView>
       <View style={styles.packingList}>
-        {visibleItems.map((item) => {
+        {visibleItems.map((item, index) => {
           const completed = done.includes(item.name);
           return (
             <View
@@ -1614,6 +1640,7 @@ function Preparation({
                 theme && {
                   backgroundColor: theme.surface,
                   borderColor: theme.border,
+                  transform: [{ rotate: index % 2 ? ".18deg" : "-.18deg" }],
                 },
                 completed && styles.packingCardDone,
               ]}
@@ -2161,6 +2188,11 @@ function Cooking() {
                 theme && {
                   backgroundColor: theme.surface,
                   borderColor: theme.border,
+                  transform: [
+                    {
+                      rotate: groups.indexOf(section) % 2 ? ".2deg" : "-.2deg",
+                    },
+                  ],
                 },
               ]}
             >
@@ -2368,6 +2400,7 @@ function Memories() {
             theme && {
               backgroundColor: theme.surface,
               borderColor: theme.border,
+              transform: [{ rotate: index % 2 ? ".25deg" : "-.25deg" }],
             },
           ]}
         >
@@ -4203,6 +4236,21 @@ Object.assign(styles, {
 
 // Travel notebook visual language shared by every detail tab.
 Object.assign(styles, {
+  detailPaperBackdrop: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+  detailPaperLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: StyleSheet.hairlineWidth,
+    opacity: 0.55,
+  },
+  detailPaperMargin: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 13,
+    width: 1,
+  },
   page: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 88 },
   date: { fontSize: 10, fontWeight: "800", letterSpacing: 0, marginBottom: 6 },
   title: { fontSize: 29, fontWeight: "900", letterSpacing: -1.2 },
