@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+.DS_Store
+*.log
+
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+
+android/.gradle/
+android/app/build/
+android/build/
