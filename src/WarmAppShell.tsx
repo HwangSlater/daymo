@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { WarmTripDetail } from './WarmTripDetail';
 
 type MainView = '홈' | '여행' | '찾기' | '우리';
 
-const trips = [
-  { name: '서울 구로구', date: '8월 21일 — 23일', note: '느긋한 숙소와 밀푀유나베', color: '#FF6B5F', mark: '08' },
-  { name: '안양 평촌', date: '8월 1일 — 2일', note: '생새우 파티와 치킨', color: '#8B7CF6', mark: '08' },
-  { name: '부산', date: '7월 24일 — 26일', note: '바다와 드론쇼', color: '#19B6A3', mark: '07' },
+type Trip = { name: string; date: string; note: string; color: string; mark: string; region: string; start: string; end: string };
+const trips: Trip[] = [
+  { name: '서울 구로구', date: '8월 21일 — 23일', note: '느긋한 숙소와 밀푀유나베', color: '#FF6B5F', mark: '08', region: '서울', start: '2026-08-21', end: '2026-08-23' },
+  { name: '안양 평촌', date: '8월 1일 — 2일', note: '생새우 파티와 치킨', color: '#8B7CF6', mark: '08', region: '경기', start: '2026-08-01', end: '2026-08-02' },
+  { name: '부산', date: '7월 24일 — 26일', note: '바다와 드론쇼', color: '#19B6A3', mark: '07', region: '부산', start: '2026-07-24', end: '2026-07-26' },
 ];
 
 export function WarmAppShell() {
@@ -16,7 +18,7 @@ export function WarmAppShell() {
   const [done, setDone] = useState<string[]>(['깻잎', '양파']);
   const toggle = (item: string) => setDone((items) => items.includes(item) ? items.filter((value) => value !== item) : [...items, item]);
   if (isTripOpen) return <WarmTripDetail done={done} toggle={toggle} onClose={() => setTripOpen(false)} />;
-  return <SafeAreaView style={s.safe}><View style={s.body}>{view === '홈' && <Home open={() => setTripOpen(true)} goTrips={() => setView('여행')} />}{view === '여행' && <Trips open={() => setTripOpen(true)} />}{view === '찾기' && <Search open={() => setTripOpen(true)} />}{view === '우리' && <Together />}</View><BottomBar active={view} setActive={setView} /></SafeAreaView>;
+  return <SafeAreaView style={s.safe}><View style={s.body}>{view === '홈' && <Home open={() => setTripOpen(true)} goTrips={() => setView('여행')} />}{view === '여행' && <TripsExplorer open={() => setTripOpen(true)} />}{view === '찾기' && <Search open={() => setTripOpen(true)} />}{view === '우리' && <Together />}</View><BottomBar active={view} setActive={setView} /></SafeAreaView>;
 }
 
 function Home({ open, goTrips }: { open: () => void; goTrips: () => void }) {
@@ -31,6 +33,62 @@ function Home({ open, goTrips }: { open: () => void; goTrips: () => void }) {
   </ScrollView>;
 }
 
+type TripView = '목록' | '지도' | '캘린더';
+
+function TripsExplorer({ open }: { open: () => void }) {
+  const [display, setDisplay] = useState<TripView>('목록');
+  const [filter, setFilter] = useState<'전체' | '예정' | '추억'>('전체');
+  const [items, setItems] = useState<Trip[]>(trips);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [month, setMonth] = useState({ year: 2026, value: 8 });
+  const [creating, setCreating] = useState(false);
+  const [place, setPlace] = useState('');
+  const [date, setDate] = useState('9월 12일 — 14일');
+  const [note, setNote] = useState('함께 만들 새로운 여행');
+  const [newRegion, setNewRegion] = useState('서울');
+  const filtered = filter === '예정' ? items.filter((trip) => trip.start >= '2026-08-09') : filter === '추억' ? items.filter((trip) => trip.start < '2026-08-09') : items;
+  const visibleTrips = selectedRegion ? filtered.filter((trip) => trip.region === selectedRegion) : filtered;
+  const dateTrips = selectedDate ? items.filter((trip) => selectedDate >= trip.start && selectedDate <= trip.end) : [];
+  const addTrip = () => { if (!place.trim()) return; const picked = selectedDate || '2026-09-12'; setItems((current) => [{ name: place.trim(), date, note, color: '#19B6A3', mark: picked.slice(5, 7), region: newRegion, start: picked, end: picked }, ...current]); setPlace(''); setCreating(false); setSelectedRegion(null); setDisplay('목록'); };
+  const createFromDate = () => { if (selectedDate) { const day = Number(selectedDate.slice(-2)); setDate(`${month.value}월 ${day}일`); } setCreating(true); };
+  return <>
+    <ScrollView contentContainerStyle={(s as any).tripExplorerPage} showsVerticalScrollIndicator={false}>
+      <View style={s.screenHead}><View><Text style={s.overline}>우리의 여행 지도</Text><Text style={s.screenTitle}>여행</Text></View><Pressable onPress={() => setCreating(true)} style={({ pressed }) => [s.newTrip, pressed && (s as any).pressed]}><Text style={s.newTripText}>새 여행</Text></Pressable></View>
+      <View style={(s as any).viewSwitch}>{(['목록', '지도', '캘린더'] as TripView[]).map((item) => <Pressable key={item} onPress={() => setDisplay(item)} style={[(s as any).viewChoice, display === item && (s as any).viewChoiceActive]}><Text style={[(s as any).viewChoiceText, display === item && (s as any).viewChoiceTextActive]}>{item === '목록' ? '☰  목록' : item === '지도' ? '⌖  지도' : '▦  캘린더'}</Text></Pressable>)}</View>
+      {display === '목록' && <><View style={s.tripFilters}>{(['전체', '예정', '추억'] as const).map((item) => <Pressable key={item} onPress={() => setFilter(item)}><Text style={[s.filter, filter === item && s.filterActive]}>{item}</Text></Pressable>)}</View><TripRows items={filtered} open={open} /></>}
+      {display === '지도' && <KoreaTripMap trips={items} selected={selectedRegion} onSelect={(region) => setSelectedRegion(selectedRegion === region ? null : region)} />}
+      {display === '지도' && <View style={(s as any).mapResults}><View style={(s as any).mapResultHead}><Text style={(s as any).mapResultTitle}>{selectedRegion ? `${selectedRegion} 여행` : '지도 위의 모든 여행'}</Text><Text style={(s as any).mapResultCount}>{visibleTrips.length}개</Text></View><TripRows items={visibleTrips} open={open} compact /></View>}
+      {display === '캘린더' && <TripCalendar trips={items} month={month} setMonth={setMonth} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
+      {display === '캘린더' && selectedDate && <View style={(s as any).calendarResults}><Text style={(s as any).calendarResultDate}>{Number(selectedDate.slice(-2))}일의 여행</Text>{dateTrips.length ? <TripRows items={dateTrips} open={open} compact /> : <View style={(s as any).emptyDate}><Text style={(s as any).emptyDateTitle}>이날은 아직 비어 있어요.</Text><Pressable onPress={createFromDate}><Text style={(s as any).emptyDateAction}>이 날짜로 여행 만들기 +</Text></Pressable></View>}</View>}
+    </ScrollView>
+    <FormSheet visible={creating} title="새 여행" submit="여행 만들기" onClose={() => setCreating(false)} onSubmit={addTrip}><Field label="여행지" value={place} onChangeText={setPlace} placeholder="예: 제주 애월" /><Text style={(s as any).fieldLabel}>지도에 표시할 지역</Text><View style={(s as any).regionChoices}>{regionPins.map((pin) => <Pressable key={pin.name} onPress={() => setNewRegion(pin.name)} style={[(s as any).regionChoice, newRegion === pin.name && (s as any).regionChoiceActive]}><Text style={[(s as any).regionChoiceText, newRegion === pin.name && (s as any).regionChoiceTextActive]}>{pin.name}</Text></Pressable>)}</View><Field label="기간" value={date} onChangeText={setDate} /><Field label="한 줄 메모" value={note} onChangeText={setNote} /></FormSheet>
+  </>;
+}
+
+function TripRows({ items, open, compact }: { items: Trip[]; open: () => void; compact?: boolean }) {
+  if (!items.length) return <View style={(s as any).noTrips}><Text style={(s as any).noTripsText}>이 조건에 맞는 여행이 없어요.</Text></View>;
+  return <>{items.map((trip, index) => <Pressable key={`${trip.name}-${index}`} onPress={open} style={({ pressed }) => [s.tripRow, compact && (s as any).tripRowCompact, pressed && (s as any).pressed]}><View style={(s as any).tripThumb}><TripArt color={trip.color} date={trip.mark} small /></View><View style={s.tripInfo}><Text style={s.tripName}>{trip.name}</Text><Text style={s.tripDate}>{trip.date}</Text><Text style={s.tripNote}>{trip.note}</Text></View><Text style={s.arrow}>›</Text></Pressable>)}</>;
+}
+
+const regionPins = [
+  { name: '서울', x: 40, y: 25 }, { name: '경기', x: 57, y: 34 }, { name: '강원', x: 70, y: 20 },
+  { name: '충청', x: 45, y: 49 }, { name: '전라', x: 34, y: 68 }, { name: '경상', x: 67, y: 62 },
+  { name: '부산', x: 76, y: 75 }, { name: '제주', x: 27, y: 91 },
+];
+
+function KoreaTripMap({ trips, selected, onSelect }: { trips: Trip[]; selected: string | null; onSelect: (region: string) => void }) {
+  return <View style={(s as any).mapCard}><View style={(s as any).mapIntro}><View><Text style={(s as any).mapKicker}>KOREA TRIP MAP</Text><Text style={(s as any).mapTitle}>어디에서 만났나요?</Text></View><View style={(s as any).mapScore}><Text style={(s as any).mapScoreValue}>{new Set(trips.map((trip) => trip.region)).size}</Text><Text style={(s as any).mapScoreLabel}>지역</Text></View></View><View style={(s as any).mapCanvas}><Svg width="100%" height="100%" viewBox="0 0 220 310"><Path d="M110 9 C143 16 164 39 157 67 C181 83 170 111 158 125 C174 147 164 172 147 184 C154 207 139 226 124 239 C112 253 108 277 91 292 C74 278 76 254 62 239 C45 220 51 198 39 180 C26 159 42 139 37 119 C29 93 50 77 55 58 C61 32 79 14 110 9 Z" fill="#DDF4EF" stroke="#19A996" strokeWidth="2" /><Path d="M23 284 C35 276 54 277 65 286 C54 298 32 301 18 293 Z" fill="#DDF4EF" stroke="#19A996" strokeWidth="2" /></Svg>{regionPins.map((pin) => { const count = trips.filter((trip) => trip.region === pin.name).length; const active = selected === pin.name; return <Pressable key={pin.name} onPress={() => onSelect(pin.name)} style={[(s as any).mapPin, { left: `${pin.x}%`, top: `${pin.y}%` }, count > 0 && (s as any).mapPinVisited, active && (s as any).mapPinActive]}><Text style={[(s as any).mapPinText, (count > 0 || active) && (s as any).mapPinTextVisited]}>{pin.name}</Text>{count > 0 && <View style={(s as any).pinCount}><Text style={(s as any).pinCountText}>{count}</Text></View>}</Pressable>; })}</View><Text style={(s as any).mapHint}>지역을 눌러 우리의 여행만 골라보세요 · 다시 누르면 전체 보기</Text></View>;
+}
+
+function TripCalendar({ trips, month, setMonth, selectedDate, setSelectedDate }: { trips: Trip[]; month: { year: number; value: number }; setMonth: (value: { year: number; value: number }) => void; selectedDate: string | null; setSelectedDate: (value: string | null) => void }) {
+  const firstDay = new Date(month.year, month.value - 1, 1).getDay();
+  const days = new Date(month.year, month.value, 0).getDate();
+  const cells = Array.from({ length: 42 }, (_, index) => index - firstDay + 1);
+  const move = (amount: number) => { const next = new Date(month.year, month.value - 1 + amount, 1); setMonth({ year: next.getFullYear(), value: next.getMonth() + 1 }); setSelectedDate(null); };
+  return <View style={(s as any).calendarCard}><View style={(s as any).calendarHead}><Pressable onPress={() => move(-1)} style={(s as any).monthArrow}><Text style={(s as any).monthArrowText}>‹</Text></Pressable><View><Text style={(s as any).calendarMonth}>{month.year}. {String(month.value).padStart(2, '0')}</Text><Text style={(s as any).calendarSub}>여행이 있는 날은 색으로 이어져요</Text></View><Pressable onPress={() => move(1)} style={(s as any).monthArrow}><Text style={(s as any).monthArrowText}>›</Text></Pressable></View><View style={(s as any).weekRow}>{['일', '월', '화', '수', '목', '금', '토'].map((day) => <Text key={day} style={(s as any).weekName}>{day}</Text>)}</View><View style={(s as any).calendarGrid}>{cells.map((day, index) => { const valid = day > 0 && day <= days; const key = valid ? `${month.year}-${String(month.value).padStart(2, '0')}-${String(day).padStart(2, '0')}` : ''; const trip = trips.find((item) => key >= item.start && key <= item.end); const selected = key === selectedDate; return <Pressable key={`${index}-${day}`} disabled={!valid} onPress={() => setSelectedDate(key)} style={[(s as any).dayCell, trip && { backgroundColor: trip.color }, selected && (s as any).dayCellSelected]}><Text style={[(s as any).dayNumber, trip && (s as any).dayNumberTrip, selected && (s as any).dayNumberSelected]}>{valid ? day : ''}</Text>{trip && <View style={(s as any).dayTripDot} />}</Pressable>; })}</View><View style={(s as any).calendarLegend}>{trips.filter((trip) => trip.start.slice(0, 7) === `${month.year}-${String(month.value).padStart(2, '0')}`).map((trip) => <View key={trip.name} style={(s as any).calendarLegendItem}><View style={[(s as any).calendarLegendDot, { backgroundColor: trip.color }]} /><Text style={(s as any).calendarLegendText}>{trip.name}</Text></View>)}</View></View>;
+}
+
 function Trips({ open }: { open: () => void }) {
   const [filter, setFilter] = useState<'전체' | '예정' | '추억'>('전체');
   const [items, setItems] = useState(trips);
@@ -39,7 +97,7 @@ function Trips({ open }: { open: () => void }) {
   const [date, setDate] = useState('9월 12일 — 14일');
   const [note, setNote] = useState('함께 만들 새로운 여행');
   const visibleTrips = filter === '예정' ? items.slice(0, Math.max(1, items.length - 2)) : filter === '추억' ? items.slice(-2) : items;
-  const addTrip = () => { if (!place.trim()) return; setItems((current) => [{ name: place.trim(), date, note, color: '#19B6A3', mark: date.slice(0, 2).replace(/\D/g, '') || 'NEW' }, ...current]); setPlace(''); setCreating(false); setFilter('전체'); };
+  const addTrip = () => { if (!place.trim()) return; setItems((current) => [{ name: place.trim(), date, note, color: '#19B6A3', mark: date.slice(0, 2).replace(/\D/g, '') || 'NEW', region: '서울', start: '2026-09-12', end: '2026-09-14' }, ...current]); setPlace(''); setCreating(false); setFilter('전체'); };
   return <><ScrollView contentContainerStyle={s.page} showsVerticalScrollIndicator={false}><View style={s.screenHead}><View><Text style={s.overline}>우리의 여행 지도</Text><Text style={s.screenTitle}>여행</Text></View><Pressable onPress={() => setCreating(true)} style={({ pressed }) => [s.newTrip, pressed && (s as any).pressed]}><Text style={s.newTripText}>새 여행</Text></Pressable></View><View style={s.tripFilters}>{(['전체', '예정', '추억'] as const).map((item) => <Pressable key={item} onPress={() => setFilter(item)}><Text style={[s.filter, filter === item && s.filterActive]}>{item}</Text></Pressable>)}</View>{visibleTrips.map((trip, index) => <Pressable key={`${trip.name}-${index}`} onPress={open} style={({ pressed }) => [s.tripRow, pressed && (s as any).pressed]}><View style={(s as any).tripThumb}><TripArt color={trip.color} date={trip.mark} small /></View><View style={s.tripInfo}><Text style={s.tripName}>{trip.name}</Text><Text style={s.tripDate}>{trip.date}</Text><Text style={s.tripNote}>{trip.note}</Text></View><Text style={s.arrow}>›</Text></Pressable>)}</ScrollView><FormSheet visible={creating} title="새 여행" submit="여행 만들기" onClose={() => setCreating(false)} onSubmit={addTrip}><Field label="여행지" value={place} onChangeText={setPlace} placeholder="예: 제주 애월" /><Field label="기간" value={date} onChangeText={setDate} /><Field label="한 줄 메모" value={note} onChangeText={setNote} /></FormSheet></>;
 }
 
@@ -132,4 +190,37 @@ Object.assign(s, {
   dayBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF6B5F' },
   dayBadgeText: { color: '#C94D45', fontSize: 9, letterSpacing: .45, fontWeight: '900' },
   greeting: { color: '#17233D', fontSize: 32, lineHeight: 40, letterSpacing: -1.8, fontWeight: '800', marginTop: 48 }
+});
+
+Object.assign(s, {
+  tripExplorerPage: { paddingHorizontal: 21, paddingTop: 8, paddingBottom: 120 },
+  viewSwitch: { flexDirection: 'row', backgroundColor: '#EDEAE5', borderRadius: 16, padding: 4, marginBottom: 16 },
+  viewChoice: { flex: 1, minHeight: 39, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  viewChoiceActive: { backgroundColor: '#17233D', shadowColor: '#17233D', shadowOpacity: .15, shadowRadius: 7, elevation: 2 },
+  viewChoiceText: { color: '#858783', fontSize: 10, fontWeight: '900' },
+  viewChoiceTextActive: { color: '#FFFFFF' },
+  tripRowCompact: { minHeight: 86 }, noTrips: { paddingVertical: 40, alignItems: 'center' }, noTripsText: { color: '#969A9E', fontSize: 11 },
+  mapCard: { backgroundColor: '#17233D', borderRadius: 24, padding: 17, overflow: 'hidden' },
+  mapIntro: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  mapKicker: { color: '#5ED8C9', fontSize: 8, letterSpacing: 1.1, fontWeight: '900' },
+  mapTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', letterSpacing: -.8, marginTop: 5 },
+  mapScore: { width: 49, height: 49, borderRadius: 16, backgroundColor: '#263657', alignItems: 'center', justifyContent: 'center' },
+  mapScoreValue: { color: '#5ED8C9', fontSize: 17, fontWeight: '900' }, mapScoreLabel: { color: '#9FABC1', fontSize: 8, marginTop: 1 },
+  mapCanvas: { height: 354, marginTop: 4, position: 'relative' },
+  mapPin: { position: 'absolute', transform: [{ translateX: -22 }, { translateY: -14 }], minWidth: 44, height: 28, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#A9D9D1', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  mapPinVisited: { backgroundColor: '#19B6A3', borderColor: '#FFFFFF' }, mapPinActive: { backgroundColor: '#FF6B5F', borderColor: '#FFFFFF', transform: [{ translateX: -22 }, { translateY: -14 }, { scale: 1.12 }] },
+  mapPinText: { color: '#438178', fontSize: 9, fontWeight: '900' }, mapPinTextVisited: { color: '#FFFFFF' },
+  pinCount: { position: 'absolute', right: -5, top: -6, width: 15, height: 15, borderRadius: 8, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }, pinCountText: { color: '#17233D', fontSize: 7, fontWeight: '900' },
+  mapHint: { color: '#8795AE', fontSize: 9, textAlign: 'center', marginTop: -3 },
+  mapResults: { marginTop: 18 }, mapResultHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 5 }, mapResultTitle: { color: '#17233D', fontSize: 16, fontWeight: '900' }, mapResultCount: { color: '#19A996', fontSize: 10, fontWeight: '900' },
+  calendarCard: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 16, borderWidth: 1, borderColor: '#ECE9E3' },
+  calendarHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+  monthArrow: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1EFEA', alignItems: 'center', justifyContent: 'center' }, monthArrowText: { color: '#17233D', fontSize: 23, lineHeight: 25 },
+  calendarMonth: { color: '#17233D', fontSize: 19, fontWeight: '900', textAlign: 'center' }, calendarSub: { color: '#93969D', fontSize: 8, textAlign: 'center', marginTop: 3 },
+  weekRow: { flexDirection: 'row', marginBottom: 7 }, weekName: { width: '14.285%', textAlign: 'center', color: '#9B9DA2', fontSize: 9, fontWeight: '800' },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' }, dayCell: { width: '14.285%', aspectRatio: 1, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginVertical: 2 }, dayCellSelected: { borderWidth: 2, borderColor: '#17233D' },
+  dayNumber: { color: '#525762', fontSize: 11, fontWeight: '700' }, dayNumberTrip: { color: '#FFFFFF', fontWeight: '900' }, dayNumberSelected: { fontSize: 12 }, dayTripDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF', marginTop: 2 },
+  calendarLegend: { borderTopWidth: 1, borderTopColor: '#EFEEE9', marginTop: 12, paddingTop: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 11 }, calendarLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, calendarLegendDot: { width: 7, height: 7, borderRadius: 4 }, calendarLegendText: { color: '#737780', fontSize: 9, fontWeight: '700' },
+  calendarResults: { marginTop: 17 }, calendarResultDate: { color: '#17233D', fontSize: 15, fontWeight: '900', marginBottom: 4 }, emptyDate: { backgroundColor: '#EEF8F5', borderRadius: 17, padding: 20, alignItems: 'center' }, emptyDateTitle: { color: '#5E6D6B', fontSize: 11, fontWeight: '800' }, emptyDateAction: { color: '#0B9888', fontSize: 10, fontWeight: '900', marginTop: 8 }
+  ,regionChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7, marginBottom: 16 }, regionChoice: { borderWidth: 1, borderColor: '#DEDCD5', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 8 }, regionChoiceActive: { borderColor: '#19A996', backgroundColor: '#DDF7F1' }, regionChoiceText: { color: '#7E8388', fontSize: 10, fontWeight: '800' }, regionChoiceTextActive: { color: '#087D70' }
 });
