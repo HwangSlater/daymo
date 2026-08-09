@@ -14,6 +14,7 @@ import {
 import * as Clipboard from "expo-clipboard";
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "기록";
+export type TripDetailDestination = "overview" | "schedule-add" | "places" | "preparation";
 type ScheduleItem = {
   time: string;
   title: string;
@@ -25,6 +26,7 @@ type Props = {
   done: string[];
   toggle: (item: string) => void;
   onClose: () => void;
+  initialDestination?: TripDetailDestination;
 };
 
 type PackingItem = {
@@ -79,8 +81,8 @@ const packing: PackingItem[] = [
   },
 ];
 
-export function WarmTripDetail({ done, toggle, onClose }: Props) {
-  const [mode, setMode] = useState<ViewMode>("여행");
+export function WarmTripDetail({ done, toggle, onClose, initialDestination = "overview" }: Props) {
+  const [mode, setMode] = useState<ViewMode>(initialDestination === "places" ? "장소" : initialDestination === "preparation" ? "준비" : "여행");
   const [title, setTitle] = useState("서울 구로구");
   const [draftTitle, setDraftTitle] = useState(title);
   const [editingTrip, setEditingTrip] = useState(false);
@@ -167,6 +169,7 @@ export function WarmTripDetail({ done, toggle, onClose }: Props) {
             schedule={schedule}
             setSchedule={setSchedule}
             hasKitchen={hasKitchen}
+            openScheduleOnMount={initialDestination === "schedule-add"}
           />
         )}
         {mode === "장소" && (
@@ -227,15 +230,17 @@ function TripOverview({
   schedule,
   setSchedule,
   hasKitchen,
+  openScheduleOnMount,
 }: {
   setMode: (mode: ViewMode) => void;
   schedule: ScheduleItem[];
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
   hasKitchen: boolean;
+  openScheduleOnMount?: boolean;
 }) {
   const [sheet, setSheet] = useState<
     "schedule" | "reservation" | "stay" | null
-  >(null);
+  >(openScheduleOnMount ? "schedule" : null);
   const [fullSchedule, setFullSchedule] = useState(false);
   const [planDay, setPlanDay] = useState("토 · 22");
   const [planType, setPlanType] = useState("장소");
