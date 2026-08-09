@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { WarmTripDetail } from './WarmTripDetail';
 import { koreaAdminPath } from './koreaAdminPath';
-import { koreaOutlinePath } from './koreaOutlinePath';
+import { koreaLandPath, koreaOutlinePath } from './koreaOutlinePath';
 
 type MainView = '홈' | '여행' | '찾기' | '우리';
 
@@ -60,6 +60,7 @@ function TripsExplorer({ open }: { open: () => void }) {
       <View style={(s as any).viewSwitch}>{(['목록', '지도', '캘린더'] as TripView[]).map((item) => <Pressable key={item} onPress={() => setDisplay(item)} style={[(s as any).viewChoice, display === item && (s as any).viewChoiceActive]}><Text style={[(s as any).viewChoiceText, display === item && (s as any).viewChoiceTextActive]}>{item === '목록' ? '☰  목록' : item === '지도' ? '⌖  지도' : '▦  캘린더'}</Text></Pressable>)}</View>
       {display === '목록' && <><View style={s.tripFilters}>{(['전체', '예정', '추억'] as const).map((item) => <Pressable key={item} onPress={() => setFilter(item)}><Text style={[s.filter, filter === item && s.filterActive]}>{item}</Text></Pressable>)}</View><TripRows items={filtered} open={open} /></>}
       {display === '지도' && <KoreaTripMap trips={items} selected={selectedRegion} onSelect={(region) => setSelectedRegion(selectedRegion === region ? null : region)} />}
+      {display === '지도' && selectedRegion && <View style={(s as any).mapTripsResults}><View style={(s as any).mapResultsHead}><Text style={(s as any).mapResultsTitle}>{selectedRegion} 여행</Text><Text style={(s as any).mapResultsCount}>{visibleTrips.length}개</Text></View><TripRows items={visibleTrips} open={open} compact /></View>}
       {display === '캘린더' && <TripCalendar trips={items} month={month} setMonth={setMonth} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />}
       {display === '캘린더' && selectedDate && <View style={(s as any).calendarResults}><Text style={(s as any).calendarResultDate}>{Number(selectedDate.slice(-2))}일의 여행</Text>{dateTrips.length ? <TripRows items={dateTrips} open={open} compact /> : <View style={(s as any).emptyDate}><Text style={(s as any).emptyDateTitle}>이날은 아직 비어 있어요.</Text><Pressable onPress={createFromDate}><Text style={(s as any).emptyDateAction}>이 날짜로 여행 만들기 +</Text></Pressable></View>}</View>}
     </ScrollView>
@@ -73,12 +74,12 @@ function TripRows({ items, open, compact }: { items: Trip[]; open: () => void; c
 }
 
 const regionPins = [
-  { name: '서울', x: 100, y: 91, minZoom: 1 }, { name: '인천', x: 72, y: 101, minZoom: 1.5 }, { name: '경기', x: 119, y: 118, minZoom: 1 },
-  { name: '강원', x: 202, y: 90, minZoom: 1 }, { name: '충북', x: 157, y: 166, minZoom: 1 }, { name: '충남', x: 94, y: 180, minZoom: 1 },
-  { name: '대전', x: 135, y: 194, minZoom: 1.5 }, { name: '세종', x: 124, y: 169, minZoom: 2 },
-  { name: '전북', x: 119, y: 238, minZoom: 1 }, { name: '전남', x: 91, y: 294, minZoom: 1 }, { name: '광주', x: 99, y: 277, minZoom: 1.5 },
-  { name: '경북', x: 205, y: 190, minZoom: 1 }, { name: '대구', x: 207, y: 231, minZoom: 1.5 }, { name: '경남', x: 185, y: 269, minZoom: 1 },
-  { name: '울산', x: 246, y: 250, minZoom: 1.5 }, { name: '부산', x: 232, y: 281, minZoom: 1 }, { name: '제주', x: 68, y: 373, minZoom: 1 },
+  { name: '서울', x: 99.9, y: 92.4, minZoom: 1 }, { name: '인천', x: 88.3, y: 96.3, minZoom: 1.5 }, { name: '경기', x: 106.8, y: 93.7, minZoom: 1 },
+  { name: '강원', x: 148.4, y: 80.3, minZoom: 1 }, { name: '충북', x: 131.1, y: 148.8, minZoom: 1 }, { name: '충남', x: 94.9, y: 163.2, minZoom: 1 },
+  { name: '대전', x: 114.9, y: 176.4, minZoom: 1.5 }, { name: '세종', x: 109.8, y: 161.1, minZoom: 2 },
+  { name: '전북', x: 105.6, y: 219.7, minZoom: 1 }, { name: '전남', x: 98.6, y: 273.5, minZoom: 1 }, { name: '광주', x: 94.1, y: 258.5, minZoom: 1.5 },
+  { name: '경북', x: 164.8, y: 176.2, minZoom: 1 }, { name: '대구', x: 158.3, y: 211.8, minZoom: 1.5 }, { name: '경남', x: 146.8, y: 243.7, minZoom: 1 },
+  { name: '울산', x: 183.3, y: 230.9, minZoom: 1.5 }, { name: '부산', x: 177, y: 254.8, minZoom: 1 }, { name: '제주', x: 83.7, y: 381.4, minZoom: 1 },
 ];
 
 function KoreaTripMap({ trips, selected, onSelect }: { trips: Trip[]; selected: string | null; onSelect: (region: string) => void }) {
@@ -86,9 +87,16 @@ function KoreaTripMap({ trips, selected, onSelect }: { trips: Trip[]; selected: 
   const [zoom, setZoom] = useState(1);
   const boxWidth = 300 / zoom;
   const boxHeight = 420 / zoom;
-  const viewBox = `${(300 - boxWidth) / 2} ${(420 - boxHeight) / 2} ${boxWidth} ${boxHeight}`;
+  const boxX = (300 - boxWidth) / 2;
+  const boxY = (420 - boxHeight) / 2;
+  const viewBox = `${boxX} ${boxY} ${boxWidth} ${boxHeight}`;
+  const mapScale = Math.min(size.width / boxWidth, size.height / boxHeight);
+  const mapOffsetX = (size.width - boxWidth * mapScale) / 2;
+  const mapOffsetY = (size.height - boxHeight * mapScale) / 2;
+  const changeZoom = (amount: number) => setZoom((value) => Math.max(1, Math.min(2.5, Math.round((value + amount) * 2) / 2)));
+  const webWheel = Platform.OS === 'web' ? { onWheel: (event: { preventDefault?: () => void; nativeEvent?: { deltaY?: number }; deltaY?: number }) => { event.preventDefault?.(); const deltaY = event.nativeEvent?.deltaY ?? event.deltaY ?? 0; changeZoom(deltaY < 0 ? .5 : -.5); } } : {};
   const cityPath: string | null = zoom >= 2 ? require('./koreaCityPath').koreaCityPath : null;
-  return <View style={(s as any).mapOnly} onLayout={(event) => setSize(event.nativeEvent.layout)}><Svg width="100%" height="100%" viewBox={viewBox} preserveAspectRatio="xMidYMid meet"><Path d={koreaOutlinePath} fill="#DDF4EF" stroke="#159D8D" strokeWidth={2.2 / zoom} strokeLinejoin="round" /><Path d={koreaAdminPath} fill="none" stroke="#4DA99E" strokeWidth={0.75 / zoom} strokeLinejoin="round" />{zoom >= 2 && <Path d={cityPath!} fill="none" stroke="#8CCFC7" strokeWidth={0.38 / zoom} strokeLinejoin="round" />}</Svg>{regionPins.map((pin) => { const count = trips.filter((trip) => trip.region === pin.name).length; const active = selected === pin.name; const left = size.width / 2 + ((pin.x / 300) * size.width - size.width / 2) * zoom; const top = size.height / 2 + ((pin.y / 420) * size.height - size.height / 2) * zoom; const visible = zoom >= pin.minZoom && left > -24 && left < size.width + 24 && top > -16 && top < size.height + 16; return visible ? <Pressable key={pin.name} onPress={() => onSelect(pin.name)} style={[(s as any).mapPin, { left, top }, count > 0 && (s as any).mapPinVisited, active && (s as any).mapPinActive]}><Text numberOfLines={1} style={[(s as any).mapPinText, (count > 0 || active) && (s as any).mapPinTextVisited]}>{pin.name}</Text>{count > 0 && <View style={(s as any).pinCount}><Text style={(s as any).pinCountText}>{count}</Text></View>}</Pressable> : null; })}<View style={(s as any).zoomControls}><Pressable disabled={zoom <= 1} onPress={() => setZoom((value) => Math.max(1, value - .5))} style={[(s as any).zoomButton, zoom <= 1 && (s as any).zoomButtonDisabled]}><Text style={(s as any).zoomText}>−</Text></Pressable><View style={(s as any).zoomDivider} /><Pressable disabled={zoom >= 2.5} onPress={() => setZoom((value) => Math.min(2.5, value + .5))} style={[(s as any).zoomButton, zoom >= 2.5 && (s as any).zoomButtonDisabled]}><Text style={(s as any).zoomText}>＋</Text></Pressable></View></View>;
+  return <View {...webWheel as any} style={(s as any).mapOnly} onLayout={(event) => setSize(event.nativeEvent.layout)}><Svg width="100%" height="100%" viewBox={viewBox} preserveAspectRatio="xMidYMid meet"><Path d={koreaLandPath} fill="#DDF4EF" stroke="none" /><Path d={koreaOutlinePath} fill="none" stroke="#159D8D" strokeWidth={2.2 / zoom} strokeLinejoin="round" strokeLinecap="round" /><Path d={koreaAdminPath} fill="none" stroke="#4DA99E" strokeWidth={0.75 / zoom} strokeLinejoin="round" strokeLinecap="round" />{zoom >= 2 && <Path d={cityPath!} fill="none" stroke="#8CCFC7" strokeWidth={0.38 / zoom} strokeLinejoin="round" strokeLinecap="round" />}</Svg>{regionPins.map((pin) => { const count = trips.filter((trip) => trip.region === pin.name).length; const active = selected === pin.name; const left = mapOffsetX + (pin.x - boxX) * mapScale; const top = mapOffsetY + (pin.y - boxY) * mapScale; const visible = zoom >= pin.minZoom && left > -24 && left < size.width + 24 && top > -16 && top < size.height + 16; return visible ? <Pressable key={pin.name} onPress={() => onSelect(pin.name)} style={[(s as any).mapPin, { left, top }, count > 0 && (s as any).mapPinVisited, active && (s as any).mapPinActive]}><Text numberOfLines={1} style={[(s as any).mapPinText, (count > 0 || active) && (s as any).mapPinTextVisited]}>{pin.name}</Text>{count > 0 && <View style={(s as any).pinCount}><Text style={(s as any).pinCountText}>{count}</Text></View>}</Pressable> : null; })}<View style={(s as any).zoomControls}><Pressable disabled={zoom <= 1} onPress={() => changeZoom(-.5)} style={[(s as any).zoomButton, zoom <= 1 && (s as any).zoomButtonDisabled]}><Text style={(s as any).zoomText}>−</Text></Pressable><View style={(s as any).zoomDivider} /><Pressable disabled={zoom >= 2.5} onPress={() => changeZoom(.5)} style={[(s as any).zoomButton, zoom >= 2.5 && (s as any).zoomButtonDisabled]}><Text style={(s as any).zoomText}>＋</Text></Pressable></View></View>;
 }
 
 function TripCalendar({ trips, month, setMonth, selectedDate, setSelectedDate }: { trips: Trip[]; month: { year: number; value: number }; setMonth: (value: { year: number; value: number }) => void; selectedDate: string | null; setSelectedDate: (value: string | null) => void }) {
@@ -211,7 +219,11 @@ Object.assign(s, {
   viewChoiceTextActive: { color: '#FFFFFF' },
   tripRowCompact: { minHeight: 86 }, noTrips: { paddingVertical: 40, alignItems: 'center' }, noTripsText: { color: '#969A9E', fontSize: 11 },
   mapCard: { backgroundColor: '#17233D', borderRadius: 24, padding: 17, overflow: 'hidden' },
-  mapOnly: { width: '100%', height: 500, position: 'relative', overflow: 'hidden' },
+  mapOnly: { width: '100%', height: 410, position: 'relative', overflow: 'hidden' },
+  mapTripsResults: { marginTop: 10, paddingTop: 14, borderTopWidth: 1, borderColor: '#DDE9E5' },
+  mapResultsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  mapResultsTitle: { color: '#17233D', fontSize: 15, fontWeight: '900' },
+  mapResultsCount: { color: '#0B9888', fontSize: 10, fontWeight: '900' },
   mapIntro: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   mapKicker: { color: '#5ED8C9', fontSize: 8, letterSpacing: 1.1, fontWeight: '900' },
   mapTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', letterSpacing: -.8, marginTop: 5 },
