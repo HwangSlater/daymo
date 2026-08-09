@@ -152,7 +152,7 @@ function NotebookHome({
         <View>
           <Text style={[s.logo, { color: theme.text }]}>Daymo</Text>
           <Text style={[(s as any).notebookHello, { color: theme.muted }]}>
-            찬희와 세인의 여행 수첩
+            우리의 여행 수첩
           </Text>
         </View>
         <View
@@ -281,7 +281,7 @@ function NotebookHome({
           theme={theme}
           color={theme.accent}
           text="아직 안 챙긴 준비물 2개"
-          meta="찬희 1 · 세인 1"
+          meta="나 1 · 동행 1"
           onPress={() => open("preparation")}
         />
         <MemoRow
@@ -381,7 +381,7 @@ function Home({
               { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
             ]}
           >
-            <Text style={[s.peopleText, { color: theme.accent }]}>찬 · 세</Text>
+            <Text style={[s.peopleText, { color: theme.accent }]}>우리</Text>
           </View>
         </View>
       </View>
@@ -525,7 +525,7 @@ function Home({
               아직 안 챙긴 준비물
             </Text>
             <Text style={[(s as any).homeActionMeta, { color: theme.muted }]}>
-              찬희 1 · 세인 1
+              나 1 · 동행 1
             </Text>
           </View>
           <Text style={[(s as any).homeActionDue, { color: theme.secondary }]}>
@@ -1671,7 +1671,7 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
       title: "밀푀유나베",
       type: "요리",
       trip: "서울 구로구",
-      detail: "재료 6개 · 세인 담당",
+      detail: "재료 6개 · 동행 담당",
       color: "#F0A351",
     },
     {
@@ -1987,7 +1987,7 @@ function Together({
             <Text
               style={[(s as any).togetherProfileName, { color: theme.text }]}
             >
-              찬희와 세인
+              우리의 여행 공간
             </Text>
             <Text
               style={[(s as any).togetherProfileMeta, { color: theme.muted }]}
@@ -2070,7 +2070,7 @@ function Together({
             onPress={() =>
               Share.share({
                 message:
-                  "Daymo에서 우리 여행을 함께 기록해요.\nhttps://daymo.app/invite/CHAN-SEIN",
+                  "Daymo에서 우리 여행을 함께 기록해요.\nhttps://daymo.app/invite/OUR-TRIP",
               })
             }
           />
@@ -2144,8 +2144,8 @@ function Together({
       >
         {panel === "members" && (
           <>
-            <Choice theme={theme} selected label="찬희 · OWNER" />
-            <Choice theme={theme} selected label="세인 · EDITOR" />
+            <Choice theme={theme} selected label="나 · 관리자" />
+            <Choice theme={theme} selected label="동행 · 편집 가능" />
           </>
         )}
         {panel === "relationship" && (
@@ -2242,7 +2242,7 @@ function Together({
         )}
         {panel === "profile" && (
           <Text style={(s as any).sheetCopy}>
-            찬희와 세인이 1,026일 동안 함께 만든 여행 공간이에요.
+            두 사람이 함께 만든 여행 공간이에요.
           </Text>
         )}
       </InfoSheet>

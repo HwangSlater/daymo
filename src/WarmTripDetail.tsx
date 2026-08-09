@@ -44,7 +44,7 @@ type PackingItem = {
   id: string;
   name: string;
   quantity: string;
-  owner: "함께" | "찬희" | "세인" | "미정";
+  owner: "함께" | "나" | "동행" | "미정";
   source: "집에서" | "미리 구매" | "현지 구매";
   timing: "미리" | "출발 아침" | "숙소에서";
 };
@@ -54,7 +54,7 @@ const packing: PackingItem[] = [
     id: "charger",
     name: "충전기",
     quantity: "2개",
-    owner: "찬희",
+    owner: "나",
     source: "집에서",
     timing: "출발 아침",
   },
@@ -62,7 +62,7 @@ const packing: PackingItem[] = [
     id: "glasses",
     name: "안경",
     quantity: "1개",
-    owner: "세인",
+    owner: "동행",
     source: "집에서",
     timing: "출발 아침",
   },
@@ -213,7 +213,10 @@ export function WarmTripDetail({
                   styles.mode,
                   mode === item && styles.modeCurrent,
                   mode === item &&
-                    appTheme && { backgroundColor: appTheme.primarySoft, borderColor: appTheme.primary },
+                    appTheme && {
+                      backgroundColor: appTheme.primarySoft,
+                      borderColor: appTheme.primary,
+                    },
                 ]}
               >
                 <Text
@@ -867,7 +870,8 @@ function Places({
               style={[
                 styles.placeFilter,
                 filter === item && styles.placeFilterActive,
-                filter === item && theme && { backgroundColor: theme.primarySoft },
+                filter === item &&
+                  theme && { backgroundColor: theme.primarySoft },
               ]}
             >
               <Text
@@ -953,7 +957,8 @@ function Places({
           style={[
             styles.tagFilterChip,
             tagFilter === null && styles.tagFilterChipActive,
-            tagFilter === null && theme && { backgroundColor: theme.primarySoft },
+            tagFilter === null &&
+              theme && { backgroundColor: theme.primarySoft },
           ]}
         >
           <Text
@@ -973,7 +978,8 @@ function Places({
             style={[
               styles.tagFilterChip,
               tagFilter === tag && styles.tagFilterChipActive,
-              tagFilter === tag && theme && { backgroundColor: theme.primarySoft },
+              tagFilter === tag &&
+                theme && { backgroundColor: theme.primarySoft },
             ]}
           >
             <Text
@@ -1076,7 +1082,8 @@ function Places({
                   styles.planAction,
                   theme && { backgroundColor: theme.primary },
                   place.status === "일정" && styles.planActionDone,
-                  place.status === "일정" && theme && { backgroundColor: theme.surfaceAlt },
+                  place.status === "일정" &&
+                    theme && { backgroundColor: theme.surfaceAlt },
                 ]}
               >
                 <Text
@@ -1323,7 +1330,7 @@ function Preparation({
       );
     const matchesFilter =
       filter === "전체" ||
-      (filter === "내 담당" && item.owner === "찬희") ||
+      (filter === "내 담당" && item.owner === "나") ||
       (filter === "미정" && item.owner === "미정") ||
       (filter === "완료" && done.includes(item.name));
     return matchesQuery && matchesFilter;
@@ -1353,7 +1360,7 @@ function Preparation({
   const claim = (item: PackingItem) => {
     setItems((current) =>
       current.map((value) =>
-        value.id === item.id ? { ...value, owner: "찬희" } : value,
+        value.id === item.id ? { ...value, owner: "나" } : value,
       ),
     );
   };
@@ -1361,7 +1368,7 @@ function Preparation({
     toggle(item.name);
   };
   const cycleOwner = (item: PackingItem) => {
-    const order: PackingItem["owner"][] = ["미정", "찬희", "세인", "함께"];
+    const order: PackingItem["owner"][] = ["미정", "나", "동행", "함께"];
     const next = order[(order.indexOf(item.owner) + 1) % order.length];
     setItems((current) =>
       current.map((value) =>
@@ -1388,7 +1395,7 @@ function Preparation({
     setImporting(true);
   };
   const importPacking = () => {
-    const owners: PackingItem["owner"][] = ["함께", "찬희", "세인", "미정"];
+    const owners: PackingItem["owner"][] = ["함께", "나", "동행", "미정"];
     const sources: PackingItem["source"][] = [
       "집에서",
       "미리 구매",
@@ -1481,11 +1488,11 @@ function Preparation({
         ]}
       >
         <View style={styles.ownerStat}>
-          <Text style={styles.ownerStatName}>찬희</Text>
+          <Text style={styles.ownerStatName}>나</Text>
           <Text style={styles.ownerStatCount}>
             {
               items.filter(
-                (item) => item.owner === "찬희" && !done.includes(item.name),
+                (item) => item.owner === "나" && !done.includes(item.name),
               ).length
             }
             개 남음
@@ -1493,11 +1500,11 @@ function Preparation({
         </View>
         <View style={styles.ownerDivider} />
         <View style={styles.ownerStat}>
-          <Text style={styles.ownerStatName}>세인</Text>
+          <Text style={styles.ownerStatName}>동행</Text>
           <Text style={styles.ownerStatCount}>
             {
               items.filter(
-                (item) => item.owner === "세인" && !done.includes(item.name),
+                (item) => item.owner === "동행" && !done.includes(item.name),
               ).length
             }
             개 남음
@@ -1580,7 +1587,8 @@ function Preparation({
             style={[
               styles.placeFilter,
               filter === item && styles.placeFilterActive,
-              filter === item && theme && { backgroundColor: theme.primarySoft },
+              filter === item &&
+                theme && { backgroundColor: theme.primarySoft },
             ]}
           >
             <Text
@@ -1713,7 +1721,7 @@ function Preparation({
         />
         <OptionField
           label="누가 챙길까요?"
-          options={["미정", "찬희", "세인", "함께"]}
+          options={["미정", "나", "동행", "함께"]}
           value={owner}
           onChange={(value) => setOwner(value as PackingItem["owner"])}
         />
@@ -1760,7 +1768,7 @@ function Preparation({
           placeholder="준비물마다 한 줄씩 붙여넣으세요"
         />
         <Text style={styles.settingHint}>
-          담당: 함께·찬희·세인·미정 / 준비 방식: 집에서·미리 구매·현지 구매
+          담당: 함께·나·동행·미정 / 준비 방식: 집에서·미리 구매·현지 구매
         </Text>
       </DetailSheet>
     </View>
@@ -1801,7 +1809,7 @@ function Cooking() {
           name: "깻잎",
           quantity: "20장",
           group: "기본",
-          owner: "세인",
+          owner: "동행",
         },
         {
           id: "c3",
@@ -1815,14 +1823,14 @@ function Cooking() {
           name: "코인육수",
           quantity: "2개",
           group: "육수",
-          owner: "세인",
+          owner: "동행",
         },
         {
           id: "c5",
           name: "양파",
           quantity: "1/2개",
           group: "소스",
-          owner: "찬희",
+          owner: "나",
         },
         {
           id: "c6",
@@ -2025,7 +2033,11 @@ function Cooking() {
               style={[
                 styles.recipeTab,
                 recipe.id === activeId && styles.recipeTabActive,
-                recipe.id === activeId && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                recipe.id === activeId &&
+                  theme && {
+                    backgroundColor: theme.primarySoft,
+                    borderColor: theme.primary,
+                  },
               ]}
             >
               <Text
@@ -2230,7 +2242,7 @@ function Cooking() {
         />
         <OptionField
           label="담당·구매"
-          options={["미정", "찬희", "세인", "현지 구매"]}
+          options={["미정", "나", "동행", "현지 구매"]}
           value={owner}
           onChange={setOwner}
         />
@@ -2288,11 +2300,11 @@ function Memories() {
   const theme = useContext(DetailThemeContext);
   const [notes, setNotes] = useState([
     {
-      author: "세인 · 오늘 10:42",
+      author: "동행 · 오늘 10:42",
       body: "육수 재료는 내가 미리 1.5배로 만들어갈게!",
     },
     {
-      author: "찬희 · 어제 22:15",
+      author: "나 · 어제 22:15",
       body: "은행골은 일요일 13:30으로 생각하고 있어요.",
     },
   ]);
@@ -2309,7 +2321,7 @@ function Memories() {
   const addNote = () => {
     if (!draft.trim()) return;
     setNotes((current) => [
-      { author: "찬희 · 방금", body: draft.trim() },
+      { author: "나 · 방금", body: draft.trim() },
       ...current,
     ]);
     setDraft("");
