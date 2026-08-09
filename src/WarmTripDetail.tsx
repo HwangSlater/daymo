@@ -1467,41 +1467,68 @@ type CookingItem = {
   group: string;
   owner: string;
 };
+type Recipe = {
+  id: string;
+  name: string;
+  note: string;
+  ingredients: CookingItem[];
+};
 
 function Cooking() {
-  const [ingredients, setIngredients] = useState<CookingItem[]>([
+  const [recipes, setRecipes] = useState<Recipe[]>([
     {
-      id: "c1",
-      name: "배추",
-      quantity: "1/4통",
-      group: "기본",
-      owner: "현지 구매",
-    },
-    { id: "c2", name: "깻잎", quantity: "20장", group: "기본", owner: "세인" },
-    {
-      id: "c3",
-      name: "소고기",
-      quantity: "250g",
-      group: "기본",
-      owner: "현지 구매",
-    },
-    {
-      id: "c4",
-      name: "코인육수",
-      quantity: "2개",
-      group: "육수",
-      owner: "세인",
-    },
-    { id: "c5", name: "양파", quantity: "1/2개", group: "소스", owner: "찬희" },
-    {
-      id: "c6",
-      name: "고추냉이",
-      quantity: "조금",
-      group: "소스",
-      owner: "미정",
+      id: "mille",
+      name: "밀푀유나베",
+      note: "첫날 저녁 · 숙소에서",
+      ingredients: [
+        {
+          id: "c1",
+          name: "배추",
+          quantity: "1/4통",
+          group: "기본",
+          owner: "현지 구매",
+        },
+        {
+          id: "c2",
+          name: "깻잎",
+          quantity: "20장",
+          group: "기본",
+          owner: "세인",
+        },
+        {
+          id: "c3",
+          name: "소고기",
+          quantity: "250g",
+          group: "기본",
+          owner: "현지 구매",
+        },
+        {
+          id: "c4",
+          name: "코인육수",
+          quantity: "2개",
+          group: "육수",
+          owner: "세인",
+        },
+        {
+          id: "c5",
+          name: "양파",
+          quantity: "1/2개",
+          group: "소스",
+          owner: "찬희",
+        },
+        {
+          id: "c6",
+          name: "고추냉이",
+          quantity: "조금",
+          group: "소스",
+          owner: "미정",
+        },
+      ],
     },
   ]);
-  const [adding, setAdding] = useState(false);
+  const [activeId, setActiveId] = useState("mille");
+  const [addingIngredient, setAddingIngredient] = useState(false);
+  const [addingRecipe, setAddingRecipe] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
   const [importText, setImportText] = useState("");
@@ -1509,22 +1536,69 @@ function Cooking() {
   const [quantity, setQuantity] = useState("");
   const [group, setGroup] = useState("기본");
   const [owner, setOwner] = useState("미정");
+  const [recipeName, setRecipeName] = useState("");
+  const [recipeNote, setRecipeNote] = useState("");
+  const activeRecipe =
+    recipes.find((recipe) => recipe.id === activeId) || recipes[0];
+  const ingredients = activeRecipe?.ingredients || [];
   const groups = Array.from(new Set(ingredients.map((item) => item.group)));
   const addIngredient = () => {
-    if (!name.trim()) return;
-    setIngredients((current) => [
-      ...current,
-      {
-        id: `${Date.now()}`,
-        name: name.trim(),
-        quantity: quantity.trim(),
-        group,
-        owner,
-      },
-    ]);
+    if (!name.trim() || !activeRecipe) return;
+    const next = {
+      id: `${Date.now()}`,
+      name: name.trim(),
+      quantity: quantity.trim(),
+      group,
+      owner,
+    };
+    setRecipes((current) =>
+      current.map((recipe) =>
+        recipe.id === activeRecipe.id
+          ? { ...recipe, ingredients: [...recipe.ingredients, next] }
+          : recipe,
+      ),
+    );
     setName("");
     setQuantity("");
-    setAdding(false);
+    setAddingIngredient(false);
+  };
+  const addRecipe = () => {
+    if (!recipeName.trim()) return;
+    const id = `recipe-${Date.now()}`;
+    setRecipes((current) => [
+      ...current,
+      {
+        id,
+        name: recipeName.trim(),
+        note: recipeNote.trim() || "언제 먹을지 정해보세요",
+        ingredients: [],
+      },
+    ]);
+    setActiveId(id);
+    setRecipeName("");
+    setRecipeNote("");
+    setAddingRecipe(false);
+  };
+  const deleteRecipe = () => {
+    if (!activeRecipe) return;
+    Alert.alert(
+      "요리를 삭제할까요?",
+      `${activeRecipe.name}과 재료 목록이 함께 삭제돼요.`,
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: () => {
+            const remaining = recipes.filter(
+              (recipe) => recipe.id !== activeRecipe.id,
+            );
+            setRecipes(remaining);
+            setActiveId(remaining[0]?.id || "");
+          },
+        },
+      ],
+    );
   };
   const removeIngredient = (item: CookingItem) =>
     Alert.alert("재료를 삭제할까요?", item.name, [
@@ -1533,8 +1607,17 @@ function Cooking() {
         text: "삭제",
         style: "destructive",
         onPress: () =>
-          setIngredients((current) =>
-            current.filter((value) => value.id !== item.id),
+          setRecipes((current) =>
+            current.map((recipe) =>
+              recipe.id === activeId
+                ? {
+                    ...recipe,
+                    ingredients: recipe.ingredients.filter(
+                      (value) => value.id !== item.id,
+                    ),
+                  }
+                : recipe,
+            ),
           ),
       },
     ]);
@@ -1579,67 +1662,150 @@ function Cooking() {
       })
       .filter((item) => item.name);
     if (!parsed.length) return;
-    setIngredients((current) =>
-      importMode === "교체" ? parsed : [...current, ...parsed],
+    setRecipes((current) =>
+      current.map((recipe) =>
+        recipe.id === activeId
+          ? {
+              ...recipe,
+              ingredients:
+                importMode === "교체"
+                  ? parsed
+                  : [...recipe.ingredients, ...parsed],
+            }
+          : recipe,
+      ),
     );
     setImporting(false);
   };
   return (
     <View>
-      <View style={styles.cookingHero}>
+      <View style={styles.recipeHead}>
         <View>
-          <Text style={styles.cookingEyebrow}>이번 여행의 요리</Text>
-          <Text style={styles.cookingTitle}>밀푀유나베</Text>
+          <Text style={styles.recipeHeadTitle}>요리 {recipes.length}개</Text>
+          <Text style={styles.recipeHeadCopy}>
+            메뉴마다 재료를 따로 관리해요.
+          </Text>
         </View>
-        <View style={styles.cookingCount}>
-          <Text style={styles.cookingCountText}>{ingredients.length}</Text>
-          <Text style={styles.cookingCountLabel}>재료</Text>
-        </View>
-      </View>
-      <View style={styles.cookingToolbar}>
-        <Text style={styles.cookingTip}>주방에서 쓸 재료만 따로 관리해요.</Text>
-        <Pressable onPress={() => setAdding(true)} style={styles.placeAdd}>
-          <Text style={styles.placeAddText}>+ 재료</Text>
+        <Pressable
+          onPress={() => setAddingRecipe(true)}
+          style={styles.recipeAdd}
+        >
+          <Text style={styles.recipeAddText}>+ 요리 추가</Text>
         </Pressable>
       </View>
-      <View style={styles.batchActions}>
-        <Pressable onPress={copyCooking} style={styles.batchButton}>
-          <Text style={styles.batchButtonText}>목록 복사</Text>
-        </Pressable>
-        <Pressable onPress={openImport} style={styles.batchButton}>
-          <Text style={styles.batchButtonText}>붙여넣기</Text>
-        </Pressable>
-      </View>
-      {groups.map((section) => (
-        <View key={section} style={styles.cookingSection}>
-          <Text style={styles.cookingSectionTitle}>{section}</Text>
-          {ingredients
-            .filter((item) => item.group === section)
-            .map((item) => (
-              <Pressable
-                key={item.id}
-                onLongPress={() => removeIngredient(item)}
-                style={styles.ingredientRow}
+      {recipes.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.recipeTabs}
+        >
+          {recipes.map((recipe) => (
+            <Pressable
+              key={recipe.id}
+              onPress={() => setActiveId(recipe.id)}
+              style={[
+                styles.recipeTab,
+                recipe.id === activeId && styles.recipeTabActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.recipeTabText,
+                  recipe.id === activeId && styles.recipeTabTextActive,
+                ]}
               >
-                <View style={styles.ingredientDot} />
-                <View style={styles.ingredientBody}>
-                  <Text style={styles.ingredientName}>{item.name}</Text>
-                  <Text style={styles.ingredientOwner}>{item.owner}</Text>
-                </View>
-                <Text style={styles.ingredientQuantity}>{item.quantity}</Text>
-              </Pressable>
-            ))}
+                {recipe.name}
+              </Text>
+              <Text
+                style={[
+                  styles.recipeTabCount,
+                  recipe.id === activeId && styles.recipeTabCountActive,
+                ]}
+              >
+                {recipe.ingredients.length}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+      {!activeRecipe ? (
+        <View style={styles.emptyCooking}>
+          <Text style={styles.emptyCookingTitle}>
+            만들 요리를 추가해 보세요.
+          </Text>
+          <Text style={styles.emptyCookingText}>
+            요리별로 재료와 담당을 나눌 수 있어요.
+          </Text>
         </View>
-      ))}
-      <Text style={styles.longPressHint}>
-        재료를 길게 누르면 삭제할 수 있어요.
-      </Text>
+      ) : (
+        <>
+          <View style={styles.cookingHero}>
+            <View>
+              <Text style={styles.cookingEyebrow}>이번 여행의 요리</Text>
+              <Text style={styles.cookingTitle}>{activeRecipe.name}</Text>
+              <Text style={styles.cookingNote}>{activeRecipe.note}</Text>
+            </View>
+            <View style={styles.cookingCount}>
+              <Text style={styles.cookingCountText}>{ingredients.length}</Text>
+              <Text style={styles.cookingCountLabel}>재료</Text>
+            </View>
+          </View>
+          <View style={styles.cookingToolbar}>
+            <Text style={styles.cookingTip}>
+              주방에서 쓸 재료만 따로 관리해요.
+            </Text>
+            <Pressable
+              onPress={() => setAddingIngredient(true)}
+              style={styles.placeAdd}
+            >
+              <Text style={styles.placeAddText}>+ 재료</Text>
+            </Pressable>
+          </View>
+          <View style={styles.batchActions}>
+            <Pressable onPress={copyCooking} style={styles.batchButton}>
+              <Text style={styles.batchButtonText}>목록 복사</Text>
+            </Pressable>
+            <Pressable onPress={openImport} style={styles.batchButton}>
+              <Text style={styles.batchButtonText}>붙여넣기</Text>
+            </Pressable>
+          </View>
+          {groups.map((section) => (
+            <View key={section} style={styles.cookingSection}>
+              <Text style={styles.cookingSectionTitle}>{section}</Text>
+              {ingredients
+                .filter((item) => item.group === section)
+                .map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onLongPress={() => removeIngredient(item)}
+                    style={styles.ingredientRow}
+                  >
+                    <View style={styles.ingredientDot} />
+                    <View style={styles.ingredientBody}>
+                      <Text style={styles.ingredientName}>{item.name}</Text>
+                      <Text style={styles.ingredientOwner}>{item.owner}</Text>
+                    </View>
+                    <Text style={styles.ingredientQuantity}>
+                      {item.quantity}
+                    </Text>
+                  </Pressable>
+                ))}
+            </View>
+          ))}
+          <Text style={styles.longPressHint}>
+            재료를 길게 누르면 삭제할 수 있어요.
+          </Text>
+          <Pressable onPress={deleteRecipe} style={styles.deleteRecipe}>
+            <Text style={styles.deleteRecipeText}>이 요리 삭제</Text>
+          </Pressable>
+        </>
+      )}
       <DetailSheet
-        visible={adding}
+        visible={addingIngredient}
         title="요리 재료 추가"
         subtitle="준비물과 섞이지 않고 이 요리에만 추가돼요"
         submit={name.trim() ? "재료 추가" : "재료 이름을 입력해 주세요"}
-        onClose={() => setAdding(false)}
+        onClose={() => setAddingIngredient(false)}
         onSubmit={addIngredient}
       >
         <DetailField
@@ -1665,6 +1831,27 @@ function Cooking() {
           options={["미정", "찬희", "세인", "현지 구매"]}
           value={owner}
           onChange={setOwner}
+        />
+      </DetailSheet>
+      <DetailSheet
+        visible={addingRecipe}
+        title="새 요리 추가"
+        subtitle="먹을 메뉴를 먼저 만들고 재료를 채워보세요"
+        submit={recipeName.trim() ? "요리 만들기" : "요리 이름을 입력해 주세요"}
+        onClose={() => setAddingRecipe(false)}
+        onSubmit={addRecipe}
+      >
+        <DetailField
+          label="요리 이름"
+          value={recipeName}
+          onChangeText={setRecipeName}
+          placeholder="예: 김치볶음밥"
+        />
+        <DetailField
+          label="한 줄 메모 · 선택"
+          value={recipeNote}
+          onChangeText={setRecipeNote}
+          placeholder="예: 둘째 날 아침 · 남은 재료 활용"
         />
       </DetailSheet>
       <DetailSheet
@@ -3173,6 +3360,64 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
+  recipeHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  recipeHeadTitle: { color: "#35333A", fontSize: 17, fontWeight: "900" },
+  recipeHeadCopy: { color: "#92909A", fontSize: 10, marginTop: 3 },
+  recipeAdd: {
+    backgroundColor: "#EAA260",
+    borderRadius: 11,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  recipeAddText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
+  recipeTabs: { gap: 8, paddingBottom: 14 },
+  recipeTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5DED6",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  recipeTabActive: { backgroundColor: "#6A4C3B", borderColor: "#6A4C3B" },
+  recipeTabText: { color: "#716B67", fontSize: 12, fontWeight: "800" },
+  recipeTabTextActive: { color: "#FFFFFF" },
+  recipeTabCount: {
+    color: "#B08B70",
+    fontSize: 9,
+    fontWeight: "900",
+    backgroundColor: "#F5E9DD",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  recipeTabCountActive: { color: "#6A4C3B", backgroundColor: "#FBE0C4" },
+  cookingNote: { color: "#9B7555", fontSize: 10, marginTop: 5 },
+  deleteRecipe: {
+    alignSelf: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginBottom: 18,
+  },
+  deleteRecipeText: { color: "#C36A63", fontSize: 10, fontWeight: "800" },
+  emptyCooking: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    paddingVertical: 42,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ECE7E1",
+  },
+  emptyCookingTitle: { color: "#4B4745", fontSize: 15, fontWeight: "900" },
+  emptyCookingText: { color: "#99928D", fontSize: 10, marginTop: 6 },
   cookingEyebrow: {
     color: "#A16E35",
     fontSize: 10,
