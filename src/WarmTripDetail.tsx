@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import {
   Alert,
   Linking,
@@ -14,9 +14,17 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { AppTheme } from "./theme";
 
+const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
+
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "기록";
-export type TripDetailDestination = "overview" | "schedule-add" | "places" | "preparation";
-const destinationMode = (destination: TripDetailDestination): ViewMode => destination === "places" ? "장소" : destination === "preparation" ? "준비" : "여행";
+export type TripDetailDestination =
+  "overview" | "schedule-add" | "places" | "preparation";
+const destinationMode = (destination: TripDetailDestination): ViewMode =>
+  destination === "places"
+    ? "장소"
+    : destination === "preparation"
+      ? "준비"
+      : "여행";
 type ScheduleItem = {
   time: string;
   title: string;
@@ -84,8 +92,16 @@ const packing: PackingItem[] = [
   },
 ];
 
-export function WarmTripDetail({ done, toggle, onClose, initialDestination = "overview", appTheme }: Props) {
-  const [mode, setMode] = useState<ViewMode>(() => destinationMode(initialDestination));
+export function WarmTripDetail({
+  done,
+  toggle,
+  onClose,
+  initialDestination = "overview",
+  appTheme,
+}: Props) {
+  const [mode, setMode] = useState<ViewMode>(() =>
+    destinationMode(initialDestination),
+  );
   const [title, setTitle] = useState("서울 구로구");
   const [draftTitle, setDraftTitle] = useState(title);
   const [editingTrip, setEditingTrip] = useState(false);
@@ -112,124 +128,170 @@ export function WarmTripDetail({ done, toggle, onClose, initialDestination = "ov
     },
   ]);
 
-  useEffect(() => setMode(destinationMode(initialDestination)), [initialDestination]);
+  useEffect(
+    () => setMode(destinationMode(initialDestination)),
+    [initialDestination],
+  );
 
   return (
-    <SafeAreaView style={[styles.safe, appTheme && { backgroundColor: appTheme.background }]}>
-      <View style={[styles.header, appTheme && { backgroundColor: appTheme.background, borderColor: appTheme.border }]}>
-        <Pressable onPress={onClose} hitSlop={12}>
-          <Text style={styles.close}>‹</Text>
-        </Pressable>
-        <Text style={[styles.headerName, appTheme && { color: appTheme.text }]}>Daymo</Text>
-        <Pressable
-          onPress={() => {
-            setDraftTitle(title);
-            setEditingTrip(true);
-          }}
-          hitSlop={12}
-        >
-          <Text style={styles.headerMore}>···</Text>
-        </Pressable>
-      </View>
-      <ScrollView
-        style={appTheme && { backgroundColor: appTheme.background }}
-        contentContainerStyle={styles.page}
-        showsVerticalScrollIndicator={false}
+    <DetailThemeContext.Provider value={appTheme}>
+      <SafeAreaView
+        style={[
+          styles.safe,
+          appTheme && { backgroundColor: appTheme.background },
+        ]}
       >
-        <Text style={styles.date}>2026. 08. 21 — 08. 23</Text>
-        <Text style={[styles.title, appTheme && { color: appTheme.text }]}>{title}</Text>
-        <Text style={[styles.subtitle, appTheme && { color: appTheme.muted }]}>
-          사귄 지 1,038일째, 천천히 보내는 주말
-        </Text>
-
-        <View style={[styles.modeSwitch, appTheme && { backgroundColor: appTheme.surfaceAlt }]}>
-          {(
-            [
-              "여행",
-              "장소",
-              "준비",
-              ...(hasKitchen ? ["요리" as ViewMode] : []),
-              "기록",
-            ] as ViewMode[]
-          ).map((item) => (
-            <Pressable
-              key={item}
-              onPress={() => setMode(item)}
-              style={[styles.mode, mode === item && styles.modeCurrent, mode === item && appTheme && { backgroundColor: appTheme.navigation }]}
+        <View
+          style={[
+            styles.header,
+            appTheme && {
+              backgroundColor: appTheme.background,
+              borderColor: appTheme.border,
+            },
+          ]}
+        >
+          <Pressable onPress={onClose} hitSlop={12}>
+            <Text style={[styles.close, appTheme && { color: appTheme.text }]}>
+              ‹
+            </Text>
+          </Pressable>
+          <Text
+            style={[styles.headerName, appTheme && { color: appTheme.text }]}
+          >
+            Daymo
+          </Text>
+          <Pressable
+            onPress={() => {
+              setDraftTitle(title);
+              setEditingTrip(true);
+            }}
+            hitSlop={12}
+          >
+            <Text
+              style={[styles.headerMore, appTheme && { color: appTheme.text }]}
             >
-              <Text
+              ···
+            </Text>
+          </Pressable>
+        </View>
+        <ScrollView
+          style={appTheme && { backgroundColor: appTheme.background }}
+          contentContainerStyle={styles.page}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
+            2026. 08. 21 — 08. 23
+          </Text>
+          <Text style={[styles.title, appTheme && { color: appTheme.text }]}>
+            {title}
+          </Text>
+          <Text
+            style={[styles.subtitle, appTheme && { color: appTheme.muted }]}
+          >
+            사귄 지 1,038일째, 천천히 보내는 주말
+          </Text>
+
+          <View
+            style={[
+              styles.modeSwitch,
+              appTheme && { backgroundColor: appTheme.surfaceAlt },
+            ]}
+          >
+            {(
+              [
+                "여행",
+                "장소",
+                "준비",
+                ...(hasKitchen ? ["요리" as ViewMode] : []),
+                "기록",
+              ] as ViewMode[]
+            ).map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setMode(item)}
                 style={[
-                  styles.modeText,
-                  mode === item && styles.modeTextCurrent,
-                  appTheme && { color: mode === item ? '#FFFFFF' : appTheme.muted },
+                  styles.mode,
+                  mode === item && styles.modeCurrent,
+                  mode === item &&
+                    appTheme && { backgroundColor: appTheme.navigation },
                 ]}
               >
-                {item}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.modeText,
+                    mode === item && styles.modeTextCurrent,
+                    appTheme && {
+                      color: mode === item ? "#FFFFFF" : appTheme.muted,
+                    },
+                  ]}
+                >
+                  {item}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
-        {mode === "여행" && (
-          <TripOverview
-            key={initialDestination}
-            setMode={setMode}
-            schedule={schedule}
-            setSchedule={setSchedule}
-            hasKitchen={hasKitchen}
-            openScheduleOnMount={initialDestination === "schedule-add"}
+          {mode === "여행" && (
+            <TripOverview
+              key={initialDestination}
+              setMode={setMode}
+              schedule={schedule}
+              setSchedule={setSchedule}
+              hasKitchen={hasKitchen}
+              openScheduleOnMount={initialDestination === "schedule-add"}
+            />
+          )}
+          {mode === "장소" && (
+            <Places
+              addToSchedule={(item) =>
+                setSchedule((current) => [...current, item])
+              }
+            />
+          )}
+          {mode === "준비" && (
+            <Preparation
+              done={done}
+              toggle={toggle}
+              items={packingItems}
+              setItems={setPackingItems}
+            />
+          )}
+          {mode === "요리" && <Cooking />}
+          {mode === "기록" && <Memories />}
+        </ScrollView>
+        <DetailSheet
+          visible={editingTrip}
+          title="여행 수정"
+          submit="변경 저장"
+          onClose={() => setEditingTrip(false)}
+          onSubmit={() => {
+            if (draftTitle.trim()) setTitle(draftTitle.trim());
+            if (!hasKitchen && mode === "요리") setMode("여행");
+            setEditingTrip(false);
+          }}
+        >
+          <DetailField
+            label="여행 제목"
+            value={draftTitle}
+            onChangeText={setDraftTitle}
           />
-        )}
-        {mode === "장소" && (
-          <Places
-            addToSchedule={(item) =>
-              setSchedule((current) => [...current, item])
-            }
+          <View style={styles.tripMetaBox}>
+            <Text style={styles.tripMetaLabel}>기간</Text>
+            <Text style={styles.tripMetaValue}>2026. 08. 21 — 08. 23</Text>
+          </View>
+          <OptionField
+            label="숙소에 주방이 있나요?"
+            options={["있어요", "없어요"]}
+            value={hasKitchen ? "있어요" : "없어요"}
+            onChange={(value) => setHasKitchen(value === "있어요")}
           />
-        )}
-        {mode === "준비" && (
-          <Preparation
-            done={done}
-            toggle={toggle}
-            items={packingItems}
-            setItems={setPackingItems}
-          />
-        )}
-        {mode === "요리" && <Cooking />}
-        {mode === "기록" && <Memories />}
-      </ScrollView>
-      <DetailSheet
-        visible={editingTrip}
-        title="여행 수정"
-        submit="변경 저장"
-        onClose={() => setEditingTrip(false)}
-        onSubmit={() => {
-          if (draftTitle.trim()) setTitle(draftTitle.trim());
-          if (!hasKitchen && mode === "요리") setMode("여행");
-          setEditingTrip(false);
-        }}
-      >
-        <DetailField
-          label="여행 제목"
-          value={draftTitle}
-          onChangeText={setDraftTitle}
-        />
-        <View style={styles.tripMetaBox}>
-          <Text style={styles.tripMetaLabel}>기간</Text>
-          <Text style={styles.tripMetaValue}>2026. 08. 21 — 08. 23</Text>
-        </View>
-        <OptionField
-          label="숙소에 주방이 있나요?"
-          options={["있어요", "없어요"]}
-          value={hasKitchen ? "있어요" : "없어요"}
-          onChange={(value) => setHasKitchen(value === "있어요")}
-        />
-        <Text style={styles.settingHint}>
-          주방이 있을 때만 요리 탭을 표시해요. 언제든 다시 켜거나 숨길 수
-          있어요.
-        </Text>
-      </DetailSheet>
-    </SafeAreaView>
+          <Text style={styles.settingHint}>
+            주방이 있을 때만 요리 탭을 표시해요. 언제든 다시 켜거나 숨길 수
+            있어요.
+          </Text>
+        </DetailSheet>
+      </SafeAreaView>
+    </DetailThemeContext.Provider>
   );
 }
 
@@ -246,6 +308,7 @@ function TripOverview({
   hasKitchen: boolean;
   openScheduleOnMount?: boolean;
 }) {
+  const theme = useContext(DetailThemeContext);
   const [sheet, setSheet] = useState<
     "schedule" | "reservation" | "stay" | null
   >(openScheduleOnMount ? "schedule" : null);
@@ -274,10 +337,27 @@ function TripOverview({
   };
   return (
     <View>
-      <View style={styles.tripSummary}>
-        <View style={styles.summaryDot} />
-        <Text style={styles.summaryLabel}>TIP</Text>
-        <Text numberOfLines={1} style={styles.summaryText}>
+      <View
+        style={[
+          styles.tripSummary,
+          theme && { backgroundColor: theme.surfaceAlt },
+        ]}
+      >
+        <View
+          style={[
+            styles.summaryDot,
+            theme && { backgroundColor: theme.secondary },
+          ]}
+        />
+        <Text
+          style={[styles.summaryLabel, theme && { color: theme.secondary }]}
+        >
+          TIP
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={[styles.summaryText, theme && { color: theme.text }]}
+        >
           가고 싶은 장소를 담아 여행 일정을 짜보세요.
         </Text>
       </View>
@@ -287,7 +367,15 @@ function TripOverview({
         action="일정 추가"
         onPress={() => setSheet("schedule")}
       />
-      <View style={styles.timelineCard}>
+      <View
+        style={[
+          styles.timelineCard,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+      >
         {schedule.slice(0, 3).map((item, index) => (
           <Moment
             key={`${item.time}-${index}`}
@@ -297,9 +385,14 @@ function TripOverview({
         ))}
         <Pressable
           onPress={() => setFullSchedule(true)}
-          style={styles.fullScheduleButton}
+          style={[
+            styles.fullScheduleButton,
+            theme && { backgroundColor: theme.surfaceAlt },
+          ]}
         >
-          <Text style={styles.fullScheduleText}>
+          <Text
+            style={[styles.fullScheduleText, theme && { color: theme.text }]}
+          >
             전체 일정 {schedule.length}개 보기
           </Text>
           <Text style={styles.fullScheduleArrow}>→</Text>
@@ -309,7 +402,13 @@ function TripOverview({
       <SectionLabel label="우리가 정한 것" />
       <Pressable
         onPress={() => setSheet("reservation")}
-        style={styles.placeCard}
+        style={[
+          styles.placeCard,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
       >
         <View style={styles.placeStamp}>
           <Text style={styles.stampText}>22</Text>
@@ -317,36 +416,73 @@ function TripOverview({
         </View>
         <View style={styles.placeInfo}>
           <Text style={styles.placeKicker}>DINNER RESERVED</Text>
-          <Text style={styles.placeName}>은행골블랙</Text>
-          <Text style={styles.placeNote}>토요일 디너 · 2명</Text>
+          <Text style={[styles.placeName, theme && { color: theme.text }]}>
+            은행골블랙
+          </Text>
+          <Text style={[styles.placeNote, theme && { color: theme.muted }]}>
+            토요일 디너 · 2명
+          </Text>
         </View>
         <Text style={styles.cardArrow}>→</Text>
       </Pressable>
       <View style={styles.twoCards}>
         <Pressable
           onPress={() => setSheet("stay")}
-          style={[styles.smallCard, styles.stayCard]}
+          style={[
+            styles.smallCard,
+            styles.stayCard,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
         >
           <Text style={styles.smallOverline}>STAY</Text>
-          <Text style={styles.smallTitle}>JS호텔</Text>
-          <Text style={styles.smallText}>15:00 check-in</Text>
+          <Text style={[styles.smallTitle, theme && { color: theme.text }]}>
+            JS호텔
+          </Text>
+          <Text style={[styles.smallText, theme && { color: theme.muted }]}>
+            15:00 check-in
+          </Text>
         </Pressable>
         {hasKitchen && (
           <Pressable
             onPress={() => setMode("요리")}
-            style={[styles.smallCard, styles.menuCard]}
+            style={[
+              styles.smallCard,
+              styles.menuCard,
+              theme && {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
           >
             <Text style={styles.smallOverline}>COOK</Text>
-            <Text style={styles.smallTitle}>밀푀유나베</Text>
-            <Text style={styles.smallText}>요리 탭에서 관리</Text>
+            <Text style={[styles.smallTitle, theme && { color: theme.text }]}>
+              밀푀유나베
+            </Text>
+            <Text style={[styles.smallText, theme && { color: theme.muted }]}>
+              요리 탭에서 관리
+            </Text>
           </Pressable>
         )}
       </View>
 
-      <Pressable onPress={() => setMode("준비")} style={styles.readyNudge}>
+      <Pressable
+        onPress={() => setMode("준비")}
+        style={[
+          styles.readyNudge,
+          theme && {
+            backgroundColor: theme.surfaceAlt,
+            borderColor: theme.border,
+          },
+        ]}
+      >
         <View>
           <Text style={styles.readyEyebrow}>TOGETHER, BEFORE WE GO</Text>
-          <Text style={styles.readyText}>준비물 3개가 남아 있어요.</Text>
+          <Text style={[styles.readyText, theme && { color: theme.text }]}>
+            준비물 3개가 남아 있어요.
+          </Text>
         </View>
         <Text style={styles.cardArrow}>→</Text>
       </Pressable>
@@ -499,6 +635,7 @@ function Places({
 }: {
   addToSchedule: (item: ScheduleItem) => void;
 }) {
+  const theme = useContext(DetailThemeContext);
   const [places, setPlaces] = useState<PlaceItem[]>([
     {
       name: "은행골블랙",
@@ -696,13 +833,30 @@ function Places({
 
   return (
     <View>
-      <View style={styles.placeSummary}>
-        <View style={styles.summaryDot} />
-        <Text style={styles.placeSummaryText}>
+      <View
+        style={[
+          styles.placeSummary,
+          theme && { backgroundColor: theme.surfaceAlt },
+        ]}
+      >
+        <View
+          style={[
+            styles.summaryDot,
+            theme && { backgroundColor: theme.secondary },
+          ]}
+        />
+        <Text style={[styles.placeSummaryText, theme && { color: theme.text }]}>
           후보 {places.filter((place) => place.status === "후보").length} · 일정{" "}
           {places.filter((place) => place.status === "일정").length}
         </Text>
-        <Text style={styles.placeSummaryTotal}>총 {places.length}곳</Text>
+        <Text
+          style={[
+            styles.placeSummaryTotal,
+            theme && { color: theme.secondary },
+          ]}
+        >
+          총 {places.length}곳
+        </Text>
       </View>
       <View style={styles.placeToolbar}>
         <View style={styles.placeFilters}>
@@ -731,21 +885,57 @@ function Places({
         </Pressable>
       </View>
       <View style={styles.batchActions}>
-        <Pressable onPress={copyPlaces} style={styles.batchButton}>
-          <Text style={styles.batchButtonText}>목록 복사</Text>
+        <Pressable
+          onPress={copyPlaces}
+          style={[
+            styles.batchButton,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.batchButtonText, theme && { color: theme.text }]}
+          >
+            목록 복사
+          </Text>
         </Pressable>
-        <Pressable onPress={openImport} style={styles.batchButton}>
-          <Text style={styles.batchButtonText}>붙여넣기</Text>
+        <Pressable
+          onPress={openImport}
+          style={[
+            styles.batchButton,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.batchButtonText, theme && { color: theme.text }]}
+          >
+            붙여넣기
+          </Text>
         </Pressable>
       </View>
-      <View style={styles.placeSearch}>
-        <Text style={styles.placeSearchIcon}>⌕</Text>
+      <View
+        style={[
+          styles.placeSearch,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Text style={[styles.placeSearchIcon, theme && { color: theme.text }]}>
+          ⌕
+        </Text>
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="장소, 지역, 태그 검색"
-          placeholderTextColor="#9AA1AE"
-          style={styles.placeSearchInput}
+          placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+          style={[styles.placeSearchInput, theme && { color: theme.text }]}
         />
         <View style={styles.resultCount}>
           <Text style={styles.resultCountText}>{visible.length}</Text>
@@ -794,7 +984,16 @@ function Places({
       </ScrollView>
       <View style={styles.placeList}>
         {visible.map((place, index) => (
-          <View key={place.name} style={styles.candidateCard}>
+          <View
+            key={place.name}
+            style={[
+              styles.candidateCard,
+              theme && {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <View style={styles.candidateTop}>
               <View style={styles.candidateNumber}>
                 <Text style={styles.candidateNumberText}>
@@ -803,7 +1002,14 @@ function Places({
               </View>
               <View style={styles.candidateInfo}>
                 <View style={styles.candidateTitleRow}>
-                  <Text style={styles.candidateName}>{place.name}</Text>
+                  <Text
+                    style={[
+                      styles.candidateName,
+                      theme && { color: theme.text },
+                    ]}
+                  >
+                    {place.name}
+                  </Text>
                   <View
                     style={[
                       styles.statusBadge,
@@ -820,7 +1026,12 @@ function Places({
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.candidateMeta}>
+                <Text
+                  style={[
+                    styles.candidateMeta,
+                    theme && { color: theme.muted },
+                  ]}
+                >
                   {place.area} · {place.category}
                 </Text>
                 <View style={styles.placeTags}>
@@ -1077,6 +1288,7 @@ function Preparation({
   items: PackingItem[];
   setItems: React.Dispatch<React.SetStateAction<PackingItem[]>>;
 }) {
+  const theme = useContext(DetailThemeContext);
   const [adding, setAdding] = useState(false);
   const [names, setNames] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -1213,10 +1425,30 @@ function Preparation({
 
   return (
     <View>
-      <View style={styles.packingOverview}>
+      <View
+        style={[
+          styles.packingOverview,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+      >
         <View>
-          <Text style={styles.packingOverviewLabel}>함께 준비하는 중</Text>
-          <Text style={styles.packingOverviewValue}>
+          <Text
+            style={[
+              styles.packingOverviewLabel,
+              theme && { color: theme.muted },
+            ]}
+          >
+            함께 준비하는 중
+          </Text>
+          <Text
+            style={[
+              styles.packingOverviewValue,
+              theme && { color: theme.text },
+            ]}
+          >
             {completedCount}
             <Text style={styles.packingOverviewTotal}>
               {" "}
@@ -1231,7 +1463,15 @@ function Preparation({
       <View style={styles.compactTrack}>
         <View style={[styles.progressFill, { width: `${percentage}%` }]} />
       </View>
-      <View style={styles.ownerStats}>
+      <View
+        style={[
+          styles.ownerStats,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+      >
         <View style={styles.ownerStat}>
           <Text style={styles.ownerStatName}>찬희</Text>
           <Text style={styles.ownerStatCount}>
@@ -1263,25 +1503,61 @@ function Preparation({
           </Text>
         </View>
       </View>
-      <View style={styles.prepareSearch}>
-        <Text style={styles.placeSearchIcon}>⌕</Text>
+      <View
+        style={[
+          styles.prepareSearch,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Text style={[styles.placeSearchIcon, theme && { color: theme.text }]}>
+          ⌕
+        </Text>
         <TextInput
           value={query}
           onChangeText={setQuery}
           placeholder="이름, 담당, 준비 방식 검색"
-          placeholderTextColor="#9AA1AE"
-          style={styles.placeSearchInput}
+          placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+          style={[styles.placeSearchInput, theme && { color: theme.text }]}
         />
         <Pressable onPress={() => setAdding(true)} style={styles.inlineAdd}>
           <Text style={styles.inlineAddText}>+ 추가</Text>
         </Pressable>
       </View>
       <View style={styles.batchActions}>
-        <Pressable onPress={copyPacking} style={styles.batchButton}>
-          <Text style={styles.batchButtonText}>목록 복사</Text>
+        <Pressable
+          onPress={copyPacking}
+          style={[
+            styles.batchButton,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.batchButtonText, theme && { color: theme.text }]}
+          >
+            목록 복사
+          </Text>
         </Pressable>
-        <Pressable onPress={openImport} style={styles.batchButton}>
-          <Text style={styles.batchButtonText}>붙여넣기</Text>
+        <Pressable
+          onPress={openImport}
+          style={[
+            styles.batchButton,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.batchButtonText, theme && { color: theme.text }]}
+          >
+            붙여넣기
+          </Text>
         </Pressable>
       </View>
       <ScrollView
@@ -1315,7 +1591,14 @@ function Preparation({
           return (
             <View
               key={item.id}
-              style={[styles.packingCard, completed && styles.packingCardDone]}
+              style={[
+                styles.packingCard,
+                theme && {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
+                completed && styles.packingCardDone,
+              ]}
             >
               <Pressable
                 onPress={() => complete(item)}
@@ -1328,6 +1611,7 @@ function Preparation({
                   <Text
                     style={[
                       styles.checkName,
+                      theme && { color: theme.text },
                       completed && styles.checkNameDone,
                     ]}
                   >
@@ -1488,6 +1772,7 @@ type Recipe = {
 };
 
 function Cooking() {
+  const theme = useContext(DetailThemeContext);
   const [recipes, setRecipes] = useState<Recipe[]>([
     {
       id: "mille",
@@ -1692,10 +1977,21 @@ function Cooking() {
   };
   return (
     <View>
-      <View style={styles.recipeHead}>
+      <View
+        style={[
+          styles.recipeHead,
+          theme && { backgroundColor: theme.surfaceAlt },
+        ]}
+      >
         <View>
-          <Text style={styles.recipeHeadTitle}>요리 {recipes.length}개</Text>
-          <Text style={styles.recipeHeadCopy}>
+          <Text
+            style={[styles.recipeHeadTitle, theme && { color: theme.text }]}
+          >
+            요리 {recipes.length}개
+          </Text>
+          <Text
+            style={[styles.recipeHeadCopy, theme && { color: theme.muted }]}
+          >
             메뉴마다 재료를 따로 관리해요.
           </Text>
         </View>
@@ -1742,21 +2038,46 @@ function Cooking() {
         </ScrollView>
       )}
       {!activeRecipe ? (
-        <View style={styles.emptyCooking}>
-          <Text style={styles.emptyCookingTitle}>
+        <View
+          style={[
+            styles.emptyCooking,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.emptyCookingTitle, theme && { color: theme.text }]}
+          >
             만들 요리를 추가해 보세요.
           </Text>
-          <Text style={styles.emptyCookingText}>
+          <Text
+            style={[styles.emptyCookingText, theme && { color: theme.muted }]}
+          >
             요리별로 재료와 담당을 나눌 수 있어요.
           </Text>
         </View>
       ) : (
         <>
-          <View style={styles.cookingHero}>
+          <View
+            style={[
+              styles.cookingHero,
+              theme && { backgroundColor: theme.surfaceAlt },
+            ]}
+          >
             <View>
               <Text style={styles.cookingEyebrow}>이번 여행의 요리</Text>
-              <Text style={styles.cookingTitle}>{activeRecipe.name}</Text>
-              <Text style={styles.cookingNote}>{activeRecipe.note}</Text>
+              <Text
+                style={[styles.cookingTitle, theme && { color: theme.text }]}
+              >
+                {activeRecipe.name}
+              </Text>
+              <Text
+                style={[styles.cookingNote, theme && { color: theme.muted }]}
+              >
+                {activeRecipe.note}
+              </Text>
             </View>
             <View style={styles.cookingCount}>
               <Text style={styles.cookingCountText}>{ingredients.length}</Text>
@@ -1764,7 +2085,7 @@ function Cooking() {
             </View>
           </View>
           <View style={styles.cookingToolbar}>
-            <Text style={styles.cookingTip}>
+            <Text style={[styles.cookingTip, theme && { color: theme.muted }]}>
               주방에서 쓸 재료만 따로 관리해요.
             </Text>
             <Pressable
@@ -1775,16 +2096,58 @@ function Cooking() {
             </Pressable>
           </View>
           <View style={styles.batchActions}>
-            <Pressable onPress={copyCooking} style={styles.batchButton}>
-              <Text style={styles.batchButtonText}>목록 복사</Text>
+            <Pressable
+              onPress={copyCooking}
+              style={[
+                styles.batchButton,
+                theme && {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.batchButtonText, theme && { color: theme.text }]}
+              >
+                목록 복사
+              </Text>
             </Pressable>
-            <Pressable onPress={openImport} style={styles.batchButton}>
-              <Text style={styles.batchButtonText}>붙여넣기</Text>
+            <Pressable
+              onPress={openImport}
+              style={[
+                styles.batchButton,
+                theme && {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.batchButtonText, theme && { color: theme.text }]}
+              >
+                붙여넣기
+              </Text>
             </Pressable>
           </View>
           {groups.map((section) => (
-            <View key={section} style={styles.cookingSection}>
-              <Text style={styles.cookingSectionTitle}>{section}</Text>
+            <View
+              key={section}
+              style={[
+                styles.cookingSection,
+                theme && {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.cookingSectionTitle,
+                  theme && { color: theme.text },
+                ]}
+              >
+                {section}
+              </Text>
               {ingredients
                 .filter((item) => item.group === section)
                 .map((item) => (
@@ -1795,8 +2158,22 @@ function Cooking() {
                   >
                     <View style={styles.ingredientDot} />
                     <View style={styles.ingredientBody}>
-                      <Text style={styles.ingredientName}>{item.name}</Text>
-                      <Text style={styles.ingredientOwner}>{item.owner}</Text>
+                      <Text
+                        style={[
+                          styles.ingredientName,
+                          theme && { color: theme.text },
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.ingredientOwner,
+                          theme && { color: theme.muted },
+                        ]}
+                      >
+                        {item.owner}
+                      </Text>
                     </View>
                     <Text style={styles.ingredientQuantity}>
                       {item.quantity}
@@ -1896,6 +2273,7 @@ function Cooking() {
 }
 
 function Memories() {
+  const theme = useContext(DetailThemeContext);
   const [notes, setNotes] = useState([
     {
       author: "세인 · 오늘 10:42",
@@ -1928,10 +2306,24 @@ function Memories() {
   const addPhoto = () => setPhotos((current) => ["#19B6A3", ...current]);
   return (
     <View>
-      <View style={styles.memorySummary}>
+      <View
+        style={[
+          styles.memorySummary,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
+        ]}
+      >
         <View>
-          <Text style={styles.memorySummaryTitle}>이번 여행의 기록</Text>
-          <Text style={styles.memorySummaryMeta}>
+          <Text
+            style={[styles.memorySummaryTitle, theme && { color: theme.text }]}
+          >
+            이번 여행의 기록
+          </Text>
+          <Text
+            style={[styles.memorySummaryMeta, theme && { color: theme.muted }]}
+          >
             사진 {photos.length}장 · 메모 {notes.length}개
           </Text>
         </View>
@@ -1945,9 +2337,22 @@ function Memories() {
         onPress={() => setWriting(true)}
       />
       {notes.map((note, index) => (
-        <View key={`${note.author}-${index}`} style={styles.noteCard}>
-          <Text style={styles.noteAuthor}>{note.author}</Text>
-          <Text style={styles.noteBody}>{note.body}</Text>
+        <View
+          key={`${note.author}-${index}`}
+          style={[
+            styles.noteCard,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text style={[styles.noteAuthor, theme && { color: theme.primary }]}>
+            {note.author}
+          </Text>
+          <Text style={[styles.noteBody, theme && { color: theme.text }]}>
+            {note.body}
+          </Text>
         </View>
       ))}
       <SectionLabel label="지난 여행의 색" />
@@ -1991,12 +2396,19 @@ function SectionLabel({
   action?: string;
   onPress?: () => void;
 }) {
+  const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.sectionLabel}>
-      <Text style={styles.sectionTitle}>{label}</Text>
+      <Text style={[styles.sectionTitle, theme && { color: theme.text }]}>
+        {label}
+      </Text>
       {action && (
         <Pressable onPress={onPress} hitSlop={8}>
-          <Text style={styles.sectionAction}>{action} →</Text>
+          <Text
+            style={[styles.sectionAction, theme && { color: theme.primary }]}
+          >
+            {action} →
+          </Text>
         </Pressable>
       )}
     </View>
@@ -2016,22 +2428,44 @@ function Moment({
   mapUrl?: string;
   last?: boolean;
 }) {
+  const theme = useContext(DetailThemeContext);
   return (
-    <View style={[styles.moment, last && styles.lastMoment]}>
+    <View
+      style={[
+        styles.moment,
+        theme && { borderColor: theme.border },
+        last && styles.lastMoment,
+      ]}
+    >
       <View style={styles.momentTime}>
-        <Text style={styles.momentDay}>{time}</Text>
+        <Text style={[styles.momentDay, theme && { color: theme.primary }]}>
+          {time}
+        </Text>
         <View style={styles.dotLine}>
-          <View style={styles.dot} />
-          {!last && <View style={styles.line} />}
+          <View
+            style={[styles.dot, theme && { backgroundColor: theme.primary }]}
+          />
+          {!last && (
+            <View
+              style={[styles.line, theme && { backgroundColor: theme.border }]}
+            />
+          )}
         </View>
       </View>
       <View style={styles.momentContent}>
-        <Text style={styles.momentTitle}>{title}</Text>
-        <Text style={styles.momentNote}>{note}</Text>
+        <Text style={[styles.momentTitle, theme && { color: theme.text }]}>
+          {title}
+        </Text>
+        <Text style={[styles.momentNote, theme && { color: theme.muted }]}>
+          {note}
+        </Text>
         {mapUrl ? (
           <Pressable
             onPress={() => Linking.openURL(mapUrl)}
-            style={styles.mapLink}
+            style={[
+              styles.mapLink,
+              theme && { backgroundColor: theme.surfaceAlt },
+            ]}
           >
             <View style={styles.mapLinkIcon}>
               <Text style={styles.mapLinkIconText}>N</Text>
@@ -2056,15 +2490,23 @@ function DetailField({
   placeholder?: string;
   multiline?: boolean;
 }) {
+  const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.detailField}>
-      <Text style={styles.detailFieldLabel}>{label}</Text>
+      <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>
+        {label}
+      </Text>
       <TextInput
         {...props}
         multiline={multiline}
-        placeholderTextColor="#9AA1AE"
+        placeholderTextColor={theme?.muted ?? "#9AA1AE"}
         style={[
           styles.detailFieldInput,
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            color: theme.text,
+          },
           multiline && styles.detailFieldMultiline,
         ]}
       />
@@ -2092,6 +2534,7 @@ function DetailSheet({
   onDestructive?: () => void;
   children: React.ReactNode;
 }) {
+  const theme = useContext(DetailThemeContext);
   return (
     <Modal
       visible={visible}
@@ -2101,15 +2544,32 @@ function DetailSheet({
     >
       <View style={styles.modalBack}>
         <Pressable style={styles.modalDismiss} onPress={onClose} />
-        <View style={styles.sheet}>
+        <View
+          style={[styles.sheet, theme && { backgroundColor: theme.background }]}
+        >
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHead}>
             <View>
-              <Text style={styles.sheetTitle}>{title}</Text>
-              {subtitle && <Text style={styles.sheetSubtitle}>{subtitle}</Text>}
+              <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
+                {title}
+              </Text>
+              {subtitle && (
+                <Text
+                  style={[
+                    styles.sheetSubtitle,
+                    theme && { color: theme.muted },
+                  ]}
+                >
+                  {subtitle}
+                </Text>
+              )}
             </View>
             <Pressable onPress={onClose}>
-              <Text style={styles.sheetClose}>닫기</Text>
+              <Text
+                style={[styles.sheetClose, theme && { color: theme.primary }]}
+              >
+                닫기
+              </Text>
             </Pressable>
           </View>
           <ScrollView
@@ -2118,7 +2578,13 @@ function DetailSheet({
           >
             {children}
           </ScrollView>
-          <Pressable onPress={onSubmit} style={styles.sheetSubmit}>
+          <Pressable
+            onPress={onSubmit}
+            style={[
+              styles.sheetSubmit,
+              theme && { backgroundColor: theme.primary },
+            ]}
+          >
             <Text style={styles.sheetSubmitText}>{submit}</Text>
           </Pressable>
           {destructiveLabel && (
@@ -2142,6 +2608,7 @@ function InfoPanel({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const theme = useContext(DetailThemeContext);
   return (
     <Modal
       visible={visible}
@@ -2151,12 +2618,20 @@ function InfoPanel({
     >
       <View style={styles.modalBack}>
         <Pressable style={styles.modalDismiss} onPress={onClose} />
-        <View style={styles.sheet}>
+        <View
+          style={[styles.sheet, theme && { backgroundColor: theme.background }]}
+        >
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitle}>{title}</Text>
+            <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
+              {title}
+            </Text>
             <Pressable onPress={onClose}>
-              <Text style={styles.sheetClose}>완료</Text>
+              <Text
+                style={[styles.sheetClose, theme && { color: theme.primary }]}
+              >
+                완료
+              </Text>
             </Pressable>
           </View>
           {children}
@@ -2166,10 +2641,15 @@ function InfoPanel({
   );
 }
 function InfoLine({ label, value }: { label: string; value: string }) {
+  const theme = useContext(DetailThemeContext);
   return (
-    <View style={styles.infoLine}>
-      <Text style={styles.infoLineLabel}>{label}</Text>
-      <Text style={styles.infoLineValue}>{value}</Text>
+    <View style={[styles.infoLine, theme && { borderColor: theme.border }]}>
+      <Text style={[styles.infoLineLabel, theme && { color: theme.muted }]}>
+        {label}
+      </Text>
+      <Text style={[styles.infoLineValue, theme && { color: theme.text }]}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -2184,9 +2664,12 @@ function OptionField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.optionField}>
-      <Text style={styles.detailFieldLabel}>{label}</Text>
+      <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>
+        {label}
+      </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -2198,13 +2681,24 @@ function OptionField({
             onPress={() => onChange(option)}
             style={[
               styles.optionChip,
+              theme && {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
               value === option && styles.optionChipActive,
+              value === option &&
+                theme && {
+                  backgroundColor: theme.primarySoft,
+                  borderColor: theme.primary,
+                },
             ]}
           >
             <Text
               style={[
                 styles.optionText,
+                theme && { color: theme.muted },
                 value === option && styles.optionTextActive,
+                value === option && theme && { color: theme.primary },
               ]}
             >
               {option}
