@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import { AppTheme } from "./theme";
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "기록";
 export type TripDetailDestination = "overview" | "schedule-add" | "places" | "preparation";
@@ -28,6 +29,7 @@ type Props = {
   toggle: (item: string) => void;
   onClose: () => void;
   initialDestination?: TripDetailDestination;
+  appTheme?: AppTheme;
 };
 
 type PackingItem = {
@@ -82,7 +84,7 @@ const packing: PackingItem[] = [
   },
 ];
 
-export function WarmTripDetail({ done, toggle, onClose, initialDestination = "overview" }: Props) {
+export function WarmTripDetail({ done, toggle, onClose, initialDestination = "overview", appTheme }: Props) {
   const [mode, setMode] = useState<ViewMode>(() => destinationMode(initialDestination));
   const [title, setTitle] = useState("서울 구로구");
   const [draftTitle, setDraftTitle] = useState(title);
@@ -113,12 +115,12 @@ export function WarmTripDetail({ done, toggle, onClose, initialDestination = "ov
   useEffect(() => setMode(destinationMode(initialDestination)), [initialDestination]);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.safe, appTheme && { backgroundColor: appTheme.background }]}>
+      <View style={[styles.header, appTheme && { backgroundColor: appTheme.background, borderColor: appTheme.border }]}>
         <Pressable onPress={onClose} hitSlop={12}>
           <Text style={styles.close}>‹</Text>
         </Pressable>
-        <Text style={styles.headerName}>Daymo</Text>
+        <Text style={[styles.headerName, appTheme && { color: appTheme.text }]}>Daymo</Text>
         <Pressable
           onPress={() => {
             setDraftTitle(title);
@@ -130,16 +132,17 @@ export function WarmTripDetail({ done, toggle, onClose, initialDestination = "ov
         </Pressable>
       </View>
       <ScrollView
+        style={appTheme && { backgroundColor: appTheme.background }}
         contentContainerStyle={styles.page}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.date}>2026. 08. 21 — 08. 23</Text>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.title, appTheme && { color: appTheme.text }]}>{title}</Text>
+        <Text style={[styles.subtitle, appTheme && { color: appTheme.muted }]}>
           사귄 지 1,038일째, 천천히 보내는 주말
         </Text>
 
-        <View style={styles.modeSwitch}>
+        <View style={[styles.modeSwitch, appTheme && { backgroundColor: appTheme.surfaceAlt }]}>
           {(
             [
               "여행",
@@ -152,12 +155,13 @@ export function WarmTripDetail({ done, toggle, onClose, initialDestination = "ov
             <Pressable
               key={item}
               onPress={() => setMode(item)}
-              style={[styles.mode, mode === item && styles.modeCurrent]}
+              style={[styles.mode, mode === item && styles.modeCurrent, mode === item && appTheme && { backgroundColor: appTheme.navigation }]}
             >
               <Text
                 style={[
                   styles.modeText,
                   mode === item && styles.modeTextCurrent,
+                  appTheme && { color: mode === item ? '#FFFFFF' : appTheme.muted },
                 ]}
               >
                 {item}
