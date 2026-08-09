@@ -697,7 +697,10 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
             style={[
               (s as any).viewChoice,
               display === item && (s as any).viewChoiceActive,
-              display === item && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+              display === item && {
+                backgroundColor: theme.primarySoft,
+                borderColor: theme.primary,
+              },
             ]}
           >
             <Text
@@ -4200,16 +4203,22 @@ Object.assign(s, {
   },
   filter: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 9 },
   tripRow: {
-    minHeight: 103,
+    minHeight: 78,
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderBottomWidth: 1,
-    borderRadius: 11,
-    padding: 11,
-    marginBottom: 10,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 7,
   },
-  tripThumb: { width: 66, height: 74, marginRight: 3 },
-  tripArtSmall: { width: "100%", height: 74, borderRadius: 8, marginBottom: 0 },
-  tripName: { fontSize: 15, fontWeight: "900" },
+  tripThumb: { width: 50, height: 58, marginRight: 1 },
+  tripArtSmall: { width: "100%", height: 58, borderRadius: 7, marginBottom: 0 },
+  tripInfo: { flex: 1, paddingLeft: 10 },
+  tripName: { fontSize: 14, fontWeight: "900" },
+  tripDate: { fontSize: 10, marginTop: 3 },
+  tripNote: { fontSize: 9, marginTop: 3 },
   calendarCard: { borderRadius: 11, padding: 15, borderWidth: 1 },
   monthArrow: {
     width: 33,
