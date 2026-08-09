@@ -213,7 +213,7 @@ export function WarmTripDetail({
                   styles.mode,
                   mode === item && styles.modeCurrent,
                   mode === item &&
-                    appTheme && { backgroundColor: appTheme.navigation },
+                    appTheme && { backgroundColor: appTheme.primarySoft, borderColor: appTheme.primary },
                 ]}
               >
                 <Text
@@ -221,7 +221,7 @@ export function WarmTripDetail({
                     styles.modeText,
                     mode === item && styles.modeTextCurrent,
                     appTheme && {
-                      color: mode === item ? "#FFFFFF" : appTheme.muted,
+                      color: mode === item ? appTheme.primary : appTheme.muted,
                     },
                   ]}
                 >
@@ -352,7 +352,7 @@ function TripOverview({
         <Text
           style={[styles.summaryLabel, theme && { color: theme.secondary }]}
         >
-          TIP
+          여행 메모
         </Text>
         <Text
           numberOfLines={1}
@@ -412,10 +412,10 @@ function TripOverview({
       >
         <View style={styles.placeStamp}>
           <Text style={styles.stampText}>22</Text>
-          <Text style={styles.stampSmall}>SAT</Text>
+          <Text style={styles.stampSmall}>토요일</Text>
         </View>
         <View style={styles.placeInfo}>
-          <Text style={styles.placeKicker}>DINNER RESERVED</Text>
+          <Text style={styles.placeKicker}>저녁 예약</Text>
           <Text style={[styles.placeName, theme && { color: theme.text }]}>
             은행골블랙
           </Text>
@@ -437,7 +437,7 @@ function TripOverview({
             },
           ]}
         >
-          <Text style={styles.smallOverline}>STAY</Text>
+          <Text style={styles.smallOverline}>숙소</Text>
           <Text style={[styles.smallTitle, theme && { color: theme.text }]}>
             JS호텔
           </Text>
@@ -457,7 +457,7 @@ function TripOverview({
               },
             ]}
           >
-            <Text style={styles.smallOverline}>COOK</Text>
+            <Text style={styles.smallOverline}>요리</Text>
             <Text style={[styles.smallTitle, theme && { color: theme.text }]}>
               밀푀유나베
             </Text>
@@ -479,7 +479,7 @@ function TripOverview({
         ]}
       >
         <View>
-          <Text style={styles.readyEyebrow}>TOGETHER, BEFORE WE GO</Text>
+          <Text style={styles.readyEyebrow}>떠나기 전에 같이</Text>
           <Text style={[styles.readyText, theme && { color: theme.text }]}>
             준비물 3개가 남아 있어요.
           </Text>
@@ -867,12 +867,14 @@ function Places({
               style={[
                 styles.placeFilter,
                 filter === item && styles.placeFilterActive,
+                filter === item && theme && { backgroundColor: theme.primarySoft },
               ]}
             >
               <Text
                 style={[
                   styles.placeFilterText,
                   filter === item && styles.placeFilterTextActive,
+                  filter === item && theme && { color: theme.primary },
                 ]}
               >
                 {item}
@@ -951,12 +953,14 @@ function Places({
           style={[
             styles.tagFilterChip,
             tagFilter === null && styles.tagFilterChipActive,
+            tagFilter === null && theme && { backgroundColor: theme.primarySoft },
           ]}
         >
           <Text
             style={[
               styles.tagFilterLabel,
               tagFilter === null && styles.tagFilterLabelActive,
+              tagFilter === null && theme && { color: theme.primary },
             ]}
           >
             # 모든 태그
@@ -969,12 +973,14 @@ function Places({
             style={[
               styles.tagFilterChip,
               tagFilter === tag && styles.tagFilterChipActive,
+              tagFilter === tag && theme && { backgroundColor: theme.primarySoft },
             ]}
           >
             <Text
               style={[
                 styles.tagFilterLabel,
                 tagFilter === tag && styles.tagFilterLabelActive,
+                tagFilter === tag && theme && { color: theme.primary },
               ]}
             >
               # {tag}
@@ -1068,7 +1074,9 @@ function Places({
                 onPress={() => choose(index)}
                 style={[
                   styles.planAction,
+                  theme && { backgroundColor: theme.primary },
                   place.status === "일정" && styles.planActionDone,
+                  place.status === "일정" && theme && { backgroundColor: theme.surfaceAlt },
                 ]}
               >
                 <Text
@@ -1572,12 +1580,14 @@ function Preparation({
             style={[
               styles.placeFilter,
               filter === item && styles.placeFilterActive,
+              filter === item && theme && { backgroundColor: theme.primarySoft },
             ]}
           >
             <Text
               style={[
                 styles.placeFilterText,
                 filter === item && styles.placeFilterTextActive,
+                filter === item && theme && { color: theme.primary },
               ]}
             >
               {item}
@@ -2015,12 +2025,14 @@ function Cooking() {
               style={[
                 styles.recipeTab,
                 recipe.id === activeId && styles.recipeTabActive,
+                recipe.id === activeId && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
               ]}
             >
               <Text
                 style={[
                   styles.recipeTabText,
                   recipe.id === activeId && styles.recipeTabTextActive,
+                  recipe.id === activeId && theme && { color: theme.primary },
                 ]}
               >
                 {recipe.name}
@@ -4174,6 +4186,257 @@ Object.assign(styles, {
     paddingVertical: 10,
     paddingHorizontal: 13,
     marginTop: 19,
+  },
+});
+
+// Travel notebook visual language shared by every detail tab.
+Object.assign(styles, {
+  page: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 88 },
+  date: { fontSize: 10, fontWeight: "800", letterSpacing: 0, marginBottom: 6 },
+  title: { fontSize: 29, fontWeight: "900", letterSpacing: -1.2 },
+  subtitle: { fontSize: 11, marginTop: 6 },
+  modeSwitch: {
+    flexDirection: "row",
+    marginTop: 22,
+    marginBottom: 18,
+    padding: 0,
+    borderRadius: 0,
+    borderBottomWidth: 1,
+    borderColor: "#DEDCD5",
+  },
+  mode: {
+    flex: 1,
+    minHeight: 39,
+    borderRadius: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modeCurrent: {
+    borderRadius: 0,
+    borderBottomWidth: 2,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  tripSummary: {
+    minHeight: 42,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 23,
+    transform: [{ rotate: "-.3deg" }],
+  },
+  sectionLabel: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 23,
+    marginBottom: 10,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5 },
+  timelineCard: { borderRadius: 10, padding: 16, borderWidth: 1 },
+  fullScheduleButton: {
+    height: 43,
+    borderRadius: 8,
+    marginTop: 7,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  placeCard: {
+    minHeight: 94,
+    borderRadius: 10,
+    padding: 13,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  placeStamp: {
+    width: 55,
+    height: 61,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-2deg" }],
+  },
+  smallCard: {
+    flex: 1,
+    minHeight: 98,
+    borderRadius: 9,
+    padding: 14,
+    borderWidth: 1,
+  },
+  readyNudge: {
+    minHeight: 67,
+    borderRadius: 9,
+    marginTop: 10,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  placeSummary: {
+    minHeight: 43,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  placeFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
+  placeAdd: { borderRadius: 8, paddingHorizontal: 11, paddingVertical: 8 },
+  batchButton: {
+    borderRadius: 7,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
+  placeSearch: {
+    height: 45,
+    borderRadius: 9,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+  },
+  tagFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
+  candidateCard: { borderRadius: 10, padding: 15, borderWidth: 1 },
+  candidateNumber: {
+    width: 31,
+    height: 31,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    transform: [{ rotate: "-2deg" }],
+  },
+  placeTag: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 5 },
+  packingOverview: {
+    minHeight: 83,
+    borderRadius: 10,
+    padding: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  ownerStats: {
+    minHeight: 61,
+    borderRadius: 9,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 13,
+  },
+  prepareSearch: {
+    height: 45,
+    borderRadius: 9,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+  },
+  packingFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
+  packingCard: {
+    minHeight: 82,
+    borderRadius: 9,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  checkbox: {
+    width: 21,
+    height: 21,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+    transform: [{ rotate: "-3deg" }],
+  },
+  ownerBadge: {
+    minWidth: 43,
+    minHeight: 36,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  recipeHead: {
+    borderRadius: 9,
+    padding: 15,
+    marginBottom: 13,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  recipeTab: {
+    minWidth: 92,
+    minHeight: 51,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+  },
+  cookingHero: {
+    borderRadius: 9,
+    padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cookingSection: {
+    borderRadius: 9,
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 9,
+  },
+  memorySummary: {
+    minHeight: 79,
+    borderRadius: 10,
+    padding: 15,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  memoryButton: { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 11 },
+  noteCard: { borderRadius: 9, padding: 16, borderWidth: 1, marginBottom: 9 },
+  memoryTile: {
+    width: "31.4%",
+    aspectRatio: 1,
+    borderRadius: 8,
+    padding: 9,
+    justifyContent: "flex-end",
+    transform: [{ rotate: "-.5deg" }],
+  },
+  detailFieldInput: {
+    height: 50,
+    borderRadius: 9,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+  },
+  optionChip: {
+    height: 37,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheet: {
+    width: "100%",
+    maxWidth: 430,
+    alignSelf: "center",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 20,
+    paddingTop: 9,
+    paddingBottom: 18,
+    maxHeight: "91%",
   },
 });
 

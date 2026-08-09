@@ -697,7 +697,7 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
             style={[
               (s as any).viewChoice,
               display === item && (s as any).viewChoiceActive,
-              display === item && { backgroundColor: theme.navigation },
+              display === item && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
             ]}
           >
             <Text
@@ -705,6 +705,7 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
                 (s as any).viewChoiceText,
                 { color: theme.muted },
                 display === item && (s as any).viewChoiceTextActive,
+                display === item && { color: theme.primary },
               ]}
             >
               {item === "목록"
@@ -1752,7 +1753,7 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
               (s as any).searchCategory,
               { backgroundColor: theme.surfaceAlt },
               category === item && (s as any).searchCategoryActive,
-              category === item && { backgroundColor: theme.navigation },
+              category === item && { backgroundColor: theme.primarySoft },
             ]}
           >
             <Text
@@ -1760,6 +1761,7 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
                 (s as any).searchCategoryText,
                 { color: theme.muted },
                 category === item && (s as any).searchCategoryTextActive,
+                category === item && { color: theme.primary },
               ]}
             >
               {item}
@@ -1950,7 +1952,7 @@ function Together({
           onPress={() => setPanel("profile")}
           style={[
             (s as any).togetherProfile,
-            { backgroundColor: theme.navigation },
+            { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
           <View style={(s as any).togetherAvatarStack}>
@@ -1959,7 +1961,7 @@ function Together({
                 (s as any).togetherAvatar,
                 {
                   backgroundColor: theme.primary,
-                  borderColor: theme.navigation,
+                  borderColor: theme.surface,
                 },
               ]}
             >
@@ -1971,7 +1973,7 @@ function Together({
                 (s as any).togetherAvatarSecond,
                 {
                   backgroundColor: theme.accent,
-                  borderColor: theme.navigation,
+                  borderColor: theme.surface,
                 },
               ]}
             >
@@ -1979,12 +1981,20 @@ function Together({
             </View>
           </View>
           <View style={(s as any).togetherProfileCopy}>
-            <Text style={(s as any).togetherProfileName}>찬희와 세인</Text>
-            <Text style={(s as any).togetherProfileMeta}>
+            <Text
+              style={[(s as any).togetherProfileName, { color: theme.text }]}
+            >
+              찬희와 세인
+            </Text>
+            <Text
+              style={[(s as any).togetherProfileMeta, { color: theme.muted }]}
+            >
               {relationship} · 함께한 지 1,026일
             </Text>
           </View>
-          <Text style={(s as any).togetherChevron}>›</Text>
+          <Text style={[(s as any).togetherChevron, { color: theme.muted }]}>
+            ›
+          </Text>
         </Pressable>
         <View
           style={[
@@ -4134,5 +4144,194 @@ Object.assign(s, {
     color: "#17233D",
     fontSize: 12,
     fontWeight: "900",
+  },
+});
+
+// Shared notebook language: flatter paper, tighter corners, and fewer dashboard pills.
+Object.assign(s, {
+  screenHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginTop: 7,
+    marginBottom: 19,
+  },
+  overline: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0,
+    marginBottom: 2,
+  },
+  screenTitle: {
+    fontSize: 29,
+    fontWeight: "900",
+    letterSpacing: -1.2,
+    marginTop: 3,
+  },
+  newTrip: {
+    borderRadius: 9,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    transform: [{ rotate: "1deg" }],
+  },
+  viewSwitch: {
+    flexDirection: "row",
+    borderRadius: 0,
+    padding: 0,
+    marginBottom: 18,
+    borderBottomWidth: 1,
+    borderColor: "#DEDCD5",
+  },
+  viewChoice: {
+    flex: 1,
+    minHeight: 39,
+    borderRadius: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewChoiceActive: { borderRadius: 0, borderBottomWidth: 2 },
+  tripFilters: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    padding: 0,
+    borderRadius: 0,
+    gap: 8,
+    marginBottom: 9,
+  },
+  filter: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 9 },
+  tripRow: {
+    minHeight: 103,
+    borderWidth: 1,
+    borderBottomWidth: 1,
+    borderRadius: 11,
+    padding: 11,
+    marginBottom: 10,
+  },
+  tripThumb: { width: 66, height: 74, marginRight: 3 },
+  tripArtSmall: { width: "100%", height: 74, borderRadius: 8, marginBottom: 0 },
+  tripName: { fontSize: 15, fontWeight: "900" },
+  calendarCard: { borderRadius: 11, padding: 15, borderWidth: 1 },
+  monthArrow: {
+    width: 33,
+    height: 33,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyDate: { borderRadius: 10, padding: 18, alignItems: "center" },
+  searchBoxNew: {
+    height: 50,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 13,
+    marginTop: 19,
+  },
+  searchCategory: {
+    height: 32,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchGuide: {
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 23,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: "#B8DCD5",
+  },
+  searchSuggestion: {
+    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  searchResultCard: {
+    minHeight: 78,
+    borderRadius: 9,
+    borderWidth: 1,
+    padding: 11,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  searchResultIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  togetherProfile: {
+    marginTop: 21,
+    borderRadius: 11,
+    padding: 17,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    transform: [{ rotate: "-.3deg" }],
+  },
+  togetherAvatar: {
+    position: "absolute",
+    left: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  togetherAvatarSecond: { left: 27 },
+  togetherStats: {
+    marginTop: 11,
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 75,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  settingGroup: {
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  togetherEdit: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  themeOption: {
+    width: "48%",
+    minHeight: 86,
+    borderRadius: 10,
+    padding: 13,
+    borderWidth: 1,
+  },
+  sheet: {
+    width: "100%",
+    maxWidth: 430,
+    alignSelf: "center",
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 20,
+    paddingTop: 9,
+    paddingBottom: 18,
+    maxHeight: "90%",
+  },
+  fieldInput: {
+    height: 49,
+    borderRadius: 9,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    borderWidth: 1,
+  },
+  choice: {
+    minHeight: 54,
+    borderRadius: 9,
+    borderWidth: 1,
+    paddingHorizontal: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
 });
