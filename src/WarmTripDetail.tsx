@@ -68,7 +68,7 @@ function TripOverview({ setMode, schedule, setSchedule }: { setMode: (mode: View
   const addSchedule = () => { if (!newPlanTitle.trim() || !planMapUrl.includes('naver.')) return; setSchedule((current) => [...current, { time: `${planDay.slice(0, 1)} · ${planTime || '시간 미정'}`, title: newPlanTitle.trim(), note: [planType, planPlace.trim()].filter(Boolean).join(' · '), mapUrl: planMapUrl.trim() }]); setNewPlanTitle(''); setPlanPlace(''); setPlanMapUrl(''); setSheet(null); };
   return (
     <View>
-      <View style={styles.tripSummary}><View style={styles.summaryDot} /><Text style={styles.summaryLabel}>여행 한 줄</Text><Text numberOfLines={1} style={styles.summaryText}>맛있는 것만 천천히 하기</Text></View>
+      <View style={styles.tripSummary}><View style={styles.summaryDot} /><Text style={styles.summaryLabel}>TIP</Text><Text numberOfLines={1} style={styles.summaryText}>가고 싶은 장소를 담아 여행 일정을 짜보세요.</Text></View>
 
       <SectionLabel label="오늘의 흐름" action="일정 추가" onPress={() => setSheet('schedule')} />
       <View style={styles.timelineCard}>
@@ -377,5 +377,5 @@ Object.assign(styles, {
   progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16 },
   memoryWelcome: { borderRadius: 22, backgroundColor: '#FFE0DA', padding: 18, minHeight: 145, marginBottom: 23 },
   memoryTitle: { color: '#5A302F', fontSize: 22, lineHeight: 27, letterSpacing: -1.1, fontWeight: '800', marginTop: 13 },
-  memoryButton: { alignSelf: 'flex-start', backgroundColor: '#FF6B5F', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 11, marginTop: 0 }
+  memoryButton: { alignSelf: 'center', backgroundColor: '#FF6B5F', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 11, marginTop: 0 }
 });
