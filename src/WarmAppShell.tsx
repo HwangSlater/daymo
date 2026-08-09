@@ -76,7 +76,7 @@ const s = StyleSheet.create({
 });
 
 Object.assign(s, {
-  safe: { flex: 1, backgroundColor: '#F7F5F0' },
+  safe: { flex: 1, width: '100%', maxWidth: 430, alignSelf: 'center', backgroundColor: '#F7F5F0', shadowColor: '#17233D', shadowOpacity: .12, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } },
   logo: { color: '#17233D', fontSize: 31, letterSpacing: -1.8, fontWeight: '900' },
   logoSub: { color: '#7D8697', fontSize: 8, letterSpacing: 1.45, fontWeight: '900', marginTop: 1 },
   people: { paddingHorizontal: 12, height: 34, borderRadius: 17, backgroundColor: '#E9E5FF', borderWidth: 1, borderColor: '#D9D2FF', alignItems: 'center', justifyContent: 'center' },
@@ -113,7 +113,7 @@ Object.assign(s, {
   tripThumb: { width: 94 },
   modalBack: { flex: 1, backgroundColor: 'rgba(10,18,35,.42)', justifyContent: 'flex-end' },
   modalDismiss: { flex: 1 },
-  sheet: { backgroundColor: '#F7F5F0', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, paddingBottom: 36 },
+  sheet: { width: '100%', maxWidth: 430, alignSelf: 'center', backgroundColor: '#F7F5F0', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, paddingBottom: 36 },
   sheetHandle: { width: 42, height: 4, borderRadius: 2, backgroundColor: '#C7C7C3', alignSelf: 'center', marginBottom: 20 },
   sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   sheetTitle: { color: '#17233D', fontSize: 24, fontWeight: '900', letterSpacing: -1 },

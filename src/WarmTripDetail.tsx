@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   memoryTile: { width: '31.9%', aspectRatio: 1, marginRight: '1.4%', marginBottom: 6, borderRadius: 15, padding: 10, justifyContent: 'flex-end' },
   tileNumber: { color: 'rgba(83, 54, 48, .65)', fontSize: 10, fontWeight: '900' },
   modalBack: { flex: 1, backgroundColor: 'rgba(10,18,35,.42)', justifyContent: 'flex-end' }, modalDismiss: { flex: 1 },
-  sheet: { backgroundColor: '#F7F5F0', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, paddingBottom: 28, maxHeight: '91%' },
+  sheet: { width: '100%', maxWidth: 430, alignSelf: 'center', backgroundColor: '#F7F5F0', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, paddingBottom: 28, maxHeight: '91%' },
   sheetHandle: { width: 42, height: 4, borderRadius: 2, backgroundColor: '#C7C7C3', alignSelf: 'center', marginBottom: 20 },
   sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22 }, sheetTitle: { color: '#17233D', fontSize: 24, fontWeight: '900', letterSpacing: -1 }, sheetSubtitle: { color: '#818A99', fontSize: 11, marginTop: 6 }, sheetClose: { color: '#6556D8', fontSize: 13, fontWeight: '800', paddingTop: 5 },
   detailField: { marginBottom: 17 }, detailFieldLabel: { color: '#6F7888', fontSize: 10, fontWeight: '900', marginBottom: 7 }, detailFieldInput: { height: 51, borderRadius: 15, backgroundColor: '#FFFFFF', paddingHorizontal: 15, color: '#17233D', fontSize: 14, borderWidth: 1, borderColor: '#E5E3DD' }, detailFieldMultiline: { height: 104, paddingTop: 15, textAlignVertical: 'top' },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
 });
 
 Object.assign(styles, {
-  safe: { flex: 1, backgroundColor: '#F7F5F0' },
+  safe: { flex: 1, width: '100%', maxWidth: 430, alignSelf: 'center', backgroundColor: '#F7F5F0', shadowColor: '#17233D', shadowOpacity: .12, shadowRadius: 24, shadowOffset: { width: 0, height: 0 } },
   header: { height: 57, paddingHorizontal: 21, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#E7E4DD' },
   close: { color: '#17233D', fontSize: 35, lineHeight: 35, fontWeight: '300' },
   headerName: { color: '#17233D', fontSize: 15, letterSpacing: .8, fontWeight: '900' },
