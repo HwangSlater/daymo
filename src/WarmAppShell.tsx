@@ -21,7 +21,7 @@ export function WarmAppShell() {
   const [done, setDone] = useState<string[]>(['깻잎', '양파']);
   const toggle = (item: string) => setDone((items) => items.includes(item) ? items.filter((value) => value !== item) : [...items, item]);
   const openTrip = (destination: TripDetailDestination = 'overview') => { setTripDestination(destination); setTripOpen(true); };
-  if (isTripOpen) return <WarmTripDetail done={done} toggle={toggle} initialDestination={tripDestination} onClose={() => setTripOpen(false)} />;
+  if (isTripOpen) return <WarmTripDetail key={tripDestination} done={done} toggle={toggle} initialDestination={tripDestination} onClose={() => setTripOpen(false)} />;
   return <SafeAreaView style={s.safe}><View style={s.body}>{view === '홈' && <Home open={openTrip} goTrips={() => setView('여행')} />}{view === '여행' && <TripsExplorer open={() => openTrip()} />}{view === '찾기' && <Search open={() => openTrip()} />}{view === '우리' && <Together />}</View><BottomBar active={view} setActive={setView} /></SafeAreaView>;
 }
 

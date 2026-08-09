@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Linking,
@@ -15,6 +15,7 @@ import * as Clipboard from "expo-clipboard";
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "기록";
 export type TripDetailDestination = "overview" | "schedule-add" | "places" | "preparation";
+const destinationMode = (destination: TripDetailDestination): ViewMode => destination === "places" ? "장소" : destination === "preparation" ? "준비" : "여행";
 type ScheduleItem = {
   time: string;
   title: string;
@@ -82,7 +83,7 @@ const packing: PackingItem[] = [
 ];
 
 export function WarmTripDetail({ done, toggle, onClose, initialDestination = "overview" }: Props) {
-  const [mode, setMode] = useState<ViewMode>(initialDestination === "places" ? "장소" : initialDestination === "preparation" ? "준비" : "여행");
+  const [mode, setMode] = useState<ViewMode>(() => destinationMode(initialDestination));
   const [title, setTitle] = useState("서울 구로구");
   const [draftTitle, setDraftTitle] = useState(title);
   const [editingTrip, setEditingTrip] = useState(false);
@@ -108,6 +109,8 @@ export function WarmTripDetail({ done, toggle, onClose, initialDestination = "ov
       mapUrl: "",
     },
   ]);
+
+  useEffect(() => setMode(destinationMode(initialDestination)), [initialDestination]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -165,6 +168,7 @@ export function WarmTripDetail({ done, toggle, onClose, initialDestination = "ov
 
         {mode === "여행" && (
           <TripOverview
+            key={initialDestination}
             setMode={setMode}
             schedule={schedule}
             setSchedule={setSchedule}
