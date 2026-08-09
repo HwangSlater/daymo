@@ -108,7 +108,11 @@ export function WarmAppShell() {
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <View style={[s.body, { backgroundColor: theme.background }]}>
         {view === "홈" && (
-          <Home open={openTrip} goTrips={() => setView("여행")} theme={theme} />
+          <NotebookHome
+            open={openTrip}
+            goTrips={() => setView("여행")}
+            theme={theme}
+          />
         )}
         {view === "여행" && (
           <TripsExplorer open={() => openTrip()} theme={theme} />
@@ -126,6 +130,206 @@ export function WarmAppShell() {
       </View>
       <BottomBar active={view} setActive={setView} theme={theme} />
     </SafeAreaView>
+  );
+}
+
+function NotebookHome({
+  open,
+  goTrips,
+  theme,
+}: {
+  open: (destination?: TripDetailDestination) => void;
+  goTrips: () => void;
+  theme: AppTheme;
+}) {
+  return (
+    <ScrollView
+      style={{ backgroundColor: theme.background }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={s.page}
+    >
+      <View style={(s as any).notebookHead}>
+        <View>
+          <Text style={[s.logo, { color: theme.text }]}>Daymo</Text>
+          <Text style={[(s as any).notebookHello, { color: theme.muted }]}>
+            찬희와 세인의 여행 수첩
+          </Text>
+        </View>
+        <View
+          style={[(s as any).tinyDay, { backgroundColor: theme.primarySoft }]}
+        >
+          <Text style={[(s as any).tinyDayText, { color: theme.primary }]}>
+            우리 1,026일
+          </Text>
+        </View>
+      </View>
+      <View
+        style={[
+          (s as any).paperTrip,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View
+          style={[
+            (s as any).paperTape,
+            { backgroundColor: `${theme.primary}55` },
+          ]}
+        />
+        <View style={(s as any).paperTripHead}>
+          <View>
+            <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
+              열두 밤 뒤에 떠나요
+            </Text>
+            <Text style={[(s as any).paperTitle, { color: theme.text }]}>
+              서울 구로구
+            </Text>
+            <Text style={[(s as any).paperDate, { color: theme.muted }]}>
+              8월 21일 금요일 — 23일 일요일
+            </Text>
+          </View>
+          <Text style={[(s as any).paperDoodle, { color: theme.secondary }]}>
+            ✿
+          </Text>
+        </View>
+        <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
+        <Pressable onPress={() => open()} style={(s as any).paperStay}>
+          <View
+            style={[
+              (s as any).paperPin,
+              { backgroundColor: `${theme.secondary}22` },
+            ]}
+          >
+            <Text style={{ color: theme.secondary }}>⌂</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[(s as any).paperStayLabel, { color: theme.muted }]}>
+              우리 숙소
+            </Text>
+            <Text style={[(s as any).paperStayName, { color: theme.text }]}>
+              JS호텔 · 오후 3시 체크인
+            </Text>
+          </View>
+          <Text style={{ color: theme.muted }}>›</Text>
+        </Pressable>
+        <View style={(s as any).paperCounts}>
+          <Text style={[(s as any).paperCount, { color: theme.text }]}>
+            일정 <Text style={{ color: theme.primary }}>3</Text>
+          </Text>
+          <Text style={[(s as any).paperCount, { color: theme.text }]}>
+            장소 <Text style={{ color: theme.secondary }}>8</Text>
+          </Text>
+          <Text style={[(s as any).paperCount, { color: theme.text }]}>
+            준비 <Text style={{ color: theme.accent }}>2/6</Text>
+          </Text>
+        </View>
+      </View>
+      <View style={(s as any).pencilActions}>
+        <HomeQuick
+          theme={theme}
+          icon="＋"
+          label="일정 쓰기"
+          tint={theme.primarySoft}
+          color={theme.primary}
+          onPress={() => open("schedule-add")}
+        />
+        <HomeQuick
+          theme={theme}
+          icon="⌖"
+          label="장소 모음"
+          tint={`${theme.secondary}20`}
+          color={theme.secondary}
+          onPress={() => open("places")}
+        />
+        <HomeQuick
+          theme={theme}
+          icon="✓"
+          label="준비물"
+          tint={`${theme.accent}20`}
+          color={theme.accent}
+          onPress={() => open("preparation")}
+        />
+      </View>
+      <View style={(s as any).noteTitleRow}>
+        <View>
+          <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>
+            같이 확인해요
+          </Text>
+          <Text style={[(s as any).noteTitle, { color: theme.text }]}>
+            떠나기 전 메모
+          </Text>
+        </View>
+        <Pressable onPress={goTrips}>
+          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>
+            여행 모두 보기
+          </Text>
+        </Pressable>
+      </View>
+      <View
+        style={[
+          (s as any).memoPaper,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <MemoRow
+          theme={theme}
+          color={theme.primary}
+          text="숙소 예약 정보 확인"
+          meta="오늘 · 함께"
+          onPress={() => open()}
+        />
+        <MemoRow
+          theme={theme}
+          color={theme.accent}
+          text="아직 안 챙긴 준비물 2개"
+          meta="찬희 1 · 세인 1"
+          onPress={() => open("preparation")}
+        />
+        <MemoRow
+          theme={theme}
+          color={theme.secondary}
+          text="후보 장소에서 일정 고르기"
+          meta="식당 5 · 카페 3"
+          onPress={() => open("places")}
+          last
+        />
+      </View>
+    </ScrollView>
+  );
+}
+
+function MemoRow({
+  theme,
+  color,
+  text,
+  meta,
+  onPress,
+  last,
+}: {
+  theme: AppTheme;
+  color: string;
+  text: string;
+  meta: string;
+  onPress: () => void;
+  last?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        (s as any).memoRow,
+        { borderColor: theme.border },
+        last && { borderBottomWidth: 0 },
+      ]}
+    >
+      <View style={[(s as any).memoCheck, { borderColor: color }]} />
+      <View style={{ flex: 1 }}>
+        <Text style={[(s as any).memoText, { color: theme.text }]}>{text}</Text>
+        <Text style={[(s as any).memoMeta, { color: theme.muted }]}>
+          {meta}
+        </Text>
+      </View>
+      <Text style={{ color: theme.muted }}>›</Text>
+    </Pressable>
   );
 }
 
@@ -2709,6 +2913,94 @@ const s = StyleSheet.create({
 });
 
 Object.assign(s, {
+  notebookHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 28,
+  },
+  notebookHello: { fontSize: 11, marginTop: 3, fontWeight: "600" },
+  tinyDay: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 8,
+    transform: [{ rotate: "1.5deg" }],
+  },
+  tinyDayText: { fontSize: 10, fontWeight: "800" },
+  paperTrip: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 19,
+    paddingTop: 24,
+    paddingBottom: 17,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
+    transform: [{ rotate: "-.35deg" }],
+  },
+  paperTape: {
+    position: "absolute",
+    width: 66,
+    height: 18,
+    top: -9,
+    left: "50%",
+    marginLeft: -33,
+    opacity: 0.75,
+    transform: [{ rotate: "2deg" }],
+  },
+  paperTripHead: { flexDirection: "row", justifyContent: "space-between" },
+  paperKicker: { fontSize: 10, fontWeight: "800", marginBottom: 7 },
+  paperTitle: { fontSize: 27, fontWeight: "900", letterSpacing: -1.2 },
+  paperDate: { fontSize: 11, marginTop: 6 },
+  paperDoodle: { fontSize: 30, marginTop: 2, transform: [{ rotate: "12deg" }] },
+  paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginVertical: 17 },
+  paperStay: { flexDirection: "row", alignItems: "center" },
+  paperPin: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  paperStayLabel: { fontSize: 8, fontWeight: "700" },
+  paperStayName: { fontSize: 12, fontWeight: "800", marginTop: 3 },
+  paperCounts: {
+    flexDirection: "row",
+    gap: 18,
+    marginTop: 17,
+    paddingLeft: 44,
+  },
+  paperCount: { fontSize: 10, fontWeight: "700" },
+  pencilActions: { flexDirection: "row", gap: 8, marginTop: 13 },
+  noteTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 31,
+    marginBottom: 12,
+  },
+  noteTitleSmall: { fontSize: 9, fontWeight: "800", marginBottom: 4 },
+  noteTitle: { fontSize: 20, fontWeight: "900", letterSpacing: -0.6 },
+  memoPaper: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 15 },
+  memoRow: {
+    minHeight: 66,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+  },
+  memoCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    marginRight: 12,
+    transform: [{ rotate: "-3deg" }],
+  },
+  memoText: { fontSize: 12, fontWeight: "800" },
+  memoMeta: { fontSize: 9, marginTop: 4 },
   safe: {
     flex: 1,
     width: "100%",
