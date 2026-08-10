@@ -2661,6 +2661,8 @@ function Cooking() {
   const [activeId, setActiveId] = useState("mille");
   const [addingIngredient, setAddingIngredient] = useState(false);
   const [addingRecipe, setAddingRecipe] = useState(false);
+  const [aiImporting, setAiImporting] = useState(false);
+  const [aiResult, setAiResult] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
   const [importText, setImportText] = useState("");
@@ -2674,6 +2676,22 @@ function Cooking() {
     recipes.find((recipe) => recipe.id === activeId) || recipes[0];
   const ingredients = activeRecipe?.ingredients || [];
   const groups = Array.from(new Set(ingredients.map((item) => item.group)));
+  const myCookingIngredients = recipes.flatMap((recipe) =>
+    recipe.ingredients
+      .filter((item) => item.owner === "하늘")
+      .map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
+  );
+  const cookingPrompt = `아래 메모를 Daymo 요리 목록 형식으로 변환하라.
+규칙:
+1. 설명, 인사, 번호, 마크다운을 절대 쓰지 않는다.
+2. 각 요리의 첫 줄은 반드시: 요리 | 이름 | 메모
+3. 이어지는 재료는 반드시: 재료 | 이름 | 수량 | 분류 | 준비
+4. 준비 값은 하늘, 다온, 구매, 미정 중 하나만 쓴다.
+5. 모르는 값은 미정으로 쓰고, 구분자는 반드시 | 만 사용한다.
+6. 결과만 출력한다.
+
+[내 메모]
+여기에 만들 요리와 재료 메모를 붙여넣으세요.`;
   const addIngredient = () => {
     if (!name.trim() || !activeRecipe) return;
     const next = {
@@ -2710,6 +2728,56 @@ function Cooking() {
     setRecipeName("");
     setRecipeNote("");
     setAddingRecipe(false);
+  };
+  const copyCookingPrompt = async () => {
+    await Clipboard.setStringAsync(cookingPrompt);
+    Alert.alert(
+      "GPT용 프롬프트를 복사했어요",
+      "GPT에 붙여넣고 메모를 추가한 뒤, 결과를 Daymo에 붙여넣으세요.",
+    );
+  };
+  const pasteAiResult = async () => {
+    setAiResult(await Clipboard.getStringAsync());
+  };
+  const importAiRecipes = () => {
+    const stamp = Date.now();
+    const parsed: Recipe[] = [];
+    let currentRecipe: Recipe | null = null;
+    aiResult
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .forEach((line, index) => {
+        const [type, ...values] = line
+          .split("|")
+          .map((value) => value.trim());
+        if (type === "요리" && values[0]) {
+          currentRecipe = {
+            id: `ai-recipe-${stamp}-${index}`,
+            name: values[0],
+            note: values[1] || "메모 없음",
+            ingredients: [],
+          };
+          parsed.push(currentRecipe);
+          return;
+        }
+        if (type === "재료" && values[0] && currentRecipe) {
+          currentRecipe.ingredients.push({
+            id: `ai-ingredient-${stamp}-${index}`,
+            name: values[0],
+            quantity: values[1] || "미정",
+            group: values[2] || "기본",
+            owner: ["하늘", "다온", "구매", "미정"].includes(values[3])
+              ? values[3]
+              : "미정",
+          });
+        }
+      });
+    if (!parsed.length) return;
+    setRecipes((current) => [...current, ...parsed]);
+    setActiveId(parsed[0].id);
+    setAiResult("");
+    setAiImporting(false);
   };
   const deleteRecipe = () => {
     if (!activeRecipe) return;
@@ -2859,6 +2927,41 @@ function Cooking() {
             </Pressable>
           ))}
         </ScrollView>
+      )}
+      {myCookingIngredients.length > 0 && (
+        <View
+          style={[
+            styles.myCookingBox,
+            theme && {
+              backgroundColor: theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <View style={styles.myCookingHead}>
+            <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>내가 준비할 재료</Text>
+            <Text style={[styles.myCookingCount, theme && { color: theme.primary }]}>{myCookingIngredients.length}개</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.myCookingList}
+          >
+            {myCookingIngredients.map((item) => (
+              <Pressable
+                key={`${item.recipeId}-${item.id}`}
+                onPress={() => setActiveId(item.recipeId)}
+                style={[
+                  styles.myCookingChip,
+                  theme && { backgroundColor: theme.surfaceAlt },
+                ]}
+              >
+                <Text style={[styles.myCookingName, theme && { color: theme.text }]}>{item.name}</Text>
+                <Text style={[styles.myCookingMeta, theme && { color: theme.muted }]}>{item.recipe} · {item.quantity}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
       )}
       {!activeRecipe ? (
         <View
@@ -3133,6 +3236,29 @@ function Cooking() {
         onClose={() => setAddingRecipe(false)}
         onSubmit={addRecipe}
       >
+        <View
+          style={[
+            styles.aiRecipeCallout,
+            theme && {
+              backgroundColor: theme.surfaceAlt,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <View style={styles.aiRecipeCopy}>
+            <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>여러 요리를 한 번에 추가</Text>
+            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT가 정리한 요리와 재료를 붙여넣을 수 있어요.</Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              setAddingRecipe(false);
+              setAiImporting(true);
+            }}
+            style={[styles.aiRecipeButton, theme && { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>한꺼번에 추가</Text>
+          </Pressable>
+        </View>
         <DetailField
           label="요리 이름"
           value={recipeName}
@@ -3145,6 +3271,55 @@ function Cooking() {
           onChangeText={setRecipeNote}
           placeholder="예: 둘째 날 아침 · 남은 재료 활용"
         />
+      </DetailSheet>
+      <DetailSheet
+        visible={aiImporting}
+        title="GPT로 여러 요리 추가"
+        subtitle="프롬프트를 복사해 GPT에 요청하고 결과를 붙여넣으세요"
+        submit={aiResult.trim() ? "요리 목록 추가" : "GPT 결과를 붙여넣어 주세요"}
+        onClose={() => setAiImporting(false)}
+        onSubmit={importAiRecipes}
+      >
+        <View
+          style={[
+            styles.aiPromptBox,
+            theme && {
+              backgroundColor: theme.surfaceAlt,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <View style={styles.aiPromptHead}>
+            <View style={styles.aiRecipeCopy}>
+              <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>1. 형식 프롬프트 복사</Text>
+              <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>요리 이름과 재료 메모를 프롬프트 아래에 적으세요.</Text>
+            </View>
+            <Pressable onPress={copyCookingPrompt} style={styles.aiPromptCopyButton}>
+              <Text style={styles.aiPromptCopyText}>복사</Text>
+            </Pressable>
+          </View>
+          <Text numberOfLines={4} style={[styles.aiPromptPreview, theme && { color: theme.muted }]}>{cookingPrompt}</Text>
+        </View>
+        <View style={styles.aiPasteRow}>
+          <View>
+            <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>2. GPT 결과 가져오기</Text>
+            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>복사한 결과를 입력란에 바로 넣어요.</Text>
+          </View>
+          <Pressable
+            onPress={pasteAiResult}
+            style={[styles.aiRecipeButton, theme && { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>붙여넣기</Text>
+          </Pressable>
+        </View>
+        <DetailField
+          label="붙여넣은 결과"
+          value={aiResult}
+          onChangeText={setAiResult}
+          multiline
+          placeholder={"요리 | 김치볶음밥 | 둘째 날 아침\n재료 | 김치 | 1컵 | 기본 | 구매"}
+        />
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>여러 요리와 각 재료가 한 번에 추가됩니다.</Text>
       </DetailSheet>
       <DetailSheet
         visible={importing}
@@ -5200,6 +5375,81 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   recipeTabCountActive: { color: "#6A4C3B", backgroundColor: "#FBE0C4" },
+  myCookingBox: {
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#E5DED6",
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    marginBottom: 12,
+  },
+  myCookingHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 9,
+  },
+  myCookingTitle: { color: "#35333A", fontSize: 11, fontWeight: "900" },
+  myCookingCount: { color: "#D9685F", fontSize: 10, fontWeight: "900" },
+  myCookingList: { gap: 7, paddingRight: 4 },
+  myCookingChip: {
+    minWidth: 105,
+    borderRadius: 10,
+    backgroundColor: "#F6F2ED",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  myCookingName: { color: "#35333A", fontSize: 10, fontWeight: "900" },
+  myCookingMeta: { color: "#8C8580", fontSize: 8, fontWeight: "700", marginTop: 3 },
+  aiRecipeCallout: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5DED6",
+    backgroundColor: "#F6F2ED",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  aiRecipeCopy: { flex: 1, paddingRight: 10 },
+  aiRecipeTitle: { color: "#35333A", fontSize: 11, fontWeight: "900" },
+  aiRecipeText: { color: "#8C8580", fontSize: 8, fontWeight: "700", lineHeight: 13, marginTop: 3 },
+  aiRecipeButton: {
+    borderRadius: 10,
+    backgroundColor: "#F0EDFF",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  aiRecipeButtonText: { color: "#6556D8", fontSize: 9, fontWeight: "900" },
+  aiPromptBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5DED6",
+    backgroundColor: "#F6F2ED",
+    padding: 12,
+    marginBottom: 18,
+  },
+  aiPromptHead: { flexDirection: "row", alignItems: "center" },
+  aiPromptCopyButton: {
+    borderRadius: 9,
+    backgroundColor: "#17233D",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  aiPromptCopyText: { color: "#FFFFFF", fontSize: 9, fontWeight: "900" },
+  aiPromptPreview: {
+    color: "#777F8C",
+    fontSize: 8,
+    fontWeight: "700",
+    lineHeight: 13,
+    marginTop: 10,
+  },
+  aiPasteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   cookingNote: { color: "#9B7555", fontSize: 10, marginTop: 5 },
   deleteRecipe: {
     alignSelf: "center",
