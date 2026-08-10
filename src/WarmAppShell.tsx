@@ -238,7 +238,7 @@ function NotebookHome({
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[(s as any).paperStayLabel, { color: theme.muted }]}>
-              우리 숙소
+              숙소
             </Text>
             <Text style={[(s as any).paperStayName, { color: theme.text }]}>
               JS호텔 · 오후 3시 체크인
@@ -262,7 +262,7 @@ function NotebookHome({
         <HomeQuick
           theme={theme}
           icon="＋"
-          label="일정 쓰기"
+          label="일정 추가"
           tint={theme.primarySoft}
           color={theme.primary}
           onPress={() => open("schedule-add")}
@@ -270,7 +270,7 @@ function NotebookHome({
         <HomeQuick
           theme={theme}
           icon="⌖"
-          label="장소 모음"
+          label="저장 장소"
           tint={`${theme.secondary}20`}
           color={theme.secondary}
           onPress={() => open("places")}
@@ -287,15 +287,15 @@ function NotebookHome({
       <View style={(s as any).noteTitleRow}>
         <View>
           <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>
-            같이 확인해요
+            출발 전 확인
           </Text>
           <Text style={[(s as any).noteTitle, { color: theme.text }]}>
-            떠나기 전 메모
+            이번 여행 할 일
           </Text>
         </View>
         <Pressable onPress={goTrips}>
           <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>
-            여행 모두 보기
+            전체 보기
           </Text>
         </Pressable>
       </View>
@@ -309,20 +309,20 @@ function NotebookHome({
           theme={theme}
           color={theme.primary}
           text="숙소 예약 정보 확인"
-          meta="오늘 · 함께"
+          meta="오늘 · 공용"
           onPress={() => open()}
         />
         <MemoRow
           theme={theme}
           color={theme.accent}
           text="아직 안 챙긴 준비물 2개"
-          meta="나 1 · 동행 1"
+          meta="하늘 1 · 다온 1"
           onPress={() => open("preparation")}
         />
         <MemoRow
           theme={theme}
           color={theme.secondary}
-          text="후보 장소에서 일정 고르기"
+          text="저장한 장소에서 일정 고르기"
           meta="식당 5 · 카페 3"
           onPress={() => open("places")}
           last
@@ -499,7 +499,7 @@ function Home({
           <Text
             style={[(s as any).homeSectionEyebrow, { color: theme.accent }]}
           >
-            지금 함께 할 일
+            이번 여행 할 일
           </Text>
           <Text style={[(s as any).homeSectionTitle, { color: theme.text }]}>
             출발 전에 확인해요
@@ -560,7 +560,7 @@ function Home({
               아직 안 챙긴 준비물
             </Text>
             <Text style={[(s as any).homeActionMeta, { color: theme.muted }]}>
-              나 1 · 동행 1
+              하늘 1 · 다온 1
             </Text>
           </View>
           <Text style={[(s as any).homeActionDue, { color: theme.secondary }]}>
@@ -581,7 +581,7 @@ function Home({
           </View>
           <View style={(s as any).homeActionCopy}>
             <Text style={[(s as any).homeActionTitle, { color: theme.text }]}>
-              후보 장소에서 일정 고르기
+              저장한 장소에서 일정 고르기
             </Text>
             <Text style={[(s as any).homeActionMeta, { color: theme.muted }]}>
               식당 5 · 카페 3
@@ -658,7 +658,7 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
   const [place, setPlace] = useState("");
   const [tripStart, setTripStart] = useState("2026-09-12");
   const [tripEnd, setTripEnd] = useState("2026-09-14");
-  const [note, setNote] = useState("함께 만들 새로운 여행");
+  const [note, setNote] = useState("새 여행");
   const [newRegion, setNewRegion] = useState("서울");
   const filtered =
     filter === "예정"
@@ -1610,7 +1610,7 @@ function Trips({ open }: { open: () => void }) {
   const [creating, setCreating] = useState(false);
   const [place, setPlace] = useState("");
   const [date, setDate] = useState("9월 12일 — 14일");
-  const [note, setNote] = useState("함께 만들 새로운 여행");
+  const [note, setNote] = useState("새 여행");
   const visibleTrips =
     filter === "예정"
       ? items.slice(0, Math.max(1, items.length - 2))
@@ -2193,8 +2193,8 @@ function Together({
       >
         {panel === "members" && (
           <>
-            <Choice theme={theme} selected label="나 · 관리자" />
-            <Choice theme={theme} selected label="동행 · 편집 가능" />
+            <Choice theme={theme} selected label="하늘 · 관리자" />
+            <Choice theme={theme} selected label="다온 · 편집 가능" />
           </>
         )}
         {panel === "relationship" && (

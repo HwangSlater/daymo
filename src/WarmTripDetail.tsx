@@ -376,7 +376,7 @@ export function WarmTripDetail({
           <Text
             style={[styles.subtitle, appTheme && { color: appTheme.muted }]}
           >
-            사귄 지 1,038일째, 천천히 보내는 주말
+            함께 떠나는 2박 3일 여행
           </Text>
 
           <View
@@ -551,36 +551,16 @@ function TripOverview({
   };
   return (
     <View>
-      <View
-        style={[
-          styles.tripSummary,
-          theme && { backgroundColor: theme.surfaceAlt },
-        ]}
-      >
-        <View
-          style={[
-            styles.summaryDot,
-            theme && { backgroundColor: theme.secondary },
-          ]}
-        />
-        <Text
-          style={[styles.summaryLabel, theme && { color: theme.secondary }]}
-        >
-          여행 메모
-        </Text>
-        <Text
-          numberOfLines={1}
-          style={[styles.summaryText, theme && { color: theme.text }]}
-        >
-          가고 싶은 장소를 담아 여행 일정을 짜보세요.
-        </Text>
-      </View>
-
-      <SectionLabel
-        label="오늘의 흐름"
+      <TabIntro
+        number="01"
+        title="여행 일정"
+        caption="시간순으로 일정을 확인하고 바로 추가하세요"
+        meta={`${schedule.length}개 일정`}
         action="일정 추가"
-        onPress={() => setSheet("schedule")}
+        onAction={() => setSheet("schedule")}
       />
+
+      <SectionLabel label="일정" />
       <View
         style={[
           styles.timelineCard,
@@ -607,13 +587,13 @@ function TripOverview({
           <Text
             style={[styles.fullScheduleText, theme && { color: theme.text }]}
           >
-            전체 일정 {schedule.length}개 보기
+            전체 일정 보기 · {schedule.length}개
           </Text>
           <Text style={styles.fullScheduleArrow}>→</Text>
         </Pressable>
       </View>
 
-      <SectionLabel label="우리가 정한 것" />
+      <SectionLabel label="예약과 숙소" />
       <Pressable
         onPress={() => setSheet("reservation")}
         style={[
@@ -677,7 +657,7 @@ function TripOverview({
               밀푀유나베
             </Text>
             <Text style={[styles.smallText, theme && { color: theme.muted }]}>
-              요리 탭에서 관리
+              요리 탭에서 확인
             </Text>
           </Pressable>
         )}
@@ -694,7 +674,7 @@ function TripOverview({
         ]}
       >
         <View>
-          <Text style={styles.readyEyebrow}>떠나기 전에 같이</Text>
+          <Text style={styles.readyEyebrow}>출발 전 확인</Text>
           <Text style={[styles.readyText, theme && { color: theme.text }]}>
             준비물 3개가 남아 있어요.
           </Text>
@@ -704,7 +684,7 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "schedule"}
         title="일정 추가"
-        subtitle="장소와 지도까지 한 번에 남겨요"
+        subtitle="시간과 장소를 입력해 일정에 추가하세요"
         submit={
           planMapUrl.includes("naver.")
             ? "일정에 추가"
@@ -726,7 +706,7 @@ function TripOverview({
               {newPlanTitle || "어떤 일정인가요?"}
             </Text>
             <Text numberOfLines={1} style={styles.previewPlace}>
-              {planPlace || "장소를 함께 남겨보세요"}
+              {planPlace || "장소를 입력하세요"}
             </Text>
           </View>
         </View>
@@ -745,7 +725,7 @@ function TripOverview({
         <View style={styles.inlineFields}>
           <View style={styles.timeField}>
             <DetailField
-              label="시간 · 선택"
+              label="시간 (선택)"
               value={planTime}
               onChangeText={setPlanTime}
               placeholder="미정 가능"
@@ -959,7 +939,7 @@ function Places({
     if (!editingName) return;
     Alert.alert(
       "장소를 삭제할까요?",
-      `${editingName}을(를) 후보 목록에서 삭제합니다.`,
+      `${editingName}을(를) 저장한 장소에서 삭제합니다.`,
       [
         { text: "취소", style: "cancel" },
         {
@@ -1048,31 +1028,14 @@ function Places({
 
   return (
     <View>
-      <View
-        style={[
-          styles.placeSummary,
-          theme && { backgroundColor: theme.surfaceAlt },
-        ]}
-      >
-        <View
-          style={[
-            styles.summaryDot,
-            theme && { backgroundColor: theme.secondary },
-          ]}
-        />
-        <Text style={[styles.placeSummaryText, theme && { color: theme.text }]}>
-          후보 {places.filter((place) => place.status === "후보").length} · 일정{" "}
-          {places.filter((place) => place.status === "일정").length}
-        </Text>
-        <Text
-          style={[
-            styles.placeSummaryTotal,
-            theme && { color: theme.secondary },
-          ]}
-        >
-          총 {places.length}곳
-        </Text>
-      </View>
+      <TabIntro
+        number="02"
+        title="가고 싶은 장소"
+        caption="장소를 모아두고 정해진 곳은 일정에 추가하세요"
+        meta={`${places.length}곳 · 저장 ${places.filter((place) => place.status === "후보").length}`}
+        action="장소 추가"
+        onAction={openCreate}
+      />
       <View style={styles.placeToolbar}>
         <View style={styles.placeFilters}>
           {(["전체", "후보", "일정"] as const).map((item) => (
@@ -1093,48 +1056,11 @@ function Places({
                   filter === item && theme && { color: theme.primary },
                 ]}
               >
-                {item}
+                  {item === "후보" ? "저장" : item}
               </Text>
             </Pressable>
           ))}
         </View>
-        <Pressable onPress={openCreate} style={styles.placeAdd}>
-          <Text style={styles.placeAddText}>+ 장소</Text>
-        </Pressable>
-      </View>
-      <View style={styles.batchActions}>
-        <Pressable
-          onPress={copyPlaces}
-          style={[
-            styles.batchButton,
-            theme && {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.batchButtonText, theme && { color: theme.text }]}
-          >
-            목록 복사
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={openImport}
-          style={[
-            styles.batchButton,
-            theme && {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.batchButtonText, theme && { color: theme.text }]}
-          >
-            붙여넣기
-          </Text>
-        </Pressable>
       </View>
       <View
         style={[
@@ -1277,7 +1203,7 @@ function Places({
                 onPress={() => openEdit(place)}
                 style={styles.manageAction}
               >
-                <Text style={styles.manageActionText}>관리</Text>
+                <Text style={styles.manageActionText}>수정</Text>
               </Pressable>
               <Pressable
                 onPress={() => Linking.openURL(place.mapUrl)}
@@ -1312,6 +1238,18 @@ function Places({
           </View>
         ))}
       </View>
+      <View style={[styles.packingListTools, theme && { borderTopColor: theme.border }]}>
+        <View style={styles.packingListToolsCopy}>
+          <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>목록 한꺼번에 수정</Text>
+          <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>복사해 수정한 뒤 다시 붙여넣을 수 있어요</Text>
+        </View>
+        <Pressable onPress={copyPlaces} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
+          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>복사</Text>
+        </Pressable>
+        <Pressable onPress={openImport} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
+          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>붙여넣기</Text>
+        </Pressable>
+      </View>
       <DetailSheet
         visible={planningPlace !== null}
         title="일정에 담기"
@@ -1342,7 +1280,7 @@ function Places({
           onChange={setPlanningDay}
         />
         <DetailField
-          label="시간 · 선택"
+          label="시간 (선택)"
           value={planningTime}
           onChangeText={setPlanningTime}
           placeholder="시간 미정 가능"
@@ -1350,13 +1288,13 @@ function Places({
       </DetailSheet>
       <DetailSheet
         visible={adding}
-        title={editingName ? "장소 관리" : "가볼 장소 추가"}
-        subtitle="내가 정한 태그로 후보를 모아두세요"
+        title={editingName ? "장소 수정" : "장소 추가"}
+        subtitle="장소 정보와 태그를 입력하세요"
         submit={
           mapUrl.includes("naver.")
             ? editingName
               ? "변경사항 저장"
-              : "후보 장소에 저장"
+              : "장소 저장"
             : "네이버 지도 링크를 입력해 주세요"
         }
         destructiveLabel={editingName ? "장소 삭제" : undefined}
@@ -1394,7 +1332,7 @@ function Places({
           onChange={setCategory}
         />
         <View style={styles.tagEditor}>
-          <Text style={styles.detailFieldLabel}>태그 · 선택</Text>
+          <Text style={styles.detailFieldLabel}>태그</Text>
           <View style={styles.tagSuggestions}>
             {["숙소 근처", "웨이팅", "예약", "가성비", "비 오는 날"].map(
               (tag) => (
@@ -1497,8 +1435,8 @@ function Places({
           placeholder="장소마다 한 줄씩 붙여넣으세요"
         />
         <Text style={styles.settingHint}>
-          ‘교체’는 현재 목록을 지우고 새 목록으로 바꿔요. 일정 상태는 안전을
-          위해 후보로 들어갑니다.
+          ‘교체’는 현재 목록을 지우고 새 목록으로 바꿔요. 붙여넣은 장소는
+          저장한 장소로 추가됩니다.
         </Text>
       </DetailSheet>
     </View>
@@ -1527,6 +1465,7 @@ function Preparation({
     "전체" | PackingItem["owner"]
   >("전체");
   const [tagFilter, setTagFilter] = useState("전체 태그");
+  const [tagPicker, setTagPicker] = useState(false);
   const [collapsedOwners, setCollapsedOwners] = useState<
     PackingItem["owner"][]
   >(["동행", "함께", "미정"]);
@@ -1561,16 +1500,17 @@ function Preparation({
     "전체 태그",
     ...Array.from(new Set(items.flatMap((item) => packingTags(item)))),
   ];
-  const ownerFilterOptions: {
-    label: string;
-    value: "전체" | PackingItem["owner"];
-  }[] = [
-    { label: "전체", value: "전체" },
-    { label: "하늘", value: "나" },
-    { label: "다온", value: "동행" },
-    { label: "공용", value: "함께" },
-    { label: "미정", value: "미정" },
-  ];
+  const draftPackingTags = tagText
+    .split(/[,#\n]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  const availableTags = managementTags.slice(1);
+  const quickTags = Array.from(
+    new Set([
+      ...(tagFilter !== "전체 태그" ? [tagFilter] : []),
+      ...availableTags,
+    ]),
+  ).slice(0, 4);
   const selectOwnerFilter = (nextOwner: "전체" | PackingItem["owner"]) => {
     setOwnerFilter(nextOwner);
     if (nextOwner !== "전체") {
@@ -1585,10 +1525,6 @@ function Preparation({
       .map((name) => name.trim())
       .filter(Boolean);
     if (!parsed.length) return;
-    const customTags = tagText
-      .split(/[,#\n]/)
-      .map((tag) => tag.trim())
-      .filter(Boolean);
     const stamp = Date.now();
     setItems((current) => [
       ...current,
@@ -1597,7 +1533,7 @@ function Preparation({
         name,
         quantity: quantity.trim(),
         owner,
-        tags: customTags,
+        tags: draftPackingTags,
       })),
     ]);
     setNames("");
@@ -1674,48 +1610,21 @@ function Preparation({
 
   return (
     <View>
-      <View
-        style={[
-          styles.packingOverview,
-          theme && {
-            backgroundColor: theme.surface,
-            borderColor: theme.border,
-          },
-        ]}
-      >
-        <View>
-          <Text
-            style={[
-              styles.packingOverviewLabel,
-              theme && { color: theme.muted },
-            ]}
-          >
-            함께 준비하는 중
-          </Text>
-          <Text
-            style={[
-              styles.packingOverviewValue,
-              theme && { color: theme.text },
-            ]}
-          >
-            {completedCount}
-            <Text style={styles.packingOverviewTotal}>
-              {" "}
-              / {items.length} 완료
-            </Text>
-          </Text>
-        </View>
-        <View style={styles.packingPercent}>
-          <Text style={styles.packingPercentText}>{percentage}%</Text>
-        </View>
-      </View>
+      <TabIntro
+        number="03"
+        title="준비물"
+        caption="담당을 정하고 챙긴 준비물을 체크하세요"
+        meta={`${completedCount}/${items.length} 완료 · ${percentage}%`}
+        action="준비물 추가"
+        onAction={() => setAdding(true)}
+      />
       <View style={styles.compactTrack}>
         <View style={[styles.progressFill, { width: `${percentage}%` }]} />
       </View>
       <View style={styles.packingManageHead}>
         <View>
-          <Text style={[styles.packingManageTitle, theme && { color: theme.text }]}>담당별 관리</Text>
-          <Text style={[styles.packingManageHint, theme && { color: theme.muted }]}>담당을 누르면 해당 준비물만 모아 볼 수 있어요</Text>
+          <Text style={[styles.packingManageTitle, theme && { color: theme.text }]}>담당별 준비물</Text>
+          <Text style={[styles.packingManageHint, theme && { color: theme.muted }]}>이름을 누르면 해당 준비물만 보여요</Text>
         </View>
         <Pressable
           onPress={() => selectOwnerFilter("전체")}
@@ -1799,14 +1708,6 @@ function Preparation({
           );
         })}
       </View>
-      <View style={styles.packingActionRow}>
-        <Pressable
-          onPress={() => setAdding(true)}
-          style={[styles.packingPrimaryAction, theme && { backgroundColor: theme.navigation }]}
-        >
-          <Text style={styles.packingPrimaryActionText}>+ 준비물 추가</Text>
-        </Pressable>
-      </View>
       <View
         style={[
           styles.packingFilterBoard,
@@ -1814,23 +1715,21 @@ function Preparation({
         ]}
       >
         <View style={styles.packingFilterLine}>
-          <Text style={[styles.packingFilterLabel, theme && { color: theme.muted }]}>담당</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingFilters}>
-            {ownerFilterOptions.map((option) => {
-              const active = ownerFilter === option.value;
-              return <Pressable key={option.value} onPress={() => selectOwnerFilter(option.value)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{option.label}</Text></Pressable>;
-            })}
-          </ScrollView>
-        </View>
-        <View style={[styles.packingFilterRule, theme && { backgroundColor: theme.border }]} />
-        <View style={styles.packingFilterLine}>
           <Text style={[styles.packingFilterLabel, theme && { color: theme.muted }]}>태그</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingFilters}>
-            {managementTags.map((tag) => {
+          <ScrollView style={styles.packingFilterScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingFilters}>
+            {["전체 태그", ...quickTags.slice(0, 2)].map((tag) => {
               const active = tagFilter === tag;
-              return <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{tag === "전체 태그" ? tag : `#${tag}`}</Text></Pressable>;
+              return <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{tag === "전체 태그" ? "모든 태그" : `#${tag}`}</Text></Pressable>;
             })}
           </ScrollView>
+          {availableTags.length > 2 && (
+            <Pressable
+              onPress={() => setTagPicker(true)}
+              style={[styles.packingFilterMore, theme && { borderColor: theme.border }]}
+            >
+              <Text style={[styles.packingFilterMoreText, theme && { color: theme.text }]}>전체 {availableTags.length}</Text>
+            </Pressable>
+          )}
         </View>
         <View style={[styles.packingFilterRule, theme && { backgroundColor: theme.border }]} />
         <View style={styles.packingFilterLine}>
@@ -2075,7 +1974,7 @@ function Preparation({
       {visibleItems.length === 0 && (
         <View style={styles.emptyPacking}>
           <Text style={styles.emptyPackingText}>
-            조건에 맞는 준비물이 없어요.
+            선택한 조건의 준비물이 없어요.
           </Text>
         </View>
       )}
@@ -2089,12 +1988,12 @@ function Preparation({
           <Text
             style={[styles.packingListToolsTitle, theme && { color: theme.text }]}
           >
-            목록 편집 도구
+            목록 한꺼번에 수정
           </Text>
           <Text
             style={[styles.packingListToolsHint, theme && { color: theme.muted }]}
           >
-            메모에서 한꺼번에 수정할 때 사용하세요
+            복사해 수정한 뒤 다시 붙여넣을 수 있어요
           </Text>
         </View>
         <Pressable
@@ -2111,6 +2010,45 @@ function Preparation({
         </Pressable>
       </View>
       <DetailSheet
+        visible={tagPicker}
+        title="태그 선택"
+        subtitle="보고 싶은 준비물의 태그를 선택하세요"
+        submit="닫기"
+        onClose={() => setTagPicker(false)}
+        onSubmit={() => setTagPicker(false)}
+      >
+        <View style={styles.tagPickerGrid}>
+          {["전체 태그", ...availableTags].map((tag) => {
+            const active = tagFilter === tag;
+            const count =
+              tag === "전체 태그"
+                ? items.length
+                : items.filter((item) => packingTags(item).includes(tag)).length;
+            return (
+              <Pressable
+                key={tag}
+                onPress={() => {
+                  setTagFilter(tag);
+                  setTagPicker(false);
+                }}
+                style={[
+                  styles.tagPickerItem,
+                  theme && {
+                    backgroundColor: active ? theme.primarySoft : theme.surface,
+                    borderColor: active ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.tagPickerName, theme && { color: active ? theme.primary : theme.text }]}>
+                  {tag === "전체 태그" ? tag : `# ${tag}`}
+                </Text>
+                <Text style={[styles.tagPickerCount, theme && { color: theme.muted }]}>{count}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </DetailSheet>
+      <DetailSheet
         visible={Boolean(assigningItem)}
         title="담당 지정"
         subtitle={
@@ -2118,7 +2056,7 @@ function Preparation({
             ? `‘${assigningItem.name}’을(를) 누가 챙길지 선택하세요`
             : undefined
         }
-        submit="선택하지 않고 닫기"
+        submit="취소"
         onClose={() => setAssigningItem(null)}
         onSubmit={() => setAssigningItem(null)}
       >
@@ -2128,7 +2066,7 @@ function Preparation({
             const descriptions: Record<PackingItem["owner"], string> = {
               나: "하늘의 준비물로 이동",
               동행: "다온의 준비물로 이동",
-              함께: "둘이 함께 확인",
+              함께: "공용 준비물로 이동",
               미정: "나중에 담당 정하기",
             };
             return (
@@ -2212,8 +2150,8 @@ function Preparation({
       </DetailSheet>
       <DetailSheet
         visible={adding}
-        title="준비물 함께 추가"
-        subtitle="여러 개를 적고 담당과 태그를 정하세요"
+        title="준비물 추가"
+        subtitle="준비물과 담당, 태그를 입력하세요"
         submit={
           names.split(/[\n,]/).filter((name) => name.trim()).length
             ? `${names.split(/[\n,]/).filter((name) => name.trim()).length}개 추가`
@@ -2223,7 +2161,7 @@ function Preparation({
         onSubmit={submit}
       >
         <DetailField
-          label="준비물 · 여러 개 가능"
+          label="준비물 이름 (여러 개 입력 가능)"
           value={names}
           onChangeText={setNames}
           placeholder={"충전기, 안경, 갈아입을 옷"}
@@ -2250,13 +2188,35 @@ function Preparation({
           </View>
         </View>
         <DetailField
-          label="태그 · 쉼표로 구분"
+          label="태그 (쉼표로 구분)"
           value={tagText}
           onChangeText={setTagText}
           placeholder="예: 전자기기, 출발 전, 숙소"
         />
+        {draftPackingTags.length > 0 && (
+          <View style={styles.draftTags}>
+            {draftPackingTags.map((tag) => (
+              <Pressable
+                key={tag}
+                onPress={() =>
+                  setTagText(
+                    draftPackingTags
+                      .filter((currentTag) => currentTag !== tag)
+                      .join(", "),
+                  )
+                }
+                style={[
+                  styles.draftTag,
+                  theme && { backgroundColor: theme.primarySoft },
+                ]}
+              >
+                <Text style={[styles.draftTagText, theme && { color: theme.primary }]}># {tag} ×</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         <DetailField
-          label="수량 · 선택"
+          label="수량 (선택)"
           value={quantity}
           onChangeText={setQuantity}
           placeholder="예: 각 2개, 250g"
@@ -2279,14 +2239,14 @@ function Preparation({
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="준비물 | 수량 | 담당 | 준비 방식 | 확인 시점"
+          label="준비물 | 수량 | 담당 | #태그"
           value={importText}
           onChangeText={setImportText}
           multiline
           placeholder="준비물마다 한 줄씩 붙여넣으세요"
         />
         <Text style={styles.settingHint}>
-          담당: 함께·나·동행·미정 / 준비 방식: 집에서·미리 구매·현지 구매
+          담당: 하늘·다온·공용·미정 / 태그는 #으로 여러 개 적을 수 있어요
         </Text>
       </DetailSheet>
     </View>
@@ -2320,35 +2280,35 @@ function Cooking() {
           name: "배추",
           quantity: "1/4통",
           group: "기본",
-          owner: "현지 구매",
+          owner: "구매",
         },
         {
           id: "c2",
           name: "깻잎",
           quantity: "20장",
           group: "기본",
-          owner: "동행",
+          owner: "다온",
         },
         {
           id: "c3",
           name: "소고기",
           quantity: "250g",
           group: "기본",
-          owner: "현지 구매",
+          owner: "구매",
         },
         {
           id: "c4",
           name: "코인육수",
           quantity: "2개",
           group: "육수",
-          owner: "동행",
+          owner: "다온",
         },
         {
           id: "c5",
           name: "양파",
           quantity: "1/2개",
           group: "소스",
-          owner: "나",
+          owner: "하늘",
         },
         {
           id: "c6",
@@ -2356,6 +2316,90 @@ function Cooking() {
           quantity: "조금",
           group: "소스",
           owner: "미정",
+        },
+      ],
+    },
+    {
+      id: "clam",
+      name: "바지락 술찜",
+      note: "둘째 날 저녁 · 간단한 안주",
+      ingredients: [
+        {
+          id: "clam-1",
+          name: "바지락",
+          quantity: "500g",
+          group: "기본",
+          owner: "구매",
+        },
+        {
+          id: "clam-2",
+          name: "마늘",
+          quantity: "6알",
+          group: "기본",
+          owner: "하늘",
+        },
+        {
+          id: "clam-3",
+          name: "버터",
+          quantity: "20g",
+          group: "소스",
+          owner: "다온",
+        },
+        {
+          id: "clam-4",
+          name: "화이트와인",
+          quantity: "100ml",
+          group: "소스",
+          owner: "구매",
+        },
+        {
+          id: "clam-5",
+          name: "페페론치노",
+          quantity: "3개",
+          group: "양념",
+          owner: "하늘",
+        },
+      ],
+    },
+    {
+      id: "toast",
+      name: "프렌치토스트",
+      note: "마지막 날 아침 · 체크아웃 전에",
+      ingredients: [
+        {
+          id: "toast-1",
+          name: "식빵",
+          quantity: "4장",
+          group: "기본",
+          owner: "구매",
+        },
+        {
+          id: "toast-2",
+          name: "달걀",
+          quantity: "2개",
+          group: "반죽",
+          owner: "구매",
+        },
+        {
+          id: "toast-3",
+          name: "우유",
+          quantity: "150ml",
+          group: "반죽",
+          owner: "다온",
+        },
+        {
+          id: "toast-4",
+          name: "메이플 시럽",
+          quantity: "1병",
+          group: "토핑",
+          owner: "하늘",
+        },
+        {
+          id: "toast-5",
+          name: "딸기",
+          quantity: "1팩",
+          group: "토핑",
+          owner: "구매",
         },
       ],
     },
@@ -2513,31 +2557,14 @@ function Cooking() {
   };
   return (
     <View>
-      <View
-        style={[
-          styles.recipeHead,
-          theme && { backgroundColor: theme.surfaceAlt },
-        ]}
-      >
-        <View>
-          <Text
-            style={[styles.recipeHeadTitle, theme && { color: theme.text }]}
-          >
-            요리 {recipes.length}개
-          </Text>
-          <Text
-            style={[styles.recipeHeadCopy, theme && { color: theme.muted }]}
-          >
-            메뉴마다 재료를 따로 관리해요.
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => setAddingRecipe(true)}
-          style={styles.recipeAdd}
-        >
-          <Text style={styles.recipeAddText}>+ 요리 추가</Text>
-        </Pressable>
-      </View>
+      <TabIntro
+        number="04"
+        title="여행 요리"
+        caption="만들 요리와 필요한 재료를 정리하세요"
+        meta={`${recipes.length}개 메뉴`}
+        action="요리 추가"
+        onAction={() => setAddingRecipe(true)}
+      />
       {recipes.length > 0 && (
         <ScrollView
           horizontal
@@ -2609,7 +2636,7 @@ function Cooking() {
             ]}
           >
             <View>
-              <Text style={styles.cookingEyebrow}>이번 여행의 요리</Text>
+              <Text style={styles.cookingEyebrow}>선택한 요리</Text>
               <Text
                 style={[styles.cookingTitle, theme && { color: theme.text }]}
               >
@@ -2628,47 +2655,13 @@ function Cooking() {
           </View>
           <View style={styles.cookingToolbar}>
             <Text style={[styles.cookingTip, theme && { color: theme.muted }]}>
-              주방에서 쓸 재료만 따로 관리해요.
+              이 요리에 필요한 재료예요.
             </Text>
             <Pressable
               onPress={() => setAddingIngredient(true)}
               style={styles.placeAdd}
             >
               <Text style={styles.placeAddText}>+ 재료</Text>
-            </Pressable>
-          </View>
-          <View style={styles.batchActions}>
-            <Pressable
-              onPress={copyCooking}
-              style={[
-                styles.batchButton,
-                theme && {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Text
-                style={[styles.batchButtonText, theme && { color: theme.text }]}
-              >
-                목록 복사
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={openImport}
-              style={[
-                styles.batchButton,
-                theme && {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <Text
-                style={[styles.batchButtonText, theme && { color: theme.text }]}
-              >
-                붙여넣기
-              </Text>
             </Pressable>
           </View>
           {groups.map((section) => (
@@ -2735,12 +2728,24 @@ function Cooking() {
           <Pressable onPress={deleteRecipe} style={styles.deleteRecipe}>
             <Text style={styles.deleteRecipeText}>이 요리 삭제</Text>
           </Pressable>
+          <View style={[styles.packingListTools, theme && { borderTopColor: theme.border }]}>
+            <View style={styles.packingListToolsCopy}>
+              <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>목록 한꺼번에 수정</Text>
+              <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>복사해 수정한 뒤 다시 붙여넣을 수 있어요</Text>
+            </View>
+            <Pressable onPress={copyCooking} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
+              <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>복사</Text>
+            </Pressable>
+            <Pressable onPress={openImport} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
+              <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>붙여넣기</Text>
+            </Pressable>
+          </View>
         </>
       )}
       <DetailSheet
         visible={addingIngredient}
         title="요리 재료 추가"
-        subtitle="준비물과 섞이지 않고 이 요리에만 추가돼요"
+        subtitle="재료 정보와 준비할 사람을 입력하세요"
         submit={name.trim() ? "재료 추가" : "재료 이름을 입력해 주세요"}
         onClose={() => setAddingIngredient(false)}
         onSubmit={addIngredient}
@@ -2757,23 +2762,23 @@ function Cooking() {
           onChangeText={setQuantity}
           placeholder="예: 1봉"
         />
-        <OptionField
+        <DetailField
           label="분류"
-          options={["기본", "추가", "육수", "소스"]}
           value={group}
-          onChange={setGroup}
+          onChangeText={setGroup}
+          placeholder="예: 채소, 양념, 토핑"
         />
         <OptionField
-          label="담당·구매"
-          options={["미정", "나", "동행", "현지 구매"]}
+          label="누가 준비하나요?"
+          options={["미정", "하늘", "다온", "구매"]}
           value={owner}
           onChange={setOwner}
         />
       </DetailSheet>
       <DetailSheet
         visible={addingRecipe}
-        title="새 요리 추가"
-        subtitle="먹을 메뉴를 먼저 만들고 재료를 채워보세요"
+        title="요리 추가"
+        subtitle="만들 요리의 이름과 메모를 입력하세요"
         submit={recipeName.trim() ? "요리 만들기" : "요리 이름을 입력해 주세요"}
         onClose={() => setAddingRecipe(false)}
         onSubmit={addRecipe}
@@ -2785,7 +2790,7 @@ function Cooking() {
           placeholder="예: 김치볶음밥"
         />
         <DetailField
-          label="한 줄 메모 · 선택"
+          label="메모 (선택)"
           value={recipeNote}
           onChangeText={setRecipeNote}
           placeholder="예: 둘째 날 아침 · 남은 재료 활용"
@@ -2823,11 +2828,11 @@ function Memories() {
   const theme = useContext(DetailThemeContext);
   const [notes, setNotes] = useState([
     {
-      author: "동행 · 오늘 10:42",
+      author: "다온 · 오늘 10:42",
       body: "육수 재료는 내가 미리 1.5배로 만들어갈게!",
     },
     {
-      author: "나 · 어제 22:15",
+      author: "하늘 · 어제 22:15",
       body: "은행골은 일요일 13:30으로 생각하고 있어요.",
     },
   ]);
@@ -2844,7 +2849,7 @@ function Memories() {
   const addNote = () => {
     if (!draft.trim()) return;
     setNotes((current) => [
-      { author: "나 · 방금", body: draft.trim() },
+      { author: "하늘 · 방금", body: draft.trim() },
       ...current,
     ]);
     setDraft("");
@@ -2853,34 +2858,17 @@ function Memories() {
   const addPhoto = () => setPhotos((current) => ["#19B6A3", ...current]);
   return (
     <View>
-      <View
-        style={[
-          styles.memorySummary,
-          theme && {
-            backgroundColor: theme.surface,
-            borderColor: theme.border,
-          },
-        ]}
-      >
-        <View>
-          <Text
-            style={[styles.memorySummaryTitle, theme && { color: theme.text }]}
-          >
-            이번 여행의 기록
-          </Text>
-          <Text
-            style={[styles.memorySummaryMeta, theme && { color: theme.muted }]}
-          >
-            사진 {photos.length}장 · 메모 {notes.length}개
-          </Text>
-        </View>
-        <Pressable onPress={addPhoto} style={styles.memoryButton}>
-          <Text style={styles.memoryButtonText}>+ 사진</Text>
-        </Pressable>
-      </View>
+      <TabIntro
+        number="05"
+        title="여행 기록"
+        caption="사진과 메모로 여행의 순간을 남겨보세요"
+        meta={`사진 ${photos.length}장 · 메모 ${notes.length}개`}
+        action="사진 추가"
+        onAction={addPhoto}
+      />
       <SectionLabel
-        label="함께 남긴 말"
-        action="메모 쓰기"
+        label="여행 메모"
+        action="메모 추가"
         onPress={() => setWriting(true)}
       />
       {notes.map((note, index) => (
@@ -2903,7 +2891,7 @@ function Memories() {
           </Text>
         </View>
       ))}
-      <SectionLabel label="지난 여행의 색" />
+      <SectionLabel label="여행 사진" />
       <View style={styles.memoryGrid}>
         {photos.map((color, index) => (
           <View
@@ -2918,7 +2906,7 @@ function Memories() {
       </View>
       <DetailSheet
         visible={writing}
-        title="함께 남길 메모"
+        title="메모 추가"
         submit="메모 저장"
         onClose={() => setWriting(false)}
         onSubmit={addNote}
@@ -2931,6 +2919,60 @@ function Memories() {
           multiline
         />
       </DetailSheet>
+    </View>
+  );
+}
+
+function TabIntro({
+  number,
+  title,
+  caption,
+  meta,
+  action,
+  onAction,
+}: {
+  number: string;
+  title: string;
+  caption: string;
+  meta: string;
+  action: string;
+  onAction: () => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View
+      style={[
+        styles.tabIntro,
+        theme && { borderBottomColor: theme.border },
+      ]}
+    >
+      <View
+        style={[
+          styles.tabIntroMark,
+          theme && { backgroundColor: theme.primarySoft },
+        ]}
+      >
+        <Text style={[styles.tabIntroMarkText, theme && { color: theme.primary }]}>
+          {number}
+        </Text>
+      </View>
+      <View style={styles.tabIntroCopy}>
+        <Text style={[styles.tabIntroTitle, theme && { color: theme.text }]}>
+          {title}
+        </Text>
+        <Text style={[styles.tabIntroCaption, theme && { color: theme.muted }]}>
+          {caption}
+        </Text>
+        <Text style={[styles.tabIntroMeta, theme && { color: theme.primary }]}>
+          {meta}
+        </Text>
+      </View>
+      <Pressable
+        onPress={onAction}
+        style={[styles.tabIntroAction, theme && { backgroundColor: theme.primarySoft }]}
+      >
+        <Text style={[styles.tabIntroActionText, theme && { color: theme.primary }]}>＋ {action}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -4297,7 +4339,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: "hidden",
     backgroundColor: "#D9D4F6",
-    marginTop: 9,
+    marginTop: 3,
   },
   memorySummary: {
     minHeight: 58,
@@ -4338,8 +4380,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 19,
-    marginBottom: 9,
+    marginTop: 10,
+    marginBottom: 7,
     paddingHorizontal: 2,
   },
   packingManageTitle: { fontSize: 14, fontWeight: "900" },
@@ -4400,9 +4442,17 @@ const styles = StyleSheet.create({
   },
   packingFilterLine: { minHeight: 42, flexDirection: "row", alignItems: "center" },
   packingFilterLabel: { width: 38, fontSize: 9, fontWeight: "900" },
+  packingFilterScroll: { flex: 1 },
   packingFilterRule: { height: StyleSheet.hairlineWidth },
   packingFilterChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
   packingFilterChipText: { fontSize: 9, fontWeight: "800" },
+  packingFilterMore: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  packingFilterMoreText: { fontSize: 9, fontWeight: "900" },
   packingFilters: { flexDirection: "row", gap: 6 },
   packingList: { gap: 12 },
   packingOwnerSection: {
@@ -4493,6 +4543,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   packingToolButtonText: { fontSize: 9, fontWeight: "900" },
+  tagPickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingBottom: 8 },
+  tagPickerItem: {
+    width: "48.7%",
+    minHeight: 54,
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  tagPickerName: { fontSize: 11, fontWeight: "900", flex: 1 },
+  tagPickerCount: { fontSize: 9, fontWeight: "800" },
   assignmentOptions: { gap: 8, paddingBottom: 8 },
   assignmentOption: {
     minHeight: 68,
@@ -4602,6 +4665,37 @@ const styles = StyleSheet.create({
     marginTop: -6,
     marginBottom: 16,
   },
+  tabIntro: {
+    minHeight: 78,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingBottom: 10,
+    marginBottom: 8,
+  },
+  tabIntroMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 11,
+    transform: [{ rotate: "-3deg" }],
+  },
+  tabIntroMarkText: { fontSize: 10, fontWeight: "900" },
+  tabIntroCopy: { flex: 1, paddingRight: 8 },
+  tabIntroTitle: { fontSize: 17, fontWeight: "900", letterSpacing: -.5 },
+  tabIntroCaption: { fontSize: 9, lineHeight: 14, fontWeight: "700", marginTop: 3 },
+  tabIntroMeta: { fontSize: 9, fontWeight: "900", marginTop: 6 },
+  tabIntroAction: {
+    height: 34,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabIntroActionPlus: { color: "#FFFFFF", fontSize: 16, lineHeight: 17, fontWeight: "700" },
+  tabIntroActionText: { fontSize: 10, fontWeight: "900" },
   batchActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -4954,14 +5048,14 @@ Object.assign(styles, {
     left: 13,
     width: 1,
   },
-  page: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 88 },
+  page: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 88 },
   date: { fontSize: 10, fontWeight: "800", letterSpacing: 0, marginBottom: 6 },
   title: { fontSize: 29, fontWeight: "900", letterSpacing: -1.2 },
   subtitle: { fontSize: 11, marginTop: 6 },
   modeSwitch: {
     flexDirection: "row",
-    marginTop: 22,
-    marginBottom: 18,
+    marginTop: 16,
+    marginBottom: 10,
     padding: 0,
     borderRadius: 0,
     borderBottomWidth: 1,
@@ -4993,8 +5087,8 @@ Object.assign(styles, {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 23,
-    marginBottom: 10,
+    marginTop: 8,
+    marginBottom: 8,
   },
   sectionTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5 },
   timelineCard: { borderRadius: 10, padding: 16, borderWidth: 1 },
