@@ -2661,6 +2661,8 @@ function Cooking() {
   const [activeId, setActiveId] = useState("mille");
   const [addingIngredient, setAddingIngredient] = useState(false);
   const [addingRecipe, setAddingRecipe] = useState(false);
+  const [editingIngredient, setEditingIngredient] = useState<CookingItem | null>(null);
+  const [editingRecipe, setEditingRecipe] = useState(false);
   const [aiImporting, setAiImporting] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [showMyIngredients, setShowMyIngredients] = useState(false);
@@ -2704,18 +2706,61 @@ function Cooking() {
       owner,
     };
     setRecipes((current) =>
-      current.map((recipe) =>
-        recipe.id === activeRecipe.id
-          ? { ...recipe, ingredients: [...recipe.ingredients, next] }
-          : recipe,
-      ),
+      current.map((recipe) => {
+        if (recipe.id !== activeRecipe.id) return recipe;
+        return {
+          ...recipe,
+          ingredients: editingIngredient
+            ? recipe.ingredients.map((item) =>
+                item.id === editingIngredient.id ? { ...next, id: item.id } : item,
+              )
+            : [...recipe.ingredients, next],
+        };
+      }),
     );
     setName("");
     setQuantity("");
+    setGroup("기본");
+    setOwner("미정");
+    setEditingIngredient(null);
     setAddingIngredient(false);
+  };
+  const openIngredientEdit = (item: CookingItem) => {
+    setEditingIngredient(item);
+    setName(item.name);
+    setQuantity(item.quantity);
+    setGroup(item.group);
+    setOwner(item.owner);
+    setAddingIngredient(true);
+  };
+  const closeIngredientSheet = () => {
+    setAddingIngredient(false);
+    setEditingIngredient(null);
+    setName("");
+    setQuantity("");
+    setGroup("기본");
+    setOwner("미정");
   };
   const addRecipe = () => {
     if (!recipeName.trim()) return;
+    if (editingRecipe && activeRecipe) {
+      setRecipes((current) =>
+        current.map((recipe) =>
+          recipe.id === activeRecipe.id
+            ? {
+                ...recipe,
+                name: recipeName.trim(),
+                note: recipeNote.trim() || "메모 없음",
+              }
+            : recipe,
+        ),
+      );
+      setRecipeName("");
+      setRecipeNote("");
+      setEditingRecipe(false);
+      setAddingRecipe(false);
+      return;
+    }
     const id = `recipe-${Date.now()}`;
     setRecipes((current) => [
       ...current,
@@ -2730,6 +2775,19 @@ function Cooking() {
     setRecipeName("");
     setRecipeNote("");
     setAddingRecipe(false);
+  };
+  const openRecipeEdit = () => {
+    if (!activeRecipe) return;
+    setRecipeName(activeRecipe.name);
+    setRecipeNote(activeRecipe.note);
+    setEditingRecipe(true);
+    setAddingRecipe(true);
+  };
+  const closeRecipeSheet = () => {
+    setAddingRecipe(false);
+    setEditingRecipe(false);
+    setRecipeName("");
+    setRecipeNote("");
   };
   const copyCookingPrompt = async () => {
     await Clipboard.setStringAsync(cookingPrompt);
@@ -3003,12 +3061,17 @@ function Cooking() {
             <Text style={[styles.cookingTip, theme && { color: theme.muted }]}>
               이 요리에 필요한 재료예요.
             </Text>
-            <Pressable
-              onPress={() => setAddingIngredient(true)}
-              style={styles.placeAdd}
-            >
-              <Text style={styles.placeAddText}>+ 재료</Text>
-            </Pressable>
+            <View style={styles.cookingToolbarActions}>
+              <Pressable onPress={openRecipeEdit} style={styles.cookingEditButton}>
+                <Text style={styles.cookingEditButtonText}>요리 수정</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setAddingIngredient(true)}
+                style={styles.placeAdd}
+              >
+                <Text style={styles.placeAddText}>+ 재료</Text>
+              </Pressable>
+            </View>
           </View>
           {groups.map((section) => (
             <View
@@ -3039,6 +3102,7 @@ function Cooking() {
                 .map((item) => (
                   <Pressable
                     key={item.id}
+                    onPress={() => openIngredientEdit(item)}
                     onLongPress={() => removeIngredient(item)}
                     style={styles.ingredientRow}
                   >
@@ -3069,7 +3133,7 @@ function Cooking() {
             </View>
           ))}
           <Text style={styles.longPressHint}>
-            재료를 길게 누르면 삭제할 수 있어요.
+            재료를 누르면 수정하고, 길게 누르면 삭제할 수 있어요.
           </Text>
           <Pressable onPress={deleteRecipe} style={styles.deleteRecipe}>
             <Text style={styles.deleteRecipeText}>이 요리 삭제</Text>
@@ -3203,10 +3267,10 @@ function Cooking() {
       </DetailSheet>
       <DetailSheet
         visible={addingIngredient}
-        title="요리 재료 추가"
+        title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
         subtitle="재료 정보와 준비할 사람을 입력하세요"
-        submit={name.trim() ? "재료 추가" : "재료 이름을 입력해 주세요"}
-        onClose={() => setAddingIngredient(false)}
+        submit={name.trim() ? (editingIngredient ? "수정 저장" : "재료 추가") : "재료 이름을 입력해 주세요"}
+        onClose={closeIngredientSheet}
         onSubmit={addIngredient}
       >
         <DetailField
@@ -3287,13 +3351,13 @@ function Cooking() {
       </DetailSheet>
       <DetailSheet
         visible={addingRecipe}
-        title="요리 추가"
+        title={editingRecipe ? "요리 수정" : "요리 추가"}
         subtitle="만들 요리의 이름과 메모를 입력하세요"
-        submit={recipeName.trim() ? "요리 만들기" : "요리 이름을 입력해 주세요"}
-        onClose={() => setAddingRecipe(false)}
+        submit={recipeName.trim() ? (editingRecipe ? "수정 저장" : "요리 만들기") : "요리 이름을 입력해 주세요"}
+        onClose={closeRecipeSheet}
         onSubmit={addRecipe}
       >
-        <View
+        {!editingRecipe && <View
           style={[
             styles.aiRecipeCallout,
             theme && {
@@ -3315,7 +3379,7 @@ function Cooking() {
           >
             <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>한꺼번에 추가</Text>
           </Pressable>
-        </View>
+        </View>}
         <DetailField
           label="요리 이름"
           value={recipeName}
@@ -5636,6 +5700,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
+  cookingToolbarActions: { flexDirection: "row", alignItems: "center", gap: 7 },
+  cookingEditButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DDD9D2",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  cookingEditButtonText: { color: "#66616A", fontSize: 9, fontWeight: "900" },
   cookingTip: { color: "#77706A", fontSize: 11 },
   cookingSection: {
     backgroundColor: "#FFFFFF",
