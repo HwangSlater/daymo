@@ -63,7 +63,9 @@ const packingTags = (item: PackingItem) => {
     timing?: string;
     tags?: string[];
   };
-  return legacy.tags ?? [legacy.source, legacy.timing].filter(Boolean) as string[];
+  return (
+    legacy.tags ?? ([legacy.source, legacy.timing].filter(Boolean) as string[])
+  );
 };
 
 const packing: PackingItem[] = [
@@ -1056,7 +1058,7 @@ function Places({
                   filter === item && theme && { color: theme.primary },
                 ]}
               >
-                  {item === "후보" ? "저장" : item}
+                {item === "후보" ? "저장" : item}
               </Text>
             </Pressable>
           ))}
@@ -1238,16 +1240,61 @@ function Places({
           </View>
         ))}
       </View>
-      <View style={[styles.packingListTools, theme && { borderTopColor: theme.border }]}>
+      <View
+        style={[
+          styles.packingListTools,
+          theme && { borderTopColor: theme.border },
+        ]}
+      >
         <View style={styles.packingListToolsCopy}>
-          <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>목록 한꺼번에 수정</Text>
-          <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>복사해 수정한 뒤 다시 붙여넣을 수 있어요</Text>
+          <Text
+            style={[
+              styles.packingListToolsTitle,
+              theme && { color: theme.text },
+            ]}
+          >
+            목록 한꺼번에 수정
+          </Text>
+          <Text
+            style={[
+              styles.packingListToolsHint,
+              theme && { color: theme.muted },
+            ]}
+          >
+            복사해 수정한 뒤 다시 붙여넣을 수 있어요
+          </Text>
         </View>
-        <Pressable onPress={copyPlaces} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
-          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>복사</Text>
+        <Pressable
+          onPress={copyPlaces}
+          style={[
+            styles.packingToolButton,
+            theme && { borderColor: theme.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.packingToolButtonText,
+              theme && { color: theme.text },
+            ]}
+          >
+            복사
+          </Text>
         </Pressable>
-        <Pressable onPress={openImport} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
-          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>붙여넣기</Text>
+        <Pressable
+          onPress={openImport}
+          style={[
+            styles.packingToolButton,
+            theme && { borderColor: theme.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.packingToolButtonText,
+              theme && { color: theme.text },
+            ]}
+          >
+            붙여넣기
+          </Text>
         </Pressable>
       </View>
       <DetailSheet
@@ -1341,13 +1388,25 @@ function Places({
                   onPress={() => addTag(tag)}
                   style={[
                     styles.tagSuggestion,
+                    theme && {
+                      backgroundColor: `${theme.primary}10`,
+                      borderColor: `${theme.primary}45`,
+                    },
                     draftTags.includes(tag) && styles.tagSuggestionActive,
+                    draftTags.includes(tag) &&
+                      theme && {
+                        backgroundColor: theme.primarySoft,
+                        borderColor: theme.primary,
+                      },
                   ]}
                 >
                   <Text
                     style={[
                       styles.tagSuggestionText,
+                      theme && { color: theme.text },
                       draftTags.includes(tag) && styles.tagSuggestionTextActive,
+                      draftTags.includes(tag) &&
+                        theme && { color: theme.primary },
                     ]}
                   >
                     # {tag}
@@ -1435,8 +1494,8 @@ function Places({
           placeholder="장소마다 한 줄씩 붙여넣으세요"
         />
         <Text style={styles.settingHint}>
-          ‘교체’는 현재 목록을 지우고 새 목록으로 바꿔요. 붙여넣은 장소는
-          저장한 장소로 추가됩니다.
+          ‘교체’는 현재 목록을 지우고 새 목록으로 바꿔요. 붙여넣은 장소는 저장한
+          장소로 추가됩니다.
         </Text>
       </DetailSheet>
     </View>
@@ -1461,9 +1520,9 @@ function Preparation({
   const [owner, setOwner] = useState<PackingItem["owner"]>("미정");
   const [tagText, setTagText] = useState("");
   const [filter, setFilter] = useState<"전체" | "남은 준비" | "완료">("전체");
-  const [ownerFilter, setOwnerFilter] = useState<
-    "전체" | PackingItem["owner"]
-  >("전체");
+  const [ownerFilter, setOwnerFilter] = useState<"전체" | PackingItem["owner"]>(
+    "전체",
+  );
   const [tagFilter, setTagFilter] = useState("전체 태그");
   const [tagPicker, setTagPicker] = useState(false);
   const [collapsedOwners, setCollapsedOwners] = useState<
@@ -1486,16 +1545,10 @@ function Preparation({
       (filter === "완료" && done.includes(item.name));
     const matchesOwner = ownerFilter === "전체" || item.owner === ownerFilter;
     const matchesTag =
-      tagFilter === "전체 태그" ||
-      packingTags(item).includes(tagFilter);
+      tagFilter === "전체 태그" || packingTags(item).includes(tagFilter);
     return matchesFilter && matchesOwner && matchesTag;
   });
-  const ownerSections: PackingItem["owner"][] = [
-    "나",
-    "동행",
-    "함께",
-    "미정",
-  ];
+  const ownerSections: PackingItem["owner"][] = ["나", "동행", "함께", "미정"];
   const managementTags = [
     "전체 태그",
     ...Array.from(new Set(items.flatMap((item) => packingTags(item)))),
@@ -1557,7 +1610,11 @@ function Preparation({
       items
         .map(
           (item) =>
-            `${item.name} | ${item.quantity} | ${packingOwnerName(item.owner)} | ${packingTags(item).map((tag) => `#${tag}`).join(" ")}`,
+            `${item.name} | ${item.quantity} | ${packingOwnerName(item.owner)} | ${packingTags(
+              item,
+            )
+              .map((tag) => `#${tag}`)
+              .join(" ")}`,
         )
         .join("\n"),
     );
@@ -1586,12 +1643,9 @@ function Preparation({
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line, index) => {
-        const [
-          name,
-          quantity = "",
-          rawOwner = "미정",
-          rawTags = "",
-        ] = line.split("|").map((value) => value.trim());
+        const [name, quantity = "", rawOwner = "미정", rawTags = ""] = line
+          .split("|")
+          .map((value) => value.trim());
         return {
           id: `${stamp}-${index}`,
           name,
@@ -1623,8 +1677,16 @@ function Preparation({
       </View>
       <View style={styles.packingManageHead}>
         <View>
-          <Text style={[styles.packingManageTitle, theme && { color: theme.text }]}>담당별 준비물</Text>
-          <Text style={[styles.packingManageHint, theme && { color: theme.muted }]}>이름을 누르면 해당 준비물만 보여요</Text>
+          <Text
+            style={[styles.packingManageTitle, theme && { color: theme.text }]}
+          >
+            담당별 준비물
+          </Text>
+          <Text
+            style={[styles.packingManageHint, theme && { color: theme.muted }]}
+          >
+            이름을 누르면 해당 준비물만 보여요
+          </Text>
         </View>
         <Pressable
           onPress={() => selectOwnerFilter("전체")}
@@ -1660,8 +1722,7 @@ function Preparation({
       >
         {ownerSections.map((ownerName, index) => {
           const remaining = items.filter(
-            (item) =>
-              item.owner === ownerName && !done.includes(item.name),
+            (item) => item.owner === ownerName && !done.includes(item.name),
           ).length;
           const active = ownerFilter === ownerName;
           return (
@@ -1675,14 +1736,11 @@ function Preparation({
                 />
               )}
               <Pressable
-                onPress={() =>
-                  selectOwnerFilter(active ? "전체" : ownerName)
-                }
+                onPress={() => selectOwnerFilter(active ? "전체" : ownerName)}
                 style={[
                   styles.ownerStat,
                   active && styles.ownerStatActive,
-                  active &&
-                    theme && { backgroundColor: theme.primarySoft },
+                  active && theme && { backgroundColor: theme.primarySoft },
                 ]}
               >
                 <Text
@@ -1697,8 +1755,7 @@ function Preparation({
                   style={[
                     styles.ownerStatCount,
                     ownerName === "미정" && styles.unassignedText,
-                    theme &&
-                      ownerName !== "미정" && { color: theme.muted },
+                    theme && ownerName !== "미정" && { color: theme.muted },
                   ]}
                 >
                   {remaining}개 남음
@@ -1711,33 +1768,100 @@ function Preparation({
       <View
         style={[
           styles.packingFilterBoard,
-          theme && { backgroundColor: theme.surface, borderColor: theme.border },
+          theme && {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+          },
         ]}
       >
         <View style={styles.packingFilterLine}>
-          <Text style={[styles.packingFilterLabel, theme && { color: theme.muted }]}>태그</Text>
-          <ScrollView style={styles.packingFilterScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingFilters}>
+          <Text
+            style={[styles.packingFilterLabel, theme && { color: theme.muted }]}
+          >
+            태그
+          </Text>
+          <ScrollView
+            style={styles.packingFilterScroll}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.packingFilters}
+          >
             {["전체 태그", ...quickTags.slice(0, 2)].map((tag) => {
               const active = tagFilter === tag;
-              return <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{tag === "전체 태그" ? "모든 태그" : `#${tag}`}</Text></Pressable>;
+              return (
+                <Pressable
+                  key={tag}
+                  onPress={() => setTagFilter(tag)}
+                  style={[
+                    styles.packingFilterChip,
+                    active && theme && { backgroundColor: theme.primarySoft },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.packingFilterChipText,
+                      theme && { color: active ? theme.primary : theme.muted },
+                    ]}
+                  >
+                    {tag === "전체 태그" ? "모든 태그" : `#${tag}`}
+                  </Text>
+                </Pressable>
+              );
             })}
           </ScrollView>
           {availableTags.length > 2 && (
             <Pressable
               onPress={() => setTagPicker(true)}
-              style={[styles.packingFilterMore, theme && { borderColor: theme.border }]}
+              style={[
+                styles.packingFilterMore,
+                theme && { borderColor: theme.border },
+              ]}
             >
-              <Text style={[styles.packingFilterMoreText, theme && { color: theme.text }]}>전체 {availableTags.length}</Text>
+              <Text
+                style={[
+                  styles.packingFilterMoreText,
+                  theme && { color: theme.text },
+                ]}
+              >
+                전체 {availableTags.length}
+              </Text>
             </Pressable>
           )}
         </View>
-        <View style={[styles.packingFilterRule, theme && { backgroundColor: theme.border }]} />
+        <View
+          style={[
+            styles.packingFilterRule,
+            theme && { backgroundColor: theme.border },
+          ]}
+        />
         <View style={styles.packingFilterLine}>
-          <Text style={[styles.packingFilterLabel, theme && { color: theme.muted }]}>상태</Text>
+          <Text
+            style={[styles.packingFilterLabel, theme && { color: theme.muted }]}
+          >
+            상태
+          </Text>
           <View style={styles.packingFilters}>
             {(["전체", "남은 준비", "완료"] as const).map((item) => {
               const active = filter === item;
-              return <Pressable key={item} onPress={() => setFilter(item)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{item}</Text></Pressable>;
+              return (
+                <Pressable
+                  key={item}
+                  onPress={() => setFilter(item)}
+                  style={[
+                    styles.packingFilterChip,
+                    active && theme && { backgroundColor: theme.primarySoft },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.packingFilterChipText,
+                      theme && { color: active ? theme.primary : theme.muted },
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </Pressable>
+              );
             })}
           </View>
         </View>
@@ -1759,10 +1883,12 @@ function Preparation({
                 ? theme.secondary
                 : sectionOwner === "함께"
                   ? theme.accent
-                : theme.muted
+                  : theme.muted
             : "#8B7CF6";
           const sectionTags = Array.from(
-            new Set(ownerItems.map((item) => packingTags(item)[0] || "태그 없음")),
+            new Set(
+              ownerItems.map((item) => packingTags(item)[0] || "태그 없음"),
+            ),
           );
           return (
             <View
@@ -1779,7 +1905,9 @@ function Preparation({
                 onPress={() =>
                   setCollapsedOwners((current) =>
                     current.includes(sectionOwner)
-                      ? current.filter((ownerName) => ownerName !== sectionOwner)
+                      ? current.filter(
+                          (ownerName) => ownerName !== sectionOwner,
+                        )
                       : [...current, sectionOwner],
                   )
                 }
@@ -1824,149 +1952,156 @@ function Preparation({
                     {ownerDone} / {ownerItems.length} 완료
                   </Text>
                 </View>
-                <Text style={[styles.packingCollapseIcon, { color: ownerColor }]}>
+                <Text
+                  style={[styles.packingCollapseIcon, { color: ownerColor }]}
+                >
                   {collapsed ? "＋" : "−"}
                 </Text>
               </Pressable>
-              {!collapsed && sectionTags.map((sourceTag) => {
-                const taggedItems = ownerItems.filter(
-                  (item) => (packingTags(item)[0] || "태그 없음") === sourceTag,
-                );
-                if (!taggedItems.length) return null;
-                return (
-                  <View key={sourceTag} style={styles.packingTagGroup}>
-                    <View style={styles.packingTagHead}>
-                      <Text
-                        style={[
-                          styles.packingTagHeadText,
-                          theme && { color: theme.muted },
-                        ]}
-                      >
-                        # {sourceTag}
-                      </Text>
-                      <View
-                        style={[
-                          styles.packingTagLine,
-                          theme && { backgroundColor: theme.border },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.packingTagCount,
-                          theme && { color: theme.muted },
-                        ]}
-                      >
-                        {taggedItems.length}
-                      </Text>
-                    </View>
-                    {taggedItems.map((item) => {
-                      const completed = done.includes(item.name);
-                      return (
-                        <Pressable
-                          key={item.id}
-                          onPress={() => complete(item)}
-                          accessibilityRole="checkbox"
-                          accessibilityState={{ checked: completed }}
-                          accessibilityLabel={`${item.name} 준비 완료`}
-                          style={({ pressed }) => [
-                            styles.packingCard,
-                            theme && {
-                              backgroundColor: completed
-                                ? theme.surfaceAlt
-                                : theme.surface,
-                              borderColor: theme.border,
-                            },
-                            completed && styles.packingCardDone,
-                            pressed && styles.packingCardPressed,
+              {!collapsed &&
+                sectionTags.map((sourceTag) => {
+                  const taggedItems = ownerItems.filter(
+                    (item) =>
+                      (packingTags(item)[0] || "태그 없음") === sourceTag,
+                  );
+                  if (!taggedItems.length) return null;
+                  return (
+                    <View key={sourceTag} style={styles.packingTagGroup}>
+                      <View style={styles.packingTagHead}>
+                        <Text
+                          style={[
+                            styles.packingTagHeadText,
+                            theme && { color: theme.muted },
                           ]}
                         >
-                          <View
-                            style={[
-                              styles.completionMark,
+                          # {sourceTag}
+                        </Text>
+                        <View
+                          style={[
+                            styles.packingTagLine,
+                            theme && { backgroundColor: theme.border },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.packingTagCount,
+                            theme && { color: theme.muted },
+                          ]}
+                        >
+                          {taggedItems.length}
+                        </Text>
+                      </View>
+                      {taggedItems.map((item) => {
+                        const completed = done.includes(item.name);
+                        return (
+                          <Pressable
+                            key={item.id}
+                            onPress={() => complete(item)}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: completed }}
+                            accessibilityLabel={`${item.name} 준비 완료`}
+                            style={({ pressed }) => [
+                              styles.packingCard,
                               theme && {
-                                borderColor: completed
-                                  ? theme.primary
-                                  : theme.border,
                                 backgroundColor: completed
-                                  ? theme.primary
-                                  : theme.background,
+                                  ? theme.surfaceAlt
+                                  : theme.surface,
+                                borderColor: theme.border,
                               },
+                              completed && styles.packingCardDone,
+                              pressed && styles.packingCardPressed,
                             ]}
                           >
-                            {completed ? (
-                              <Text style={styles.completionTick}>✓</Text>
-                            ) : (
-                              <View
-                                style={[
-                                  styles.completionDash,
-                                  theme && { backgroundColor: theme.border },
-                                ]}
-                              />
-                            )}
-                          </View>
-                          <View style={styles.packingBody}>
-                            <View style={styles.packingTitleRow}>
-                              <Text
-                                style={[
-                                  styles.checkName,
-                                  theme && { color: theme.text },
-                                  completed && styles.checkNameDone,
-                                ]}
-                              >
-                                {item.name}
-                              </Text>
-                              {item.quantity ? (
+                            <View
+                              style={[
+                                styles.completionMark,
+                                theme && {
+                                  borderColor: completed
+                                    ? theme.primary
+                                    : theme.border,
+                                  backgroundColor: completed
+                                    ? theme.primary
+                                    : theme.background,
+                                },
+                              ]}
+                            >
+                              {completed ? (
+                                <Text style={styles.completionTick}>✓</Text>
+                              ) : (
+                                <View
+                                  style={[
+                                    styles.completionDash,
+                                    theme && { backgroundColor: theme.border },
+                                  ]}
+                                />
+                              )}
+                            </View>
+                            <View style={styles.packingBody}>
+                              <View style={styles.packingTitleRow}>
                                 <Text
                                   style={[
-                                    styles.packingQuantity,
+                                    styles.checkName,
+                                    theme && { color: theme.text },
+                                    completed && styles.checkNameDone,
+                                  ]}
+                                >
+                                  {item.name}
+                                </Text>
+                                {item.quantity ? (
+                                  <Text
+                                    style={[
+                                      styles.packingQuantity,
+                                      theme && { color: theme.muted },
+                                    ]}
+                                  >
+                                    {item.quantity}
+                                  </Text>
+                                ) : null}
+                              </View>
+                              <View style={styles.packingMetaRow}>
+                                <Text
+                                  style={[
+                                    styles.packingTiming,
                                     theme && { color: theme.muted },
                                   ]}
                                 >
-                                  {item.quantity}
+                                  {packingTags(item)
+                                    .slice(1)
+                                    .map((tag) => `#${tag}`)
+                                    .join("  ") || "태그 없음"}
                                 </Text>
-                              ) : null}
-                            </View>
-                            <View style={styles.packingMetaRow}>
-                              <Text
-                                style={[
-                                  styles.packingTiming,
-                                  theme && { color: theme.muted },
-                                ]}
-                              >
-                                {packingTags(item).slice(1).map((tag) => `#${tag}`).join("  ") || "태그 없음"}
-                              </Text>
-                              <Pressable
-                                onPress={(event) => {
-                                  event.stopPropagation();
-                                  setAssigningItem(item);
-                                }}
-                                hitSlop={8}
-                                style={[
-                                  styles.packingOwnerChange,
-                                  theme && {
-                                    backgroundColor: theme.primarySoft,
-                                  },
-                                ]}
-                              >
-                                <Text
+                                <Pressable
+                                  onPress={(event) => {
+                                    event.stopPropagation();
+                                    setAssigningItem(item);
+                                  }}
+                                  hitSlop={8}
                                   style={[
-                                    styles.packingOwnerChangeText,
-                                    theme && { color: theme.primary },
+                                    styles.packingOwnerChange,
+                                    theme && {
+                                      backgroundColor: theme.primarySoft,
+                                    },
                                   ]}
                                 >
-                                  {sectionOwner === "미정"
-                                    ? "담당 지정"
-                                    : "담당 변경"}
-                                </Text>
-                              </Pressable>
+                                  <Text
+                                    style={[
+                                      styles.packingOwnerChangeText,
+                                      theme && { color: theme.primary },
+                                    ]}
+                                  >
+                                    {sectionOwner === "미정"
+                                      ? "담당 지정"
+                                      : "담당 변경"}
+                                  </Text>
+                                </Pressable>
+                              </View>
                             </View>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                );
-              })}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
             </View>
           );
         })}
@@ -1986,27 +2121,53 @@ function Preparation({
       >
         <View style={styles.packingListToolsCopy}>
           <Text
-            style={[styles.packingListToolsTitle, theme && { color: theme.text }]}
+            style={[
+              styles.packingListToolsTitle,
+              theme && { color: theme.text },
+            ]}
           >
             목록 한꺼번에 수정
           </Text>
           <Text
-            style={[styles.packingListToolsHint, theme && { color: theme.muted }]}
+            style={[
+              styles.packingListToolsHint,
+              theme && { color: theme.muted },
+            ]}
           >
             복사해 수정한 뒤 다시 붙여넣을 수 있어요
           </Text>
         </View>
         <Pressable
           onPress={copyPacking}
-          style={[styles.packingToolButton, theme && { borderColor: theme.border }]}
+          style={[
+            styles.packingToolButton,
+            theme && { borderColor: theme.border },
+          ]}
         >
-          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>복사</Text>
+          <Text
+            style={[
+              styles.packingToolButtonText,
+              theme && { color: theme.text },
+            ]}
+          >
+            복사
+          </Text>
         </Pressable>
         <Pressable
           onPress={openImport}
-          style={[styles.packingToolButton, theme && { borderColor: theme.border }]}
+          style={[
+            styles.packingToolButton,
+            theme && { borderColor: theme.border },
+          ]}
         >
-          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>붙여넣기</Text>
+          <Text
+            style={[
+              styles.packingToolButtonText,
+              theme && { color: theme.text },
+            ]}
+          >
+            붙여넣기
+          </Text>
         </Pressable>
       </View>
       <DetailSheet
@@ -2023,7 +2184,8 @@ function Preparation({
             const count =
               tag === "전체 태그"
                 ? items.length
-                : items.filter((item) => packingTags(item).includes(tag)).length;
+                : items.filter((item) => packingTags(item).includes(tag))
+                    .length;
             return (
               <Pressable
                 key={tag}
@@ -2039,10 +2201,22 @@ function Preparation({
                   },
                 ]}
               >
-                <Text style={[styles.tagPickerName, theme && { color: active ? theme.primary : theme.text }]}>
+                <Text
+                  style={[
+                    styles.tagPickerName,
+                    theme && { color: active ? theme.primary : theme.text },
+                  ]}
+                >
                   {tag === "전체 태그" ? tag : `# ${tag}`}
                 </Text>
-                <Text style={[styles.tagPickerCount, theme && { color: theme.muted }]}>{count}</Text>
+                <Text
+                  style={[
+                    styles.tagPickerCount,
+                    theme && { color: theme.muted },
+                  ]}
+                >
+                  {count}
+                </Text>
               </Pressable>
             );
           })}
@@ -2168,7 +2342,11 @@ function Preparation({
           multiline
         />
         <View style={styles.detailField}>
-          <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>담당</Text>
+          <Text
+            style={[styles.detailFieldLabel, theme && { color: theme.muted }]}
+          >
+            담당
+          </Text>
           <View style={styles.packingAssigneeOptions}>
             {ownerSections.map((ownerName) => (
               <Pressable
@@ -2177,18 +2355,83 @@ function Preparation({
                 style={[
                   styles.packingAssigneeOption,
                   theme && {
-                    backgroundColor: owner === ownerName ? theme.primarySoft : theme.surface,
-                    borderColor: owner === ownerName ? theme.primary : theme.border,
+                    backgroundColor:
+                      owner === ownerName
+                        ? theme.primarySoft
+                        : `${theme.primary}10`,
+                    borderColor:
+                      owner === ownerName
+                        ? theme.primary
+                        : `${theme.primary}45`,
                   },
                 ]}
               >
-                <Text style={[styles.packingAssigneeOptionText, theme && { color: owner === ownerName ? theme.primary : theme.text }]}>{packingOwnerName(ownerName)}</Text>
+                <Text
+                  style={[
+                    styles.packingAssigneeOptionText,
+                    theme && {
+                      color: owner === ownerName ? theme.primary : theme.text,
+                    },
+                  ]}
+                >
+                  {packingOwnerName(ownerName)}
+                </Text>
               </Pressable>
             ))}
           </View>
         </View>
+        <View style={styles.tagEditor}>
+          <Text
+            style={[styles.detailFieldLabel, theme && { color: theme.text }]}
+          >
+            추천 태그
+          </Text>
+          <View style={styles.tagSuggestions}>
+            {["전자기기", "세면", "의류", "숙소", "출발 전"].map((tag) => {
+              const selected = draftPackingTags.includes(tag);
+              return (
+                <Pressable
+                  key={tag}
+                  onPress={() =>
+                    setTagText(
+                      selected
+                        ? draftPackingTags
+                            .filter((item) => item !== tag)
+                            .join(", ")
+                        : [...draftPackingTags, tag].join(", "),
+                    )
+                  }
+                  style={[
+                    styles.tagSuggestion,
+                    theme && {
+                      backgroundColor: `${theme.primary}10`,
+                      borderColor: `${theme.primary}45`,
+                    },
+                    selected && styles.tagSuggestionActive,
+                    selected &&
+                      theme && {
+                        backgroundColor: theme.primarySoft,
+                        borderColor: theme.primary,
+                      },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tagSuggestionText,
+                      theme && { color: theme.text },
+                      selected && styles.tagSuggestionTextActive,
+                      selected && theme && { color: theme.primary },
+                    ]}
+                  >
+                    # {tag}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
         <DetailField
-          label="태그 (쉼표로 구분)"
+          label="직접 입력 (쉼표로 구분)"
           value={tagText}
           onChangeText={setTagText}
           placeholder="예: 전자기기, 출발 전, 숙소"
@@ -2210,7 +2453,14 @@ function Preparation({
                   theme && { backgroundColor: theme.primarySoft },
                 ]}
               >
-                <Text style={[styles.draftTagText, theme && { color: theme.primary }]}># {tag} ×</Text>
+                <Text
+                  style={[
+                    styles.draftTagText,
+                    theme && { color: theme.primary },
+                  ]}
+                >
+                  # {tag} ×
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -2728,16 +2978,61 @@ function Cooking() {
           <Pressable onPress={deleteRecipe} style={styles.deleteRecipe}>
             <Text style={styles.deleteRecipeText}>이 요리 삭제</Text>
           </Pressable>
-          <View style={[styles.packingListTools, theme && { borderTopColor: theme.border }]}>
+          <View
+            style={[
+              styles.packingListTools,
+              theme && { borderTopColor: theme.border },
+            ]}
+          >
             <View style={styles.packingListToolsCopy}>
-              <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>목록 한꺼번에 수정</Text>
-              <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>복사해 수정한 뒤 다시 붙여넣을 수 있어요</Text>
+              <Text
+                style={[
+                  styles.packingListToolsTitle,
+                  theme && { color: theme.text },
+                ]}
+              >
+                목록 한꺼번에 수정
+              </Text>
+              <Text
+                style={[
+                  styles.packingListToolsHint,
+                  theme && { color: theme.muted },
+                ]}
+              >
+                복사해 수정한 뒤 다시 붙여넣을 수 있어요
+              </Text>
             </View>
-            <Pressable onPress={copyCooking} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
-              <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>복사</Text>
+            <Pressable
+              onPress={copyCooking}
+              style={[
+                styles.packingToolButton,
+                theme && { borderColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.packingToolButtonText,
+                  theme && { color: theme.text },
+                ]}
+              >
+                복사
+              </Text>
             </Pressable>
-            <Pressable onPress={openImport} style={[styles.packingToolButton, theme && { borderColor: theme.border }]}>
-              <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>붙여넣기</Text>
+            <Pressable
+              onPress={openImport}
+              style={[
+                styles.packingToolButton,
+                theme && { borderColor: theme.border },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.packingToolButtonText,
+                  theme && { color: theme.text },
+                ]}
+              >
+                붙여넣기
+              </Text>
             </Pressable>
           </View>
         </>
@@ -2762,8 +3057,52 @@ function Cooking() {
           onChangeText={setQuantity}
           placeholder="예: 1봉"
         />
+        <View style={styles.tagEditor}>
+          <Text
+            style={[styles.detailFieldLabel, theme && { color: theme.text }]}
+          >
+            추천 분류
+          </Text>
+          <View style={styles.tagSuggestions}>
+            {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
+              (category) => {
+                const selected = group === category;
+                return (
+                  <Pressable
+                    key={category}
+                    onPress={() => setGroup(category)}
+                    style={[
+                      styles.tagSuggestion,
+                      theme && {
+                        backgroundColor: `${theme.primary}10`,
+                        borderColor: `${theme.primary}45`,
+                      },
+                      selected && styles.tagSuggestionActive,
+                      selected &&
+                        theme && {
+                          backgroundColor: theme.primarySoft,
+                          borderColor: theme.primary,
+                        },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.tagSuggestionText,
+                        theme && { color: theme.text },
+                        selected && styles.tagSuggestionTextActive,
+                        selected && theme && { color: theme.primary },
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                  </Pressable>
+                );
+              },
+            )}
+          </View>
+        </View>
         <DetailField
-          label="분류"
+          label="직접 입력"
           value={group}
           onChangeText={setGroup}
           placeholder="예: 채소, 양념, 토핑"
@@ -2941,10 +3280,7 @@ function TabIntro({
   const theme = useContext(DetailThemeContext);
   return (
     <View
-      style={[
-        styles.tabIntro,
-        theme && { borderBottomColor: theme.border },
-      ]}
+      style={[styles.tabIntro, theme && { borderBottomColor: theme.border }]}
     >
       <View
         style={[
@@ -2952,7 +3288,9 @@ function TabIntro({
           theme && { backgroundColor: theme.primarySoft },
         ]}
       >
-        <Text style={[styles.tabIntroMarkText, theme && { color: theme.primary }]}>
+        <Text
+          style={[styles.tabIntroMarkText, theme && { color: theme.primary }]}
+        >
           {number}
         </Text>
       </View>
@@ -2969,9 +3307,16 @@ function TabIntro({
       </View>
       <Pressable
         onPress={onAction}
-        style={[styles.tabIntroAction, theme && { backgroundColor: theme.primarySoft }]}
+        style={[
+          styles.tabIntroAction,
+          theme && { backgroundColor: theme.primarySoft },
+        ]}
       >
-        <Text style={[styles.tabIntroActionText, theme && { color: theme.primary }]}>＋ {action}</Text>
+        <Text
+          style={[styles.tabIntroActionText, theme && { color: theme.primary }]}
+        >
+          ＋ {action}
+        </Text>
       </Pressable>
     </View>
   );
@@ -3084,7 +3429,12 @@ function DetailField({
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <View
+          style={[
+            styles.fieldLabelDot,
+            theme && { backgroundColor: theme.primary },
+          ]}
+        />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
           {label}
         </Text>
@@ -3154,11 +3504,25 @@ function DetailSheet({
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHead}>
             <View style={styles.sheetHeadMain}>
-              <View style={[styles.sheetMark, theme && { backgroundColor: theme.primarySoft }]}>
-                <Text style={[styles.sheetMarkText, theme && { color: theme.primary }]}>{sheetMark}</Text>
+              <View
+                style={[
+                  styles.sheetMark,
+                  theme && { backgroundColor: theme.primarySoft },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sheetMarkText,
+                    theme && { color: theme.primary },
+                  ]}
+                >
+                  {sheetMark}
+                </Text>
               </View>
               <View style={styles.sheetHeadCopy}>
-                <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
+                <Text
+                  style={[styles.sheetTitle, theme && { color: theme.text }]}
+                >
                   {title}
                 </Text>
                 {subtitle && (
@@ -3173,7 +3537,13 @@ function DetailSheet({
                 )}
               </View>
             </View>
-            <Pressable onPress={onClose} style={[styles.sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}>
+            <Pressable
+              onPress={onClose}
+              style={[
+                styles.sheetCloseButton,
+                theme && { backgroundColor: theme.surfaceAlt },
+              ]}
+            >
               <Text
                 style={[styles.sheetClose, theme && { color: theme.primary }]}
               >
@@ -3195,7 +3565,9 @@ function DetailSheet({
             ]}
           >
             <Text style={styles.sheetSubmitText}>{submit}</Text>
-            <View style={styles.sheetSubmitArrow}><Text style={styles.sheetSubmitArrowText}>→</Text></View>
+            <View style={styles.sheetSubmitArrow}>
+              <Text style={styles.sheetSubmitArrowText}>→</Text>
+            </View>
           </Pressable>
           {destructiveLabel && (
             <Pressable onPress={onDestructive} style={styles.deletePlace}>
@@ -3278,7 +3650,12 @@ function OptionField({
   return (
     <View style={styles.optionField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <View
+          style={[
+            styles.fieldLabelDot,
+            theme && { backgroundColor: theme.primary },
+          ]}
+        />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
           {label}
         </Text>
@@ -3744,14 +4121,19 @@ const styles = StyleSheet.create({
     marginRight: 12,
     transform: [{ rotate: "-3deg" }],
   },
-  sheetMarkText: { fontSize: 11, fontWeight: "900", letterSpacing: .4 },
+  sheetMarkText: { fontSize: 11, fontWeight: "900", letterSpacing: 0.4 },
   sheetTitle: {
     color: "#17233D",
     fontSize: 24,
     fontWeight: "900",
     letterSpacing: -1,
   },
-  sheetSubtitle: { color: "#818A99", fontSize: 10, lineHeight: 15, marginTop: 4 },
+  sheetSubtitle: {
+    color: "#818A99",
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 4,
+  },
   sheetCloseButton: {
     width: 34,
     height: 34,
@@ -3767,7 +4149,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   detailField: { marginBottom: 17 },
-  fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  fieldLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   fieldLabelDot: { width: 5, height: 5, borderRadius: 3, marginRight: 7 },
   detailFieldLabel: {
     color: "#6F7888",
@@ -4203,6 +4589,8 @@ const styles = StyleSheet.create({
   tagSuggestion: {
     borderRadius: 10,
     backgroundColor: "#ECEAE5",
+    borderWidth: 1,
+    borderColor: "#DAD6CD",
     paddingHorizontal: 9,
     paddingVertical: 7,
   },
@@ -4432,7 +4820,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  packingPrimaryActionText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
+  packingPrimaryActionText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "900",
+  },
   packingFilterBoard: {
     borderWidth: 1,
     borderRadius: 13,
@@ -4440,11 +4832,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     marginBottom: 20,
   },
-  packingFilterLine: { minHeight: 42, flexDirection: "row", alignItems: "center" },
+  packingFilterLine: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   packingFilterLabel: { width: 38, fontSize: 9, fontWeight: "900" },
   packingFilterScroll: { flex: 1 },
   packingFilterRule: { height: StyleSheet.hairlineWidth },
-  packingFilterChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
+  packingFilterChip: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
   packingFilterChipText: { fontSize: 9, fontWeight: "800" },
   packingFilterMore: {
     borderWidth: 1,
@@ -4480,11 +4880,19 @@ const styles = StyleSheet.create({
   packingOwnerCopy: { flex: 1 },
   packingOwnerName: { fontSize: 15, fontWeight: "900" },
   packingOwnerProgress: { fontSize: 9, fontWeight: "700", marginTop: 2 },
-  packingCollapseIcon: { fontSize: 16, fontWeight: "800", paddingHorizontal: 5 },
+  packingCollapseIcon: {
+    fontSize: 16,
+    fontWeight: "800",
+    paddingHorizontal: 5,
+  },
   packingTagGroup: { gap: 5, marginTop: 2 },
   packingTagHead: { flexDirection: "row", alignItems: "center", minHeight: 18 },
   packingTagHeadText: { fontSize: 9, fontWeight: "900" },
-  packingTagLine: { flex: 1, height: StyleSheet.hairlineWidth, marginHorizontal: 8 },
+  packingTagLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 8,
+  },
   packingTagCount: { fontSize: 9, fontWeight: "800" },
   packingCard: {
     minHeight: 83,
@@ -4520,7 +4928,11 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   packingTiming: { fontSize: 9, fontWeight: "700" },
-  packingOwnerChange: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
+  packingOwnerChange: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
   packingOwnerChangeText: { fontSize: 8, fontWeight: "900" },
   packingListTools: {
     borderTopWidth: 1,
@@ -4543,7 +4955,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   packingToolButtonText: { fontSize: 9, fontWeight: "900" },
-  tagPickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingBottom: 8 },
+  tagPickerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingBottom: 8,
+  },
   tagPickerItem: {
     width: "48.7%",
     minHeight: 54,
@@ -4684,8 +5101,13 @@ const styles = StyleSheet.create({
   },
   tabIntroMarkText: { fontSize: 10, fontWeight: "900" },
   tabIntroCopy: { flex: 1, paddingRight: 8 },
-  tabIntroTitle: { fontSize: 17, fontWeight: "900", letterSpacing: -.5 },
-  tabIntroCaption: { fontSize: 9, lineHeight: 14, fontWeight: "700", marginTop: 3 },
+  tabIntroTitle: { fontSize: 17, fontWeight: "900", letterSpacing: -0.5 },
+  tabIntroCaption: {
+    fontSize: 9,
+    lineHeight: 14,
+    fontWeight: "700",
+    marginTop: 3,
+  },
   tabIntroMeta: { fontSize: 9, fontWeight: "900", marginTop: 6 },
   tabIntroAction: {
     height: 34,
@@ -4694,7 +5116,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tabIntroActionPlus: { color: "#FFFFFF", fontSize: 16, lineHeight: 17, fontWeight: "700" },
+  tabIntroActionPlus: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
   tabIntroActionText: { fontSize: 10, fontWeight: "900" },
   batchActions: {
     flexDirection: "row",
@@ -5157,6 +5584,7 @@ Object.assign(styles, {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
+    marginBottom: 10,
   },
   tagFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
   candidateCard: { borderRadius: 10, padding: 15, borderWidth: 1 },
