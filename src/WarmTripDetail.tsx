@@ -45,50 +45,237 @@ type PackingItem = {
   name: string;
   quantity: string;
   owner: "함께" | "나" | "동행" | "미정";
-  source: "집에서" | "미리 구매" | "현지 구매";
-  timing: "미리" | "출발 아침" | "숙소에서";
+  tags: string[];
+};
+
+const packingOwnerName = (owner: PackingItem["owner"]) =>
+  owner === "나"
+    ? "하늘"
+    : owner === "동행"
+      ? "다온"
+      : owner === "함께"
+        ? "공용"
+        : "미정";
+
+const packingTags = (item: PackingItem) => {
+  const legacy = item as PackingItem & {
+    source?: string;
+    timing?: string;
+    tags?: string[];
+  };
+  return legacy.tags ?? [legacy.source, legacy.timing].filter(Boolean) as string[];
 };
 
 const packing: PackingItem[] = [
   {
     id: "charger",
     name: "충전기",
+    quantity: "1개",
+    owner: "나",
+    tags: ["집에서", "출발 아침"],
+  },
+  {
+    id: "power-bank",
+    name: "보조배터리",
+    quantity: "1개",
+    owner: "나",
+    tags: ["집에서", "출발 아침"],
+  },
+  {
+    id: "wallet",
+    name: "지갑과 신분증",
+    quantity: "",
+    owner: "나",
+    tags: ["집에서", "출발 아침"],
+  },
+  {
+    id: "camera",
+    name: "카메라",
+    quantity: "1대",
+    owner: "나",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "camera-battery",
+    name: "카메라 여분 배터리",
     quantity: "2개",
     owner: "나",
-    source: "집에서",
-    timing: "출발 아침",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "personal-clothes",
+    name: "갈아입을 옷",
+    quantity: "2벌",
+    owner: "나",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "personal-socks",
+    name: "양말과 속옷",
+    quantity: "3세트",
+    owner: "나",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "earphones",
+    name: "이어폰",
+    quantity: "1개",
+    owner: "나",
+    tags: ["집에서", "출발 아침"],
   },
   {
     id: "glasses",
     name: "안경",
     quantity: "1개",
     owner: "동행",
-    source: "집에서",
-    timing: "출발 아침",
+    tags: ["집에서", "출발 아침"],
   },
   {
-    id: "clothes",
+    id: "companion-charger",
+    name: "휴대폰 충전기",
+    quantity: "1개",
+    owner: "동행",
+    tags: ["집에서", "출발 아침"],
+  },
+  {
+    id: "companion-clothes",
     name: "갈아입을 옷",
-    quantity: "각 1벌",
-    owner: "미정",
-    source: "집에서",
-    timing: "출발 아침",
+    quantity: "2벌",
+    owner: "동행",
+    tags: ["집에서", "미리"],
   },
   {
-    id: "wash",
+    id: "companion-cosmetics",
+    name: "화장품 파우치",
+    quantity: "1개",
+    owner: "동행",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "companion-lens",
+    name: "렌즈와 렌즈액",
+    quantity: "",
+    owner: "동행",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "companion-hair",
+    name: "고데기",
+    quantity: "1개",
+    owner: "동행",
+    tags: ["집에서", "출발 아침"],
+  },
+  {
+    id: "companion-card",
+    name: "예약 카드",
+    quantity: "1개",
+    owner: "동행",
+    tags: ["집에서", "출발 아침"],
+  },
+  {
+    id: "toiletries",
     name: "세면도구",
     quantity: "1세트",
     owner: "함께",
-    source: "집에서",
-    timing: "미리",
+    tags: ["집에서", "미리"],
   },
   {
     id: "umbrella",
     name: "우산",
+    quantity: "2개",
+    owner: "함께",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "medicine",
+    name: "상비약",
+    quantity: "1봉",
+    owner: "함께",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "sunscreen",
+    name: "선크림",
+    quantity: "1개",
+    owner: "함께",
+    tags: ["집에서", "출발 아침"],
+  },
+  {
+    id: "tissues",
+    name: "물티슈와 휴지",
+    quantity: "각 1개",
+    owner: "함께",
+    tags: ["미리 구매", "미리"],
+  },
+  {
+    id: "water",
+    name: "생수",
+    quantity: "4병",
+    owner: "함께",
+    tags: ["미리 구매", "출발 아침"],
+  },
+  {
+    id: "snacks",
+    name: "차에서 먹을 간식",
+    quantity: "",
+    owner: "함께",
+    tags: ["미리 구매", "출발 아침"],
+  },
+  {
+    id: "plastic-bags",
+    name: "비닐봉투",
+    quantity: "3장",
+    owner: "함께",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "booking-check",
+    name: "숙소 예약 내역 확인",
+    quantity: "",
+    owner: "미정",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "train-tickets",
+    name: "기차표 예매",
+    quantity: "2매",
+    owner: "미정",
+    tags: ["미리 구매", "미리"],
+  },
+  {
+    id: "breakfast",
+    name: "숙소 아침거리",
+    quantity: "2인분",
+    owner: "미정",
+    tags: ["현지 구매", "숙소에서"],
+  },
+  {
+    id: "cooking-ingredients",
+    name: "저녁 요리 재료",
+    quantity: "2인분",
+    owner: "미정",
+    tags: ["현지 구매", "숙소에서"],
+  },
+  {
+    id: "ice",
+    name: "얼음과 음료",
+    quantity: "",
+    owner: "미정",
+    tags: ["현지 구매", "숙소에서"],
+  },
+  {
+    id: "beach-mat",
+    name: "돗자리",
     quantity: "1개",
     owner: "미정",
-    source: "집에서",
-    timing: "미리",
+    tags: ["집에서", "미리"],
+  },
+  {
+    id: "slippers",
+    name: "숙소용 슬리퍼",
+    quantity: "2켤레",
+    owner: "미정",
+    tags: ["미리 구매", "미리"],
   },
 ];
 
@@ -1334,12 +1521,16 @@ function Preparation({
   const [names, setNames] = useState("");
   const [quantity, setQuantity] = useState("");
   const [owner, setOwner] = useState<PackingItem["owner"]>("미정");
-  const [source, setSource] = useState<PackingItem["source"]>("집에서");
-  const [timing, setTiming] = useState<PackingItem["timing"]>("미리");
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"전체" | "내 담당" | "미정" | "완료">(
-    "전체",
-  );
+  const [tagText, setTagText] = useState("");
+  const [filter, setFilter] = useState<"전체" | "남은 준비" | "완료">("전체");
+  const [ownerFilter, setOwnerFilter] = useState<
+    "전체" | PackingItem["owner"]
+  >("전체");
+  const [tagFilter, setTagFilter] = useState("전체 태그");
+  const [collapsedOwners, setCollapsedOwners] = useState<
+    PackingItem["owner"][]
+  >(["동행", "함께", "미정"]);
+  const [assigningItem, setAssigningItem] = useState<PackingItem | null>(null);
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
@@ -1350,23 +1541,54 @@ function Preparation({
     ? Math.round((completedCount / items.length) * 100)
     : 0;
   const visibleItems = items.filter((item) => {
-    const matchesQuery =
-      `${item.name} ${item.quantity} ${item.owner} ${item.source} ${item.timing}`.includes(
-        query.trim(),
-      );
     const matchesFilter =
       filter === "전체" ||
-      (filter === "내 담당" && item.owner === "나") ||
-      (filter === "미정" && item.owner === "미정") ||
+      (filter === "남은 준비" && !done.includes(item.name)) ||
       (filter === "완료" && done.includes(item.name));
-    return matchesQuery && matchesFilter;
+    const matchesOwner = ownerFilter === "전체" || item.owner === ownerFilter;
+    const matchesTag =
+      tagFilter === "전체 태그" ||
+      packingTags(item).includes(tagFilter);
+    return matchesFilter && matchesOwner && matchesTag;
   });
+  const ownerSections: PackingItem["owner"][] = [
+    "나",
+    "동행",
+    "함께",
+    "미정",
+  ];
+  const managementTags = [
+    "전체 태그",
+    ...Array.from(new Set(items.flatMap((item) => packingTags(item)))),
+  ];
+  const ownerFilterOptions: {
+    label: string;
+    value: "전체" | PackingItem["owner"];
+  }[] = [
+    { label: "전체", value: "전체" },
+    { label: "하늘", value: "나" },
+    { label: "다온", value: "동행" },
+    { label: "공용", value: "함께" },
+    { label: "미정", value: "미정" },
+  ];
+  const selectOwnerFilter = (nextOwner: "전체" | PackingItem["owner"]) => {
+    setOwnerFilter(nextOwner);
+    if (nextOwner !== "전체") {
+      setCollapsedOwners((current) =>
+        current.filter((ownerName) => ownerName !== nextOwner),
+      );
+    }
+  };
   const submit = () => {
     const parsed = names
       .split(/[\n,]/)
       .map((name) => name.trim())
       .filter(Boolean);
     if (!parsed.length) return;
+    const customTags = tagText
+      .split(/[,#\n]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean);
     const stamp = Date.now();
     setItems((current) => [
       ...current,
@@ -1375,39 +1597,31 @@ function Preparation({
         name,
         quantity: quantity.trim(),
         owner,
-        source,
-        timing,
+        tags: customTags,
       })),
     ]);
     setNames("");
     setQuantity("");
+    setTagText("");
     setAdding(false);
   };
-  const claim = (item: PackingItem) => {
+  const assignOwner = (item: PackingItem, nextOwner: PackingItem["owner"]) => {
     setItems((current) =>
       current.map((value) =>
-        value.id === item.id ? { ...value, owner: "나" } : value,
+        value.id === item.id ? { ...value, owner: nextOwner } : value,
       ),
     );
+    setAssigningItem(null);
   };
   const complete = (item: PackingItem) => {
     toggle(item.name);
-  };
-  const cycleOwner = (item: PackingItem) => {
-    const order: PackingItem["owner"][] = ["미정", "나", "동행", "함께"];
-    const next = order[(order.indexOf(item.owner) + 1) % order.length];
-    setItems((current) =>
-      current.map((value) =>
-        value.id === item.id ? { ...value, owner: next } : value,
-      ),
-    );
   };
   const copyPacking = async () => {
     await Clipboard.setStringAsync(
       items
         .map(
           (item) =>
-            `${item.name} | ${item.quantity} | ${item.owner} | ${item.source} | ${item.timing}`,
+            `${item.name} | ${item.quantity} | ${packingOwnerName(item.owner)} | ${packingTags(item).map((tag) => `#${tag}`).join(" ")}`,
         )
         .join("\n"),
     );
@@ -1421,13 +1635,15 @@ function Preparation({
     setImporting(true);
   };
   const importPacking = () => {
-    const owners: PackingItem["owner"][] = ["함께", "나", "동행", "미정"];
-    const sources: PackingItem["source"][] = [
-      "집에서",
-      "미리 구매",
-      "현지 구매",
-    ];
-    const timings: PackingItem["timing"][] = ["미리", "출발 아침", "숙소에서"];
+    const ownerAliases: Record<string, PackingItem["owner"]> = {
+      하늘: "나",
+      다온: "동행",
+      공용: "함께",
+      미정: "미정",
+      나: "나",
+      동행: "동행",
+      함께: "함께",
+    };
     const stamp = Date.now();
     const parsed = importText
       .split("\n")
@@ -1438,22 +1654,14 @@ function Preparation({
           name,
           quantity = "",
           rawOwner = "미정",
-          rawSource = "집에서",
-          rawTiming = "미리",
+          rawTags = "",
         ] = line.split("|").map((value) => value.trim());
         return {
           id: `${stamp}-${index}`,
           name,
           quantity,
-          owner: owners.includes(rawOwner as PackingItem["owner"])
-            ? (rawOwner as PackingItem["owner"])
-            : "미정",
-          source: sources.includes(rawSource as PackingItem["source"])
-            ? (rawSource as PackingItem["source"])
-            : "집에서",
-          timing: timings.includes(rawTiming as PackingItem["timing"])
-            ? (rawTiming as PackingItem["timing"])
-            : "미리",
+          owner: ownerAliases[rawOwner] ?? "미정",
+          tags: rawTags.split(/[# ,]+/).filter(Boolean),
         };
       })
       .filter((item) => item.name);
@@ -1504,6 +1712,34 @@ function Preparation({
       <View style={styles.compactTrack}>
         <View style={[styles.progressFill, { width: `${percentage}%` }]} />
       </View>
+      <View style={styles.packingManageHead}>
+        <View>
+          <Text style={[styles.packingManageTitle, theme && { color: theme.text }]}>담당별 관리</Text>
+          <Text style={[styles.packingManageHint, theme && { color: theme.muted }]}>담당을 누르면 해당 준비물만 모아 볼 수 있어요</Text>
+        </View>
+        <Pressable
+          onPress={() => selectOwnerFilter("전체")}
+          style={[
+            styles.packingShowAll,
+            theme && {
+              backgroundColor:
+                ownerFilter === "전체" ? theme.primarySoft : theme.surface,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.packingShowAllText,
+              theme && {
+                color: ownerFilter === "전체" ? theme.primary : theme.muted,
+              },
+            ]}
+          >
+            전체 {items.length}
+          </Text>
+        </Pressable>
+      </View>
       <View
         style={[
           styles.ownerStats,
@@ -1513,193 +1749,325 @@ function Preparation({
           },
         ]}
       >
-        <View style={styles.ownerStat}>
-          <Text style={styles.ownerStatName}>나</Text>
-          <Text style={styles.ownerStatCount}>
-            {
-              items.filter(
-                (item) => item.owner === "나" && !done.includes(item.name),
-              ).length
-            }
-            개 남음
-          </Text>
-        </View>
-        <View style={styles.ownerDivider} />
-        <View style={styles.ownerStat}>
-          <Text style={styles.ownerStatName}>동행</Text>
-          <Text style={styles.ownerStatCount}>
-            {
-              items.filter(
-                (item) => item.owner === "동행" && !done.includes(item.name),
-              ).length
-            }
-            개 남음
-          </Text>
-        </View>
-        <View style={styles.ownerDivider} />
-        <View style={styles.ownerStat}>
-          <Text style={styles.ownerStatName}>미정</Text>
-          <Text style={[styles.ownerStatCount, styles.unassignedText]}>
-            {items.filter((item) => item.owner === "미정").length}개
-          </Text>
-        </View>
-      </View>
-      <View
-        style={[
-          styles.prepareSearch,
-          theme && {
-            backgroundColor: theme.surface,
-            borderColor: theme.border,
-          },
-        ]}
-      >
-        <Text style={[styles.placeSearchIcon, theme && { color: theme.text }]}>
-          ⌕
-        </Text>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="이름, 담당, 준비 방식 검색"
-          placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-          style={[styles.placeSearchInput, theme && { color: theme.text }]}
-        />
-        <Pressable onPress={() => setAdding(true)} style={styles.inlineAdd}>
-          <Text style={styles.inlineAddText}>+ 추가</Text>
-        </Pressable>
-      </View>
-      <View style={styles.batchActions}>
-        <Pressable
-          onPress={copyPacking}
-          style={[
-            styles.batchButton,
-            theme && {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.batchButtonText, theme && { color: theme.text }]}
-          >
-            목록 복사
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={openImport}
-          style={[
-            styles.batchButton,
-            theme && {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.batchButtonText, theme && { color: theme.text }]}
-          >
-            붙여넣기
-          </Text>
-        </Pressable>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.packingFilters}
-      >
-        {(["전체", "내 담당", "미정", "완료"] as const).map((item) => (
-          <Pressable
-            key={item}
-            onPress={() => setFilter(item)}
-            style={[
-              styles.placeFilter,
-              filter === item && styles.placeFilterActive,
-              filter === item &&
-                theme && { backgroundColor: theme.primarySoft },
-            ]}
-          >
-            <Text
-              style={[
-                styles.placeFilterText,
-                filter === item && styles.placeFilterTextActive,
-                filter === item && theme && { color: theme.primary },
-              ]}
-            >
-              {item}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-      <View style={styles.packingList}>
-        {visibleItems.map((item, index) => {
-          const completed = done.includes(item.name);
+        {ownerSections.map((ownerName, index) => {
+          const remaining = items.filter(
+            (item) =>
+              item.owner === ownerName && !done.includes(item.name),
+          ).length;
+          const active = ownerFilter === ownerName;
           return (
-            <View
-              key={item.id}
-              style={[
-                styles.packingCard,
-                theme && {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
-                  transform: [{ rotate: index % 2 ? ".18deg" : "-.18deg" }],
-                },
-                completed && styles.packingCardDone,
-              ]}
-            >
+            <View key={ownerName} style={styles.ownerStatSlot}>
+              {index > 0 && (
+                <View
+                  style={[
+                    styles.ownerDivider,
+                    theme && { backgroundColor: theme.border },
+                  ]}
+                />
+              )}
               <Pressable
-                onPress={() => complete(item)}
-                style={[styles.checkbox, completed && styles.checkboxDone]}
-              >
-                <Text style={styles.checkIcon}>{completed ? "✓" : ""}</Text>
-              </Pressable>
-              <View style={styles.packingBody}>
-                <View style={styles.packingTitleRow}>
-                  <Text
-                    style={[
-                      styles.checkName,
-                      theme && { color: theme.text },
-                      completed && styles.checkNameDone,
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                  {item.quantity ? (
-                    <Text style={styles.packingQuantity}>{item.quantity}</Text>
-                  ) : null}
-                </View>
-                <View style={styles.packingTags}>
-                  <View style={styles.packingTag}>
-                    <Text style={styles.packingTagText}># {item.source}</Text>
-                  </View>
-                  <View style={styles.packingTag}>
-                    <Text style={styles.packingTagText}># {item.timing}</Text>
-                  </View>
-                </View>
-                {item.owner === "미정" && !completed ? (
-                  <Pressable
-                    onPress={() => claim(item)}
-                    style={styles.claimButton}
-                  >
-                    <Text style={styles.claimButtonText}>내가 챙길게</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              <Pressable
-                onPress={() => cycleOwner(item)}
+                onPress={() =>
+                  selectOwnerFilter(active ? "전체" : ownerName)
+                }
                 style={[
-                  styles.ownerBadge,
-                  item.owner === "미정" && styles.ownerBadgeEmpty,
+                  styles.ownerStat,
+                  active && styles.ownerStatActive,
+                  active &&
+                    theme && { backgroundColor: theme.primarySoft },
                 ]}
               >
                 <Text
                   style={[
-                    styles.ownerBadgeText,
-                    item.owner === "미정" && styles.ownerBadgeTextEmpty,
+                    styles.ownerStatName,
+                    theme && { color: active ? theme.primary : theme.text },
                   ]}
                 >
-                  {item.owner}
+                  {packingOwnerName(ownerName)}
                 </Text>
-                <Text style={styles.ownerChange}>변경</Text>
+                <Text
+                  style={[
+                    styles.ownerStatCount,
+                    ownerName === "미정" && styles.unassignedText,
+                    theme &&
+                      ownerName !== "미정" && { color: theme.muted },
+                  ]}
+                >
+                  {remaining}개 남음
+                </Text>
               </Pressable>
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.packingActionRow}>
+        <Pressable
+          onPress={() => setAdding(true)}
+          style={[styles.packingPrimaryAction, theme && { backgroundColor: theme.navigation }]}
+        >
+          <Text style={styles.packingPrimaryActionText}>+ 준비물 추가</Text>
+        </Pressable>
+      </View>
+      <View
+        style={[
+          styles.packingFilterBoard,
+          theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={styles.packingFilterLine}>
+          <Text style={[styles.packingFilterLabel, theme && { color: theme.muted }]}>담당</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingFilters}>
+            {ownerFilterOptions.map((option) => {
+              const active = ownerFilter === option.value;
+              return <Pressable key={option.value} onPress={() => selectOwnerFilter(option.value)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{option.label}</Text></Pressable>;
+            })}
+          </ScrollView>
+        </View>
+        <View style={[styles.packingFilterRule, theme && { backgroundColor: theme.border }]} />
+        <View style={styles.packingFilterLine}>
+          <Text style={[styles.packingFilterLabel, theme && { color: theme.muted }]}>태그</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingFilters}>
+            {managementTags.map((tag) => {
+              const active = tagFilter === tag;
+              return <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{tag === "전체 태그" ? tag : `#${tag}`}</Text></Pressable>;
+            })}
+          </ScrollView>
+        </View>
+        <View style={[styles.packingFilterRule, theme && { backgroundColor: theme.border }]} />
+        <View style={styles.packingFilterLine}>
+          <Text style={[styles.packingFilterLabel, theme && { color: theme.muted }]}>상태</Text>
+          <View style={styles.packingFilters}>
+            {(["전체", "남은 준비", "완료"] as const).map((item) => {
+              const active = filter === item;
+              return <Pressable key={item} onPress={() => setFilter(item)} style={[styles.packingFilterChip, active && theme && { backgroundColor: theme.primarySoft }]}><Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{item}</Text></Pressable>;
+            })}
+          </View>
+        </View>
+      </View>
+      <View style={styles.packingList}>
+        {ownerSections.map((sectionOwner) => {
+          const ownerItems = visibleItems.filter(
+            (item) => item.owner === sectionOwner,
+          );
+          if (!ownerItems.length) return null;
+          const ownerDone = ownerItems.filter((item) =>
+            done.includes(item.name),
+          ).length;
+          const collapsed = collapsedOwners.includes(sectionOwner);
+          const ownerColor = theme
+            ? sectionOwner === "나"
+              ? theme.primary
+              : sectionOwner === "동행"
+                ? theme.secondary
+                : sectionOwner === "함께"
+                  ? theme.accent
+                : theme.muted
+            : "#8B7CF6";
+          const sectionTags = Array.from(
+            new Set(ownerItems.map((item) => packingTags(item)[0] || "태그 없음")),
+          );
+          return (
+            <View
+              key={sectionOwner}
+              style={[
+                styles.packingOwnerSection,
+                {
+                  borderLeftColor: ownerColor,
+                  backgroundColor: `${ownerColor}0D`,
+                },
+              ]}
+            >
+              <Pressable
+                onPress={() =>
+                  setCollapsedOwners((current) =>
+                    current.includes(sectionOwner)
+                      ? current.filter((ownerName) => ownerName !== sectionOwner)
+                      : [...current, sectionOwner],
+                  )
+                }
+                style={styles.packingOwnerHead}
+              >
+                <View
+                  style={[
+                    styles.packingOwnerAvatar,
+                    { backgroundColor: `${ownerColor}1C` },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.packingOwnerAvatarText,
+                      { color: ownerColor },
+                    ]}
+                  >
+                    {sectionOwner === "미정"
+                      ? "?"
+                      : packingOwnerName(sectionOwner).slice(0, 1)}
+                  </Text>
+                </View>
+                <View style={styles.packingOwnerCopy}>
+                  <Text
+                    style={[
+                      styles.packingOwnerName,
+                      theme && { color: theme.text },
+                    ]}
+                  >
+                    {sectionOwner === "함께"
+                      ? "공용 준비물"
+                      : sectionOwner === "미정"
+                        ? "담당을 정해요"
+                        : `${packingOwnerName(sectionOwner)}의 준비물`}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.packingOwnerProgress,
+                      theme && { color: theme.muted },
+                    ]}
+                  >
+                    {ownerDone} / {ownerItems.length} 완료
+                  </Text>
+                </View>
+                <Text style={[styles.packingCollapseIcon, { color: ownerColor }]}>
+                  {collapsed ? "＋" : "−"}
+                </Text>
+              </Pressable>
+              {!collapsed && sectionTags.map((sourceTag) => {
+                const taggedItems = ownerItems.filter(
+                  (item) => (packingTags(item)[0] || "태그 없음") === sourceTag,
+                );
+                if (!taggedItems.length) return null;
+                return (
+                  <View key={sourceTag} style={styles.packingTagGroup}>
+                    <View style={styles.packingTagHead}>
+                      <Text
+                        style={[
+                          styles.packingTagHeadText,
+                          theme && { color: theme.muted },
+                        ]}
+                      >
+                        # {sourceTag}
+                      </Text>
+                      <View
+                        style={[
+                          styles.packingTagLine,
+                          theme && { backgroundColor: theme.border },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.packingTagCount,
+                          theme && { color: theme.muted },
+                        ]}
+                      >
+                        {taggedItems.length}
+                      </Text>
+                    </View>
+                    {taggedItems.map((item) => {
+                      const completed = done.includes(item.name);
+                      return (
+                        <Pressable
+                          key={item.id}
+                          onPress={() => complete(item)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: completed }}
+                          accessibilityLabel={`${item.name} 준비 완료`}
+                          style={({ pressed }) => [
+                            styles.packingCard,
+                            theme && {
+                              backgroundColor: completed
+                                ? theme.surfaceAlt
+                                : theme.surface,
+                              borderColor: theme.border,
+                            },
+                            completed && styles.packingCardDone,
+                            pressed && styles.packingCardPressed,
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.completionMark,
+                              theme && {
+                                borderColor: completed
+                                  ? theme.primary
+                                  : theme.border,
+                                backgroundColor: completed
+                                  ? theme.primary
+                                  : theme.background,
+                              },
+                            ]}
+                          >
+                            {completed ? (
+                              <Text style={styles.completionTick}>✓</Text>
+                            ) : (
+                              <View
+                                style={[
+                                  styles.completionDash,
+                                  theme && { backgroundColor: theme.border },
+                                ]}
+                              />
+                            )}
+                          </View>
+                          <View style={styles.packingBody}>
+                            <View style={styles.packingTitleRow}>
+                              <Text
+                                style={[
+                                  styles.checkName,
+                                  theme && { color: theme.text },
+                                  completed && styles.checkNameDone,
+                                ]}
+                              >
+                                {item.name}
+                              </Text>
+                              {item.quantity ? (
+                                <Text
+                                  style={[
+                                    styles.packingQuantity,
+                                    theme && { color: theme.muted },
+                                  ]}
+                                >
+                                  {item.quantity}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <View style={styles.packingMetaRow}>
+                              <Text
+                                style={[
+                                  styles.packingTiming,
+                                  theme && { color: theme.muted },
+                                ]}
+                              >
+                                {packingTags(item).slice(1).map((tag) => `#${tag}`).join("  ") || "태그 없음"}
+                              </Text>
+                              <Pressable
+                                onPress={(event) => {
+                                  event.stopPropagation();
+                                  setAssigningItem(item);
+                                }}
+                                hitSlop={8}
+                                style={[
+                                  styles.packingOwnerChange,
+                                  theme && {
+                                    backgroundColor: theme.primarySoft,
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.packingOwnerChangeText,
+                                    theme && { color: theme.primary },
+                                  ]}
+                                >
+                                  {sectionOwner === "미정"
+                                    ? "담당 지정"
+                                    : "담당 변경"}
+                                </Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                );
+              })}
             </View>
           );
         })}
@@ -1711,10 +2079,141 @@ function Preparation({
           </Text>
         </View>
       )}
+      <View
+        style={[
+          styles.packingListTools,
+          theme && { borderTopColor: theme.border },
+        ]}
+      >
+        <View style={styles.packingListToolsCopy}>
+          <Text
+            style={[styles.packingListToolsTitle, theme && { color: theme.text }]}
+          >
+            목록 편집 도구
+          </Text>
+          <Text
+            style={[styles.packingListToolsHint, theme && { color: theme.muted }]}
+          >
+            메모에서 한꺼번에 수정할 때 사용하세요
+          </Text>
+        </View>
+        <Pressable
+          onPress={copyPacking}
+          style={[styles.packingToolButton, theme && { borderColor: theme.border }]}
+        >
+          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>복사</Text>
+        </Pressable>
+        <Pressable
+          onPress={openImport}
+          style={[styles.packingToolButton, theme && { borderColor: theme.border }]}
+        >
+          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>붙여넣기</Text>
+        </Pressable>
+      </View>
+      <DetailSheet
+        visible={Boolean(assigningItem)}
+        title="담당 지정"
+        subtitle={
+          assigningItem
+            ? `‘${assigningItem.name}’을(를) 누가 챙길지 선택하세요`
+            : undefined
+        }
+        submit="선택하지 않고 닫기"
+        onClose={() => setAssigningItem(null)}
+        onSubmit={() => setAssigningItem(null)}
+      >
+        <View style={styles.assignmentOptions}>
+          {ownerSections.map((ownerName) => {
+            const selected = assigningItem?.owner === ownerName;
+            const descriptions: Record<PackingItem["owner"], string> = {
+              나: "하늘의 준비물로 이동",
+              동행: "다온의 준비물로 이동",
+              함께: "둘이 함께 확인",
+              미정: "나중에 담당 정하기",
+            };
+            return (
+              <Pressable
+                key={ownerName}
+                onPress={() =>
+                  assigningItem && assignOwner(assigningItem, ownerName)
+                }
+                style={[
+                  styles.assignmentOption,
+                  theme && {
+                    backgroundColor: selected
+                      ? theme.primarySoft
+                      : theme.surface,
+                    borderColor: selected ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.assignmentAvatar,
+                    theme && {
+                      backgroundColor: selected
+                        ? theme.primary
+                        : theme.surfaceAlt,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.assignmentAvatarText,
+                      theme && {
+                        color: selected ? "#FFFFFF" : theme.text,
+                      },
+                    ]}
+                  >
+                    {ownerName === "미정"
+                      ? "?"
+                      : packingOwnerName(ownerName).slice(0, 1)}
+                  </Text>
+                </View>
+                <View style={styles.assignmentCopy}>
+                  <Text
+                    style={[
+                      styles.assignmentName,
+                      theme && { color: theme.text },
+                    ]}
+                  >
+                    {packingOwnerName(ownerName)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.assignmentDescription,
+                      theme && { color: theme.muted },
+                    ]}
+                  >
+                    {descriptions[ownerName]}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.assignmentRadio,
+                    theme && {
+                      borderColor: selected ? theme.primary : theme.border,
+                    },
+                  ]}
+                >
+                  {selected && (
+                    <View
+                      style={[
+                        styles.assignmentRadioDot,
+                        theme && { backgroundColor: theme.primary },
+                      ]}
+                    />
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </DetailSheet>
       <DetailSheet
         visible={adding}
         title="준비물 함께 추가"
-        subtitle="여러 개를 한 번에 적고 담당과 준비 방식을 정하세요"
+        subtitle="여러 개를 적고 담당과 태그를 정하세요"
         submit={
           names.split(/[\n,]/).filter((name) => name.trim()).length
             ? `${names.split(/[\n,]/).filter((name) => name.trim()).length}개 추가`
@@ -1723,22 +2222,6 @@ function Preparation({
         onClose={() => setAdding(false)}
         onSubmit={submit}
       >
-        <View style={styles.quickAdd}>
-          <Text style={styles.quickAddLabel}>자주 챙기는 것</Text>
-          <View style={styles.quickRow}>
-            {["충전기", "세면도구", "갈아입을 옷", "우산"].map((item) => (
-              <Pressable
-                key={item}
-                onPress={() =>
-                  setNames((value) => (value ? `${value}, ${item}` : item))
-                }
-                style={styles.quickChip}
-              >
-                <Text style={styles.quickChipText}>+ {item}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
         <DetailField
           label="준비물 · 여러 개 가능"
           value={names}
@@ -1746,23 +2229,31 @@ function Preparation({
           placeholder={"충전기, 안경, 갈아입을 옷"}
           multiline
         />
-        <OptionField
-          label="누가 챙길까요?"
-          options={["미정", "나", "동행", "함께"]}
-          value={owner}
-          onChange={(value) => setOwner(value as PackingItem["owner"])}
-        />
-        <OptionField
-          label="어디서 준비할까요?"
-          options={["집에서", "미리 구매", "현지 구매"]}
-          value={source}
-          onChange={(value) => setSource(value as PackingItem["source"])}
-        />
-        <OptionField
-          label="언제 확인할까요?"
-          options={["미리", "출발 아침", "숙소에서"]}
-          value={timing}
-          onChange={(value) => setTiming(value as PackingItem["timing"])}
+        <View style={styles.detailField}>
+          <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>담당</Text>
+          <View style={styles.packingAssigneeOptions}>
+            {ownerSections.map((ownerName) => (
+              <Pressable
+                key={ownerName}
+                onPress={() => setOwner(ownerName)}
+                style={[
+                  styles.packingAssigneeOption,
+                  theme && {
+                    backgroundColor: owner === ownerName ? theme.primarySoft : theme.surface,
+                    borderColor: owner === ownerName ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.packingAssigneeOptionText, theme && { color: owner === ownerName ? theme.primary : theme.text }]}>{packingOwnerName(ownerName)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        <DetailField
+          label="태그 · 쉼표로 구분"
+          value={tagText}
+          onChangeText={setTagText}
+          placeholder="예: 전자기기, 출발 전, 숙소"
         />
         <DetailField
           label="수량 · 선택"
@@ -3073,6 +3564,7 @@ const styles = StyleSheet.create({
     marginRight: 11,
   },
   checkboxDone: { backgroundColor: "#E48D78", borderColor: "#E48D78" },
+  checkboxDot: { width: 5, height: 5, borderRadius: 3, opacity: 0.72 },
   checkIcon: { color: "#FFF", fontSize: 13, fontWeight: "900" },
   checkInfo: { flex: 1 },
   checkName: { color: "#593934", fontSize: 14, fontWeight: "800" },
@@ -3785,6 +4277,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   packingPercentText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
+  packingManageHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 19,
+    marginBottom: 9,
+    paddingHorizontal: 2,
+  },
+  packingManageTitle: { fontSize: 14, fontWeight: "900" },
+  packingManageHint: { fontSize: 8, fontWeight: "700", marginTop: 3 },
+  packingShowAll: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  packingShowAllText: { fontSize: 8, fontWeight: "900" },
   ownerStats: {
     minHeight: 61,
     borderRadius: 17,
@@ -3795,7 +4304,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingHorizontal: 8,
   },
+  ownerStatSlot: { flex: 1, flexDirection: "row", alignItems: "center" },
   ownerStat: { flex: 1, alignItems: "center" },
+  ownerStatActive: { borderRadius: 9, paddingVertical: 9 },
   ownerStatName: { color: "#17233D", fontSize: 10, fontWeight: "900" },
   ownerStatCount: {
     color: "#89909C",
@@ -3814,8 +4325,60 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   inlineAddText: { color: "#FFFFFF", fontSize: 9, fontWeight: "900" },
-  packingFilters: { gap: 6, paddingBottom: 13 },
-  packingList: { gap: 9 },
+  packingActionRow: { flexDirection: "row", gap: 7, marginBottom: 12 },
+  packingPrimaryAction: {
+    flex: 1,
+    minHeight: 43,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  packingPrimaryActionText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
+  packingFilterBoard: {
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginBottom: 20,
+  },
+  packingFilterLine: { minHeight: 42, flexDirection: "row", alignItems: "center" },
+  packingFilterLabel: { width: 38, fontSize: 9, fontWeight: "900" },
+  packingFilterRule: { height: StyleSheet.hairlineWidth },
+  packingFilterChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
+  packingFilterChipText: { fontSize: 9, fontWeight: "800" },
+  packingFilters: { flexDirection: "row", gap: 6 },
+  packingList: { gap: 12 },
+  packingOwnerSection: {
+    gap: 6,
+    marginBottom: 3,
+    borderLeftWidth: 4,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  packingOwnerHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 34,
+  },
+  packingOwnerAvatar: {
+    width: 31,
+    height: 31,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  packingOwnerAvatarText: { fontSize: 10, fontWeight: "900" },
+  packingOwnerCopy: { flex: 1 },
+  packingOwnerName: { fontSize: 15, fontWeight: "900" },
+  packingOwnerProgress: { fontSize: 9, fontWeight: "700", marginTop: 2 },
+  packingCollapseIcon: { fontSize: 16, fontWeight: "800", paddingHorizontal: 5 },
+  packingTagGroup: { gap: 5, marginTop: 2 },
+  packingTagHead: { flexDirection: "row", alignItems: "center", minHeight: 18 },
+  packingTagHeadText: { fontSize: 9, fontWeight: "900" },
+  packingTagLine: { flex: 1, height: StyleSheet.hairlineWidth, marginHorizontal: 8 },
+  packingTagCount: { fontSize: 9, fontWeight: "800" },
   packingCard: {
     minHeight: 83,
     borderRadius: 19,
@@ -3828,8 +4391,91 @@ const styles = StyleSheet.create({
     borderColor: "#ECEAE5",
   },
   packingCardDone: { backgroundColor: "#F1F0EC", opacity: 0.76 },
+  packingCardPressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
+  completionMark: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+    marginRight: 11,
+  },
+  completionTick: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  completionDash: { width: 7, height: 1.5, borderRadius: 1 },
   packingBody: { flex: 1 },
   packingTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  packingMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 3,
+  },
+  packingTiming: { fontSize: 9, fontWeight: "700" },
+  packingOwnerChange: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
+  packingOwnerChangeText: { fontSize: 8, fontWeight: "900" },
+  packingListTools: {
+    borderTopWidth: 1,
+    marginTop: 22,
+    paddingTop: 14,
+    paddingBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  packingListToolsCopy: { flex: 1 },
+  packingListToolsTitle: { fontSize: 11, fontWeight: "900" },
+  packingListToolsHint: { fontSize: 8, fontWeight: "700", marginTop: 3 },
+  packingToolButton: {
+    minWidth: 48,
+    height: 34,
+    borderWidth: 1,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  packingToolButtonText: { fontSize: 9, fontWeight: "900" },
+  assignmentOptions: { gap: 8, paddingBottom: 8 },
+  assignmentOption: {
+    minHeight: 68,
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  assignmentAvatar: {
+    width: 39,
+    height: 39,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 11,
+  },
+  assignmentAvatarText: { fontSize: 10, fontWeight: "900" },
+  assignmentCopy: { flex: 1 },
+  assignmentName: { fontSize: 13, fontWeight: "900" },
+  assignmentDescription: { fontSize: 9, fontWeight: "700", marginTop: 3 },
+  assignmentRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  assignmentRadioDot: { width: 10, height: 10, borderRadius: 5 },
+  packingAssigneeOptions: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  packingAssigneeOption: {
+    minWidth: "22%",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  packingAssigneeOptionText: { fontSize: 10, fontWeight: "900" },
   packingQuantity: { color: "#858D99", fontSize: 9, fontWeight: "800" },
   claimButton: {
     alignSelf: "flex-start",
@@ -4400,23 +5046,39 @@ Object.assign(styles, {
   },
   packingFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
   packingCard: {
-    minHeight: 82,
+    minHeight: 58,
     borderRadius: 9,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderWidth: 1,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   checkbox: {
-    width: 21,
-    height: 21,
-    borderRadius: 5,
-    borderWidth: 1.5,
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
-    transform: [{ rotate: "-3deg" }],
+    marginRight: 11,
+    transform: [{ rotate: "-5deg" }],
+  },
+  checkboxDone: {
+    transform: [{ rotate: "2deg" }, { scale: 1.04 }],
+    shadowOpacity: 0.22,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  checkboxDot: { width: 5, height: 5, borderRadius: 3, opacity: 0.72 },
+  checkIcon: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: "900",
+    transform: [{ rotate: "-2deg" }],
   },
   ownerBadge: {
     minWidth: 43,
