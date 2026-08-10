@@ -2664,6 +2664,7 @@ function Cooking() {
   const [aiImporting, setAiImporting] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [showMyIngredients, setShowMyIngredients] = useState(false);
+  const [showAllRecipes, setShowAllRecipes] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
   const [importText, setImportText] = useState("");
@@ -2891,39 +2892,42 @@ function Cooking() {
       {recipes.length > 0 && (
         <View style={styles.recipeSelector}>
           <View style={styles.recipeSelectorHead}>
-            <Text style={[styles.recipeSelectorTitle, theme && { color: theme.muted }]}>요리 메뉴</Text>
-            <Text style={[styles.recipeSelectorCount, theme && { color: theme.muted }]}>{recipes.length}개 · 옆으로 넘겨보세요</Text>
+            <Text style={[styles.recipeSelectorTitle, theme && { color: theme.text }]}>요리 메뉴</Text>
+            {recipes.length > 4 ? (
+              <Pressable onPress={() => setShowAllRecipes(true)}>
+                <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개 ›</Text>
+              </Pressable>
+            ) : (
+              <Text style={[styles.recipeSelectorCount, theme && { color: theme.muted }]}>{recipes.length}개</Text>
+            )}
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.recipeTabs}
-          >
-            {recipes.map((recipe, index) => {
+          <View style={[styles.recipeList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {recipes.slice(0, 4).map((recipe, index) => {
               const selected = recipe.id === activeId;
               return (
                 <Pressable
                   key={recipe.id}
                   onPress={() => setActiveId(recipe.id)}
                   style={[
-                    styles.recipeTab,
-                    selected && styles.recipeTabActive,
-                    theme && {
-                      backgroundColor: selected ? theme.primarySoft : theme.surface,
-                      borderColor: selected ? theme.primary : theme.border,
-                    },
+                    styles.recipeListRow,
+                    index > 0 && styles.recipeListRowBorder,
+                    theme && index > 0 && { borderTopColor: theme.border },
+                    selected && theme && { backgroundColor: theme.primarySoft },
                   ]}
                 >
-                  <View style={styles.recipeTabTop}>
-                    <Text style={[styles.recipeTabNumber, theme && { color: selected ? theme.primary : theme.muted }]}>{String(index + 1).padStart(2, "0")}</Text>
-                    <Text style={[styles.recipeTabCount, selected && styles.recipeTabCountActive]}>{recipe.ingredients.length}개</Text>
+                  <View style={[styles.recipeListNumber, theme && { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}>
+                    <Text style={[styles.recipeListNumberText, theme && { color: selected ? "#FFFFFF" : theme.muted }]}>{index + 1}</Text>
                   </View>
-                  <Text numberOfLines={1} style={[styles.recipeTabText, selected && styles.recipeTabTextActive, theme && { color: selected ? theme.primary : theme.text }]}>{recipe.name}</Text>
-                  <Text numberOfLines={1} style={[styles.recipeTabNote, theme && { color: theme.muted }]}>{recipe.note}</Text>
+                  <View style={styles.recipeListCopy}>
+                    <Text numberOfLines={1} style={[styles.recipeListName, theme && { color: theme.text }]}>{recipe.name}</Text>
+                    <Text numberOfLines={1} style={[styles.recipeListNote, theme && { color: theme.muted }]}>{recipe.note}</Text>
+                  </View>
+                  <Text style={[styles.recipeListCount, theme && { color: selected ? theme.primary : theme.muted }]}>{recipe.ingredients.length}개</Text>
+                  <Text style={[styles.recipeListArrow, theme && { color: selected ? theme.primary : theme.muted }]}>›</Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
       )}
       {myCookingIngredients.length > 0 && (
@@ -2936,30 +2940,16 @@ function Cooking() {
             },
           ]}
         >
-          <View style={styles.myCookingHead}>
-            <View>
-              <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>내가 준비할 재료</Text>
-              <Text style={[styles.myCookingSummary, theme && { color: theme.muted }]}>전체 요리에서 내 재료만 모았어요</Text>
+          <Pressable onPress={() => setShowMyIngredients(true)} style={styles.myCookingCompact}>
+            <View style={[styles.myCookingIcon, theme && { backgroundColor: theme.primarySoft }]}>
+              <Text style={[styles.myCookingIconText, theme && { color: theme.primary }]}>✓</Text>
             </View>
-            <Pressable onPress={() => setShowMyIngredients(true)} style={styles.myCookingMore}>
-              <Text style={[styles.myCookingCount, theme && { color: theme.primary }]}>전체 {myCookingIngredients.length}개 ›</Text>
-            </Pressable>
-          </View>
-          <View style={styles.myCookingList}>
-            {myCookingIngredients.slice(0, 3).map((item) => (
-              <Pressable
-                key={`${item.recipeId}-${item.id}`}
-                onPress={() => setActiveId(item.recipeId)}
-                style={[
-                  styles.myCookingChip,
-                  theme && { backgroundColor: theme.surfaceAlt },
-                ]}
-              >
-                <Text style={[styles.myCookingName, theme && { color: theme.text }]}>{item.name}</Text>
-                <Text style={[styles.myCookingMeta, theme && { color: theme.muted }]}>{item.recipe} · {item.quantity}</Text>
-              </Pressable>
-            ))}
-          </View>
+            <View style={styles.myCookingCopy}>
+              <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>내가 준비할 재료 {myCookingIngredients.length}개</Text>
+              <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>{myCookingIngredients.slice(0, 3).map((item) => item.name).join(" · ")}{myCookingIngredients.length > 3 ? ` 외 ${myCookingIngredients.length - 3}개` : ""}</Text>
+            </View>
+            <Text style={[styles.recipeListArrow, theme && { color: theme.primary }]}>›</Text>
+          </Pressable>
         </View>
       )}
       {!activeRecipe ? (
@@ -3143,6 +3133,41 @@ function Cooking() {
           </View>
         </>
       )}
+      <DetailSheet
+        visible={showAllRecipes}
+        title="전체 요리 메뉴"
+        subtitle={`${recipes.length}개 요리 중 확인할 메뉴를 선택하세요`}
+        submit="닫기"
+        onClose={() => setShowAllRecipes(false)}
+        onSubmit={() => setShowAllRecipes(false)}
+      >
+        <View style={[styles.recipeList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {recipes.map((recipe, index) => (
+            <Pressable
+              key={recipe.id}
+              onPress={() => {
+                setActiveId(recipe.id);
+                setShowAllRecipes(false);
+              }}
+              style={[
+                styles.recipeListRow,
+                index > 0 && styles.recipeListRowBorder,
+                theme && index > 0 && { borderTopColor: theme.border },
+                recipe.id === activeId && theme && { backgroundColor: theme.primarySoft },
+              ]}
+            >
+              <View style={[styles.recipeListNumber, theme && { backgroundColor: recipe.id === activeId ? theme.primary : theme.surfaceAlt }]}>
+                <Text style={[styles.recipeListNumberText, theme && { color: recipe.id === activeId ? "#FFFFFF" : theme.muted }]}>{index + 1}</Text>
+              </View>
+              <View style={styles.recipeListCopy}>
+                <Text numberOfLines={1} style={[styles.recipeListName, theme && { color: theme.text }]}>{recipe.name}</Text>
+                <Text numberOfLines={1} style={[styles.recipeListNote, theme && { color: theme.muted }]}>{recipe.note}</Text>
+              </View>
+              <Text style={[styles.recipeListCount, theme && { color: theme.muted }]}>{recipe.ingredients.length}개</Text>
+            </Pressable>
+          ))}
+        </View>
+      </DetailSheet>
       <DetailSheet
         visible={showMyIngredients}
         title="내가 준비할 재료"
@@ -5391,6 +5416,36 @@ const styles = StyleSheet.create({
   },
   recipeSelectorTitle: { color: "#777F8C", fontSize: 10, fontWeight: "900" },
   recipeSelectorCount: { color: "#92909A", fontSize: 8, fontWeight: "700" },
+  recipeSelectorMore: { color: "#D9685F", fontSize: 9, fontWeight: "900" },
+  recipeList: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5DED6",
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+  recipeListRow: {
+    minHeight: 53,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 11,
+  },
+  recipeListRowBorder: { borderTopWidth: 1, borderTopColor: "#EEEAE5" },
+  recipeListNumber: {
+    width: 27,
+    height: 27,
+    borderRadius: 9,
+    backgroundColor: "#F6F2ED",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  recipeListNumberText: { color: "#8C8580", fontSize: 9, fontWeight: "900" },
+  recipeListCopy: { flex: 1, minWidth: 0 },
+  recipeListName: { color: "#35333A", fontSize: 11, fontWeight: "900" },
+  recipeListNote: { color: "#8C8580", fontSize: 8, fontWeight: "700", marginTop: 3 },
+  recipeListCount: { color: "#8C8580", fontSize: 9, fontWeight: "800", marginLeft: 8 },
+  recipeListArrow: { color: "#8C8580", fontSize: 18, fontWeight: "700", marginLeft: 6 },
   recipeTabs: { gap: 8, paddingRight: 18 },
   recipeTab: {
     width: 142,
@@ -5437,6 +5492,18 @@ const styles = StyleSheet.create({
   },
   myCookingTitle: { color: "#35333A", fontSize: 11, fontWeight: "900" },
   myCookingSummary: { color: "#8C8580", fontSize: 8, fontWeight: "700", marginTop: 3 },
+  myCookingCompact: { flexDirection: "row", alignItems: "center" },
+  myCookingIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    backgroundColor: "#F0EDFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  myCookingIconText: { color: "#6556D8", fontSize: 13, fontWeight: "900" },
+  myCookingCopy: { flex: 1, minWidth: 0 },
   myCookingCount: { color: "#D9685F", fontSize: 10, fontWeight: "900" },
   myCookingMore: { paddingVertical: 6, paddingLeft: 10 },
   myCookingList: { gap: 6 },
