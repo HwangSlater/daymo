@@ -660,6 +660,7 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
   const [tripEnd, setTripEnd] = useState("2026-09-14");
   const [note, setNote] = useState("새 여행");
   const [newRegion, setNewRegion] = useState("서울");
+  const [showAllRegions, setShowAllRegions] = useState(false);
   const filtered =
     filter === "예정"
       ? items.filter((trip) => trip.start >= "2026-08-09")
@@ -692,6 +693,7 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
     ]);
     setPlace("");
     setCreating(false);
+    setShowAllRegions(false);
     setSelectedRegion(null);
     setDisplay("목록");
   };
@@ -862,7 +864,10 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
         visible={creating}
         title="새 여행"
         submit="여행 만들기"
-        onClose={() => setCreating(false)}
+        onClose={() => {
+          setCreating(false);
+          setShowAllRegions(false);
+        }}
         onSubmit={addTrip}
       >
         <Field
@@ -875,38 +880,53 @@ function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
         <Text style={[(s as any).fieldLabel, { color: theme.muted }]}>
           지역
         </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={(s as any).regionChoices}
-        >
-          {regionPins.map((pin) => (
-            <Pressable
-              key={pin.name}
-              onPress={() => setNewRegion(pin.name)}
-              style={[
-                (s as any).regionChoice,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-                newRegion === pin.name && (s as any).regionChoiceActive,
-                newRegion === pin.name && {
-                  backgroundColor: theme.primarySoft,
-                  borderColor: theme.primary,
-                },
-              ]}
-            >
-              <Text
+        <View style={(s as any).regionChoices}>
+          {regionPins
+            .filter(
+              (pin) =>
+                showAllRegions ||
+                ["서울", "경기", "인천", "강원", "부산", "제주"].includes(
+                  pin.name,
+                ) ||
+                pin.name === newRegion,
+            )
+            .map((pin) => (
+              <Pressable
+                key={pin.name}
+                onPress={() => setNewRegion(pin.name)}
                 style={[
-                  (s as any).regionChoiceText,
-                  { color: theme.muted },
-                  newRegion === pin.name && (s as any).regionChoiceTextActive,
-                  newRegion === pin.name && { color: theme.primary },
+                  (s as any).regionChoice,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                  newRegion === pin.name && (s as any).regionChoiceActive,
+                  newRegion === pin.name && {
+                    backgroundColor: theme.primarySoft,
+                    borderColor: theme.primary,
+                  },
                 ]}
               >
-                {pin.name}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+                <Text
+                  style={[
+                    (s as any).regionChoiceText,
+                    { color: theme.muted },
+                    newRegion === pin.name && (s as any).regionChoiceTextActive,
+                    newRegion === pin.name && { color: theme.primary },
+                  ]}
+                >
+                  {pin.name}
+                </Text>
+              </Pressable>
+            ))}
+          <Pressable
+            onPress={() => setShowAllRegions((current) => !current)}
+            style={[
+              (s as any).regionChoice,
+              (s as any).regionMoreChoice,
+              { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+            ]}
+          >
+            <Text style={[(s as any).regionChoiceText, { color: theme.primary }]}>{showAllRegions ? "간단히 보기" : "전체 지역 +"}</Text>
+          </Pressable>
+        </View>
         <TripDateRangePicker
           theme={theme}
           start={tripStart}
@@ -4131,7 +4151,13 @@ Object.assign(s, {
     paddingBottom: 24,
   },
   sheetScroll: { flexGrow: 0 },
-  regionChoices: { gap: 7, paddingTop: 7, paddingBottom: 16 },
+  regionChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    paddingTop: 7,
+    paddingBottom: 16,
+  },
   regionChoice: {
     borderWidth: 1,
     borderColor: "#DEDCD5",
@@ -4140,6 +4166,7 @@ Object.assign(s, {
     paddingHorizontal: 13,
     paddingVertical: 9,
   },
+  regionMoreChoice: { borderStyle: "dashed" },
   rangeField: { marginBottom: 17 },
   rangeSummary: {
     minHeight: 62,
@@ -4149,6 +4176,7 @@ Object.assign(s, {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 8,
   },
   rangeSummaryLabel: { color: "#5ED8C9", fontSize: 8, fontWeight: "900" },
   rangeSummaryValue: {
