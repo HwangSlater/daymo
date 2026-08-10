@@ -1379,7 +1379,7 @@ function Places({
           onChange={setCategory}
         />
         <View style={styles.tagEditor}>
-          <Text style={styles.detailFieldLabel}>태그</Text>
+          <Text style={[styles.detailFieldLabel, styles.selectorLabel]}>태그</Text>
           <View style={styles.tagSuggestions}>
             {["숙소 근처", "웨이팅", "예약", "가성비", "비 오는 날"].map(
               (tag) => (
@@ -1388,10 +1388,6 @@ function Places({
                   onPress={() => addTag(tag)}
                   style={[
                     styles.tagSuggestion,
-                    theme && {
-                      backgroundColor: `${theme.primary}10`,
-                      borderColor: `${theme.primary}45`,
-                    },
                     draftTags.includes(tag) && styles.tagSuggestionActive,
                     draftTags.includes(tag) &&
                       theme && {
@@ -1403,7 +1399,6 @@ function Places({
                   <Text
                     style={[
                       styles.tagSuggestionText,
-                      theme && { color: theme.text },
                       draftTags.includes(tag) && styles.tagSuggestionTextActive,
                       draftTags.includes(tag) &&
                         theme && { color: theme.primary },
@@ -2343,7 +2338,11 @@ function Preparation({
         />
         <View style={styles.detailField}>
           <Text
-            style={[styles.detailFieldLabel, theme && { color: theme.muted }]}
+            style={[
+              styles.detailFieldLabel,
+              styles.selectorLabel,
+              theme && { color: theme.muted },
+            ]}
           >
             담당
           </Text>
@@ -2381,7 +2380,15 @@ function Preparation({
           </View>
         </View>
         <View style={styles.tagEditor}>
-          <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>태그</Text>
+          <Text
+            style={[
+              styles.detailFieldLabel,
+              styles.selectorLabel,
+              theme && { color: theme.muted },
+            ]}
+          >
+            태그
+          </Text>
           <View style={styles.tagSuggestions}>
             {["전자기기", "세면", "의류", "숙소", "출발 전"].map((tag) => {
               const selected = draftPackingTags.includes(tag);
@@ -2399,10 +2406,6 @@ function Preparation({
                   }
                   style={[
                     styles.tagSuggestion,
-                    theme && {
-                      backgroundColor: `${theme.primary}10`,
-                      borderColor: `${theme.primary}45`,
-                    },
                     selected && styles.tagSuggestionActive,
                     selected &&
                       theme && {
@@ -2414,7 +2417,6 @@ function Preparation({
                   <Text
                     style={[
                       styles.tagSuggestionText,
-                      theme && { color: theme.text },
                       selected && styles.tagSuggestionTextActive,
                       selected && theme && { color: theme.primary },
                     ]}
@@ -3060,7 +3062,15 @@ function Cooking() {
           placeholder="예: 1봉"
         />
         <View style={styles.tagEditor}>
-          <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>분류</Text>
+          <Text
+            style={[
+              styles.detailFieldLabel,
+              styles.selectorLabel,
+              theme && { color: theme.muted },
+            ]}
+          >
+            분류
+          </Text>
           <View style={styles.tagSuggestions}>
             {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
               (category) => {
@@ -3071,10 +3081,6 @@ function Cooking() {
                     onPress={() => setGroup(category)}
                     style={[
                       styles.tagSuggestion,
-                      theme && {
-                        backgroundColor: `${theme.primary}10`,
-                        borderColor: `${theme.primary}45`,
-                      },
                       selected && styles.tagSuggestionActive,
                       selected &&
                         theme && {
@@ -3086,7 +3092,6 @@ function Cooking() {
                     <Text
                       style={[
                         styles.tagSuggestionText,
-                        theme && { color: theme.text },
                         selected && styles.tagSuggestionTextActive,
                         selected && theme && { color: theme.primary },
                       ]}
@@ -3112,26 +3117,6 @@ function Cooking() {
               },
             ]}
           />
-          {group.trim() ? (
-            <View style={styles.draftTags}>
-              <Pressable
-                onPress={() => setGroup("")}
-                style={[
-                  styles.draftTag,
-                  theme && { backgroundColor: theme.primarySoft },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.draftTagText,
-                    theme && { color: theme.primary },
-                  ]}
-                >
-                  # {group.trim()} ×
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
         </View>
         <OptionField
           label="누가 준비하나요?"
@@ -4606,6 +4591,7 @@ const styles = StyleSheet.create({
   },
   manageActionText: { color: "#6556D8", fontSize: 10, fontWeight: "900" },
   tagEditor: { marginBottom: 18 },
+  selectorLabel: { marginBottom: 9 },
   tagSuggestions: {
     flexDirection: "row",
     flexWrap: "wrap",
