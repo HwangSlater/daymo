@@ -3039,8 +3039,13 @@ function Cooking() {
               theme && { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <View>
-              <Text style={styles.cookingEyebrow}>선택한 요리</Text>
+            <View style={styles.cookingHeroCopy}>
+              <View style={styles.cookingHeroLabelRow}>
+                <Text style={styles.cookingEyebrow}>선택한 요리</Text>
+                <Pressable onPress={openRecipeEdit} hitSlop={8}>
+                  <Text style={[styles.cookingInlineEdit, theme && { color: theme.primary }]}>수정</Text>
+                </Pressable>
+              </View>
               <Text
                 style={[styles.cookingTitle, theme && { color: theme.text }]}
               >
@@ -3061,17 +3066,12 @@ function Cooking() {
             <Text style={[styles.cookingTip, theme && { color: theme.muted }]}>
               이 요리에 필요한 재료예요.
             </Text>
-            <View style={styles.cookingToolbarActions}>
-              <Pressable onPress={openRecipeEdit} style={styles.cookingEditButton}>
-                <Text style={styles.cookingEditButtonText}>요리 수정</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setAddingIngredient(true)}
-                style={styles.placeAdd}
-              >
-                <Text style={styles.placeAddText}>+ 재료</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => setAddingIngredient(true)}
+              style={styles.placeAdd}
+            >
+              <Text style={styles.placeAddText}>+ 재료</Text>
+            </Pressable>
           </View>
           {groups.map((section) => (
             <View
@@ -5679,6 +5679,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 5,
   },
+  cookingHeroCopy: { flex: 1, paddingRight: 12 },
+  cookingHeroLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cookingInlineEdit: { color: "#C37835", fontSize: 9, fontWeight: "900" },
   cookingTitle: {
     color: "#5C4030",
     fontSize: 22,
@@ -5700,16 +5703,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  cookingToolbarActions: { flexDirection: "row", alignItems: "center", gap: 7 },
-  cookingEditButton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#DDD9D2",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  cookingEditButtonText: { color: "#66616A", fontSize: 9, fontWeight: "900" },
   cookingTip: { color: "#77706A", fontSize: 11 },
   cookingSection: {
     backgroundColor: "#FFFFFF",
