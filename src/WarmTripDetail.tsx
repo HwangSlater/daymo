@@ -2518,6 +2518,7 @@ type Recipe = {
   id: string;
   name: string;
   note: string;
+  url?: string;
   ingredients: CookingItem[];
 };
 
@@ -2528,6 +2529,7 @@ function Cooking() {
       id: "mille",
       name: "밀푀유나베",
       note: "첫날 저녁 · 숙소에서",
+      url: "https://www.youtube.com/results?search_query=밀푀유나베+레시피",
       ingredients: [
         {
           id: "c1",
@@ -2577,6 +2579,7 @@ function Cooking() {
       id: "clam",
       name: "바지락 술찜",
       note: "둘째 날 저녁 · 간단한 안주",
+      url: "https://www.youtube.com/results?search_query=바지락+술찜+레시피",
       ingredients: [
         {
           id: "clam-1",
@@ -2619,6 +2622,7 @@ function Cooking() {
       id: "toast",
       name: "프렌치토스트",
       note: "마지막 날 아침 · 체크아웃 전에",
+      url: "https://www.youtube.com/results?search_query=프렌치토스트+레시피",
       ingredients: [
         {
           id: "toast-1",
@@ -2676,6 +2680,7 @@ function Cooking() {
   const [owner, setOwner] = useState("미정");
   const [recipeName, setRecipeName] = useState("");
   const [recipeNote, setRecipeNote] = useState("");
+  const [recipeUrl, setRecipeUrl] = useState("");
   const activeRecipe =
     recipes.find((recipe) => recipe.id === activeId) || recipes[0];
   const ingredients = activeRecipe?.ingredients || [];
@@ -2688,11 +2693,12 @@ function Cooking() {
   const cookingPrompt = `아래 메모를 Daymo 요리 목록 형식으로 변환하라.
 규칙:
 1. 설명, 인사, 번호, 마크다운을 절대 쓰지 않는다.
-2. 각 요리의 첫 줄은 반드시: 요리 | 이름 | 메모
+2. 각 요리의 첫 줄은 반드시: 요리 | 이름 | 메모 | 참고 링크
 3. 이어지는 재료는 반드시: 재료 | 이름 | 수량 | 분류 | 준비
 4. 준비 값은 하늘, 다온, 구매, 미정 중 하나만 쓴다.
-5. 모르는 값은 미정으로 쓰고, 구분자는 반드시 | 만 사용한다.
-6. 결과만 출력한다.
+5. 참고 링크는 메모에 URL이 있을 때만 쓰고, 없으면 비워둔다.
+6. 모르는 값은 미정으로 쓰고, 구분자는 반드시 | 만 사용한다.
+7. 결과만 출력한다.
 
 [내 메모]
 여기에 만들 요리와 재료 메모를 붙여넣으세요.`;
@@ -2751,12 +2757,14 @@ function Cooking() {
                 ...recipe,
                 name: recipeName.trim(),
                 note: recipeNote.trim() || "메모 없음",
+                url: recipeUrl.trim(),
               }
             : recipe,
         ),
       );
       setRecipeName("");
       setRecipeNote("");
+      setRecipeUrl("");
       setEditingRecipe(false);
       setAddingRecipe(false);
       return;
@@ -2768,18 +2776,21 @@ function Cooking() {
         id,
         name: recipeName.trim(),
         note: recipeNote.trim() || "언제 먹을지 정해보세요",
+        url: recipeUrl.trim(),
         ingredients: [],
       },
     ]);
     setActiveId(id);
     setRecipeName("");
     setRecipeNote("");
+    setRecipeUrl("");
     setAddingRecipe(false);
   };
   const openRecipeEdit = () => {
     if (!activeRecipe) return;
     setRecipeName(activeRecipe.name);
     setRecipeNote(activeRecipe.note);
+    setRecipeUrl(activeRecipe.url || "");
     setEditingRecipe(true);
     setAddingRecipe(true);
   };
@@ -2788,6 +2799,7 @@ function Cooking() {
     setEditingRecipe(false);
     setRecipeName("");
     setRecipeNote("");
+    setRecipeUrl("");
   };
   const copyCookingPrompt = async () => {
     await Clipboard.setStringAsync(cookingPrompt);
@@ -2816,6 +2828,7 @@ function Cooking() {
             id: `ai-recipe-${stamp}-${index}`,
             name: values[0],
             note: values[1] || "메모 없음",
+            url: values[2] || "",
             ingredients: [],
           };
           parsed.push(currentRecipe);
@@ -2867,6 +2880,13 @@ function Cooking() {
       { text: "요리 삭제", style: "destructive", onPress: deleteRecipe },
       { text: "취소", style: "cancel" },
     ]);
+  };
+  const openRecipeLink = () => {
+    if (!activeRecipe?.url) return;
+    const target = /^https?:\/\//i.test(activeRecipe.url)
+      ? activeRecipe.url
+      : `https://${activeRecipe.url}`;
+    Linking.openURL(encodeURI(target));
   };
   const removeIngredient = (item: CookingItem) =>
     Alert.alert("재료를 삭제할까요?", item.name, [
@@ -3059,6 +3079,15 @@ function Cooking() {
               >
                 {activeRecipe.note}
               </Text>
+              {activeRecipe.url ? (
+                <Pressable
+                  onPress={openRecipeLink}
+                  style={styles.recipeLink}
+                >
+                  <Text style={[styles.recipeLinkIcon, theme && { color: theme.primary }]}>▶</Text>
+                  <Text style={[styles.recipeLinkText, theme && { color: theme.primary }]}>레시피 영상 보기</Text>
+                </Pressable>
+              ) : null}
             </View>
             <View style={styles.cookingHeroActions}>
               <Pressable
@@ -3404,6 +3433,12 @@ function Cooking() {
           onChangeText={setRecipeNote}
           placeholder="예: 둘째 날 아침 · 남은 재료 활용"
         />
+        <DetailField
+          label="레시피 링크 (선택)"
+          value={recipeUrl}
+          onChangeText={setRecipeUrl}
+          placeholder="유튜브 또는 레시피 링크를 붙여넣으세요"
+        />
       </DetailSheet>
       <DetailSheet
         visible={aiImporting}
@@ -3450,7 +3485,7 @@ function Cooking() {
           value={aiResult}
           onChangeText={setAiResult}
           multiline
-          placeholder={"요리 | 김치볶음밥 | 둘째 날 아침\n재료 | 김치 | 1컵 | 기본 | 구매"}
+          placeholder={"요리 | 김치볶음밥 | 둘째 날 아침 | https://youtu.be/...\n재료 | 김치 | 1컵 | 기본 | 구매"}
         />
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>여러 요리와 각 재료가 한 번에 추가됩니다.</Text>
       </DetailSheet>
@@ -5668,6 +5703,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cookingNote: { color: "#9B7555", fontSize: 10, marginTop: 5 },
+  recipeLink: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 9,
+    paddingVertical: 4,
+  },
+  recipeLinkIcon: { color: "#D9685F", fontSize: 8, fontWeight: "900" },
+  recipeLinkText: { color: "#D9685F", fontSize: 9, fontWeight: "900" },
   deleteRecipe: {
     alignSelf: "center",
     paddingHorizontal: 14,
