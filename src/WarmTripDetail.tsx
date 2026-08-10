@@ -2381,11 +2381,7 @@ function Preparation({
           </View>
         </View>
         <View style={styles.tagEditor}>
-          <Text
-            style={[styles.detailFieldLabel, theme && { color: theme.text }]}
-          >
-            추천 태그
-          </Text>
+          <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>태그</Text>
           <View style={styles.tagSuggestions}>
             {["전자기기", "세면", "의류", "숙소", "출발 전"].map((tag) => {
               const selected = draftPackingTags.includes(tag);
@@ -2429,14 +2425,20 @@ function Preparation({
               );
             })}
           </View>
-        </View>
-        <DetailField
-          label="직접 입력 (쉼표로 구분)"
-          value={tagText}
-          onChangeText={setTagText}
-          placeholder="예: 전자기기, 출발 전, 숙소"
-        />
-        {draftPackingTags.length > 0 && (
+          <TextInput
+            value={tagText}
+            onChangeText={setTagText}
+            placeholder="쉼표로 구분 · 예: 전자기기, 출발 전, 숙소"
+            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+            style={[
+              styles.tagInput,
+              theme && {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+          />
           <View style={styles.draftTags}>
             {draftPackingTags.map((tag) => (
               <Pressable
@@ -2464,7 +2466,7 @@ function Preparation({
               </Pressable>
             ))}
           </View>
-        )}
+        </View>
         <DetailField
           label="수량 (선택)"
           value={quantity}
@@ -3058,11 +3060,7 @@ function Cooking() {
           placeholder="예: 1봉"
         />
         <View style={styles.tagEditor}>
-          <Text
-            style={[styles.detailFieldLabel, theme && { color: theme.text }]}
-          >
-            추천 분류
-          </Text>
+          <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>분류</Text>
           <View style={styles.tagSuggestions}>
             {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
               (category) => {
@@ -3100,13 +3098,41 @@ function Cooking() {
               },
             )}
           </View>
+          <TextInput
+            value={group}
+            onChangeText={setGroup}
+            placeholder="직접 입력 · 예: 유제품"
+            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+            style={[
+              styles.tagInput,
+              theme && {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+          />
+          {group.trim() ? (
+            <View style={styles.draftTags}>
+              <Pressable
+                onPress={() => setGroup("")}
+                style={[
+                  styles.draftTag,
+                  theme && { backgroundColor: theme.primarySoft },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.draftTagText,
+                    theme && { color: theme.primary },
+                  ]}
+                >
+                  # {group.trim()} ×
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
-        <DetailField
-          label="직접 입력"
-          value={group}
-          onChangeText={setGroup}
-          placeholder="예: 채소, 양념, 토핑"
-        />
         <OptionField
           label="누가 준비하나요?"
           options={["미정", "하늘", "다온", "구매"]}
