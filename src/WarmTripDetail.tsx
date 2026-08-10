@@ -296,6 +296,7 @@ export function WarmTripDetail({
   const [editingTrip, setEditingTrip] = useState(false);
   const [hasKitchen, setHasKitchen] = useState(true);
   const [packingItems, setPackingItems] = useState(packing);
+  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
     {
       time: "금 · 12:30",
@@ -447,9 +448,12 @@ export function WarmTripDetail({
               toggle={toggle}
               items={packingItems}
               setItems={setPackingItems}
+              recipes={recipes}
             />
           )}
-          {mode === "요리" && <Cooking />}
+          {mode === "요리" && (
+            <Cooking recipes={recipes} setRecipes={setRecipes} />
+          )}
           {mode === "기록" && <Memories />}
         </ScrollView>
         <DetailSheet
@@ -1502,11 +1506,13 @@ function Preparation({
   toggle,
   items,
   setItems,
+  recipes,
 }: {
   done: string[];
   toggle: (item: string) => void;
   items: PackingItem[];
   setItems: React.Dispatch<React.SetStateAction<PackingItem[]>>;
+  recipes: Recipe[];
 }) {
   const theme = useContext(DetailThemeContext);
   const [adding, setAdding] = useState(false);
@@ -1527,6 +1533,8 @@ function Preparation({
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
+  const [cookingPicker, setCookingPicker] = useState(false);
+  const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   const completedCount = done.filter((name) =>
     items.some((item) => item.name === name),
   ).length;
@@ -1655,6 +1663,46 @@ function Preparation({
       importMode === "교체" ? parsed : [...current, ...parsed],
     );
     setImporting(false);
+  };
+  const toggleCookingItem = (id: string) =>
+    setSelectedCookingItems((current) =>
+      current.includes(id)
+        ? current.filter((itemId) => itemId !== id)
+        : [...current, id],
+    );
+  const importCookingItems = () => {
+    const existingNames = new Set(items.map((item) => item.name));
+    const selected = recipes.flatMap((recipe) =>
+      recipe.ingredients
+        .filter(
+          (ingredient) =>
+            selectedCookingItems.includes(ingredient.id) &&
+            !existingNames.has(ingredient.name),
+        )
+        .map((ingredient) => ({ recipe, ingredient })),
+    );
+    if (!selected.length) {
+      setCookingPicker(false);
+      return;
+    }
+    const stamp = Date.now();
+    setItems((current) => [
+      ...current,
+      ...selected.map(({ recipe, ingredient }, index) => ({
+        id: `cooking-${stamp}-${index}`,
+        name: ingredient.name,
+        quantity: ingredient.quantity,
+        owner:
+          ingredient.owner === "하늘"
+            ? ("나" as const)
+            : ingredient.owner === "다온"
+              ? ("동행" as const)
+              : ("미정" as const),
+        tags: ["요리 재료", recipe.name, ingredient.group],
+      })),
+    ]);
+    setSelectedCookingItems([]);
+    setCookingPicker(false);
   };
 
   return (
@@ -2329,6 +2377,31 @@ function Preparation({
         onClose={() => setAdding(false)}
         onSubmit={submit}
       >
+        {recipes.some((recipe) => recipe.ingredients.length > 0) && (
+          <View
+            style={[
+              styles.cookingImportCallout,
+              theme && {
+                backgroundColor: theme.surfaceAlt,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <View style={styles.cookingImportCopy}>
+              <Text style={[styles.cookingImportTitle, theme && { color: theme.text }]}>요리 재료 불러오기</Text>
+              <Text style={[styles.cookingImportText, theme && { color: theme.muted }]}>요리 탭의 재료를 골라 준비물로 추가하세요.</Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                setAdding(false);
+                setCookingPicker(true);
+              }}
+              style={[styles.aiRecipeButton, theme && { backgroundColor: theme.primarySoft }]}
+            >
+              <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>불러오기</Text>
+            </Pressable>
+          </View>
+        )}
         <DetailField
           label="준비물 이름 (여러 개 입력 가능)"
           value={names}
@@ -2477,6 +2550,108 @@ function Preparation({
         />
       </DetailSheet>
       <DetailSheet
+        visible={cookingPicker}
+        title="요리 재료 불러오기"
+        subtitle="준비물에 추가할 재료를 선택하세요"
+        submit={
+          selectedCookingItems.length
+            ? `${selectedCookingItems.length}개 준비물에 추가`
+            : "재료를 선택해 주세요"
+        }
+        onClose={() => {
+          setCookingPicker(false);
+          setSelectedCookingItems([]);
+        }}
+        onSubmit={importCookingItems}
+      >
+        {recipes.map((recipe) => (
+          <View
+            key={recipe.id}
+            style={[
+              styles.cookingImportGroup,
+              theme && {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <View style={styles.cookingImportGroupHead}>
+              <Text
+                style={[
+                  styles.cookingImportGroupTitle,
+                  theme && { color: theme.text },
+                ]}
+              >
+                {recipe.name}
+              </Text>
+              <Text
+                style={[
+                  styles.cookingImportGroupCount,
+                  theme && { color: theme.muted },
+                ]}
+              >
+                {recipe.ingredients.length}개
+              </Text>
+            </View>
+            {recipe.ingredients.map((ingredient) => {
+              const selected = selectedCookingItems.includes(ingredient.id);
+              const alreadyAdded = items.some(
+                (item) => item.name === ingredient.name,
+              );
+              return (
+                <Pressable
+                  key={ingredient.id}
+                  disabled={alreadyAdded}
+                  onPress={() => toggleCookingItem(ingredient.id)}
+                  style={[
+                    styles.cookingImportRow,
+                    theme && { borderTopColor: theme.border },
+                    selected &&
+                      theme && { backgroundColor: theme.primarySoft },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.cookingImportCheck,
+                      theme && {
+                        borderColor: selected ? theme.primary : theme.border,
+                      },
+                      selected &&
+                        theme && { backgroundColor: theme.primary },
+                    ]}
+                  >
+                    {selected && (
+                      <Text style={styles.cookingImportCheckText}>✓</Text>
+                    )}
+                  </View>
+                  <View style={styles.cookingImportItemCopy}>
+                    <Text
+                      style={[
+                        styles.cookingImportItemName,
+                        theme && {
+                          color: alreadyAdded ? theme.muted : theme.text,
+                        },
+                      ]}
+                    >
+                      {ingredient.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.cookingImportItemMeta,
+                        theme && { color: theme.muted },
+                      ]}
+                    >
+                      {ingredient.quantity} · {ingredient.owner}
+                      {alreadyAdded ? " · 이미 추가됨" : ""}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </DetailSheet>
+      <DetailSheet
         visible={importing}
         title="준비 목록 붙여넣기"
         subtitle="메모에서 여러 줄을 고쳐 한 번에 반영하세요"
@@ -2522,9 +2697,7 @@ type Recipe = {
   ingredients: CookingItem[];
 };
 
-function Cooking() {
-  const theme = useContext(DetailThemeContext);
-  const [recipes, setRecipes] = useState<Recipe[]>([
+const initialRecipes: Recipe[] = [
     {
       id: "mille",
       name: "밀푀유나베",
@@ -2661,7 +2834,16 @@ function Cooking() {
         },
       ],
     },
-  ]);
+];
+
+function Cooking({
+  recipes,
+  setRecipes,
+}: {
+  recipes: Recipe[];
+  setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
+}) {
+  const theme = useContext(DetailThemeContext);
   const [activeId, setActiveId] = useState("mille");
   const [addingIngredient, setAddingIngredient] = useState(false);
   const [addingRecipe, setAddingRecipe] = useState(false);
@@ -5368,6 +5550,58 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   packingAssigneeOptionText: { fontSize: 10, fontWeight: "900" },
+  cookingImportCallout: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E3DD",
+    backgroundColor: "#F6F2ED",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  cookingImportCopy: { flex: 1, paddingRight: 10 },
+  cookingImportTitle: { color: "#35333A", fontSize: 11, fontWeight: "900" },
+  cookingImportText: { color: "#8C8580", fontSize: 8, fontWeight: "700", marginTop: 3 },
+  cookingImportGroup: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E3DD",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  cookingImportGroupHead: {
+    minHeight: 43,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cookingImportGroupTitle: { color: "#35333A", fontSize: 11, fontWeight: "900" },
+  cookingImportGroupCount: { color: "#8C8580", fontSize: 9, fontWeight: "800" },
+  cookingImportRow: {
+    minHeight: 45,
+    borderTopWidth: 1,
+    borderTopColor: "#EEEAE5",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 2,
+  },
+  cookingImportCheck: {
+    width: 21,
+    height: 21,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: "#D7D4CE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  cookingImportCheckText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
+  cookingImportItemCopy: { flex: 1 },
+  cookingImportItemName: { color: "#35333A", fontSize: 10, fontWeight: "900" },
+  cookingImportItemMeta: { color: "#8C8580", fontSize: 8, fontWeight: "700", marginTop: 3 },
   packingQuantity: { color: "#858D99", fontSize: 9, fontWeight: "800" },
   claimButton: {
     alignSelf: "flex-start",
