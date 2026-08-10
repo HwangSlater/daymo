@@ -2860,6 +2860,14 @@ function Cooking() {
       ],
     );
   };
+  const openRecipeActions = () => {
+    if (!activeRecipe) return;
+    Alert.alert(activeRecipe.name, "요리 정보를 관리하세요.", [
+      { text: "요리 수정", onPress: openRecipeEdit },
+      { text: "요리 삭제", style: "destructive", onPress: deleteRecipe },
+      { text: "취소", style: "cancel" },
+    ]);
+  };
   const removeIngredient = (item: CookingItem) =>
     Alert.alert("재료를 삭제할까요?", item.name, [
       { text: "취소", style: "cancel" },
@@ -3040,12 +3048,7 @@ function Cooking() {
             ]}
           >
             <View style={styles.cookingHeroCopy}>
-              <View style={styles.cookingHeroLabelRow}>
-                <Text style={styles.cookingEyebrow}>선택한 요리</Text>
-                <Pressable onPress={openRecipeEdit} hitSlop={8}>
-                  <Text style={[styles.cookingInlineEdit, theme && { color: theme.primary }]}>수정</Text>
-                </Pressable>
-              </View>
+              <Text style={styles.cookingEyebrow}>선택한 요리</Text>
               <Text
                 style={[styles.cookingTitle, theme && { color: theme.text }]}
               >
@@ -3057,9 +3060,21 @@ function Cooking() {
                 {activeRecipe.note}
               </Text>
             </View>
-            <View style={styles.cookingCount}>
-              <Text style={styles.cookingCountText}>{ingredients.length}</Text>
-              <Text style={styles.cookingCountLabel}>재료</Text>
+            <View style={styles.cookingHeroActions}>
+              <Pressable
+                onPress={openRecipeActions}
+                accessibilityLabel="요리 관리"
+                style={[
+                  styles.cookingMoreButton,
+                  theme && { backgroundColor: theme.surface },
+                ]}
+              >
+                <Text style={[styles.cookingMoreText, theme && { color: theme.muted }]}>···</Text>
+              </Pressable>
+              <View style={styles.cookingCount}>
+                <Text style={styles.cookingCountText}>{ingredients.length}</Text>
+                <Text style={styles.cookingCountLabel}>재료</Text>
+              </View>
             </View>
           </View>
           <View style={styles.cookingToolbar}>
@@ -3135,9 +3150,6 @@ function Cooking() {
           <Text style={styles.longPressHint}>
             재료를 누르면 수정하고, 길게 누르면 삭제할 수 있어요.
           </Text>
-          <Pressable onPress={deleteRecipe} style={styles.deleteRecipe}>
-            <Text style={styles.deleteRecipeText}>이 요리 삭제</Text>
-          </Pressable>
           <View
             style={[
               styles.packingListTools,
@@ -5680,8 +5692,16 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   cookingHeroCopy: { flex: 1, paddingRight: 12 },
-  cookingHeroLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  cookingInlineEdit: { color: "#C37835", fontSize: 9, fontWeight: "900" },
+  cookingHeroActions: { alignItems: "center", gap: 7 },
+  cookingMoreButton: {
+    width: 30,
+    height: 24,
+    borderRadius: 9,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cookingMoreText: { color: "#8C8580", fontSize: 14, fontWeight: "900", lineHeight: 16 },
   cookingTitle: {
     color: "#5C4030",
     fontSize: 22,
