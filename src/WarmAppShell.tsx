@@ -2470,9 +2470,12 @@ function Field({
 }) {
   return (
     <View style={(s as any).field}>
-      <Text style={[(s as any).fieldLabel, theme && { color: theme.muted }]}>
-        {label}
-      </Text>
+      <View style={(s as any).fieldLabelRow}>
+        <View style={[(s as any).fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <Text style={[(s as any).fieldLabel, theme && { color: theme.text }]}>
+          {label}
+        </Text>
+      </View>
       <TextInput
         {...props}
         placeholderTextColor={theme?.muted ?? "#9AA1AE"}
@@ -2522,19 +2525,27 @@ function FormSheet({
         >
           <View style={(s as any).sheetHandle} />
           <View style={(s as any).sheetHead}>
-            <Text
-              style={[(s as any).sheetTitle, theme && { color: theme.text }]}
-            >
-              {title}
-            </Text>
-            <Pressable onPress={onClose}>
+            <View style={(s as any).sheetHeadMain}>
+              <View style={[(s as any).sheetMark, theme && { backgroundColor: theme.primarySoft }]}>
+                <Text style={[(s as any).sheetMarkText, theme && { color: theme.primary }]}>01</Text>
+              </View>
+              <View>
+                <Text
+                  style={[(s as any).sheetTitle, theme && { color: theme.text }]}
+                >
+                  {title}
+                </Text>
+                <Text style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>우리의 다음 장면을 만들어보세요</Text>
+              </View>
+            </View>
+            <Pressable onPress={onClose} style={[(s as any).sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}>
               <Text
                 style={[
                   (s as any).sheetClose,
                   theme && { color: theme.primary },
                 ]}
               >
-                닫기
+                ×
               </Text>
             </Pressable>
           </View>
@@ -2553,6 +2564,7 @@ function FormSheet({
             ]}
           >
             <Text style={(s as any).sheetSubmitText}>{submit}</Text>
+            <View style={(s as any).sheetSubmitArrow}><Text style={(s as any).sheetSubmitArrowText}>→</Text></View>
           </Pressable>
         </View>
       </View>
@@ -3289,8 +3301,8 @@ Object.assign(s, {
     maxWidth: 430,
     alignSelf: "center",
     backgroundColor: "#F7F5F0",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 22,
     paddingTop: 10,
     paddingBottom: 36,
@@ -3309,23 +3321,44 @@ Object.assign(s, {
     alignItems: "center",
     marginBottom: 24,
   },
+  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
+  sheetMark: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    transform: [{ rotate: "-3deg" }],
+  },
+  sheetMarkText: { fontSize: 11, fontWeight: "900" },
   sheetTitle: {
     color: "#17233D",
     fontSize: 24,
     fontWeight: "900",
     letterSpacing: -1,
   },
-  sheetClose: { color: "#6556D8", fontSize: 13, fontWeight: "800" },
+  sheetSubtitle: { fontSize: 10, marginTop: 4 },
+  sheetCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetClose: { color: "#6556D8", fontSize: 22, lineHeight: 24, fontWeight: "500" },
   field: { marginBottom: 17 },
+  fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  fieldLabelDot: { width: 5, height: 5, borderRadius: 3, marginRight: 7 },
   fieldLabel: {
     color: "#6F7888",
     fontSize: 10,
     fontWeight: "900",
-    marginBottom: 7,
+    marginBottom: 0,
   },
   fieldInput: {
     height: 51,
-    borderRadius: 15,
+    borderRadius: 14,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 15,
     color: "#17233D",
@@ -3338,10 +3371,22 @@ Object.assign(s, {
     borderRadius: 17,
     backgroundColor: "#17233D",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    flexDirection: "row",
+    paddingLeft: 18,
+    paddingRight: 7,
     marginTop: 6,
   },
   sheetSubmitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  sheetSubmitArrow: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetSubmitArrowText: { color: "#FFFFFF", fontSize: 18, fontWeight: "800" },
   sheetCopy: {
     color: "#556071",
     fontSize: 14,
