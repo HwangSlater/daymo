@@ -3041,9 +3041,12 @@ function DetailField({
   const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.detailField}>
-      <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>
-        {label}
-      </Text>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
+          {label}
+        </Text>
+      </View>
       <TextInput
         {...props}
         multiline={multiline}
@@ -3083,6 +3086,17 @@ function DetailSheet({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
+  const sheetMark = title.includes("일정")
+    ? "01"
+    : title.includes("장소")
+      ? "02"
+      : title.includes("준비") || title.includes("담당")
+        ? "03"
+        : title.includes("요리") || title.includes("재료")
+          ? "04"
+          : title.includes("기록") || title.includes("사진")
+            ? "05"
+            : "+";
   return (
     <Modal
       visible={visible}
@@ -3097,26 +3111,31 @@ function DetailSheet({
         >
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHead}>
-            <View>
-              <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
-                {title}
-              </Text>
-              {subtitle && (
-                <Text
-                  style={[
-                    styles.sheetSubtitle,
-                    theme && { color: theme.muted },
-                  ]}
-                >
-                  {subtitle}
+            <View style={styles.sheetHeadMain}>
+              <View style={[styles.sheetMark, theme && { backgroundColor: theme.primarySoft }]}>
+                <Text style={[styles.sheetMarkText, theme && { color: theme.primary }]}>{sheetMark}</Text>
+              </View>
+              <View style={styles.sheetHeadCopy}>
+                <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
+                  {title}
                 </Text>
-              )}
+                {subtitle && (
+                  <Text
+                    style={[
+                      styles.sheetSubtitle,
+                      theme && { color: theme.muted },
+                    ]}
+                  >
+                    {subtitle}
+                  </Text>
+                )}
+              </View>
             </View>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={onClose} style={[styles.sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}>
               <Text
                 style={[styles.sheetClose, theme && { color: theme.primary }]}
               >
-                닫기
+                ×
               </Text>
             </Pressable>
           </View>
@@ -3134,6 +3153,7 @@ function DetailSheet({
             ]}
           >
             <Text style={styles.sheetSubmitText}>{submit}</Text>
+            <View style={styles.sheetSubmitArrow}><Text style={styles.sheetSubmitArrowText}>→</Text></View>
           </Pressable>
           {destructiveLabel && (
             <Pressable onPress={onDestructive} style={styles.deletePlace}>
@@ -3215,9 +3235,12 @@ function OptionField({
   const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.optionField}>
-      <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>
-        {label}
-      </Text>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
+          {label}
+        </Text>
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -3665,28 +3688,50 @@ const styles = StyleSheet.create({
   sheetHead: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 22,
+    alignItems: "center",
+    marginBottom: 20,
   },
+  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
+  sheetHeadCopy: { flex: 1 },
+  sheetMark: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    transform: [{ rotate: "-3deg" }],
+  },
+  sheetMarkText: { fontSize: 11, fontWeight: "900", letterSpacing: .4 },
   sheetTitle: {
     color: "#17233D",
     fontSize: 24,
     fontWeight: "900",
     letterSpacing: -1,
   },
-  sheetSubtitle: { color: "#818A99", fontSize: 11, marginTop: 6 },
+  sheetSubtitle: { color: "#818A99", fontSize: 10, lineHeight: 15, marginTop: 4 },
+  sheetCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
   sheetClose: {
     color: "#6556D8",
-    fontSize: 13,
-    fontWeight: "800",
-    paddingTop: 5,
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: "500",
   },
   detailField: { marginBottom: 17 },
+  fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  fieldLabelDot: { width: 5, height: 5, borderRadius: 3, marginRight: 7 },
   detailFieldLabel: {
     color: "#6F7888",
     fontSize: 10,
     fontWeight: "900",
-    marginBottom: 7,
+    marginBottom: 0,
   },
   detailFieldInput: {
     height: 51,
@@ -3708,10 +3753,22 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: "#17233D",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    flexDirection: "row",
+    paddingLeft: 18,
+    paddingRight: 7,
     marginTop: 6,
   },
   sheetSubmitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  sheetSubmitArrow: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetSubmitArrowText: { color: "#FFFFFF", fontSize: 18, fontWeight: "800" },
   infoLine: {
     minHeight: 58,
     borderBottomWidth: 1,
@@ -5136,14 +5193,14 @@ Object.assign(styles, {
     transform: [{ rotate: "-.5deg" }],
   },
   detailFieldInput: {
-    height: 50,
-    borderRadius: 9,
+    height: 54,
+    borderRadius: 14,
     paddingHorizontal: 14,
     borderWidth: 1,
   },
   optionChip: {
-    height: 37,
-    borderRadius: 8,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 13,
     alignItems: "center",
@@ -5153,11 +5210,11 @@ Object.assign(styles, {
     width: "100%",
     maxWidth: 430,
     alignSelf: "center",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 20,
-    paddingTop: 9,
-    paddingBottom: 18,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 24,
     maxHeight: "91%",
   },
 });
