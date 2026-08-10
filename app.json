@@ -3,6 +3,7 @@
     "name": "Daymo",
     "slug": "daymo",
     "version": "0.1.0",
+    "icon": "./assets/daymo-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
@@ -13,7 +14,9 @@
       "bundleIdentifier": "com.anonymous.daymo"
     },
     "android": {
+      "icon": "./assets/daymo-icon.png",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/daymo-icon.png",
         "backgroundColor": "#FFF8F4"
       }
     }
