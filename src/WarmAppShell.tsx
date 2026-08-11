@@ -1301,20 +1301,12 @@ function TripRows({
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
-              transform: [{ rotate: index % 2 ? ".25deg" : "-.25deg" }],
             },
             compact && (s as any).tripRowCompact,
             pressed && (s as any).pressed,
           ]}
         >
-          {index % 2 === 0 && (
-            <View
-              style={[
-                (s as any).tripTape,
-                { backgroundColor: `${trip.color}4D` },
-              ]}
-            />
-          )}
+          <View style={[(s as any).tripRowAccent, { backgroundColor: trip.color }]} />
           <View style={(s as any).tripThumb}>
             <TripArt color={trip.color} date={trip.mark} small />
           </View>
@@ -1327,7 +1319,14 @@ function TripRows({
               {trip.note}
             </Text>
           </View>
-          <Text style={[s.arrow, { color: theme.primary }]}>›</Text>
+          <View
+            style={[
+              (s as any).tripRowArrow,
+              { backgroundColor: theme.primarySoft },
+            ]}
+          >
+            <Text style={[(s as any).tripRowArrowText, { color: theme.primary }]}>›</Text>
+          </View>
         </Pressable>
       ))}
     </>
@@ -5161,24 +5160,35 @@ Object.assign(s, {
   tripFilters: {
     flexDirection: "row",
     alignSelf: "flex-start",
-    padding: 0,
-    borderRadius: 0,
-    gap: 8,
-    marginBottom: 9,
+    padding: 3,
+    borderRadius: 13,
+    gap: 2,
+    marginBottom: 10,
   },
   filter: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 9 },
   tripRow: {
-    minHeight: 78,
+    minHeight: 72,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderBottomWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginBottom: 7,
+    borderRadius: 15,
+    paddingLeft: 13,
+    paddingRight: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+    overflow: "hidden",
   },
-  tripThumb: { width: 50, height: 58, marginRight: 1 },
+  tripRowAccent: {
+    position: "absolute",
+    left: 0,
+    top: 12,
+    bottom: 12,
+    width: 3,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  tripThumb: { width: 45, height: 52, marginRight: 1 },
   tripTape: {
     position: "absolute",
     width: 34,
@@ -5188,11 +5198,20 @@ Object.assign(s, {
     opacity: 0.8,
     transform: [{ rotate: "-4deg" }],
   },
-  tripArtSmall: { width: "100%", height: 58, borderRadius: 7, marginBottom: 0 },
+  tripArtSmall: { width: "100%", height: 52, borderRadius: 9, marginBottom: 0 },
   tripInfo: { flex: 1, paddingLeft: 10 },
   tripName: { fontSize: 14, fontWeight: "900" },
   tripDate: { fontSize: 11, marginTop: 3 },
   tripNote: { fontSize: 11, marginTop: 3 },
+  tripRowCompact: { minHeight: 72 },
+  tripRowArrow: {
+    width: 25,
+    height: 25,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tripRowArrowText: { fontSize: 18, lineHeight: 19, fontWeight: "800" },
   calendarCard: { borderRadius: 11, padding: 15, borderWidth: 1 },
   monthArrow: {
     width: 33,
