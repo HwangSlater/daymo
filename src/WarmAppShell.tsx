@@ -542,78 +542,31 @@ function NotebookHome({
         </View>
         </Pressable>
       </View>
-      <View style={(s as any).pencilActions}>
-        <HomeQuick
-          theme={theme}
-          icon="＋"
-          label="일정 추가"
-          tint="transparent"
-          color={theme.primary}
-          onPress={() => open("schedule-add", trip)}
-          embedded
-        />
-        <HomeQuick
-          theme={theme}
-          icon="⌖"
-          label="저장 장소"
-          tint="transparent"
-          color={theme.secondary}
-          onPress={() => open("places", trip)}
-          embedded
-        />
-        <HomeQuick
-          theme={theme}
-          icon="✓"
-          label="준비물"
-          tint="transparent"
-          color={theme.accent}
-          onPress={() => open("preparation", trip)}
-          embedded
-        />
-      </View>
-      <View style={(s as any).noteTitleRow}>
-        <View>
-          <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>
-            출발 전 확인
-          </Text>
-          <Text style={[(s as any).noteTitle, { color: theme.text }]}>
-            이번 여행 할 일
-          </Text>
-        </View>
-        <Pressable onPress={() => open("overview", trip)}>
-          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>
-            여행 보기
-          </Text>
-        </Pressable>
-      </View>
       <View
         style={[
-          (s as any).memoPaper,
+          (s as any).prepBoard,
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
-        <MemoRow
-          theme={theme}
-          color={theme.primary}
-          text="숙소 예약 정보 확인"
-          meta="오늘 · 공용"
-          onPress={() => open("overview", trip)}
-        />
-        <MemoRow
-          theme={theme}
-          color={theme.accent}
-          text="아직 안 챙긴 준비물 2개"
-          meta="하늘 1 · 여울 1"
-          onPress={() => open("preparation", trip)}
-        />
-        <MemoRow
-          theme={theme}
-          color={theme.secondary}
-          text="저장한 장소에서 일정 고르기"
-          meta="식당 5 · 카페 3"
-          onPress={() => open("places", trip)}
-          last
-        />
+        <View style={(s as any).noteTitleRow}>
+          <View>
+            <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>이번 여행</Text>
+            <Text style={[(s as any).noteTitle, { color: theme.text }]}>출발 준비</Text>
+          </View>
+          <Pressable onPress={() => open("overview", trip)}>
+            <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>여행 보기</Text>
+          </Pressable>
+        </View>
+        <View style={(s as any).pencilActions}>
+          <HomeQuick theme={theme} icon="＋" label="일정 추가" tint="transparent" color={theme.primary} onPress={() => open("schedule-add", trip)} embedded />
+          <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint="transparent" color={theme.secondary} onPress={() => open("places", trip)} embedded />
+          <HomeQuick theme={theme} icon="✓" label="준비물" tint="transparent" color={theme.accent} onPress={() => open("preparation", trip)} embedded />
+        </View>
+        <View style={(s as any).memoPaper}>
+          <MemoRow theme={theme} color={theme.primary} text="숙소 예약 정보 확인" meta="오늘 · 공용" onPress={() => open("overview", trip)} />
+          <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
+          <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
+        </View>
       </View>
     </ScrollView>
   );
@@ -956,7 +909,13 @@ function HomeQuick({
           <Text style={[(s as any).homeQuickIconText, { color }]}>{icon}</Text>
         )}
       </View>
-      <Text style={[(s as any).homeQuickLabel, { color: theme.text }]}>
+      <Text
+        style={[
+          (s as any).homeQuickLabel,
+          embedded && (s as any).homeQuickLabelEmbedded,
+          { color: theme.text },
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -3781,18 +3740,31 @@ Object.assign(s, {
   pencilActions: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 10,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  prepBoard: {
+    marginTop: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingTop: 16,
+    paddingBottom: 4,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   noteTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    marginTop: 31,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   noteTitleSmall: { fontSize: 11, fontWeight: "800", marginBottom: 4 },
   noteTitle: { fontSize: 20, fontWeight: "900", letterSpacing: -0.6 },
-  memoPaper: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 15 },
+  memoPaper: { marginTop: 4 },
   memoRow: {
     minHeight: 66,
     flexDirection: "row",
@@ -4608,9 +4580,10 @@ Object.assign(s, {
     borderColor: "#ECEAE5",
   },
   homeQuickEmbedded: {
-    height: 72,
-    borderRadius: 18,
-    borderWidth: 0,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
   },
   homeQuickIcon: {
     width: 28,
@@ -4621,14 +4594,16 @@ Object.assign(s, {
     marginBottom: 6,
   },
   homeQuickIconEmbedded: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 7,
+    marginBottom: 0,
+    marginRight: 6,
   },
   homeQuickIconText: { fontSize: 15, fontWeight: "900" },
   homeQuickLabel: { color: "#414A59", fontSize: 13, fontWeight: "900" },
+  homeQuickLabelEmbedded: { fontSize: 11, fontWeight: "800" },
   homeSectionHead: {
     marginTop: 29,
     marginBottom: 12,
