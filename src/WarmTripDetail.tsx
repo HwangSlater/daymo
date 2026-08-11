@@ -955,7 +955,7 @@ function TripOverview({
             <Text style={[styles.transportFormRoute, theme && { color: theme.text }]}>{transportDeparture || "출발지"} → {transportArrival || "도착지"}</Text>
           </View>
           <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod} · {transportDepartureTime || "시간 미정"}</Text>
-          <View style={[styles.transportSwitchHint, theme && { borderTopColor: theme.border }]}>
+          <View style={styles.transportSwitchHint}>
             <Text style={[styles.transportSwitchHintText, theme && { color: theme.primary }]}>탭해서 {transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 전환</Text>
             <Text style={[styles.transportSwitchHintArrow, theme && { color: theme.primary }]}>⇄</Text>
           </View>
@@ -5387,9 +5387,9 @@ const styles = StyleSheet.create({
   transportPreviewRouteRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
   transportFormRoute: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: "900" },
   transportFormMeta: { fontSize: 9, fontWeight: "700", marginTop: 4 },
-  transportSwitchHint: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 9, paddingTop: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  transportSwitchHintText: { fontSize: 8, fontWeight: "900" },
-  transportSwitchHintArrow: { fontSize: 12, lineHeight: 14, fontWeight: "900" },
+  transportSwitchHint: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  transportSwitchHintText: { fontSize: 9, lineHeight: 13, fontWeight: "900" },
+  transportSwitchHintArrow: { fontSize: 13, lineHeight: 15, fontWeight: "900" },
   pairedFieldRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   pairedFieldInput: { flex: 1, minWidth: 0, height: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 11, textAlign: "center" },
   pairedFieldArrow: { width: 27, height: 27, borderRadius: 9, alignItems: "center", justifyContent: "center" },
