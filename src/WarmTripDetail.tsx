@@ -1545,6 +1545,7 @@ function Preparation({
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
   const [cookingPicker, setCookingPicker] = useState(false);
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
+  const [showCompleted, setShowCompleted] = useState(false);
   const completedCount = done.filter((name) =>
     items.some((item) => item.name === name),
   ).length;
@@ -1580,6 +1581,20 @@ function Preparation({
       ...availableTags,
     ]),
   ).slice(0, 4);
+  const groupByPrimaryTag = (source: PackingItem[]) =>
+    Array.from(
+      source.reduce((groups, item) => {
+        const tag = packingTags(item)[0] || "태그 없음";
+        groups.set(tag, [...(groups.get(tag) ?? []), item]);
+        return groups;
+      }, new Map<string, PackingItem[]>()),
+    );
+  const remainingGroups = groupByPrimaryTag(
+    visibleItems.filter((item) => !done.includes(item.name)),
+  );
+  const completedGroups = groupByPrimaryTag(
+    visibleItems.filter((item) => done.includes(item.name)),
+  );
   const selectOwnerFilter = (nextOwner: "전체" | PackingItem["owner"]) => {
     setOwnerFilter(nextOwner);
     if (nextOwner !== "전체") {
@@ -1717,6 +1732,75 @@ function Preparation({
     setSelectedCookingItems([]);
     setCookingPicker(false);
   };
+  const renderPackingRow = (item: PackingItem, index: number) => {
+    const completed = done.includes(item.name);
+    return (
+      <Pressable
+        key={item.id}
+        onPress={() => complete(item)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: completed }}
+        accessibilityLabel={`${item.name} 준비 완료`}
+        style={({ pressed }) => [
+          styles.packingV2Row,
+          index > 0 && styles.packingV2RowBorder,
+          index > 0 && theme && { borderTopColor: theme.border },
+          pressed && styles.packingCardPressed,
+        ]}
+      >
+        <View
+          style={[
+            styles.packingV2Check,
+            theme && {
+              borderColor: completed ? theme.primary : theme.border,
+              backgroundColor: completed ? theme.primary : theme.surface,
+            },
+          ]}
+        >
+          {completed ? (
+            <Text style={styles.completionTick}>✓</Text>
+          ) : (
+            <View style={[styles.completionDash, theme && { backgroundColor: theme.border }]} />
+          )}
+        </View>
+        <View style={styles.packingV2Body}>
+          <View style={styles.packingV2TitleRow}>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.checkName,
+                styles.packingV2Name,
+                theme && { color: completed ? theme.muted : theme.text },
+                completed && styles.checkNameDone,
+              ]}
+            >
+              {item.name}
+            </Text>
+            {item.quantity ? (
+              <Text style={[styles.packingV2Quantity, theme && { color: theme.muted }]}>{item.quantity}</Text>
+            ) : null}
+          </View>
+          {packingTags(item).slice(1).length > 0 && (
+            <Text numberOfLines={1} style={[styles.packingV2SubTags, theme && { color: theme.muted }]}>
+              {packingTags(item).slice(1).map((tag) => `#${tag}`).join("  ")}
+            </Text>
+          )}
+        </View>
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            setAssigningItem(item);
+          }}
+          hitSlop={8}
+          style={[styles.packingV2Assignee, theme && { backgroundColor: theme.primarySoft }]}
+        >
+          <Text style={[styles.packingOwnerChangeText, theme && { color: theme.primary }]}>
+            {packingOwnerName(item.owner)}
+          </Text>
+        </Pressable>
+      </Pressable>
+    );
+  };
 
   return (
     <View>
@@ -1731,7 +1815,63 @@ function Preparation({
       <View style={styles.compactTrack}>
         <View style={[styles.progressFill, { width: `${percentage}%` }]} />
       </View>
-      <View style={styles.packingManageHead}>
+      <View
+        style={[
+          styles.packingV2Controls,
+          theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={styles.packingV2StatusRow}>
+          <View style={styles.packingV2StatusTabs}>
+            {(["전체", "남은 준비", "완료"] as const).map((item) => {
+              const active = filter === item;
+              return (
+                <Pressable
+                  key={item}
+                  onPress={() => setFilter(item)}
+                  style={[
+                    styles.packingV2StatusChip,
+                    active && theme && { backgroundColor: theme.primarySoft },
+                  ]}
+                >
+                  <Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{item}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Pressable onPress={() => setTagPicker(true)} style={[styles.packingV2TagButton, theme && { borderColor: theme.border }]}>
+            <Text style={[styles.packingV2TagButtonText, theme && { color: theme.primary }]}>
+              {tagFilter === "전체 태그" ? `태그 ${availableTags.length}` : `#${tagFilter}`}
+            </Text>
+            <Text style={[styles.packingV2TagChevron, theme && { color: theme.muted }]}>⌄</Text>
+          </Pressable>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingV2Owners}>
+          {(["전체", ...ownerSections] as const).map((ownerName) => {
+            const active = ownerFilter === ownerName;
+            const remaining = ownerName === "전체"
+              ? items.length - completedCount
+              : items.filter((item) => item.owner === ownerName && !done.includes(item.name)).length;
+            return (
+              <Pressable
+                key={ownerName}
+                onPress={() => selectOwnerFilter(ownerName)}
+                style={[
+                  styles.packingV2OwnerChip,
+                  theme && { borderColor: active ? theme.primary : theme.border },
+                  active && theme && { backgroundColor: theme.primarySoft },
+                ]}
+              >
+                <Text style={[styles.packingV2OwnerName, theme && { color: active ? theme.primary : theme.text }]}>
+                  {ownerName === "전체" ? "전체" : packingOwnerName(ownerName)}
+                </Text>
+                <Text style={[styles.packingV2OwnerCount, theme && { color: active ? theme.primary : theme.muted }]}>{remaining}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+      <View style={[styles.packingManageHead, styles.packingV2Hidden]}>
         <View>
           <Text
             style={[styles.packingManageTitle, theme && { color: theme.text }]}
@@ -1770,6 +1910,7 @@ function Preparation({
       <View
         style={[
           styles.ownerStats,
+          styles.packingV2Hidden,
           theme && {
             backgroundColor: theme.surface,
             borderColor: theme.border,
@@ -1824,6 +1965,7 @@ function Preparation({
       <View
         style={[
           styles.packingFilterBoard,
+          styles.packingV2Hidden,
           theme && {
             backgroundColor: theme.surface,
             borderColor: theme.border,
@@ -1923,7 +2065,69 @@ function Preparation({
         </View>
       </View>
       <View style={styles.packingList}>
-        {ownerSections.map((sectionOwner) => {
+        {remainingGroups.map(([sourceTag, taggedItems]) => {
+          const allInGroup = items.filter(
+            (item) => (packingTags(item)[0] || "태그 없음") === sourceTag,
+          );
+          const doneInGroup = allInGroup.filter((item) =>
+            done.includes(item.name),
+          ).length;
+          return (
+            <View
+              key={sourceTag}
+              style={[
+                styles.packingV2Group,
+                theme && {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <View style={styles.packingV2GroupHead}>
+                <View>
+                  <Text style={[styles.packingV2GroupTitle, theme && { color: theme.text }]}>
+                    {sourceTag}
+                  </Text>
+                  <Text style={[styles.packingV2GroupProgress, theme && { color: theme.muted }]}>
+                    {doneInGroup}/{allInGroup.length} 완료
+                  </Text>
+                </View>
+                <View style={[styles.packingV2GroupCount, theme && { backgroundColor: theme.primarySoft }]}>
+                  <Text style={[styles.packingV2GroupCountText, theme && { color: theme.primary }]}>
+                    {taggedItems.length}개 남음
+                  </Text>
+                </View>
+              </View>
+              {taggedItems.map(renderPackingRow)}
+            </View>
+          );
+        })}
+        {completedGroups.length > 0 && (
+          <View
+            style={[
+              styles.packingV2Completed,
+              theme && {
+                backgroundColor: theme.surfaceAlt,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <Pressable
+              onPress={() => setShowCompleted((value) => !value)}
+              style={styles.packingV2CompletedHead}
+            >
+              <Text style={[styles.packingV2CompletedTitle, theme && { color: theme.text }]}>
+                완료한 준비물 {completedGroups.reduce((sum, [, groupItems]) => sum + groupItems.length, 0)}개
+              </Text>
+              <Text style={[styles.packingV2CompletedToggle, theme && { color: theme.primary }]}>
+                {filter === "완료" || showCompleted ? "접기" : "보기"}
+              </Text>
+            </Pressable>
+            {(filter === "완료" || showCompleted) &&
+              completedGroups.flatMap(([, groupItems]) => groupItems).map(renderPackingRow)}
+          </View>
+        )}
+        {false && ownerSections.map((sectionOwner) => {
           const ownerItems = visibleItems.filter(
             (item) => item.owner === sectionOwner,
           );
@@ -5662,6 +5866,115 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   packingOwnerChangeText: { fontSize: 8, fontWeight: "900" },
+  packingV2Hidden: { display: "none" },
+  packingV2Controls: {
+    borderWidth: 1,
+    borderRadius: 14,
+    marginTop: 12,
+    marginBottom: 12,
+    padding: 9,
+    gap: 8,
+  },
+  packingV2StatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  packingV2StatusTabs: { flexDirection: "row", alignItems: "center", gap: 3 },
+  packingV2StatusChip: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  packingV2TagButton: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  packingV2TagButtonText: { fontSize: 9, fontWeight: "900" },
+  packingV2TagChevron: { fontSize: 10, fontWeight: "900", marginTop: -2 },
+  packingV2Owners: { flexDirection: "row", gap: 6 },
+  packingV2OwnerChip: {
+    minWidth: 57,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  packingV2OwnerName: { fontSize: 9, fontWeight: "900" },
+  packingV2OwnerCount: { fontSize: 8, fontWeight: "900" },
+  packingV2Group: {
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  packingV2GroupHead: {
+    minHeight: 49,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  packingV2GroupTitle: { fontSize: 13, fontWeight: "900" },
+  packingV2GroupProgress: { fontSize: 8, fontWeight: "700", marginTop: 2 },
+  packingV2GroupCount: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  packingV2GroupCountText: { fontSize: 8, fontWeight: "900" },
+  packingV2Row: {
+    minHeight: 53,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  packingV2RowBorder: { borderTopWidth: StyleSheet.hairlineWidth },
+  packingV2Check: {
+    width: 23,
+    height: 23,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  packingV2Body: { flex: 1, minWidth: 0 },
+  packingV2TitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  packingV2Name: { flexShrink: 1, fontSize: 12 },
+  packingV2Quantity: { fontSize: 8, fontWeight: "800" },
+  packingV2SubTags: { fontSize: 8, fontWeight: "700", marginTop: 3 },
+  packingV2Assignee: {
+    minWidth: 38,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  packingV2Completed: {
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  packingV2CompletedHead: {
+    minHeight: 48,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  packingV2CompletedTitle: { fontSize: 11, fontWeight: "900" },
+  packingV2CompletedToggle: { fontSize: 9, fontWeight: "900" },
   packingListTools: {
     borderTopWidth: 1,
     marginTop: 22,
