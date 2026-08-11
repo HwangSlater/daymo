@@ -1103,7 +1103,7 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "transport"}
         title={editingTransportId ? "교통편 수정" : "교통편 추가"}
-        subtitle="저장하면 여행 일정에도 출발 시간이 함께 표시돼요"
+        subtitle="가는 편과 오는 편을 나누어 저장하고 한곳에서 확인하세요"
         submit={transportFormValid ? (editingTransportId ? "수정 저장" : "교통편 저장") : "출발지와 도착지를 입력해 주세요"}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
         submitDisabled={!transportFormValid}
@@ -1130,7 +1130,7 @@ function TripOverview({
             <Text style={[styles.transportSwitchHintArrow, { color: transportDirectionColor }]}>⇄</Text>
           </View>
         </Pressable>
-        <OptionField label="탑승자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
+        <OptionField label="이용자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
         <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
         <OptionField label="날짜" options={["금 · 21", "토 · 22", "일 · 23"]} value={transportDate} onChange={setTransportDate} />
         <PairedDetailField
@@ -1178,7 +1178,7 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "reservation"}
         title={hasReservation ? "예약 정보 수정" : "예약 정보 추가"}
-        subtitle="예약 시간과 인원을 함께 확인할 수 있어요"
+        subtitle="예약 이름만 입력해도 저장할 수 있어요"
         submit={reservationDraft.name.trim() ? "예약 정보 저장" : "예약 이름을 입력해 주세요"}
         submitDisabled={!reservationDraft.name.trim()}
         destructiveLabel={hasReservation ? "예약 정보 삭제" : undefined}
@@ -1190,15 +1190,15 @@ function TripOverview({
         ])}
       >
         <DetailField label="예약 이름 · 필수" value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 은행골블랙" />
-        <DetailField label="예약 일시" value={reservationDraft.date} onChangeText={(date) => setReservationDraft((current) => ({ ...current, date }))} placeholder="예: 토요일 18:30" />
-        <DetailField label="인원" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
+        <DetailField label="예약 일시 · 선택 사항" value={reservationDraft.date} onChangeText={(date) => setReservationDraft((current) => ({ ...current, date }))} placeholder="예: 토요일 18:30" />
+        <DetailField label="인원 · 선택 사항" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
         <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status }))} />
-        <DetailField label="장소" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 서울 구로구" />
+        <DetailField label="장소 · 선택 사항" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 서울 구로구" />
       </DetailSheet>
       <DetailSheet
         visible={sheet === "stay"}
         title={hasStay ? "숙소 정보 수정" : "숙소 정보 추가"}
-        subtitle="체크인·체크아웃 시간을 한곳에서 관리해요"
+        subtitle="숙소 이름만 입력하고 시간과 주소는 나중에 채워도 돼요"
         submit={stayDraft.name.trim() ? "숙소 정보 저장" : "숙소 이름을 입력해 주세요"}
         submitDisabled={!stayDraft.name.trim()}
         destructiveLabel={hasStay ? "숙소 정보 삭제" : undefined}
@@ -1210,8 +1210,8 @@ function TripOverview({
         ])}
       >
         <DetailField label="숙소 이름 · 필수" value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: JS호텔" />
-        <PairedDetailField label="체크인·체크아웃" leftValue={stayDraft.checkin} rightValue={stayDraft.checkout} onChangeLeft={(checkin) => setStayDraft((current) => ({ ...current, checkin }))} onChangeRight={(checkout) => setStayDraft((current) => ({ ...current, checkout }))} leftPlaceholder="체크인" rightPlaceholder="체크아웃" />
-        <DetailField label="주소" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="숙소 주소" />
+        <PairedDetailField label="체크인·체크아웃 · 선택 사항" leftValue={stayDraft.checkin} rightValue={stayDraft.checkout} onChangeLeft={(checkin) => setStayDraft((current) => ({ ...current, checkin }))} onChangeRight={(checkout) => setStayDraft((current) => ({ ...current, checkout }))} leftPlaceholder="체크인" rightPlaceholder="체크아웃" />
+        <DetailField label="주소 · 선택 사항" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="숙소 주소" />
       </DetailSheet>
       <InfoPanel
         visible={fullSchedule}
@@ -5143,6 +5143,12 @@ function DetailSheet({
         ? "준비"
         : title.includes("요리") || title.includes("재료")
           ? "요리"
+          : title.includes("교통")
+            ? "교통"
+            : title.includes("숙소")
+              ? "숙소"
+              : title.includes("예약")
+                ? "예약"
           : title.includes("기록") || title.includes("사진") || title.includes("일기") || title.includes("카드")
             ? "기록"
             : "Daymo";
@@ -5153,6 +5159,10 @@ function DetailSheet({
         ? theme.accent
         : sheetKind === "요리"
           ? theme.secondary
+        : sheetKind === "숙소"
+          ? theme.secondary
+        : sheetKind === "예약"
+          ? theme.accent
         : sheetKind === "기록"
           ? theme.secondary
           : theme.primary
