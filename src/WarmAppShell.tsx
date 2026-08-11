@@ -3,6 +3,7 @@ import {
   Alert,
   Modal,
   Image,
+  KeyboardAvoidingView,
   PanResponder,
   Platform,
   Pressable,
@@ -2912,6 +2913,7 @@ function Field({
       </View>
       <TextInput
         {...props}
+        accessibilityLabel={label}
         placeholderTextColor={theme?.muted ?? "#9AA1AE"}
         style={[
           (s as any).fieldInput,
@@ -2959,7 +2961,10 @@ function FormSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={(s as any).modalBack}>
+      <KeyboardAvoidingView
+        style={(s as any).modalBack}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <Pressable style={(s as any).modalDismiss} onPress={onClose} />
         <View
           style={[
@@ -2982,12 +2987,13 @@ function FormSheet({
               </View>
               <View>
                 <Text
+                  numberOfLines={1}
                   style={[(s as any).sheetTitle, theme && { color: theme.text }]}
                 >
                   {title}
                 </Text>
                 {subtitle && (
-                  <Text style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>
+                  <Text numberOfLines={2} style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>
                     {subtitle}
                   </Text>
                 )}
@@ -3032,7 +3038,7 @@ function FormSheet({
             <View style={(s as any).sheetSubmitArrow}><Text style={(s as any).sheetSubmitArrowText}>→</Text></View>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
