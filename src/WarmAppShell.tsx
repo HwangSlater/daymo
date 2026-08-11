@@ -77,6 +77,7 @@ export function WarmAppShell() {
   const [tripDestination, setTripDestination] =
     useState<TripDetailDestination>("overview");
   const [done, setDone] = useState<string[]>(["깻잎", "양파"]);
+  const [tripItems, setTripItems] = useState<Trip[]>(trips);
   const [themeId, setThemeId] = useState<ThemeId>("daymo");
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const theme = resolveTheme(
@@ -116,7 +117,12 @@ export function WarmAppShell() {
           />
         )}
         {view === "여행" && (
-          <TripsExplorer open={() => openTrip()} theme={theme} />
+          <TripsExplorer
+            open={() => openTrip()}
+            theme={theme}
+            items={tripItems}
+            setItems={setTripItems}
+          />
         )}
         {view === "찾기" && <Search open={() => openTrip()} theme={theme} />}
         {view === "우리" && (
@@ -126,6 +132,7 @@ export function WarmAppShell() {
             setThemeId={setThemeId}
             appearance={appearance}
             setAppearance={setAppearance}
+            trips={tripItems}
           />
         )}
       </View>
@@ -647,10 +654,19 @@ function HomeQuick({
 
 type TripView = "목록" | "지도" | "캘린더";
 
-function TripsExplorer({ open, theme }: { open: () => void; theme: AppTheme }) {
+function TripsExplorer({
+  open,
+  theme,
+  items,
+  setItems,
+}: {
+  open: () => void;
+  theme: AppTheme;
+  items: Trip[];
+  setItems: React.Dispatch<React.SetStateAction<Trip[]>>;
+}) {
   const [display, setDisplay] = useState<TripView>("목록");
   const [filter, setFilter] = useState<"전체" | "예정" | "추억">("전체");
-  const [items, setItems] = useState<Trip[]>(trips);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [month, setMonth] = useState({ year: 2026, value: 8 });
@@ -1956,15 +1972,28 @@ function Together({
   setThemeId,
   appearance,
   setAppearance,
+  trips,
 }: {
   theme: AppTheme;
   themeId: ThemeId;
   setThemeId: (value: ThemeId) => void;
   appearance: AppearanceMode;
   setAppearance: (value: AppearanceMode) => void;
+  trips: Trip[];
 }) {
   const [notifications, setNotifications] = useState(true);
   const [relationship, setRelationship] = useState<"연인" | "친구">("연인");
+  const [spaceName, setSpaceName] = useState("우리의 여행 공간");
+  const [memberA, setMemberA] = useState("하늘");
+  const [memberB, setMemberB] = useState("다온");
+  const [memberRole, setMemberRole] = useState<"편집 가능" | "보기만">("편집 가능");
+  const [since, setSince] = useState("2023. 10. 20");
+  const totalTripDays = trips.reduce((total, trip) => {
+    const start = new Date(`${trip.start}T00:00:00`).getTime();
+    const end = new Date(`${trip.end}T00:00:00`).getTime();
+    return total + Math.max(1, Math.round((end - start) / 86400000) + 1);
+  }, 0);
+  const visitedRegions = new Set(trips.map((trip) => trip.region)).size;
   const [panel, setPanel] = useState<
     | "profile"
     | "members"
@@ -2037,7 +2066,7 @@ function Together({
                 },
               ]}
             >
-              <Text style={(s as any).togetherAvatarText}>하</Text>
+              <Text style={(s as any).togetherAvatarText}>{memberA.trim().slice(0, 1) || "?"}</Text>
             </View>
             <View
               style={[
@@ -2049,38 +2078,71 @@ function Together({
                 },
               ]}
             >
-              <Text style={(s as any).togetherAvatarText}>다</Text>
+              <Text style={(s as any).togetherAvatarText}>{memberB.trim().slice(0, 1) || "?"}</Text>
             </View>
           </View>
           <View style={(s as any).togetherProfileCopy}>
             <Text
               style={[(s as any).togetherProfileName, { color: theme.text }]}
             >
-              우리의 여행 공간
+              {spaceName}
             </Text>
             <Text
               style={[(s as any).togetherProfileMeta, { color: theme.muted }]}
             >
-              {relationship} · 함께한 지 1,026일
+              {memberA} · {memberB} · {relationship} · {since.slice(0, 4)}부터
             </Text>
           </View>
           <Text style={[(s as any).togetherChevron, { color: theme.muted }]}>
             ›
           </Text>
         </Pressable>
+        <View style={(s as any).togetherQuickRow}>
+          {[
+            {
+              icon: "+",
+              label: "멤버 초대",
+              onPress: () =>
+                Share.share({
+                  message:
+                    "Daymo에서 우리 여행을 함께 기록해요.\nhttps://daymo.app/invite/OUR-TRIP",
+                }),
+            },
+            { icon: "⇧", label: "기록 내보내기", onPress: exportData },
+            {
+              icon: notifications ? "●" : "○",
+              label: notifications ? "알림 켜짐" : "알림 꺼짐",
+              onPress: () => setNotifications((value) => !value),
+            },
+          ].map((action) => (
+            <Pressable
+              key={action.label}
+              onPress={action.onPress}
+              style={[
+                (s as any).togetherQuick,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <View style={[(s as any).togetherQuickIcon, { backgroundColor: theme.primarySoft }]}>
+                <Text style={[(s as any).togetherQuickIconText, { color: theme.primary }]}>{action.icon}</Text>
+              </View>
+              <Text numberOfLines={1} style={[(s as any).togetherQuickLabel, { color: theme.text }]}>{action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={(s as any).historyHeading}>
           <View>
             <Text style={[(s as any).historyEyebrow, { color: theme.primary }]}>지금까지의 기록</Text>
             <Text style={[(s as any).historyTitle, { color: theme.text }]}>함께 쌓은 여행</Text>
           </View>
-          <Text style={[(s as any).historyPeriod, { color: theme.muted }]}>2023 — 2026</Text>
+          <Text style={[(s as any).historyPeriod, { color: theme.muted }]}>{since.slice(0, 4)} — 2026</Text>
         </View>
         <View style={(s as any).historyGrid}>
           {[
-            { value: "12", unit: "번", label: "함께한 여행", color: theme.primary },
-            { value: "31", unit: "일", label: "여행한 날", color: theme.secondary },
-            { value: "8", unit: "곳", label: "방문한 지역", color: theme.accent },
-            { value: "146", unit: "장", label: "남긴 사진", color: theme.primary },
+            { value: String(trips.length), unit: "번", label: "함께한 여행", color: theme.primary },
+            { value: String(totalTripDays), unit: "일", label: "여행한 날", color: theme.secondary },
+            { value: String(visitedRegions), unit: "곳", label: "방문한 지역", color: theme.accent },
+            { value: String(trips.length), unit: "개", label: "남긴 여행 기록", color: theme.primary },
           ].map((stat) => (
             <View
               key={stat.label}
@@ -2111,17 +2173,6 @@ function Together({
             label="멤버 관리"
             value="2명"
             onPress={() => setPanel("members")}
-          />
-          <Setting
-            theme={theme}
-            label="초대 링크 공유"
-            value="초대"
-            onPress={() =>
-              Share.share({
-                message:
-                  "Daymo에서 우리 여행을 함께 기록해요.\nhttps://daymo.app/invite/OUR-TRIP",
-              })
-            }
           />
           <Setting
             theme={theme}
@@ -2169,17 +2220,6 @@ function Together({
         >
           <Setting
             theme={theme}
-            label="알림"
-            value={notifications ? "켜짐" : "꺼짐"}
-            onPress={() => setNotifications((value) => !value)}
-          />
-          <Setting
-            theme={theme}
-            label="여행 데이터 내보내기"
-            onPress={exportData}
-          />
-          <Setting
-            theme={theme}
             label="도움말"
             onPress={() => setPanel("help")}
           />
@@ -2193,8 +2233,38 @@ function Together({
       >
         {panel === "members" && (
           <>
-            <Choice theme={theme} selected label="하늘 · 관리자" />
-            <Choice theme={theme} selected label="다온 · 편집 가능" />
+            <View style={(s as any).memberEditCard}>
+              <Field
+                theme={theme}
+                label="내 이름"
+                value={memberA}
+                onChangeText={setMemberA}
+                placeholder="이름 또는 별명"
+              />
+              <Text style={[(s as any).memberRoleText, { color: theme.muted }]}>관리자 · 모든 여행을 수정할 수 있어요</Text>
+            </View>
+            <View style={(s as any).memberEditCard}>
+              <Field
+                theme={theme}
+                label="함께하는 멤버"
+                value={memberB}
+                onChangeText={setMemberB}
+                placeholder="이름 또는 별명"
+              />
+              <Text style={[(s as any).memberPermissionLabel, { color: theme.text }]}>권한</Text>
+              <Choice
+                theme={theme}
+                selected={memberRole === "편집 가능"}
+                label="편집 가능 · 일정과 준비물을 함께 관리"
+                onPress={() => setMemberRole("편집 가능")}
+              />
+              <Choice
+                theme={theme}
+                selected={memberRole === "보기만"}
+                label="보기만 · 내용을 확인하고 체크만 가능"
+                onPress={() => setMemberRole("보기만")}
+              />
+            </View>
           </>
         )}
         {panel === "relationship" && (
@@ -2290,9 +2360,32 @@ function Together({
           </Text>
         )}
         {panel === "profile" && (
-          <Text style={(s as any).sheetCopy}>
-            두 사람이 함께 만든 여행 공간이에요.
-          </Text>
+          <>
+            <View style={[(s as any).profileSheetPreview, { backgroundColor: theme.primarySoft }]}>
+              <View style={[(s as any).profileSheetAvatar, { backgroundColor: theme.primary }]}>
+                <Text style={(s as any).togetherAvatarText}>{memberA.trim().slice(0, 1) || "?"}</Text>
+              </View>
+              <View style={[(s as any).profileSheetAvatar, (s as any).profileSheetAvatarSecond, { backgroundColor: theme.accent }]}>
+                <Text style={(s as any).togetherAvatarText}>{memberB.trim().slice(0, 1) || "?"}</Text>
+              </View>
+              <Text style={[(s as any).profileSheetName, { color: theme.text }]}>{spaceName}</Text>
+            </View>
+            <Field
+              theme={theme}
+              label="공간 이름"
+              value={spaceName}
+              onChangeText={setSpaceName}
+              placeholder="예: 우리의 여행 기록"
+            />
+            <Field
+              theme={theme}
+              label="함께한 시작일"
+              value={since}
+              onChangeText={setSince}
+              placeholder="YYYY. MM. DD"
+            />
+            <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>변경 내용은 닫으면 자동으로 저장돼요.</Text>
+          </>
         )}
       </InfoSheet>
     </>
@@ -4459,6 +4552,49 @@ Object.assign(s, {
   historyValue: { fontSize: 18, fontWeight: "900" },
   historyUnit: { fontSize: 9, fontWeight: "800" },
   historyLabel: { fontSize: 9, fontWeight: "700", marginTop: 5 },
+  togetherQuickRow: { flexDirection: "row", gap: 7, marginTop: 9 },
+  togetherQuick: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 72,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  togetherQuickIcon: {
+    width: 27,
+    height: 27,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 7,
+  },
+  togetherQuickIconText: { fontSize: 11, fontWeight: "900" },
+  togetherQuickLabel: { maxWidth: "100%", fontSize: 8, fontWeight: "800" },
+  memberEditCard: { marginBottom: 18 },
+  memberRoleText: { fontSize: 9, fontWeight: "700", marginTop: -7 },
+  memberPermissionLabel: { fontSize: 10, fontWeight: "900", marginBottom: 8 },
+  profileSheetPreview: {
+    minHeight: 86,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 18,
+  },
+  profileSheetAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  profileSheetAvatarSecond: { marginLeft: -10 },
+  profileSheetName: { flex: 1, fontSize: 13, fontWeight: "900", marginLeft: 12 },
   settingGroup: {
     borderRadius: 10,
     paddingHorizontal: 15,
