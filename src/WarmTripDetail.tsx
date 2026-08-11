@@ -635,6 +635,7 @@ function TripOverview({
       <View
         style={[
           styles.timelineCard,
+          styles.travelTimelineCard,
           theme && {
             backgroundColor: theme.surface,
             borderColor: theme.border,
@@ -646,6 +647,7 @@ function TripOverview({
             key={`${item.time}-${index}`}
             {...item}
             last={index === Math.min(schedule.length, 3) - 1}
+            compact
           />
         ))}
         <Pressable
@@ -664,73 +666,32 @@ function TripOverview({
         </Pressable>
       </View>
 
-      <SectionLabel label="예약과 숙소" />
-      <Pressable
-        onPress={() => setSheet("reservation")}
-        style={[
-          styles.placeCard,
-          theme && {
-            backgroundColor: theme.surface,
-            borderColor: theme.border,
-          },
-        ]}
-      >
-        <View style={styles.placeStamp}>
-          <Text style={styles.stampText}>22</Text>
-          <Text style={styles.stampSmall}>토요일</Text>
-        </View>
-        <View style={styles.placeInfo}>
-          <Text style={styles.placeKicker}>저녁 예약</Text>
-          <Text style={[styles.placeName, theme && { color: theme.text }]}>
-            은행골블랙
-          </Text>
-          <Text style={[styles.placeNote, theme && { color: theme.muted }]}>
-            토요일 디너 · 2명
-          </Text>
-        </View>
-        <Text style={styles.cardArrow}>→</Text>
-      </Pressable>
-      <View style={styles.twoCards}>
-        <Pressable
+      <SectionLabel label={`여행 정보 · ${hasKitchen ? 3 : 2}개`} />
+      <View style={[styles.travelInfoList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <TravelInfoRow
+          label="예약"
+          title="은행골블랙"
+          meta="토요일 디너 · 2명"
+          color={theme?.primary ?? "#FF6B63"}
+          onPress={() => setSheet("reservation")}
+        />
+        <TravelInfoRow
+          label="숙소"
+          title="JS호텔"
+          meta="15:00 체크인"
+          color={theme?.secondary ?? "#55BFB4"}
           onPress={() => setSheet("stay")}
-          style={[
-            styles.smallCard,
-            styles.stayCard,
-            theme && {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <Text style={styles.smallOverline}>숙소</Text>
-          <Text style={[styles.smallTitle, theme && { color: theme.text }]}>
-            JS호텔
-          </Text>
-          <Text style={[styles.smallText, theme && { color: theme.muted }]}>
-            15:00 check-in
-          </Text>
-        </Pressable>
+          bordered
+        />
         {hasKitchen && (
-          <Pressable
+          <TravelInfoRow
+            label="요리"
+            title="밀푀유나베"
+            meta="재료와 담당 확인"
+            color={theme?.accent ?? "#8B7CF6"}
             onPress={() => setMode("요리")}
-            style={[
-              styles.smallCard,
-              styles.menuCard,
-              theme && {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                transform: [{ rotate: ".2deg" }],
-              },
-            ]}
-          >
-            <Text style={styles.smallOverline}>요리</Text>
-            <Text style={[styles.smallTitle, theme && { color: theme.text }]}>
-              밀푀유나베
-            </Text>
-            <Text style={[styles.smallText, theme && { color: theme.muted }]}>
-              요리 탭에서 확인
-            </Text>
-          </Pressable>
+            bordered
+          />
         )}
       </View>
 
@@ -4239,30 +4200,71 @@ function SectionLabel({
   );
 }
 
+function TravelInfoRow({
+  label,
+  title,
+  meta,
+  color,
+  onPress,
+  bordered,
+}: {
+  label: string;
+  title: string;
+  meta: string;
+  color: string;
+  onPress: () => void;
+  bordered?: boolean;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.travelInfoRow,
+        bordered && styles.travelInfoRowBorder,
+        bordered && theme && { borderTopColor: theme.border },
+        pressed && styles.packingCardPressed,
+      ]}
+    >
+      <View style={[styles.travelInfoLabel, { backgroundColor: `${color}18` }]}>
+        <Text style={[styles.travelInfoLabelText, { color }]}>{label}</Text>
+      </View>
+      <View style={styles.travelInfoCopy}>
+        <Text style={[styles.travelInfoTitle, theme && { color: theme.text }]}>{title}</Text>
+        <Text style={[styles.travelInfoMeta, theme && { color: theme.muted }]}>{meta}</Text>
+      </View>
+      <Text style={[styles.travelInfoArrow, { color }]}>›</Text>
+    </Pressable>
+  );
+}
+
 function Moment({
   time,
   title,
   note,
   mapUrl,
   last,
+  compact,
 }: {
   time: string;
   title: string;
   note: string;
   mapUrl?: string;
   last?: boolean;
+  compact?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
     <View
       style={[
         styles.moment,
+        compact && styles.travelMomentCompact,
         theme && { borderColor: theme.border },
         last && styles.lastMoment,
       ]}
     >
-      <View style={styles.momentTime}>
-        <Text style={[styles.momentDay, theme && { color: theme.primary }]}>
+      <View style={[styles.momentTime, compact && styles.travelMomentTimeCompact]}>
+        <Text style={[styles.momentDay, compact && styles.travelMomentDayCompact, theme && { color: theme.primary }]}>
           {time}
         </Text>
         <View style={styles.dotLine}>
@@ -4276,7 +4278,7 @@ function Moment({
           )}
         </View>
       </View>
-      <View style={styles.momentContent}>
+      <View style={[styles.momentContent, compact && styles.travelMomentContentCompact]}>
         <Text style={[styles.momentTitle, theme && { color: theme.text }]}>
           {title}
         </Text>
@@ -4288,14 +4290,15 @@ function Moment({
             onPress={() => Linking.openURL(mapUrl)}
             style={[
               styles.mapLink,
+              compact && styles.travelMapLinkCompact,
               theme && { backgroundColor: theme.surfaceAlt },
             ]}
           >
             <View style={styles.mapLinkIcon}>
               <Text style={styles.mapLinkIconText}>N</Text>
             </View>
-            <Text style={styles.mapLinkText}>네이버 지도</Text>
-            <Text style={styles.mapLinkArrow}>↗</Text>
+            <Text style={styles.mapLinkText}>{compact ? "N 지도" : "네이버 지도"}</Text>
+            {!compact && <Text style={styles.mapLinkArrow}>↗</Text>}
           </Pressable>
         ) : null}
       </View>
@@ -4809,6 +4812,39 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 1,
   },
+  travelTimelineCard: { padding: 12, marginBottom: 15 },
+  travelMomentCompact: { minHeight: 57 },
+  travelMomentTimeCompact: { width: 72 },
+  travelMomentDayCompact: { width: 49, fontSize: 9 },
+  travelMomentContentCompact: { paddingLeft: 4 },
+  travelMapLinkCompact: { height: 23, marginTop: 5, paddingHorizontal: 6 },
+  travelInfoList: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  travelInfoRow: {
+    minHeight: 59,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  travelInfoRowBorder: { borderTopWidth: StyleSheet.hairlineWidth },
+  travelInfoLabel: {
+    minWidth: 39,
+    height: 27,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  travelInfoLabelText: { fontSize: 8, fontWeight: "900" },
+  travelInfoCopy: { flex: 1, minWidth: 0 },
+  travelInfoTitle: { fontSize: 12, fontWeight: "900" },
+  travelInfoMeta: { fontSize: 8, fontWeight: "700", marginTop: 3 },
+  travelInfoArrow: { fontSize: 18, fontWeight: "800", marginLeft: 8 },
   moment: { flexDirection: "row", minHeight: 67 },
   lastMoment: { minHeight: 46 },
   momentTime: { width: 82, flexDirection: "row" },
