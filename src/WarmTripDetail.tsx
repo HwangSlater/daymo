@@ -1821,12 +1821,6 @@ function Places({
             ))}
           </View>
         </View>
-        <DetailField
-          label="주소 · 선택 사항"
-          value={address}
-          onChangeText={setAddress}
-          placeholder="네이버 지도 공유 텍스트로 자동 입력할 수 있어요"
-        />
         <OptionField
           label="날짜"
           options={["금 · 21", "토 · 22", "일 · 23"]}
@@ -1857,6 +1851,28 @@ function Places({
         onClose={() => setAdding(false)}
         onSubmit={savePlace}
       >
+        {!editingName && (
+          <Pressable
+            onPress={pasteNaverShare}
+            accessibilityRole="button"
+            accessibilityLabel="네이버 지도에서 복사한 장소 자동 입력"
+            style={[
+              styles.naverAutoFill,
+              theme && { backgroundColor: theme.dark ? "#16352C" : "#EAF7F0", borderColor: theme.dark ? "#245544" : "#BFE8D1" },
+            ]}
+          >
+            <View style={styles.naverLogo}>
+              <Text style={styles.naverLogoText}>N</Text>
+            </View>
+            <View style={styles.naverAutoFillCopy}>
+              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>복사한 장소 자동 입력</Text>
+              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>네이버 지도에서 공유한 내용을 한 번에 채워요</Text>
+            </View>
+            <View style={styles.naverAutoFillButton}>
+              <Text style={styles.naverAutoFillButtonText}>붙여넣기</Text>
+            </View>
+          </Pressable>
+        )}
         <View style={styles.placeFormIntro}>
           <View style={[styles.placeRequiredBadge, theme && { backgroundColor: theme.primarySoft }]}>
             <Text style={[styles.placeRequiredBadgeText, theme && { color: theme.primary }]}>필수 1개</Text>
@@ -1879,6 +1895,12 @@ function Places({
             />
           </View>
         </View>
+        <DetailField
+          label="주소 · 선택 사항"
+          value={address}
+          onChangeText={setAddress}
+          placeholder="네이버 지도 공유 텍스트로 자동 입력할 수 있어요"
+        />
         <OptionField
           label="종류"
           options={["식당", "카페", "구경", "쇼핑", "숙소"]}
@@ -1949,17 +1971,9 @@ function Places({
             <View style={styles.naverCopy}>
               <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 공유 · 선택 사항</Text>
               <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
-                공유 텍스트를 붙이면 이름·지역·링크를 채워요
+                링크를 직접 입력하거나 위에서 자동으로 채울 수 있어요
               </Text>
             </View>
-            <Pressable
-              onPress={pasteNaverShare}
-              accessibilityRole="button"
-              accessibilityLabel="네이버 지도 공유 정보 붙여넣기"
-              style={styles.naverPasteButton}
-            >
-              <Text style={styles.naverPasteButtonText}>붙여넣기</Text>
-            </Pressable>
           </View>
           <TextInput
             value={mapUrl}
@@ -6556,16 +6570,20 @@ const styles = StyleSheet.create({
   },
   naverHead: { flexDirection: "row", alignItems: "center", marginBottom: 13 },
   naverCopy: { flex: 1, minWidth: 0 },
-  naverPasteButton: {
-    minWidth: 62,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: "#FFFFFF",
+  naverAutoFill: {
+    minHeight: 68,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 13,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
+    marginBottom: 14,
   },
-  naverPasteButtonText: { color: "#16844E", fontSize: 11, fontWeight: "900" },
+  naverAutoFillCopy: { flex: 1, minWidth: 0 },
+  naverAutoFillTitle: { fontSize: 12, fontWeight: "900" },
+  naverAutoFillText: { fontSize: 10, lineHeight: 14, marginTop: 3 },
+  naverAutoFillButton: { height: 34, borderRadius: 11, backgroundColor: "#FFFFFF", paddingHorizontal: 10, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  naverAutoFillButtonText: { color: "#16844E", fontSize: 11, fontWeight: "900" },
   naverLogo: {
     width: 30,
     height: 30,
