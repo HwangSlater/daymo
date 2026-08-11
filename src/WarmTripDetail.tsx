@@ -4107,6 +4107,7 @@ function Memories() {
           theme && { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
+        <View style={[styles.keepsakeTape, theme && { backgroundColor: theme.secondary }]} />
         <View style={styles.keepsakePhotos}>
           {photos.slice(0, 3).map((color, index) => (
             <View
@@ -4115,6 +4116,8 @@ function Memories() {
                 styles.keepsakePhoto,
                 { backgroundColor: color },
                 index === 0 && styles.keepsakePhotoMain,
+                index === 1 && styles.keepsakePhotoTop,
+                index === 2 && styles.keepsakePhotoBottom,
               ]}
             />
           ))}
@@ -4139,6 +4142,12 @@ function Memories() {
             theme && { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
+          <View style={[styles.diaryRuleSide, theme && { backgroundColor: theme.primary }]} />
+          <View style={styles.diaryPaperRules} pointerEvents="none">
+            {[0, 1, 2].map((rule) => (
+              <View key={rule} style={[styles.diaryPaperRule, theme && { backgroundColor: theme.border }]} />
+            ))}
+          </View>
           <Text style={[styles.diaryDate, theme && { color: theme.primary }]}>{diary.date}</Text>
           <Text style={[styles.diaryTitle, theme && { color: theme.text }]}>{diary.title}</Text>
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
@@ -4149,11 +4158,18 @@ function Memories() {
         {photos.map((color, index) => (
           <View
             key={`${color}-${index}`}
-            style={[styles.memoryTile, { backgroundColor: color }]}
+            style={[
+              styles.memoryTile,
+              theme && { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}
           >
-            <Text style={styles.tileNumber}>
-              {String(index + 1).padStart(2, "0")}
-            </Text>
+            <View style={[styles.memoryTilePhoto, { backgroundColor: color }]}>
+              <View style={styles.memoryTileGlow} />
+            </View>
+            <View style={styles.memoryTileCaption}>
+              <Text style={[styles.tileNumber, theme && { color: theme.text }]}>NO. {String(index + 1).padStart(2, "0")}</Text>
+              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>08. {21 + (index % 3)}</Text>
+            </View>
           </View>
         ))}
       </View>
@@ -5032,6 +5048,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
+    position: "relative",
+  },
+  keepsakeTape: {
+    position: "absolute",
+    top: -4,
+    left: 48,
+    width: 38,
+    height: 10,
+    borderRadius: 2,
+    opacity: 0.38,
+    zIndex: 4,
+    transform: [{ rotate: "-3deg" }],
   },
   keepsakePhotos: { width: 112, height: 112, position: "relative", marginRight: 13 },
   keepsakePhoto: {
@@ -5044,6 +5072,8 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   keepsakePhotoMain: { width: 78, height: 108, left: 0, top: 2, zIndex: 2 },
+  keepsakePhotoTop: { top: 4, transform: [{ rotate: "4deg" }] },
+  keepsakePhotoBottom: { bottom: 4, transform: [{ rotate: "-3deg" }] },
   keepsakeCopy: { flex: 1, minWidth: 0 },
   keepsakeStyle: { color: "#B06C5E", fontSize: 8, fontWeight: "900" },
   keepsakeTitle: { color: "#35333A", fontSize: 14, fontWeight: "900", marginTop: 8 },
@@ -5055,8 +5085,27 @@ const styles = StyleSheet.create({
     borderColor: "#E8E2DA",
     backgroundColor: "#FFFFFF",
     padding: 15,
+    paddingLeft: 19,
     marginBottom: 9,
+    position: "relative",
+    overflow: "hidden",
   },
+  diaryRuleSide: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 7,
+    width: 2,
+    opacity: 0.45,
+  },
+  diaryPaperRules: {
+    position: "absolute",
+    left: 19,
+    right: 13,
+    top: 48,
+    gap: 16,
+  },
+  diaryPaperRule: { height: StyleSheet.hairlineWidth, opacity: 0.55 },
   diaryDate: { color: "#B06C5E", fontSize: 8, fontWeight: "900" },
   diaryTitle: { color: "#35333A", fontSize: 13, fontWeight: "900", marginTop: 7 },
   diaryBody: { color: "#8C8580", fontSize: 10, lineHeight: 16, marginTop: 6 },
@@ -5070,21 +5119,41 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   cardMiniPhoto: { flex: 1, borderRadius: 9 },
-  memoryGrid: { flexDirection: "row", flexWrap: "wrap" },
+  memoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   memoryTile: {
-    width: "31.9%",
-    aspectRatio: 1,
-    marginRight: "1.4%",
-    marginBottom: 6,
-    borderRadius: 15,
-    padding: 10,
-    justifyContent: "flex-end",
+    width: "32%",
+    aspectRatio: 0.82,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 6,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  memoryTilePhoto: { flex: 1, borderRadius: 5, overflow: "hidden" },
+  memoryTileGlow: {
+    width: "70%",
+    height: "120%",
+    marginLeft: -12,
+    marginTop: -10,
+    backgroundColor: "rgba(255,255,255,0.13)",
+    transform: [{ rotate: "18deg" }],
+  },
+  memoryTileCaption: {
+    minHeight: 23,
+    paddingTop: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   tileNumber: {
     color: "rgba(83, 54, 48, .65)",
-    fontSize: 10,
+    fontSize: 6,
     fontWeight: "900",
+    letterSpacing: 0.4,
   },
+  memoryTileDate: { fontSize: 6, fontWeight: "800" },
   modalBack: {
     flex: 1,
     backgroundColor: "rgba(10,18,35,.42)",
