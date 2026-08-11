@@ -3579,20 +3579,6 @@ function Cooking({
                   <Text style={[styles.recipeLinkText, theme && { color: theme.primary }]}>레시피 영상 보기</Text>
                 </Pressable>
               ) : null}
-              <View style={styles.cookV2ProgressRow}>
-                <View style={[styles.cookV2ProgressTrack, theme && { backgroundColor: theme.primarySoft }]}>
-                  <View
-                    style={[
-                      styles.cookV2ProgressFill,
-                      { width: `${ingredientProgress}%` },
-                      theme && { backgroundColor: theme.primary },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.cookV2ProgressText, theme && { color: theme.muted }]}>
-                  {readyIngredientCount}/{ingredients.length} 준비
-                </Text>
-              </View>
             </View>
             <View style={styles.cookingHeroActions}>
               <Pressable
@@ -6462,15 +6448,6 @@ const styles = StyleSheet.create({
   },
   cookV2ProgressBadgeValue: { fontSize: 18, lineHeight: 22, fontWeight: "900" },
   cookV2ProgressBadgeLabel: { fontSize: 7, fontWeight: "800", marginTop: 2 },
-  cookV2ProgressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 11,
-  },
-  cookV2ProgressTrack: { flex: 1, height: 6, borderRadius: 999, overflow: "hidden" },
-  cookV2ProgressFill: { height: 6, borderRadius: 999 },
-  cookV2ProgressText: { fontSize: 8, fontWeight: "900" },
   recipeHead: {
     flexDirection: "row",
     justifyContent: "space-between",
