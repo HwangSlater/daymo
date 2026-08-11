@@ -888,8 +888,24 @@ function TripOverview({
     setSheet("reservation");
   };
   const openStay = (create = false) => {
-    setStayDraft(create ? { name: "", checkin: "", checkout: "", address: "" } : stay);
+    setStayDraft(create ? { name: "", checkin: "8월 21일 15:00", checkout: "8월 23일 11:00", address: "" } : stay);
     setSheet("stay");
+  };
+  const updateStayDateTime = (
+    field: "checkin" | "checkout",
+    part: "date" | "time",
+    value: string,
+  ) => {
+    setStayDraft((current) => {
+      const saved = current[field];
+      const savedTime = saved.match(/\d{1,2}:\d{2}$/)?.[0];
+      const savedDate = saved.replace(/\s*\d{1,2}:\d{2}$/, "").trim();
+      const fallbackDate = field === "checkin" ? "8월 21일" : "8월 23일";
+      const fallbackTime = field === "checkin" ? "15:00" : "11:00";
+      const nextDate = part === "date" ? value : savedDate || fallbackDate;
+      const nextTime = part === "time" ? value : savedTime || fallbackTime;
+      return { ...current, [field]: `${nextDate} ${nextTime}` };
+    });
   };
   return (
     <View>
@@ -1224,7 +1240,22 @@ function TripOverview({
         ])}
       >
         <DetailField label="숙소 이름 · 필수" value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: JS호텔" />
-        <PairedDetailField label="체크인·체크아웃 · 선택 사항" leftValue={stayDraft.checkin} rightValue={stayDraft.checkout} onChangeLeft={(checkin) => setStayDraft((current) => ({ ...current, checkin }))} onChangeRight={(checkout) => setStayDraft((current) => ({ ...current, checkout }))} leftPlaceholder="체크인" rightPlaceholder="체크아웃" />
+        <StayDateTimePicker
+          label="체크인"
+          value={stayDraft.checkin}
+          dates={["8월 21일", "8월 22일", "8월 23일"]}
+          times={["14:00", "15:00", "16:00", "18:00"]}
+          onDateChange={(value) => updateStayDateTime("checkin", "date", value)}
+          onTimeChange={(value) => updateStayDateTime("checkin", "time", value)}
+        />
+        <StayDateTimePicker
+          label="체크아웃"
+          value={stayDraft.checkout}
+          dates={["8월 21일", "8월 22일", "8월 23일"]}
+          times={["10:00", "11:00", "12:00", "13:00"]}
+          onDateChange={(value) => updateStayDateTime("checkout", "date", value)}
+          onTimeChange={(value) => updateStayDateTime("checkout", "time", value)}
+        />
         <DetailField label="주소 · 선택 사항" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="숙소 주소" />
       </DetailSheet>
       <InfoPanel
@@ -5126,6 +5157,37 @@ function DetailField({
     </View>
   );
 }
+
+function StayDateTimePicker({
+  label,
+  value,
+  dates,
+  times,
+  onDateChange,
+  onTimeChange,
+}: {
+  label: string;
+  value: string;
+  dates: string[];
+  times: string[];
+  onDateChange: (value: string) => void;
+  onTimeChange: (value: string) => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  const time = value.match(/\d{1,2}:\d{2}$/)?.[0] ?? times[0];
+  const date = value.replace(/\s*\d{1,2}:\d{2}$/, "").trim() || dates[0];
+  return (
+    <View style={[styles.stayPicker, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+      <View style={styles.stayPickerHead}>
+        <Text style={[styles.stayPickerLabel, theme && { color: theme.text }]}>{label}</Text>
+        <Text style={[styles.stayPickerValue, theme && { color: theme.primary }]}>{value}</Text>
+      </View>
+      <OptionField label="날짜" options={dates} value={date} onChange={onDateChange} />
+      <OptionField label="시간" options={times} value={time} onChange={onTimeChange} />
+    </View>
+  );
+}
+
 function DetailSheet({
   visible,
   title,
@@ -6271,6 +6333,17 @@ const styles = StyleSheet.create({
     paddingTop: 15,
     textAlignVertical: "top",
   },
+  stayPicker: {
+    borderWidth: 1,
+    borderRadius: 15,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 1,
+    marginBottom: 12,
+  },
+  stayPickerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  stayPickerLabel: { fontSize: 13, fontWeight: "900" },
+  stayPickerValue: { fontSize: 11, fontWeight: "900" },
   sheetSubmit: {
     height: 50,
     borderRadius: 17,
