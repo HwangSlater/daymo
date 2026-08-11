@@ -2592,7 +2592,12 @@ function Together({
           </View>
           <Pressable onPress={() => setPanel("members")}><Text style={[(s as any).memberManageText, { color: theme.primary }]}>관리</Text></Pressable>
         </View>
-        <View style={[(s as any).memberStrip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[(s as any).memberStrip, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          contentContainerStyle={(s as any).memberStripContent}
+        >
           {visibleMembers.map((member, index) => (
             <Pressable key={`${member}-${index}`} onPress={() => setPanel("members")} style={(s as any).memberStripItem}>
               <View style={[(s as any).memberStripAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary, "#8B7CF6"][index] }]}>
@@ -2607,7 +2612,7 @@ function Together({
             <Text style={[(s as any).memberStripName, { color: theme.muted }]}>초대</Text>
             <Text style={[(s as any).memberStripRole, { color: theme.muted }]}>링크 공유</Text>
           </Pressable>
-        </View>
+        </ScrollView>
         <Text style={[(s as any).managementLabel, { color: theme.muted }]}>빠른 관리</Text>
         <View style={(s as any).togetherQuickRow}>
           {[
@@ -5002,10 +5007,10 @@ Object.assign(s, {
   searchCategoryText: { color: "#747A80", fontSize: 11, fontWeight: "900" },
   searchCategoryTextActive: { color: "#FFFFFF" },
   searchGuide: {
-    borderRadius: 20,
+    borderRadius: 14,
     backgroundColor: "#E4F6F2",
-    padding: 17,
-    marginBottom: 24,
+    padding: 14,
+    marginBottom: 18,
   },
   searchGuideTitle: { color: "#126E64", fontSize: 14, fontWeight: "900" },
   searchGuideCopy: {
@@ -5018,7 +5023,7 @@ Object.assign(s, {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
-    marginTop: 12,
+    marginTop: 10,
   },
   searchSuggestion: {
     borderRadius: 12,
@@ -5886,8 +5891,9 @@ Object.assign(s, {
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 18, marginBottom: 8 },
   memberSectionTitle: { fontSize: 14, fontWeight: "900", marginTop: 3 },
   memberManageText: { fontSize: 11, fontWeight: "900", paddingVertical: 5 },
-  memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  memberStripItem: { width: 51, alignItems: "center" },
+  memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1 },
+  memberStripContent: { minWidth: "100%", paddingHorizontal: 12, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+  memberStripItem: { width: 58, alignItems: "center" },
   memberStripAvatar: { width: 38, height: 38, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   memberStripInitial: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
   memberStripName: { width: "100%", textAlign: "center", fontSize: 11, fontWeight: "800", marginTop: 6 },
