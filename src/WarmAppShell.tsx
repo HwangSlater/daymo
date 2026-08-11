@@ -3779,12 +3779,14 @@ Object.assign(s, {
   },
   paperCountChip: {
     flex: 1,
-    minHeight: 34,
+    minHeight: 30,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 5,
   },
   paperCountLabel: { fontSize: 11, fontWeight: "800" },
-  paperCountValue: { fontSize: 15, fontWeight: "900", marginTop: 2 },
+  paperCountValue: { fontSize: 12, fontWeight: "900" },
   pencilActions: {
     flexDirection: "row",
     gap: 8,
