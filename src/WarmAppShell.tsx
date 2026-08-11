@@ -3315,6 +3315,8 @@ function FormSheet({
             style={(s as any).sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             <View style={(s as any).sheetFormBody}>
               {children}
@@ -3403,6 +3405,8 @@ function InfoSheet({
             style={(s as any).sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
             contentContainerStyle={(s as any).infoSheetBody}
           >
             {children}
