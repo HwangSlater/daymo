@@ -404,10 +404,12 @@ function NotebookHome({
           </Text>
         </View>
       </View>
-      <View
-        style={[
+      <Pressable
+        onPress={() => open("overview", trip)}
+        style={({ pressed }) => [
           (s as any).paperTrip,
           { backgroundColor: theme.surface, borderColor: theme.border },
+          pressed && (s as any).pressed,
         ]}
       >
         <View
@@ -428,12 +430,9 @@ function NotebookHome({
               {trip.date}
             </Text>
           </View>
-          <Text style={[(s as any).paperDoodle, { color: theme.secondary }]}>
-            ✿
-          </Text>
         </View>
         <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
-        <Pressable onPress={() => open("overview", trip)} style={(s as any).paperStay}>
+        <View style={(s as any).paperStay}>
           <View
             style={[
               (s as any).paperPin,
@@ -451,7 +450,7 @@ function NotebookHome({
             </Text>
           </View>
           <Text style={{ color: theme.muted }}>›</Text>
-        </Pressable>
+        </View>
         <View style={(s as any).paperCounts}>
           <Text style={[(s as any).paperCount, { color: theme.text }]}>
             일정 <Text style={{ color: theme.primary }}>3</Text>
@@ -463,7 +462,7 @@ function NotebookHome({
             준비 <Text style={{ color: theme.accent }}>2/6</Text>
           </Text>
         </View>
-      </View>
+      </Pressable>
       <View style={(s as any).pencilActions}>
         <HomeQuick
           theme={theme}
@@ -499,9 +498,9 @@ function NotebookHome({
             이번 여행 할 일
           </Text>
         </View>
-        <Pressable onPress={goTrips}>
+        <Pressable onPress={() => open("overview", trip)}>
           <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>
-            전체 보기
+            여행 보기
           </Text>
         </Pressable>
       </View>
@@ -878,13 +877,16 @@ function TripsExplorer({
   const [showAllRegions, setShowAllRegions] = useState(false);
   const filtered =
     filter === "예정"
-      ? items.filter((trip) => trip.start >= "2026-08-09")
+      ? items.filter((trip) => trip.start >= new Date().toISOString().slice(0, 10))
       : filter === "추억"
-        ? items.filter((trip) => trip.start < "2026-08-09")
+        ? items.filter((trip) => trip.start < new Date().toISOString().slice(0, 10))
         : items;
   const visibleTrips = selectedRegion
     ? filtered.filter((trip) => trip.region === selectedRegion)
     : filtered;
+  const mapTrips = selectedRegion
+    ? items.filter((trip) => trip.region === selectedRegion)
+    : items;
   const dateTrips = selectedDate
     ? items.filter(
         (trip) => selectedDate >= trip.start && selectedDate <= trip.end,
@@ -986,7 +988,7 @@ function TripsExplorer({
           <View style={(s as any).tripExplorerMapHeader}>{explorerHead}</View>
           <KoreaTripMap
             trips={items}
-            results={visibleTrips}
+            results={mapTrips}
             selected={selectedRegion}
             onSelect={(region) =>
               setSelectedRegion(selectedRegion === region ? null : region)
@@ -1218,12 +1220,14 @@ function TripRows({
             pressed && (s as any).pressed,
           ]}
         >
-          <View
-            style={[
-              (s as any).tripTape,
-              { backgroundColor: `${trip.color}4D` },
-            ]}
-          />
+          {index % 2 === 0 && (
+            <View
+              style={[
+                (s as any).tripTape,
+                { backgroundColor: `${trip.color}4D` },
+              ]}
+            />
+          )}
           <View style={(s as any).tripThumb}>
             <TripArt color={trip.color} date={trip.mark} small />
           </View>
@@ -2095,9 +2099,6 @@ function Search({
           >
             흩어진 기록도 한 번에
           </Text>
-          <Text style={[(s as any).searchGuideCopy, { color: theme.muted }]}>
-            여행 이름뿐 아니라 네이버 지도 장소, 요리 재료와 준비물까지 찾아요.
-          </Text>
           <View style={(s as any).searchSuggestions}>
             {["은행골", "충전기", "부산", "밀푀유나베"].map((word) => (
               <Pressable
@@ -2149,23 +2150,9 @@ function Search({
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
-              transform: [{ rotate: index % 2 ? ".18deg" : "-.18deg" }],
             },
           ]}
         >
-          <View
-            style={[
-              (s as any).searchResultIcon,
-              { backgroundColor: `${item.color}20` },
-            ]}
-          >
-            <View
-              style={[
-                (s as any).searchResultDot,
-                { backgroundColor: item.color },
-              ]}
-            />
-          </View>
           <View style={(s as any).searchResultCopy}>
             <View style={(s as any).searchResultLine}>
               <Text
@@ -2363,15 +2350,6 @@ function Together({
         <Text style={[(s as any).managementLabel, { color: theme.muted }]}>빠른 관리</Text>
         <View style={(s as any).togetherQuickRow}>
           {[
-            {
-              icon: "+",
-              label: "멤버 초대",
-              onPress: () =>
-                Share.share({
-                  message:
-                    "Daymo에서 우리 여행을 함께 기록해요.\nhttps://daymo.app/invite/OUR-TRIP",
-                }),
-            },
             { icon: "⇧", label: "기록 내보내기", onPress: exportData },
             {
               icon: notifications ? "●" : "○",
@@ -4957,8 +4935,8 @@ Object.assign(s, {
   },
   searchGuide: {
     borderRadius: 10,
-    padding: 16,
-    marginBottom: 23,
+    padding: 12,
+    marginBottom: 16,
     borderStyle: "dashed",
     borderWidth: 1,
     borderColor: "#B8DCD5",
@@ -4984,6 +4962,7 @@ Object.assign(s, {
     alignItems: "center",
     justifyContent: "center",
   },
+  searchResultCopy: { flex: 1, paddingLeft: 0, paddingRight: 9 },
   togetherProfile: {
     marginTop: 21,
     borderRadius: 11,
