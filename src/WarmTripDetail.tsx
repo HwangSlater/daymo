@@ -1546,6 +1546,7 @@ function Preparation({
   const [cookingPicker, setCookingPicker] = useState(false);
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [collapsedPackingTags, setCollapsedPackingTags] = useState<string[]>([]);
   const completedCount = done.filter((name) =>
     items.some((item) => item.name === name),
   ).length;
@@ -2066,6 +2067,7 @@ function Preparation({
       </View>
       <View style={styles.packingList}>
         {remainingGroups.map(([sourceTag, taggedItems]) => {
+          const collapsed = collapsedPackingTags.includes(sourceTag);
           const allInGroup = items.filter(
             (item) => (packingTags(item)[0] || "태그 없음") === sourceTag,
           );
@@ -2083,7 +2085,22 @@ function Preparation({
                 },
               ]}
             >
-              <View style={styles.packingV2GroupHead}>
+              <Pressable
+                onPress={() =>
+                  setCollapsedPackingTags((current) =>
+                    current.includes(sourceTag)
+                      ? current.filter((tag) => tag !== sourceTag)
+                      : [...current, sourceTag],
+                  )
+                }
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !collapsed }}
+                accessibilityLabel={`${sourceTag} 준비물 ${collapsed ? "펼치기" : "접기"}`}
+                style={({ pressed }) => [
+                  styles.packingV2GroupHead,
+                  pressed && styles.packingV2GroupHeadPressed,
+                ]}
+              >
                 <View>
                   <Text style={[styles.packingV2GroupTitle, theme && { color: theme.text }]}>
                     {sourceTag}
@@ -2092,13 +2109,18 @@ function Preparation({
                     {doneInGroup}/{allInGroup.length} 완료
                   </Text>
                 </View>
-                <View style={[styles.packingV2GroupCount, theme && { backgroundColor: theme.primarySoft }]}>
-                  <Text style={[styles.packingV2GroupCountText, theme && { color: theme.primary }]}>
-                    {taggedItems.length}개 남음
+                <View style={styles.packingV2GroupActions}>
+                  <View style={[styles.packingV2GroupCount, theme && { backgroundColor: theme.primarySoft }]}>
+                    <Text style={[styles.packingV2GroupCountText, theme && { color: theme.primary }]}>
+                      {taggedItems.length}개 남음
+                    </Text>
+                  </View>
+                  <Text style={[styles.packingV2GroupToggle, theme && { color: theme.muted }]}>
+                    {collapsed ? "＋" : "−"}
                   </Text>
                 </View>
-              </View>
-              {taggedItems.map(renderPackingRow)}
+              </Pressable>
+              {!collapsed && taggedItems.map(renderPackingRow)}
             </View>
           );
         })}
@@ -5923,6 +5945,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  packingV2GroupHeadPressed: { opacity: 0.72 },
+  packingV2GroupActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  packingV2GroupToggle: {
+    width: 17,
+    textAlign: "center",
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: "800",
   },
   packingV2GroupTitle: { fontSize: 13, fontWeight: "900" },
   packingV2GroupProgress: { fontSize: 8, fontWeight: "700", marginTop: 2 },
