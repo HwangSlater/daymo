@@ -15,6 +15,7 @@ import * as Clipboard from "expo-clipboard";
 import { AppTheme } from "./theme";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
+const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "기록";
 export type TripDetailDestination =
@@ -314,6 +315,7 @@ export function WarmTripDetail({
     { author: "하늘 · 어제 22:15", body: "은행골 일요일 13:30 예약 확인" },
   ]);
   const [hasKitchen, setHasKitchen] = useState(true);
+  const [feedback, setFeedback] = useState("");
   const [packingItems, setPackingItems] = useState(packing);
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
@@ -342,8 +344,15 @@ export function WarmTripDetail({
     [initialDestination],
   );
 
+  useEffect(() => {
+    if (!feedback) return;
+    const timer = setTimeout(() => setFeedback(""), 2200);
+    return () => clearTimeout(timer);
+  }, [feedback]);
+
   return (
     <DetailThemeContext.Provider value={appTheme}>
+      <DetailFeedbackContext.Provider value={setFeedback}>
       <SafeAreaView
         style={[
           styles.safe,
@@ -554,6 +563,7 @@ export function WarmTripDetail({
             if (draftTitle.trim()) setTitle(draftTitle.trim());
             if (!hasKitchen && mode === "요리") setMode("여행");
             setEditingTrip(false);
+            setFeedback("여행 정보를 저장했어요");
           }}
         >
           <DetailField
@@ -576,7 +586,22 @@ export function WarmTripDetail({
             있어요.
           </Text>
         </DetailSheet>
+        {!!feedback && (
+          <View
+            accessibilityLiveRegion="polite"
+            style={[
+              styles.feedbackToast,
+              appTheme && { backgroundColor: appTheme.text },
+            ]}
+          >
+            <View style={[styles.feedbackToastMark, appTheme && { backgroundColor: appTheme.primary }]} />
+            <Text style={[styles.feedbackToastText, appTheme?.dark && { color: appTheme.background }]}>
+              {feedback}
+            </Text>
+          </View>
+        )}
       </SafeAreaView>
+      </DetailFeedbackContext.Provider>
     </DetailThemeContext.Provider>
   );
 }
@@ -618,6 +643,7 @@ function TripOverview({
   openScheduleOnMount?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
+  const notify = useContext(DetailFeedbackContext);
   const [sheet, setSheet] = useState<
     "schedule" | "reservation" | "stay" | "transport" | null
   >(openScheduleOnMount ? "schedule" : null);
@@ -671,6 +697,7 @@ function TripOverview({
   };
   const addSchedule = () => {
     if (!newPlanTitle.trim()) return;
+    const wasEditing = editingScheduleIndex !== null;
     const next = {
         time: `${planDay.slice(0, 1)} · ${planTime || "시간 미정"}`,
         title: newPlanTitle.trim(),
@@ -685,6 +712,7 @@ function TripOverview({
     setPlanMapUrl("");
     setEditingScheduleIndex(null);
     setSheet(null);
+    notify(wasEditing ? "일정을 수정했어요" : "일정을 추가했어요");
   };
   const openScheduleCreate = () => {
     setEditingScheduleIndex(null);
@@ -715,6 +743,7 @@ function TripOverview({
         setSchedule((current) => current.filter((_, index) => index !== editingScheduleIndex));
         setEditingScheduleIndex(null);
         setSheet(null);
+        notify("일정을 삭제했어요");
       } },
     ]);
   };
@@ -740,6 +769,7 @@ function TripOverview({
       setTransportArrival("");
       setTransportArrivalTime("");
       setSheet(null);
+      notify("교통편을 수정했어요");
       return;
     }
     setTransportations((current) => [...current, next]);
@@ -788,6 +818,7 @@ function TripOverview({
       setTransportArrival("");
       setTransportArrivalTime("");
       setSheet(null);
+      notify("오는 편을 저장했어요");
     }
   };
   const openTransportCreate = () => {
@@ -823,6 +854,7 @@ function TripOverview({
         setTransportations((current) => current.filter((item) => item.id !== target.id));
         setEditingTransportId(null);
         setSheet(null);
+        notify("교통편을 삭제했어요");
       } },
     ]);
   };
@@ -1140,10 +1172,10 @@ function TripOverview({
         submitDisabled={!reservationDraft.name.trim()}
         destructiveLabel={hasReservation ? "예약 정보 삭제" : undefined}
         onClose={() => setSheet(null)}
-        onSubmit={() => { setReservation(reservationDraft); setHasReservation(true); setSheet(null); }}
+        onSubmit={() => { setReservation(reservationDraft); setHasReservation(true); setSheet(null); notify("예약 정보를 저장했어요"); }}
         onDestructive={() => Alert.alert("예약 정보를 삭제할까요?", reservation.name, [
           { text: "취소", style: "cancel" },
-          { text: "삭제", style: "destructive", onPress: () => { setHasReservation(false); setSheet(null); } },
+          { text: "삭제", style: "destructive", onPress: () => { setHasReservation(false); setSheet(null); notify("예약 정보를 삭제했어요"); } },
         ])}
       >
         <DetailField label="예약 이름 · 필수" value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 은행골블랙" />
@@ -1160,10 +1192,10 @@ function TripOverview({
         submitDisabled={!stayDraft.name.trim()}
         destructiveLabel={hasStay ? "숙소 정보 삭제" : undefined}
         onClose={() => setSheet(null)}
-        onSubmit={() => { setStay(stayDraft); setHasStay(true); setSheet(null); }}
+        onSubmit={() => { setStay(stayDraft); setHasStay(true); setSheet(null); notify("숙소 정보를 저장했어요"); }}
         onDestructive={() => Alert.alert("숙소 정보를 삭제할까요?", stay.name, [
           { text: "취소", style: "cancel" },
-          { text: "삭제", style: "destructive", onPress: () => { setHasStay(false); setSheet(null); } },
+          { text: "삭제", style: "destructive", onPress: () => { setHasStay(false); setSheet(null); notify("숙소 정보를 삭제했어요"); } },
         ])}
       >
         <DetailField label="숙소 이름 · 필수" value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: JS호텔" />
@@ -1211,6 +1243,7 @@ function Places({
   addToSchedule: (item: ScheduleItem) => void;
 }) {
   const theme = useContext(DetailThemeContext);
+  const notify = useContext(DetailFeedbackContext);
   const [places, setPlaces] = useState<PlaceItem[]>([
     {
       name: "은행골블랙",
@@ -1300,6 +1333,7 @@ function Places({
   };
   const savePlace = () => {
     if (!name.trim()) return;
+    const wasEditing = Boolean(editingName);
     const next = {
       name: name.trim(),
       area: area.trim() || "지역 미정",
@@ -1317,6 +1351,7 @@ function Places({
     );
     resetForm();
     setAdding(false);
+    notify(wasEditing ? "장소 정보를 수정했어요" : "장소를 저장했어요");
   };
   const deletePlace = () => {
     if (!editingName) return;
@@ -1334,6 +1369,7 @@ function Places({
             );
             setAdding(false);
             resetForm();
+            notify("장소를 삭제했어요");
           },
         },
       ],
@@ -1360,6 +1396,7 @@ function Places({
       ),
     );
     setPlanningPlace(null);
+    notify("여행 일정에 담았어요");
   };
   const copyPlaces = async () => {
     await Clipboard.setStringAsync(
@@ -1370,10 +1407,7 @@ function Places({
         )
         .join("\n"),
     );
-    Alert.alert(
-      "장소 목록을 복사했어요",
-      "메모에서 고친 뒤 다시 붙여넣을 수 있어요.",
-    );
+    notify("장소 목록을 복사했어요");
   };
   const openImport = async () => {
     setImportText(await Clipboard.getStringAsync());
@@ -1407,6 +1441,7 @@ function Places({
       importMode === "교체" ? parsed : [...current, ...parsed],
     );
     setImporting(false);
+    notify(`장소 ${parsed.length}개를 반영했어요`);
   };
 
   return (
@@ -1863,6 +1898,7 @@ function Preparation({
   recipes: Recipe[];
 }) {
   const theme = useContext(DetailThemeContext);
+  const notify = useContext(DetailFeedbackContext);
   const [adding, setAdding] = useState(false);
   const [names, setNames] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -1963,6 +1999,7 @@ function Preparation({
     setQuantity("");
     setTagText("");
     setAdding(false);
+    notify(`준비물 ${parsed.length}개를 추가했어요`);
   };
   const assignOwner = (item: PackingItem, nextOwner: PackingItem["owner"]) => {
     setItems((current) =>
@@ -1971,6 +2008,7 @@ function Preparation({
       ),
     );
     setAssigningItem(null);
+    notify(`${item.name} 담당을 ${packingOwnerName(nextOwner)}(으)로 변경했어요`);
   };
   const complete = (item: PackingItem) => {
     toggle(item.name);
@@ -1988,10 +2026,7 @@ function Preparation({
         )
         .join("\n"),
     );
-    Alert.alert(
-      "준비 목록을 복사했어요",
-      "메모에서 고친 뒤 다시 붙여넣을 수 있어요.",
-    );
+    notify("준비 목록을 복사했어요");
   };
   const openImport = async () => {
     setImportText(await Clipboard.getStringAsync());
@@ -2030,6 +2065,7 @@ function Preparation({
       importMode === "교체" ? parsed : [...current, ...parsed],
     );
     setImporting(false);
+    notify(`준비물 ${parsed.length}개를 반영했어요`);
   };
   const toggleCookingItem = (id: string) =>
     setSelectedCookingItems((current) =>
@@ -2070,6 +2106,7 @@ function Preparation({
     ]);
     setSelectedCookingItems([]);
     setCookingPicker(false);
+    notify(`요리 재료 ${selected.length}개를 준비에 추가했어요`);
   };
   const renderPackingRow = (item: PackingItem, index: number) => {
     const completed = done.includes(item.name);
@@ -3480,6 +3517,7 @@ function Cooking({
   setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
 }) {
   const theme = useContext(DetailThemeContext);
+  const notify = useContext(DetailFeedbackContext);
   const [activeId, setActiveId] = useState("mille");
   const [addingIngredient, setAddingIngredient] = useState(false);
   const [addingRecipe, setAddingRecipe] = useState(false);
@@ -3533,6 +3571,7 @@ function Cooking({
 여기에 만들 요리와 재료 메모를 붙여넣으세요.`;
   const addIngredient = () => {
     if (!name.trim() || !activeRecipe) return;
+    const wasEditing = Boolean(editingIngredient);
     const next = {
       id: `${Date.now()}`,
       name: name.trim(),
@@ -3559,6 +3598,7 @@ function Cooking({
     setOwner("미정");
     setEditingIngredient(null);
     setAddingIngredient(false);
+    notify(wasEditing ? "재료를 수정했어요" : "재료를 추가했어요");
   };
   const openIngredientEdit = (item: CookingItem) => {
     setEditingIngredient(item);
@@ -3596,6 +3636,7 @@ function Cooking({
       setRecipeUrl("");
       setEditingRecipe(false);
       setAddingRecipe(false);
+      notify("요리 정보를 수정했어요");
       return;
     }
     const id = `recipe-${Date.now()}`;
@@ -3614,6 +3655,7 @@ function Cooking({
     setRecipeNote("");
     setRecipeUrl("");
     setAddingRecipe(false);
+    notify("요리를 추가했어요");
   };
   const openRecipeEdit = () => {
     if (!activeRecipe) return;
@@ -3632,10 +3674,7 @@ function Cooking({
   };
   const copyCookingPrompt = async () => {
     await Clipboard.setStringAsync(cookingPrompt);
-    Alert.alert(
-      "GPT용 프롬프트를 복사했어요",
-      "GPT에 붙여넣고 메모를 추가한 뒤, 결과를 Daymo에 붙여넣으세요.",
-    );
+    notify("GPT용 프롬프트를 복사했어요");
   };
   const pasteAiResult = async () => {
     setAiResult(await Clipboard.getStringAsync());
@@ -3680,6 +3719,7 @@ function Cooking({
     setActiveId(parsed[0].id);
     setAiResult("");
     setAiImporting(false);
+    notify(`요리 ${parsed.length}개를 추가했어요`);
   };
   const deleteRecipe = () => {
     if (!activeRecipe) return;
@@ -3697,6 +3737,7 @@ function Cooking({
             );
             setRecipes(remaining);
             setActiveId(remaining[0]?.id || "");
+            notify("요리와 재료 목록을 삭제했어요");
           },
         },
       ],
@@ -3723,7 +3764,7 @@ function Cooking({
       {
         text: "삭제",
         style: "destructive",
-        onPress: () =>
+        onPress: () => {
           setRecipes((current) =>
             current.map((recipe) =>
               recipe.id === activeId
@@ -3735,7 +3776,9 @@ function Cooking({
                   }
                 : recipe,
             ),
-          ),
+          );
+          notify("재료를 삭제했어요");
+        },
       },
     ]);
   const copyCooking = async () => {
@@ -3747,10 +3790,7 @@ function Cooking({
         )
         .join("\n"),
     );
-    Alert.alert(
-      "요리 목록을 복사했어요",
-      "메모에서 자유롭게 수정할 수 있어요.",
-    );
+    notify("요리 재료 목록을 복사했어요");
   };
   const openImport = async () => {
     setImportText(await Clipboard.getStringAsync());
@@ -3793,6 +3833,7 @@ function Cooking({
       ),
     );
     setImporting(false);
+    notify(`요리 재료 ${parsed.length}개를 반영했어요`);
   };
   return (
     <View>
@@ -5320,6 +5361,24 @@ function OptionField({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFF9F4" },
+  feedbackToast: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 18,
+    minHeight: 46,
+    borderRadius: 15,
+    backgroundColor: "#17233D",
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#17233D",
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  feedbackToastMark: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FF6B63", marginRight: 10 },
+  feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
   header: {
     height: 55,
     paddingHorizontal: 21,
