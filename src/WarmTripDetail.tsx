@@ -642,6 +642,7 @@ function TripOverview({
           },
         ]}
       >
+        <View style={[styles.travelTimelineTape, theme && { backgroundColor: theme.primary }]} />
         {schedule.slice(0, 3).map((item, index) => (
           <Moment
             key={`${item.time}-${index}`}
@@ -667,9 +668,10 @@ function TripOverview({
       </View>
 
       <SectionLabel label={`여행 정보 · ${hasKitchen ? 3 : 2}개`} />
-      <View style={[styles.travelInfoList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={styles.travelInfoList}>
         <TravelInfoRow
           label="예약"
+          mark="22"
           title="은행골블랙"
           meta="토요일 디너 · 2명"
           color={theme?.primary ?? "#FF6B63"}
@@ -677,20 +679,20 @@ function TripOverview({
         />
         <TravelInfoRow
           label="숙소"
+          mark="15"
           title="JS호텔"
           meta="15:00 체크인"
           color={theme?.secondary ?? "#55BFB4"}
           onPress={() => setSheet("stay")}
-          bordered
         />
         {hasKitchen && (
           <TravelInfoRow
             label="요리"
+            mark="한 끼"
             title="밀푀유나베"
             meta="재료와 담당 확인"
             color={theme?.accent ?? "#8B7CF6"}
             onPress={() => setMode("요리")}
-            bordered
           />
         )}
       </View>
@@ -4202,18 +4204,18 @@ function SectionLabel({
 
 function TravelInfoRow({
   label,
+  mark,
   title,
   meta,
   color,
   onPress,
-  bordered,
 }: {
   label: string;
+  mark: string;
   title: string;
   meta: string;
   color: string;
   onPress: () => void;
-  bordered?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
@@ -4221,19 +4223,23 @@ function TravelInfoRow({
       onPress={onPress}
       style={({ pressed }) => [
         styles.travelInfoRow,
-        bordered && styles.travelInfoRowBorder,
-        bordered && theme && { borderTopColor: theme.border },
+        theme && { backgroundColor: theme.surface, borderColor: theme.border },
         pressed && styles.packingCardPressed,
       ]}
     >
+      <View style={[styles.travelInfoAccent, { backgroundColor: color }]} />
+      <View style={[styles.travelInfoTape, { backgroundColor: `${color}55` }]} />
       <View style={[styles.travelInfoLabel, { backgroundColor: `${color}18` }]}>
+        <Text style={[styles.travelInfoMark, { color }]}>{mark}</Text>
         <Text style={[styles.travelInfoLabelText, { color }]}>{label}</Text>
       </View>
       <View style={styles.travelInfoCopy}>
         <Text style={[styles.travelInfoTitle, theme && { color: theme.text }]}>{title}</Text>
         <Text style={[styles.travelInfoMeta, theme && { color: theme.muted }]}>{meta}</Text>
       </View>
-      <Text style={[styles.travelInfoArrow, { color }]}>›</Text>
+      <View style={[styles.travelInfoArrowBox, { backgroundColor: `${color}18` }]}>
+        <Text style={[styles.travelInfoArrow, { color }]}>›</Text>
+      </View>
     </Pressable>
   );
 }
@@ -4812,39 +4818,75 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 1,
   },
-  travelTimelineCard: { padding: 12, marginBottom: 15 },
+  travelTimelineCard: { padding: 12, marginBottom: 15, position: "relative" },
+  travelTimelineTape: {
+    position: "absolute",
+    top: -5,
+    left: 28,
+    width: 42,
+    height: 10,
+    borderRadius: 2,
+    opacity: 0.22,
+    transform: [{ rotate: "-2deg" }],
+  },
   travelMomentCompact: { minHeight: 57 },
   travelMomentTimeCompact: { width: 72 },
   travelMomentDayCompact: { width: 49, fontSize: 9 },
   travelMomentContentCompact: { paddingLeft: 4 },
   travelMapLinkCompact: { height: 23, marginTop: 5, paddingHorizontal: 6 },
   travelInfoList: {
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: "hidden",
+    gap: 8,
     marginBottom: 10,
   },
   travelInfoRow: {
-    minHeight: 59,
-    paddingHorizontal: 12,
+    minHeight: 66,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 11,
     flexDirection: "row",
     alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
   },
-  travelInfoRowBorder: { borderTopWidth: StyleSheet.hairlineWidth },
+  travelInfoAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+  },
+  travelInfoTape: {
+    position: "absolute",
+    top: -2,
+    left: 22,
+    width: 24,
+    height: 7,
+    borderRadius: 2,
+    transform: [{ rotate: "-4deg" }],
+  },
   travelInfoLabel: {
-    minWidth: 39,
-    height: 27,
-    borderRadius: 8,
-    paddingHorizontal: 7,
+    width: 48,
+    height: 45,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
+    transform: [{ rotate: "-2deg" }],
   },
-  travelInfoLabelText: { fontSize: 8, fontWeight: "900" },
+  travelInfoMark: { fontSize: 12, lineHeight: 15, fontWeight: "900" },
+  travelInfoLabelText: { fontSize: 7, fontWeight: "900", marginTop: 1 },
   travelInfoCopy: { flex: 1, minWidth: 0 },
   travelInfoTitle: { fontSize: 12, fontWeight: "900" },
   travelInfoMeta: { fontSize: 8, fontWeight: "700", marginTop: 3 },
-  travelInfoArrow: { fontSize: 18, fontWeight: "800", marginLeft: 8 },
+  travelInfoArrowBox: {
+    width: 27,
+    height: 27,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  travelInfoArrow: { fontSize: 17, lineHeight: 18, fontWeight: "800" },
   moment: { flexDirection: "row", minHeight: 67 },
   lastMoment: { minHeight: 46 },
   momentTime: { width: 82, flexDirection: "row" },
