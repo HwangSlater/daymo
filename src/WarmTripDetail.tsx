@@ -478,6 +478,9 @@ export function WarmTripDetail({
               <Pressable
                 key={item}
                 onPress={() => setMode(item)}
+                accessibilityRole="tab"
+                accessibilityLabel={`${item} 탭`}
+                accessibilityState={{ selected: mode === item }}
                 style={[
                   styles.mode,
                   mode === item && styles.modeCurrent,
@@ -5261,6 +5264,9 @@ function DetailSheet({
           <Pressable
             onPress={onSubmit}
             disabled={submitDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={submit}
+            accessibilityState={{ disabled: submitDisabled }}
             style={({ pressed }) => [
               styles.sheetSubmit,
               theme && { backgroundColor: theme.primary },
@@ -5274,7 +5280,12 @@ function DetailSheet({
             </View>
           </Pressable>
           {destructiveLabel && (
-            <Pressable onPress={onDestructive} style={styles.deletePlace}>
+            <Pressable
+              onPress={onDestructive}
+              accessibilityRole="button"
+              accessibilityLabel={destructiveLabel}
+              style={styles.deletePlace}
+            >
               <Text style={styles.deletePlaceText}>{destructiveLabel}</Text>
             </Pressable>
           )}
@@ -8147,7 +8158,7 @@ Object.assign(styles, {
   },
   mode: {
     flex: 1,
-    minHeight: 39,
+    minHeight: 44,
     borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",

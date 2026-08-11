@@ -604,6 +604,8 @@ function MemoRow({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${text}, ${meta}`}
       style={[
         (s as any).memoRow,
         { borderColor: theme.border, backgroundColor: theme.surface },
@@ -896,6 +898,8 @@ function HomeQuick({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={[
         (s as any).homeQuick,
         embedded && (s as any).homeQuickEmbedded,
@@ -1660,6 +1664,9 @@ function KoreaTripMap({
         <Pressable
           disabled={zoom <= 1}
           onPress={() => changeZoom(-0.5)}
+          accessibilityRole="button"
+          accessibilityLabel="지도 축소"
+          accessibilityState={{ disabled: zoom <= 1 }}
           style={[
             (s as any).zoomButton,
             zoom <= 1 && (s as any).zoomButtonDisabled,
@@ -1671,6 +1678,9 @@ function KoreaTripMap({
         <Pressable
           disabled={zoom >= MAP_MAX_ZOOM}
           onPress={() => changeZoom(0.5)}
+          accessibilityRole="button"
+          accessibilityLabel="지도 확대"
+          accessibilityState={{ disabled: zoom >= MAP_MAX_ZOOM }}
           style={[
             (s as any).zoomButton,
             zoom >= MAP_MAX_ZOOM && (s as any).zoomButtonDisabled,
@@ -3052,7 +3062,14 @@ function BottomBar({
       ]}
     >
       {(["홈", "여행", "찾기", "우리"] as MainView[]).map((item) => (
-        <Pressable key={item} onPress={() => setActive(item)} style={s.navItem}>
+        <Pressable
+          key={item}
+          onPress={() => setActive(item)}
+          accessibilityRole="tab"
+          accessibilityLabel={`${item} 탭`}
+          accessibilityState={{ selected: active === item }}
+          style={s.navItem}
+        >
           <View
             style={[
               (s as any).navIconWrap,
@@ -3161,6 +3178,8 @@ function Setting({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={value ? `${label}, ${value}` : label}
       style={({ pressed }) => [
         s.setting,
         theme && { borderColor: theme.border },
@@ -3325,6 +3344,9 @@ function FormSheet({
           <Pressable
             onPress={onSubmit}
             disabled={submitDisabled}
+            accessibilityRole="button"
+            accessibilityLabel={submit}
+            accessibilityState={{ disabled: submitDisabled }}
             style={({ pressed }) => [
               (s as any).sheetSubmit,
               theme && { backgroundColor: theme.primary },
@@ -3430,6 +3452,9 @@ function Choice({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: Boolean(selected) }}
+      accessibilityLabel={label}
       style={[
         (s as any).choice,
         theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -4601,7 +4626,7 @@ Object.assign(s, {
     overflow: "hidden",
   },
   zoomControlsRaised: { bottom: 146 },
-  zoomButton: { height: 39, alignItems: "center", justifyContent: "center" },
+  zoomButton: { height: 44, alignItems: "center", justifyContent: "center" },
   zoomButtonDisabled: { opacity: 0.28 },
   zoomText: { color: "#17233D", fontSize: 19, fontWeight: "700" },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 7 },
