@@ -3721,6 +3721,20 @@ function Memories() {
   ]);
   const [writing, setWriting] = useState(false);
   const [draft, setDraft] = useState("");
+  const [diaryWriting, setDiaryWriting] = useState(false);
+  const [diaryTitle, setDiaryTitle] = useState("");
+  const [diaryBody, setDiaryBody] = useState("");
+  const [diaries, setDiaries] = useState([
+    {
+      title: "느리게 걸어서 더 좋았던 날",
+      body: "계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.",
+      date: "2026. 08. 23",
+    },
+  ]);
+  const [makingCard, setMakingCard] = useState(false);
+  const [cardStyle, setCardStyle] = useState("필름");
+  const [cardTitle, setCardTitle] = useState("우리의 구로 여행");
+  const [cardCaption, setCardCaption] = useState("천천히 걸어서 더 좋았던 2박 3일");
   const addNote = () => {
     if (!draft.trim()) return;
     setNotes((current) => [
@@ -3731,6 +3745,20 @@ function Memories() {
     setWriting(false);
   };
   const addPhoto = () => setPhotos((current) => ["#19B6A3", ...current]);
+  const addDiary = () => {
+    if (!diaryBody.trim()) return;
+    setDiaries((current) => [
+      {
+        title: diaryTitle.trim() || "이번 여행 이야기",
+        body: diaryBody.trim(),
+        date: "방금",
+      },
+      ...current,
+    ]);
+    setDiaryTitle("");
+    setDiaryBody("");
+    setDiaryWriting(false);
+  };
   return (
     <View>
       <TabIntro
@@ -3741,6 +3769,55 @@ function Memories() {
         action="사진 추가"
         onAction={addPhoto}
       />
+      <SectionLabel
+        label="여행 기념 카드"
+        action="꾸미기"
+        onPress={() => setMakingCard(true)}
+      />
+      <Pressable
+        onPress={() => setMakingCard(true)}
+        style={[
+          styles.keepsakeCard,
+          theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={styles.keepsakePhotos}>
+          {photos.slice(0, 3).map((color, index) => (
+            <View
+              key={`${color}-${index}`}
+              style={[
+                styles.keepsakePhoto,
+                { backgroundColor: color },
+                index === 0 && styles.keepsakePhotoMain,
+              ]}
+            />
+          ))}
+        </View>
+        <View style={styles.keepsakeCopy}>
+          <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{cardStyle} · 2026. 08</Text>
+          <Text style={[styles.keepsakeTitle, theme && { color: theme.text }]}>{cardTitle}</Text>
+          <Text numberOfLines={2} style={[styles.keepsakeCaption, theme && { color: theme.muted }]}>{cardCaption}</Text>
+        </View>
+        <Text style={[styles.keepsakeArrow, theme && { color: theme.primary }]}>›</Text>
+      </Pressable>
+      <SectionLabel
+        label="여행 일기"
+        action="일기 쓰기"
+        onPress={() => setDiaryWriting(true)}
+      />
+      {diaries.map((diary, index) => (
+        <View
+          key={`${diary.date}-${index}`}
+          style={[
+            styles.diaryCard,
+            theme && { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.diaryDate, theme && { color: theme.primary }]}>{diary.date}</Text>
+          <Text style={[styles.diaryTitle, theme && { color: theme.text }]}>{diary.title}</Text>
+          <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
+        </View>
+      ))}
       <SectionLabel
         label="여행 메모"
         action="메모 추가"
@@ -3779,6 +3856,40 @@ function Memories() {
           </View>
         ))}
       </View>
+      <DetailSheet
+        visible={makingCard}
+        title="여행 기념 카드 꾸미기"
+        subtitle="사진과 문구를 골라 여행을 한 장으로 간직하세요"
+        submit="카드 저장"
+        onClose={() => setMakingCard(false)}
+        onSubmit={() => setMakingCard(false)}
+      >
+        <OptionField
+          label="카드 스타일"
+          options={["필름", "엽서", "스크랩북"]}
+          value={cardStyle}
+          onChange={setCardStyle}
+        />
+        <View style={styles.cardMiniPreview}>
+          {photos.slice(0, 3).map((color, index) => (
+            <View key={`${color}-preview-${index}`} style={[styles.cardMiniPhoto, { backgroundColor: color }]} />
+          ))}
+        </View>
+        <DetailField label="카드 제목" value={cardTitle} onChangeText={setCardTitle} />
+        <DetailField label="짧은 문구" value={cardCaption} onChangeText={setCardCaption} multiline />
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>현재 여행 기록에 저장되며 언제든 다시 꾸밀 수 있어요.</Text>
+      </DetailSheet>
+      <DetailSheet
+        visible={diaryWriting}
+        title="여행 일기 쓰기"
+        subtitle="그날의 기분과 오래 기억하고 싶은 이야기를 남겨보세요"
+        submit={diaryBody.trim() ? "일기 저장" : "내용을 입력해 주세요"}
+        onClose={() => setDiaryWriting(false)}
+        onSubmit={addDiary}
+      >
+        <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
+        <DetailField label="여행 이야기" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
+      </DetailSheet>
       <DetailSheet
         visible={writing}
         title="메모 추가"
@@ -4599,6 +4710,54 @@ const styles = StyleSheet.create({
   },
   noteAuthor: { color: "#B06C5E", fontSize: 10, fontWeight: "900" },
   noteBody: { color: "#67443D", fontSize: 14, lineHeight: 20, marginTop: 8 },
+  keepsakeCard: {
+    minHeight: 142,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E8E2DA",
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  keepsakePhotos: { width: 112, height: 112, position: "relative", marginRight: 13 },
+  keepsakePhoto: {
+    position: "absolute",
+    width: 53,
+    height: 53,
+    right: 0,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  keepsakePhotoMain: { width: 78, height: 108, left: 0, top: 2, zIndex: 2 },
+  keepsakeCopy: { flex: 1, minWidth: 0 },
+  keepsakeStyle: { color: "#B06C5E", fontSize: 8, fontWeight: "900" },
+  keepsakeTitle: { color: "#35333A", fontSize: 14, fontWeight: "900", marginTop: 8 },
+  keepsakeCaption: { color: "#8C8580", fontSize: 9, lineHeight: 14, marginTop: 6 },
+  keepsakeArrow: { color: "#B06C5E", fontSize: 20, marginLeft: 7 },
+  diaryCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E8E2DA",
+    backgroundColor: "#FFFFFF",
+    padding: 15,
+    marginBottom: 9,
+  },
+  diaryDate: { color: "#B06C5E", fontSize: 8, fontWeight: "900" },
+  diaryTitle: { color: "#35333A", fontSize: 13, fontWeight: "900", marginTop: 7 },
+  diaryBody: { color: "#8C8580", fontSize: 10, lineHeight: 16, marginTop: 6 },
+  cardMiniPreview: {
+    height: 105,
+    borderRadius: 14,
+    backgroundColor: "#F4EFE8",
+    padding: 10,
+    flexDirection: "row",
+    gap: 7,
+    marginBottom: 18,
+  },
+  cardMiniPhoto: { flex: 1, borderRadius: 9 },
   memoryGrid: { flexDirection: "row", flexWrap: "wrap" },
   memoryTile: {
     width: "31.9%",
