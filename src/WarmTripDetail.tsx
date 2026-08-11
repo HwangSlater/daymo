@@ -322,9 +322,11 @@ export function WarmTripDetail({
   const [editingTrip, setEditingTrip] = useState(false);
   const [memoPanel, setMemoPanel] = useState(false);
   const [memoDraft, setMemoDraft] = useState("");
+  const [memoEditorOpen, setMemoEditorOpen] = useState(false);
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [tripNotes, setTripNotes] = useState([
-    { author: "여울 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
-    { author: "하늘 · 어제 22:15", body: "은행골 일요일 13:30 예약 확인" },
+    { id: "memo-meal", author: "여울 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
+    { id: "memo-booking", author: "하늘 · 어제 22:15", body: "은행골 일요일 13:30 예약 확인" },
   ]);
   const [hasKitchen, setHasKitchen] = useState(true);
   const [feedback, setFeedback] = useState("");
@@ -447,18 +449,24 @@ export function WarmTripDetail({
             </Text>
             <Pressable
               onPress={() => setMemoPanel(true)}
-              style={styles.tripMemoButton}
+              style={[
+                styles.tripMemoButton,
+                appTheme && {
+                  backgroundColor: appTheme.dark ? appTheme.surfaceAlt : "#FFF3B8",
+                  borderColor: appTheme.dark ? appTheme.border : "#E6D38C",
+                },
+              ]}
             >
-              <View style={styles.tripMemoTape} />
-              <Text style={styles.tripMemoLabel}>확인할 것</Text>
-              <Text numberOfLines={1} style={styles.tripMemoPreview}>
+              <View style={[styles.tripMemoTape, appTheme?.dark && { backgroundColor: `${appTheme.primary}70` }]} />
+              <Text style={[styles.tripMemoLabel, appTheme?.dark && { color: appTheme.primary }]}>확인할 것</Text>
+              <Text numberOfLines={1} style={[styles.tripMemoPreview, appTheme && { color: appTheme.text }]}>
                 {tripNotes[0]?.body || "메모를 남겨보세요"}
               </Text>
-              <View style={styles.tripMemoBottom}>
-                <Text style={styles.tripMemoButtonText}>메모 {tripNotes.length}개</Text>
-                <Text style={styles.tripMemoArrow}>›</Text>
+              <View style={[styles.tripMemoBottom, appTheme?.dark && { borderTopColor: appTheme.border }]}>
+                <Text style={[styles.tripMemoButtonText, appTheme && { color: appTheme.muted }]}>메모 {tripNotes.length}개</Text>
+                <Text style={[styles.tripMemoArrow, appTheme && { color: appTheme.primary }]}>›</Text>
               </View>
-              <View style={styles.tripMemoFold} />
+              <View style={[styles.tripMemoFold, appTheme?.dark && { backgroundColor: appTheme.border }]} />
             </Pressable>
           </View>
           <Text
@@ -559,42 +567,133 @@ export function WarmTripDetail({
           visible={memoPanel}
           title="여행 메모"
           subtitle="함께 확인할 짧은 내용을 남겨두세요"
-          submit={memoDraft.trim() ? "메모 추가" : "닫기"}
-          onClose={() => setMemoPanel(false)}
+          submit={memoEditorOpen ? (editingMemoId ? "변경 저장" : "메모 추가") : "닫기"}
+          submitDisabled={memoEditorOpen && !memoDraft.trim()}
+          onClose={() => {
+            setMemoPanel(false);
+            setMemoEditorOpen(false);
+            setEditingMemoId(null);
+            setMemoDraft("");
+          }}
           onSubmit={() => {
-            if (memoDraft.trim()) {
+            if (!memoEditorOpen) {
+              setMemoPanel(false);
+              return;
+            }
+            const body = memoDraft.trim();
+            if (!body) return;
+            if (editingMemoId) {
+              setTripNotes((current) => current.map((note) =>
+                note.id === editingMemoId ? { ...note, body, author: "하늘 · 방금 수정" } : note,
+              ));
+              setFeedback("여행 메모를 수정했어요");
+            } else {
               setTripNotes((current) => [
-                { author: "하늘 · 방금", body: memoDraft.trim() },
+                { id: `memo-${Date.now()}`, author: "하늘 · 방금", body },
                 ...current,
               ]);
-              setMemoDraft("");
               setFeedback("여행 메모를 추가했어요");
-            } else {
-              setMemoPanel(false);
             }
+            setMemoDraft("");
+            setEditingMemoId(null);
+            setMemoEditorOpen(false);
           }}
         >
-          <View style={styles.tripMemoList}>
-            {tripNotes.map((note, index) => (
+          {!memoEditorOpen && (
+            <Pressable
+              onPress={() => {
+                setMemoDraft("");
+                setEditingMemoId(null);
+                setMemoEditorOpen(true);
+              }}
+              style={({ pressed }) => [
+                styles.memoAddButton,
+                appTheme && { backgroundColor: appTheme.primarySoft, borderColor: `${appTheme.primary}55` },
+                pressed && styles.controlPressed,
+              ]}
+            >
+              <Text style={[styles.memoAddPlus, appTheme && { color: appTheme.primary }]}>＋</Text>
+              <View style={styles.memoAddCopy}>
+                <Text style={[styles.memoAddTitle, appTheme && { color: appTheme.text }]}>새 메모 추가</Text>
+                <Text style={[styles.memoAddHint, appTheme && { color: appTheme.muted }]}>필요한 내용을 짧게 남겨보세요</Text>
+              </View>
+            </Pressable>
+          )}
+          {memoEditorOpen && (
+            <View style={[styles.memoEditor, appTheme && { backgroundColor: appTheme.surface, borderColor: appTheme.border }]}>
+              <View style={styles.memoEditorHead}>
+                <Text style={[styles.memoEditorTitle, appTheme && { color: appTheme.text }]}>
+                  {editingMemoId ? "메모 수정" : "새 메모"}
+                </Text>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => {
+                    setMemoDraft("");
+                    setEditingMemoId(null);
+                    setMemoEditorOpen(false);
+                  }}
+                >
+                  <Text style={[styles.memoEditorCancel, appTheme && { color: appTheme.muted }]}>취소</Text>
+                </Pressable>
+              </View>
+              <DetailField
+                label="메모 내용"
+                value={memoDraft}
+                onChangeText={setMemoDraft}
+                placeholder="예: 체크인 전에 장보기"
+                multiline
+              />
+            </View>
+          )}
+          <View style={[styles.tripMemoList, appTheme && { backgroundColor: appTheme.surface }]}>
+            {tripNotes.length === 0 && (
+              <View style={styles.memoEmpty}>
+                <Text style={[styles.memoEmptyTitle, appTheme && { color: appTheme.text }]}>아직 메모가 없어요</Text>
+                <Text style={[styles.memoEmptyHint, appTheme && { color: appTheme.muted }]}>새 메모를 추가하면 함께 볼 수 있어요.</Text>
+              </View>
+            )}
+            {tripNotes.map((note) => (
               <View
-                key={`${note.author}-${index}`}
+                key={note.id}
                 style={[
                   styles.tripMemoRow,
-                  appTheme && { borderBottomColor: appTheme.border },
+                  appTheme && { backgroundColor: appTheme.surfaceAlt, borderColor: appTheme.border },
                 ]}
               >
-                <Text style={[styles.tripMemoAuthor, appTheme && { color: appTheme.primary }]}>{note.author}</Text>
+                <View style={styles.tripMemoRowHead}>
+                  <Text style={[styles.tripMemoAuthor, appTheme && { color: appTheme.primary }]}>{note.author}</Text>
+                  <View style={styles.tripMemoActions}>
+                    <Pressable onPress={() => {
+                      setEditingMemoId(note.id);
+                      setMemoDraft(note.body);
+                      setMemoEditorOpen(true);
+                    }}>
+                      <Text style={[styles.tripMemoEdit, appTheme && { color: appTheme.muted }]}>수정</Text>
+                    </Pressable>
+                    <Pressable onPress={() => Alert.alert(
+                      "메모를 삭제할까요?",
+                      note.body,
+                      [
+                        { text: "취소", style: "cancel" },
+                        { text: "삭제", style: "destructive", onPress: () => {
+                          setTripNotes((current) => current.filter((item) => item.id !== note.id));
+                          if (editingMemoId === note.id) {
+                            setMemoDraft("");
+                            setEditingMemoId(null);
+                            setMemoEditorOpen(false);
+                          }
+                          setFeedback("여행 메모를 삭제했어요");
+                        } },
+                      ],
+                    )}>
+                      <Text style={styles.tripMemoDelete}>삭제</Text>
+                    </Pressable>
+                  </View>
+                </View>
                 <Text style={[styles.tripMemoBody, appTheme && { color: appTheme.text }]}>{note.body}</Text>
               </View>
             ))}
           </View>
-          <DetailField
-            label="새 메모 · 선택 사항"
-            value={memoDraft}
-            onChangeText={setMemoDraft}
-            placeholder="예: 체크인 전에 장보기"
-            multiline
-          />
         </DetailSheet>
         <DetailSheet
           visible={editingTrip}
@@ -5725,12 +5824,37 @@ const styles = StyleSheet.create({
   tripMemoList: {
     borderRadius: 14,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 13,
+    padding: 10,
     marginBottom: 18,
+    gap: 8,
   },
-  tripMemoRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#EEEAE5" },
+  tripMemoRow: { padding: 12, borderWidth: 1, borderColor: "#EEEAE5", borderRadius: 12 },
+  tripMemoRowHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  tripMemoActions: { flexDirection: "row", alignItems: "center", gap: 14 },
+  tripMemoEdit: { color: "#746F6A", fontSize: 11, fontWeight: "800" },
+  tripMemoDelete: { color: "#D05E58", fontSize: 11, fontWeight: "800" },
   tripMemoAuthor: { color: "#B76A59", fontSize: 11, fontWeight: "900" },
-  tripMemoBody: { color: "#35333A", fontSize: 11, lineHeight: 16, marginTop: 5 },
+  tripMemoBody: { color: "#35333A", fontSize: 12, lineHeight: 18, marginTop: 7 },
+  memoAddButton: {
+    minHeight: 58,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  memoAddPlus: { fontSize: 22, lineHeight: 24, fontWeight: "500", marginRight: 10 },
+  memoAddCopy: { flex: 1 },
+  memoAddTitle: { fontSize: 13, fontWeight: "900" },
+  memoAddHint: { fontSize: 11, marginTop: 3 },
+  memoEditor: { borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 12 },
+  memoEditorHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
+  memoEditorTitle: { fontSize: 13, fontWeight: "900" },
+  memoEditorCancel: { fontSize: 11, fontWeight: "800" },
+  memoEmpty: { alignItems: "center", paddingVertical: 22 },
+  memoEmptyTitle: { fontSize: 13, fontWeight: "900" },
+  memoEmptyHint: { fontSize: 11, marginTop: 5 },
   title: {
     color: "#522F2D",
     fontSize: 36,
