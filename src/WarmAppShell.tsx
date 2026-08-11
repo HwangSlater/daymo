@@ -404,15 +404,13 @@ function NotebookHome({
           </Text>
         </View>
       </View>
-      <Pressable
-        onPress={() => open("overview", trip)}
-        style={({ pressed }) => [
+      <View
+        style={[
           (s as any).paperTrip,
           {
-            backgroundColor: `${theme.primary}${theme.dark ? "0F" : "07"}`,
-            borderColor: `${theme.primary}${theme.dark ? "66" : "38"}`,
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
           },
-          pressed && (s as any).pressed,
         ]}
       >
         <View
@@ -421,6 +419,13 @@ function NotebookHome({
             { backgroundColor: `${theme.primary}${theme.dark ? "75" : "55"}` },
           ]}
         />
+        <Pressable
+          onPress={() => open("overview", trip)}
+          style={({ pressed }) => [
+            (s as any).paperTripMain,
+            pressed && (s as any).pressed,
+          ]}
+        >
         <View style={(s as any).paperTripHead}>
           <View style={(s as any).paperTripCopy}>
             <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
@@ -447,13 +452,13 @@ function NotebookHome({
             <View style={[(s as any).paperTripStampRule, { backgroundColor: theme.primary }]} />
           </View>
         </View>
-        <View style={[(s as any).paperRule, { borderColor: `${theme.primary}2D` }]} />
+        <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
         <View
           style={[
             (s as any).paperStayBoard,
             {
-              backgroundColor: `${theme.secondary}${theme.dark ? "14" : "0C"}`,
-              borderColor: `${theme.secondary}${theme.dark ? "66" : "3D"}`,
+              backgroundColor: theme.surfaceAlt,
+              borderColor: theme.border,
             },
           ]}
         >
@@ -495,7 +500,9 @@ function NotebookHome({
               <Text style={[(s as any).paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
             </View>
           </View>
-          <View style={[(s as any).paperCounts, { borderTopColor: `${theme.secondary}2E` }]}>
+          <View
+            style={[(s as any).paperCounts, { borderTopColor: theme.border }]}
+          >
             {[
               { label: "일정", value: "3", color: theme.primary },
               { label: "장소", value: "8", color: theme.secondary },
@@ -518,8 +525,10 @@ function NotebookHome({
             ))}
           </View>
         </View>
-      </Pressable>
-      <View style={(s as any).pencilActions}>
+        </Pressable>
+        <View
+          style={[(s as any).pencilActions, { borderTopColor: theme.border }]}
+        >
         <HomeQuick
           theme={theme}
           icon="＋"
@@ -527,6 +536,7 @@ function NotebookHome({
           tint={theme.primarySoft}
           color={theme.primary}
           onPress={() => open("schedule-add", trip)}
+          embedded
         />
         <HomeQuick
           theme={theme}
@@ -535,6 +545,7 @@ function NotebookHome({
           tint={`${theme.secondary}20`}
           color={theme.secondary}
           onPress={() => open("places", trip)}
+          embedded
         />
         <HomeQuick
           theme={theme}
@@ -543,7 +554,9 @@ function NotebookHome({
           tint={`${theme.accent}20`}
           color={theme.accent}
           onPress={() => open("preparation", trip)}
+          embedded
         />
+        </View>
       </View>
       <View style={(s as any).noteTitleRow}>
         <View>
@@ -880,6 +893,7 @@ function HomeQuick({
   color,
   onPress,
   theme,
+  embedded = false,
 }: {
   icon: string;
   label: string;
@@ -887,13 +901,18 @@ function HomeQuick({
   color: string;
   onPress: () => void;
   theme: AppTheme;
+  embedded?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
       style={[
         (s as any).homeQuick,
-        { backgroundColor: theme.surface, borderColor: theme.border },
+        embedded && (s as any).homeQuickEmbedded,
+        {
+          backgroundColor: embedded ? theme.surfaceAlt : theme.surface,
+          borderColor: theme.border,
+        },
       ]}
     >
       <View style={[(s as any).homeQuickIcon, { backgroundColor: tint }]}>
@@ -3637,7 +3656,9 @@ Object.assign(s, {
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
     transform: [{ rotate: "-.2deg" }],
+    overflow: "visible",
   },
+  paperTripMain: { borderRadius: 15 },
   paperTape: {
     position: "absolute",
     width: 54,
@@ -3673,10 +3694,6 @@ Object.assign(s, {
     paddingBottom: 11,
     position: "relative",
     transform: [{ rotate: "0.2deg" }],
-    shadowColor: "#5D3531",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
   },
   paperStay: { flexDirection: "row", alignItems: "center" },
   paperStayIcon: {
@@ -3724,7 +3741,13 @@ Object.assign(s, {
   },
   paperCountLabel: { fontSize: 11, fontWeight: "800" },
   paperCountValue: { fontSize: 12, fontWeight: "900" },
-  pencilActions: { flexDirection: "row", gap: 8, marginTop: 13 },
+  pencilActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 13,
+    paddingTop: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   noteTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -4548,6 +4571,11 @@ Object.assign(s, {
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#ECEAE5",
+  },
+  homeQuickEmbedded: {
+    height: 64,
+    borderRadius: 13,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   homeQuickIcon: {
     width: 28,
