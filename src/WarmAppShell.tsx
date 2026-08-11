@@ -1574,8 +1574,13 @@ function KoreaTripMap({
         ) : null;
       })}
       {selected && (
-        <View style={[(s as any).mapTray, { backgroundColor: theme.surface }]}>
-          <View style={(s as any).mapTrayHandle} />
+        <View
+          style={[
+            (s as any).mapTray,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <View style={[(s as any).mapTrayHandle, { backgroundColor: theme.border }]} />
           <View style={(s as any).mapTrayHead}>
             <View>
               <Text style={[(s as any).mapTrayTitle, { color: theme.text }]}>{selected} 여행</Text>
@@ -1620,7 +1625,7 @@ function KoreaTripMap({
                       {trip.date}
                     </Text>
                   </View>
-                  <Text style={(s as any).mapTrayArrow}>›</Text>
+                  <Text style={[(s as any).mapTrayArrow, { color: theme.secondary }]}>›</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -1648,7 +1653,7 @@ function KoreaTripMap({
         >
           <Text style={[(s as any).zoomText, { color: theme.text }]}>−</Text>
         </Pressable>
-        <View style={(s as any).zoomDivider} />
+        <View style={[(s as any).zoomDivider, { backgroundColor: theme.border }]} />
         <Pressable
           disabled={zoom >= MAP_MAX_ZOOM}
           onPress={() => changeZoom(0.5)}
@@ -1698,6 +1703,12 @@ function TripCalendar({
         { backgroundColor: theme.surface, borderColor: theme.border },
       ]}
     >
+      <View
+        style={[
+          (s as any).calendarTape,
+          { backgroundColor: `${theme.primary}${theme.dark ? "62" : "38"}` },
+        ]}
+      />
       <View style={(s as any).calendarHead}>
         <Pressable
           onPress={() => move(-1)}
@@ -1748,21 +1759,30 @@ function TripCalendar({
               onPress={() => setSelectedDate(key)}
               style={[
                 (s as any).dayCell,
-                trip && { backgroundColor: trip.color },
-                selected && (s as any).dayCellSelected,
+                trip && {
+                  backgroundColor: `${trip.color}${theme.dark ? "38" : "1C"}`,
+                },
+                selected && [
+                  (s as any).dayCellSelected,
+                  { borderColor: theme.text },
+                ],
               ]}
             >
               <Text
                 style={[
                   (s as any).dayNumber,
                   { color: theme.text },
-                  trip && (s as any).dayNumberTrip,
+                  trip && [(s as any).dayNumberTrip, { color: trip.color }],
                   selected && (s as any).dayNumberSelected,
                 ]}
               >
                 {valid ? day : ""}
               </Text>
-              {trip && <View style={(s as any).dayTripDot} />}
+              {trip && (
+                <View
+                  style={[(s as any).dayTripDot, { backgroundColor: trip.color }]}
+                />
+              )}
             </Pressable>
           );
         })}
@@ -4289,6 +4309,7 @@ Object.assign(s, {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderTopWidth: 1,
     shadowColor: "#17233D",
     shadowOpacity: 0.16,
     shadowRadius: 14,
@@ -5252,7 +5273,25 @@ Object.assign(s, {
     marginTop: 12,
   },
   emptyInlineActionText: { fontSize: 11, fontWeight: "900" },
-  calendarCard: { borderRadius: 11, padding: 15, borderWidth: 1 },
+  calendarCard: {
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    position: "relative",
+    shadowColor: "#17233D",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  calendarTape: {
+    position: "absolute",
+    width: 44,
+    height: 12,
+    top: -6,
+    left: 22,
+    opacity: 0.72,
+    transform: [{ rotate: "-3deg" }],
+  },
   monthArrow: {
     width: 33,
     height: 33,
