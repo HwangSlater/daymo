@@ -1876,13 +1876,13 @@ function Places({
         onSubmit={importPlaces}
       >
         <OptionField
-          label="반영 방법"
+          label="목록 반영 방법"
           options={["교체", "추가"]}
           value={importMode}
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="장소 | 지역 | 종류 | #태그 | 네이버 지도 링크"
+          label="붙여넣을 장소 목록 · 필수"
           value={importText}
           onChangeText={setImportText}
           multiline
@@ -2965,7 +2965,7 @@ function Preparation({
             ? `‘${assigningItem.name}’을(를) 누가 챙길지 선택하세요`
             : undefined
         }
-        submit="취소"
+        submit="닫기"
         onClose={() => setAssigningItem(null)}
         onSubmit={() => setAssigningItem(null)}
       >
@@ -3244,6 +3244,7 @@ function Preparation({
             ? `${selectedCookingItems.length}개 준비물에 추가`
             : "재료를 선택해 주세요"
         }
+        submitDisabled={!selectedCookingItems.length}
         onClose={() => {
           setCookingPicker(false);
           setSelectedCookingItems([]);
@@ -3349,13 +3350,13 @@ function Preparation({
         onSubmit={importPacking}
       >
         <OptionField
-          label="반영 방법"
+          label="목록 반영 방법"
           options={["교체", "추가"]}
           value={importMode}
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="준비물 | 수량 | 담당 | #태그"
+          label="붙여넣을 준비 목록 · 필수"
           value={importText}
           onChangeText={setImportText}
           multiline
@@ -4456,13 +4457,13 @@ function Cooking({
         onSubmit={importCooking}
       >
         <OptionField
-          label="반영 방법"
+          label="목록 반영 방법"
           options={["교체", "추가"]}
           value={importMode}
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="재료 | 수량 | 분류 | 담당·구매"
+          label="붙여넣을 재료 목록 · 필수"
           value={importText}
           onChangeText={setImportText}
           multiline
@@ -5143,6 +5144,8 @@ function DetailSheet({
         ? "준비"
         : title.includes("요리") || title.includes("재료")
           ? "요리"
+          : title.includes("붙여넣기") || title.includes("태그 선택")
+            ? "목록"
           : title.includes("교통")
             ? "교통"
             : title.includes("숙소")
