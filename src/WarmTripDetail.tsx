@@ -393,7 +393,7 @@ export function WarmTripDetail({
                 <View style={styles.tripMemoLine} />
                 <View style={styles.tripMemoLine} />
               </View>
-              <Text style={styles.tripMemoDoodle}>♡</Text>
+              <Text style={styles.tripMemoDoodle}>✎</Text>
               <View style={styles.tripMemoBottom}>
                 <Text style={styles.tripMemoButtonText}>메모 보기</Text>
                 <View style={styles.tripMemoCount}>
@@ -4380,15 +4380,12 @@ const styles = StyleSheet.create({
   },
   tripMemoButton: {
     width: 82,
-    height: 64,
+    height: 68,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: "#E6D38C",
     backgroundColor: "#FFF3B8",
     paddingHorizontal: 9,
-    paddingTop: 10,
-    paddingBottom: 8,
-    justifyContent: "space-between",
     marginBottom: 2,
     transform: [{ rotate: "-1.5deg" }],
     shadowColor: "#6E5B32",
@@ -4407,20 +4404,31 @@ const styles = StyleSheet.create({
   },
   tripMemoLines: {
     position: "absolute",
-    left: 9,
+    left: 30,
     right: 9,
-    top: 20,
-    gap: 7,
+    top: 15,
+    gap: 6,
   },
   tripMemoLine: { height: 1, backgroundColor: "rgba(154, 121, 48, .22)" },
   tripMemoDoodle: {
+    position: "absolute",
+    left: 10,
+    top: 10,
     color: "#C77A68",
-    fontSize: 15,
-    lineHeight: 16,
+    fontSize: 17,
+    lineHeight: 18,
     fontWeight: "900",
-    transform: [{ rotate: "-8deg" }],
+    transform: [{ rotate: "-7deg" }],
   },
-  tripMemoBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  tripMemoBottom: {
+    position: "absolute",
+    left: 9,
+    right: 9,
+    bottom: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   tripMemoButtonText: { color: "#5F4B23", fontSize: 9, fontWeight: "900" },
   tripMemoCount: {
     minWidth: 18,
