@@ -1570,6 +1570,9 @@ function Preparation({
     .split(/[,#\n]/)
     .map((tag) => tag.trim())
     .filter(Boolean);
+  const newPackingCount = names
+    .split(/[\n,]/)
+    .filter((name) => name.trim()).length;
   const availableTags = managementTags.slice(1);
   const quickTags = Array.from(
     new Set([
@@ -2378,46 +2381,28 @@ function Preparation({
       <DetailSheet
         visible={adding}
         title="준비물 추가"
-        subtitle="준비물과 담당, 태그를 입력하세요"
+        subtitle="여러 준비물을 쉼표나 줄바꿈으로 한 번에 추가하세요"
         submit={
-          names.split(/[\n,]/).filter((name) => name.trim()).length
-            ? `${names.split(/[\n,]/).filter((name) => name.trim()).length}개 추가`
+          newPackingCount
+            ? `${newPackingCount}개 추가`
             : "준비물을 입력해 주세요"
         }
+        submitDisabled={!newPackingCount}
         onClose={() => setAdding(false)}
         onSubmit={submit}
       >
-        {recipes.some((recipe) => recipe.ingredients.length > 0) && (
-          <View
-            style={[
-              styles.cookingImportCallout,
-              theme && {
-                backgroundColor: theme.surfaceAlt,
-                borderColor: theme.border,
-              },
-            ]}
-          >
-            <View style={styles.cookingImportCopy}>
-              <Text style={[styles.cookingImportTitle, theme && { color: theme.text }]}>요리 재료 불러오기</Text>
-              <Text style={[styles.cookingImportText, theme && { color: theme.muted }]}>요리 탭의 재료를 골라 준비물로 추가하세요.</Text>
-            </View>
-            <Pressable
-              onPress={() => {
-                setAdding(false);
-                setCookingPicker(true);
-              }}
-              style={[styles.aiRecipeButton, theme && { backgroundColor: theme.primarySoft }]}
-            >
-              <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>불러오기</Text>
-            </Pressable>
-          </View>
-        )}
         <DetailField
-          label="준비물 이름 (여러 개 입력 가능)"
+          label="준비물 이름 · 필수"
           value={names}
           onChangeText={setNames}
           placeholder={"충전기, 안경, 갈아입을 옷"}
           multiline
+        />
+        <DetailField
+          label="수량 · 선택"
+          value={quantity}
+          onChangeText={setQuantity}
+          placeholder="예: 각 2개, 250g"
         />
         <View style={styles.detailField}>
           <Text
@@ -2427,7 +2412,7 @@ function Preparation({
               theme && { color: theme.muted },
             ]}
           >
-            담당
+            담당 · 선택
           </Text>
           <View style={styles.packingAssigneeOptions}>
             {ownerSections.map((ownerName) => (
@@ -2472,6 +2457,7 @@ function Preparation({
           >
             태그
           </Text>
+          <Text style={[styles.placeRecommendLabel, theme && { color: theme.muted }]}>추천 태그</Text>
           <View style={styles.tagSuggestions}>
             {["전자기기", "세면", "의류", "숙소", "출발 전"].map((tag) => {
               const selected = draftPackingTags.includes(tag);
@@ -2552,12 +2538,23 @@ function Preparation({
             ))}
           </View>
         </View>
-        <DetailField
-          label="수량 (선택)"
-          value={quantity}
-          onChangeText={setQuantity}
-          placeholder="예: 각 2개, 250g"
-        />
+        {recipes.some((recipe) => recipe.ingredients.length > 0) && (
+          <View style={[styles.cookingImportCallout, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+            <View style={styles.cookingImportCopy}>
+              <Text style={[styles.cookingImportTitle, theme && { color: theme.text }]}>요리 재료에서 가져오기</Text>
+              <Text style={[styles.cookingImportText, theme && { color: theme.muted }]}>직접 입력하지 않고 등록된 재료를 선택할 수 있어요.</Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                setAdding(false);
+                setCookingPicker(true);
+              }}
+              style={[styles.aiRecipeButton, theme && { backgroundColor: theme.primarySoft }]}
+            >
+              <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>재료 선택</Text>
+            </Pressable>
+          </View>
+        )}
       </DetailSheet>
       <DetailSheet
         visible={cookingPicker}
