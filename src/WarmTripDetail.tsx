@@ -52,7 +52,7 @@ const packingOwnerName = (owner: PackingItem["owner"]) =>
   owner === "나"
     ? "하늘"
     : owner === "동행"
-      ? "다온"
+      ? "여울"
       : owner === "함께"
         ? "공용"
         : "미정";
@@ -297,7 +297,7 @@ export function WarmTripDetail({
   const [memoPanel, setMemoPanel] = useState(false);
   const [memoDraft, setMemoDraft] = useState("");
   const [tripNotes, setTripNotes] = useState([
-    { author: "다온 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
+    { author: "여울 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
     { author: "하늘 · 어제 22:15", body: "은행골 일요일 13:30 예약 확인" },
   ]);
   const [hasKitchen, setHasKitchen] = useState(true);
@@ -1702,7 +1702,7 @@ function Preparation({
   const importPacking = () => {
     const ownerAliases: Record<string, PackingItem["owner"]> = {
       하늘: "나",
-      다온: "동행",
+      여울: "동행",
       공용: "함께",
       미정: "미정",
       나: "나",
@@ -1764,7 +1764,7 @@ function Preparation({
         owner:
           ingredient.owner === "하늘"
             ? ("나" as const)
-            : ingredient.owner === "다온"
+            : ingredient.owner === "여울"
               ? ("동행" as const)
               : ("미정" as const),
         tags: ["요리 재료", recipe.name, ingredient.group],
@@ -2351,7 +2351,7 @@ function Preparation({
             const selected = assigningItem?.owner === ownerName;
             const descriptions: Record<PackingItem["owner"], string> = {
               나: "하늘의 준비물로 이동",
-              동행: "다온의 준비물로 이동",
+              동행: "여울의 준비물로 이동",
               함께: "공용 준비물로 이동",
               미정: "나중에 담당 정하기",
             };
@@ -2744,7 +2744,7 @@ function Preparation({
           placeholder="준비물마다 한 줄씩 붙여넣으세요"
         />
         <Text style={styles.settingHint}>
-          담당: 하늘·다온·공용·미정 / 태그는 #으로 여러 개 적을 수 있어요
+          담당: 하늘·여울·공용·미정 / 태그는 #으로 여러 개 적을 수 있어요
         </Text>
       </DetailSheet>
     </View>
@@ -2785,7 +2785,7 @@ const initialRecipes: Recipe[] = [
           name: "깻잎",
           quantity: "20장",
           group: "기본",
-          owner: "다온",
+          owner: "여울",
         },
         {
           id: "c3",
@@ -2799,7 +2799,7 @@ const initialRecipes: Recipe[] = [
           name: "코인육수",
           quantity: "2개",
           group: "육수",
-          owner: "다온",
+          owner: "여울",
         },
         {
           id: "c5",
@@ -2842,7 +2842,7 @@ const initialRecipes: Recipe[] = [
           name: "버터",
           quantity: "20g",
           group: "소스",
-          owner: "다온",
+          owner: "여울",
         },
         {
           id: "clam-4",
@@ -2885,7 +2885,7 @@ const initialRecipes: Recipe[] = [
           name: "우유",
           quantity: "150ml",
           group: "반죽",
-          owner: "다온",
+          owner: "여울",
         },
         {
           id: "toast-4",
@@ -2946,7 +2946,7 @@ function Cooking({
 1. 설명, 인사, 번호, 마크다운을 절대 쓰지 않는다.
 2. 각 요리의 첫 줄은 반드시: 요리 | 이름 | 메모 | 참고 링크
 3. 이어지는 재료는 반드시: 재료 | 이름 | 수량 | 분류 | 준비
-4. 준비 값은 하늘, 다온, 구매, 미정 중 하나만 쓴다.
+4. 준비 값은 하늘, 여울, 구매, 미정 중 하나만 쓴다.
 5. 참고 링크는 메모에 URL이 있을 때만 쓰고, 없으면 비워둔다.
 6. 모르는 값은 미정으로 쓰고, 구분자는 반드시 | 만 사용한다.
 7. 결과만 출력한다.
@@ -3091,7 +3091,7 @@ function Cooking({
             name: values[0],
             quantity: values[1] || "미정",
             group: values[2] || "기본",
-            owner: ["하늘", "다온", "구매", "미정"].includes(values[3])
+            owner: ["하늘", "여울", "구매", "미정"].includes(values[3])
               ? values[3]
               : "미정",
           });
@@ -3636,7 +3636,7 @@ function Cooking({
         </View>
         <OptionField
           label="누가 준비하나요?"
-          options={["미정", "하늘", "다온", "구매"]}
+          options={["미정", "하늘", "여울", "구매"]}
           value={owner}
           onChange={setOwner}
         />

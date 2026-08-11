@@ -48,7 +48,7 @@ const trips: Trip[] = [
   {
     name: "서울 구로구",
     date: "8월 21일 — 23일",
-    note: "느긋한 숙소와 밀푀유나베",
+    note: "숙소에서 수다와 밀푀유나베",
     color: "#FF6B5F",
     mark: "08",
     region: "서울",
@@ -58,7 +58,7 @@ const trips: Trip[] = [
   {
     name: "안양 평촌",
     date: "8월 1일 — 2일",
-    note: "생새우 파티와 치킨",
+    note: "보드게임과 야식 장보기",
     color: "#8B7CF6",
     mark: "08",
     region: "경기",
@@ -68,7 +68,7 @@ const trips: Trip[] = [
   {
     name: "부산",
     date: "7월 24일 — 26일",
-    note: "바다와 드론쇼",
+    note: "바다 산책과 단체 사진",
     color: "#19B6A3",
     mark: "07",
     region: "부산",
@@ -87,7 +87,10 @@ export function WarmAppShell() {
   const [tripItems, setTripItems] = useState<Trip[]>(trips);
   const [themeId, setThemeId] = useState<ThemeId>("daymo");
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
-  const [user, setUser] = useState<DaymoUser | null>(null);
+  const [user, setUser] = useState<DaymoUser | null>({
+    name: "하늘",
+    email: "sky@daymo.app",
+  });
   const theme = resolveTheme(
     themeId,
     appearance === "system" ? systemScheme === "dark" : appearance === "dark",
@@ -250,6 +253,23 @@ function AuthScreen({
         <View style={[(s as any).authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[(s as any).authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
           <Text style={[(s as any).authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
+          {mode === "signup" && (
+            <Field theme={theme} label="이름 또는 별명" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
+          )}
+          <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+          <Field theme={theme} label="비밀번호" value={password} onChangeText={setPassword} placeholder="6자 이상 입력" secureTextEntry />
+          {mode === "signup" && (
+            <Field theme={theme} label="비밀번호 확인" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
+          )}
+          {error ? <Text style={(s as any).authError}>{error}</Text> : null}
+          <Pressable onPress={submit} style={[(s as any).authSubmit, { backgroundColor: theme.primary }]}>
+            <Text style={(s as any).authSubmitText}>{mode === "login" ? "로그인" : "회원가입"}</Text>
+          </Pressable>
+          <View style={(s as any).authDivider}>
+            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[(s as any).authDividerText, { color: theme.muted }]}>또는 소셜 계정으로</Text>
+            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
+          </View>
           <View style={(s as any).oauthGrid}>
             {[
               { id: "kakao", label: "카카오", mark: "K", color: "#FEE500", text: "#241F10" },
@@ -268,23 +288,6 @@ function AuthScreen({
               </Pressable>
             ))}
           </View>
-          <View style={(s as any).authDivider}>
-            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
-            <Text style={[(s as any).authDividerText, { color: theme.muted }]}>또는 이메일로</Text>
-            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
-          </View>
-          {mode === "signup" && (
-            <Field theme={theme} label="이름 또는 별명" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
-          )}
-          <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
-          <Field theme={theme} label="비밀번호" value={password} onChangeText={setPassword} placeholder="6자 이상 입력" secureTextEntry />
-          {mode === "signup" && (
-            <Field theme={theme} label="비밀번호 확인" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
-          )}
-          {error ? <Text style={(s as any).authError}>{error}</Text> : null}
-          <Pressable onPress={submit} style={[(s as any).authSubmit, { backgroundColor: theme.primary }]}>
-            <Text style={(s as any).authSubmitText}>{mode === "login" ? "로그인" : "회원가입"}</Text>
-          </Pressable>
           <Pressable onPress={switchMode} style={(s as any).authSwitch}>
             <Text style={[(s as any).authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontWeight: "900" }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
           </Pressable>
@@ -477,7 +480,7 @@ function NotebookHome({
           theme={theme}
           color={theme.accent}
           text="아직 안 챙긴 준비물 2개"
-          meta="하늘 1 · 다온 1"
+          meta="하늘 1 · 여울 1"
           onPress={() => open("preparation")}
         />
         <MemoRow
@@ -721,7 +724,7 @@ function Home({
               아직 안 챙긴 준비물
             </Text>
             <Text style={[(s as any).homeActionMeta, { color: theme.muted }]}>
-              하늘 1 · 다온 1
+              하늘 1 · 여울 1
             </Text>
           </View>
           <Text style={[(s as any).homeActionDue, { color: theme.secondary }]}>
@@ -2142,18 +2145,21 @@ function Together({
   onLogout: () => void;
 }) {
   const [notifications, setNotifications] = useState(true);
-  const [relationship, setRelationship] = useState<"연인" | "친구">("연인");
-  const [spaceName, setSpaceName] = useState("우리의 여행 공간");
+  const [relationship, setRelationship] = useState<"연인" | "친구">("친구");
+  const [spaceName, setSpaceName] = useState("주말 여행 메이트");
   const [memberA, setMemberA] = useState(user.name);
-  const [memberB, setMemberB] = useState("다온");
+  const [memberB, setMemberB] = useState("여울");
+  const [memberC, setMemberC] = useState("가람");
+  const [memberD, setMemberD] = useState("새봄");
   const [memberRole, setMemberRole] = useState<"편집 가능" | "보기만">("편집 가능");
   const [since, setSince] = useState("2023. 10. 20");
   const groups = [
-    { id: "ours", name: "우리의 여행 공간", member: "다온", relationship: "연인" as const },
-    { id: "friends", name: "주말 여행 모임", member: "여울", relationship: "친구" as const },
-    { id: "family", name: "가족 나들이", member: "보름", relationship: "친구" as const },
+    { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" as const },
+    { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" as const },
+    { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" as const },
   ];
-  const [activeGroupId, setActiveGroupId] = useState("ours");
+  const [activeGroupId, setActiveGroupId] = useState("friends");
+  const visibleMembers = [memberA, memberB, memberC, memberD].filter(Boolean);
   const totalTripDays = trips.reduce((total, trip) => {
     const start = new Date(`${trip.start}T00:00:00`).getTime();
     const end = new Date(`${trip.end}T00:00:00`).getTime();
@@ -2203,67 +2209,55 @@ function Together({
         <View style={(s as any).togetherHead}>
           <View>
             <Text style={[s.overline, { color: theme.primary }]}>
-              공동 여행 공간
+              함께 관리하는 여행
             </Text>
             <Text style={[s.screenTitle, { color: theme.text }]}>우리</Text>
           </View>
-          <View style={(s as any).togetherHeadActions}>
-            <Pressable onPress={() => setPanel("groups")} style={[(s as any).togetherSwitch, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-              <Text style={[(s as any).togetherSwitchText, { color: theme.text }]}>공간 전환⌄</Text>
-            </Pressable>
-            <Pressable onPress={() => setPanel("profile")} style={[(s as any).togetherEdit, { backgroundColor: theme.primarySoft }]}>
-              <Text style={[(s as any).togetherEditText, { color: theme.primary }]}>편집</Text>
-            </Pressable>
-          </View>
+          <Pressable onPress={() => setPanel("account")} style={[(s as any).togetherAccountButton, { backgroundColor: theme.primarySoft }]}>
+            <Text style={[(s as any).togetherAccountInitial, { color: theme.primary }]}>{user.name.slice(0, 1)}</Text>
+          </Pressable>
         </View>
         <Pressable
-          onPress={() => setPanel("profile")}
+          onPress={() => setPanel("groups")}
           style={[
-            (s as any).togetherProfile,
+            (s as any).workspaceCard,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          <View style={(s as any).togetherAvatarStack}>
-            <View
-              style={[
-                (s as any).togetherAvatar,
-                {
-                  backgroundColor: theme.primary,
-                  borderColor: theme.surface,
-                },
-              ]}
-            >
-              <Text style={(s as any).togetherAvatarText}>{memberA.trim().slice(0, 1) || "?"}</Text>
-            </View>
-            <View
-              style={[
-                (s as any).togetherAvatar,
-                (s as any).togetherAvatarSecond,
-                {
-                  backgroundColor: theme.accent,
-                  borderColor: theme.surface,
-                },
-              ]}
-            >
-              <Text style={(s as any).togetherAvatarText}>{memberB.trim().slice(0, 1) || "?"}</Text>
-            </View>
+          <View style={[(s as any).workspaceMark, { backgroundColor: theme.primarySoft }]}>
+            <Text style={[(s as any).workspaceMarkText, { color: theme.primary }]}>✈</Text>
           </View>
-          <View style={(s as any).togetherProfileCopy}>
-            <Text
-              style={[(s as any).togetherProfileName, { color: theme.text }]}
-            >
-              {spaceName}
-            </Text>
-            <Text
-              style={[(s as any).togetherProfileMeta, { color: theme.muted }]}
-            >
-              {memberA} · {memberB} · {relationship} · {since.slice(0, 4)}부터
-            </Text>
+          <View style={(s as any).workspaceCopy}>
+            <Text style={[(s as any).workspaceLabel, { color: theme.muted }]}>현재 여행 공간</Text>
+            <Text style={[(s as any).workspaceName, { color: theme.text }]}>{spaceName}</Text>
+            <Text style={[(s as any).workspaceMeta, { color: theme.muted }]}>{visibleMembers.length}명 · {relationship} · 여행 {trips.length}개</Text>
           </View>
-          <Text style={[(s as any).togetherChevron, { color: theme.muted }]}>
-            ›
-          </Text>
+          <View style={[(s as any).workspaceSwitchBadge, { backgroundColor: theme.primarySoft }]}>
+            <Text style={[(s as any).workspaceSwitchBadgeText, { color: theme.primary }]}>바꾸기</Text>
+          </View>
         </Pressable>
+        <View style={(s as any).memberSectionHead}>
+          <View>
+            <Text style={[(s as any).historyEyebrow, { color: theme.primary }]}>멤버</Text>
+            <Text style={[(s as any).memberSectionTitle, { color: theme.text }]}>함께하는 사람</Text>
+          </View>
+          <Pressable onPress={() => setPanel("members")}><Text style={[(s as any).memberManageText, { color: theme.primary }]}>관리</Text></Pressable>
+        </View>
+        <View style={[(s as any).memberStrip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {visibleMembers.map((member, index) => (
+            <Pressable key={`${member}-${index}`} onPress={() => setPanel("members")} style={(s as any).memberStripItem}>
+              <View style={[(s as any).memberStripAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary, "#8B7CF6"][index] }]}>
+                <Text style={(s as any).memberStripInitial}>{member.slice(0, 1)}</Text>
+              </View>
+              <Text numberOfLines={1} style={[(s as any).memberStripName, { color: theme.text }]}>{index === 0 ? "나" : member}</Text>
+            </Pressable>
+          ))}
+          <Pressable onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={(s as any).memberStripItem}>
+            <View style={[(s as any).memberInviteAvatar, { borderColor: theme.border }]}><Text style={[(s as any).memberInvitePlus, { color: theme.primary }]}>＋</Text></View>
+            <Text style={[(s as any).memberStripName, { color: theme.muted }]}>초대</Text>
+          </Pressable>
+        </View>
+        <Text style={[(s as any).managementLabel, { color: theme.muted }]}>빠른 관리</Text>
         <View style={(s as any).togetherQuickRow}>
           {[
             {
@@ -2304,25 +2298,20 @@ function Together({
           </View>
           <Text style={[(s as any).historyPeriod, { color: theme.muted }]}>{since.slice(0, 4)} — 2026</Text>
         </View>
-        <View style={(s as any).historyGrid}>
+        <View style={[(s as any).historySummary, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {[
             { value: String(trips.length), unit: "번", label: "함께한 여행", color: theme.primary },
             { value: String(totalTripDays), unit: "일", label: "여행한 날", color: theme.secondary },
             { value: String(visitedRegions), unit: "곳", label: "방문한 지역", color: theme.accent },
-            { value: String(trips.length), unit: "개", label: "남긴 여행 기록", color: theme.primary },
-          ].map((stat) => (
+          ].map((stat, index) => (
             <View
               key={stat.label}
-              style={[
-                (s as any).historyCard,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-              ]}
+              style={[(s as any).historySummaryItem, index > 0 && { borderLeftColor: theme.border, borderLeftWidth: 1 }]}
             >
-              <View style={[(s as any).historyDot, { backgroundColor: stat.color }]} />
-              <Text style={[(s as any).historyValue, { color: theme.text }]}>
+              <Text style={[(s as any).historySummaryValue, { color: stat.color }]}>
                 {stat.value}<Text style={[(s as any).historyUnit, { color: theme.muted }]}> {stat.unit}</Text>
               </Text>
-              <Text style={[(s as any).historyLabel, { color: theme.muted }]}>{stat.label}</Text>
+              <Text style={[(s as any).historySummaryLabel, { color: theme.muted }]}>{stat.label}</Text>
             </View>
           ))}
         </View>
@@ -2343,7 +2332,7 @@ function Together({
           />
         </View>
         <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
-          함께 쓰는 공간
+          공간 설정
         </Text>
         <View
           style={[
@@ -2353,9 +2342,9 @@ function Together({
         >
           <Setting
             theme={theme}
-            label="멤버 관리"
-            value="2명"
-            onPress={() => setPanel("members")}
+            label="공간 프로필"
+            value={spaceName}
+            onPress={() => setPanel("profile")}
           />
           <Setting
             theme={theme}
@@ -2423,7 +2412,9 @@ function Together({
                 onPress={() => {
                   setActiveGroupId(group.id);
                   setSpaceName(group.name);
-                  setMemberB(group.member);
+                  setMemberB(group.members[0] || "");
+                  setMemberC(group.members[1] || "");
+                  setMemberD(group.members[2] || "");
                   setRelationship(group.relationship);
                   setPanel(null);
                 }}
@@ -2434,7 +2425,7 @@ function Together({
                 </View>
                 <View style={(s as any).groupChoiceCopy}>
                   <Text style={[(s as any).groupChoiceName, { color: theme.text }]}>{group.name}</Text>
-                  <Text style={[(s as any).groupChoiceMeta, { color: theme.muted }]}>{user.name} · {group.member}</Text>
+                  <Text numberOfLines={1} style={[(s as any).groupChoiceMeta, { color: theme.muted }]}>{[user.name, ...group.members].join(" · ")}</Text>
                 </View>
                 <Text style={[(s as any).groupChoiceCheck, { color: theme.primary }]}>{activeGroupId === group.id ? "✓" : ""}</Text>
               </Pressable>
@@ -2500,11 +2491,17 @@ function Together({
             <View style={(s as any).memberEditCard}>
               <Field
                 theme={theme}
-                label="함께하는 멤버"
+                label="친구 1"
                 value={memberB}
                 onChangeText={setMemberB}
                 placeholder="이름 또는 별명"
               />
+              {relationship === "친구" && (
+                <>
+                  <Field theme={theme} label="친구 2" value={memberC} onChangeText={setMemberC} placeholder="이름 또는 별명" />
+                  <Field theme={theme} label="친구 3" value={memberD} onChangeText={setMemberD} placeholder="이름 또는 별명" />
+                </>
+              )}
               <Text style={[(s as any).memberPermissionLabel, { color: theme.text }]}>권한</Text>
               <Choice
                 theme={theme}
@@ -4396,7 +4393,7 @@ Object.assign(s, {
     flexDirection: "row",
     alignItems: "center",
   },
-  togetherAvatarStack: { width: 76, height: 52, position: "relative" },
+  togetherAvatarStack: { width: 114, height: 52, position: "relative" },
   togetherAvatar: {
     position: "absolute",
     left: 0,
@@ -5028,4 +5025,38 @@ Object.assign(s, {
   groupChoiceName: { fontSize: 12, fontWeight: "900" },
   groupChoiceMeta: { fontSize: 8, fontWeight: "700", marginTop: 4 },
   groupChoiceCheck: { width: 18, fontSize: 13, fontWeight: "900", textAlign: "center" },
+  togetherAccountButton: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  togetherAccountInitial: { fontSize: 13, fontWeight: "900" },
+  workspaceCard: {
+    minHeight: 86,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 17,
+  },
+  workspaceMark: { width: 43, height: 43, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  workspaceMarkText: { fontSize: 17, fontWeight: "900" },
+  workspaceCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
+  workspaceLabel: { fontSize: 8, fontWeight: "800" },
+  workspaceName: { fontSize: 14, fontWeight: "900", marginTop: 3 },
+  workspaceMeta: { fontSize: 8, fontWeight: "700", marginTop: 4 },
+  workspaceSwitchBadge: { height: 29, borderRadius: 9, paddingHorizontal: 9, alignItems: "center", justifyContent: "center" },
+  workspaceSwitchBadgeText: { fontSize: 8, fontWeight: "900" },
+  memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 18, marginBottom: 8 },
+  memberSectionTitle: { fontSize: 14, fontWeight: "900", marginTop: 3 },
+  memberManageText: { fontSize: 9, fontWeight: "900", paddingVertical: 5 },
+  memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  memberStripItem: { width: 51, alignItems: "center" },
+  memberStripAvatar: { width: 38, height: 38, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  memberStripInitial: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
+  memberStripName: { width: "100%", textAlign: "center", fontSize: 8, fontWeight: "800", marginTop: 6 },
+  memberInviteAvatar: { width: 38, height: 38, borderRadius: 14, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
+  memberInvitePlus: { fontSize: 17, fontWeight: "700" },
+  managementLabel: { fontSize: 8, fontWeight: "900", marginTop: 15, marginBottom: -2 },
+  historySummary: { minHeight: 73, borderRadius: 11, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  historySummaryItem: { flex: 1, alignItems: "center", justifyContent: "center" },
+  historySummaryValue: { fontSize: 16, fontWeight: "900" },
+  historySummaryLabel: { fontSize: 8, fontWeight: "700", marginTop: 4 },
 });
