@@ -677,24 +677,27 @@ function TripOverview({
           color={theme?.primary ?? "#FF6B63"}
           onPress={() => setSheet("reservation")}
         />
-        <TravelInfoRow
-          label="숙소"
-          mark="15"
-          title="JS호텔"
-          meta="15:00 체크인"
-          color={theme?.secondary ?? "#55BFB4"}
-          onPress={() => setSheet("stay")}
-        />
-        {hasKitchen && (
-          <TravelInfoRow
-            label="요리"
-            mark="한 끼"
-            title="밀푀유나베"
-            meta="재료와 담당 확인"
-            color={theme?.accent ?? "#8B7CF6"}
-            onPress={() => setMode("요리")}
+        <View style={styles.travelInfoPair}>
+          <TravelMiniCard
+            label="숙소"
+            mark="15"
+            title="JS호텔"
+            meta="15:00 체크인"
+            color={theme?.secondary ?? "#55BFB4"}
+            onPress={() => setSheet("stay")}
+            large
           />
-        )}
+          {hasKitchen && (
+            <TravelMiniCard
+              label="요리"
+              mark="한 끼"
+              title="밀푀유나베"
+              meta="재료 확인"
+              color={theme?.accent ?? "#8B7CF6"}
+              onPress={() => setMode("요리")}
+            />
+          )}
+        </View>
       </View>
 
       <Pressable
@@ -4244,6 +4247,51 @@ function TravelInfoRow({
   );
 }
 
+function TravelMiniCard({
+  label,
+  mark,
+  title,
+  meta,
+  color,
+  onPress,
+  large,
+}: {
+  label: string;
+  mark: string;
+  title: string;
+  meta: string;
+  color: string;
+  onPress: () => void;
+  large?: boolean;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.travelMiniCard,
+        large ? styles.travelMiniCardLarge : styles.travelMiniCardSmall,
+        theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        { transform: [{ rotate: large ? "-.35deg" : ".45deg" }] },
+        pressed && styles.packingCardPressed,
+      ]}
+    >
+      <View style={[styles.travelMiniTape, { backgroundColor: `${color}55` }]} />
+      <View style={styles.travelMiniTop}>
+        <View style={[styles.travelMiniMark, { backgroundColor: `${color}18` }]}>
+          <Text style={[styles.travelMiniMarkText, { color }]}>{mark}</Text>
+        </View>
+        <Text style={[styles.travelMiniLabel, { color }]}>{label}</Text>
+      </View>
+      <Text numberOfLines={1} style={[styles.travelMiniTitle, theme && { color: theme.text }]}>{title}</Text>
+      <View style={styles.travelMiniBottom}>
+        <Text numberOfLines={1} style={[styles.travelMiniMeta, theme && { color: theme.muted }]}>{meta}</Text>
+        <Text style={[styles.travelMiniArrow, { color }]}>›</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 function Moment({
   time,
   title,
@@ -4838,6 +4886,46 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
   },
+  travelInfoPair: { flexDirection: "row", alignItems: "stretch", gap: 9 },
+  travelMiniCard: {
+    minHeight: 92,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    position: "relative",
+    overflow: "hidden",
+  },
+  travelMiniCardLarge: { flex: 1.18 },
+  travelMiniCardSmall: { flex: 0.82 },
+  travelMiniTape: {
+    position: "absolute",
+    top: -2,
+    left: "38%",
+    width: 27,
+    height: 8,
+    borderRadius: 2,
+    transform: [{ rotate: "-4deg" }],
+  },
+  travelMiniTop: { flexDirection: "row", alignItems: "center", gap: 6 },
+  travelMiniMark: {
+    minWidth: 27,
+    height: 24,
+    borderRadius: 7,
+    paddingHorizontal: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  travelMiniMarkText: { fontSize: 8, fontWeight: "900" },
+  travelMiniLabel: { fontSize: 7, fontWeight: "900", letterSpacing: 0.5 },
+  travelMiniTitle: { fontSize: 13, fontWeight: "900", marginTop: 10 },
+  travelMiniBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  travelMiniMeta: { flex: 1, fontSize: 8, fontWeight: "700" },
+  travelMiniArrow: { fontSize: 16, lineHeight: 17, fontWeight: "800", marginLeft: 4 },
   travelInfoRow: {
     minHeight: 66,
     borderWidth: 1,
