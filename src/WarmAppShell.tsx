@@ -923,8 +923,8 @@ function HomeQuick({
         (s as any).homeQuick,
         embedded && (s as any).homeQuickEmbedded,
         {
-          backgroundColor: theme.surface,
-          borderColor: theme.border,
+          backgroundColor: embedded ? "transparent" : theme.surface,
+          borderColor: embedded ? "transparent" : theme.border,
         },
       ]}
     >
@@ -4610,12 +4610,7 @@ Object.assign(s, {
   homeQuickEmbedded: {
     height: 72,
     borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    borderWidth: 0,
   },
   homeQuickIcon: {
     width: 28,
