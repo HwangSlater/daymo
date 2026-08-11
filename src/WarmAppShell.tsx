@@ -452,15 +452,22 @@ function NotebookHome({
           <Text style={{ color: theme.muted }}>›</Text>
         </View>
         <View style={(s as any).paperCounts}>
-          <Text style={[(s as any).paperCount, { color: theme.text }]}>
-            일정 <Text style={{ color: theme.primary }}>3</Text>
-          </Text>
-          <Text style={[(s as any).paperCount, { color: theme.text }]}>
-            장소 <Text style={{ color: theme.secondary }}>8</Text>
-          </Text>
-          <Text style={[(s as any).paperCount, { color: theme.text }]}>
-            준비 <Text style={{ color: theme.accent }}>2/6</Text>
-          </Text>
+          {[
+            { label: "일정", value: "3", color: theme.primary },
+            { label: "장소", value: "8", color: theme.secondary },
+            { label: "준비", value: "2/6", color: theme.accent },
+          ].map((item) => (
+            <View
+              key={item.label}
+              style={[
+                (s as any).paperCountChip,
+                { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[(s as any).paperCountLabel, { color: theme.muted }]}>{item.label}</Text>
+              <Text style={[(s as any).paperCountValue, { color: item.color }]}>{item.value}</Text>
+            </View>
+          ))}
         </View>
       </Pressable>
       <View style={(s as any).pencilActions}>
@@ -3611,11 +3618,21 @@ Object.assign(s, {
   paperStayName: { fontSize: 12, fontWeight: "800", marginTop: 3 },
   paperCounts: {
     flexDirection: "row",
-    gap: 18,
+    gap: 7,
     marginTop: 17,
     paddingLeft: 44,
   },
-  paperCount: { fontSize: 11, fontWeight: "700" },
+  paperCountChip: {
+    minHeight: 30,
+    borderRadius: 9,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  paperCountLabel: { fontSize: 11, fontWeight: "800" },
+  paperCountValue: { fontSize: 12, fontWeight: "900" },
   pencilActions: { flexDirection: "row", gap: 8, marginTop: 13 },
   noteTitleRow: {
     flexDirection: "row",
