@@ -1037,7 +1037,9 @@ function TripsExplorer({
         theme={theme}
         visible={creating}
         title="새 여행"
-        submit="여행 만들기"
+        subtitle="여행지와 기간을 정하고 첫 여행을 만들어 보세요"
+        submit={place.trim() ? "여행 만들기" : "여행지를 입력해 주세요"}
+        submitDisabled={!place.trim()}
         onClose={() => {
           setCreating(false);
           setShowAllRegions(false);
@@ -2896,7 +2898,9 @@ function FormSheet({
   theme,
   visible,
   title,
+  subtitle,
   submit,
+  submitDisabled = false,
   onClose,
   onSubmit,
   children,
@@ -2904,7 +2908,9 @@ function FormSheet({
   theme?: AppTheme;
   visible: boolean;
   title: string;
+  subtitle?: string;
   submit: string;
+  submitDisabled?: boolean;
   onClose: () => void;
   onSubmit: () => void;
   children: React.ReactNode;
@@ -2949,7 +2955,11 @@ function FormSheet({
                 >
                   {title}
                 </Text>
-                <Text style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>새로운 여행의 첫 장을 적어보세요</Text>
+                {subtitle && (
+                  <Text style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>
+                    {subtitle}
+                  </Text>
+                )}
               </View>
             </View>
             <Pressable
@@ -2980,9 +2990,11 @@ function FormSheet({
           </ScrollView>
           <Pressable
             onPress={onSubmit}
+            disabled={submitDisabled}
             style={[
               (s as any).sheetSubmit,
               theme && { backgroundColor: theme.primary },
+              submitDisabled && (s as any).sheetSubmitDisabled,
             ]}
           >
             <Text style={(s as any).sheetSubmitText}>{submit}</Text>
@@ -3830,6 +3842,7 @@ Object.assign(s, {
     marginTop: 6,
   },
   sheetSubmitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  sheetSubmitDisabled: { opacity: 0.38 },
   sheetSubmitArrow: {
     width: 39,
     height: 39,
