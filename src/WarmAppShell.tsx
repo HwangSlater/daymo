@@ -435,16 +435,25 @@ function NotebookHome({
         <View
           style={[
             (s as any).paperStayBoard,
-            { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+            {
+              backgroundColor: `${theme.primary}${theme.dark ? "13" : "0A"}`,
+              borderColor: `${theme.primary}${theme.dark ? "66" : "38"}`,
+            },
           ]}
         >
+          <View
+            style={[
+              (s as any).paperStayBoardTape,
+              { backgroundColor: `${theme.secondary}${theme.dark ? "70" : "55"}` },
+            ]}
+          />
           <View style={(s as any).paperStay}>
             <View
               style={[
                 (s as any).paperStayIcon,
                 {
-                  backgroundColor: `${theme.secondary}18`,
-                  borderColor: `${theme.secondary}66`,
+                  backgroundColor: `${theme.secondary}${theme.dark ? "25" : "16"}`,
+                  borderColor: `${theme.secondary}${theme.dark ? "88" : "66"}`,
                 },
               ]}
             >
@@ -463,12 +472,20 @@ function NotebookHome({
               <Text style={[(s as any).paperStayLabel, { color: theme.secondary }]}>숙소</Text>
               <Text numberOfLines={1} style={[(s as any).paperStayName, { color: theme.text }]}>JS호텔</Text>
             </View>
-            <View style={[(s as any).paperStayTime, { backgroundColor: `${theme.secondary}18` }]}>
+            <View
+              style={[
+                (s as any).paperStayTime,
+                {
+                  backgroundColor: `${theme.primary}${theme.dark ? "24" : "13"}`,
+                  borderColor: `${theme.primary}${theme.dark ? "70" : "45"}`,
+                },
+              ]}
+            >
               <Text style={[(s as any).paperStayTimeLabel, { color: theme.muted }]}>체크인</Text>
-              <Text style={[(s as any).paperStayTimeValue, { color: theme.secondary }]}>15:00</Text>
+              <Text style={[(s as any).paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
             </View>
           </View>
-          <View style={(s as any).paperCounts}>
+          <View style={[(s as any).paperCounts, { borderTopColor: `${theme.primary}24` }]}>
             {[
               { label: "일정", value: "3", color: theme.primary },
               { label: "장소", value: "8", color: theme.secondary },
@@ -479,8 +496,8 @@ function NotebookHome({
                 style={[
                   (s as any).paperCountChip,
                   {
-                    backgroundColor: `${item.color}${theme.dark ? "20" : "12"}`,
-                    borderColor: `${item.color}${theme.dark ? "70" : "55"}`,
+                    backgroundColor: `${item.color}${theme.dark ? "26" : "16"}`,
+                    borderColor: `${item.color}${theme.dark ? "78" : "4D"}`,
                     transform: [{ rotate: index === 1 ? "0deg" : index === 0 ? "-1deg" : "1deg" }],
                   },
                 ]}
@@ -3629,8 +3646,26 @@ Object.assign(s, {
   paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginVertical: 17 },
   paperStayBoard: {
     borderRadius: 14,
-    borderWidth: 1,
-    padding: 11,
+    borderWidth: 1.2,
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 11,
+    position: "relative",
+    transform: [{ rotate: "0.25deg" }],
+    shadowColor: "#5D3531",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  paperStayBoardTape: {
+    position: "absolute",
+    width: 42,
+    height: 9,
+    top: -5,
+    right: 28,
+    borderRadius: 2,
+    opacity: 0.72,
+    transform: [{ rotate: "-3deg" }],
   },
   paperStay: { flexDirection: "row", alignItems: "center" },
   paperStayIcon: {
@@ -3641,6 +3676,7 @@ Object.assign(s, {
     alignItems: "center",
     justifyContent: "center",
     marginRight: 11,
+    transform: [{ rotate: "-2deg" }],
   },
   paperStayLabel: { fontSize: 11, fontWeight: "900" },
   paperStayName: { fontSize: 13, fontWeight: "900", marginTop: 3 },
@@ -3648,6 +3684,7 @@ Object.assign(s, {
     minWidth: 58,
     minHeight: 40,
     borderRadius: 11,
+    borderWidth: 1,
     paddingHorizontal: 9,
     alignItems: "center",
     justifyContent: "center",
@@ -3660,7 +3697,6 @@ Object.assign(s, {
     marginTop: 11,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(100,110,120,.18)",
   },
   paperCountChip: {
     minHeight: 30,
