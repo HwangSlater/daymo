@@ -5240,6 +5240,8 @@ function DetailSheet({
             style={(styles as any).sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             <View style={styles.sheetFormBody}>
               {children}
