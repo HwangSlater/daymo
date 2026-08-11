@@ -1145,13 +1145,16 @@ function TripsExplorer({
                 <View
                   style={[
                     (s as any).emptyDate,
-                    { backgroundColor: theme.surfaceAlt },
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: theme.border,
+                    },
                   ]}
                 >
                   <Text
                     style={[(s as any).emptyDateTitle, { color: theme.muted }]}
                   >
-                    이날은 아직 비어 있어요.
+                    이날은 아직 여행이 없어요
                   </Text>
                   <Pressable onPress={createFromDate}>
                     <Text
@@ -1160,7 +1163,7 @@ function TripsExplorer({
                         { color: theme.secondary },
                       ]}
                     >
-                      이 날짜로 여행 만들기 +
+                      ＋ 이 날짜로 여행 만들기
                     </Text>
                   </Pressable>
                 </View>
@@ -1274,10 +1277,24 @@ function TripRows({
 }) {
   if (!items.length)
     return (
-      <View style={(s as any).noTrips}>
-        <Text style={[(s as any).noTripsText, { color: theme.muted }]}>
-          이 조건에 맞는 여행이 없어요.
-        </Text>
+      <View
+        style={[
+          (s as any).noTrips,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <Svg width={58} height={48} viewBox="0 0 58 48">
+          <Path
+            d="M16 16h26a4 4 0 0 1 4 4v20H12V20a4 4 0 0 1 4-4Zm7 0v-4a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4M20 24v9M38 24v9M8 40h42"
+            fill="none"
+            stroke={theme.primary}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+        <Text style={[(s as any).noTripsTitle, { color: theme.text }]}>아직 이곳에 여행이 없어요</Text>
+        <Text style={[(s as any).noTripsText, { color: theme.muted }]}>다른 분류를 보거나 새로운 여행을 만들어 보세요.</Text>
         {emptyAction && (
           <Pressable
             onPress={emptyAction}
@@ -5138,6 +5155,10 @@ Object.assign(s, {
     paddingHorizontal: 14,
     paddingVertical: 10,
     transform: [{ rotate: "0.5deg" }],
+    shadowColor: "#17233D",
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
   viewSwitch: {
     flexDirection: "row",
@@ -5212,6 +5233,25 @@ Object.assign(s, {
     justifyContent: "center",
   },
   tripRowArrowText: { fontSize: 18, lineHeight: 19, fontWeight: "800" },
+  noTrips: {
+    minHeight: 190,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  noTripsTitle: { fontSize: 14, fontWeight: "900", marginTop: 10 },
+  noTripsText: { fontSize: 11, textAlign: "center", marginTop: 5 },
+  emptyInlineAction: {
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    marginTop: 12,
+  },
+  emptyInlineActionText: { fontSize: 11, fontWeight: "900" },
   calendarCard: { borderRadius: 11, padding: 15, borderWidth: 1 },
   monthArrow: {
     width: 33,
@@ -5220,7 +5260,13 @@ Object.assign(s, {
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyDate: { borderRadius: 10, padding: 18, alignItems: "center" },
+  emptyDate: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    padding: 18,
+    alignItems: "center",
+  },
   searchBoxNew: {
     height: 50,
     borderRadius: 10,
