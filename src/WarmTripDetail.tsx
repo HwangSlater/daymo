@@ -5196,9 +5196,13 @@ function InfoPanel({
             <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
               {title}
             </Text>
-            <Pressable onPress={onClose}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={6}
+              style={[styles.infoPanelCloseButton, theme && { backgroundColor: theme.primarySoft }]}
+            >
               <Text
-                style={[styles.sheetClose, theme && { color: theme.primary }]}
+                style={[styles.infoPanelCloseText, theme && { color: theme.primary }]}
               >
                 완료
               </Text>
@@ -6086,6 +6090,15 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "500",
   },
+  infoPanelCloseButton: {
+    minWidth: 52,
+    height: 32,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoPanelCloseText: { fontSize: 15, lineHeight: 19, fontWeight: "700" },
   detailField: { marginBottom: 17 },
   fieldLabelRow: {
     flexDirection: "row",
