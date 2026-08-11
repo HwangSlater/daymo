@@ -3028,10 +3028,11 @@ function FormSheet({
           <Pressable
             onPress={onSubmit}
             disabled={submitDisabled}
-            style={[
+            style={({ pressed }) => [
               (s as any).sheetSubmit,
               theme && { backgroundColor: theme.primary },
               submitDisabled && (s as any).sheetSubmitDisabled,
+              pressed && !submitDisabled && (s as any).controlPressed,
             ]}
           >
             <Text style={(s as any).sheetSubmitText}>{submit}</Text>
@@ -5031,23 +5032,23 @@ Object.assign(s, {
     width: "100%",
     maxWidth: 430,
     alignSelf: "center",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 20,
-    paddingTop: 9,
-    paddingBottom: 18,
-    maxHeight: "90%",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 24,
+    maxHeight: "91%",
   },
   fieldInput: {
-    height: 49,
-    borderRadius: 9,
-    paddingHorizontal: 14,
+    height: 54,
+    borderRadius: 14,
+    paddingHorizontal: 15,
     fontSize: 14,
     borderWidth: 1,
   },
   choice: {
     minHeight: 54,
-    borderRadius: 9,
+    borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 15,
     flexDirection: "row",
@@ -5073,6 +5074,7 @@ Object.assign(s, {
   },
   navIcon: { fontSize: 18, fontWeight: "900" },
   navText: { fontSize: 12, fontWeight: "800" },
+  controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
 });
 
 Object.assign(s, {
