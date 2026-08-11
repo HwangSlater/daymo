@@ -2952,7 +2952,13 @@ function FormSheet({
                 <Text style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>새로운 여행의 첫 장을 적어보세요</Text>
               </View>
             </View>
-            <Pressable onPress={onClose} style={[(s as any).sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`${title} 닫기`}
+              style={[(s as any).sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}
+            >
               <Text
                 style={[
                   (s as any).sheetClose,
@@ -3022,7 +3028,12 @@ function InfoSheet({
             >
               {title}
             </Text>
-            <Pressable onPress={onClose}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`${title} 닫기`}
+            >
               <Text
                 style={[
                   (s as any).sheetClose,

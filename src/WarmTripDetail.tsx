@@ -359,7 +359,12 @@ export function WarmTripDetail({
             },
           ]}
         >
-          <Pressable onPress={onClose} hitSlop={12}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="여행 목록으로 돌아가기"
+          >
             <Text style={[styles.close, appTheme && { color: appTheme.text }]}>
               ‹
             </Text>
@@ -375,6 +380,8 @@ export function WarmTripDetail({
               setEditingTrip(true);
             }}
             hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="여행 정보 수정"
           >
             <Text
               style={[styles.headerMore, appTheme && { color: appTheme.text }]}
@@ -5198,7 +5205,9 @@ function InfoPanel({
             </Text>
             <Pressable
               onPress={onClose}
-              hitSlop={6}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`${title} 닫기`}
               style={[styles.infoPanelCloseButton, theme && { backgroundColor: theme.primarySoft }]}
             >
               <Text
@@ -5261,6 +5270,9 @@ function OptionField({
           <Pressable
             key={option}
             onPress={() => onChange(option)}
+            hitSlop={{ top: 3, bottom: 3, left: 1, right: 1 }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: value === option }}
             style={[
               styles.optionChip,
               theme && {
