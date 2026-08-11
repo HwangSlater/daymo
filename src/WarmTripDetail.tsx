@@ -953,12 +953,14 @@ function TripOverview({
           <Text style={[styles.transportFormOwner, theme && { color: theme.primary }]}>{transportOwner} · {transportDirection}</Text>
           <View style={styles.transportPreviewRouteRow}>
             <Text style={[styles.transportFormRoute, theme && { color: theme.text }]}>{transportDeparture || "출발지"} → {transportArrival || "도착지"}</Text>
-            <Text style={[styles.transportPreviewSwitch, theme && { color: theme.primary }]}>전환</Text>
           </View>
           <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod} · {transportDepartureTime || "시간 미정"}</Text>
+          <View style={[styles.transportSwitchHint, theme && { borderTopColor: theme.border }]}>
+            <Text style={[styles.transportSwitchHintText, theme && { color: theme.primary }]}>탭해서 {transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 전환</Text>
+            <Text style={[styles.transportSwitchHintArrow, theme && { color: theme.primary }]}>⇄</Text>
+          </View>
         </Pressable>
         <OptionField label="탑승자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
-        <OptionField label="구분" options={["가는 편", "오는 편"]} value={transportDirection} onChange={(value) => value !== transportDirection && switchTransportDirection()} />
         <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
         <OptionField label="날짜" options={["금 · 21", "토 · 22", "일 · 23"]} value={transportDate} onChange={setTransportDate} />
         <PairedDetailField
@@ -5384,8 +5386,10 @@ const styles = StyleSheet.create({
   transportFormOwner: { fontSize: 8, fontWeight: "900" },
   transportPreviewRouteRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
   transportFormRoute: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: "900" },
-  transportPreviewSwitch: { fontSize: 8, fontWeight: "900", marginLeft: 8 },
   transportFormMeta: { fontSize: 9, fontWeight: "700", marginTop: 4 },
+  transportSwitchHint: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 9, paddingTop: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  transportSwitchHintText: { fontSize: 8, fontWeight: "900" },
+  transportSwitchHintArrow: { fontSize: 12, lineHeight: 14, fontWeight: "900" },
   pairedFieldRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   pairedFieldInput: { flex: 1, minWidth: 0, height: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 11, textAlign: "center" },
   pairedFieldArrow: { width: 27, height: 27, borderRadius: 9, alignItems: "center", justifyContent: "center" },
