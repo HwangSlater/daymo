@@ -1266,15 +1266,9 @@ function Places({
                     <Pressable
                       key={tag}
                       onPress={() => setTagFilter(tag)}
-                      style={[
-                        styles.placeTag,
-                        theme && {
-                          backgroundColor: theme.primarySoft,
-                          borderColor: `${theme.primary}30`,
-                        },
-                      ]}
+                      style={styles.placeTag}
                     >
-                      <Text style={[styles.placeTagText, theme && { color: theme.primary }]}># {tag}</Text>
+                      <Text style={styles.placeTagText}># {tag}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -6617,7 +6611,7 @@ Object.assign(styles, {
     marginBottom: 10,
   },
   tagFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
-  candidateCard: { borderRadius: 10, padding: 12, borderWidth: 1 },
+  candidateCard: { borderRadius: 10, padding: 15, borderWidth: 1 },
   candidateNumber: {
     width: 31,
     height: 31,
@@ -6627,14 +6621,7 @@ Object.assign(styles, {
     marginRight: 10,
     transform: [{ rotate: "-2deg" }],
   },
-  candidateName: { fontSize: 14, fontWeight: "900" },
-  candidateMeta: { fontSize: 9, marginTop: 3 },
-  placeTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 7 },
-  placeTag: { borderRadius: 7, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 4 },
-  candidateActions: { flexDirection: "row", gap: 6, marginTop: 10 },
-  manageAction: { height: 33, borderRadius: 8, paddingHorizontal: 9 },
-  naverAction: { height: 33, borderRadius: 8, paddingHorizontal: 9 },
-  planAction: { height: 33, borderRadius: 8 },
+  placeTag: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 5 },
   packingOverview: {
     minHeight: 83,
     borderRadius: 10,
