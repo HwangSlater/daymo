@@ -1801,9 +1801,15 @@ function Preparation({
               <Text style={[styles.packingJourneyPercent, theme && { color: theme.primary }]}>{percentage}%</Text>
               <Pressable
                 onPress={() => setAdding(true)}
-                style={[styles.packingJourneyAdd, theme && { backgroundColor: theme.primarySoft }]}
+                accessibilityRole="button"
+                accessibilityLabel="준비물 추가"
+                style={({ pressed }) => [
+                  styles.packingJourneyAdd,
+                  theme && { backgroundColor: theme.primary },
+                  pressed && styles.packingCardPressed,
+                ]}
               >
-                <Text style={[styles.packingJourneyAddText, theme && { color: theme.primary }]}>＋ 준비물</Text>
+                <Text style={styles.packingJourneyAddText}>＋ 준비물 추가</Text>
               </Pressable>
             </View>
           </View>
@@ -6298,11 +6304,14 @@ const styles = StyleSheet.create({
   packingJourneyPercent: { fontSize: 17, lineHeight: 20, fontWeight: "900" },
   packingJourneyActions: { alignItems: "flex-end", gap: 4, marginLeft: 8 },
   packingJourneyAdd: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    minWidth: 82,
+    minHeight: 34,
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  packingJourneyAddText: { fontSize: 8, fontWeight: "900" },
+  packingJourneyAddText: { color: "#FFFFFF", fontSize: 8, fontWeight: "900" },
   packingJourneyTrack: {
     height: 6,
     borderRadius: 999,
