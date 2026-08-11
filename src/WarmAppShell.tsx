@@ -2909,6 +2909,12 @@ function FormSheet({
   onSubmit: () => void;
   children: React.ReactNode;
 }) {
+  const sheetKind = title.includes("여행")
+    ? "여행"
+    : title.includes("공간")
+      ? "우리"
+      : "Daymo";
+  const sheetAccent = theme?.primary ?? "#FF6B63";
   return (
     <Modal
       visible={visible}
@@ -2925,10 +2931,17 @@ function FormSheet({
           ]}
         >
           <View style={(s as any).sheetHandle} />
-          <View style={(s as any).sheetHead}>
+          <View
+            style={[
+              (s as any).sheetHead,
+              (s as any).sheetHeadDecorated,
+              { backgroundColor: `${sheetAccent}0D`, borderColor: `${sheetAccent}45` },
+            ]}
+          >
+            <View style={[(s as any).sheetHeadTape, { backgroundColor: `${sheetAccent}66` }]} />
             <View style={(s as any).sheetHeadMain}>
-              <View style={[(s as any).sheetMark, theme && { backgroundColor: theme.primarySoft }]}>
-                <Text style={[(s as any).sheetMarkText, theme && { color: theme.primary }]}>01</Text>
+              <View style={[(s as any).sheetMark, { backgroundColor: `${sheetAccent}18` }]}>
+                <Text style={[(s as any).sheetMarkText, { color: sheetAccent }]}>{sheetKind}</Text>
               </View>
               <View>
                 <Text
@@ -2936,7 +2949,7 @@ function FormSheet({
                 >
                   {title}
                 </Text>
-                <Text style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>우리의 다음 장면을 만들어보세요</Text>
+                <Text style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>새로운 여행의 첫 장을 적어보세요</Text>
               </View>
             </View>
             <Pressable onPress={onClose} style={[(s as any).sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}>
@@ -2955,7 +2968,9 @@ function FormSheet({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {children}
+            <View style={[(s as any).sheetFormBody, { borderLeftColor: `${sheetAccent}55` }]}>
+              {children}
+            </View>
           </ScrollView>
           <Pressable
             onPress={onSubmit}
@@ -3722,11 +3737,36 @@ Object.assign(s, {
     alignItems: "center",
     marginBottom: 24,
   },
+  sheetHeadDecorated: {
+    minHeight: 82,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    marginTop: 2,
+    position: "relative",
+  },
+  sheetHeadTape: {
+    position: "absolute",
+    top: -5,
+    left: 32,
+    width: 38,
+    height: 10,
+    borderRadius: 2,
+    opacity: 0.48,
+    transform: [{ rotate: "-3deg" }],
+  },
+  sheetFormBody: {
+    borderLeftWidth: 2,
+    paddingLeft: 12,
+    paddingRight: 1,
+  },
   sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
   sheetMark: {
-    width: 42,
+    minWidth: 42,
     height: 42,
     borderRadius: 14,
+    paddingHorizontal: 9,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
