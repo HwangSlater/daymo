@@ -639,6 +639,12 @@ function TripOverview({
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportFormValid = Boolean(transportDeparture.trim() && transportArrival.trim());
+  const transportDirectionColor = transportDirection === "가는 편"
+    ? theme?.primary ?? "#FF6B63"
+    : theme?.secondary ?? "#55BFB4";
+  const transportDirectionSoft = transportDirection === "가는 편"
+    ? theme?.primarySoft ?? "#FFF0ED"
+    : `${transportDirectionColor}18`;
   const switchTransportDirection = () => {
     const nextDirection = transportDirection === "가는 편" ? "오는 편" : "가는 편";
     setTransportDirection(nextDirection);
@@ -948,16 +954,19 @@ function TripOverview({
           onPress={switchTransportDirection}
           accessibilityRole="button"
           accessibilityLabel={`${transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 바꾸기`}
-          style={[styles.transportFormPreview, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+          style={[
+            styles.transportFormPreview,
+            { backgroundColor: transportDirectionSoft, borderColor: `${transportDirectionColor}66` },
+          ]}
         >
-          <Text style={[styles.transportFormOwner, theme && { color: theme.primary }]}>{transportOwner} · {transportDirection}</Text>
+          <Text style={[styles.transportFormOwner, { color: transportDirectionColor }]}>{transportOwner} · {transportDirection}</Text>
           <View style={styles.transportPreviewRouteRow}>
             <Text style={[styles.transportFormRoute, theme && { color: theme.text }]}>{transportDeparture || "출발지"} → {transportArrival || "도착지"}</Text>
           </View>
           <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod} · {transportDepartureTime || "시간 미정"}</Text>
           <View style={styles.transportSwitchHint}>
-            <Text style={[styles.transportSwitchHintText, theme && { color: theme.primary }]}>탭해서 {transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 전환</Text>
-            <Text style={[styles.transportSwitchHintArrow, theme && { color: theme.primary }]}>⇄</Text>
+            <Text style={[styles.transportSwitchHintText, { color: transportDirectionColor }]}>탭해서 {transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 전환</Text>
+            <Text style={[styles.transportSwitchHintArrow, { color: transportDirectionColor }]}>⇄</Text>
           </View>
         </Pressable>
         <OptionField label="탑승자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
@@ -972,6 +981,8 @@ function TripOverview({
           leftPlaceholder="출발지"
           rightPlaceholder="도착지"
           onSwap={switchTransportDirection}
+          accentColor={transportDirectionColor}
+          accentSoft={transportDirectionSoft}
         />
         <PairedDetailField
           label="출발·도착 시간 · 선택"
@@ -4775,6 +4786,8 @@ function PairedDetailField({
   leftPlaceholder,
   rightPlaceholder,
   onSwap,
+  accentColor,
+  accentSoft,
 }: {
   label: string;
   leftValue: string;
@@ -4784,6 +4797,8 @@ function PairedDetailField({
   leftPlaceholder: string;
   rightPlaceholder: string;
   onSwap?: () => void;
+  accentColor?: string;
+  accentSoft?: string;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
@@ -4805,9 +4820,9 @@ function PairedDetailField({
           onPress={onSwap}
           accessibilityRole={onSwap ? "button" : undefined}
           accessibilityLabel={onSwap ? "출발지와 도착지 바꾸기" : undefined}
-          style={[styles.pairedFieldArrow, theme && { backgroundColor: theme.primarySoft }]}
+          style={[styles.pairedFieldArrow, { backgroundColor: accentSoft ?? theme?.primarySoft ?? "#FFF0ED" }]}
         >
-          <Text style={[styles.pairedFieldArrowText, theme && { color: theme.primary }]}>→</Text>
+          <Text style={[styles.pairedFieldArrowText, { color: accentColor ?? theme?.primary ?? "#FF6B63" }]}>→</Text>
         </Pressable>
         <TextInput
           value={rightValue}
