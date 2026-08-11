@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -1493,6 +1495,7 @@ function Places({
           ⌕
         </Text>
         <TextInput
+          accessibilityLabel="저장한 장소 검색"
           value={query}
           onChangeText={setQuery}
           placeholder="장소, 지역, 태그 검색"
@@ -5012,6 +5015,7 @@ function PairedDetailField({
       </View>
       <View style={styles.pairedFieldRow}>
         <TextInput
+          accessibilityLabel={`${label} ${leftPlaceholder}`}
           value={leftValue}
           onChangeText={onChangeLeft}
           placeholder={leftPlaceholder}
@@ -5028,6 +5032,7 @@ function PairedDetailField({
           <Text style={[styles.pairedFieldArrowText, { color: accentColor ?? theme?.primary ?? "#FF6B63" }]}>→</Text>
         </Pressable>
         <TextInput
+          accessibilityLabel={`${label} ${rightPlaceholder}`}
           value={rightValue}
           onChangeText={onChangeRight}
           placeholder={rightPlaceholder}
@@ -5066,6 +5071,7 @@ function DetailField({
       </View>
       <TextInput
         {...props}
+        accessibilityLabel={label}
         multiline={multiline}
         placeholderTextColor={theme?.muted ?? "#9AA1AE"}
         style={[
@@ -5132,7 +5138,10 @@ function DetailSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalBack}>
+      <KeyboardAvoidingView
+        style={styles.modalBack}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <Pressable style={styles.modalDismiss} onPress={onClose} />
         <View
           style={[styles.sheet, theme && { backgroundColor: theme.background }]}
@@ -5154,6 +5163,7 @@ function DetailSheet({
                 ]}
               >
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.sheetMarkText,
                     { color: sheetAccent },
@@ -5170,6 +5180,7 @@ function DetailSheet({
                 </Text>
                 {subtitle && (
                   <Text
+                    numberOfLines={2}
                     style={[
                       styles.sheetSubtitle,
                       theme && { color: theme.muted },
@@ -5225,7 +5236,7 @@ function DetailSheet({
             </Pressable>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
