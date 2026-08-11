@@ -2441,6 +2441,14 @@ function Together({
     { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" as const },
     { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" as const },
   ];
+  const selectGroup = (group: (typeof groups)[number]) => {
+    setActiveGroupId(group.id);
+    setSpaceName(group.name);
+    setMemberB(group.members[0] || "");
+    setMemberC(group.members[1] || "");
+    setMemberD(group.members[2] || "");
+    setRelationship(group.relationship);
+  };
   const memberSetters = [setMemberA, setMemberB, setMemberC, setMemberD];
   const memberEntries = [memberA, memberB, memberC, memberD]
     .map((name, slot) => ({ name, slot }))
@@ -2522,6 +2530,35 @@ function Together({
             <Text style={[(s as any).workspaceSwitchBadgeText, { color: theme.primary }]}>바꾸기</Text>
           </View>
         </Pressable>
+        <View style={(s as any).groupTabs}>
+          {groups.map((group) => (
+            <Pressable
+              key={group.id}
+              onPress={() => selectGroup(group)}
+              style={[
+                (s as any).groupTab,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+                activeGroupId === group.id && {
+                  backgroundColor: theme.primarySoft,
+                  borderColor: theme.primary,
+                },
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  (s as any).groupTabText,
+                  { color: activeGroupId === group.id ? theme.primary : theme.muted },
+                ]}
+              >
+                {group.id === "ours" ? "우리" : group.id === "friends" ? "친구" : "가족"}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable onPress={() => setPanel("groups")} style={(s as any).groupTabMore}>
+            <Text style={[(s as any).groupTabMoreText, { color: theme.muted }]}>•••</Text>
+          </Pressable>
+        </View>
         <View style={(s as any).memberSectionHead}>
           <View>
             <Text style={[(s as any).historyEyebrow, { color: theme.primary }]}>멤버</Text>
@@ -2536,16 +2573,23 @@ function Together({
                 <Text style={(s as any).memberStripInitial}>{member.slice(0, 1)}</Text>
               </View>
               <Text numberOfLines={1} style={[(s as any).memberStripName, { color: theme.text }]}>{index === 0 ? "나" : member}</Text>
+              <Text numberOfLines={1} style={[(s as any).memberStripRole, { color: theme.muted }]}>{memberRoles[index] ?? "편집 가능"}</Text>
             </Pressable>
           ))}
           <Pressable onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={(s as any).memberStripItem}>
             <View style={[(s as any).memberInviteAvatar, { borderColor: theme.border }]}><Text style={[(s as any).memberInvitePlus, { color: theme.primary }]}>＋</Text></View>
             <Text style={[(s as any).memberStripName, { color: theme.muted }]}>초대</Text>
+            <Text style={[(s as any).memberStripRole, { color: theme.muted }]}>링크 공유</Text>
           </Pressable>
         </View>
         <Text style={[(s as any).managementLabel, { color: theme.muted }]}>빠른 관리</Text>
         <View style={(s as any).togetherQuickRow}>
           {[
+            {
+              icon: "＋",
+              label: "멤버 초대",
+              onPress: () => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" }),
+            },
             { icon: "⇧", label: "기록 내보내기", onPress: exportData },
             {
               icon: notifications ? "●" : "○",
@@ -2575,7 +2619,12 @@ function Together({
           </View>
           <Text style={[(s as any).historyPeriod, { color: theme.muted }]}>{since.slice(0, 4)} — 2026</Text>
         </View>
-        <View style={[(s as any).historySummary, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View
+          style={[
+            (s as any).historySummary,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
           {[
             { value: String(trips.length), unit: "번", label: "함께한 여행", color: theme.primary },
             { value: String(totalTripDays), unit: "일", label: "여행한 날", color: theme.secondary },
@@ -2592,25 +2641,17 @@ function Together({
             </View>
           ))}
         </View>
-        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
-          내 계정
-        </Text>
-        <View
-          style={[
-            (s as any).settingGroup,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Setting
-            theme={theme}
-            label="내 프로필"
-            value={user.name}
-            onPress={() => setPanel("account")}
-          />
-        </View>
-        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
-          공간 설정
-        </Text>
+        {trips[0] && (
+          <Pressable
+            style={[(s as any).historyLatest, { borderColor: theme.border }]}
+          >
+            <View style={[(s as any).historyLatestDot, { backgroundColor: trips[0].color }]} />
+            <Text style={[(s as any).historyLatestLabel, { color: theme.muted }]}>최근 여행</Text>
+            <Text numberOfLines={1} style={[(s as any).historyLatestName, { color: theme.text }]}>{trips[0].name}</Text>
+            <Text style={[(s as any).historyLatestDate, { color: theme.muted }]}>{trips[0].date}</Text>
+          </Pressable>
+        )}
+        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>공간 설정</Text>
         <View
           style={[
             (s as any).settingGroup,
@@ -2630,15 +2671,19 @@ function Together({
             onPress={() => setPanel("relationship")}
           />
         </View>
-        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
-          화면 꾸미기
-        </Text>
+        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>앱과 계정</Text>
         <View
           style={[
             (s as any).settingGroup,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
+          <Setting
+            theme={theme}
+            label="내 프로필"
+            value={user.name}
+            onPress={() => setPanel("account")}
+          />
           <Setting
             theme={theme}
             label="앱 색상"
@@ -2657,16 +2702,6 @@ function Together({
             }
             onPress={() => setPanel("appearance")}
           />
-        </View>
-        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
-          앱 설정
-        </Text>
-        <View
-          style={[
-            (s as any).settingGroup,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
           <Setting
             theme={theme}
             label="도움말"
@@ -2687,12 +2722,7 @@ function Together({
               <Pressable
                 key={group.id}
                 onPress={() => {
-                  setActiveGroupId(group.id);
-                  setSpaceName(group.name);
-                  setMemberB(group.members[0] || "");
-                  setMemberC(group.members[1] || "");
-                  setMemberD(group.members[2] || "");
-                  setRelationship(group.relationship);
+                  selectGroup(group);
                   setPanel(null);
                 }}
                 style={[(s as any).groupChoice, { backgroundColor: theme.surface, borderColor: activeGroupId === group.id ? theme.primary : theme.border }]}
@@ -5521,10 +5551,10 @@ Object.assign(s, {
   togetherQuick: {
     flex: 1,
     minWidth: 0,
-    minHeight: 72,
-    borderRadius: 10,
+    minHeight: 58,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: 5,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5534,7 +5564,7 @@ Object.assign(s, {
     borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 7,
+    marginBottom: 5,
   },
   togetherQuickIconText: { fontSize: 11, fontWeight: "900" },
   togetherQuickLabel: { maxWidth: "100%", fontSize: 11, fontWeight: "800" },
@@ -5756,6 +5786,28 @@ Object.assign(s, {
   workspaceMeta: { fontSize: 11, fontWeight: "700", marginTop: 4 },
   workspaceSwitchBadge: { height: 29, borderRadius: 9, paddingHorizontal: 9, alignItems: "center", justifyContent: "center" },
   workspaceSwitchBadgeText: { fontSize: 11, fontWeight: "900" },
+  groupTabs: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 8,
+  },
+  groupTab: {
+    minWidth: 58,
+    height: 32,
+    borderRadius: 11,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupTabText: { fontSize: 11, fontWeight: "900" },
+  groupTabMore: {
+    width: 34,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupTabMoreText: { fontSize: 11, fontWeight: "900", letterSpacing: 1 },
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 18, marginBottom: 8 },
   memberSectionTitle: { fontSize: 14, fontWeight: "900", marginTop: 3 },
   memberManageText: { fontSize: 11, fontWeight: "900", paddingVertical: 5 },
@@ -5764,6 +5816,13 @@ Object.assign(s, {
   memberStripAvatar: { width: 38, height: 38, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   memberStripInitial: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
   memberStripName: { width: "100%", textAlign: "center", fontSize: 11, fontWeight: "800", marginTop: 6 },
+  memberStripRole: {
+    width: "100%",
+    textAlign: "center",
+    fontSize: 9,
+    fontWeight: "700",
+    marginTop: 2,
+  },
   memberInviteAvatar: { width: 38, height: 38, borderRadius: 14, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   memberInvitePlus: { fontSize: 17, fontWeight: "700" },
   managementLabel: { fontSize: 11, fontWeight: "900", marginTop: 15, marginBottom: -2 },
@@ -5771,6 +5830,18 @@ Object.assign(s, {
   historySummaryItem: { flex: 1, alignItems: "center", justifyContent: "center" },
   historySummaryValue: { fontSize: 16, fontWeight: "900" },
   historySummaryLabel: { fontSize: 11, fontWeight: "700", marginTop: 4 },
+  historyLatest: {
+    minHeight: 43,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    gap: 7,
+  },
+  historyLatestDot: { width: 7, height: 7, borderRadius: 4 },
+  historyLatestLabel: { fontSize: 11, fontWeight: "800" },
+  historyLatestName: { flex: 1, fontSize: 11, fontWeight: "900" },
+  historyLatestDate: { fontSize: 10, fontWeight: "700" },
   memberManagerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
   memberManagerTitle: { fontSize: 14, fontWeight: "900" },
   memberManagerCopy: { fontSize: 11, fontWeight: "700", marginTop: 4 },
