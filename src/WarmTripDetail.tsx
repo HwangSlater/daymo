@@ -3060,7 +3060,7 @@ function Preparation({
       <DetailSheet
         visible={adding}
         title="준비물 추가"
-        subtitle="여러 준비물을 쉼표나 줄바꿈으로 한 번에 추가하세요"
+        subtitle="한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"
         submit={
           newPackingCount
             ? `${newPackingCount}개 추가`
@@ -3078,7 +3078,7 @@ function Preparation({
           multiline
         />
         <DetailField
-          label="수량 · 선택"
+          label="수량 · 선택 사항"
           value={quantity}
           onChangeText={setQuantity}
           placeholder="예: 각 2개, 250g"
@@ -4261,7 +4261,7 @@ function Cooking({
       <DetailSheet
         visible={addingIngredient}
         title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
-        subtitle="재료 정보와 준비할 사람을 입력하세요"
+        subtitle="분류와 준비 방법은 저장한 뒤에도 바꿀 수 있어요"
         submit={name.trim() ? (editingIngredient ? "수정 저장" : "재료 추가") : "재료 이름을 입력해 주세요"}
         submitDisabled={!name.trim()}
         onClose={closeIngredientSheet}
@@ -4274,7 +4274,7 @@ function Cooking({
           placeholder="예: 팽이버섯"
         />
         <DetailField
-          label="수량 · 선택"
+          label="수량 · 선택 사항"
           value={quantity}
           onChangeText={setQuantity}
           placeholder="예: 1봉"
@@ -4346,7 +4346,7 @@ function Cooking({
       <DetailSheet
         visible={addingRecipe}
         title={editingRecipe ? "요리 수정" : "요리 추가"}
-        subtitle="만들 요리의 이름과 메모를 입력하세요"
+        subtitle="이름만 먼저 저장하고 재료는 메뉴 안에서 추가할 수 있어요"
         submit={recipeName.trim() ? (editingRecipe ? "수정 저장" : "요리 만들기") : "요리 이름을 입력해 주세요"}
         submitDisabled={!recipeName.trim()}
         onClose={closeRecipeSheet}
@@ -4376,19 +4376,19 @@ function Cooking({
           </Pressable>
         </View>}
         <DetailField
-          label="요리 이름"
+          label="요리 이름 · 필수"
           value={recipeName}
           onChangeText={setRecipeName}
           placeholder="예: 김치볶음밥"
         />
         <DetailField
-          label="메모 (선택)"
+          label="메모 · 선택 사항"
           value={recipeNote}
           onChangeText={setRecipeNote}
           placeholder="예: 둘째 날 아침 · 남은 재료 활용"
         />
         <DetailField
-          label="레시피 링크 (선택)"
+          label="레시피 링크 · 선택 사항"
           value={recipeUrl}
           onChangeText={setRecipeUrl}
           placeholder="유튜브 또는 레시피 링크를 붙여넣으세요"
@@ -5149,8 +5149,10 @@ function DetailSheet({
   const sheetAccent = theme
     ? sheetKind === "장소"
       ? theme.secondary
-      : sheetKind === "준비" || sheetKind === "요리"
+      : sheetKind === "준비"
         ? theme.accent
+        : sheetKind === "요리"
+          ? theme.secondary
         : sheetKind === "기록"
           ? theme.secondary
           : theme.primary
