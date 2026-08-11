@@ -1266,9 +1266,12 @@ function Places({
                     <Pressable
                       key={tag}
                       onPress={() => setTagFilter(tag)}
-                      style={styles.placeTag}
+                      style={[
+                        styles.placeTag,
+                        theme && { backgroundColor: theme.primarySoft },
+                      ]}
                     >
-                      <Text style={styles.placeTagText}># {tag}</Text>
+                      <Text style={[styles.placeTagText, theme && { color: theme.primary }]}># {tag}</Text>
                     </Pressable>
                   ))}
                 </View>
