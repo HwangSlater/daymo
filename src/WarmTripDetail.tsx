@@ -965,7 +965,7 @@ function Places({
     .split(/[,#\n]/)
     .map((tag) => tag.trim())
     .filter(Boolean);
-  const placeFormValid = Boolean(name.trim() && mapUrl.includes("naver."));
+  const placeFormValid = Boolean(name.trim());
   const addTag = (tag: string) => {
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
@@ -992,7 +992,7 @@ function Places({
     setAdding(true);
   };
   const savePlace = () => {
-    if (!name.trim() || !mapUrl.includes("naver.")) return;
+    if (!name.trim()) return;
     const next = {
       name: name.trim(),
       area: area.trim() || "지역 미정",
@@ -1094,7 +1094,7 @@ function Places({
           status: "후보" as const,
         };
       })
-      .filter((place) => place.name && place.mapUrl.includes("naver."));
+      .filter((place) => place.name);
     if (!parsed.length) return;
     setPlaces((current) =>
       importMode === "교체" ? parsed : [...current, ...parsed],
@@ -1282,13 +1282,13 @@ function Places({
                 <Text style={styles.manageActionText}>수정</Text>
               </Pressable>
               <Pressable
-                onPress={() => Linking.openURL(place.mapUrl)}
+                onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)}
                 style={styles.naverAction}
               >
                 <View style={styles.naverMini}>
                   <Text style={styles.naverMiniText}>N</Text>
                 </View>
-                <Text style={styles.naverActionText}>지도 보기</Text>
+                <Text style={styles.naverActionText}>{place.mapUrl ? "지도 보기" : "링크 추가"}</Text>
               </Pressable>
               <Pressable
                 disabled={place.status === "일정"}
@@ -1410,13 +1410,13 @@ function Places({
       <DetailSheet
         visible={adding}
         title={editingName ? "장소 수정" : "장소 추가"}
-        subtitle="이름과 지도 링크를 입력하면 저장할 수 있어요"
+        subtitle="이름만 입력해도 저장할 수 있어요"
         submit={
-          mapUrl.includes("naver.")
+          name.trim()
             ? editingName
               ? "변경사항 저장"
               : "장소 저장"
-            : "네이버 지도 링크를 입력해 주세요"
+            : "장소 이름을 입력해 주세요"
         }
         destructiveLabel={editingName ? "장소 삭제" : undefined}
         submitDisabled={!placeFormValid}
@@ -1426,9 +1426,9 @@ function Places({
       >
         <View style={styles.placeFormIntro}>
           <View style={[styles.placeRequiredBadge, theme && { backgroundColor: theme.primarySoft }]}>
-            <Text style={[styles.placeRequiredBadgeText, theme && { color: theme.primary }]}>필수 2개</Text>
+            <Text style={[styles.placeRequiredBadgeText, theme && { color: theme.primary }]}>필수 1개</Text>
           </View>
-          <Text style={[styles.placeFormText, theme && { color: theme.muted }]}>장소 이름 · 네이버 지도 링크</Text>
+          <Text style={[styles.placeFormText, theme && { color: theme.muted }]}>장소 이름만 있으면 저장할 수 있어요</Text>
         </View>
         <DetailField
           label="장소 이름 · 필수"
@@ -1514,7 +1514,7 @@ function Places({
               <Text style={styles.naverLogoText}>N</Text>
             </View>
             <View>
-              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 필수</Text>
+              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 선택</Text>
               <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
                 장소 공유 링크를 붙여넣으세요
               </Text>
@@ -1543,9 +1543,9 @@ function Places({
         title="장소 목록 붙여넣기"
         subtitle="복사한 내용을 메모에서 고친 뒤 한 번에 반영하세요"
         submit={
-          importText.includes("naver.")
+          importText.trim()
             ? `${importMode}하기`
-            : "네이버 지도 링크가 포함된 목록을 입력해 주세요"
+            : "장소 목록을 입력해 주세요"
         }
         onClose={() => setImporting(false)}
         onSubmit={importPlaces}
