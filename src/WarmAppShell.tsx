@@ -285,7 +285,7 @@ function AuthScreen({
         <View style={(s as any).authBrand}>
           <View style={[(s as any).authAppIconFrame, { borderColor: theme.border }]}>
             <Image
-              source={require("../assets/daymo-icon.png")}
+              source={require("../assets/daymo-icon-login.png")}
               resizeMode="contain"
               style={(s as any).authAppIcon}
             />
