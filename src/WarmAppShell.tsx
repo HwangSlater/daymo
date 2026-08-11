@@ -548,19 +548,45 @@ function NotebookHome({
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
+        <View
+          style={[
+            (s as any).prepTape,
+            { backgroundColor: `${theme.secondary}${theme.dark ? "68" : "38"}` },
+          ]}
+        />
+        <View pointerEvents="none" style={(s as any).prepSketch}>
+          <Svg width={54} height={44} viewBox="0 0 54 44">
+            <Path
+              d="M15 14h24a4 4 0 0 1 4 4v18H11V18a4 4 0 0 1 4-4Zm6 0v-3.5A3.5 3.5 0 0 1 24.5 7h5A3.5 3.5 0 0 1 33 10.5V14M18 21v9M36 21v9M8 36h38"
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <Path
+              d="m42 9 5-3-1 6"
+              fill="none"
+              stroke={theme.secondary}
+              strokeWidth={1.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </View>
         <View style={(s as any).noteTitleRow}>
           <View>
-            <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>이번 여행</Text>
-            <Text style={[(s as any).noteTitle, { color: theme.text }]}>출발 준비</Text>
+            <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>하나씩, 가볍게</Text>
+            <Text style={[(s as any).noteTitle, { color: theme.text }]}>우리의 출발 준비</Text>
           </View>
           <Pressable onPress={() => open("overview", trip)}>
             <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>여행 보기</Text>
           </Pressable>
         </View>
         <View style={(s as any).pencilActions}>
-          <HomeQuick theme={theme} icon="＋" label="일정 추가" tint="transparent" color={theme.primary} onPress={() => open("schedule-add", trip)} embedded />
-          <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint="transparent" color={theme.secondary} onPress={() => open("places", trip)} embedded />
-          <HomeQuick theme={theme} icon="✓" label="준비물" tint="transparent" color={theme.accent} onPress={() => open("preparation", trip)} embedded />
+          <HomeQuick theme={theme} icon="＋" label="일정 추가" tint={`${theme.primary}${theme.dark ? "24" : "12"}`} color={theme.primary} onPress={() => open("schedule-add", trip)} embedded />
+          <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint={`${theme.secondary}${theme.dark ? "24" : "12"}`} color={theme.secondary} onPress={() => open("places", trip)} embedded />
+          <HomeQuick theme={theme} icon="✓" label="준비물" tint={`${theme.accent}${theme.dark ? "24" : "12"}`} color={theme.accent} onPress={() => open("preparation", trip)} embedded />
         </View>
         <View style={(s as any).memoPaper}>
           <MemoRow theme={theme} color={theme.primary} text="숙소 예약 정보 확인" meta="오늘 · 공용" onPress={() => open("overview", trip)} />
@@ -596,7 +622,15 @@ function MemoRow({
         last && { borderBottomWidth: 0 },
       ]}
     >
-      <View style={[(s as any).memoCheck, { borderColor: color }]} />
+      <View
+        style={[
+          (s as any).memoCheck,
+          {
+            borderColor: color,
+            backgroundColor: `${color}${theme.dark ? "20" : "0D"}`,
+          },
+        ]}
+      />
       <View style={{ flex: 1 }}>
         <Text style={[(s as any).memoText, { color: theme.text }]}>{text}</Text>
         <Text style={[(s as any).memoMeta, { color: theme.muted }]}>
@@ -3755,6 +3789,23 @@ Object.assign(s, {
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+    transform: [{ rotate: "0.12deg" }],
+  },
+  prepTape: {
+    position: "absolute",
+    width: 48,
+    height: 14,
+    top: -7,
+    right: 26,
+    opacity: 0.75,
+    transform: [{ rotate: "3deg" }],
+  },
+  prepSketch: {
+    position: "absolute",
+    top: 10,
+    right: 74,
+    opacity: 0.28,
+    transform: [{ rotate: "-4deg" }],
   },
   noteTitleRow: {
     flexDirection: "row",
