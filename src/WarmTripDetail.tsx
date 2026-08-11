@@ -627,15 +627,11 @@ function TripOverview({
   };
   return (
     <View>
-      <TabIntro
-        title="여행 일정"
-        caption="시간순으로 일정을 확인하고 바로 추가하세요"
-        meta={`${schedule.length}개 일정`}
+      <SectionLabel
+        label={`일정 · ${schedule.length}개`}
         action="일정 추가"
-        onAction={() => setSheet("schedule")}
+        onPress={() => setSheet("schedule")}
       />
-
-      <SectionLabel label="일정" />
       <View
         style={[
           styles.timelineCard,
@@ -1095,13 +1091,6 @@ function Places({
 
   return (
     <View>
-      <TabIntro
-        title="가고 싶은 장소"
-        caption="장소를 모아두고 정해진 곳은 일정에 추가하세요"
-        meta={`${places.length}곳 · 저장 ${places.filter((place) => place.status === "후보").length}`}
-        action="장소 추가"
-        onAction={openCreate}
-      />
       <View style={styles.placeToolbar}>
         <View style={styles.placeFilters}>
           {(["전체", "후보", "일정"] as const).map((item) => (
@@ -1127,6 +1116,12 @@ function Places({
             </Pressable>
           ))}
         </View>
+        <Pressable
+          onPress={openCreate}
+          style={[styles.placeAdd, theme && { backgroundColor: theme.primarySoft }]}
+        >
+          <Text style={[styles.placeAddText, theme && { color: theme.primary }]}>＋ 장소 추가</Text>
+        </Pressable>
       </View>
       <View
         style={[
@@ -1803,13 +1798,6 @@ function Preparation({
 
   return (
     <View>
-      <TabIntro
-        title="준비물"
-        caption="담당을 정하고 챙긴 준비물을 체크하세요"
-        meta={`${completedCount}/${items.length} 완료 · ${percentage}%`}
-        action="준비물 추가"
-        onAction={() => setAdding(true)}
-      />
       <View
         style={[
           styles.packingJourney,
@@ -1843,7 +1831,15 @@ function Preparation({
                       : "이제 짐을 꾸려볼까요?"}
               </Text>
             </View>
-            <Text style={[styles.packingJourneyPercent, theme && { color: theme.primary }]}>{percentage}%</Text>
+            <View style={styles.packingJourneyActions}>
+              <Text style={[styles.packingJourneyPercent, theme && { color: theme.primary }]}>{percentage}%</Text>
+              <Pressable
+                onPress={() => setAdding(true)}
+                style={[styles.packingJourneyAdd, theme && { backgroundColor: theme.primarySoft }]}
+              >
+                <Text style={[styles.packingJourneyAddText, theme && { color: theme.primary }]}>＋ 준비물</Text>
+              </Pressable>
+            </View>
           </View>
           <View style={[styles.packingJourneyTrack, theme && { backgroundColor: theme.primarySoft }]}>
             <View style={[styles.packingJourneyFill, { width: `${percentage}%` }, theme && { backgroundColor: theme.primary }]} />
@@ -3436,24 +3432,28 @@ function Cooking({
   };
   return (
     <View>
-      <TabIntro
-        title="여행 요리"
-        caption="만들 요리와 필요한 재료를 정리하세요"
-        meta={`${recipes.length}개 메뉴`}
-        action="요리 추가"
-        onAction={() => setAddingRecipe(true)}
-      />
+      {recipes.length === 0 && (
+        <SectionLabel label="요리 메뉴" action="요리 추가" onPress={() => setAddingRecipe(true)} />
+      )}
       {recipes.length > 0 && (
         <View style={styles.recipeSelector}>
           <View style={styles.recipeSelectorHead}>
             <Text style={[styles.recipeSelectorTitle, theme && { color: theme.text }]}>요리 메뉴</Text>
-            {recipes.length > 4 ? (
-              <Pressable onPress={() => setShowAllRecipes(true)}>
-                <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개 ›</Text>
+            <View style={styles.recipeSelectorActions}>
+              {recipes.length > 4 ? (
+                <Pressable onPress={() => setShowAllRecipes(true)}>
+                  <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개 ›</Text>
+                </Pressable>
+              ) : (
+                <Text style={[styles.recipeSelectorCount, theme && { color: theme.muted }]}>{recipes.length}개</Text>
+              )}
+              <Pressable
+                onPress={() => setAddingRecipe(true)}
+                style={[styles.recipeSelectorAdd, theme && { backgroundColor: theme.primarySoft }]}
+              >
+                <Text style={[styles.recipeSelectorAddText, theme && { color: theme.primary }]}>＋ 요리</Text>
               </Pressable>
-            ) : (
-              <Text style={[styles.recipeSelectorCount, theme && { color: theme.muted }]}>{recipes.length}개</Text>
-            )}
+            </View>
           </View>
           <View style={[styles.recipeList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {recipes.slice(0, 4).map((recipe, index) => {
@@ -4026,13 +4026,6 @@ function Memories() {
   };
   return (
     <View>
-      <TabIntro
-        title="여행 기록"
-        caption="사진과 메모로 여행의 순간을 남겨보세요"
-        meta={`사진 ${photos.length}장 · 일기 ${diaries.length}개`}
-        action="사진 추가"
-        onAction={addPhoto}
-      />
       <SectionLabel
         label="여행 기념 카드"
         action="꾸미기"
@@ -4082,7 +4075,7 @@ function Memories() {
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
         </View>
       ))}
-      <SectionLabel label="여행 사진" />
+      <SectionLabel label={`여행 사진 · ${photos.length}장`} action="사진 추가" onPress={addPhoto} />
       <View style={styles.memoryGrid}>
         {photos.map((color, index) => (
           <View
@@ -4129,54 +4122,6 @@ function Memories() {
         <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
         <DetailField label="여행 이야기" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
       </DetailSheet>
-    </View>
-  );
-}
-
-function TabIntro({
-  title,
-  caption,
-  meta,
-  action,
-  onAction,
-}: {
-  title: string;
-  caption: string;
-  meta: string;
-  action: string;
-  onAction: () => void;
-}) {
-  const theme = useContext(DetailThemeContext);
-  return (
-    <View
-      style={[styles.tabIntro, theme && { borderBottomColor: theme.border }]}
-    >
-      <View style={styles.tabIntroCopy}>
-        <View style={styles.tabIntroTitleRow}>
-          <Text style={[styles.tabIntroTitle, theme && { color: theme.text }]}>
-            {title}
-          </Text>
-          <View style={[styles.tabIntroMetaBadge, theme && { backgroundColor: theme.primarySoft }]}>
-            <Text style={[styles.tabIntroMeta, theme && { color: theme.primary }]}>{meta}</Text>
-          </View>
-        </View>
-        <Text style={[styles.tabIntroCaption, theme && { color: theme.muted }]}>
-          {caption}
-        </Text>
-      </View>
-      <Pressable
-        onPress={onAction}
-        style={[
-          styles.tabIntroAction,
-          theme && { backgroundColor: theme.primarySoft },
-        ]}
-      >
-        <Text
-          style={[styles.tabIntroActionText, theme && { color: theme.primary }]}
-        >
-          ＋ {action}
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -6004,6 +5949,13 @@ const styles = StyleSheet.create({
   },
   packingJourneyTitle: { fontSize: 12, lineHeight: 17, fontWeight: "900", marginTop: 1 },
   packingJourneyPercent: { fontSize: 17, lineHeight: 20, fontWeight: "900" },
+  packingJourneyActions: { alignItems: "flex-end", gap: 4, marginLeft: 8 },
+  packingJourneyAdd: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  packingJourneyAddText: { fontSize: 8, fontWeight: "900" },
   packingJourneyTrack: {
     height: 6,
     borderRadius: 999,
@@ -6439,6 +6391,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   recipeSelectorTitle: { color: "#777F8C", fontSize: 10, fontWeight: "900" },
+  recipeSelectorActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  recipeSelectorAdd: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
+  recipeSelectorAddText: { fontSize: 8, fontWeight: "900" },
   recipeSelectorCount: { color: "#92909A", fontSize: 8, fontWeight: "700" },
   recipeSelectorMore: { color: "#D9685F", fontSize: 9, fontWeight: "900" },
   recipeList: {
