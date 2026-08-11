@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
+  Image,
   PanResponder,
   Platform,
   Pressable,
@@ -10,10 +11,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TextInputProps,
   useColorScheme,
   View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
 import { TripDetailDestination, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
@@ -26,6 +30,9 @@ import {
 } from "./theme";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
+type DaymoUser = { name: string; email: string };
+
+WebBrowser.maybeCompleteAuthSession();
 
 type Trip = {
   name: string;
@@ -80,6 +87,7 @@ export function WarmAppShell() {
   const [tripItems, setTripItems] = useState<Trip[]>(trips);
   const [themeId, setThemeId] = useState<ThemeId>("daymo");
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
+  const [user, setUser] = useState<DaymoUser | null>(null);
   const theme = resolveTheme(
     themeId,
     appearance === "system" ? systemScheme === "dark" : appearance === "dark",
@@ -94,6 +102,9 @@ export function WarmAppShell() {
     setTripDestination(destination);
     setTripOpen(true);
   };
+  if (!user) {
+    return <AuthScreen theme={theme} onAuth={setUser} />;
+  }
   if (isTripOpen)
     return (
       <WarmTripDetail
@@ -133,10 +144,147 @@ export function WarmAppShell() {
             appearance={appearance}
             setAppearance={setAppearance}
             trips={tripItems}
+            user={user}
+            setUser={setUser}
+            onLogout={() => setUser(null)}
           />
         )}
       </View>
       <BottomBar active={view} setActive={setView} theme={theme} />
+    </SafeAreaView>
+  );
+}
+
+function AuthScreen({
+  theme,
+  onAuth,
+}: {
+  theme: AppTheme;
+  onAuth: (user: DaymoUser) => void;
+}) {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const oauthBaseUrl = process.env.EXPO_PUBLIC_DAYMO_AUTH_URL?.replace(/\/$/, "");
+  const submit = () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) {
+      setError("이메일 주소를 확인해 주세요.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("비밀번호는 6자 이상 입력해 주세요.");
+      return;
+    }
+    if (mode === "signup" && !name.trim()) {
+      setError("앱에서 사용할 이름을 입력해 주세요.");
+      return;
+    }
+    if (mode === "signup" && password !== confirm) {
+      setError("비밀번호가 서로 달라요.");
+      return;
+    }
+    setError("");
+    onAuth({
+      name: mode === "signup" ? name.trim() : normalizedEmail.split("@")[0],
+      email: normalizedEmail,
+    });
+  };
+  const switchMode = () => {
+    setMode((current) => (current === "login" ? "signup" : "login"));
+    setError("");
+    setPassword("");
+    setConfirm("");
+  };
+  const startOAuth = async (provider: "google" | "apple" | "kakao" | "naver") => {
+    if (!oauthBaseUrl) {
+      setError("OAuth 서버 주소가 필요해요. EXPO_PUBLIC_DAYMO_AUTH_URL을 설정해 주세요.");
+      return;
+    }
+    setOauthLoading(provider);
+    setError("");
+    const redirectUri = AuthSession.makeRedirectUri({ scheme: "daymo", path: "oauth" });
+    try {
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${oauthBaseUrl}/oauth/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`,
+        redirectUri,
+      );
+      if (result.type !== "success") return;
+      const callback = new URL(result.url);
+      const email = callback.searchParams.get("email");
+      const name = callback.searchParams.get("name");
+      const authError = callback.searchParams.get("error");
+      if (authError || !email) {
+        setError(authError || "로그인 정보를 확인하지 못했어요.");
+        return;
+      }
+      onAuth({ name: name || email.split("@")[0], email });
+    } catch {
+      setError("소셜 로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+  return (
+    <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
+      <PaperBackdrop theme={theme} />
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={(s as any).authPage}
+      >
+        <View style={(s as any).authBrand}>
+          <Image source={require("../assets/daymo-icon.png")} style={(s as any).authAppIcon} />
+          <Text style={[(s as any).authLogo, { color: theme.text }]}>Daymo</Text>
+          <Text style={[(s as any).authTagline, { color: theme.muted }]}>함께 떠나고, 오래 기억하는 여행</Text>
+        </View>
+        <View style={[(s as any).authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[(s as any).authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
+          <Text style={[(s as any).authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
+          <View style={(s as any).oauthGrid}>
+            {[
+              { id: "kakao", label: "카카오", mark: "K", color: "#FEE500", text: "#241F10" },
+              { id: "naver", label: "네이버", mark: "N", color: "#03C75A", text: "#FFFFFF" },
+              { id: "google", label: "Google", mark: "G", color: "#FFFFFF", text: "#4285F4" },
+              { id: "apple", label: "Apple", mark: "●", color: theme.dark ? "#FFFFFF" : "#111111", text: theme.dark ? "#111111" : "#FFFFFF" },
+            ].map((provider) => (
+              <Pressable
+                key={provider.id}
+                disabled={oauthLoading !== null}
+                onPress={() => startOAuth(provider.id as "google" | "apple" | "kakao" | "naver")}
+                style={[(s as any).oauthButton, { backgroundColor: provider.color, borderColor: provider.id === "google" ? theme.border : provider.color }]}
+              >
+                <Text style={[(s as any).oauthMark, { color: provider.text }]}>{provider.mark}</Text>
+                <Text style={[(s as any).oauthLabel, { color: provider.text }]}>{oauthLoading === provider.id ? "연결 중" : provider.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={(s as any).authDivider}>
+            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[(s as any).authDividerText, { color: theme.muted }]}>또는 이메일로</Text>
+            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
+          </View>
+          {mode === "signup" && (
+            <Field theme={theme} label="이름 또는 별명" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
+          )}
+          <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+          <Field theme={theme} label="비밀번호" value={password} onChangeText={setPassword} placeholder="6자 이상 입력" secureTextEntry />
+          {mode === "signup" && (
+            <Field theme={theme} label="비밀번호 확인" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
+          )}
+          {error ? <Text style={(s as any).authError}>{error}</Text> : null}
+          <Pressable onPress={submit} style={[(s as any).authSubmit, { backgroundColor: theme.primary }]}>
+            <Text style={(s as any).authSubmitText}>{mode === "login" ? "로그인" : "회원가입"}</Text>
+          </Pressable>
+          <Pressable onPress={switchMode} style={(s as any).authSwitch}>
+            <Text style={[(s as any).authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontWeight: "900" }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
+          </Pressable>
+        </View>
+        <Text style={[(s as any).authPrivacy, { color: theme.muted }]}>계속하면 Daymo 이용약관과 개인정보 처리방침에 동의하게 됩니다.</Text>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1973,6 +2121,9 @@ function Together({
   appearance,
   setAppearance,
   trips,
+  user,
+  setUser,
+  onLogout,
 }: {
   theme: AppTheme;
   themeId: ThemeId;
@@ -1980,14 +2131,23 @@ function Together({
   appearance: AppearanceMode;
   setAppearance: (value: AppearanceMode) => void;
   trips: Trip[];
+  user: DaymoUser;
+  setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
+  onLogout: () => void;
 }) {
   const [notifications, setNotifications] = useState(true);
   const [relationship, setRelationship] = useState<"연인" | "친구">("연인");
   const [spaceName, setSpaceName] = useState("우리의 여행 공간");
-  const [memberA, setMemberA] = useState("하늘");
+  const [memberA, setMemberA] = useState(user.name);
   const [memberB, setMemberB] = useState("다온");
   const [memberRole, setMemberRole] = useState<"편집 가능" | "보기만">("편집 가능");
   const [since, setSince] = useState("2023. 10. 20");
+  const groups = [
+    { id: "ours", name: "우리의 여행 공간", member: "다온", relationship: "연인" as const },
+    { id: "friends", name: "주말 여행 모임", member: "여울", relationship: "친구" as const },
+    { id: "family", name: "가족 나들이", member: "보름", relationship: "친구" as const },
+  ];
+  const [activeGroupId, setActiveGroupId] = useState("ours");
   const totalTripDays = trips.reduce((total, trip) => {
     const start = new Date(`${trip.start}T00:00:00`).getTime();
     const end = new Date(`${trip.end}T00:00:00`).getTime();
@@ -2001,6 +2161,8 @@ function Together({
     | "theme"
     | "appearance"
     | "help"
+    | "account"
+    | "groups"
     | null
   >(null);
   const exportData = () =>
@@ -2011,7 +2173,11 @@ function Together({
         .join("\n\n"),
     });
   const panelTitle =
-    panel === "members"
+    panel === "groups"
+      ? "여행 공간 바꾸기"
+      : panel === "account"
+      ? "내 프로필"
+      : panel === "members"
       ? "함께하는 멤버"
       : panel === "relationship"
         ? "관계 설정"
@@ -2035,19 +2201,14 @@ function Together({
             </Text>
             <Text style={[s.screenTitle, { color: theme.text }]}>우리</Text>
           </View>
-          <Pressable
-            onPress={() => setPanel("profile")}
-            style={[
-              (s as any).togetherEdit,
-              { backgroundColor: theme.primarySoft },
-            ]}
-          >
-            <Text
-              style={[(s as any).togetherEditText, { color: theme.primary }]}
-            >
-              편집
-            </Text>
-          </Pressable>
+          <View style={(s as any).togetherHeadActions}>
+            <Pressable onPress={() => setPanel("groups")} style={[(s as any).togetherSwitch, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+              <Text style={[(s as any).togetherSwitchText, { color: theme.text }]}>공간 전환⌄</Text>
+            </Pressable>
+            <Pressable onPress={() => setPanel("profile")} style={[(s as any).togetherEdit, { backgroundColor: theme.primarySoft }]}>
+              <Text style={[(s as any).togetherEditText, { color: theme.primary }]}>편집</Text>
+            </Pressable>
+          </View>
         </View>
         <Pressable
           onPress={() => setPanel("profile")}
@@ -2160,6 +2321,22 @@ function Together({
           ))}
         </View>
         <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
+          내 계정
+        </Text>
+        <View
+          style={[
+            (s as any).settingGroup,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <Setting
+            theme={theme}
+            label="내 프로필"
+            value={user.name}
+            onPress={() => setPanel("account")}
+          />
+        </View>
+        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
           함께 쓰는 공간
         </Text>
         <View
@@ -2231,6 +2408,77 @@ function Together({
         title={panelTitle}
         onClose={() => setPanel(null)}
       >
+        {panel === "groups" && (
+          <>
+            <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 선택하세요.</Text>
+            {groups.map((group) => (
+              <Pressable
+                key={group.id}
+                onPress={() => {
+                  setActiveGroupId(group.id);
+                  setSpaceName(group.name);
+                  setMemberB(group.member);
+                  setRelationship(group.relationship);
+                  setPanel(null);
+                }}
+                style={[(s as any).groupChoice, { backgroundColor: theme.surface, borderColor: activeGroupId === group.id ? theme.primary : theme.border }]}
+              >
+                <View style={[(s as any).groupChoiceAvatar, { backgroundColor: activeGroupId === group.id ? theme.primary : theme.primarySoft }]}>
+                  <Text style={[(s as any).groupChoiceAvatarText, { color: activeGroupId === group.id ? "#FFFFFF" : theme.primary }]}>{group.name.slice(0, 1)}</Text>
+                </View>
+                <View style={(s as any).groupChoiceCopy}>
+                  <Text style={[(s as any).groupChoiceName, { color: theme.text }]}>{group.name}</Text>
+                  <Text style={[(s as any).groupChoiceMeta, { color: theme.muted }]}>{user.name} · {group.member}</Text>
+                </View>
+                <Text style={[(s as any).groupChoiceCheck, { color: theme.primary }]}>{activeGroupId === group.id ? "✓" : ""}</Text>
+              </Pressable>
+            ))}
+          </>
+        )}
+        {panel === "account" && (
+          <>
+            <View style={[(s as any).accountPreview, { backgroundColor: theme.primarySoft }]}>
+              <View style={[(s as any).accountAvatar, { backgroundColor: theme.primary }]}>
+                <Text style={(s as any).accountAvatarText}>{user.name.trim().slice(0, 1) || "?"}</Text>
+              </View>
+              <View style={(s as any).accountPreviewCopy}>
+                <Text style={[(s as any).accountPreviewName, { color: theme.text }]}>{user.name}</Text>
+                <Text style={[(s as any).accountPreviewEmail, { color: theme.muted }]}>{user.email}</Text>
+              </View>
+            </View>
+            <Field
+              theme={theme}
+              label="이름 또는 별명"
+              value={user.name}
+              onChangeText={(name) => {
+                setUser((current) => (current ? { ...current, name } : current));
+                setMemberA(name);
+              }}
+              placeholder="앱에서 사용할 이름"
+            />
+            <Field
+              theme={theme}
+              label="이메일"
+              value={user.email}
+              onChangeText={(email) =>
+                setUser((current) => (current ? { ...current, email } : current))
+              }
+              placeholder="name@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>프로필 변경 내용은 바로 저장돼요.</Text>
+            <Pressable
+              onPress={() => {
+                setPanel(null);
+                onLogout();
+              }}
+              style={[(s as any).accountLogout, { borderColor: theme.border }]}
+            >
+              <Text style={(s as any).accountLogoutText}>로그아웃</Text>
+            </Pressable>
+          </>
+        )}
         {panel === "members" && (
           <>
             <View style={(s as any).memberEditCard}>
@@ -2560,6 +2808,9 @@ function Field({
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  secureTextEntry?: TextInputProps["secureTextEntry"];
+  keyboardType?: TextInputProps["keyboardType"];
+  autoCapitalize?: TextInputProps["autoCapitalize"];
 }) {
   return (
     <View style={(s as any).field}>
@@ -4655,4 +4906,107 @@ Object.assign(s, {
   },
   navIcon: { fontSize: 18, fontWeight: "900" },
   navText: { fontSize: 9, fontWeight: "800" },
+});
+
+Object.assign(s, {
+  authPage: {
+    flexGrow: 1,
+    width: "100%",
+    maxWidth: 430,
+    alignSelf: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingTop: 42,
+    paddingBottom: 28,
+  },
+  authBrand: { alignItems: "center", marginBottom: 24 },
+  authAppIcon: { width: 66, height: 66, borderRadius: 20, marginBottom: 12 },
+  authMark: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-4deg" }],
+    marginBottom: 12,
+  },
+  authMarkText: { color: "#FFFFFF", fontSize: 25, fontWeight: "900" },
+  authLogo: { fontSize: 30, fontWeight: "900", letterSpacing: -1 },
+  authTagline: { fontSize: 11, fontWeight: "700", marginTop: 6 },
+  authCard: { borderRadius: 18, borderWidth: 1, padding: 20 },
+  authTitle: { fontSize: 20, fontWeight: "900", letterSpacing: -0.5 },
+  authDescription: { fontSize: 11, lineHeight: 17, marginTop: 7, marginBottom: 19 },
+  oauthGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  oauthButton: {
+    width: "48.7%",
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  oauthMark: { fontSize: 12, fontWeight: "900", marginRight: 7 },
+  oauthLabel: { fontSize: 10, fontWeight: "900" },
+  authDivider: { flexDirection: "row", alignItems: "center", marginVertical: 18 },
+  authDividerLine: { flex: 1, height: 1 },
+  authDividerText: { fontSize: 8, fontWeight: "800", marginHorizontal: 10 },
+  authError: { color: "#DF5148", fontSize: 10, fontWeight: "800", marginTop: 2 },
+  authSubmit: {
+    height: 52,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  authSubmitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  authSwitch: { alignItems: "center", paddingTop: 17, paddingBottom: 2 },
+  authSwitchText: { fontSize: 11, fontWeight: "700" },
+  authPrivacy: { fontSize: 8, lineHeight: 13, textAlign: "center", marginTop: 15 },
+  accountPreview: {
+    minHeight: 82,
+    borderRadius: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 15,
+    marginBottom: 18,
+  },
+  accountAvatar: {
+    width: 43,
+    height: 43,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accountAvatarText: { color: "#FFFFFF", fontSize: 17, fontWeight: "900" },
+  accountPreviewCopy: { flex: 1, marginLeft: 12 },
+  accountPreviewName: { fontSize: 14, fontWeight: "900" },
+  accountPreviewEmail: { fontSize: 9, fontWeight: "700", marginTop: 4 },
+  accountLogout: {
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  accountLogoutText: { color: "#DF5148", fontSize: 11, fontWeight: "900" },
+  togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  togetherSwitch: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  togetherSwitchText: { fontSize: 9, fontWeight: "900" },
+  groupChoice: {
+    minHeight: 66,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 13,
+    marginBottom: 8,
+  },
+  groupChoiceAvatar: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  groupChoiceAvatarText: { fontSize: 13, fontWeight: "900" },
+  groupChoiceCopy: { flex: 1, marginLeft: 11 },
+  groupChoiceName: { fontSize: 12, fontWeight: "900" },
+  groupChoiceMeta: { fontSize: 8, fontWeight: "700", marginTop: 4 },
+  groupChoiceCheck: { width: 18, fontSize: 13, fontWeight: "900", textAlign: "center" },
 });

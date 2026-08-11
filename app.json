@@ -2,6 +2,7 @@
   "expo": {
     "name": "Daymo",
     "slug": "daymo",
+    "scheme": "daymo",
     "version": "0.1.0",
     "icon": "./assets/daymo-icon.png",
     "orientation": "portrait",
@@ -11,7 +12,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.daymo"
+      "bundleIdentifier": "com.anonymous.daymo",
+      "usesAppleSignIn": true
     },
     "android": {
       "icon": "./assets/daymo-icon.png",
@@ -19,6 +21,9 @@
         "foregroundImage": "./assets/daymo-icon.png",
         "backgroundColor": "#FFF8F4"
       }
-    }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }
