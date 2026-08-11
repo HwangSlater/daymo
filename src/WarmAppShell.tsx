@@ -408,18 +408,21 @@ function NotebookHome({
         onPress={() => open("overview", trip)}
         style={({ pressed }) => [
           (s as any).paperTrip,
-          { backgroundColor: theme.surface, borderColor: theme.border },
+          {
+            backgroundColor: `${theme.primary}${theme.dark ? "0F" : "07"}`,
+            borderColor: `${theme.primary}${theme.dark ? "66" : "38"}`,
+          },
           pressed && (s as any).pressed,
         ]}
       >
         <View
           style={[
             (s as any).paperTape,
-            { backgroundColor: `${theme.primary}55` },
+            { backgroundColor: `${theme.primary}${theme.dark ? "75" : "55"}` },
           ]}
         />
         <View style={(s as any).paperTripHead}>
-          <View>
+          <View style={(s as any).paperTripCopy}>
             <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
               다음 여행
             </Text>
@@ -430,23 +433,30 @@ function NotebookHome({
               {trip.date}
             </Text>
           </View>
+          <View
+            style={[
+              (s as any).paperTripStamp,
+              {
+                backgroundColor: `${theme.primary}${theme.dark ? "22" : "12"}`,
+                borderColor: `${theme.primary}${theme.dark ? "75" : "55"}`,
+              },
+            ]}
+          >
+            <Text style={[(s as any).paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
+            <Text style={[(s as any).paperTripStampDay, { color: theme.text }]}>{trip.start.slice(-2)}</Text>
+            <View style={[(s as any).paperTripStampRule, { backgroundColor: theme.primary }]} />
+          </View>
         </View>
-        <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
+        <View style={[(s as any).paperRule, { borderColor: `${theme.primary}2D` }]} />
         <View
           style={[
             (s as any).paperStayBoard,
             {
-              backgroundColor: `${theme.primary}${theme.dark ? "13" : "0A"}`,
-              borderColor: `${theme.primary}${theme.dark ? "66" : "38"}`,
+              backgroundColor: `${theme.secondary}${theme.dark ? "14" : "0C"}`,
+              borderColor: `${theme.secondary}${theme.dark ? "66" : "3D"}`,
             },
           ]}
         >
-          <View
-            style={[
-              (s as any).paperStayBoardTape,
-              { backgroundColor: `${theme.secondary}${theme.dark ? "70" : "55"}` },
-            ]}
-          />
           <View style={(s as any).paperStay}>
             <View
               style={[
@@ -485,7 +495,7 @@ function NotebookHome({
               <Text style={[(s as any).paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
             </View>
           </View>
-          <View style={[(s as any).paperCounts, { borderTopColor: `${theme.primary}24` }]}>
+          <View style={[(s as any).paperCounts, { borderTopColor: `${theme.secondary}2E` }]}>
             {[
               { label: "일정", value: "3", color: theme.primary },
               { label: "장소", value: "8", color: theme.secondary },
@@ -3616,34 +3626,45 @@ Object.assign(s, {
   },
   tinyDayText: { fontSize: 11, fontWeight: "800" },
   paperTrip: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 19,
-    paddingTop: 24,
-    paddingBottom: 17,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 15,
     shadowColor: "#17233D",
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 2,
-    transform: [{ rotate: "-.35deg" }],
+    shadowOpacity: 0.09,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+    transform: [{ rotate: "-.2deg" }],
   },
   paperTape: {
     position: "absolute",
-    width: 66,
-    height: 18,
-    top: -9,
-    left: "50%",
-    marginLeft: -33,
+    width: 54,
+    height: 16,
+    top: -8,
+    left: 24,
     opacity: 0.75,
+    transform: [{ rotate: "-3deg" }],
+  },
+  paperTripHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  paperTripCopy: { flex: 1, paddingRight: 12 },
+  paperKicker: { fontSize: 11, fontWeight: "800", marginBottom: 7 },
+  paperTitle: { fontSize: 28, fontWeight: "900", letterSpacing: -1.3 },
+  paperDate: { fontSize: 11, marginTop: 6 },
+  paperTripStamp: {
+    width: 54,
+    height: 64,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    alignItems: "center",
+    justifyContent: "center",
     transform: [{ rotate: "2deg" }],
   },
-  paperTripHead: { flexDirection: "row", justifyContent: "space-between" },
-  paperKicker: { fontSize: 11, fontWeight: "800", marginBottom: 7 },
-  paperTitle: { fontSize: 27, fontWeight: "900", letterSpacing: -1.2 },
-  paperDate: { fontSize: 11, marginTop: 6 },
-  paperDoodle: { fontSize: 30, marginTop: 2, transform: [{ rotate: "12deg" }] },
-  paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginVertical: 17 },
+  paperTripStampMonth: { fontSize: 11, fontWeight: "900", letterSpacing: 0.8 },
+  paperTripStampDay: { fontSize: 20, lineHeight: 23, fontWeight: "900" },
+  paperTripStampRule: { width: 22, height: 2, borderRadius: 1, marginTop: 2 },
+  paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginVertical: 14 },
   paperStayBoard: {
     borderRadius: 14,
     borderWidth: 1.2,
@@ -3651,21 +3672,11 @@ Object.assign(s, {
     paddingTop: 14,
     paddingBottom: 11,
     position: "relative",
-    transform: [{ rotate: "0.25deg" }],
+    transform: [{ rotate: "0.2deg" }],
     shadowColor: "#5D3531",
     shadowOpacity: 0.05,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
-  },
-  paperStayBoardTape: {
-    position: "absolute",
-    width: 42,
-    height: 9,
-    top: -5,
-    right: 28,
-    borderRadius: 2,
-    opacity: 0.72,
-    transform: [{ rotate: "-3deg" }],
   },
   paperStay: { flexDirection: "row", alignItems: "center" },
   paperStayIcon: {
