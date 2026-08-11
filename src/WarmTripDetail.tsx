@@ -578,7 +578,8 @@ export function WarmTripDetail({
         <DetailSheet
           visible={editingTrip}
           title="여행 수정"
-          submit="변경 저장"
+          submit={draftTitle.trim() ? "변경 저장" : "여행 제목을 입력해 주세요"}
+          submitDisabled={!draftTitle.trim()}
           onClose={() => setEditingTrip(false)}
           onSubmit={() => {
             if (draftTitle.trim()) setTitle(draftTitle.trim());
@@ -588,7 +589,7 @@ export function WarmTripDetail({
           }}
         >
           <DetailField
-            label="여행 제목"
+            label="여행 제목 · 필수"
             value={draftTitle}
             onChangeText={setDraftTitle}
           />
@@ -1026,7 +1027,7 @@ function TripOverview({
         visible={sheet === "schedule"}
         title={editingScheduleIndex === null ? "일정 추가" : "일정 수정"}
         subtitle="일정 이름만 입력해도 추가할 수 있어요"
-        submit={scheduleFormValid ? (editingScheduleIndex === null ? "일정에 추가" : "수정 저장") : "일정 이름을 입력해 주세요"}
+        submit={scheduleFormValid ? (editingScheduleIndex === null ? "일정 추가" : "변경 저장") : "일정 이름을 입력해 주세요"}
         destructiveLabel={editingScheduleIndex === null ? undefined : "일정 삭제"}
         submitDisabled={!scheduleFormValid}
         onClose={() => setSheet(null)}
@@ -1069,13 +1070,13 @@ function TripOverview({
           onChange={setPlanType}
         />
         <DetailField
-          label="시간 · 선택"
+          label="시간 · 선택 사항"
           value={planTime}
           onChangeText={setPlanTime}
           placeholder="시간 미정도 가능해요"
         />
         <DetailField
-          label="장소 · 선택"
+          label="장소 · 선택 사항"
           value={planPlace}
           onChangeText={setPlanPlace}
           placeholder="예: 광안리 해수욕장"
@@ -1114,7 +1115,7 @@ function TripOverview({
         visible={sheet === "transport"}
         title={editingTransportId ? "교통편 수정" : "교통편 추가"}
         subtitle="가는 편과 오는 편을 나누어 저장하고 한곳에서 확인하세요"
-        submit={transportFormValid ? (editingTransportId ? "수정 저장" : "교통편 저장") : "출발지와 도착지를 입력해 주세요"}
+        submit={transportFormValid ? (editingTransportId ? "변경 저장" : "교통편 추가") : "출발지와 도착지를 입력해 주세요"}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
         submitDisabled={!transportFormValid}
         onClose={() => setSheet(null)}
@@ -1156,7 +1157,7 @@ function TripOverview({
           accentSoft={transportDirectionSoft}
         />
         <PairedDetailField
-          label="출발·도착 시간 · 선택"
+          label="출발·도착 시간 · 선택 사항"
           leftValue={transportDepartureTime}
           rightValue={transportArrivalTime}
           onChangeLeft={setTransportDepartureTime}
@@ -1735,7 +1736,7 @@ function Places({
           onChange={setPlanningDay}
         />
         <DetailField
-          label="시간 (선택)"
+          label="시간 · 선택 사항"
           value={planningTime}
           onChangeText={setPlanningTime}
           placeholder="시간 미정 가능"
@@ -1748,7 +1749,7 @@ function Places({
         submit={
           name.trim()
             ? editingName
-              ? "변경사항 저장"
+              ? "변경 저장"
               : "장소 저장"
             : "장소 이름을 입력해 주세요"
         }
@@ -2049,7 +2050,7 @@ function Preparation({
         )
         .join("\n"),
     );
-    notify("준비 목록을 복사했어요");
+    notify("준비물 목록을 복사했어요");
   };
   const openImport = async () => {
     setImportText(await Clipboard.getStringAsync());
@@ -3101,7 +3102,7 @@ function Preparation({
               theme && { color: theme.muted },
             ]}
           >
-            담당 · 선택
+            담당 · 선택 사항
           </Text>
           <View style={styles.packingAssigneeOptions}>
             {ownerSections.map((ownerName) => (
@@ -3350,7 +3351,7 @@ function Preparation({
       </DetailSheet>
       <DetailSheet
         visible={importing}
-        title="준비 목록 붙여넣기"
+        title="준비물 목록 붙여넣기"
         subtitle="메모에서 여러 줄을 고쳐 한 번에 반영하세요"
         submit={
           importText.trim() ? `${importMode}하기` : "목록을 입력해 주세요"
@@ -3366,7 +3367,7 @@ function Preparation({
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="붙여넣을 준비 목록 · 필수"
+          label="붙여넣을 준비물 목록 · 필수"
           value={importText}
           onChangeText={setImportText}
           multiline
@@ -3966,7 +3967,7 @@ function Cooking({
           <Text
             style={[styles.emptyCookingText, theme && { color: theme.muted }]}
           >
-            요리별로 재료와 담당을 나눌 수 있어요.
+            요리별로 재료와 준비 방법을 나눌 수 있어요.
           </Text>
           <Pressable
             onPress={() => setAddingRecipe(true)}
@@ -4140,7 +4141,7 @@ function Cooking({
             );
           })}
           <Text style={styles.longPressHint}>
-            왼쪽 원은 준비 체크 · 재료를 누르면 수정할 수 있어요.
+            왼쪽 원을 눌러 준비 여부를 체크하고, 재료 이름을 누르면 수정할 수 있어요.
           </Text>
           <View
             style={[
@@ -4273,7 +4274,7 @@ function Cooking({
         visible={addingIngredient}
         title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
         subtitle="분류와 준비 방법은 저장한 뒤에도 바꿀 수 있어요"
-        submit={name.trim() ? (editingIngredient ? "수정 저장" : "재료 추가") : "재료 이름을 입력해 주세요"}
+        submit={name.trim() ? (editingIngredient ? "변경 저장" : "재료 추가") : "재료 이름을 입력해 주세요"}
         submitDisabled={!name.trim()}
         onClose={closeIngredientSheet}
         onSubmit={addIngredient}
@@ -4298,7 +4299,7 @@ function Cooking({
               theme && { color: theme.muted },
             ]}
           >
-            분류 · 선택
+            분류 · 선택 사항
           </Text>
           <View style={styles.tagSuggestions}>
             {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
@@ -4348,7 +4349,7 @@ function Cooking({
           />
         </View>
         <OptionField
-          label="준비 방법 · 선택"
+          label="준비 방법 · 선택 사항"
           options={["미정", "하늘", "여울", "구매"]}
           value={owner}
           onChange={setOwner}
@@ -4358,7 +4359,7 @@ function Cooking({
         visible={addingRecipe}
         title={editingRecipe ? "요리 수정" : "요리 추가"}
         subtitle="이름만 먼저 저장하고 재료는 메뉴 안에서 추가할 수 있어요"
-        submit={recipeName.trim() ? (editingRecipe ? "수정 저장" : "요리 만들기") : "요리 이름을 입력해 주세요"}
+        submit={recipeName.trim() ? (editingRecipe ? "변경 저장" : "요리 추가") : "요리 이름을 입력해 주세요"}
         submitDisabled={!recipeName.trim()}
         onClose={closeRecipeSheet}
         onSubmit={addRecipe}

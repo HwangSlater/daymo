@@ -1201,7 +1201,7 @@ function TripsExplorer({
       >
         <Field
           theme={theme}
-          label="여행지"
+          label="여행지 · 필수"
           value={place}
           onChangeText={setPlace}
           placeholder="예: 제주 애월"
@@ -1265,7 +1265,7 @@ function TripsExplorer({
         />
         <Field
           theme={theme}
-          label="한 줄 메모"
+          label="한 줄 메모 · 선택 사항"
           value={note}
           onChangeText={setNote}
         />
@@ -2141,7 +2141,7 @@ function Search({
       title: "밀푀유나베",
       type: "요리",
       trip: "서울 구로구",
-      detail: "재료 6개 · 동행 담당",
+      detail: "재료 6개 · 여울 준비",
       color: "#F0A351",
       tags: ["저녁", "주방"],
     },
