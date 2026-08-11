@@ -542,57 +542,26 @@ function NotebookHome({
         </View>
         </Pressable>
       </View>
-      <View
-        style={[
-          (s as any).prepBoard,
-          { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
-        <View
-          style={[
-            (s as any).prepTape,
-            { backgroundColor: `${theme.secondary}${theme.dark ? "68" : "38"}` },
-          ]}
-        />
-        <View pointerEvents="none" style={(s as any).prepSketch}>
-          <Svg width={54} height={44} viewBox="0 0 54 44">
-            <Path
-              d="M15 14h24a4 4 0 0 1 4 4v18H11V18a4 4 0 0 1 4-4Zm6 0v-3.5A3.5 3.5 0 0 1 24.5 7h5A3.5 3.5 0 0 1 33 10.5V14M18 21v9M36 21v9M8 36h38"
-              fill="none"
-              stroke={theme.primary}
-              strokeWidth={1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <Path
-              d="m42 9 5-3-1 6"
-              fill="none"
-              stroke={theme.secondary}
-              strokeWidth={1.4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
+      <View style={(s as any).scrapQuickGrid}>
+        <HomeQuick theme={theme} icon="＋" label="일정 추가" tint={`${theme.primary}${theme.dark ? "30" : "16"}`} color={theme.primary} onPress={() => open("schedule-add", trip)} embedded layout="large" />
+        <View style={(s as any).scrapQuickStack}>
+          <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint={`${theme.secondary}${theme.dark ? "30" : "16"}`} color={theme.secondary} onPress={() => open("places", trip)} embedded layout="small" />
+          <HomeQuick theme={theme} icon="✓" label="준비물" tint={`${theme.accent}${theme.dark ? "30" : "16"}`} color={theme.accent} onPress={() => open("preparation", trip)} embedded layout="small" />
         </View>
-        <View style={(s as any).noteTitleRow}>
-          <View>
-            <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>하나씩, 가볍게</Text>
-            <Text style={[(s as any).noteTitle, { color: theme.text }]}>우리의 출발 준비</Text>
-          </View>
-          <Pressable onPress={() => open("overview", trip)}>
-            <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>여행 보기</Text>
-          </Pressable>
+      </View>
+      <View style={(s as any).scrapTitleRow}>
+        <View>
+          <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>우리의 체크리스트</Text>
+          <Text style={[(s as any).noteTitle, { color: theme.text }]}>출발 전, 이것만</Text>
         </View>
-        <View style={(s as any).pencilActions}>
-          <HomeQuick theme={theme} icon="＋" label="일정 추가" tint={`${theme.primary}${theme.dark ? "24" : "12"}`} color={theme.primary} onPress={() => open("schedule-add", trip)} embedded />
-          <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint={`${theme.secondary}${theme.dark ? "24" : "12"}`} color={theme.secondary} onPress={() => open("places", trip)} embedded />
-          <HomeQuick theme={theme} icon="✓" label="준비물" tint={`${theme.accent}${theme.dark ? "24" : "12"}`} color={theme.accent} onPress={() => open("preparation", trip)} embedded />
-        </View>
-        <View style={(s as any).memoPaper}>
-          <MemoRow theme={theme} color={theme.primary} text="숙소 예약 정보 확인" meta="오늘 · 공용" onPress={() => open("overview", trip)} />
-          <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
-          <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
-        </View>
+        <Pressable onPress={() => open("overview", trip)}>
+          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>전체 보기</Text>
+        </Pressable>
+      </View>
+      <View style={(s as any).memoPaper}>
+        <MemoRow theme={theme} color={theme.primary} text="숙소 예약 정보 확인" meta="오늘 · 공용" onPress={() => open("overview", trip)} />
+        <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
+        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
       </View>
     </ScrollView>
   );
@@ -618,8 +587,8 @@ function MemoRow({
       onPress={onPress}
       style={[
         (s as any).memoRow,
-        { borderColor: theme.border },
-        last && { borderBottomWidth: 0 },
+        { borderColor: theme.border, backgroundColor: theme.surface },
+        last && (s as any).memoRowLast,
       ]}
     >
       <View
@@ -894,6 +863,7 @@ function HomeQuick({
   onPress,
   theme,
   embedded = false,
+  layout,
 }: {
   icon: string;
   label: string;
@@ -902,6 +872,7 @@ function HomeQuick({
   onPress: () => void;
   theme: AppTheme;
   embedded?: boolean;
+  layout?: "large" | "small";
 }) {
   return (
     <Pressable
@@ -909,9 +880,11 @@ function HomeQuick({
       style={[
         (s as any).homeQuick,
         embedded && (s as any).homeQuickEmbedded,
+        layout === "large" && (s as any).homeQuickLarge,
+        layout === "small" && (s as any).homeQuickSmall,
         {
-          backgroundColor: embedded ? "transparent" : theme.surface,
-          borderColor: embedded ? "transparent" : theme.border,
+          backgroundColor: embedded ? tint : theme.surface,
+          borderColor: embedded ? `${color}${theme.dark ? "65" : "3D"}` : theme.border,
         },
       ]}
     >
@@ -920,6 +893,7 @@ function HomeQuick({
           (s as any).homeQuickIcon,
           { backgroundColor: tint, borderColor: embedded ? color : "transparent" },
           embedded && (s as any).homeQuickIconEmbedded,
+          layout === "large" && (s as any).homeQuickIconLarge,
         ]}
       >
         {embedded ? (
@@ -947,6 +921,7 @@ function HomeQuick({
         style={[
           (s as any).homeQuickLabel,
           embedded && (s as any).homeQuickLabelEmbedded,
+          layout === "large" && (s as any).homeQuickLabelLarge,
           { color: theme.text },
         ]}
       >
@@ -3777,6 +3752,20 @@ Object.assign(s, {
     marginTop: 14,
     marginBottom: 8,
   },
+  scrapQuickGrid: {
+    height: 124,
+    flexDirection: "row",
+    gap: 9,
+    marginTop: 14,
+  },
+  scrapQuickStack: { flex: 0.92, gap: 8 },
+  scrapTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 25,
+    marginBottom: 10,
+  },
   prepBoard: {
     marginTop: 24,
     borderRadius: 20,
@@ -3815,13 +3804,21 @@ Object.assign(s, {
   },
   noteTitleSmall: { fontSize: 11, fontWeight: "800", marginBottom: 4 },
   noteTitle: { fontSize: 20, fontWeight: "900", letterSpacing: -0.6 },
-  memoPaper: { marginTop: 4 },
+  memoPaper: { marginTop: 0 },
   memoRow: {
-    minHeight: 66,
+    minHeight: 64,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
+    borderWidth: 1,
+    borderRadius: 15,
+    paddingHorizontal: 14,
+    marginBottom: 9,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
+  memoRowLast: { transform: [{ rotate: "0.15deg" }] },
   memoCheck: {
     width: 18,
     height: 18,
@@ -4636,6 +4633,21 @@ Object.assign(s, {
     borderWidth: 1,
     flexDirection: "row",
   },
+  homeQuickLarge: {
+    height: 124,
+    flex: 1.08,
+    borderRadius: 20,
+    flexDirection: "column",
+    alignItems: "flex-start",
+    paddingHorizontal: 18,
+    transform: [{ rotate: "-0.7deg" }],
+  },
+  homeQuickSmall: {
+    height: 58,
+    borderRadius: 15,
+    justifyContent: "flex-start",
+    paddingHorizontal: 12,
+  },
   homeQuickIcon: {
     width: 28,
     height: 28,
@@ -4652,9 +4664,17 @@ Object.assign(s, {
     marginBottom: 0,
     marginRight: 6,
   },
+  homeQuickIconLarge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 0,
+    marginBottom: 13,
+  },
   homeQuickIconText: { fontSize: 15, fontWeight: "900" },
   homeQuickLabel: { color: "#414A59", fontSize: 13, fontWeight: "900" },
   homeQuickLabelEmbedded: { fontSize: 11, fontWeight: "800" },
+  homeQuickLabelLarge: { fontSize: 16, fontWeight: "900" },
   homeSectionHead: {
     marginTop: 29,
     marginBottom: 12,
