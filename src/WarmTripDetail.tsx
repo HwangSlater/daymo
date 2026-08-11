@@ -452,21 +452,21 @@ export function WarmTripDetail({
               style={[
                 styles.tripMemoButton,
                 appTheme && {
-                  backgroundColor: appTheme.dark ? appTheme.surfaceAlt : "#FFF3B8",
-                  borderColor: appTheme.dark ? appTheme.border : "#E6D38C",
+                  backgroundColor: appTheme.dark ? "#FFF8D8" : "#FFF3B8",
+                  borderColor: appTheme.dark ? "#E8D896" : "#E6D38C",
                 },
               ]}
             >
-              <View style={[styles.tripMemoTape, appTheme?.dark && { backgroundColor: `${appTheme.primary}70` }]} />
-              <Text style={[styles.tripMemoLabel, appTheme?.dark && { color: appTheme.primary }]}>확인할 것</Text>
-              <Text numberOfLines={1} style={[styles.tripMemoPreview, appTheme && { color: appTheme.text }]}>
+              <View style={[styles.tripMemoTape, appTheme?.dark && { backgroundColor: "rgba(232, 177, 157, .62)" }]} />
+              <Text style={[styles.tripMemoLabel, appTheme?.dark && { color: "#98772A" }]}>확인할 것</Text>
+              <Text numberOfLines={1} style={[styles.tripMemoPreview, appTheme && { color: appTheme.dark ? "#54451F" : appTheme.text }]}>
                 {tripNotes[0]?.body || "메모를 남겨보세요"}
               </Text>
               <View style={[styles.tripMemoBottom, appTheme?.dark && { borderTopColor: appTheme.border }]}>
-                <Text style={[styles.tripMemoButtonText, appTheme && { color: appTheme.muted }]}>메모 {tripNotes.length}개</Text>
-                <Text style={[styles.tripMemoArrow, appTheme && { color: appTheme.primary }]}>›</Text>
+                <Text style={[styles.tripMemoButtonText, appTheme && { color: appTheme.dark ? "#79652C" : appTheme.muted }]}>메모 {tripNotes.length}개</Text>
+                <Text style={[styles.tripMemoArrow, appTheme && { color: appTheme.dark ? "#98772A" : appTheme.primary }]}>›</Text>
               </View>
-              <View style={[styles.tripMemoFold, appTheme?.dark && { backgroundColor: appTheme.border }]} />
+              <View style={[styles.tripMemoFold, appTheme?.dark && { backgroundColor: "#EBDD9F" }]} />
             </Pressable>
           </View>
           <Text
@@ -657,18 +657,21 @@ export function WarmTripDetail({
                 key={note.id}
                 style={[
                   styles.tripMemoRow,
-                  appTheme && { backgroundColor: appTheme.surfaceAlt, borderColor: appTheme.border },
+                  appTheme && {
+                    backgroundColor: appTheme.dark ? "#FFF9DF" : appTheme.surfaceAlt,
+                    borderColor: appTheme.dark ? "#E7DAA7" : appTheme.border,
+                  },
                 ]}
               >
                 <View style={styles.tripMemoRowHead}>
-                  <Text style={[styles.tripMemoAuthor, appTheme && { color: appTheme.primary }]}>{note.author}</Text>
+                  <Text style={[styles.tripMemoAuthor, appTheme && { color: appTheme.dark ? "#9A6D35" : appTheme.primary }]}>{note.author}</Text>
                   <View style={styles.tripMemoActions}>
                     <Pressable onPress={() => {
                       setEditingMemoId(note.id);
                       setMemoDraft(note.body);
                       setMemoEditorOpen(true);
                     }}>
-                      <Text style={[styles.tripMemoEdit, appTheme && { color: appTheme.muted }]}>수정</Text>
+                      <Text style={[styles.tripMemoEdit, appTheme && { color: appTheme.dark ? "#786D50" : appTheme.muted }]}>수정</Text>
                     </Pressable>
                     <Pressable onPress={() => Alert.alert(
                       "메모를 삭제할까요?",
@@ -690,7 +693,7 @@ export function WarmTripDetail({
                     </Pressable>
                   </View>
                 </View>
-                <Text style={[styles.tripMemoBody, appTheme && { color: appTheme.text }]}>{note.body}</Text>
+                <Text style={[styles.tripMemoBody, appTheme && { color: appTheme.dark ? "#403A2B" : appTheme.text }]}>{note.body}</Text>
               </View>
             ))}
           </View>
