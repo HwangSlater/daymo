@@ -3254,15 +3254,17 @@ function FormSheet({
             style={[
               (s as any).sheetHead,
               (s as any).sheetHeadDecorated,
-              { backgroundColor: `${sheetAccent}0D`, borderColor: `${sheetAccent}45` },
+              { backgroundColor: `${sheetAccent}0B`, borderColor: `${sheetAccent}30` },
             ]}
           >
-            <View style={[(s as any).sheetHeadTape, { backgroundColor: `${sheetAccent}66` }]} />
             <View style={(s as any).sheetHeadMain}>
-              <View style={[(s as any).sheetMark, { backgroundColor: `${sheetAccent}18` }]}>
-                <Text style={[(s as any).sheetMarkText, { color: sheetAccent }]}>{sheetKind}</Text>
-              </View>
-              <View>
+              <View style={(s as any).sheetHeadCopy}>
+                <View style={(s as any).sheetKindRow}>
+                  <View style={[(s as any).sheetKindDot, { backgroundColor: sheetAccent }]} />
+                  <Text style={[(s as any).sheetKindText, { color: sheetAccent }]}>{sheetKind} 작성</Text>
+                  <View style={[(s as any).sheetRouteLine, { backgroundColor: `${sheetAccent}40` }]} />
+                  <View style={[(s as any).sheetRouteDot, { borderColor: sheetAccent }]} />
+                </View>
                 <Text
                   numberOfLines={1}
                   style={[(s as any).sheetTitle, theme && { color: theme.text }]}
@@ -3298,7 +3300,7 @@ function FormSheet({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={[(s as any).sheetFormBody, { borderLeftColor: `${sheetAccent}55` }]}>
+            <View style={(s as any).sheetFormBody}>
               {children}
             </View>
           </ScrollView>
@@ -4214,22 +4216,15 @@ Object.assign(s, {
     transform: [{ rotate: "-3deg" }],
   },
   sheetFormBody: {
-    borderLeftWidth: 2,
-    paddingLeft: 12,
-    paddingRight: 1,
+    paddingHorizontal: 1,
   },
   sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
-  sheetMark: {
-    minWidth: 42,
-    height: 42,
-    borderRadius: 14,
-    paddingHorizontal: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    transform: [{ rotate: "-3deg" }],
-  },
-  sheetMarkText: { fontSize: 11, fontWeight: "900" },
+  sheetHeadCopy: { flex: 1 },
+  sheetKindRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+  sheetKindDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
+  sheetKindText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
+  sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 5 },
+  sheetRouteDot: { width: 6, height: 6, borderRadius: 3, borderWidth: 1.5 },
   sheetTitle: {
     color: "#17233D",
     fontSize: 24,
@@ -4245,8 +4240,8 @@ Object.assign(s, {
     justifyContent: "center",
   },
   sheetClose: { color: "#6556D8", fontSize: 22, lineHeight: 24, fontWeight: "500" },
-  field: { marginBottom: 17 },
-  fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  field: { marginBottom: 14 },
+  fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 7 },
   fieldLabelDot: { width: 5, height: 5, borderRadius: 3, marginRight: 7 },
   fieldLabel: {
     color: "#6F7888",
@@ -4255,7 +4250,7 @@ Object.assign(s, {
     marginBottom: 0,
   },
   fieldInput: {
-    height: 51,
+    height: 49,
     borderRadius: 14,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 15,
@@ -4265,7 +4260,7 @@ Object.assign(s, {
     borderColor: "#E5E3DD",
   },
   sheetSubmit: {
-    height: 53,
+    height: 50,
     borderRadius: 17,
     backgroundColor: "#17233D",
     alignItems: "center",
