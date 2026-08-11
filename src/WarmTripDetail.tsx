@@ -1771,6 +1771,12 @@ function Preparation({
 
   return (
     <View>
+      <TabActionHeader
+        label="준비물"
+        count={`${items.length}개`}
+        action="준비물 추가"
+        onPress={() => setAdding(true)}
+      />
       <View
         style={[
           styles.packingJourney,
@@ -1793,7 +1799,7 @@ function Preparation({
         <View style={styles.packingJourneyBody}>
           <View style={styles.packingJourneyCopy}>
             <View>
-              <Text style={[styles.packingJourneyEyebrow, theme && { color: theme.primary }]}>준비물 · {items.length}개</Text>
+              <Text style={[styles.packingJourneyEyebrow, theme && { color: theme.primary }]}>출발 준비</Text>
               <Text style={[styles.packingJourneyTitle, theme && { color: theme.text }]}>
                 {percentage === 100
                   ? "짐 꾸리기 완료!"
@@ -1803,20 +1809,6 @@ function Preparation({
                       ? "하나씩 챙기는 중"
                       : "이제 짐을 꾸려볼까요?"}
               </Text>
-            </View>
-            <View style={styles.packingJourneyActions}>
-              <Pressable
-                onPress={() => setAdding(true)}
-                accessibilityRole="button"
-                accessibilityLabel="준비물 추가"
-                style={({ pressed }) => [
-                  styles.packingJourneyAdd,
-                  theme && { backgroundColor: theme.primary },
-                  pressed && styles.packingCardPressed,
-                ]}
-              >
-                <Text style={styles.packingJourneyAddText}>＋ 준비물 추가</Text>
-              </Pressable>
             </View>
           </View>
           <View style={styles.packingJourneyProgressRow}>
@@ -6277,7 +6269,7 @@ const styles = StyleSheet.create({
     minHeight: 82,
     borderWidth: 1,
     borderRadius: 17,
-    marginTop: 12,
+    marginTop: 0,
     paddingHorizontal: 13,
     paddingVertical: 12,
     flexDirection: "row",
