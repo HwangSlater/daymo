@@ -212,6 +212,10 @@ function AuthScreen({
   const [error, setError] = useState("");
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const oauthBaseUrl = process.env.EXPO_PUBLIC_DAYMO_AUTH_URL?.replace(/\/$/, "");
+  const authFormValid =
+    email.trim().includes("@") &&
+    password.length >= 6 &&
+    (mode === "login" || (Boolean(name.trim()) && password === confirm));
   const submit = () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail.includes("@")) {
@@ -293,15 +297,21 @@ function AuthScreen({
           <Text style={[(s as any).authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
           <Text style={[(s as any).authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
           {mode === "signup" && (
-            <Field theme={theme} label="이름 또는 별명" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
+            <Field theme={theme} label="이름 또는 별명 · 필수" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
           )}
-          <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
-          <Field theme={theme} label="비밀번호" value={password} onChangeText={setPassword} placeholder="6자 이상 입력" secureTextEntry />
+          <Field theme={theme} label="이메일 · 필수" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+          <Field theme={theme} label="비밀번호 · 필수" value={password} onChangeText={setPassword} placeholder="6자 이상 입력" secureTextEntry />
           {mode === "signup" && (
-            <Field theme={theme} label="비밀번호 확인" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
+            <Field theme={theme} label="비밀번호 확인 · 필수" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
           )}
           {error ? <Text style={(s as any).authError}>{error}</Text> : null}
-          <Pressable onPress={submit} style={[(s as any).authSubmit, { backgroundColor: theme.primary }]}>
+          <Pressable
+            onPress={submit}
+            disabled={!authFormValid}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !authFormValid }}
+            style={[(s as any).authSubmit, { backgroundColor: theme.primary }, !authFormValid && (s as any).authSubmitDisabled]}
+          >
             <Text style={(s as any).authSubmitText}>{mode === "login" ? "로그인" : "회원가입"}</Text>
           </Pressable>
           <View style={(s as any).authDivider}>
@@ -320,6 +330,9 @@ function AuthScreen({
                 key={provider.id}
                 disabled={oauthLoading !== null}
                 onPress={() => startOAuth(provider.id as "google" | "apple" | "kakao" | "naver")}
+                accessibilityRole="button"
+                accessibilityLabel={`${provider.label} 계정으로 로그인`}
+                accessibilityState={{ disabled: oauthLoading !== null }}
                 style={[(s as any).oauthButton, { backgroundColor: provider.color, borderColor: provider.id === "google" ? theme.border : provider.color }]}
               >
                 <Text style={[(s as any).oauthMark, { color: provider.text }]}>{provider.mark}</Text>
@@ -5745,6 +5758,7 @@ Object.assign(s, {
     justifyContent: "center",
     marginTop: 12,
   },
+  authSubmitDisabled: { opacity: 0.38 },
   authSubmitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
   authSwitch: { alignItems: "center", paddingTop: 17, paddingBottom: 2 },
   authSwitchText: { fontSize: 11, fontWeight: "700" },
