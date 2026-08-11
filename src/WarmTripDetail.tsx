@@ -965,6 +965,7 @@ function Places({
     .split(/[,#\n]/)
     .map((tag) => tag.trim())
     .filter(Boolean);
+  const placeFormValid = Boolean(name.trim() && mapUrl.includes("naver."));
   const addTag = (tag: string) => {
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
@@ -1409,7 +1410,7 @@ function Places({
       <DetailSheet
         visible={adding}
         title={editingName ? "장소 수정" : "장소 추가"}
-        subtitle="장소 정보와 태그를 입력하세요"
+        subtitle="이름과 지도 링크를 입력하면 저장할 수 있어요"
         submit={
           mapUrl.includes("naver.")
             ? editingName
@@ -1418,19 +1419,19 @@ function Places({
             : "네이버 지도 링크를 입력해 주세요"
         }
         destructiveLabel={editingName ? "장소 삭제" : undefined}
+        submitDisabled={!placeFormValid}
         onDestructive={deletePlace}
         onClose={() => setAdding(false)}
         onSubmit={savePlace}
       >
         <View style={styles.placeFormIntro}>
-          <Text style={styles.placeFormIcon}>#</Text>
-          <Text style={styles.placeFormText}>
-            맛, 분위기, 동선처럼 우리가 중요하게 보는 기준을{`\n`}자유롭게
-            태그로 남길 수 있어요.
-          </Text>
+          <View style={[styles.placeRequiredBadge, theme && { backgroundColor: theme.primarySoft }]}>
+            <Text style={[styles.placeRequiredBadgeText, theme && { color: theme.primary }]}>필수 2개</Text>
+          </View>
+          <Text style={[styles.placeFormText, theme && { color: theme.muted }]}>장소 이름 · 네이버 지도 링크</Text>
         </View>
         <DetailField
-          label="장소 이름"
+          label="장소 이름 · 필수"
           value={name}
           onChangeText={setName}
           placeholder="예: 은행골블랙"
@@ -1453,6 +1454,7 @@ function Places({
         />
         <View style={styles.tagEditor}>
           <Text style={[styles.detailFieldLabel, styles.selectorLabel]}>태그</Text>
+          <Text style={[styles.placeRecommendLabel, theme && { color: theme.muted }]}>추천 태그</Text>
           <View style={styles.tagSuggestions}>
             {["숙소 근처", "웨이팅", "예약", "가성비", "비 오는 날"].map(
               (tag) => (
@@ -1487,8 +1489,8 @@ function Places({
             value={tagText}
             onChangeText={setTagText}
             placeholder="쉼표로 구분 · 예: 초밥, 디너, 조용한 곳"
-            placeholderTextColor="#9AA1AE"
-            style={styles.tagInput}
+            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+            style={[styles.tagInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
           />
           <View style={styles.draftTags}>
             {draftTags.map((tag) => (
@@ -1506,14 +1508,14 @@ function Places({
             ))}
           </View>
         </View>
-        <View style={styles.naverField}>
+        <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
           <View style={styles.naverHead}>
             <View style={styles.naverLogo}>
               <Text style={styles.naverLogoText}>N</Text>
             </View>
             <View>
-              <Text style={styles.naverTitle}>네이버 지도 링크</Text>
-              <Text style={styles.naverHint}>
+              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 필수</Text>
+              <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
                 장소 공유 링크를 붙여넣으세요
               </Text>
             </View>
@@ -1525,7 +1527,7 @@ function Places({
             keyboardType="url"
             placeholder="https://naver.me/..."
             placeholderTextColor="#91A19B"
-            style={styles.naverInput}
+            style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
           />
           {mapUrl.length > 0 && (
             <Text style={styles.linkState}>
@@ -4117,6 +4119,7 @@ function DetailSheet({
   subtitle,
   submit,
   destructiveLabel,
+  submitDisabled = false,
   onClose,
   onSubmit,
   onDestructive,
@@ -4127,6 +4130,7 @@ function DetailSheet({
   subtitle?: string;
   submit: string;
   destructiveLabel?: string;
+  submitDisabled?: boolean;
   onClose: () => void;
   onSubmit: () => void;
   onDestructive?: () => void;
@@ -4214,9 +4218,11 @@ function DetailSheet({
           </ScrollView>
           <Pressable
             onPress={onSubmit}
+            disabled={submitDisabled}
             style={[
               styles.sheetSubmit,
               theme && { backgroundColor: theme.primary },
+              submitDisabled && styles.sheetSubmitDisabled,
             ]}
           >
             <Text style={styles.sheetSubmitText}>{submit}</Text>
@@ -4973,6 +4979,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   sheetSubmitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
+  sheetSubmitDisabled: { opacity: 0.38 },
   sheetSubmitArrow: {
     width: 39,
     height: 39,
@@ -5299,18 +5306,16 @@ const styles = StyleSheet.create({
   planActionText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
   planActionTextDone: { color: "#858B93" },
   placeFormIntro: {
-    borderRadius: 17,
-    backgroundColor: "#E9E5FF",
-    padding: 14,
+    minHeight: 34,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 15,
   },
-  placeFormIcon: { color: "#6556D8", fontSize: 24, marginRight: 11 },
+  placeRequiredBadge: { height: 25, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", marginRight: 8 },
+  placeRequiredBadgeText: { fontSize: 8, fontWeight: "900" },
   placeFormText: {
     color: "#61598C",
-    fontSize: 10,
-    lineHeight: 16,
+    fontSize: 9,
     fontWeight: "700",
   },
   placeSearch: {
@@ -5366,6 +5371,7 @@ const styles = StyleSheet.create({
   manageActionText: { color: "#6556D8", fontSize: 10, fontWeight: "900" },
   tagEditor: { marginBottom: 18 },
   selectorLabel: { marginBottom: 9 },
+  placeRecommendLabel: { fontSize: 8, fontWeight: "800", marginBottom: 7 },
   tagSuggestions: {
     flexDirection: "row",
     flexWrap: "wrap",
