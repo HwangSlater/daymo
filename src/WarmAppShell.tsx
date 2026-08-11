@@ -1751,6 +1751,12 @@ function TripCalendar({
           const trip = trips.find(
             (item) => key >= item.start && key <= item.end,
           );
+          const continuesFromPrevious = Boolean(
+            trip && index % 7 !== 0 && key > trip.start,
+          );
+          const continuesToNext = Boolean(
+            trip && index % 7 !== 6 && key < trip.end,
+          );
           const selected = key === selectedDate;
           return (
             <Pressable
@@ -1762,6 +1768,9 @@ function TripCalendar({
                 trip && {
                   backgroundColor: `${trip.color}${theme.dark ? "38" : "1C"}`,
                 },
+                trip && (s as any).dayRangeCell,
+                trip && !continuesFromPrevious && (s as any).dayRangeStart,
+                trip && !continuesToNext && (s as any).dayRangeEnd,
                 selected && [
                   (s as any).dayCellSelected,
                   { borderColor: theme.text },
@@ -4526,6 +4535,17 @@ Object.assign(s, {
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 2,
+  },
+  dayRangeCell: {
+    borderRadius: 0,
+  },
+  dayRangeStart: {
+    borderTopLeftRadius: 11,
+    borderBottomLeftRadius: 11,
+  },
+  dayRangeEnd: {
+    borderTopRightRadius: 11,
+    borderBottomRightRadius: 11,
   },
   dayCellSelected: { borderWidth: 2, borderColor: "#17233D" },
   dayNumber: { color: "#525762", fontSize: 11, fontWeight: "700" },
