@@ -451,22 +451,19 @@ export function WarmTripDetail({
               onPress={() => setMemoPanel(true)}
               style={[
                 styles.tripMemoButton,
-                appTheme && {
-                  backgroundColor: appTheme.dark ? "#FFF8D8" : "#FFF3B8",
-                  borderColor: appTheme.dark ? "#E8D896" : "#E6D38C",
-                },
+                { backgroundColor: "#FFF8D8", borderColor: "#E8D896" },
               ]}
             >
-              <View style={[styles.tripMemoTape, appTheme?.dark && { backgroundColor: "rgba(232, 177, 157, .62)" }]} />
-              <Text style={[styles.tripMemoLabel, appTheme?.dark && { color: "#98772A" }]}>확인할 것</Text>
-              <Text numberOfLines={1} style={[styles.tripMemoPreview, appTheme && { color: appTheme.dark ? "#54451F" : appTheme.text }]}>
+              <View style={[styles.tripMemoTape, { backgroundColor: "rgba(232, 177, 157, .62)" }]} />
+              <Text style={[styles.tripMemoLabel, { color: "#98772A" }]}>확인할 것</Text>
+              <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: "#54451F" }]}>
                 {tripNotes[0]?.body || "메모를 남겨보세요"}
               </Text>
-              <View style={[styles.tripMemoBottom, appTheme?.dark && { borderTopColor: appTheme.border }]}>
-                <Text style={[styles.tripMemoButtonText, appTheme && { color: appTheme.dark ? "#79652C" : appTheme.muted }]}>메모 {tripNotes.length}개</Text>
-                <Text style={[styles.tripMemoArrow, appTheme && { color: appTheme.dark ? "#98772A" : appTheme.primary }]}>›</Text>
+              <View style={styles.tripMemoBottom}>
+                <Text style={[styles.tripMemoButtonText, { color: "#79652C" }]}>메모 {tripNotes.length}개</Text>
+                <Text style={[styles.tripMemoArrow, { color: "#98772A" }]}>›</Text>
               </View>
-              <View style={[styles.tripMemoFold, appTheme?.dark && { backgroundColor: "#EBDD9F" }]} />
+              <View style={[styles.tripMemoFold, { backgroundColor: "#EBDD9F" }]} />
             </Pressable>
           </View>
           <Text
@@ -657,21 +654,18 @@ export function WarmTripDetail({
                 key={note.id}
                 style={[
                   styles.tripMemoRow,
-                  appTheme && {
-                    backgroundColor: appTheme.dark ? "#FFF9DF" : appTheme.surfaceAlt,
-                    borderColor: appTheme.dark ? "#E7DAA7" : appTheme.border,
-                  },
+                  { backgroundColor: "#FFF9DF", borderColor: "#E7DAA7" },
                 ]}
               >
                 <View style={styles.tripMemoRowHead}>
-                  <Text style={[styles.tripMemoAuthor, appTheme && { color: appTheme.dark ? "#9A6D35" : appTheme.primary }]}>{note.author}</Text>
+                  <Text style={[styles.tripMemoAuthor, { color: "#9A6D35" }]}>{note.author}</Text>
                   <View style={styles.tripMemoActions}>
                     <Pressable onPress={() => {
                       setEditingMemoId(note.id);
                       setMemoDraft(note.body);
                       setMemoEditorOpen(true);
                     }}>
-                      <Text style={[styles.tripMemoEdit, appTheme && { color: appTheme.dark ? "#786D50" : appTheme.muted }]}>수정</Text>
+                      <Text style={[styles.tripMemoEdit, { color: "#786D50" }]}>수정</Text>
                     </Pressable>
                     <Pressable onPress={() => Alert.alert(
                       "메모를 삭제할까요?",
@@ -693,7 +687,7 @@ export function WarmTripDetail({
                     </Pressable>
                   </View>
                 </View>
-                <Text style={[styles.tripMemoBody, appTheme && { color: appTheme.dark ? "#403A2B" : appTheme.text }]}>{note.body}</Text>
+                <Text style={[styles.tripMemoBody, { color: "#403A2B" }]}>{note.body}</Text>
               </View>
             ))}
           </View>
