@@ -1220,7 +1220,7 @@ function Places({
             <View style={[(styles as any).placeMiniTape, { backgroundColor: `${[theme?.primary, theme?.secondary, theme?.accent][index % 3] ?? "#8B7CF6"}38` }]} />
             <View style={(styles as any).placeMiniTop}>
               <View style={[(styles as any).placeMiniStamp, { backgroundColor: [theme?.primarySoft, `${theme?.secondary}1C`, `${theme?.accent}1C`][index % 3] }]}>
-                <Text style={(styles as any).placeMiniEmoji}>{({ 식당: "⌁", 카페: "♨", 구경: "✦", 쇼핑: "▣", 숙소: "⌂" } as Record<string, string>)[place.category] || "⌖"}</Text>
+                <Text style={[(styles as any).placeMiniNumber, { color: [theme?.primary, theme?.secondary, theme?.accent][index % 3] }]}>{String(index + 1).padStart(2, "0")}</Text>
               </View>
               <View style={(styles as any).placeMiniInfo}>
                 <View style={(styles as any).placeMiniTitleRow}>
@@ -1229,7 +1229,7 @@ function Places({
                     <Text style={[(styles as any).placeMiniStatusText, { color: place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.status === "일정" ? "일정에 담김" : "저장"}</Text>
                   </View>
                 </View>
-                <Text style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{String(index + 1).padStart(2, "0")} · {place.area} · {place.category}</Text>
+                <Text style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.area} · {place.category}</Text>
               </View>
             </View>
             <View style={(styles as any).placeMiniTags}>
@@ -1242,7 +1242,7 @@ function Places({
             </View>
             <View style={[(styles as any).placeMiniActions, { borderTopColor: theme?.border ?? "#E5E3DD" }]}>
               <Pressable onPress={() => openEdit(place)} style={[(styles as any).placeMiniIconButton, { backgroundColor: theme?.surfaceAlt ?? "#F4F1EB" }]}>
-                <Text style={[(styles as any).placeMiniIconText, { color: theme?.muted ?? "#727C8D" }]}>✎</Text>
+                <Text style={[(styles as any).placeMiniEditText, { color: theme?.muted ?? "#727C8D" }]}>수정</Text>
               </Pressable>
               <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[(styles as any).placeMiniMapButton, { backgroundColor: place.mapUrl ? "#E6F5ED" : theme?.surfaceAlt }]}>
                 <Text style={[(styles as any).placeMiniMapText, { color: place.mapUrl ? "#16844E" : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
@@ -6819,7 +6819,7 @@ Object.assign(styles, {
   placeMiniTape: { position: "absolute", width: 38, height: 8, top: -4, left: 18, borderRadius: 2, transform: [{ rotate: "-3deg" }] },
   placeMiniTop: { flexDirection: "row", alignItems: "center" },
   placeMiniStamp: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-2deg" }] },
-  placeMiniEmoji: { color: "#5D6470", fontSize: 14, fontWeight: "900" },
+  placeMiniNumber: { fontSize: 9, fontWeight: "900" },
   placeMiniInfo: { flex: 1, minWidth: 0, marginLeft: 10 },
   placeMiniTitleRow: { flexDirection: "row", alignItems: "center" },
   placeMiniName: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: "900" },
@@ -6831,8 +6831,8 @@ Object.assign(styles, {
   placeMiniTagText: { fontSize: 7, fontWeight: "900" },
   placeMiniMore: { fontSize: 7, fontWeight: "800", marginLeft: 2 },
   placeMiniActions: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, marginTop: 5 },
-  placeMiniIconButton: { width: 32, height: 31, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  placeMiniIconText: { fontSize: 12, fontWeight: "900" },
+  placeMiniIconButton: { minWidth: 43, height: 31, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniEditText: { fontSize: 8, fontWeight: "900" },
   placeMiniMapButton: { minWidth: 58, height: 31, borderRadius: 8, paddingHorizontal: 9, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 8, fontWeight: "900" },
   placeMiniPlanButton: { flex: 1, height: 31, borderRadius: 8, alignItems: "center", justifyContent: "center" },
