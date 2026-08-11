@@ -2790,7 +2790,7 @@ function Together({
 function BottomNavIcon({ item, color }: { item: MainView; color: string }) {
   const paths: Record<MainView, string> = {
     홈: "M3 9.5 10 3l7 6.5v7a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1z",
-    여행: "M2.5 11.5 17.5 4l-4 6 3.5 3-2 1-3-2.5-4 4-.5-1 2.5-5-5-3z",
+    여행: "M9 18v-5.5L3 14v-2l6-3.5V4a1 1 0 0 1 2 0v4.5l6 3.5v2l-6-1.5V18l2 1v1l-3-1-3 1v-1z",
     찾기: "M8.5 14a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11zm4-1.5L17 17",
     우리: "M10 17S3 13 3 8.5A3.5 3.5 0 0 1 10 7a3.5 3.5 0 0 1 7 1.5C17 13 10 17 10 17z",
   };
