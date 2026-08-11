@@ -1014,9 +1014,7 @@ function TripsExplorer({
     <>
       <View style={s.screenHead}>
         <View>
-          <Text style={[s.overline, { color: theme.primary }]}>
-            우리의 여행 지도
-          </Text>
+          <Text style={[s.overline, { color: theme.primary }]}>함께 만든 여행</Text>
           <Text style={[s.screenTitle, { color: theme.text }]}>여행</Text>
         </View>
         <Pressable
@@ -1027,11 +1025,14 @@ function TripsExplorer({
             pressed && (s as any).pressed,
           ]}
         >
-          <Text style={s.newTripText}>새 여행</Text>
+          <Text style={s.newTripText}>＋ 새 여행</Text>
         </Pressable>
       </View>
       <View
-        style={[(s as any).viewSwitch, { backgroundColor: theme.surfaceAlt }]}
+        style={[
+          (s as any).viewSwitch,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
       >
         {(["목록", "지도", "캘린더"] as TripView[]).map((item) => (
           <Pressable
@@ -1054,11 +1055,7 @@ function TripsExplorer({
                 display === item && { color: theme.primary },
               ]}
             >
-              {item === "목록"
-                ? "☰  목록"
-                : item === "지도"
-                  ? "⌖  지도"
-                  : "▦  캘린더"}
+              {item}
             </Text>
           </Pressable>
         ))}
@@ -5138,27 +5135,29 @@ Object.assign(s, {
     marginTop: 3,
   },
   newTrip: {
-    borderRadius: 9,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    transform: [{ rotate: "1deg" }],
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    transform: [{ rotate: "0.5deg" }],
   },
   viewSwitch: {
     flexDirection: "row",
-    borderRadius: 0,
-    padding: 0,
-    marginBottom: 18,
-    borderBottomWidth: 1,
-    borderColor: "#DEDCD5",
+    borderRadius: 15,
+    borderWidth: 1,
+    padding: 3,
+    marginBottom: 16,
   },
   viewChoice: {
     flex: 1,
     minHeight: 39,
-    borderRadius: 0,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
-  viewChoiceActive: { borderRadius: 0, borderBottomWidth: 2 },
+  viewChoiceActive: {
+    borderRadius: 11,
+    borderWidth: 1,
+  },
   tripFilters: {
     flexDirection: "row",
     alignSelf: "flex-start",
