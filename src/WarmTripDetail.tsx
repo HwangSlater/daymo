@@ -5237,6 +5237,7 @@ function DetailSheet({
             </Pressable>
           </View>
           <ScrollView
+            style={(styles as any).sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -8407,13 +8408,13 @@ Object.assign(styles, {
     transform: [{ rotate: "-.5deg" }],
   },
   detailFieldInput: {
-    height: 54,
+    height: 49,
     borderRadius: 14,
     paddingHorizontal: 14,
     borderWidth: 1,
   },
   optionChip: {
-    height: 40,
+    height: 38,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 13,
@@ -8431,6 +8432,7 @@ Object.assign(styles, {
     paddingBottom: 24,
     maxHeight: "91%",
   },
+  sheetScroll: { flexGrow: 0, flexShrink: 1 },
 });
 
 Object.assign(styles, {
