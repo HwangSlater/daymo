@@ -4078,6 +4078,8 @@ function Memories() {
   const [cardStyle, setCardStyle] = useState("필름");
   const [cardTitle, setCardTitle] = useState("우리의 구로 여행");
   const [cardCaption, setCardCaption] = useState("천천히 걸어서 더 좋았던 2박 3일");
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const [showAllDiaries, setShowAllDiaries] = useState(false);
   const addPhoto = () => setPhotos((current) => ["#19B6A3", ...current]);
   const addDiary = () => {
     if (!diaryBody.trim()) return;
@@ -4095,6 +4097,31 @@ function Memories() {
   };
   return (
     <View>
+      <View
+        style={[
+          styles.memoryV2Quick,
+          theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={styles.memoryV2QuickCopy}>
+          <Text style={[styles.memoryV2QuickEyebrow, theme && { color: theme.primary }]}>이번 여행 기록</Text>
+          <Text style={[styles.memoryV2QuickTitle, theme && { color: theme.text }]}>사진 {photos.length}장 · 일기 {diaries.length}개</Text>
+        </View>
+        <View style={styles.memoryV2QuickActions}>
+          <Pressable
+            onPress={addPhoto}
+            style={[styles.memoryV2QuickButton, theme && { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[styles.memoryV2QuickButtonText, theme && { color: theme.primary }]}>＋ 사진</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setDiaryWriting(true)}
+            style={[styles.memoryV2QuickButton, theme && { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[styles.memoryV2QuickButtonText, theme && { color: theme.primary }]}>＋ 일기</Text>
+          </Pressable>
+        </View>
+      </View>
       <SectionLabel
         label="여행 기념 카드"
         action="꾸미기"
@@ -4128,10 +4155,10 @@ function Memories() {
       </Pressable>
       <SectionLabel
         label="여행 일기"
-        action="일기 쓰기"
-        onPress={() => setDiaryWriting(true)}
+        action={diaries.length > 2 ? (showAllDiaries ? "접기" : `전체 ${diaries.length}개`) : undefined}
+        onPress={diaries.length > 2 ? () => setShowAllDiaries((value) => !value) : undefined}
       />
-      {diaries.map((diary, index) => (
+      {(showAllDiaries ? diaries : diaries.slice(0, 2)).map((diary, index) => (
         <View
           key={`${diary.date}-${index}`}
           style={[
@@ -4144,9 +4171,13 @@ function Memories() {
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
         </View>
       ))}
-      <SectionLabel label={`여행 사진 · ${photos.length}장`} action="사진 추가" onPress={addPhoto} />
+      <SectionLabel
+        label={`여행 사진 · ${photos.length}장`}
+        action={photos.length > 6 ? (showAllPhotos ? "접기" : "전체 보기") : undefined}
+        onPress={photos.length > 6 ? () => setShowAllPhotos((value) => !value) : undefined}
+      />
       <View style={styles.memoryGrid}>
-        {photos.map((color, index) => (
+        {(showAllPhotos ? photos : photos.slice(0, 6)).map((color, index) => (
           <View
             key={`${color}-${index}`}
             style={[styles.memoryTile, { backgroundColor: color }]}
@@ -5033,6 +5064,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
+  memoryV2Quick: {
+    minHeight: 72,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  memoryV2QuickCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
+  memoryV2QuickEyebrow: { fontSize: 8, fontWeight: "900", letterSpacing: 0.6 },
+  memoryV2QuickTitle: { fontSize: 13, fontWeight: "900", marginTop: 4 },
+  memoryV2QuickActions: { flexDirection: "row", gap: 6 },
+  memoryV2QuickButton: {
+    minHeight: 36,
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  memoryV2QuickButtonText: { fontSize: 8, fontWeight: "900" },
   keepsakePhotos: { width: 112, height: 112, position: "relative", marginRight: 13 },
   keepsakePhoto: {
     position: "absolute",
