@@ -294,6 +294,12 @@ export function WarmTripDetail({
   const [title, setTitle] = useState("서울 구로구");
   const [draftTitle, setDraftTitle] = useState(title);
   const [editingTrip, setEditingTrip] = useState(false);
+  const [memoPanel, setMemoPanel] = useState(false);
+  const [memoDraft, setMemoDraft] = useState("");
+  const [tripNotes, setTripNotes] = useState([
+    { author: "다온 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
+    { author: "하늘 · 어제 22:15", body: "은행골 일요일 13:30 예약 확인" },
+  ]);
   const [hasKitchen, setHasKitchen] = useState(true);
   const [packingItems, setPackingItems] = useState(packing);
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
@@ -370,9 +376,26 @@ export function WarmTripDetail({
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
-            2026. 08. 21 — 08. 23
-          </Text>
+          <View style={styles.detailLeadRow}>
+            <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
+              2026. 08. 21 — 08. 23
+            </Text>
+            <Pressable
+              onPress={() => setMemoPanel(true)}
+              style={[
+                styles.tripMemoButton,
+                appTheme && {
+                  backgroundColor: appTheme.surface,
+                  borderColor: appTheme.border,
+                },
+              ]}
+            >
+              <Text style={[styles.tripMemoButtonText, appTheme && { color: appTheme.primary }]}>메모 확인</Text>
+              <View style={[styles.tripMemoCount, appTheme && { backgroundColor: appTheme.primarySoft }]}>
+                <Text style={[styles.tripMemoCountText, appTheme && { color: appTheme.primary }]}>{tripNotes.length}</Text>
+              </View>
+            </Pressable>
+          </View>
           <Text style={[styles.title, appTheme && { color: appTheme.text }]}>
             {title}
           </Text>
@@ -456,6 +479,46 @@ export function WarmTripDetail({
           )}
           {mode === "기록" && <Memories />}
         </ScrollView>
+        <DetailSheet
+          visible={memoPanel}
+          title="여행 메모"
+          subtitle="함께 확인할 짧은 내용을 남겨두세요"
+          submit={memoDraft.trim() ? "메모 추가" : "닫기"}
+          onClose={() => setMemoPanel(false)}
+          onSubmit={() => {
+            if (memoDraft.trim()) {
+              setTripNotes((current) => [
+                { author: "하늘 · 방금", body: memoDraft.trim() },
+                ...current,
+              ]);
+              setMemoDraft("");
+            } else {
+              setMemoPanel(false);
+            }
+          }}
+        >
+          <View style={styles.tripMemoList}>
+            {tripNotes.map((note, index) => (
+              <View
+                key={`${note.author}-${index}`}
+                style={[
+                  styles.tripMemoRow,
+                  appTheme && { borderBottomColor: appTheme.border },
+                ]}
+              >
+                <Text style={[styles.tripMemoAuthor, appTheme && { color: appTheme.primary }]}>{note.author}</Text>
+                <Text style={[styles.tripMemoBody, appTheme && { color: appTheme.text }]}>{note.body}</Text>
+              </View>
+            ))}
+          </View>
+          <DetailField
+            label="새 메모"
+            value={memoDraft}
+            onChangeText={setMemoDraft}
+            placeholder="예: 체크인 전에 장보기"
+            multiline
+          />
+        </DetailSheet>
         <DetailSheet
           visible={editingTrip}
           title="여행 수정"
@@ -3701,16 +3764,6 @@ function Cooking({
 
 function Memories() {
   const theme = useContext(DetailThemeContext);
-  const [notes, setNotes] = useState([
-    {
-      author: "다온 · 오늘 10:42",
-      body: "육수 재료는 내가 미리 1.5배로 만들어갈게!",
-    },
-    {
-      author: "하늘 · 어제 22:15",
-      body: "은행골은 일요일 13:30으로 생각하고 있어요.",
-    },
-  ]);
   const [photos, setPhotos] = useState([
     "#E7B4A6",
     "#DFC98A",
@@ -3719,8 +3772,6 @@ function Memories() {
     "#C7D493",
     "#9CBBC6",
   ]);
-  const [writing, setWriting] = useState(false);
-  const [draft, setDraft] = useState("");
   const [diaryWriting, setDiaryWriting] = useState(false);
   const [diaryTitle, setDiaryTitle] = useState("");
   const [diaryBody, setDiaryBody] = useState("");
@@ -3735,15 +3786,6 @@ function Memories() {
   const [cardStyle, setCardStyle] = useState("필름");
   const [cardTitle, setCardTitle] = useState("우리의 구로 여행");
   const [cardCaption, setCardCaption] = useState("천천히 걸어서 더 좋았던 2박 3일");
-  const addNote = () => {
-    if (!draft.trim()) return;
-    setNotes((current) => [
-      { author: "하늘 · 방금", body: draft.trim() },
-      ...current,
-    ]);
-    setDraft("");
-    setWriting(false);
-  };
   const addPhoto = () => setPhotos((current) => ["#19B6A3", ...current]);
   const addDiary = () => {
     if (!diaryBody.trim()) return;
@@ -3765,7 +3807,7 @@ function Memories() {
         number="05"
         title="여행 기록"
         caption="사진과 메모로 여행의 순간을 남겨보세요"
-        meta={`사진 ${photos.length}장 · 메모 ${notes.length}개`}
+        meta={`사진 ${photos.length}장 · 일기 ${diaries.length}개`}
         action="사진 추가"
         onAction={addPhoto}
       />
@@ -3818,31 +3860,6 @@ function Memories() {
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
         </View>
       ))}
-      <SectionLabel
-        label="여행 메모"
-        action="메모 추가"
-        onPress={() => setWriting(true)}
-      />
-      {notes.map((note, index) => (
-        <View
-          key={`${note.author}-${index}`}
-          style={[
-            styles.noteCard,
-            theme && {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-              transform: [{ rotate: index % 2 ? ".25deg" : "-.25deg" }],
-            },
-          ]}
-        >
-          <Text style={[styles.noteAuthor, theme && { color: theme.primary }]}>
-            {note.author}
-          </Text>
-          <Text style={[styles.noteBody, theme && { color: theme.text }]}>
-            {note.body}
-          </Text>
-        </View>
-      ))}
       <SectionLabel label="여행 사진" />
       <View style={styles.memoryGrid}>
         {photos.map((color, index) => (
@@ -3889,21 +3906,6 @@ function Memories() {
       >
         <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
         <DetailField label="여행 이야기" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
-      </DetailSheet>
-      <DetailSheet
-        visible={writing}
-        title="메모 추가"
-        submit="메모 저장"
-        onClose={() => setWriting(false)}
-        onSubmit={addNote}
-      >
-        <DetailField
-          label="메모"
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="이번 여행의 이야기를 적어보세요"
-          multiline
-        />
       </DetailSheet>
     </View>
   );
@@ -4366,6 +4368,42 @@ const styles = StyleSheet.create({
   headerMore: { color: "#5D3531", fontSize: 16, letterSpacing: 2 },
   page: { paddingHorizontal: 20, paddingTop: 25, paddingBottom: 48 },
   date: { color: "#B76A59", fontSize: 11, letterSpacing: 1, fontWeight: "900" },
+  detailLeadRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  tripMemoButton: {
+    minHeight: 32,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "#E5E3DD",
+    backgroundColor: "#FFFFFF",
+    paddingLeft: 10,
+    paddingRight: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  tripMemoButtonText: { color: "#B76A59", fontSize: 9, fontWeight: "900" },
+  tripMemoCount: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 7,
+    backgroundColor: "#FFF0ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tripMemoCountText: { color: "#B76A59", fontSize: 8, fontWeight: "900" },
+  tripMemoList: {
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 13,
+    marginBottom: 18,
+  },
+  tripMemoRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#EEEAE5" },
+  tripMemoAuthor: { color: "#B76A59", fontSize: 8, fontWeight: "900" },
+  tripMemoBody: { color: "#35333A", fontSize: 11, lineHeight: 16, marginTop: 5 },
   title: {
     color: "#522F2D",
     fontSize: 36,
