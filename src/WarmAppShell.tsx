@@ -1985,6 +1985,7 @@ function TripDateRangePicker({
                   <View
                     style={[
                       (s as any).rangeDayBand,
+                      { backgroundColor: theme.dark ? `${theme.secondary}28` : `${theme.secondary}1F` },
                       (index % 7 === 0 || startsRange) &&
                         (s as any).rangeDayBandStart,
                       (index % 7 === 6 || endsRange) &&
@@ -1995,11 +1996,13 @@ function TripDateRangePicker({
                   />
                 )}
                 {valid && (
-                  <View style={[edge && (s as any).rangeDayCircle]}>
+                  <View style={[edge && (s as any).rangeDayCircle, edge && { backgroundColor: theme.secondary }]}>
                     <Text
                       style={[
                         (s as any).rangeDayText,
+                        { color: theme.muted },
                         inRange && (s as any).rangeDayTextActive,
+                        inRange && { color: theme.dark ? theme.secondary : "#087D70" },
                         edge && (s as any).rangeDayTextEdge,
                       ]}
                     >
