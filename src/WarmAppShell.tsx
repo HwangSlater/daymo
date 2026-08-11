@@ -983,7 +983,13 @@ function TripsExplorer({
                   </Pressable>
                 ))}
               </View>
-              <TripRows items={filtered} open={open} theme={theme} />
+              <TripRows
+                items={filtered}
+                open={open}
+                theme={theme}
+                emptyAction={filter === "전체" ? undefined : () => setFilter("전체")}
+                emptyActionLabel="전체 여행 보기"
+              />
             </>
           )}
           {display === "캘린더" && (
@@ -1126,11 +1132,15 @@ function TripRows({
   open,
   compact,
   theme,
+  emptyAction,
+  emptyActionLabel,
 }: {
   items: Trip[];
   open: () => void;
   compact?: boolean;
   theme: AppTheme;
+  emptyAction?: () => void;
+  emptyActionLabel?: string;
 }) {
   if (!items.length)
     return (
@@ -1138,6 +1148,16 @@ function TripRows({
         <Text style={[(s as any).noTripsText, { color: theme.muted }]}>
           이 조건에 맞는 여행이 없어요.
         </Text>
+        {emptyAction && (
+          <Pressable
+            onPress={emptyAction}
+            style={[(s as any).emptyInlineAction, { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[(s as any).emptyInlineActionText, { color: theme.primary }]}>
+              {emptyActionLabel}
+            </Text>
+          </Pressable>
+        )}
       </View>
     );
   return (
@@ -1454,7 +1474,7 @@ function KoreaTripMap({
             </ScrollView>
           ) : (
             <Text style={(s as any).mapTrayEmpty}>
-              다른 지역을 눌러 여행을 찾아보세요.
+              이 지역에는 아직 여행이 없어요. 다른 지역을 선택해 보세요.
             </Text>
           )}
         </View>
@@ -2120,6 +2140,17 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
           <Text style={[(s as any).searchEmptyCopy, { color: theme.muted }]}>
             다른 단어나 카테고리로 검색해 보세요.
           </Text>
+          {(query || category !== "전체") && (
+            <Pressable
+              onPress={() => {
+                setQuery("");
+                setCategory("전체");
+              }}
+              style={[(s as any).emptyInlineAction, { backgroundColor: theme.primarySoft }]}
+            >
+              <Text style={[(s as any).emptyInlineActionText, { color: theme.primary }]}>검색 초기화</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </ScrollView>
@@ -4491,6 +4522,15 @@ Object.assign(s, {
   searchEmpty: { paddingVertical: 55, alignItems: "center" },
   searchEmptyTitle: { color: "#394353", fontSize: 14, fontWeight: "900" },
   searchEmptyCopy: { color: "#959BA2", fontSize: 11, marginTop: 6 },
+  emptyInlineAction: {
+    minHeight: 36,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  emptyInlineActionText: { fontSize: 11, fontWeight: "900" },
   togetherHead: {
     flexDirection: "row",
     justifyContent: "space-between",

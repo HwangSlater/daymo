@@ -3902,6 +3902,12 @@ function Cooking({
           >
             요리별로 재료와 담당을 나눌 수 있어요.
           </Text>
+          <Pressable
+            onPress={() => setAddingRecipe(true)}
+            style={[styles.emptyCookingAction, theme && { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[styles.emptyCookingActionText, theme && { color: theme.primary }]}>첫 요리 추가</Text>
+          </Pressable>
         </View>
       ) : (
         <>
@@ -4687,7 +4693,12 @@ function EmptyState({
         <Text style={[styles.emptyStateTitle, theme && { color: theme.text }]}>{title}</Text>
         <Text style={[styles.emptyStateDescription, theme && { color: theme.muted }]}>{description}</Text>
       </View>
-      <Pressable onPress={onPress} style={[styles.emptyStateAction, theme && { backgroundColor: theme.primarySoft }]}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={action}
+        style={[styles.emptyStateAction, theme && { backgroundColor: theme.primarySoft }]}
+      >
         <Text style={[styles.emptyStateActionText, theme && { color: theme.primary }]}>{action}</Text>
       </Pressable>
     </View>
@@ -7679,6 +7690,15 @@ const styles = StyleSheet.create({
   },
   emptyCookingTitle: { color: "#4B4745", fontSize: 15, fontWeight: "900" },
   emptyCookingText: { color: "#99928D", fontSize: 11, marginTop: 6 },
+  emptyCookingAction: {
+    minHeight: 38,
+    borderRadius: 11,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  emptyCookingActionText: { fontSize: 11, fontWeight: "900" },
   cookingEyebrow: {
     color: "#A16E35",
     fontSize: 11,
