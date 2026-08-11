@@ -541,7 +541,13 @@ function NotebookHome({
           </View>
         </View>
         </Pressable>
-        <View style={(s as any).pencilActions}>
+      </View>
+      <View
+        style={[
+          (s as any).pencilActions,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
         <HomeQuick
           theme={theme}
           icon="＋"
@@ -569,7 +575,6 @@ function NotebookHome({
           onPress={() => open("preparation", trip)}
           embedded
         />
-        </View>
       </View>
       <View style={(s as any).noteTitleRow}>
         <View>
@@ -3782,7 +3787,15 @@ Object.assign(s, {
     flexDirection: "row",
     gap: 8,
     marginTop: 10,
-    paddingTop: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   noteTitleRow: {
     flexDirection: "row",
