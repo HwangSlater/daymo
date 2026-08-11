@@ -3146,9 +3146,17 @@ function Cooking({
   const [recipeName, setRecipeName] = useState("");
   const [recipeNote, setRecipeNote] = useState("");
   const [recipeUrl, setRecipeUrl] = useState("");
+  const [readyIngredientIds, setReadyIngredientIds] = useState<string[]>([]);
+  const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>([]);
   const activeRecipe =
     recipes.find((recipe) => recipe.id === activeId) || recipes[0];
   const ingredients = activeRecipe?.ingredients || [];
+  const readyIngredientCount = ingredients.filter((item) =>
+    readyIngredientIds.includes(item.id),
+  ).length;
+  const ingredientProgress = ingredients.length
+    ? Math.round((readyIngredientCount / ingredients.length) * 100)
+    : 0;
   const groups = Array.from(new Set(ingredients.map((item) => item.group)));
   const myCookingIngredients = recipes.flatMap((recipe) =>
     recipe.ingredients
@@ -3451,37 +3459,39 @@ function Cooking({
                 onPress={() => setAddingRecipe(true)}
                 style={[styles.recipeSelectorAdd, theme && { backgroundColor: theme.primarySoft }]}
               >
-                <Text style={[styles.recipeSelectorAddText, theme && { color: theme.primary }]}>＋ 요리</Text>
+                <Text style={[styles.recipeSelectorAddText, theme && { color: theme.primary }]}>＋ 요리 추가</Text>
               </Pressable>
             </View>
           </View>
-          <View style={[styles.recipeList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {recipes.slice(0, 4).map((recipe, index) => {
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cookV2MenuList}
+          >
+            {recipes.map((recipe, index) => {
               const selected = recipe.id === activeId;
               return (
                 <Pressable
                   key={recipe.id}
                   onPress={() => setActiveId(recipe.id)}
                   style={[
-                    styles.recipeListRow,
-                    index > 0 && styles.recipeListRowBorder,
-                    theme && index > 0 && { borderTopColor: theme.border },
-                    selected && theme && { backgroundColor: theme.primarySoft },
+                    styles.cookV2MenuCard,
+                    theme && {
+                      backgroundColor: selected ? theme.primarySoft : theme.surface,
+                      borderColor: selected ? theme.primary : theme.border,
+                    },
                   ]}
                 >
-                  <View style={[styles.recipeListNumber, theme && { backgroundColor: selected ? theme.primary : theme.surfaceAlt }]}>
-                    <Text style={[styles.recipeListNumberText, theme && { color: selected ? "#FFFFFF" : theme.muted }]}>{index + 1}</Text>
+                  <View style={styles.cookV2MenuTop}>
+                    <Text style={[styles.cookV2MenuNumber, theme && { color: selected ? theme.primary : theme.muted }]}>MENU {String(index + 1).padStart(2, "0")}</Text>
+                    <Text style={[styles.cookV2MenuCount, theme && { color: selected ? theme.primary : theme.muted }]}>{recipe.ingredients.length}개</Text>
                   </View>
-                  <View style={styles.recipeListCopy}>
-                    <Text numberOfLines={1} style={[styles.recipeListName, theme && { color: theme.text }]}>{recipe.name}</Text>
-                    <Text numberOfLines={1} style={[styles.recipeListNote, theme && { color: theme.muted }]}>{recipe.note}</Text>
-                  </View>
-                  <Text style={[styles.recipeListCount, theme && { color: selected ? theme.primary : theme.muted }]}>{recipe.ingredients.length}개</Text>
-                  <Text style={[styles.recipeListArrow, theme && { color: selected ? theme.primary : theme.muted }]}>›</Text>
+                  <Text numberOfLines={1} style={[styles.cookV2MenuName, theme && { color: theme.text }]}>{recipe.name}</Text>
+                  <Text numberOfLines={1} style={[styles.cookV2MenuNote, theme && { color: theme.muted }]}>{recipe.note}</Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       )}
       {myCookingIngredients.length > 0 && (
@@ -3556,6 +3566,20 @@ function Cooking({
                   <Text style={[styles.recipeLinkText, theme && { color: theme.primary }]}>레시피 영상 보기</Text>
                 </Pressable>
               ) : null}
+              <View style={styles.cookV2ProgressRow}>
+                <View style={[styles.cookV2ProgressTrack, theme && { backgroundColor: theme.primarySoft }]}>
+                  <View
+                    style={[
+                      styles.cookV2ProgressFill,
+                      { width: `${ingredientProgress}%` },
+                      theme && { backgroundColor: theme.primary },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.cookV2ProgressText, theme && { color: theme.muted }]}>
+                  {readyIngredientCount}/{ingredients.length} 준비
+                </Text>
+              </View>
             </View>
             <View style={styles.cookingHeroActions}>
               <Pressable
@@ -3569,8 +3593,8 @@ function Cooking({
                 <Text style={[styles.cookingMoreText, theme && { color: theme.muted }]}>···</Text>
               </Pressable>
               <View style={styles.cookingCount}>
-                <Text style={styles.cookingCountText}>{ingredients.length}</Text>
-                <Text style={styles.cookingCountLabel}>재료</Text>
+                <Text style={[styles.cookingCountText, theme && { color: theme.primary }]}>{ingredientProgress}%</Text>
+                <Text style={[styles.cookingCountLabel, theme && { color: theme.muted }]}>준비</Text>
               </View>
             </View>
           </View>
@@ -3585,8 +3609,11 @@ function Cooking({
               <Text style={styles.placeAddText}>+ 재료</Text>
             </Pressable>
           </View>
-          {groups.map((section) => (
-            <View
+          {groups.map((section) => {
+            const sectionItems = ingredients.filter((item) => item.group === section);
+            const collapsed = collapsedCookingGroups.includes(section);
+            return (
+              <View
               key={section}
               style={[
                 styles.cookingSection,
@@ -3600,30 +3627,69 @@ function Cooking({
                   ],
                 },
               ]}
-            >
-              <Text
-                style={[
-                  styles.cookingSectionTitle,
-                  theme && { color: theme.text },
-                ]}
               >
-                {section}
-              </Text>
-              {ingredients
-                .filter((item) => item.group === section)
-                .map((item) => (
+              <Pressable
+                onPress={() =>
+                  setCollapsedCookingGroups((current) =>
+                    current.includes(section)
+                      ? current.filter((groupName) => groupName !== section)
+                      : [...current, section],
+                  )
+                }
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !collapsed }}
+                style={styles.cookV2SectionHead}
+              >
+                <View style={styles.cookV2SectionTitleRow}>
+                  <View style={[styles.cookV2SectionLabel, theme && { backgroundColor: theme.primarySoft }]}>
+                    <Text style={[styles.cookV2SectionLabelText, theme && { color: theme.primary }]}>재료</Text>
+                  </View>
+                  <Text style={[styles.cookingSectionTitle, styles.cookV2SectionTitle, theme && { color: theme.text }]}>{section}</Text>
+                </View>
+                <View style={styles.cookV2SectionActions}>
+                  <Text style={[styles.cookV2SectionCount, theme && { color: theme.muted }]}>{sectionItems.length}개</Text>
+                  <Text style={[styles.cookV2SectionToggle, theme && { color: theme.muted }]}>{collapsed ? "＋" : "−"}</Text>
+                </View>
+              </Pressable>
+              {!collapsed && sectionItems.map((item) => (
                   <Pressable
                     key={item.id}
                     onPress={() => openIngredientEdit(item)}
                     onLongPress={() => removeIngredient(item)}
-                    style={styles.ingredientRow}
+                    style={[
+                      styles.ingredientRow,
+                      readyIngredientIds.includes(item.id) && styles.cookV2IngredientDone,
+                    ]}
                   >
-                    <View style={styles.ingredientDot} />
+                    <Pressable
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        setReadyIngredientIds((current) =>
+                          current.includes(item.id)
+                            ? current.filter((id) => id !== item.id)
+                            : [...current, item.id],
+                        );
+                      }}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: readyIngredientIds.includes(item.id) }}
+                      style={[
+                        styles.cookV2IngredientCheck,
+                        theme && {
+                          borderColor: readyIngredientIds.includes(item.id) ? theme.primary : theme.border,
+                          backgroundColor: readyIngredientIds.includes(item.id) ? theme.primary : theme.surface,
+                        },
+                      ]}
+                    >
+                      {readyIngredientIds.includes(item.id) && (
+                        <Text style={styles.cookV2IngredientTick}>✓</Text>
+                      )}
+                    </Pressable>
                     <View style={styles.ingredientBody}>
                       <Text
                         style={[
                           styles.ingredientName,
                           theme && { color: theme.text },
+                          readyIngredientIds.includes(item.id) && styles.cookV2IngredientNameDone,
                         ]}
                       >
                         {item.name}
@@ -3643,9 +3709,10 @@ function Cooking({
                   </Pressable>
                 ))}
             </View>
-          ))}
+            );
+          })}
           <Text style={styles.longPressHint}>
-            재료를 누르면 수정하고, 길게 누르면 삭제할 수 있어요.
+            왼쪽 원은 준비 체크 · 재료를 누르면 수정할 수 있어요.
           </Text>
           <View
             style={[
@@ -6368,6 +6435,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
+  cookV2ProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 11,
+  },
+  cookV2ProgressTrack: { flex: 1, height: 6, borderRadius: 999, overflow: "hidden" },
+  cookV2ProgressFill: { height: 6, borderRadius: 999 },
+  cookV2ProgressText: { fontSize: 8, fontWeight: "900" },
   recipeHead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -6392,10 +6468,35 @@ const styles = StyleSheet.create({
   },
   recipeSelectorTitle: { color: "#777F8C", fontSize: 10, fontWeight: "900" },
   recipeSelectorActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  recipeSelectorAdd: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
-  recipeSelectorAddText: { fontSize: 8, fontWeight: "900" },
+  recipeSelectorAdd: {
+    minHeight: 36,
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recipeSelectorAddText: { fontSize: 9, fontWeight: "900" },
   recipeSelectorCount: { color: "#92909A", fontSize: 8, fontWeight: "700" },
   recipeSelectorMore: { color: "#D9685F", fontSize: 9, fontWeight: "900" },
+  cookV2MenuList: { gap: 8, paddingRight: 12 },
+  cookV2MenuCard: {
+    width: 142,
+    minHeight: 76,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  cookV2MenuTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 7,
+  },
+  cookV2MenuNumber: { fontSize: 7, fontWeight: "900", letterSpacing: 0.7 },
+  cookV2MenuCount: { fontSize: 8, fontWeight: "900" },
+  cookV2MenuName: { fontSize: 12, fontWeight: "900" },
+  cookV2MenuNote: { fontSize: 8, fontWeight: "700", marginTop: 4 },
   recipeList: {
     borderRadius: 14,
     borderWidth: 1,
@@ -6651,6 +6752,19 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 7,
   },
+  cookV2SectionHead: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cookV2SectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  cookV2SectionTitle: { marginBottom: 0 },
+  cookV2SectionLabel: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 4 },
+  cookV2SectionLabelText: { fontSize: 7, fontWeight: "900" },
+  cookV2SectionActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cookV2SectionCount: { fontSize: 8, fontWeight: "800" },
+  cookV2SectionToggle: { width: 16, fontSize: 14, fontWeight: "800", textAlign: "center" },
   ingredientRow: {
     minHeight: 45,
     flexDirection: "row",
@@ -6658,6 +6772,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#F2EEE9",
   },
+  cookV2IngredientDone: { opacity: 0.68 },
+  cookV2IngredientCheck: {
+    width: 23,
+    height: 23,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  cookV2IngredientTick: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  cookV2IngredientNameDone: { textDecorationLine: "line-through" },
   ingredientDot: {
     width: 6,
     height: 6,
