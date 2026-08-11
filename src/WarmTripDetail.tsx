@@ -5175,28 +5175,17 @@ function DetailSheet({
             style={[
               styles.sheetHead,
               styles.sheetHeadDecorated,
-              { backgroundColor: `${sheetAccent}0D`, borderColor: `${sheetAccent}45` },
+              { backgroundColor: `${sheetAccent}0B`, borderColor: `${sheetAccent}30` },
             ]}
           >
-            <View style={[styles.sheetHeadTape, { backgroundColor: `${sheetAccent}66` }]} />
             <View style={styles.sheetHeadMain}>
-              <View
-                style={[
-                  styles.sheetMark,
-                  { backgroundColor: `${sheetAccent}18` },
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.sheetMarkText,
-                    { color: sheetAccent },
-                  ]}
-                >
-                  {sheetKind}
-                </Text>
-              </View>
               <View style={styles.sheetHeadCopy}>
+                <View style={styles.sheetKindRow}>
+                  <View style={[styles.sheetKindDot, { backgroundColor: sheetAccent }]} />
+                  <Text style={[styles.sheetKindText, { color: sheetAccent }]}>{sheetKind} 작성</Text>
+                  <View style={[styles.sheetRouteLine, { backgroundColor: `${sheetAccent}40` }]} />
+                  <View style={[styles.sheetRouteDot, { borderColor: sheetAccent }]} />
+                </View>
                 <Text
                   style={[styles.sheetTitle, theme && { color: theme.text }]}
                 >
@@ -5236,7 +5225,7 @@ function DetailSheet({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={[styles.sheetFormBody, { borderLeftColor: `${sheetAccent}55` }]}>
+            <View style={styles.sheetFormBody}>
               {children}
             </View>
           </ScrollView>
@@ -6170,23 +6159,15 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "-3deg" }],
   },
   sheetFormBody: {
-    borderLeftWidth: 2,
-    paddingLeft: 12,
-    paddingRight: 1,
+    paddingHorizontal: 1,
   },
   sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
   sheetHeadCopy: { flex: 1 },
-  sheetMark: {
-    minWidth: 42,
-    height: 42,
-    borderRadius: 14,
-    paddingHorizontal: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    transform: [{ rotate: "-3deg" }],
-  },
-  sheetMarkText: { fontSize: 11, fontWeight: "900", letterSpacing: 0.4 },
+  sheetKindRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+  sheetKindDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
+  sheetKindText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
+  sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 5 },
+  sheetRouteDot: { width: 6, height: 6, borderRadius: 3, borderWidth: 1.5 },
   sheetTitle: {
     color: "#17233D",
     fontSize: 24,
@@ -6222,11 +6203,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   infoPanelCloseText: { fontSize: 15, lineHeight: 19, fontWeight: "700" },
-  detailField: { marginBottom: 17 },
+  detailField: { marginBottom: 14 },
   fieldLabelRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 7,
   },
   fieldLabelDot: { width: 5, height: 5, borderRadius: 3, marginRight: 7 },
   detailFieldLabel: {
@@ -6236,7 +6217,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   detailFieldInput: {
-    height: 51,
+    height: 49,
     borderRadius: 15,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 15,
@@ -6251,7 +6232,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   sheetSubmit: {
-    height: 53,
+    height: 50,
     borderRadius: 17,
     backgroundColor: "#17233D",
     alignItems: "center",
