@@ -1307,8 +1307,7 @@ const parseNaverPlaceShare = (text: string) => {
   const address = details[1] ?? "";
   const addressParts = address.split(/\s+/).filter(Boolean);
   const area = addressParts.slice(0, 2).join(" ") || "지역 미정";
-  const lodging = /(호텔|리조트|펜션|모텔|게스트하우스|숙소)/.test(name);
-  return { name, address, area, url, lodging };
+  return { name, address, area, url };
 };
 
 function Places({
@@ -1394,7 +1393,7 @@ function Places({
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
   };
-  const applyNaverShare = (text: string) => {
+  const applyNaverShare = (text: string, registerAsStay = false) => {
     const parsed = parseNaverPlaceShare(text);
     if (!parsed) {
       setMapUrl(text.trim());
@@ -1404,21 +1403,21 @@ function Places({
     setArea(parsed.area);
     setAddress(parsed.address);
     setMapUrl(parsed.url);
-    if (parsed.lodging) {
+    if (registerAsStay) {
       setCategory("숙소");
       if (!draftTags.includes("숙소"))
         setTagText((current) => (current.trim() ? `${current}, 숙소` : "숙소"));
     }
-    notify(`${parsed.name} 정보를 채웠어요`);
+    notify(registerAsStay ? `${parsed.name}을(를) 숙소로 채웠어요` : `${parsed.name} 정보를 채웠어요`);
     return true;
   };
-  const pasteNaverShare = async () => {
+  const pasteNaverShare = async (registerAsStay = false) => {
     const clipboard = await Clipboard.getStringAsync();
     if (!clipboard.trim()) {
       notify("복사한 네이버 지도 정보가 없어요");
       return;
     }
-    if (!applyNaverShare(clipboard))
+    if (!applyNaverShare(clipboard, registerAsStay))
       notify("네이버 지도 공유 텍스트나 링크를 확인해 주세요");
   };
   const resetForm = () => {
@@ -1852,26 +1851,40 @@ function Places({
         onSubmit={savePlace}
       >
         {!editingName && (
-          <Pressable
-            onPress={pasteNaverShare}
-            accessibilityRole="button"
-            accessibilityLabel="네이버 지도에서 복사한 장소 자동 입력"
+          <View
             style={[
               styles.naverAutoFill,
               theme && { backgroundColor: theme.dark ? "#16352C" : "#EAF7F0", borderColor: theme.dark ? "#245544" : "#BFE8D1" },
             ]}
           >
-            <View style={styles.naverLogo}>
-              <Text style={styles.naverLogoText}>N</Text>
+            <View style={styles.naverAutoFillHead}>
+              <View style={styles.naverLogo}>
+                <Text style={styles.naverLogoText}>N</Text>
+              </View>
+              <View style={styles.naverAutoFillCopy}>
+                <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>복사한 장소 자동 입력</Text>
+                <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>등록 방법을 선택하면 공유 내용을 한 번에 채워요</Text>
+              </View>
             </View>
-            <View style={styles.naverAutoFillCopy}>
-              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>복사한 장소 자동 입력</Text>
-              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>네이버 지도에서 공유한 내용을 한 번에 채워요</Text>
+            <View style={styles.naverAutoFillActions}>
+              <Pressable
+                onPress={() => pasteNaverShare(false)}
+                accessibilityRole="button"
+                accessibilityLabel="복사한 내용을 일반 장소로 입력"
+                style={styles.naverAutoFillButton}
+              >
+                <Text style={styles.naverAutoFillButtonText}>장소로 입력</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => pasteNaverShare(true)}
+                accessibilityRole="button"
+                accessibilityLabel="복사한 내용을 숙소로 등록"
+                style={[styles.naverAutoFillButton, styles.naverStayButton]}
+              >
+                <Text style={[styles.naverAutoFillButtonText, styles.naverStayButtonText]}>숙소로 등록</Text>
+              </Pressable>
             </View>
-            <View style={styles.naverAutoFillButton}>
-              <Text style={styles.naverAutoFillButtonText}>붙여넣기</Text>
-            </View>
-          </Pressable>
+          </View>
         )}
         <View style={styles.placeFormIntro}>
           <View style={[styles.placeRequiredBadge, theme && { backgroundColor: theme.primarySoft }]}>
@@ -6571,19 +6584,21 @@ const styles = StyleSheet.create({
   naverHead: { flexDirection: "row", alignItems: "center", marginBottom: 13 },
   naverCopy: { flex: 1, minWidth: 0 },
   naverAutoFill: {
-    minHeight: 68,
+    minHeight: 102,
     borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 13,
-    flexDirection: "row",
-    alignItems: "center",
+    padding: 13,
     marginBottom: 14,
   },
+  naverAutoFillHead: { flexDirection: "row", alignItems: "center" },
   naverAutoFillCopy: { flex: 1, minWidth: 0 },
   naverAutoFillTitle: { fontSize: 12, fontWeight: "900" },
   naverAutoFillText: { fontSize: 10, lineHeight: 14, marginTop: 3 },
-  naverAutoFillButton: { height: 34, borderRadius: 11, backgroundColor: "#FFFFFF", paddingHorizontal: 10, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  naverAutoFillActions: { flexDirection: "row", gap: 7, marginTop: 11 },
+  naverAutoFillButton: { flex: 1, height: 38, borderRadius: 11, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   naverAutoFillButtonText: { color: "#16844E", fontSize: 11, fontWeight: "900" },
+  naverStayButton: { backgroundColor: "#03C75A" },
+  naverStayButtonText: { color: "#FFFFFF" },
   naverLogo: {
     width: 30,
     height: 30,
