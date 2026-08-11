@@ -1813,8 +1813,58 @@ function Preparation({
         action="준비물 추가"
         onAction={() => setAdding(true)}
       />
-      <View style={styles.compactTrack}>
-        <View style={[styles.progressFill, { width: `${percentage}%` }]} />
+      <View
+        style={[
+          styles.packingJourney,
+          theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View style={[styles.packingJourneyStamp, theme && { backgroundColor: theme.primarySoft }]}>
+          <View style={[styles.packingSuitcaseHandle, theme && { borderColor: theme.primary }]} />
+          <View style={[styles.packingSuitcaseBody, theme && { backgroundColor: theme.primary, borderColor: theme.primary }]}>
+            <View style={styles.packingSuitcaseStrap} />
+            <View style={styles.packingSuitcaseSticker}>
+              <Text style={[styles.packingSuitcaseStickerText, theme && { color: theme.primary }]}>D</Text>
+            </View>
+          </View>
+          <View style={styles.packingSuitcaseFeet}>
+            <View style={[styles.packingSuitcaseFoot, theme && { backgroundColor: theme.primary }]} />
+            <View style={[styles.packingSuitcaseFoot, theme && { backgroundColor: theme.primary }]} />
+          </View>
+        </View>
+        <View style={styles.packingJourneyBody}>
+          <View style={styles.packingJourneyCopy}>
+            <View>
+              <Text style={[styles.packingJourneyEyebrow, theme && { color: theme.primary }]}>출발 준비</Text>
+              <Text style={[styles.packingJourneyTitle, theme && { color: theme.text }]}>
+                {percentage === 100
+                  ? "짐 꾸리기 완료!"
+                  : percentage >= 60
+                    ? "거의 다 챙겼어요"
+                    : percentage > 0
+                      ? "하나씩 챙기는 중"
+                      : "이제 짐을 꾸려볼까요?"}
+              </Text>
+            </View>
+            <Text style={[styles.packingJourneyPercent, theme && { color: theme.primary }]}>{percentage}%</Text>
+          </View>
+          <View style={[styles.packingJourneyTrack, theme && { backgroundColor: theme.primarySoft }]}>
+            <View style={[styles.packingJourneyFill, { width: `${percentage}%` }, theme && { backgroundColor: theme.primary }]} />
+            {[0, 50, 100].map((point) => (
+              <View
+                key={point}
+                style={[
+                  styles.packingJourneyPoint,
+                  { left: `${point}%` },
+                  theme && {
+                    backgroundColor: percentage >= point ? theme.primary : theme.surface,
+                    borderColor: percentage >= point ? theme.primary : theme.border,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        </View>
       </View>
       <View
         style={[
@@ -2066,8 +2116,11 @@ function Preparation({
         </View>
       </View>
       <View style={styles.packingList}>
-        {remainingGroups.map(([sourceTag, taggedItems]) => {
+        {remainingGroups.map(([sourceTag, taggedItems], groupIndex) => {
           const collapsed = collapsedPackingTags.includes(sourceTag);
+          const groupAccent = theme
+            ? [theme.primary, theme.secondary, theme.accent][groupIndex % 3]
+            : ["#FF6B63", "#55BFB4", "#8B7CF6"][groupIndex % 3];
           const allInGroup = items.filter(
             (item) => (packingTags(item)[0] || "태그 없음") === sourceTag,
           );
@@ -2081,7 +2134,7 @@ function Preparation({
                 styles.packingV2Group,
                 theme && {
                   backgroundColor: theme.surface,
-                  borderColor: theme.border,
+                  borderColor: `${groupAccent}55`,
                 },
               ]}
             >
@@ -2098,20 +2151,24 @@ function Preparation({
                 accessibilityLabel={`${sourceTag} 준비물 ${collapsed ? "펼치기" : "접기"}`}
                 style={({ pressed }) => [
                   styles.packingV2GroupHead,
+                  { backgroundColor: `${groupAccent}0D` },
                   pressed && styles.packingV2GroupHeadPressed,
                 ]}
               >
                 <View>
-                  <Text style={[styles.packingV2GroupTitle, theme && { color: theme.text }]}>
-                    {sourceTag}
-                  </Text>
+                  <View style={styles.packingV2GroupTitleRow}>
+                    <View style={[styles.packingV2GroupSticker, { backgroundColor: `${groupAccent}20` }]}>
+                      <Text style={[styles.packingV2GroupStickerText, { color: groupAccent }]}>PACK {String(groupIndex + 1).padStart(2, "0")}</Text>
+                    </View>
+                    <Text style={[styles.packingV2GroupTitle, theme && { color: theme.text }]}>{sourceTag}</Text>
+                  </View>
                   <Text style={[styles.packingV2GroupProgress, theme && { color: theme.muted }]}>
                     {doneInGroup}/{allInGroup.length} 완료
                   </Text>
                 </View>
                 <View style={styles.packingV2GroupActions}>
-                  <View style={[styles.packingV2GroupCount, theme && { backgroundColor: theme.primarySoft }]}>
-                    <Text style={[styles.packingV2GroupCountText, theme && { color: theme.primary }]}>
+                  <View style={[styles.packingV2GroupCount, { backgroundColor: `${groupAccent}18` }]}>
+                    <Text style={[styles.packingV2GroupCountText, { color: groupAccent }]}>
                       {taggedItems.length}개 남음
                     </Text>
                   </View>
@@ -5889,6 +5946,97 @@ const styles = StyleSheet.create({
   },
   packingOwnerChangeText: { fontSize: 8, fontWeight: "900" },
   packingV2Hidden: { display: "none" },
+  packingJourney: {
+    minHeight: 82,
+    borderWidth: 1,
+    borderRadius: 17,
+    marginTop: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  packingJourneyStamp: {
+    width: 49,
+    height: 54,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    transform: [{ rotate: "-3deg" }],
+  },
+  packingSuitcaseHandle: {
+    width: 18,
+    height: 7,
+    borderWidth: 2,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 5,
+    borderTopRightRadius: 5,
+    marginBottom: -1,
+  },
+  packingSuitcaseBody: {
+    width: 31,
+    height: 34,
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: "hidden",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  packingSuitcaseStrap: {
+    width: 4,
+    height: "100%",
+    backgroundColor: "rgba(255,255,255,0.34)",
+  },
+  packingSuitcaseSticker: {
+    position: "absolute",
+    right: 4,
+    top: 5,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  packingSuitcaseStickerText: { fontSize: 5, fontWeight: "900" },
+  packingSuitcaseFeet: {
+    width: 24,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  packingSuitcaseFoot: { width: 4, height: 3, borderBottomLeftRadius: 2, borderBottomRightRadius: 2 },
+  packingJourneyBody: { flex: 1 },
+  packingJourneyCopy: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  packingJourneyEyebrow: {
+    fontSize: 8,
+    lineHeight: 11,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+  },
+  packingJourneyTitle: { fontSize: 12, lineHeight: 17, fontWeight: "900", marginTop: 1 },
+  packingJourneyPercent: { fontSize: 17, lineHeight: 20, fontWeight: "900" },
+  packingJourneyTrack: {
+    height: 6,
+    borderRadius: 999,
+    position: "relative",
+    marginHorizontal: 4,
+  },
+  packingJourneyFill: { height: 6, borderRadius: 999 },
+  packingJourneyPoint: {
+    position: "absolute",
+    top: -3,
+    width: 12,
+    height: 12,
+    marginLeft: -6,
+    borderRadius: 6,
+    borderWidth: 2,
+  },
   packingV2Controls: {
     borderWidth: 1,
     borderRadius: 14,
@@ -5947,6 +6095,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   packingV2GroupHeadPressed: { opacity: 0.72 },
+  packingV2GroupTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  packingV2GroupSticker: {
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    transform: [{ rotate: "-2deg" }],
+  },
+  packingV2GroupStickerText: {
+    fontSize: 6,
+    lineHeight: 8,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
   packingV2GroupActions: {
     flexDirection: "row",
     alignItems: "center",
