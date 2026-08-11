@@ -1287,10 +1287,28 @@ function TripOverview({
 type PlaceItem = {
   name: string;
   area: string;
+  address?: string;
   category: string;
   mapUrl: string;
   tags: string[];
   status: "후보" | "일정";
+};
+
+const parseNaverPlaceShare = (text: string) => {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^\[?네이버\s*지도\]?$/i.test(line));
+  const url = lines.find((line) => /^https?:\/\/(?:m\.)?(?:naver\.me|map\.naver\.com)/i.test(line));
+  const details = lines.filter((line) => line !== url);
+  if (!url || !details[0]) return null;
+  const name = details[0];
+  const address = details[1] ?? "";
+  const addressParts = address.split(/\s+/).filter(Boolean);
+  const area = addressParts.slice(0, 2).join(" ") || "지역 미정";
+  const lodging = /(호텔|리조트|펜션|모텔|게스트하우스|숙소)/.test(name);
+  return { name, address, area, url, lodging };
 };
 
 function Places({
@@ -1301,6 +1319,15 @@ function Places({
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const [places, setPlaces] = useState<PlaceItem[]>([
+    {
+      name: "JS호텔",
+      area: "서울 구로구",
+      address: "서울 구로구 남부순환로105길 32 JS호텔",
+      category: "숙소",
+      mapUrl: "https://naver.me/FJOPOMvx",
+      tags: ["숙소", "예약"],
+      status: "후보",
+    },
     {
       name: "은행골블랙",
       area: "구로",
@@ -1336,6 +1363,7 @@ function Places({
   const [planningTime, setPlanningTime] = useState("11:00");
   const [name, setName] = useState("");
   const [area, setArea] = useState("구로");
+  const [address, setAddress] = useState("");
   const [category, setCategory] = useState("식당");
   const [mapUrl, setMapUrl] = useState("");
   const [tagText, setTagText] = useState("");
@@ -1352,7 +1380,7 @@ function Places({
     ? statusPlaces.filter((place) => place.tags.includes(tagFilter))
     : statusPlaces;
   const visible = taggedPlaces.filter((place) =>
-    `${place.name} ${place.area} ${place.category} ${place.tags.join(" ")}`
+    `${place.name} ${place.area} ${place.address ?? ""} ${place.category} ${place.tags.join(" ")}`
       .toLowerCase()
       .includes(query.trim().toLowerCase()),
   );
@@ -1366,9 +1394,37 @@ function Places({
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
   };
+  const applyNaverShare = (text: string) => {
+    const parsed = parseNaverPlaceShare(text);
+    if (!parsed) {
+      setMapUrl(text.trim());
+      return false;
+    }
+    setName(parsed.name);
+    setArea(parsed.area);
+    setAddress(parsed.address);
+    setMapUrl(parsed.url);
+    if (parsed.lodging) {
+      setCategory("숙소");
+      if (!draftTags.includes("숙소"))
+        setTagText((current) => (current.trim() ? `${current}, 숙소` : "숙소"));
+    }
+    notify(`${parsed.name} 정보를 채웠어요`);
+    return true;
+  };
+  const pasteNaverShare = async () => {
+    const clipboard = await Clipboard.getStringAsync();
+    if (!clipboard.trim()) {
+      notify("복사한 네이버 지도 정보가 없어요");
+      return;
+    }
+    if (!applyNaverShare(clipboard))
+      notify("네이버 지도 공유 텍스트나 링크를 확인해 주세요");
+  };
   const resetForm = () => {
     setName("");
     setArea("구로");
+    setAddress("");
     setCategory("식당");
     setMapUrl("");
     setTagText("");
@@ -1382,6 +1438,7 @@ function Places({
     setEditingName(place.name);
     setName(place.name);
     setArea(place.area);
+    setAddress(place.address ?? "");
     setCategory(place.category);
     setMapUrl(place.mapUrl);
     setTagText(place.tags.join(", "));
@@ -1393,6 +1450,7 @@ function Places({
     const next = {
       name: name.trim(),
       area: area.trim() || "지역 미정",
+      address: address.trim(),
       category,
       mapUrl: mapUrl.trim(),
       tags: draftTags,
@@ -1632,7 +1690,7 @@ function Places({
                     <Text style={[(styles as any).placeMiniStatusText, { color: place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.status === "일정" ? "일정에 담김" : "저장"}</Text>
                   </View>
                 </View>
-                <Text numberOfLines={1} style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.area} · {place.category}</Text>
+                <Text numberOfLines={1} style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.address ? `${place.category} · ${place.address}` : `${place.area} · ${place.category}`}</Text>
               </View>
             </View>
             <View style={(styles as any).placeMiniTags}>
@@ -1763,6 +1821,12 @@ function Places({
             ))}
           </View>
         </View>
+        <DetailField
+          label="주소 · 선택 사항"
+          value={address}
+          onChangeText={setAddress}
+          placeholder="네이버 지도 공유 텍스트로 자동 입력할 수 있어요"
+        />
         <OptionField
           label="날짜"
           options={["금 · 21", "토 · 22", "일 · 23"]}
@@ -1882,16 +1946,24 @@ function Places({
             <View style={styles.naverLogo}>
               <Text style={styles.naverLogoText}>N</Text>
             </View>
-            <View>
-              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 선택</Text>
+            <View style={styles.naverCopy}>
+              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 공유 · 선택 사항</Text>
               <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
-                장소 공유 링크를 붙여넣으세요
+                공유 텍스트를 붙이면 이름·지역·링크를 채워요
               </Text>
             </View>
+            <Pressable
+              onPress={pasteNaverShare}
+              accessibilityRole="button"
+              accessibilityLabel="네이버 지도 공유 정보 붙여넣기"
+              style={styles.naverPasteButton}
+            >
+              <Text style={styles.naverPasteButtonText}>붙여넣기</Text>
+            </Pressable>
           </View>
           <TextInput
             value={mapUrl}
-            onChangeText={setMapUrl}
+            onChangeText={applyNaverShare}
             autoCapitalize="none"
             keyboardType="url"
             placeholder="https://naver.me/..."
@@ -6483,6 +6555,17 @@ const styles = StyleSheet.create({
     borderColor: "#CDEADB",
   },
   naverHead: { flexDirection: "row", alignItems: "center", marginBottom: 13 },
+  naverCopy: { flex: 1, minWidth: 0 },
+  naverPasteButton: {
+    minWidth: 62,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  naverPasteButtonText: { color: "#16844E", fontSize: 11, fontWeight: "900" },
   naverLogo: {
     width: 30,
     height: 30,
