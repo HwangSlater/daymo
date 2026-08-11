@@ -529,6 +529,7 @@ export function WarmTripDetail({
                 ...current,
               ]);
               setMemoDraft("");
+              setFeedback("여행 메모를 추가했어요");
             } else {
               setMemoPanel(false);
             }
@@ -1862,6 +1863,7 @@ function Places({
             ? `${importMode}하기`
             : "장소 목록을 입력해 주세요"
         }
+        submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
         onSubmit={importPlaces}
       >
@@ -3334,6 +3336,7 @@ function Preparation({
         submit={
           importText.trim() ? `${importMode}하기` : "목록을 입력해 주세요"
         }
+        submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
         onSubmit={importPacking}
       >
@@ -4252,6 +4255,7 @@ function Cooking({
         title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
         subtitle="재료 정보와 준비할 사람을 입력하세요"
         submit={name.trim() ? (editingIngredient ? "수정 저장" : "재료 추가") : "재료 이름을 입력해 주세요"}
+        submitDisabled={!name.trim()}
         onClose={closeIngredientSheet}
         onSubmit={addIngredient}
       >
@@ -4336,6 +4340,7 @@ function Cooking({
         title={editingRecipe ? "요리 수정" : "요리 추가"}
         subtitle="만들 요리의 이름과 메모를 입력하세요"
         submit={recipeName.trim() ? (editingRecipe ? "수정 저장" : "요리 만들기") : "요리 이름을 입력해 주세요"}
+        submitDisabled={!recipeName.trim()}
         onClose={closeRecipeSheet}
         onSubmit={addRecipe}
       >
@@ -4386,6 +4391,7 @@ function Cooking({
         title="GPT로 여러 요리 추가"
         subtitle="프롬프트를 복사해 GPT에 요청하고 결과를 붙여넣으세요"
         submit={aiResult.trim() ? "요리 목록 추가" : "GPT 결과를 붙여넣어 주세요"}
+        submitDisabled={!aiResult.trim()}
         onClose={() => setAiImporting(false)}
         onSubmit={importAiRecipes}
       >
@@ -4437,6 +4443,7 @@ function Cooking({
         submit={
           importText.trim() ? `${importMode}하기` : "목록을 입력해 주세요"
         }
+        submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
         onSubmit={importCooking}
       >
@@ -4460,6 +4467,7 @@ function Cooking({
 
 function Memories() {
   const theme = useContext(DetailThemeContext);
+  const notify = useContext(DetailFeedbackContext);
   const [photos, setPhotos] = useState([
     "#E7B4A6",
     "#DFC98A",
@@ -4484,7 +4492,10 @@ function Memories() {
   const [cardStyle, setCardStyle] = useState("필름");
   const [cardTitle, setCardTitle] = useState("우리의 구로 여행");
   const [cardCaption, setCardCaption] = useState("천천히 걸어서 더 좋았던 2박 3일");
-  const addPhoto = () => setPhotos((current) => ["#19B6A3", ...current]);
+  const addPhoto = () => {
+    setPhotos((current) => ["#19B6A3", ...current]);
+    notify("사진을 기록에 추가했어요");
+  };
   const addDiary = () => {
     if (!diaryBody.trim()) return;
     setDiaries((current) => [
@@ -4498,6 +4509,7 @@ function Memories() {
     setDiaryTitle("");
     setDiaryBody("");
     setDiaryWriting(false);
+    notify("여행 일기를 저장했어요");
   };
   return (
     <View>
@@ -4621,7 +4633,10 @@ function Memories() {
         subtitle="사진과 문구를 골라 여행을 한 장으로 간직하세요"
         submit="카드 저장"
         onClose={() => setMakingCard(false)}
-        onSubmit={() => setMakingCard(false)}
+        onSubmit={() => {
+          setMakingCard(false);
+          notify("여행 기념 카드를 저장했어요");
+        }}
       >
         <OptionField
           label="카드 스타일"
@@ -4643,6 +4658,7 @@ function Memories() {
         title="여행 일기 쓰기"
         subtitle="그날의 기분과 오래 기억하고 싶은 이야기를 남겨보세요"
         submit={diaryBody.trim() ? "일기 저장" : "내용을 입력해 주세요"}
+        submitDisabled={!diaryBody.trim()}
         onClose={() => setDiaryWriting(false)}
         onSubmit={addDiary}
       >
