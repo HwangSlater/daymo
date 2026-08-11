@@ -46,6 +46,7 @@ type Trip = {
   start: string;
   end: string;
 };
+type GroupId = "ours" | "friends" | "family";
 const trips: Trip[] = [
   {
     name: "서울 구로구",
@@ -78,6 +79,22 @@ const trips: Trip[] = [
     end: "2026-07-26",
   },
 ];
+const initialTripsByGroup: Record<GroupId, Trip[]> = {
+  ours: [trips[0]],
+  friends: trips,
+  family: [
+    {
+      name: "경주",
+      date: "10월 3일 — 4일",
+      note: "가족과 천천히 걷는 가을 여행",
+      color: "#F0A351",
+      mark: "10",
+      region: "경북",
+      start: "2026-10-03",
+      end: "2026-10-04",
+    },
+  ],
+};
 
 export function WarmAppShell() {
   const systemScheme = useColorScheme();
@@ -86,7 +103,16 @@ export function WarmAppShell() {
   const [tripDestination, setTripDestination] =
     useState<TripDetailDestination>("overview");
   const [done, setDone] = useState<string[]>(["깻잎", "양파"]);
-  const [tripItems, setTripItems] = useState<Trip[]>(trips);
+  const [activeGroupId, setActiveGroupId] = useState<GroupId>("friends");
+  const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
+  const tripItems = tripsByGroup[activeGroupId];
+  const setTripItems: React.Dispatch<React.SetStateAction<Trip[]>> = (update) =>
+    setTripsByGroup((current) => ({
+      ...current,
+      [activeGroupId]:
+        typeof update === "function" ? update(current[activeGroupId]) : update,
+    }));
+  const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
   const [themeId, setThemeId] = useState<ThemeId>("daymo");
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const [user, setUser] = useState<DaymoUser | null>({
@@ -103,7 +129,11 @@ export function WarmAppShell() {
         ? items.filter((value) => value !== item)
         : [...items, item],
     );
-  const openTrip = (destination: TripDetailDestination = "overview") => {
+  const openTrip = (
+    destination: TripDetailDestination = "overview",
+    trip: Trip = tripItems[0] ?? trips[0],
+  ) => {
+    setSelectedTrip(trip);
     setTripDestination(destination);
     setTripOpen(true);
   };
@@ -117,6 +147,8 @@ export function WarmAppShell() {
         done={done}
         toggle={toggle}
         initialDestination={tripDestination}
+        tripName={selectedTrip.name}
+        tripDate={selectedTrip.date}
         appTheme={theme}
         onClose={() => setTripOpen(false)}
       />
@@ -130,17 +162,19 @@ export function WarmAppShell() {
             open={openTrip}
             goTrips={() => setView("여행")}
             theme={theme}
+            trip={tripItems[0] ?? trips[0]}
+            relationship={activeGroupId === "ours" ? "연인" : "친구"}
           />
         )}
         {view === "여행" && (
           <TripsExplorer
-            open={() => openTrip()}
+            open={(trip) => openTrip("overview", trip)}
             theme={theme}
             items={tripItems}
             setItems={setTripItems}
           />
         )}
-        {view === "찾기" && <Search open={() => openTrip()} theme={theme} />}
+        {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} />}
         {view === "우리" && (
           <Together
             theme={theme}
@@ -149,6 +183,8 @@ export function WarmAppShell() {
             appearance={appearance}
             setAppearance={setAppearance}
             trips={tripItems}
+            activeGroupId={activeGroupId}
+            setActiveGroupId={setActiveGroupId}
             user={user}
             setUser={setUser}
             onLogout={() => setUser(null)}
@@ -338,10 +374,14 @@ function NotebookHome({
   open,
   goTrips,
   theme,
+  trip,
+  relationship,
 }: {
-  open: (destination?: TripDetailDestination) => void;
+  open: (destination?: TripDetailDestination, trip?: Trip) => void;
   goTrips: () => void;
   theme: AppTheme;
+  trip: Trip;
+  relationship: "연인" | "친구";
 }) {
   return (
     <ScrollView
@@ -360,7 +400,7 @@ function NotebookHome({
           style={[(s as any).tinyDay, { backgroundColor: theme.primarySoft }]}
         >
           <Text style={[(s as any).tinyDayText, { color: theme.primary }]}>
-            우리 1,026일
+            {relationship === "연인" ? "우리 1,026일" : "함께한 여행"}
           </Text>
         </View>
       </View>
@@ -379,13 +419,13 @@ function NotebookHome({
         <View style={(s as any).paperTripHead}>
           <View>
             <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
-              열두 밤 뒤에 떠나요
+              다음 여행
             </Text>
             <Text style={[(s as any).paperTitle, { color: theme.text }]}>
-              서울 구로구
+              {trip.name}
             </Text>
             <Text style={[(s as any).paperDate, { color: theme.muted }]}>
-              8월 21일 금요일 — 23일 일요일
+              {trip.date}
             </Text>
           </View>
           <Text style={[(s as any).paperDoodle, { color: theme.secondary }]}>
@@ -393,7 +433,7 @@ function NotebookHome({
           </Text>
         </View>
         <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
-        <Pressable onPress={() => open()} style={(s as any).paperStay}>
+        <Pressable onPress={() => open("overview", trip)} style={(s as any).paperStay}>
           <View
             style={[
               (s as any).paperPin,
@@ -431,7 +471,7 @@ function NotebookHome({
           label="일정 추가"
           tint={theme.primarySoft}
           color={theme.primary}
-          onPress={() => open("schedule-add")}
+          onPress={() => open("schedule-add", trip)}
         />
         <HomeQuick
           theme={theme}
@@ -439,7 +479,7 @@ function NotebookHome({
           label="저장 장소"
           tint={`${theme.secondary}20`}
           color={theme.secondary}
-          onPress={() => open("places")}
+          onPress={() => open("places", trip)}
         />
         <HomeQuick
           theme={theme}
@@ -447,7 +487,7 @@ function NotebookHome({
           label="준비물"
           tint={`${theme.accent}20`}
           color={theme.accent}
-          onPress={() => open("preparation")}
+          onPress={() => open("preparation", trip)}
         />
       </View>
       <View style={(s as any).noteTitleRow}>
@@ -476,21 +516,21 @@ function NotebookHome({
           color={theme.primary}
           text="숙소 예약 정보 확인"
           meta="오늘 · 공용"
-          onPress={() => open()}
+          onPress={() => open("overview", trip)}
         />
         <MemoRow
           theme={theme}
           color={theme.accent}
           text="아직 안 챙긴 준비물 2개"
           meta="하늘 1 · 여울 1"
-          onPress={() => open("preparation")}
+          onPress={() => open("preparation", trip)}
         />
         <MemoRow
           theme={theme}
           color={theme.secondary}
           text="저장한 장소에서 일정 고르기"
           meta="식당 5 · 카페 3"
-          onPress={() => open("places")}
+          onPress={() => open("places", trip)}
           last
         />
       </View>
@@ -819,7 +859,7 @@ function TripsExplorer({
   items,
   setItems,
 }: {
-  open: () => void;
+  open: (trip: Trip) => void;
   theme: AppTheme;
   items: Trip[];
   setItems: React.Dispatch<React.SetStateAction<Trip[]>>;
@@ -1137,7 +1177,7 @@ function TripRows({
   emptyActionLabel,
 }: {
   items: Trip[];
-  open: () => void;
+  open: (trip: Trip) => void;
   compact?: boolean;
   theme: AppTheme;
   emptyAction?: () => void;
@@ -1166,7 +1206,7 @@ function TripRows({
       {items.map((trip, index) => (
         <Pressable
           key={`${trip.name}-${index}`}
-          onPress={open}
+          onPress={() => open(trip)}
           style={({ pressed }) => [
             s.tripRow,
             {
@@ -1236,7 +1276,7 @@ function KoreaTripMap({
   results: Trip[];
   selected: string | null;
   onSelect: (region: string) => void;
-  open: () => void;
+  open: (trip: Trip) => void;
 }) {
   const [size, setSize] = useState({ width: 300, height: 420 });
   const [zoom, setZoom] = useState(1.5);
@@ -1450,7 +1490,7 @@ function KoreaTripMap({
               {results.map((trip, index) => (
                 <Pressable
                   key={`${trip.name}-${index}`}
-                  onPress={open}
+                  onPress={() => open(trip)}
                   style={(s as any).mapTrayCard}
                 >
                   <View
@@ -1918,7 +1958,15 @@ function Trips({ open }: { open: () => void }) {
   );
 }
 
-function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
+function Search({
+  open,
+  theme,
+  trips,
+}: {
+  open: (destination?: TripDetailDestination, trip?: Trip) => void;
+  theme: AppTheme;
+  trips: Trip[];
+}) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("전체");
   const allResults = [
@@ -1962,10 +2010,11 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
     () =>
       allResults.filter(
         (item) =>
+          trips.some((trip) => trip.name === item.trip) &&
           (category === "전체" || item.type === category) &&
           `${item.title} ${item.trip} ${item.detail}`.includes(query.trim()),
       ),
-    [query, category],
+    [query, category, trips],
   );
   return (
     <ScrollView
@@ -2083,7 +2132,18 @@ function Search({ open, theme }: { open: () => void; theme: AppTheme }) {
       {results.map((item, index) => (
         <Pressable
           key={item.title}
-          onPress={open}
+          onPress={() => {
+            const trip = trips.find((candidate) => candidate.name === item.trip);
+            const destination: TripDetailDestination =
+              item.type === "장소"
+                ? "places"
+                : item.type === "준비"
+                  ? "preparation"
+                  : item.type === "요리"
+                    ? "cooking"
+                    : "overview";
+            open(destination, trip);
+          }}
           style={[
             (s as any).searchResultCard,
             {
@@ -2165,6 +2225,8 @@ function Together({
   appearance,
   setAppearance,
   trips,
+  activeGroupId,
+  setActiveGroupId,
   user,
   setUser,
   onLogout,
@@ -2175,6 +2237,8 @@ function Together({
   appearance: AppearanceMode;
   setAppearance: (value: AppearanceMode) => void;
   trips: Trip[];
+  activeGroupId: GroupId;
+  setActiveGroupId: (group: GroupId) => void;
   user: DaymoUser;
   setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
   onLogout: () => void;
@@ -2189,12 +2253,11 @@ function Together({
   const [selectedMember, setSelectedMember] = useState(0);
   const [memberRoles, setMemberRoles] = useState<Array<"관리자" | "편집 가능" | "보기만">>(["관리자", "편집 가능", "편집 가능", "보기만"]);
   const [since, setSince] = useState("2023. 10. 20");
-  const groups = [
+  const groups: Array<{ id: GroupId; name: string; members: string[]; relationship: "연인" | "친구" }> = [
     { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" as const },
     { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" as const },
     { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" as const },
   ];
-  const [activeGroupId, setActiveGroupId] = useState("friends");
   const memberSetters = [setMemberA, setMemberB, setMemberC, setMemberD];
   const memberEntries = [memberA, memberB, memberC, memberD]
     .map((name, slot) => ({ name, slot }))

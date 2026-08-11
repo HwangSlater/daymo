@@ -21,12 +21,16 @@ const DetailFeedbackContext = createContext<(message: string) => void>(() => und
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "기록";
 export type TripDetailDestination =
-  "overview" | "schedule-add" | "places" | "preparation";
+  "overview" | "schedule-add" | "places" | "preparation" | "cooking" | "memories";
 const destinationMode = (destination: TripDetailDestination): ViewMode =>
   destination === "places"
     ? "장소"
     : destination === "preparation"
       ? "준비"
+      : destination === "cooking"
+        ? "요리"
+        : destination === "memories"
+          ? "기록"
       : "여행";
 type ScheduleItem = {
   time: string;
@@ -54,6 +58,8 @@ type Props = {
   onClose: () => void;
   initialDestination?: TripDetailDestination;
   appTheme?: AppTheme;
+  tripName?: string;
+  tripDate?: string;
 };
 
 type PackingItem = {
@@ -303,11 +309,13 @@ export function WarmTripDetail({
   onClose,
   initialDestination = "overview",
   appTheme,
+  tripName = "서울 구로구",
+  tripDate = "8월 21일 — 23일",
 }: Props) {
   const [mode, setMode] = useState<ViewMode>(() =>
     destinationMode(initialDestination),
   );
-  const [title, setTitle] = useState("서울 구로구");
+  const [title, setTitle] = useState(tripName);
   const [draftTitle, setDraftTitle] = useState(title);
   const [editingTrip, setEditingTrip] = useState(false);
   const [memoPanel, setMemoPanel] = useState(false);
@@ -408,7 +416,7 @@ export function WarmTripDetail({
           showsVerticalScrollIndicator={false}
         >
           <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
-            2026. 08. 21 — 08. 23
+            {tripDate}
           </Text>
           <View style={styles.detailTitleRow}>
             <Text
@@ -576,7 +584,7 @@ export function WarmTripDetail({
           />
           <View style={styles.tripMetaBox}>
             <Text style={styles.tripMetaLabel}>기간</Text>
-            <Text style={styles.tripMetaValue}>2026. 08. 21 — 08. 23</Text>
+            <Text style={styles.tripMetaValue}>{tripDate}</Text>
           </View>
           <OptionField
             label="숙소에 주방이 있나요?"
