@@ -237,7 +237,13 @@ function AuthScreen({
         contentContainerStyle={(s as any).authPage}
       >
         <View style={(s as any).authBrand}>
-          <Image source={require("../assets/daymo-icon.png")} style={(s as any).authAppIcon} />
+          <View style={[(s as any).authAppIconFrame, { borderColor: theme.border }]}>
+            <Image
+              source={require("../assets/daymo-icon.png")}
+              resizeMode="contain"
+              style={(s as any).authAppIcon}
+            />
+          </View>
           <Text style={[(s as any).authLogo, { color: theme.text }]}>Daymo</Text>
           <Text style={[(s as any).authTagline, { color: theme.muted }]}>함께 떠나고, 오래 기억하는 여행</Text>
         </View>
@@ -4920,7 +4926,20 @@ Object.assign(s, {
     paddingBottom: 28,
   },
   authBrand: { alignItems: "center", marginBottom: 24 },
-  authAppIcon: { width: 66, height: 66, borderRadius: 20, marginBottom: 12 },
+  authAppIconFrame: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+    marginBottom: 12,
+    shadowColor: "#17233D",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  authAppIcon: { width: "100%", height: "100%" },
   authMark: {
     width: 54,
     height: 54,
