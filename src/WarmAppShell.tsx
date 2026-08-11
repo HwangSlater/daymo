@@ -987,6 +987,7 @@ function TripsExplorer({
         >
           <View style={(s as any).tripExplorerMapHeader}>{explorerHead}</View>
           <KoreaTripMap
+            theme={theme}
             trips={items}
             results={mapTrips}
             selected={selectedRegion}
@@ -1270,12 +1271,14 @@ const regionPins = [
 const MAP_MAX_ZOOM = 5;
 
 function KoreaTripMap({
+  theme,
   trips,
   results,
   selected,
   onSelect,
   open,
 }: {
+  theme: AppTheme;
   trips: Trip[];
   results: Trip[];
   selected: string | null;
@@ -1394,11 +1397,11 @@ function KoreaTripMap({
         viewBox={viewBox}
         preserveAspectRatio="xMidYMid meet"
       >
-        <Path d={koreaLandPath} fill="#DDF4EF" stroke="none" />
+        <Path d={koreaLandPath} fill={theme.dark ? "#17302F" : "#DDF4EF"} stroke="none" />
         <Path
           d={koreaOutlinePath}
           fill="none"
-          stroke="#159D8D"
+          stroke={theme.dark ? theme.secondary : "#159D8D"}
           strokeWidth={2.2 / zoom}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -1406,7 +1409,7 @@ function KoreaTripMap({
         <Path
           d={koreaAdminPath}
           fill="none"
-          stroke="#4DA99E"
+          stroke={theme.dark ? "#4D837E" : "#4DA99E"}
           strokeWidth={0.75 / zoom}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -1415,7 +1418,7 @@ function KoreaTripMap({
           <Path
             d={cityPath!}
             fill="none"
-            stroke="#8CCFC7"
+            stroke={theme.dark ? "#315C58" : "#8CCFC7"}
             strokeWidth={0.38 / zoom}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -1445,6 +1448,7 @@ function KoreaTripMap({
             style={[
               (s as any).mapPin,
               { left, top },
+              theme.dark && { backgroundColor: theme.surface, borderColor: theme.secondary },
               count > 0 && (s as any).mapPinVisited,
               active && (s as any).mapPinActive,
             ]}
@@ -1453,6 +1457,7 @@ function KoreaTripMap({
               numberOfLines={1}
               style={[
                 (s as any).mapPinText,
+                theme.dark && { color: theme.secondary },
                 (count > 0 || active) && (s as any).mapPinTextVisited,
               ]}
             >
@@ -1467,12 +1472,12 @@ function KoreaTripMap({
         ) : null;
       })}
       {selected && (
-        <View style={(s as any).mapTray}>
+        <View style={[(s as any).mapTray, { backgroundColor: theme.surface }]}>
           <View style={(s as any).mapTrayHandle} />
           <View style={(s as any).mapTrayHead}>
             <View>
-              <Text style={(s as any).mapTrayTitle}>{selected} 여행</Text>
-              <Text style={(s as any).mapTrayCount}>
+              <Text style={[(s as any).mapTrayTitle, { color: theme.text }]}>{selected} 여행</Text>
+              <Text style={[(s as any).mapTrayCount, { color: theme.muted }]}>
                 {results.length
                   ? `${results.length}개의 여행`
                   : "아직 등록된 여행이 없어요"}
@@ -1480,9 +1485,9 @@ function KoreaTripMap({
             </View>
             <Pressable
               onPress={() => onSelect(selected)}
-              style={(s as any).mapTrayClose}
+              style={[(s as any).mapTrayClose, { backgroundColor: theme.surfaceAlt }]}
             >
-              <Text style={(s as any).mapTrayCloseText}>×</Text>
+              <Text style={[(s as any).mapTrayCloseText, { color: theme.muted }]}>×</Text>
             </Pressable>
           </View>
           {results.length ? (
@@ -1495,7 +1500,7 @@ function KoreaTripMap({
                 <Pressable
                   key={`${trip.name}-${index}`}
                   onPress={() => open(trip)}
-                  style={(s as any).mapTrayCard}
+                  style={[(s as any).mapTrayCard, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
                 >
                   <View
                     style={[
@@ -1506,10 +1511,10 @@ function KoreaTripMap({
                     <Text style={(s as any).mapTrayMarkText}>{trip.mark}</Text>
                   </View>
                   <View style={(s as any).mapTrayCopy}>
-                    <Text numberOfLines={1} style={(s as any).mapTrayName}>
+                    <Text numberOfLines={1} style={[(s as any).mapTrayName, { color: theme.text }]}>
                       {trip.name}
                     </Text>
-                    <Text numberOfLines={1} style={(s as any).mapTrayDate}>
+                    <Text numberOfLines={1} style={[(s as any).mapTrayDate, { color: theme.muted }]}>
                       {trip.date}
                     </Text>
                   </View>
@@ -1518,7 +1523,7 @@ function KoreaTripMap({
               ))}
             </ScrollView>
           ) : (
-            <Text style={(s as any).mapTrayEmpty}>
+            <Text style={[(s as any).mapTrayEmpty, { color: theme.muted }]}>
               이 지역에는 아직 여행이 없어요. 다른 지역을 선택해 보세요.
             </Text>
           )}
@@ -1527,6 +1532,7 @@ function KoreaTripMap({
       <View
         style={[
           (s as any).zoomControls,
+          { backgroundColor: theme.surface, borderColor: theme.border },
           selected && (s as any).zoomControlsRaised,
         ]}
       >
@@ -1538,7 +1544,7 @@ function KoreaTripMap({
             zoom <= 1 && (s as any).zoomButtonDisabled,
           ]}
         >
-          <Text style={(s as any).zoomText}>−</Text>
+          <Text style={[(s as any).zoomText, { color: theme.text }]}>−</Text>
         </Pressable>
         <View style={(s as any).zoomDivider} />
         <Pressable
@@ -1549,7 +1555,7 @@ function KoreaTripMap({
             zoom >= MAP_MAX_ZOOM && (s as any).zoomButtonDisabled,
           ]}
         >
-          <Text style={(s as any).zoomText}>＋</Text>
+          <Text style={[(s as any).zoomText, { color: theme.text }]}>＋</Text>
         </Pressable>
       </View>
     </View>
@@ -2009,6 +2015,13 @@ function Search({
       detail: "7.25 토요일 · 광안리",
       color: "#FF6B5F",
     },
+    {
+      title: "육수 재료는 미리 준비하기",
+      type: "기록",
+      trip: "서울 구로구",
+      detail: "함께 확인할 여행 메모",
+      color: "#D49A47",
+    },
   ];
   const results = useMemo(
     () =>
@@ -2063,7 +2076,7 @@ function Search({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={(s as any).searchCategories}
       >
-        {["전체", "장소", "일정", "요리", "준비"].map((item) => (
+        {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
           <Pressable
             key={item}
             onPress={() => setCategory(item)}
@@ -2142,6 +2155,8 @@ function Search({
                   ? "preparation"
                   : item.type === "요리"
                     ? "cooking"
+                    : item.type === "기록"
+                      ? "memories"
                     : "overview";
             open(destination, trip);
           }}
@@ -2315,7 +2330,7 @@ function Together({
           ]}
         >
           <View style={[(s as any).workspaceMark, { backgroundColor: theme.primarySoft }]}>
-            <Text style={[(s as any).workspaceMarkText, { color: theme.primary }]}>✈</Text>
+            <BottomNavIcon item="여행" color={theme.primary} />
           </View>
           <View style={(s as any).workspaceCopy}>
             <Text style={[(s as any).workspaceLabel, { color: theme.muted }]}>현재 여행 공간</Text>
@@ -2772,6 +2787,27 @@ function Together({
   );
 }
 
+function BottomNavIcon({ item, color }: { item: MainView; color: string }) {
+  const paths: Record<MainView, string> = {
+    홈: "M3 9.5 10 3l7 6.5v7a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1z",
+    여행: "M2.5 11.5 17.5 4l-4 6 3.5 3-2 1-3-2.5-4 4-.5-1 2.5-5-5-3z",
+    찾기: "M8.5 14a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11zm4-1.5L17 17",
+    우리: "M10 17S3 13 3 8.5A3.5 3.5 0 0 1 10 7a3.5 3.5 0 0 1 7 1.5C17 13 10 17 10 17z",
+  };
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path
+        d={paths[item]}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function BottomBar({
   active,
   setActive,
@@ -2781,12 +2817,6 @@ function BottomBar({
   setActive: (view: MainView) => void;
   theme: AppTheme;
 }) {
-  const icons: Record<MainView, string> = {
-    홈: "⌂",
-    여행: "✈",
-    찾기: "⌕",
-    우리: "♡",
-  };
   return (
     <View
       style={[
@@ -2805,15 +2835,10 @@ function BottomBar({
               },
             ]}
           >
-            <Text
-              style={[
-                (s as any).navIcon,
-                { color: theme.muted },
-                active === item && { color: theme.primary },
-              ]}
-            >
-              {icons[item]}
-            </Text>
+            <BottomNavIcon
+              item={item}
+              color={active === item ? theme.primary : theme.muted}
+            />
           </View>
           <Text
             style={[
