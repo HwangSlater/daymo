@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -353,6 +354,15 @@ export function WarmTripDetail({
     () => setMode(destinationMode(initialDestination)),
     [initialDestination],
   );
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      onClose();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [onClose]);
 
   useEffect(() => {
     if (!feedback) return;
