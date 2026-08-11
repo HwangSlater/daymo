@@ -542,12 +542,17 @@ function NotebookHome({
         </View>
         </Pressable>
       </View>
-      <View style={(s as any).scrapQuickGrid}>
-        <HomeQuick theme={theme} icon="＋" label="일정 추가" tint={`${theme.primary}${theme.dark ? "30" : "16"}`} color={theme.primary} onPress={() => open("schedule-add", trip)} embedded layout="large" />
-        <View style={(s as any).scrapQuickStack}>
-          <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint={`${theme.secondary}${theme.dark ? "30" : "16"}`} color={theme.secondary} onPress={() => open("places", trip)} embedded layout="small" />
-          <HomeQuick theme={theme} icon="✓" label="준비물" tint={`${theme.accent}${theme.dark ? "30" : "16"}`} color={theme.accent} onPress={() => open("preparation", trip)} embedded layout="small" />
-        </View>
+      <View
+        style={[
+          (s as any).quickRail,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <HomeQuick theme={theme} icon="＋" label="일정 추가" tint="transparent" color={theme.primary} onPress={() => open("schedule-add", trip)} embedded layout="rail" />
+        <View style={[(s as any).quickRailDivider, { backgroundColor: theme.border }]} />
+        <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint="transparent" color={theme.secondary} onPress={() => open("places", trip)} embedded layout="rail" />
+        <View style={[(s as any).quickRailDivider, { backgroundColor: theme.border }]} />
+        <HomeQuick theme={theme} icon="✓" label="준비물" tint="transparent" color={theme.accent} onPress={() => open("preparation", trip)} embedded layout="rail" />
       </View>
       <View style={(s as any).scrapTitleRow}>
         <View>
@@ -872,7 +877,7 @@ function HomeQuick({
   onPress: () => void;
   theme: AppTheme;
   embedded?: boolean;
-  layout?: "large" | "small";
+  layout?: "large" | "small" | "rail";
 }) {
   return (
     <Pressable
@@ -882,6 +887,7 @@ function HomeQuick({
         embedded && (s as any).homeQuickEmbedded,
         layout === "large" && (s as any).homeQuickLarge,
         layout === "small" && (s as any).homeQuickSmall,
+        layout === "rail" && (s as any).homeQuickRail,
         {
           backgroundColor: embedded ? tint : theme.surface,
           borderColor: embedded ? `${color}${theme.dark ? "65" : "3D"}` : theme.border,
@@ -894,6 +900,7 @@ function HomeQuick({
           { backgroundColor: tint, borderColor: embedded ? color : "transparent" },
           embedded && (s as any).homeQuickIconEmbedded,
           layout === "large" && (s as any).homeQuickIconLarge,
+          layout === "rail" && (s as any).homeQuickIconRail,
         ]}
       >
         {embedded ? (
@@ -922,6 +929,7 @@ function HomeQuick({
           (s as any).homeQuickLabel,
           embedded && (s as any).homeQuickLabelEmbedded,
           layout === "large" && (s as any).homeQuickLabelLarge,
+          layout === "rail" && (s as any).homeQuickLabelRail,
           { color: theme.text },
         ]}
       >
@@ -3759,6 +3767,20 @@ Object.assign(s, {
     marginTop: 14,
   },
   scrapQuickStack: { flex: 0.92, gap: 8 },
+  quickRail: {
+    height: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    paddingHorizontal: 6,
+    borderRadius: 18,
+    borderWidth: 1,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.04,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  quickRailDivider: { width: StyleSheet.hairlineWidth, height: 25 },
   scrapTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -4648,6 +4670,13 @@ Object.assign(s, {
     justifyContent: "flex-start",
     paddingHorizontal: 12,
   },
+  homeQuickRail: {
+    height: 54,
+    borderWidth: 0,
+    borderRadius: 14,
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
   homeQuickIcon: {
     width: 28,
     height: 28,
@@ -4671,10 +4700,18 @@ Object.assign(s, {
     marginRight: 0,
     marginBottom: 13,
   },
+  homeQuickIconRail: {
+    width: 25,
+    height: 25,
+    borderRadius: 13,
+    marginBottom: 0,
+    marginRight: 6,
+  },
   homeQuickIconText: { fontSize: 15, fontWeight: "900" },
   homeQuickLabel: { color: "#414A59", fontSize: 13, fontWeight: "900" },
   homeQuickLabelEmbedded: { fontSize: 11, fontWeight: "800" },
   homeQuickLabelLarge: { fontSize: 16, fontWeight: "900" },
+  homeQuickLabelRail: { fontSize: 11, fontWeight: "800" },
   homeSectionHead: {
     marginTop: 29,
     marginBottom: 12,
