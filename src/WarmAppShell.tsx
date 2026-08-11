@@ -4,6 +4,7 @@ import {
   Modal,
   Image,
   KeyboardAvoidingView,
+  Linking,
   PanResponder,
   Platform,
   Pressable,
@@ -2110,6 +2111,7 @@ function Search({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("전체");
+  const [savedTitles, setSavedTitles] = useState(() => new Set(["은행골블랙"]));
   const allResults = [
     {
       title: "은행골블랙",
@@ -2117,6 +2119,7 @@ function Search({
       trip: "서울 구로구",
       detail: "8.22 토요일 저녁 예약",
       color: "#19B6A3",
+      tags: ["스시", "저녁", "예약"],
     },
     {
       title: "밀푀유나베",
@@ -2124,6 +2127,7 @@ function Search({
       trip: "서울 구로구",
       detail: "재료 6개 · 동행 담당",
       color: "#F0A351",
+      tags: ["저녁", "주방"],
     },
     {
       title: "우사기쇼쿠도",
@@ -2131,6 +2135,7 @@ function Search({
       trip: "안양 평촌",
       detail: "돈테키덮밥 · 11시 영업",
       color: "#19B6A3",
+      tags: ["식당", "점심"],
     },
     {
       title: "충전기",
@@ -2138,6 +2143,7 @@ function Search({
       trip: "진주",
       detail: "아침에 챙길 것",
       color: "#8B7CF6",
+      tags: ["전자기기"],
     },
     {
       title: "포켓몬 드론쇼",
@@ -2145,6 +2151,7 @@ function Search({
       trip: "부산",
       detail: "7.25 토요일 · 광안리",
       color: "#FF6B5F",
+      tags: ["야경", "행사"],
     },
     {
       title: "육수 재료는 미리 준비하기",
@@ -2152,6 +2159,7 @@ function Search({
       trip: "서울 구로구",
       detail: "함께 확인할 여행 메모",
       color: "#D49A47",
+      tags: ["요리", "메모"],
     },
   ];
   const results = useMemo(
@@ -2160,7 +2168,7 @@ function Search({
         (item) =>
           trips.some((trip) => trip.name === item.trip) &&
           (category === "전체" || item.type === category) &&
-          `${item.title} ${item.trip} ${item.detail}`.includes(query.trim()),
+          `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`.includes(query.trim()),
       ),
     [query, category, trips],
   );
@@ -2180,9 +2188,9 @@ function Search({
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
-        <Text style={[(s as any).searchSymbolNew, { color: theme.text }]}>
-          ⌕
-        </Text>
+        <Svg width={20} height={20} viewBox="0 0 22 22">
+          <Path d="m15.5 15.5 4 4M10 17a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" fill="none" stroke={theme.muted} strokeWidth={1.8} strokeLinecap="round" />
+        </Svg>
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -2241,7 +2249,7 @@ function Search({
           <Text
             style={[(s as any).searchGuideTitle, { color: theme.secondary }]}
           >
-            흩어진 기록도 한 번에
+            최근 검색
           </Text>
           <View style={(s as any).searchSuggestions}>
             {["은행골", "충전기", "부산", "밀푀유나베"].map((word) => (
@@ -2268,29 +2276,15 @@ function Search({
       )}
       <View style={(s as any).searchResultHead}>
         <Text style={[(s as any).searchResultTitle, { color: theme.text }]}>
-          {query || category !== "전체" ? "검색 결과" : "최근 찾은 기록"}
+          {query || category !== "전체" ? "검색 결과" : "여행 기록"}
         </Text>
         <Text style={[(s as any).searchResultCount, { color: theme.muted }]}>
           {results.length}개
         </Text>
       </View>
-      {results.map((item, index) => (
-        <Pressable
+      {results.map((item) => (
+        <View
           key={item.title}
-          onPress={() => {
-            const trip = trips.find((candidate) => candidate.name === item.trip);
-            const destination: TripDetailDestination =
-              item.type === "장소"
-                ? "places"
-                : item.type === "준비"
-                  ? "preparation"
-                  : item.type === "요리"
-                    ? "cooking"
-                    : item.type === "기록"
-                      ? "memories"
-                    : "overview";
-            open(destination, trip);
-          }}
           style={[
             (s as any).searchResultCard,
             {
@@ -2299,35 +2293,91 @@ function Search({
             },
           ]}
         >
-          <View style={(s as any).searchResultCopy}>
-            <View style={(s as any).searchResultLine}>
-              <Text
-                style={[(s as any).searchResultName, { color: theme.text }]}
-              >
-                {item.title}
-              </Text>
-              <Text
-                style={[(s as any).searchResultType, { color: item.color }]}
-              >
-                {item.type}
-              </Text>
-            </View>
-            <Text
-              style={[(s as any).searchResultDetail, { color: theme.muted }]}
+          <Pressable
+            onPress={() => {
+              const trip = trips.find((candidate) => candidate.name === item.trip);
+              const destination: TripDetailDestination =
+                item.type === "장소"
+                  ? "places"
+                  : item.type === "준비"
+                    ? "preparation"
+                    : item.type === "요리"
+                      ? "cooking"
+                      : item.type === "기록"
+                        ? "memories"
+                        : "overview";
+              open(destination, trip);
+            }}
+            style={(s as any).searchResultMain}
+          >
+            <View
+              style={[(s as any).searchResultMark, { borderColor: item.color }]}
             >
-              {item.detail}
-            </Text>
-            <Text style={[(s as any).searchResultTrip, { color: theme.muted }]}>
-              {item.trip}
-            </Text>
-          </View>
-          <Text style={[(s as any).searchResultArrow, { color: theme.muted }]}>
-            ›
-          </Text>
-        </Pressable>
+              <View style={[(s as any).searchResultMarkDot, { backgroundColor: item.color }]} />
+            </View>
+            <View style={(s as any).searchResultCopy}>
+              <View style={(s as any).searchResultLine}>
+                <Text style={[(s as any).searchResultName, { color: theme.text }]}>{item.title}</Text>
+                <View
+                  style={[
+                    (s as any).searchResultTypeBadge,
+                    {
+                      backgroundColor: `${item.color}${theme.dark ? "28" : "14"}`,
+                    },
+                  ]}
+                >
+                  <Text style={[(s as any).searchResultType, { color: item.color }]}>{item.type}</Text>
+                </View>
+              </View>
+              <Text style={[(s as any).searchResultDetail, { color: theme.muted }]}>{item.detail}</Text>
+              <View style={(s as any).searchResultMetaRow}>
+                <Text style={[(s as any).searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
+                {item.tags.slice(0, 2).map((tag) => (
+                  <Text key={tag} style={[(s as any).searchResultTag, { color: item.color }]}>#{tag}</Text>
+                ))}
+              </View>
+            </View>
+            <Text style={[(s as any).searchResultArrow, { color: theme.muted }]}>›</Text>
+          </Pressable>
+          {item.type === "장소" && (
+            <View
+              style={[
+                (s as any).searchResultActions,
+                { borderTopColor: theme.border },
+              ]}
+            >
+              <Pressable
+                onPress={() =>
+                  setSavedTitles((current) => {
+                    const next = new Set(current);
+                    next.has(item.title) ? next.delete(item.title) : next.add(item.title);
+                    return next;
+                  })
+                }
+                style={(s as any).searchResultAction}
+              >
+                <Text style={[(s as any).searchResultActionText, { color: savedTitles.has(item.title) ? theme.secondary : theme.muted }]}>{savedTitles.has(item.title) ? "저장됨" : "저장"}</Text>
+              </Pressable>
+              <Pressable onPress={() => open("schedule-add", trips.find((trip) => trip.name === item.trip))} style={(s as any).searchResultAction}>
+                <Text style={[(s as any).searchResultActionText, { color: theme.primary }]}>일정에 담기</Text>
+              </Pressable>
+              <Pressable onPress={() => Linking.openURL(`https://map.naver.com/p/search/${encodeURIComponent(item.title)}`)} style={(s as any).searchResultAction}>
+                <Text style={[(s as any).searchResultActionText, { color: "#03A94F" }]}>N 지도</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
       ))}
       {!results.length && (
-        <View style={(s as any).searchEmpty}>
+        <View
+          style={[
+            (s as any).searchEmpty,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <Svg width={48} height={48} viewBox="0 0 48 48">
+            <Path d="m30 30 9 9M21 34a13 13 0 1 1 0-26 13 13 0 0 1 0 26Zm-5-14h10M21 15v10" fill="none" stroke={theme.primary} strokeWidth={1.6} strokeLinecap="round" />
+          </Svg>
           <Text style={[(s as any).searchEmptyTitle, { color: theme.text }]}>
             찾는 기록이 없어요
           </Text>
@@ -5327,8 +5377,8 @@ Object.assign(s, {
     alignItems: "center",
   },
   searchBoxNew: {
-    height: 50,
-    borderRadius: 10,
+    height: 52,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -5337,32 +5387,76 @@ Object.assign(s, {
   },
   searchCategory: {
     height: 32,
-    borderRadius: 9,
+    borderRadius: 11,
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   searchGuide: {
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 16,
+    padding: 14,
     marginBottom: 16,
-    borderStyle: "dashed",
-    borderWidth: 1,
-    borderColor: "#B8DCD5",
   },
   searchSuggestion: {
-    borderRadius: 7,
+    borderRadius: 9,
     paddingHorizontal: 9,
     paddingVertical: 6,
   },
   searchResultCard: {
     minHeight: 78,
-    borderRadius: 9,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 11,
+    padding: 0,
     marginBottom: 8,
+    overflow: "hidden",
+  },
+  searchResultMain: {
+    minHeight: 78,
     flexDirection: "row",
     alignItems: "center",
+    padding: 11,
+  },
+  searchResultMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-2deg" }],
+  },
+  searchResultMarkDot: { width: 7, height: 7, borderRadius: 4 },
+  searchResultTypeBadge: {
+    borderRadius: 7,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  searchResultMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginTop: 4,
+  },
+  searchResultTag: { fontSize: 11, fontWeight: "800" },
+  searchResultActions: {
+    height: 39,
+    flexDirection: "row",
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  searchResultAction: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchResultActionText: { fontSize: 11, fontWeight: "900" },
+  searchEmpty: {
+    minHeight: 190,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
   },
   searchResultIcon: {
     width: 38,
@@ -5371,7 +5465,8 @@ Object.assign(s, {
     alignItems: "center",
     justifyContent: "center",
   },
-  searchResultCopy: { flex: 1, paddingLeft: 0, paddingRight: 9 },
+  searchInputNew: { flex: 1, fontSize: 13, marginLeft: 9 },
+  searchResultCopy: { flex: 1, paddingLeft: 11, paddingRight: 9 },
   togetherProfile: {
     marginTop: 21,
     borderRadius: 11,
