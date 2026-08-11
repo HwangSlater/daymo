@@ -39,6 +39,7 @@ type ScheduleItem = {
   note: string;
   mapUrl: string;
 };
+type StayInfo = { name: string; checkin: string; checkout: string; address: string };
 
 type Transportation = {
   id: string;
@@ -329,6 +330,12 @@ export function WarmTripDetail({
   const [feedback, setFeedback] = useState("");
   const [packingItems, setPackingItems] = useState(packing);
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
+  const [registeredStay, setRegisteredStay] = useState<StayInfo>({
+    name: "JS호텔",
+    checkin: "8월 21일 15:00",
+    checkout: "8월 23일 12:00",
+    address: "서울 구로구 남부순환로105길 32 JS호텔",
+  });
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
     {
       time: "금 · 12:30",
@@ -513,11 +520,22 @@ export function WarmTripDetail({
               schedule={schedule}
               setSchedule={setSchedule}
               hasKitchen={hasKitchen}
+              registeredStay={registeredStay}
               openScheduleOnMount={initialDestination === "schedule-add"}
             />
           )}
           {mode === "장소" && (
             <Places
+              registeredStayName={registeredStay.name}
+              onRegisterStay={(place) => {
+                setRegisteredStay({
+                  name: place.name,
+                  checkin: "8월 21일 15:00",
+                  checkout: "8월 23일 11:00",
+                  address: place.address || place.area,
+                });
+                setFeedback(`${place.name}을(를) 이번 여행 숙소로 등록했어요`);
+              }}
               addToSchedule={(item) =>
                 setSchedule((current) => [...current, item])
               }
@@ -659,12 +677,14 @@ function TripOverview({
   schedule,
   setSchedule,
   hasKitchen,
+  registeredStay,
   openScheduleOnMount,
 }: {
   setMode: (mode: ViewMode) => void;
   schedule: ScheduleItem[];
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
   hasKitchen: boolean;
+  registeredStay: StayInfo;
   openScheduleOnMount?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -700,7 +720,7 @@ function TripOverview({
   const [reservation, setReservation] = useState({ name: "은행골블랙", date: "토요일 디너", people: "2명", status: "예약 확정", place: "서울 구로구" });
   const [reservationDraft, setReservationDraft] = useState(reservation);
   const [hasReservation, setHasReservation] = useState(true);
-  const [stay, setStay] = useState({ name: "JS호텔", checkin: "8월 21일 15:00", checkout: "8월 23일 12:00", address: "서울 구로구 남부순환로105길 32" });
+  const [stay, setStay] = useState(registeredStay);
   const [stayDraft, setStayDraft] = useState(stay);
   const [hasStay, setHasStay] = useState(true);
   const scheduleFormValid = Boolean(newPlanTitle.trim());
@@ -1312,8 +1332,12 @@ const parseNaverPlaceShare = (text: string) => {
 
 function Places({
   addToSchedule,
+  registeredStayName,
+  onRegisterStay,
 }: {
   addToSchedule: (item: ScheduleItem) => void;
+  registeredStayName: string;
+  onRegisterStay: (place: PlaceItem) => void;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -1393,7 +1417,7 @@ function Places({
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
   };
-  const applyNaverShare = (text: string, registerAsStay = false) => {
+  const applyNaverShare = (text: string) => {
     const parsed = parseNaverPlaceShare(text);
     if (!parsed) {
       setMapUrl(text.trim());
@@ -1403,21 +1427,16 @@ function Places({
     setArea(parsed.area);
     setAddress(parsed.address);
     setMapUrl(parsed.url);
-    if (registerAsStay) {
-      setCategory("숙소");
-      if (!draftTags.includes("숙소"))
-        setTagText((current) => (current.trim() ? `${current}, 숙소` : "숙소"));
-    }
-    notify(registerAsStay ? `${parsed.name}을(를) 숙소로 채웠어요` : `${parsed.name} 정보를 채웠어요`);
+    notify(`${parsed.name} 정보를 채웠어요`);
     return true;
   };
-  const pasteNaverShare = async (registerAsStay = false) => {
+  const pasteNaverShare = async () => {
     const clipboard = await Clipboard.getStringAsync();
     if (!clipboard.trim()) {
       notify("복사한 네이버 지도 정보가 없어요");
       return;
     }
-    if (!applyNaverShare(clipboard, registerAsStay))
+    if (!applyNaverShare(clipboard))
       notify("네이버 지도 공유 텍스트나 링크를 확인해 주세요");
   };
   const resetForm = () => {
@@ -1707,16 +1726,32 @@ function Places({
               <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[(styles as any).placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
                 <Text style={[(styles as any).placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
               </Pressable>
-              <Pressable
-                disabled={place.status === "일정"}
-                onPress={() => choose(index)}
-                style={[
-                  (styles as any).placeMiniPlanButton,
-                  { backgroundColor: place.status === "일정" ? theme?.surfaceAlt : theme?.primary },
-                ]}
-              >
-                <Text style={[(styles as any).placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "완료 ✓" : "일정에 담기"}</Text>
-              </Pressable>
+              {place.category === "숙소" ? (
+                <Pressable
+                  disabled={registeredStayName === place.name}
+                  onPress={() => onRegisterStay(place)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${place.name}을 이번 여행 숙소로 등록`}
+                  accessibilityState={{ disabled: registeredStayName === place.name }}
+                  style={[
+                    (styles as any).placeMiniPlanButton,
+                    { backgroundColor: registeredStayName === place.name ? theme?.surfaceAlt : theme?.secondary },
+                  ]}
+                >
+                  <Text style={[(styles as any).placeMiniPlanText, registeredStayName === place.name && { color: theme?.muted }]}>{registeredStayName === place.name ? "숙소 등록됨 ✓" : "숙소로 등록"}</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  disabled={place.status === "일정"}
+                  onPress={() => choose(index)}
+                  style={[
+                    (styles as any).placeMiniPlanButton,
+                    { backgroundColor: place.status === "일정" ? theme?.surfaceAlt : theme?.primary },
+                  ]}
+                >
+                  <Text style={[(styles as any).placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "완료 ✓" : "일정에 담기"}</Text>
+                </Pressable>
+              )}
             </View>
           </View>
         ))}
@@ -1863,27 +1898,17 @@ function Places({
               </View>
               <View style={styles.naverAutoFillCopy}>
                 <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>복사한 장소 자동 입력</Text>
-                <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>등록 방법을 선택하면 공유 내용을 한 번에 채워요</Text>
+                <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>네이버 지도 공유 내용을 한 번에 채워요</Text>
               </View>
             </View>
-            <View style={styles.naverAutoFillActions}>
-              <Pressable
-                onPress={() => pasteNaverShare(false)}
-                accessibilityRole="button"
-                accessibilityLabel="복사한 내용을 일반 장소로 입력"
-                style={styles.naverAutoFillButton}
-              >
-                <Text style={styles.naverAutoFillButtonText}>장소로 입력</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => pasteNaverShare(true)}
-                accessibilityRole="button"
-                accessibilityLabel="복사한 내용을 숙소로 등록"
-                style={[styles.naverAutoFillButton, styles.naverStayButton]}
-              >
-                <Text style={[styles.naverAutoFillButtonText, styles.naverStayButtonText]}>숙소로 등록</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={pasteNaverShare}
+              accessibilityRole="button"
+              accessibilityLabel="복사한 장소 정보 붙여넣기"
+              style={styles.naverAutoFillButton}
+            >
+              <Text style={styles.naverAutoFillButtonText}>장소 정보 붙여넣기</Text>
+            </Pressable>
           </View>
         )}
         <View style={styles.placeFormIntro}>
@@ -6594,11 +6619,8 @@ const styles = StyleSheet.create({
   naverAutoFillCopy: { flex: 1, minWidth: 0 },
   naverAutoFillTitle: { fontSize: 12, fontWeight: "900" },
   naverAutoFillText: { fontSize: 10, lineHeight: 14, marginTop: 3 },
-  naverAutoFillActions: { flexDirection: "row", gap: 7, marginTop: 11 },
-  naverAutoFillButton: { flex: 1, height: 38, borderRadius: 11, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  naverAutoFillButton: { height: 38, borderRadius: 11, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", marginTop: 11 },
   naverAutoFillButtonText: { color: "#16844E", fontSize: 11, fontWeight: "900" },
-  naverStayButton: { backgroundColor: "#03C75A" },
-  naverStayButtonText: { color: "#FFFFFF" },
   naverLogo: {
     width: 30,
     height: 30,
