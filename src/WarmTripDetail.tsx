@@ -32,6 +32,20 @@ type ScheduleItem = {
   mapUrl: string;
 };
 
+type Transportation = {
+  id: string;
+  owner: "하늘" | "여울";
+  direction: "가는 편" | "오는 편";
+  method: "KTX" | "SRT" | "버스" | "항공" | "기타";
+  service: string;
+  date: string;
+  departure: string;
+  departureTime: string;
+  arrival: string;
+  arrivalTime: string;
+  status: "예매 완료" | "예매 전";
+};
+
 type Props = {
   done: string[];
   toggle: (item: string) => void;
@@ -599,7 +613,7 @@ function TripOverview({
 }) {
   const theme = useContext(DetailThemeContext);
   const [sheet, setSheet] = useState<
-    "schedule" | "reservation" | "stay" | null
+    "schedule" | "reservation" | "stay" | "transport" | null
   >(openScheduleOnMount ? "schedule" : null);
   const [fullSchedule, setFullSchedule] = useState(false);
   const [planDay, setPlanDay] = useState("토 · 22");
@@ -608,7 +622,29 @@ function TripOverview({
   const [newPlanTitle, setNewPlanTitle] = useState("");
   const [planPlace, setPlanPlace] = useState("");
   const [planMapUrl, setPlanMapUrl] = useState("");
+  const [transportations, setTransportations] = useState<Transportation[]>([
+    { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", service: "KTX 101", date: "금 · 21", departure: "부산", departureTime: "08:10", arrival: "서울", arrivalTime: "10:48", status: "예매 완료" },
+    { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", service: "KTX 121", date: "일 · 23", departure: "서울", departureTime: "20:15", arrival: "부산", arrivalTime: "22:52", status: "예매 완료" },
+    { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", service: "우등", date: "금 · 21", departure: "진주", departureTime: "07:50", arrival: "서울경부", arrivalTime: "11:25", status: "예매 완료" },
+    { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", service: "우등", date: "일 · 23", departure: "서울경부", departureTime: "21:30", arrival: "진주", arrivalTime: "01:05", status: "예매 완료" },
+  ]);
+  const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
+  const [transportOwner, setTransportOwner] = useState<Transportation["owner"]>("하늘");
+  const [transportDirection, setTransportDirection] = useState<Transportation["direction"]>("가는 편");
+  const [transportMethod, setTransportMethod] = useState<Transportation["method"]>("KTX");
+  const [transportService, setTransportService] = useState("");
+  const [transportDate, setTransportDate] = useState("금 · 21");
+  const [transportRoute, setTransportRoute] = useState("");
+  const [transportTimes, setTransportTimes] = useState("");
+  const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const scheduleFormValid = Boolean(newPlanTitle.trim());
+  const splitTransportPair = (value: string) => value
+    .split(/,|→|->/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const [transportDeparture = "", transportArrival = ""] = splitTransportPair(transportRoute);
+  const [transportDepartureTime = "", transportArrivalTime = ""] = splitTransportPair(transportTimes);
+  const transportFormValid = Boolean(transportDeparture && transportArrival);
   const addSchedule = () => {
     if (!newPlanTitle.trim()) return;
     setSchedule((current) => [
@@ -623,6 +659,36 @@ function TripOverview({
     setNewPlanTitle("");
     setPlanPlace("");
     setPlanMapUrl("");
+    setSheet(null);
+  };
+  const addTransportation = () => {
+    if (!transportFormValid) return;
+    const next: Transportation = {
+      id: `transport-${Date.now()}`,
+      owner: transportOwner,
+      direction: transportDirection,
+      method: transportMethod,
+      service: transportService.trim(),
+      date: transportDate,
+      departure: transportDeparture,
+      departureTime: transportDepartureTime || "시간 미정",
+      arrival: transportArrival,
+      arrivalTime: transportArrivalTime || "시간 미정",
+      status: transportStatus,
+    };
+    setTransportations((current) => [...current, next]);
+    setSchedule((current) => [
+      ...current,
+      {
+        time: `${transportDate.slice(0, 1)} · ${next.departureTime}`,
+        title: `${next.method} ${next.departure} 출발`,
+        note: `${next.arrival} ${next.arrivalTime} 도착 · ${next.owner}`,
+        mapUrl: "",
+      },
+    ]);
+    setTransportService("");
+    setTransportRoute("");
+    setTransportTimes("");
     setSheet(null);
   };
   return (
@@ -672,6 +738,29 @@ function TripOverview({
             <Text style={[styles.fullScheduleArrow, theme && { color: theme.primary }]}>→</Text>
           </Pressable>
         )}
+      </View>
+
+      <SectionLabel
+        label={`교통편 · ${transportations.length}편`}
+        action="교통편 추가"
+        onPress={() => setSheet("transport")}
+      />
+      <View style={styles.transportGrid}>
+        {(["하늘", "여울"] as const).map((owner, index) => {
+          const outbound = transportations.find((item) => item.owner === owner && item.direction === "가는 편");
+          const inbound = transportations.find((item) => item.owner === owner && item.direction === "오는 편");
+          if (!outbound && !inbound) return null;
+          return (
+            <TransportCard
+              key={owner}
+              owner={owner}
+              outbound={outbound}
+              inbound={inbound}
+              color={[theme?.secondary ?? "#55BFB4", theme?.accent ?? "#8B7CF6"][index]}
+              onPress={() => setSelectedTransport(outbound ?? inbound ?? null)}
+            />
+          );
+        })}
       </View>
 
       <SectionLabel label={`여행 정보 · ${hasKitchen ? 3 : 2}개`} />
@@ -811,6 +900,46 @@ function TripOverview({
           )}
         </View>
       </DetailSheet>
+      <DetailSheet
+        visible={sheet === "transport"}
+        title="교통편 추가"
+        subtitle="저장하면 여행 일정에도 출발 시간이 함께 표시돼요"
+        submit={transportFormValid ? "교통편 저장" : "출발지와 도착지를 입력해 주세요"}
+        submitDisabled={!transportFormValid}
+        onClose={() => setSheet(null)}
+        onSubmit={addTransportation}
+      >
+        <View style={[styles.transportFormPreview, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+          <Text style={[styles.transportFormOwner, theme && { color: theme.primary }]}>{transportOwner} · {transportDirection}</Text>
+          <Text style={[styles.transportFormRoute, theme && { color: theme.text }]}>{transportDeparture || "출발지"} → {transportArrival || "도착지"}</Text>
+          <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod}{transportService.trim() ? ` ${transportService.trim()}` : ""} · {transportDepartureTime || "시간 미정"}</Text>
+        </View>
+        <OptionField label="탑승자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
+        <OptionField label="구분" options={["가는 편", "오는 편"]} value={transportDirection} onChange={(value) => setTransportDirection(value as Transportation["direction"])} />
+        <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
+        <OptionField label="날짜" options={["금 · 21", "토 · 22", "일 · 23"]} value={transportDate} onChange={setTransportDate} />
+        <DetailField label="편명 · 선택" value={transportService} onChangeText={setTransportService} placeholder="예: KTX 177, 우등" />
+        <DetailField label="이동 경로 · 필수" value={transportRoute} onChangeText={setTransportRoute} placeholder="영등포, 부산" />
+        <Text style={[styles.transportCombinedHint, theme && { color: theme.muted }]}>출발지와 도착지를 쉼표로 나눠 입력하세요.</Text>
+        <DetailField label="출발·도착 시간 · 선택" value={transportTimes} onChangeText={setTransportTimes} placeholder="19:59, 23:09" />
+        <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
+      </DetailSheet>
+      <InfoPanel
+        visible={selectedTransport !== null}
+        title={`${selectedTransport?.owner ?? ""}의 교통편`}
+        onClose={() => setSelectedTransport(null)}
+      >
+        {transportations
+          .filter((item) => item.owner === selectedTransport?.owner)
+          .map((item) => (
+            <View key={item.id} style={[styles.transportDetailBlock, theme && { borderColor: theme.border }]}>
+              <Text style={[styles.transportDetailDirection, theme && { color: theme.primary }]}>{item.direction} · {item.status}</Text>
+              <InfoLine label="교통" value={[item.method, item.service].filter(Boolean).join(" · ")} />
+              <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
+              <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
+            </View>
+          ))}
+      </InfoPanel>
       <InfoPanel
         visible={sheet === "reservation"}
         title="은행골블랙"
@@ -4411,6 +4540,59 @@ function TravelInfoRow({
   );
 }
 
+function TransportCard({
+  owner,
+  outbound,
+  inbound,
+  color,
+  onPress,
+}: {
+  owner: string;
+  outbound?: Transportation;
+  inbound?: Transportation;
+  color: string;
+  onPress: () => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  const primary = outbound ?? inbound;
+  if (!primary) return null;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.transportCard,
+        theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        pressed && styles.packingCardPressed,
+      ]}
+    >
+      <View style={[styles.transportCardRail, { backgroundColor: color }]} />
+      <View style={styles.transportCardHead}>
+        <Text style={[styles.transportOwner, { color }]}>{owner}</Text>
+        <Text style={[styles.transportStatus, theme && { color: theme.muted }]}>{primary.status}</Text>
+      </View>
+      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{primary.method}{primary.service ? ` · ${primary.service}` : ""}</Text>
+      <View style={styles.transportRoute}>
+        <View style={styles.transportStop}>
+          <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{primary.departure}</Text>
+          <Text style={[styles.transportTime, { color }]}>{primary.departureTime}</Text>
+        </View>
+        <View style={styles.transportRouteLine}>
+          <View style={[styles.transportRouteDot, { backgroundColor: color }]} />
+          <View style={[styles.transportRouteRule, theme && { backgroundColor: theme.border }]} />
+          <Text style={[styles.transportRouteArrow, { color }]}>›</Text>
+        </View>
+        <View style={[styles.transportStop, styles.transportStopEnd]}>
+          <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{primary.arrival}</Text>
+          <Text style={[styles.transportTime, { color }]}>{primary.arrivalTime}</Text>
+        </View>
+      </View>
+      {inbound && (
+        <Text numberOfLines={1} style={[styles.transportReturn, theme && { color: theme.muted }]}>오는 편 · {inbound.date} {inbound.departureTime}</Text>
+      )}
+    </Pressable>
+  );
+}
+
 function TravelMiniCard({
   label,
   mark,
@@ -5068,6 +5250,30 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
   },
+  transportGrid: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  transportCard: { flex: 1, minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingTop: 10, paddingBottom: 9, overflow: "hidden", position: "relative" },
+  transportCardRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
+  transportCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  transportOwner: { fontSize: 9, fontWeight: "900" },
+  transportStatus: { fontSize: 7, fontWeight: "800" },
+  transportMethod: { fontSize: 10, fontWeight: "900", marginTop: 6 },
+  transportRoute: { flexDirection: "row", alignItems: "center", marginTop: 8 },
+  transportStop: { flex: 1, minWidth: 0 },
+  transportStopEnd: { alignItems: "flex-end" },
+  transportPlace: { fontSize: 9, fontWeight: "900" },
+  transportTime: { fontSize: 10, fontWeight: "900", marginTop: 2 },
+  transportRouteLine: { width: 31, flexDirection: "row", alignItems: "center", marginHorizontal: 3 },
+  transportRouteDot: { width: 4, height: 4, borderRadius: 2 },
+  transportRouteRule: { flex: 1, height: 1 },
+  transportRouteArrow: { fontSize: 12, lineHeight: 13, fontWeight: "900" },
+  transportReturn: { fontSize: 7, fontWeight: "700", marginTop: 8 },
+  transportFormPreview: { borderWidth: 1, borderRadius: 12, padding: 13, marginBottom: 16 },
+  transportFormOwner: { fontSize: 8, fontWeight: "900" },
+  transportFormRoute: { fontSize: 16, fontWeight: "900", marginTop: 6 },
+  transportFormMeta: { fontSize: 9, fontWeight: "700", marginTop: 4 },
+  transportCombinedHint: { fontSize: 8, lineHeight: 12, fontWeight: "700", marginTop: -10, marginBottom: 13, paddingHorizontal: 2 },
+  transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 9, marginBottom: 9 },
+  transportDetailDirection: { fontSize: 9, fontWeight: "900", marginBottom: 3 },
   travelInfoPair: { flexDirection: "row", alignItems: "stretch", gap: 9 },
   travelMiniCard: {
     minHeight: 86,
