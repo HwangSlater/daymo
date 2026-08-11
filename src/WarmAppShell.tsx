@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Modal,
   Image,
   PanResponder,
@@ -2151,7 +2152,8 @@ function Together({
   const [memberB, setMemberB] = useState("여울");
   const [memberC, setMemberC] = useState("가람");
   const [memberD, setMemberD] = useState("새봄");
-  const [memberRole, setMemberRole] = useState<"편집 가능" | "보기만">("편집 가능");
+  const [selectedMember, setSelectedMember] = useState(0);
+  const [memberRoles, setMemberRoles] = useState<Array<"관리자" | "편집 가능" | "보기만">>(["관리자", "편집 가능", "편집 가능", "보기만"]);
   const [since, setSince] = useState("2023. 10. 20");
   const groups = [
     { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" as const },
@@ -2159,7 +2161,11 @@ function Together({
     { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" as const },
   ];
   const [activeGroupId, setActiveGroupId] = useState("friends");
-  const visibleMembers = [memberA, memberB, memberC, memberD].filter(Boolean);
+  const memberSetters = [setMemberA, setMemberB, setMemberC, setMemberD];
+  const memberEntries = [memberA, memberB, memberC, memberD]
+    .map((name, slot) => ({ name, slot }))
+    .filter((entry) => entry.name);
+  const visibleMembers = memberEntries.map((entry) => entry.name);
   const totalTripDays = trips.reduce((total, trip) => {
     const start = new Date(`${trip.start}T00:00:00`).getTime();
     const end = new Date(`${trip.end}T00:00:00`).getTime();
@@ -2478,43 +2484,91 @@ function Together({
         )}
         {panel === "members" && (
           <>
-            <View style={(s as any).memberEditCard}>
-              <Field
-                theme={theme}
-                label="내 이름"
-                value={memberA}
-                onChangeText={setMemberA}
-                placeholder="이름 또는 별명"
-              />
-              <Text style={[(s as any).memberRoleText, { color: theme.muted }]}>관리자 · 모든 여행을 수정할 수 있어요</Text>
+            <View style={(s as any).memberManagerHead}>
+              <View>
+                <Text style={[(s as any).memberManagerTitle, { color: theme.text }]}>{visibleMembers.length}명이 함께하고 있어요</Text>
+                <Text style={[(s as any).memberManagerCopy, { color: theme.muted }]}>관리할 멤버를 선택하세요.</Text>
+              </View>
+              <Pressable
+                onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })}
+                style={[(s as any).memberManagerInvite, { backgroundColor: theme.primarySoft }]}
+              >
+                <Text style={[(s as any).memberManagerInviteText, { color: theme.primary }]}>＋ 초대</Text>
+              </Pressable>
             </View>
-            <View style={(s as any).memberEditCard}>
+            <View style={(s as any).memberManagerGrid}>
+              {memberEntries.map(({ name: member, slot }, index) => (
+                <Pressable
+                  key={`${member}-manage`}
+                  onPress={() => setSelectedMember(slot)}
+                  style={[
+                    (s as any).memberManagerCard,
+                    { backgroundColor: theme.surface, borderColor: selectedMember === slot ? theme.primary : theme.border },
+                    selectedMember === slot && { borderWidth: 2 },
+                  ]}
+                >
+                  <View style={[(s as any).memberManagerAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary, "#8B7CF6"][index] }]}>
+                    <Text style={(s as any).memberStripInitial}>{member.slice(0, 1)}</Text>
+                  </View>
+                  <View style={(s as any).memberManagerCardCopy}>
+                    <Text style={[(s as any).memberManagerName, { color: theme.text }]}>{member}{slot === 0 ? " (나)" : ""}</Text>
+                    <Text style={[(s as any).memberManagerRole, { color: selectedMember === slot ? theme.primary : theme.muted }]}>{memberRoles[slot]}</Text>
+                  </View>
+                  <Text style={[{ color: theme.primary, fontWeight: "900" }, selectedMember !== slot && { opacity: 0 }]}>{"✓"}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={[(s as any).memberEditor, { backgroundColor: theme.primarySoft }]}>
+              <Text style={[(s as any).memberEditorEyebrow, { color: theme.primary }]}>선택한 멤버</Text>
               <Field
                 theme={theme}
-                label="친구 1"
-                value={memberB}
-                onChangeText={setMemberB}
+                label={selectedMember === 0 ? "내 이름" : "멤버 이름"}
+                value={[memberA, memberB, memberC, memberD][selectedMember] || ""}
+                onChangeText={(value) => memberSetters[selectedMember]?.(value)}
                 placeholder="이름 또는 별명"
               />
-              {relationship === "친구" && (
+              {selectedMember === 0 ? (
+                <Text style={[(s as any).memberRoleText, { color: theme.muted }]}>관리자는 공간과 모든 여행을 관리할 수 있어요.</Text>
+              ) : (
                 <>
-                  <Field theme={theme} label="친구 2" value={memberC} onChangeText={setMemberC} placeholder="이름 또는 별명" />
-                  <Field theme={theme} label="친구 3" value={memberD} onChangeText={setMemberD} placeholder="이름 또는 별명" />
+                  <Text style={[(s as any).memberPermissionLabel, { color: theme.text }]}>이 공간에서 할 수 있는 일</Text>
+                  <Choice
+                    theme={theme}
+                    selected={memberRoles[selectedMember] === "편집 가능"}
+                    label="함께 관리 · 일정과 준비물을 수정"
+                    onPress={() => setMemberRoles((roles) => roles.map((role, index) => index === selectedMember ? "편집 가능" : role))}
+                  />
+                  <Choice
+                    theme={theme}
+                    selected={memberRoles[selectedMember] === "보기만"}
+                    label="보기만 · 내용을 확인하고 체크"
+                    onPress={() => setMemberRoles((roles) => roles.map((role, index) => index === selectedMember ? "보기만" : role))}
+                  />
+                  <Pressable
+                    onPress={() => {
+                      const memberName = [memberA, memberB, memberC, memberD][selectedMember];
+                      Alert.alert(
+                        `${memberName}님을 내보낼까요?`,
+                        "이 멤버는 더 이상 이 공간의 여행을 보거나 수정할 수 없어요.",
+                        [
+                          { text: "취소", style: "cancel" },
+                          {
+                            text: "내보내기",
+                            style: "destructive",
+                            onPress: () => {
+                              memberSetters[selectedMember]?.("");
+                              setSelectedMember(0);
+                            },
+                          },
+                        ],
+                      );
+                    }}
+                    style={(s as any).memberRemoveButton}
+                  >
+                    <Text style={(s as any).memberRemoveText}>이 공간에서 내보내기</Text>
+                  </Pressable>
                 </>
               )}
-              <Text style={[(s as any).memberPermissionLabel, { color: theme.text }]}>권한</Text>
-              <Choice
-                theme={theme}
-                selected={memberRole === "편집 가능"}
-                label="편집 가능 · 일정과 준비물을 함께 관리"
-                onPress={() => setMemberRole("편집 가능")}
-              />
-              <Choice
-                theme={theme}
-                selected={memberRole === "보기만"}
-                label="보기만 · 내용을 확인하고 체크만 가능"
-                onPress={() => setMemberRole("보기만")}
-              />
             </View>
           </>
         )}
@@ -5059,4 +5113,19 @@ Object.assign(s, {
   historySummaryItem: { flex: 1, alignItems: "center", justifyContent: "center" },
   historySummaryValue: { fontSize: 16, fontWeight: "900" },
   historySummaryLabel: { fontSize: 8, fontWeight: "700", marginTop: 4 },
+  memberManagerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 13 },
+  memberManagerTitle: { fontSize: 14, fontWeight: "900" },
+  memberManagerCopy: { fontSize: 9, fontWeight: "700", marginTop: 4 },
+  memberManagerInvite: { height: 34, borderRadius: 10, paddingHorizontal: 11, alignItems: "center", justifyContent: "center" },
+  memberManagerInviteText: { fontSize: 9, fontWeight: "900" },
+  memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 15 },
+  memberManagerCard: { width: "48.8%", minHeight: 61, borderRadius: 11, borderWidth: 1, paddingHorizontal: 10, flexDirection: "row", alignItems: "center" },
+  memberManagerAvatar: { width: 33, height: 33, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  memberManagerCardCopy: { flex: 1, minWidth: 0, marginLeft: 8 },
+  memberManagerName: { fontSize: 10, fontWeight: "900" },
+  memberManagerRole: { fontSize: 8, fontWeight: "700", marginTop: 3 },
+  memberEditor: { borderRadius: 13, padding: 14 },
+  memberEditorEyebrow: { fontSize: 8, fontWeight: "900", marginBottom: 9 },
+  memberRemoveButton: { height: 38, alignItems: "center", justifyContent: "center", marginTop: 5 },
+  memberRemoveText: { color: "#DF5148", fontSize: 9, fontWeight: "900" },
 });
