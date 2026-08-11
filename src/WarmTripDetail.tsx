@@ -5219,10 +5219,11 @@ function DetailSheet({
           <Pressable
             onPress={onSubmit}
             disabled={submitDisabled}
-            style={[
+            style={({ pressed }) => [
               styles.sheetSubmit,
               theme && { backgroundColor: theme.primary },
               submitDisabled && styles.sheetSubmitDisabled,
+              pressed && !submitDisabled && styles.controlPressed,
             ]}
           >
             <Text style={styles.sheetSubmitText}>{submit}</Text>
@@ -5339,7 +5340,7 @@ function OptionField({
             hitSlop={{ top: 3, bottom: 3, left: 1, right: 1 }}
             accessibilityRole="button"
             accessibilityState={{ selected: value === option }}
-            style={[
+            style={({ pressed }) => [
               styles.optionChip,
               theme && {
                 backgroundColor: theme.surface,
@@ -5351,6 +5352,7 @@ function OptionField({
                   backgroundColor: theme.primarySoft,
                   borderColor: theme.primary,
                 },
+              pressed && styles.controlPressed,
             ]}
           >
             <Text
@@ -5390,6 +5392,7 @@ const styles = StyleSheet.create({
   },
   feedbackToastMark: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FF6B63", marginRight: 10 },
   feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
   header: {
     height: 55,
     paddingHorizontal: 21,
