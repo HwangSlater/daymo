@@ -608,8 +608,9 @@ function TripOverview({
   const [newPlanTitle, setNewPlanTitle] = useState("");
   const [planPlace, setPlanPlace] = useState("");
   const [planMapUrl, setPlanMapUrl] = useState("");
+  const scheduleFormValid = Boolean(newPlanTitle.trim());
   const addSchedule = () => {
-    if (!newPlanTitle.trim() || !planMapUrl.includes("naver.")) return;
+    if (!newPlanTitle.trim()) return;
     setSchedule((current) => [
       ...current,
       {
@@ -759,12 +760,9 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "schedule"}
         title="일정 추가"
-        subtitle="시간과 장소를 입력해 일정에 추가하세요"
-        submit={
-          planMapUrl.includes("naver.")
-            ? "일정에 추가"
-            : "네이버 지도 링크를 입력해 주세요"
-        }
+        subtitle="일정 이름만 입력해도 추가할 수 있어요"
+        submit={scheduleFormValid ? "일정에 추가" : "일정 이름을 입력해 주세요"}
+        submitDisabled={!scheduleFormValid}
         onClose={() => setSheet(null)}
         onSubmit={addSchedule}
       >
@@ -785,6 +783,12 @@ function TripOverview({
             </Text>
           </View>
         </View>
+        <DetailField
+          label="일정 이름 · 필수"
+          value={newPlanTitle}
+          onChangeText={setNewPlanTitle}
+          placeholder="예: 광안리 드론쇼"
+        />
         <OptionField
           label="날짜"
           options={["금 · 21", "토 · 22", "일 · 23"]}
@@ -797,38 +801,26 @@ function TripOverview({
           value={planType}
           onChange={setPlanType}
         />
-        <View style={styles.inlineFields}>
-          <View style={styles.timeField}>
-            <DetailField
-              label="시간 (선택)"
-              value={planTime}
-              onChangeText={setPlanTime}
-              placeholder="미정 가능"
-            />
-          </View>
-          <View style={styles.titleField}>
-            <DetailField
-              label="일정 이름"
-              value={newPlanTitle}
-              onChangeText={setNewPlanTitle}
-              placeholder="예: 광안리 드론쇼"
-            />
-          </View>
-        </View>
         <DetailField
-          label="장소"
+          label="시간 · 선택"
+          value={planTime}
+          onChangeText={setPlanTime}
+          placeholder="시간 미정도 가능해요"
+        />
+        <DetailField
+          label="장소 · 선택"
           value={planPlace}
           onChangeText={setPlanPlace}
           placeholder="예: 광안리 해수욕장"
         />
-        <View style={styles.naverField}>
+        <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
           <View style={styles.naverHead}>
             <View style={styles.naverLogo}>
               <Text style={styles.naverLogoText}>N</Text>
             </View>
             <View>
-              <Text style={styles.naverTitle}>네이버 지도 링크</Text>
-              <Text style={styles.naverHint}>
+              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 선택</Text>
+              <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
                 네이버 지도에서 공유한 링크를 붙여넣으세요
               </Text>
             </View>
@@ -839,8 +831,8 @@ function TripOverview({
             autoCapitalize="none"
             keyboardType="url"
             placeholder="https://naver.me/..."
-            placeholderTextColor="#91A19B"
-            style={styles.naverInput}
+            placeholderTextColor={theme?.dark ? theme.muted : "#91A19B"}
+            style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
           />
           {planMapUrl.length > 0 && (
             <Text style={styles.linkState}>
