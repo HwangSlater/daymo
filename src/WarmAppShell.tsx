@@ -456,12 +456,16 @@ function NotebookHome({
             { label: "일정", value: "3", color: theme.primary },
             { label: "장소", value: "8", color: theme.secondary },
             { label: "준비", value: "2/6", color: theme.accent },
-          ].map((item) => (
+          ].map((item, index) => (
             <View
               key={item.label}
               style={[
                 (s as any).paperCountChip,
-                { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+                {
+                  backgroundColor: `${item.color}${theme.dark ? "20" : "12"}`,
+                  borderColor: `${item.color}${theme.dark ? "70" : "55"}`,
+                  transform: [{ rotate: index === 1 ? "0deg" : index === 0 ? "-1deg" : "1deg" }],
+                },
               ]}
             >
               <Text style={[(s as any).paperCountLabel, { color: theme.muted }]}>{item.label}</Text>
@@ -3624,12 +3628,16 @@ Object.assign(s, {
   },
   paperCountChip: {
     minHeight: 30,
-    borderRadius: 9,
-    borderWidth: 1,
-    paddingHorizontal: 9,
+    borderRadius: 10,
+    borderWidth: 1.2,
+    paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
   },
   paperCountLabel: { fontSize: 11, fontWeight: "800" },
   paperCountValue: { fontSize: 12, fontWeight: "900" },
