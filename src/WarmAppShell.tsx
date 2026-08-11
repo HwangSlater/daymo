@@ -419,6 +419,25 @@ function NotebookHome({
             { backgroundColor: `${theme.primary}${theme.dark ? "75" : "55"}` },
           ]}
         />
+        <View pointerEvents="none" style={(s as any).paperTripRoute}>
+          <Svg width="100%" height="100%" viewBox="0 0 112 42">
+            <Path
+              d="M4 29C28 7 54 39 84 17"
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={1.4}
+              strokeDasharray="3 5"
+              strokeLinecap="round"
+            />
+            <Path
+              d="m82 17 18-7-7 18-3-8-8-3Z"
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={1.5}
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </View>
         <Pressable
           onPress={() => open("overview", trip)}
           style={({ pressed }) => [
@@ -507,14 +526,15 @@ function NotebookHome({
               { label: "일정", value: "3" },
               { label: "장소", value: "8" },
               { label: "준비", value: "2/6" },
-            ].map((item) => (
+            ].map((item, index) => (
               <View
                 key={item.label}
                 style={[
                   (s as any).paperCountChip,
                   {
                     backgroundColor: "transparent",
-                    borderColor: theme.border,
+                    borderRightColor: theme.border,
+                    borderRightWidth: index < 2 ? StyleSheet.hairlineWidth : 0,
                   },
                 ]}
               >
@@ -914,8 +934,33 @@ function HomeQuick({
         },
       ]}
     >
-      <View style={[(s as any).homeQuickIcon, { backgroundColor: tint }]}>
-        <Text style={[(s as any).homeQuickIconText, { color }]}>{icon}</Text>
+      <View
+        style={[
+          (s as any).homeQuickIcon,
+          { backgroundColor: tint, borderColor: embedded ? color : "transparent" },
+          embedded && (s as any).homeQuickIconEmbedded,
+        ]}
+      >
+        {embedded ? (
+          <Svg width={18} height={18} viewBox="0 0 22 22">
+            <Path
+              d={
+                label === "일정 추가"
+                  ? "M11 4v14M4 11h14"
+                  : label === "저장 장소"
+                    ? "M11 19s6-5.3 6-10A6 6 0 0 0 5 9c0 4.7 6 10 6 10Zm0-7.6a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z"
+                    : "m5 11 3.7 3.7L17 6.5"
+              }
+              fill="none"
+              stroke={color}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        ) : (
+          <Text style={[(s as any).homeQuickIconText, { color }]}>{icon}</Text>
+        )}
       </View>
       <Text style={[(s as any).homeQuickLabel, { color: theme.text }]}>
         {label}
@@ -3658,6 +3703,14 @@ Object.assign(s, {
     overflow: "visible",
   },
   paperTripMain: { borderRadius: 15 },
+  paperTripRoute: {
+    position: "absolute",
+    width: 112,
+    height: 42,
+    top: 16,
+    right: 62,
+    opacity: 0.42,
+  },
   paperTape: {
     position: "absolute",
     width: 54,
@@ -3720,26 +3773,18 @@ Object.assign(s, {
   paperStayTimeValue: { fontSize: 12, fontWeight: "900", marginTop: 1 },
   paperCounts: {
     flexDirection: "row",
-    gap: 7,
     marginTop: 11,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   paperCountChip: {
-    minHeight: 30,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    flexDirection: "row",
+    flex: 1,
+    minHeight: 34,
     alignItems: "center",
-    gap: 5,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
+    justifyContent: "center",
   },
   paperCountLabel: { fontSize: 11, fontWeight: "800" },
-  paperCountValue: { fontSize: 12, fontWeight: "900" },
+  paperCountValue: { fontSize: 15, fontWeight: "900", marginTop: 2 },
   pencilActions: {
     flexDirection: "row",
     gap: 8,
@@ -4572,7 +4617,7 @@ Object.assign(s, {
     borderColor: "#ECEAE5",
   },
   homeQuickEmbedded: {
-    height: 58,
+    height: 66,
     borderRadius: 13,
     borderWidth: 0,
   },
@@ -4583,6 +4628,13 @@ Object.assign(s, {
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
+  },
+  homeQuickIconEmbedded: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    marginBottom: 7,
   },
   homeQuickIconText: { fontSize: 15, fontWeight: "900" },
   homeQuickLabel: { color: "#414A59", fontSize: 13, fontWeight: "900" },
