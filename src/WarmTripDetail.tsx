@@ -615,6 +615,7 @@ function TripOverview({
     "schedule" | "reservation" | "stay" | "transport" | null
   >(openScheduleOnMount ? "schedule" : null);
   const [fullSchedule, setFullSchedule] = useState(false);
+  const [editingScheduleIndex, setEditingScheduleIndex] = useState<number | null>(null);
   const [planDay, setPlanDay] = useState("토 · 22");
   const [planType, setPlanType] = useState("장소");
   const [planTime, setPlanTime] = useState("11:00");
@@ -637,6 +638,13 @@ function TripOverview({
   const [transportArrival, setTransportArrival] = useState("");
   const [transportArrivalTime, setTransportArrivalTime] = useState("");
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
+  const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
+  const [reservation, setReservation] = useState({ name: "은행골블랙", date: "토요일 디너", people: "2명", status: "예약 확정", place: "서울 구로구" });
+  const [reservationDraft, setReservationDraft] = useState(reservation);
+  const [hasReservation, setHasReservation] = useState(true);
+  const [stay, setStay] = useState({ name: "JS호텔", checkin: "8월 21일 15:00", checkout: "8월 23일 12:00", address: "서울 구로구 남부순환로105길 32" });
+  const [stayDraft, setStayDraft] = useState(stay);
+  const [hasStay, setHasStay] = useState(true);
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportFormValid = Boolean(transportDeparture.trim() && transportArrival.trim());
   const transportDirectionColor = transportDirection === "가는 편"
@@ -656,19 +664,52 @@ function TripOverview({
   };
   const addSchedule = () => {
     if (!newPlanTitle.trim()) return;
-    setSchedule((current) => [
-      ...current,
-      {
+    const next = {
         time: `${planDay.slice(0, 1)} · ${planTime || "시간 미정"}`,
         title: newPlanTitle.trim(),
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
         mapUrl: planMapUrl.trim(),
-      },
-    ]);
+      };
+    setSchedule((current) => editingScheduleIndex === null
+      ? [...current, next]
+      : current.map((item, index) => index === editingScheduleIndex ? next : item));
     setNewPlanTitle("");
     setPlanPlace("");
     setPlanMapUrl("");
+    setEditingScheduleIndex(null);
     setSheet(null);
+  };
+  const openScheduleCreate = () => {
+    setEditingScheduleIndex(null);
+    setNewPlanTitle("");
+    setPlanPlace("");
+    setPlanMapUrl("");
+    setPlanDay("토 · 22");
+    setPlanTime("11:00");
+    setSheet("schedule");
+  };
+  const openScheduleEdit = (item: ScheduleItem, index: number) => {
+    const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
+    const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
+    setEditingScheduleIndex(index);
+    setPlanDay(["금 · 21", "토 · 22", "일 · 23"].find((value) => value.startsWith(day)) ?? "토 · 22");
+    setPlanTime(time);
+    setPlanType(["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? savedType : "장소");
+    setNewPlanTitle(item.title);
+    setPlanPlace(savedPlace.length ? savedPlace.join(" · ") : (["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? "" : item.note));
+    setPlanMapUrl(item.mapUrl);
+    setSheet("schedule");
+  };
+  const deleteSchedule = () => {
+    if (editingScheduleIndex === null) return;
+    Alert.alert("일정을 삭제할까요?", newPlanTitle, [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: () => {
+        setSchedule((current) => current.filter((_, index) => index !== editingScheduleIndex));
+        setEditingScheduleIndex(null);
+        setSheet(null);
+      } },
+    ]);
   };
   const addTransportation = () => {
     if (!transportFormValid) return;
@@ -684,6 +725,16 @@ function TripOverview({
       arrivalTime: transportArrivalTime.trim() || "시간 미정",
       status: transportStatus,
     };
+    if (editingTransportId) {
+      setTransportations((current) => current.map((item) => item.id === editingTransportId ? next : item));
+      setEditingTransportId(null);
+      setTransportDeparture("");
+      setTransportDepartureTime("");
+      setTransportArrival("");
+      setTransportArrivalTime("");
+      setSheet(null);
+      return;
+    }
     setTransportations((current) => [...current, next]);
     setSchedule((current) => [
       ...current,
@@ -732,13 +783,57 @@ function TripOverview({
       setSheet(null);
     }
   };
+  const openTransportCreate = () => {
+    setEditingTransportId(null);
+    setTransportDirection("가는 편");
+    setTransportDate("금 · 21");
+    setTransportDeparture("");
+    setTransportDepartureTime("");
+    setTransportArrival("");
+    setTransportArrivalTime("");
+    setSheet("transport");
+  };
+  const openTransportEdit = (item: Transportation) => {
+    setSelectedTransport(null);
+    setEditingTransportId(item.id);
+    setTransportOwner(item.owner);
+    setTransportDirection(item.direction);
+    setTransportMethod(item.method);
+    setTransportDate(item.date);
+    setTransportDeparture(item.departure);
+    setTransportDepartureTime(item.departureTime === "시간 미정" ? "" : item.departureTime);
+    setTransportArrival(item.arrival);
+    setTransportArrivalTime(item.arrivalTime === "시간 미정" ? "" : item.arrivalTime);
+    setTransportStatus(item.status);
+    setSheet("transport");
+  };
+  const deleteTransportation = () => {
+    const target = transportations.find((item) => item.id === editingTransportId);
+    if (!target) return;
+    Alert.alert("교통편을 삭제할까요?", `${target.owner} · ${target.direction}`, [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: () => {
+        setTransportations((current) => current.filter((item) => item.id !== target.id));
+        setEditingTransportId(null);
+        setSheet(null);
+      } },
+    ]);
+  };
+  const openReservation = (create = false) => {
+    setReservationDraft(create ? { name: "", date: "", people: "2명", status: "예약 확정", place: "" } : reservation);
+    setSheet("reservation");
+  };
+  const openStay = (create = false) => {
+    setStayDraft(create ? { name: "", checkin: "", checkout: "", address: "" } : stay);
+    setSheet("stay");
+  };
   return (
     <View>
       <TabActionHeader
         label="여행 일정"
         count={`${schedule.length}개`}
         action="일정 추가"
-        onPress={() => setSheet("schedule")}
+        onPress={openScheduleCreate}
       />
       <View
         style={[
@@ -757,6 +852,7 @@ function TripOverview({
             {...item}
             last={index === Math.min(schedule.length, 3) - 1}
             compact
+            onPress={() => openScheduleEdit(item, index)}
           />
         ))}
         {schedule.length === 0 && (
@@ -764,7 +860,7 @@ function TripOverview({
             title="아직 일정이 없어요"
             description="첫 일정을 추가해 여행의 흐름을 만들어 보세요."
             action="일정 추가"
-            onPress={() => setSheet("schedule")}
+            onPress={openScheduleCreate}
           />
         )}
         {schedule.length > 0 && (
@@ -784,7 +880,7 @@ function TripOverview({
       <SectionLabel
         label={`교통편 · ${transportations.length}편`}
         action="교통편 추가"
-        onPress={() => setSheet("transport")}
+        onPress={openTransportCreate}
       />
       <View style={styles.transportGrid}>
         {(["하늘", "여울"] as const).map((owner, index) => {
@@ -804,26 +900,30 @@ function TripOverview({
         })}
       </View>
 
-      <SectionLabel label={`여행 정보 · ${hasKitchen ? 3 : 2}개`} />
+      <SectionLabel label={`여행 정보 · ${Number(hasReservation) + Number(hasStay) + Number(hasKitchen)}개`} />
       <View style={styles.travelInfoList}>
-        <TravelInfoRow
-          label="예약"
-          mark="22"
-          title="은행골블랙"
-          meta="토요일 디너 · 2명"
-          color={theme?.primary ?? "#FF6B63"}
-          onPress={() => setSheet("reservation")}
-        />
-        <View style={styles.travelInfoPair}>
-          <TravelMiniCard
-            label="숙소"
-            mark="15"
-            title="JS호텔"
-            meta="15:00 체크인"
-            color={theme?.secondary ?? "#55BFB4"}
-            onPress={() => setSheet("stay")}
-            large
+        {hasReservation && (
+          <TravelInfoRow
+            label="예약"
+            mark="22"
+            title={reservation.name}
+            meta={`${reservation.date} · ${reservation.people}`}
+            color={theme?.primary ?? "#FF6B63"}
+            onPress={() => openReservation()}
           />
+        )}
+        <View style={styles.travelInfoPair}>
+          {hasStay && (
+            <TravelMiniCard
+              label="숙소"
+              mark="15"
+              title={stay.name}
+              meta={`${stay.checkin} 체크인`}
+              color={theme?.secondary ?? "#55BFB4"}
+              onPress={() => openStay()}
+              large
+            />
+          )}
           {hasKitchen && (
             <TravelMiniCard
               label="요리"
@@ -832,9 +932,16 @@ function TripOverview({
               meta="재료 확인"
               color={theme?.accent ?? "#8B7CF6"}
               onPress={() => setMode("요리")}
+              large={!hasStay}
             />
           )}
         </View>
+        {!hasReservation && (
+          <EmptyState title="예약 정보가 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={() => openReservation(true)} />
+        )}
+        {!hasStay && (
+          <EmptyState title="숙소 정보가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 추가" onPress={() => openStay(true)} />
+        )}
       </View>
 
       <Pressable
@@ -857,12 +964,14 @@ function TripOverview({
       </Pressable>
       <DetailSheet
         visible={sheet === "schedule"}
-        title="일정 추가"
+        title={editingScheduleIndex === null ? "일정 추가" : "일정 수정"}
         subtitle="일정 이름만 입력해도 추가할 수 있어요"
-        submit={scheduleFormValid ? "일정에 추가" : "일정 이름을 입력해 주세요"}
+        submit={scheduleFormValid ? (editingScheduleIndex === null ? "일정에 추가" : "수정 저장") : "일정 이름을 입력해 주세요"}
+        destructiveLabel={editingScheduleIndex === null ? undefined : "일정 삭제"}
         submitDisabled={!scheduleFormValid}
         onClose={() => setSheet(null)}
         onSubmit={addSchedule}
+        onDestructive={deleteSchedule}
       >
         <View style={styles.planPreview}>
           <View style={styles.previewDate}>
@@ -943,12 +1052,14 @@ function TripOverview({
       </DetailSheet>
       <DetailSheet
         visible={sheet === "transport"}
-        title="교통편 추가"
+        title={editingTransportId ? "교통편 수정" : "교통편 추가"}
         subtitle="저장하면 여행 일정에도 출발 시간이 함께 표시돼요"
-        submit={transportFormValid ? "교통편 저장" : "출발지와 도착지를 입력해 주세요"}
+        submit={transportFormValid ? (editingTransportId ? "수정 저장" : "교통편 저장") : "출발지와 도착지를 입력해 주세요"}
+        destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
         submitDisabled={!transportFormValid}
         onClose={() => setSheet(null)}
         onSubmit={addTransportation}
+        onDestructive={deleteTransportation}
       >
         <Pressable
           onPress={switchTransportDirection}
@@ -1008,27 +1119,50 @@ function TripOverview({
               <InfoLine label="교통수단" value={item.method} />
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
+              <Pressable onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
+                <Text style={[styles.infoManageButtonText, theme && { color: theme.primary }]}>이 교통편 수정</Text>
+              </Pressable>
             </View>
           ))}
       </InfoPanel>
-      <InfoPanel
+      <DetailSheet
         visible={sheet === "reservation"}
-        title="은행골블랙"
+        title={hasReservation ? "예약 정보 수정" : "예약 정보 추가"}
+        subtitle="예약 시간과 인원을 함께 확인할 수 있어요"
+        submit={reservationDraft.name.trim() ? "예약 정보 저장" : "예약 이름을 입력해 주세요"}
+        submitDisabled={!reservationDraft.name.trim()}
+        destructiveLabel={hasReservation ? "예약 정보 삭제" : undefined}
         onClose={() => setSheet(null)}
+        onSubmit={() => { setReservation(reservationDraft); setHasReservation(true); setSheet(null); }}
+        onDestructive={() => Alert.alert("예약 정보를 삭제할까요?", reservation.name, [
+          { text: "취소", style: "cancel" },
+          { text: "삭제", style: "destructive", onPress: () => { setHasReservation(false); setSheet(null); } },
+        ])}
       >
-        <InfoLine label="예약" value="토요일 디너 · 2명" />
-        <InfoLine label="상태" value="예약 확정" />
-        <InfoLine label="장소" value="서울 구로구" />
-      </InfoPanel>
-      <InfoPanel
+        <DetailField label="예약 이름 · 필수" value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 은행골블랙" />
+        <DetailField label="예약 일시" value={reservationDraft.date} onChangeText={(date) => setReservationDraft((current) => ({ ...current, date }))} placeholder="예: 토요일 18:30" />
+        <DetailField label="인원" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
+        <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status }))} />
+        <DetailField label="장소" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 서울 구로구" />
+      </DetailSheet>
+      <DetailSheet
         visible={sheet === "stay"}
-        title="JS호텔"
+        title={hasStay ? "숙소 정보 수정" : "숙소 정보 추가"}
+        subtitle="체크인·체크아웃 시간을 한곳에서 관리해요"
+        submit={stayDraft.name.trim() ? "숙소 정보 저장" : "숙소 이름을 입력해 주세요"}
+        submitDisabled={!stayDraft.name.trim()}
+        destructiveLabel={hasStay ? "숙소 정보 삭제" : undefined}
         onClose={() => setSheet(null)}
+        onSubmit={() => { setStay(stayDraft); setHasStay(true); setSheet(null); }}
+        onDestructive={() => Alert.alert("숙소 정보를 삭제할까요?", stay.name, [
+          { text: "취소", style: "cancel" },
+          { text: "삭제", style: "destructive", onPress: () => { setHasStay(false); setSheet(null); } },
+        ])}
       >
-        <InfoLine label="체크인" value="8월 21일 15:00" />
-        <InfoLine label="체크아웃" value="8월 23일 12:00" />
-        <InfoLine label="주소" value="서울 구로구 남부순환로105길 32" />
-      </InfoPanel>
+        <DetailField label="숙소 이름 · 필수" value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: JS호텔" />
+        <PairedDetailField label="체크인·체크아웃" leftValue={stayDraft.checkin} rightValue={stayDraft.checkout} onChangeLeft={(checkin) => setStayDraft((current) => ({ ...current, checkin }))} onChangeRight={(checkout) => setStayDraft((current) => ({ ...current, checkout }))} leftPlaceholder="체크인" rightPlaceholder="체크아웃" />
+        <DetailField label="주소" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="숙소 주소" />
+      </DetailSheet>
       <InfoPanel
         visible={fullSchedule}
         title={`전체 일정 · ${schedule.length}`}
@@ -1043,6 +1177,10 @@ function TripOverview({
               key={`full-${item.time}-${index}`}
               {...item}
               last={index === schedule.length - 1}
+              onPress={() => {
+                setFullSchedule(false);
+                openScheduleEdit(item, index);
+              }}
             />
           ))}
         </ScrollView>
@@ -4716,6 +4854,7 @@ function Moment({
   mapUrl,
   last,
   compact,
+  onPress,
 }: {
   time: string;
   title: string;
@@ -4723,10 +4862,15 @@ function Moment({
   mapUrl?: string;
   last?: boolean;
   compact?: boolean;
+  onPress?: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
-    <View
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={onPress ? `${title} 일정 수정` : undefined}
       style={[
         styles.moment,
         compact && styles.travelMomentCompact,
@@ -4773,7 +4917,7 @@ function Moment({
           </Pressable>
         ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -5411,6 +5555,8 @@ const styles = StyleSheet.create({
   pairedFieldArrowText: { fontSize: 13, lineHeight: 15, fontWeight: "900" },
   transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 9, marginBottom: 9 },
   transportDetailDirection: { fontSize: 9, fontWeight: "900", marginBottom: 3 },
+  infoManageButton: { minHeight: 34, borderRadius: 9, alignItems: "center", justifyContent: "center", marginTop: 7 },
+  infoManageButtonText: { fontSize: 9, fontWeight: "900" },
   travelInfoPair: { flexDirection: "row", alignItems: "stretch", gap: 9 },
   travelMiniCard: {
     minHeight: 86,
