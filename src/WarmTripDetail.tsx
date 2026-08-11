@@ -1587,7 +1587,7 @@ function Places({
                     <Text style={[(styles as any).placeMiniStatusText, { color: place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.status === "일정" ? "일정에 담김" : "저장"}</Text>
                   </View>
                 </View>
-                <Text style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.area} · {place.category}</Text>
+                <Text numberOfLines={1} style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.area} · {place.category}</Text>
               </View>
             </View>
             <View style={(styles as any).placeMiniTags}>
@@ -4246,13 +4246,13 @@ function Cooking({
                 }}
                 style={styles.myIngredientGroupHead}
               >
-                <Text style={[styles.myIngredientGroupTitle, theme && { color: theme.text }]}>{recipe.name}</Text>
+                <Text numberOfLines={1} style={[styles.myIngredientGroupTitle, theme && { color: theme.text }]}>{recipe.name}</Text>
                 <Text style={[styles.myIngredientGroupCount, theme && { color: theme.primary }]}>{mine.length}개 ›</Text>
               </Pressable>
               {mine.map((item) => (
                 <View key={item.id} style={[styles.myIngredientRow, theme && { borderTopColor: theme.border }]}>
-                  <Text style={[styles.myIngredientName, theme && { color: theme.text }]}>{item.name}</Text>
-                  <Text style={[styles.myIngredientQuantity, theme && { color: theme.muted }]}>{item.quantity}</Text>
+                  <Text numberOfLines={1} style={[styles.myIngredientName, theme && { color: theme.text }]}>{item.name}</Text>
+                  <Text numberOfLines={1} style={[styles.myIngredientQuantity, theme && { color: theme.muted }]}>{item.quantity}</Text>
                 </View>
               ))}
             </View>
