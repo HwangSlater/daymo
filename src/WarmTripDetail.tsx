@@ -1213,105 +1213,49 @@ function Places({
           <View
             key={place.name}
             style={[
-              styles.candidateCard,
-              theme && {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                transform: [{ rotate: index % 2 ? ".2deg" : "-.2deg" }],
-              },
+              (styles as any).placeMiniCard,
+              { backgroundColor: theme?.surface ?? "#FFFFFF", borderColor: theme?.border ?? "#E5E3DD" },
             ]}
           >
-            <View style={styles.candidateTop}>
-              <View style={styles.candidateNumber}>
-                <Text style={styles.candidateNumberText}>
-                  {String(index + 1).padStart(2, "0")}
-                </Text>
+            <View style={[(styles as any).placeMiniTape, { backgroundColor: `${[theme?.primary, theme?.secondary, theme?.accent][index % 3] ?? "#8B7CF6"}38` }]} />
+            <View style={(styles as any).placeMiniTop}>
+              <View style={[(styles as any).placeMiniStamp, { backgroundColor: [theme?.primarySoft, `${theme?.secondary}1C`, `${theme?.accent}1C`][index % 3] }]}>
+                <Text style={(styles as any).placeMiniEmoji}>{({ 식당: "⌁", 카페: "♨", 구경: "✦", 쇼핑: "▣", 숙소: "⌂" } as Record<string, string>)[place.category] || "⌖"}</Text>
               </View>
-              <View style={styles.candidateInfo}>
-                <View style={styles.candidateTitleRow}>
-                  <Text
-                    style={[
-                      styles.candidateName,
-                      theme && { color: theme.text },
-                    ]}
-                  >
-                    {place.name}
-                  </Text>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      place.status === "일정" && styles.statusBadgePlanned,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusText,
-                        place.status === "일정" && styles.statusTextPlanned,
-                      ]}
-                    >
-                      {place.status}
-                    </Text>
+              <View style={(styles as any).placeMiniInfo}>
+                <View style={(styles as any).placeMiniTitleRow}>
+                  <Text numberOfLines={1} style={[(styles as any).placeMiniName, { color: theme?.text ?? "#17233D" }]}>{place.name}</Text>
+                  <View style={[(styles as any).placeMiniStatus, { backgroundColor: place.status === "일정" ? `${theme?.accent}1E` : `${theme?.primary}16` }]}>
+                    <Text style={[(styles as any).placeMiniStatusText, { color: place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.status === "일정" ? "일정에 담김" : "저장"}</Text>
                   </View>
                 </View>
-                <Text
-                  style={[
-                    styles.candidateMeta,
-                    theme && { color: theme.muted },
-                  ]}
-                >
-                  {place.area} · {place.category}
-                </Text>
-                <View style={styles.placeTags}>
-                  {place.tags.map((tag) => (
-                    <Pressable
-                      key={tag}
-                      onPress={() => setTagFilter(tag)}
-                      style={[
-                        styles.placeTag,
-                        theme && { backgroundColor: theme.primarySoft },
-                      ]}
-                    >
-                      <Text style={[styles.placeTagText, theme && { color: theme.primary }]}># {tag}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <Text style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{String(index + 1).padStart(2, "0")} · {place.area} · {place.category}</Text>
               </View>
             </View>
-            <View style={styles.candidateActions}>
-              <Pressable
-                onPress={() => openEdit(place)}
-                style={styles.manageAction}
-              >
-                <Text style={styles.manageActionText}>수정</Text>
+            <View style={(styles as any).placeMiniTags}>
+              {place.tags.slice(0, 3).map((tag) => (
+                <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[(styles as any).placeMiniTag, { backgroundColor: theme?.primarySoft ?? "#F0EDFF" }]}>
+                  <Text style={[(styles as any).placeMiniTagText, { color: theme?.primary ?? "#6556D8" }]}># {tag}</Text>
+                </Pressable>
+              ))}
+              {place.tags.length > 3 && <Text style={[(styles as any).placeMiniMore, { color: theme?.muted }]}>+{place.tags.length - 3}</Text>}
+            </View>
+            <View style={[(styles as any).placeMiniActions, { borderTopColor: theme?.border ?? "#E5E3DD" }]}>
+              <Pressable onPress={() => openEdit(place)} style={[(styles as any).placeMiniIconButton, { backgroundColor: theme?.surfaceAlt ?? "#F4F1EB" }]}>
+                <Text style={[(styles as any).placeMiniIconText, { color: theme?.muted ?? "#727C8D" }]}>✎</Text>
               </Pressable>
-              <Pressable
-                onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)}
-                style={styles.naverAction}
-              >
-                <View style={styles.naverMini}>
-                  <Text style={styles.naverMiniText}>N</Text>
-                </View>
-                <Text style={styles.naverActionText}>{place.mapUrl ? "지도 보기" : "링크 추가"}</Text>
+              <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[(styles as any).placeMiniMapButton, { backgroundColor: place.mapUrl ? "#E6F5ED" : theme?.surfaceAlt }]}>
+                <Text style={[(styles as any).placeMiniMapText, { color: place.mapUrl ? "#16844E" : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
               </Pressable>
               <Pressable
                 disabled={place.status === "일정"}
                 onPress={() => choose(index)}
                 style={[
-                  styles.planAction,
-                  theme && { backgroundColor: theme.primary },
-                  place.status === "일정" && styles.planActionDone,
-                  place.status === "일정" &&
-                    theme && { backgroundColor: theme.surfaceAlt },
+                  (styles as any).placeMiniPlanButton,
+                  { backgroundColor: place.status === "일정" ? theme?.surfaceAlt : theme?.primary },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.planActionText,
-                    place.status === "일정" && styles.planActionTextDone,
-                  ]}
-                >
-                  {place.status === "일정" ? "일정에 담김 ✓" : "일정에 담기 →"}
-                </Text>
+                <Text style={[(styles as any).placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "완료 ✓" : "일정에 담기"}</Text>
               </Pressable>
             </View>
           </View>
@@ -6863,4 +6807,34 @@ Object.assign(styles, {
     paddingHorizontal: 11,
     marginTop: 0,
   },
+  placeMiniCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingTop: 13,
+    paddingBottom: 10,
+    overflow: "hidden",
+    position: "relative",
+  },
+  placeMiniTape: { position: "absolute", width: 38, height: 8, top: -4, left: 18, borderRadius: 2, transform: [{ rotate: "-3deg" }] },
+  placeMiniTop: { flexDirection: "row", alignItems: "center" },
+  placeMiniStamp: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-2deg" }] },
+  placeMiniEmoji: { color: "#5D6470", fontSize: 14, fontWeight: "900" },
+  placeMiniInfo: { flex: 1, minWidth: 0, marginLeft: 10 },
+  placeMiniTitleRow: { flexDirection: "row", alignItems: "center" },
+  placeMiniName: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: "900" },
+  placeMiniStatus: { height: 21, borderRadius: 7, paddingHorizontal: 7, alignItems: "center", justifyContent: "center", marginLeft: 7 },
+  placeMiniStatusText: { fontSize: 7, fontWeight: "900" },
+  placeMiniMeta: { fontSize: 8, fontWeight: "700", marginTop: 3 },
+  placeMiniTags: { minHeight: 25, flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 },
+  placeMiniTag: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 4 },
+  placeMiniTagText: { fontSize: 7, fontWeight: "900" },
+  placeMiniMore: { fontSize: 7, fontWeight: "800", marginLeft: 2 },
+  placeMiniActions: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, marginTop: 5 },
+  placeMiniIconButton: { width: 32, height: 31, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniIconText: { fontSize: 12, fontWeight: "900" },
+  placeMiniMapButton: { minWidth: 58, height: 31, borderRadius: 8, paddingHorizontal: 9, alignItems: "center", justifyContent: "center" },
+  placeMiniMapText: { fontSize: 8, fontWeight: "900" },
+  placeMiniPlanButton: { flex: 1, height: 31, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniPlanText: { color: "#FFFFFF", fontSize: 8, fontWeight: "900" },
 });
