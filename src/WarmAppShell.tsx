@@ -1342,11 +1342,11 @@ function TripRows({
             <TripArt color={trip.color} date={trip.mark} small />
           </View>
           <View style={s.tripInfo}>
-            <Text style={[s.tripName, { color: theme.text }]}>{trip.name}</Text>
-            <Text style={[s.tripDate, { color: theme.muted }]}>
+            <Text numberOfLines={1} style={[s.tripName, { color: theme.text }]}>{trip.name}</Text>
+            <Text numberOfLines={1} style={[s.tripDate, { color: theme.muted }]}>
               {trip.date}
             </Text>
-            <Text style={[s.tripNote, { color: theme.muted }]}>
+            <Text numberOfLines={1} style={[s.tripNote, { color: theme.muted }]}>
               {trip.note}
             </Text>
           </View>
@@ -2333,7 +2333,7 @@ function Search({
             </View>
             <View style={(s as any).searchResultCopy}>
               <View style={(s as any).searchResultLine}>
-                <Text style={[(s as any).searchResultName, { color: theme.text }]}>{item.title}</Text>
+                <Text numberOfLines={1} style={[(s as any).searchResultName, { color: theme.text }]}>{item.title}</Text>
                 <View
                   style={[
                     (s as any).searchResultTypeBadge,
@@ -2345,9 +2345,9 @@ function Search({
                   <Text style={[(s as any).searchResultType, { color: item.color }]}>{item.type}</Text>
                 </View>
               </View>
-              <Text style={[(s as any).searchResultDetail, { color: theme.muted }]}>{item.detail}</Text>
+              <Text numberOfLines={1} style={[(s as any).searchResultDetail, { color: theme.muted }]}>{item.detail}</Text>
               <View style={(s as any).searchResultMetaRow}>
-                <Text style={[(s as any).searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
+                <Text numberOfLines={1} style={[(s as any).searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
                 {item.tags.slice(0, 2).map((tag) => (
                   <Text key={tag} style={[(s as any).searchResultTag, { color: item.color }]}>#{tag}</Text>
                 ))}
@@ -2828,8 +2828,8 @@ function Together({
                     <Text style={(s as any).memberStripInitial}>{member.slice(0, 1)}</Text>
                   </View>
                   <View style={(s as any).memberManagerCardCopy}>
-                    <Text style={[(s as any).memberManagerName, { color: theme.text }]}>{member}{slot === 0 ? " (나)" : ""}</Text>
-                    <Text style={[(s as any).memberManagerRole, { color: selectedMember === slot ? theme.primary : theme.muted }]}>{memberRoles[slot]}</Text>
+                    <Text numberOfLines={1} style={[(s as any).memberManagerName, { color: theme.text }]}>{member}{slot === 0 ? " (나)" : ""}</Text>
+                    <Text numberOfLines={1} style={[(s as any).memberManagerRole, { color: selectedMember === slot ? theme.primary : theme.muted }]}>{memberRoles[slot]}</Text>
                   </View>
                   <Text style={[{ color: theme.primary, fontWeight: "900" }, selectedMember !== slot && { opacity: 0 }]}>{"✓"}</Text>
                 </Pressable>
