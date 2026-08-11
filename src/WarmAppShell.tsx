@@ -495,7 +495,7 @@ function NotebookHome({
                 <Path
                   d="M4 19V7.5L11 3l7 4.5V19M7.5 19v-5h7v5M8 9h1M13 9h1"
                   fill="none"
-                  stroke={theme.primary}
+                  stroke={theme.secondary}
                   strokeWidth={1.7}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -503,7 +503,7 @@ function NotebookHome({
               </Svg>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[(s as any).paperStayLabel, { color: theme.primary }]}>숙소</Text>
+              <Text style={[(s as any).paperStayLabel, { color: theme.secondary }]}>숙소</Text>
               <Text numberOfLines={1} style={[(s as any).paperStayName, { color: theme.text }]}>JS호텔</Text>
             </View>
             <View
@@ -523,9 +523,9 @@ function NotebookHome({
             style={[(s as any).paperCounts, { borderTopColor: theme.border }]}
           >
             {[
-              { label: "일정", value: "3" },
-              { label: "장소", value: "8" },
-              { label: "준비", value: "2/6" },
+              { label: "일정", value: "3", color: theme.primary },
+              { label: "장소", value: "8", color: theme.secondary },
+              { label: "준비", value: "2/6", color: theme.accent },
             ].map((item, index) => (
               <View
                 key={item.label}
@@ -539,7 +539,7 @@ function NotebookHome({
                 ]}
               >
                 <Text style={[(s as any).paperCountLabel, { color: theme.muted }]}>{item.label}</Text>
-                <Text style={[(s as any).paperCountValue, { color: theme.primary }]}>{item.value}</Text>
+                <Text style={[(s as any).paperCountValue, { color: item.color }]}>{item.value}</Text>
               </View>
             ))}
           </View>
@@ -562,7 +562,7 @@ function NotebookHome({
           icon="⌖"
           label="저장 장소"
           tint="transparent"
-          color={theme.primary}
+          color={theme.secondary}
           onPress={() => open("places", trip)}
           embedded
         />
@@ -571,7 +571,7 @@ function NotebookHome({
           icon="✓"
           label="준비물"
           tint="transparent"
-          color={theme.primary}
+          color={theme.accent}
           onPress={() => open("preparation", trip)}
           embedded
         />
