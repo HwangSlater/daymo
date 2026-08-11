@@ -542,12 +542,7 @@ function NotebookHome({
         </View>
         </Pressable>
       </View>
-      <View
-        style={[
-          (s as any).pencilActions,
-          { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
+      <View style={(s as any).pencilActions}>
         <HomeQuick
           theme={theme}
           icon="＋"
@@ -929,7 +924,7 @@ function HomeQuick({
         embedded && (s as any).homeQuickEmbedded,
         {
           backgroundColor: theme.surface,
-          borderColor: embedded ? "transparent" : theme.border,
+          borderColor: theme.border,
         },
       ]}
     >
@@ -3787,15 +3782,6 @@ Object.assign(s, {
     flexDirection: "row",
     gap: 8,
     marginTop: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
   },
   noteTitleRow: {
     flexDirection: "row",
@@ -4622,9 +4608,14 @@ Object.assign(s, {
     borderColor: "#ECEAE5",
   },
   homeQuickEmbedded: {
-    height: 66,
-    borderRadius: 13,
-    borderWidth: 0,
+    height: 72,
+    borderRadius: 18,
+    borderWidth: 1,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   homeQuickIcon: {
     width: 28,
