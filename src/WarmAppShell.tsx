@@ -442,8 +442,8 @@ function NotebookHome({
             style={[
               (s as any).paperTripStamp,
               {
-                backgroundColor: `${theme.primary}${theme.dark ? "22" : "12"}`,
-                borderColor: `${theme.primary}${theme.dark ? "75" : "55"}`,
+                backgroundColor: "transparent",
+                borderColor: theme.border,
               },
             ]}
           >
@@ -457,8 +457,8 @@ function NotebookHome({
           style={[
             (s as any).paperStayBoard,
             {
-              backgroundColor: theme.surfaceAlt,
-              borderColor: theme.border,
+              backgroundColor: "transparent",
+              borderColor: "transparent",
             },
           ]}
         >
@@ -467,8 +467,8 @@ function NotebookHome({
               style={[
                 (s as any).paperStayIcon,
                 {
-                  backgroundColor: `${theme.secondary}${theme.dark ? "25" : "16"}`,
-                  borderColor: `${theme.secondary}${theme.dark ? "88" : "66"}`,
+                  backgroundColor: "transparent",
+                  borderColor: theme.border,
                 },
               ]}
             >
@@ -476,7 +476,7 @@ function NotebookHome({
                 <Path
                   d="M4 19V7.5L11 3l7 4.5V19M7.5 19v-5h7v5M8 9h1M13 9h1"
                   fill="none"
-                  stroke={theme.secondary}
+                  stroke={theme.primary}
                   strokeWidth={1.7}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -484,15 +484,15 @@ function NotebookHome({
               </Svg>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[(s as any).paperStayLabel, { color: theme.secondary }]}>숙소</Text>
+              <Text style={[(s as any).paperStayLabel, { color: theme.primary }]}>숙소</Text>
               <Text numberOfLines={1} style={[(s as any).paperStayName, { color: theme.text }]}>JS호텔</Text>
             </View>
             <View
               style={[
                 (s as any).paperStayTime,
                 {
-                  backgroundColor: `${theme.primary}${theme.dark ? "24" : "13"}`,
-                  borderColor: `${theme.primary}${theme.dark ? "70" : "45"}`,
+                  backgroundColor: "transparent",
+                  borderColor: theme.border,
                 },
               ]}
             >
@@ -504,23 +504,22 @@ function NotebookHome({
             style={[(s as any).paperCounts, { borderTopColor: theme.border }]}
           >
             {[
-              { label: "일정", value: "3", color: theme.primary },
-              { label: "장소", value: "8", color: theme.secondary },
-              { label: "준비", value: "2/6", color: theme.accent },
-            ].map((item, index) => (
+              { label: "일정", value: "3" },
+              { label: "장소", value: "8" },
+              { label: "준비", value: "2/6" },
+            ].map((item) => (
               <View
                 key={item.label}
                 style={[
                   (s as any).paperCountChip,
                   {
-                    backgroundColor: `${item.color}${theme.dark ? "26" : "16"}`,
-                    borderColor: `${item.color}${theme.dark ? "78" : "4D"}`,
-                    transform: [{ rotate: index === 1 ? "0deg" : index === 0 ? "-1deg" : "1deg" }],
+                    backgroundColor: "transparent",
+                    borderColor: theme.border,
                   },
                 ]}
               >
                 <Text style={[(s as any).paperCountLabel, { color: theme.muted }]}>{item.label}</Text>
-                <Text style={[(s as any).paperCountValue, { color: item.color }]}>{item.value}</Text>
+                <Text style={[(s as any).paperCountValue, { color: theme.primary }]}>{item.value}</Text>
               </View>
             ))}
           </View>
@@ -533,7 +532,7 @@ function NotebookHome({
           theme={theme}
           icon="＋"
           label="일정 추가"
-          tint={theme.primarySoft}
+          tint="transparent"
           color={theme.primary}
           onPress={() => open("schedule-add", trip)}
           embedded
@@ -542,8 +541,8 @@ function NotebookHome({
           theme={theme}
           icon="⌖"
           label="저장 장소"
-          tint={`${theme.secondary}20`}
-          color={theme.secondary}
+          tint="transparent"
+          color={theme.primary}
           onPress={() => open("places", trip)}
           embedded
         />
@@ -551,8 +550,8 @@ function NotebookHome({
           theme={theme}
           icon="✓"
           label="준비물"
-          tint={`${theme.accent}20`}
-          color={theme.accent}
+          tint="transparent"
+          color={theme.primary}
           onPress={() => open("preparation", trip)}
           embedded
         />
@@ -910,8 +909,8 @@ function HomeQuick({
         (s as any).homeQuick,
         embedded && (s as any).homeQuickEmbedded,
         {
-          backgroundColor: embedded ? theme.surfaceAlt : theme.surface,
-          borderColor: theme.border,
+          backgroundColor: theme.surface,
+          borderColor: embedded ? "transparent" : theme.border,
         },
       ]}
     >
@@ -3688,10 +3687,10 @@ Object.assign(s, {
   paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginVertical: 14 },
   paperStayBoard: {
     borderRadius: 14,
-    borderWidth: 1.2,
-    paddingHorizontal: 12,
-    paddingTop: 14,
-    paddingBottom: 11,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingTop: 1,
+    paddingBottom: 0,
     position: "relative",
     transform: [{ rotate: "0.2deg" }],
   },
@@ -3729,7 +3728,7 @@ Object.assign(s, {
   paperCountChip: {
     minHeight: 30,
     borderRadius: 10,
-    borderWidth: 1.2,
+    borderWidth: 1,
     paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -4573,9 +4572,9 @@ Object.assign(s, {
     borderColor: "#ECEAE5",
   },
   homeQuickEmbedded: {
-    height: 64,
+    height: 58,
     borderRadius: 13,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 0,
   },
   homeQuickIcon: {
     width: 28,
