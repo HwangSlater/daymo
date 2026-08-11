@@ -627,8 +627,9 @@ function TripOverview({
   };
   return (
     <View>
-      <SectionLabel
-        label={`일정 · ${schedule.length}개`}
+      <TabActionHeader
+        label="여행 일정"
+        count={`${schedule.length}개`}
         action="일정 추가"
         onPress={() => setSheet("schedule")}
       />
@@ -1057,7 +1058,15 @@ function Places({
 
   return (
     <View>
+      <TabActionHeader
+        label="저장한 장소"
+        count={`${places.length}개`}
+        action="장소 추가"
+        onPress={openCreate}
+      />
+      <View style={[styles.placeControlPanel, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.placeToolbar}>
+        <Text style={[styles.placeControlLabel, theme && { color: theme.muted }]}>상태</Text>
         <View style={styles.placeFilters}>
           {(["전체", "후보", "일정"] as const).map((item) => (
             <Pressable
@@ -1065,7 +1074,7 @@ function Places({
               onPress={() => setFilter(item)}
               style={[
                 styles.placeFilter,
-                filter === item && styles.placeFilterActive,
+                theme && { borderColor: theme.border },
                 filter === item &&
                   theme && { backgroundColor: theme.primarySoft },
               ]}
@@ -1082,18 +1091,12 @@ function Places({
             </Pressable>
           ))}
         </View>
-        <Pressable
-          onPress={openCreate}
-          style={[styles.placeAdd, theme && { backgroundColor: theme.primarySoft }]}
-        >
-          <Text style={[styles.placeAddText, theme && { color: theme.primary }]}>＋ 장소 추가</Text>
-        </Pressable>
       </View>
       <View
         style={[
           styles.placeSearch,
           theme && {
-            backgroundColor: theme.surface,
+            backgroundColor: theme.surfaceAlt,
             borderColor: theme.border,
           },
         ]}
@@ -1108,15 +1111,17 @@ function Places({
           placeholderTextColor={theme?.muted ?? "#9AA1AE"}
           style={[styles.placeSearchInput, theme && { color: theme.text }]}
         />
-        <View style={styles.resultCount}>
-          <Text style={styles.resultCountText}>{visible.length}</Text>
+        <View style={[styles.resultCount, theme && { backgroundColor: theme.primarySoft }]}>
+          <Text style={[styles.resultCountText, theme && { color: theme.primary }]}>{visible.length}</Text>
         </View>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tagFilterRow}
-      >
+      <View style={styles.placeTagControlRow}>
+        <Text style={[styles.placeControlLabel, theme && { color: theme.muted }]}>태그</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tagFilterRow}
+        >
         <Pressable
           onPress={() => setTagFilter(null)}
           style={[
@@ -1158,7 +1163,9 @@ function Places({
             </Text>
           </Pressable>
         ))}
-      </ScrollView>
+        </ScrollView>
+      </View>
+      </View>
       <View style={styles.placeList}>
         {visible.map((place, index) => (
           <View
@@ -1786,7 +1793,7 @@ function Preparation({
         <View style={styles.packingJourneyBody}>
           <View style={styles.packingJourneyCopy}>
             <View>
-              <Text style={[styles.packingJourneyEyebrow, theme && { color: theme.primary }]}>출발 준비</Text>
+              <Text style={[styles.packingJourneyEyebrow, theme && { color: theme.primary }]}>준비물 · {items.length}개</Text>
               <Text style={[styles.packingJourneyTitle, theme && { color: theme.text }]}>
                 {percentage === 100
                   ? "짐 꾸리기 완료!"
@@ -3414,13 +3421,16 @@ function Cooking({
   };
   return (
     <View>
-      {recipes.length === 0 && (
-        <SectionLabel label="요리 메뉴" action="요리 추가" onPress={() => setAddingRecipe(true)} />
-      )}
+      <TabActionHeader
+        label="요리 메뉴"
+        count={`${recipes.length}개`}
+        action="요리 추가"
+        onPress={() => setAddingRecipe(true)}
+      />
       {recipes.length > 0 && (
         <View style={styles.recipeSelector}>
           <View style={styles.recipeSelectorHead}>
-            <Text style={[styles.recipeSelectorTitle, theme && { color: theme.text }]}>요리 메뉴</Text>
+            <Text style={[styles.recipeSelectorTitle, theme && { color: theme.muted }]}>메뉴를 선택하세요</Text>
             <View style={styles.recipeSelectorActions}>
               {recipes.length > 4 ? (
                 <Pressable onPress={() => setShowAllRecipes(true)}>
@@ -3429,12 +3439,6 @@ function Cooking({
               ) : (
                 <Text style={[styles.recipeSelectorCount, theme && { color: theme.muted }]}>{recipes.length}개</Text>
               )}
-              <Pressable
-                onPress={() => setAddingRecipe(true)}
-                style={[styles.recipeSelectorAdd, theme && { backgroundColor: theme.primarySoft }]}
-              >
-                <Text style={[styles.recipeSelectorAddText, theme && { color: theme.primary }]}>＋ 요리 추가</Text>
-              </Pressable>
             </View>
           </View>
           <ScrollView
@@ -4069,6 +4073,12 @@ function Memories() {
   };
   return (
     <View>
+      <TabActionHeader
+        label="여행 기록"
+        count={`사진 ${photos.length} · 일기 ${diaries.length}`}
+        action="사진 추가"
+        onPress={addPhoto}
+      />
       <SectionLabel
         label="여행 기념 카드"
         action="꾸미기"
@@ -4127,7 +4137,7 @@ function Memories() {
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
         </View>
       ))}
-      <SectionLabel label={`여행 사진 · ${photos.length}장`} action="사진 추가" onPress={addPhoto} />
+      <SectionLabel label={`여행 사진 · ${photos.length}장`} />
       <View style={styles.memoryGrid}>
         {photos.map((color, index) => (
           <View
@@ -4209,6 +4219,40 @@ function SectionLabel({
           </Text>
         </Pressable>
       )}
+    </View>
+  );
+}
+
+function TabActionHeader({
+  label,
+  count,
+  action,
+  onPress,
+}: {
+  label: string;
+  count: string;
+  action: string;
+  onPress: () => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={styles.tabActionHeader}>
+      <View style={styles.tabActionTitleRow}>
+        <Text style={[styles.tabActionTitle, theme && { color: theme.text }]}>{label}</Text>
+        <Text style={[styles.tabActionCount, theme && { color: theme.muted }]}>{count}</Text>
+      </View>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={action}
+        style={({ pressed }) => [
+          styles.tabActionButton,
+          theme && { backgroundColor: theme.primary },
+          pressed && styles.packingCardPressed,
+        ]}
+      >
+        <Text style={styles.tabActionButtonText}>＋ {action}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -6348,9 +6392,11 @@ const styles = StyleSheet.create({
   },
   packingV2StatusTabs: { flexDirection: "row", alignItems: "center", gap: 3 },
   packingV2StatusChip: {
+    minHeight: 30,
     borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
+    justifyContent: "center",
   },
   packingV2TagButton: {
     borderWidth: 1,
@@ -7100,6 +7146,15 @@ const styles = StyleSheet.create({
   ingredientName: { color: "#383534", fontSize: 13, fontWeight: "800" },
   ingredientOwner: { color: "#96908A", fontSize: 9, marginTop: 2 },
   ingredientQuantity: { color: "#765D49", fontSize: 11, fontWeight: "700" },
+  tabActionHeader: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 5, marginBottom: 9 },
+  tabActionTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  tabActionTitle: { fontSize: 18, lineHeight: 23, fontWeight: "900", letterSpacing: -0.5 },
+  tabActionCount: { fontSize: 9, fontWeight: "800" },
+  tabActionButton: { minHeight: 34, borderRadius: 10, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  tabActionButtonText: { color: "#FFFFFF", fontSize: 9, fontWeight: "900" },
+  placeControlPanel: { borderWidth: 1, borderRadius: 14, padding: 9, marginBottom: 11 },
+  placeControlLabel: { width: 30, fontSize: 8, fontWeight: "900" },
+  placeTagControlRow: { flexDirection: "row", alignItems: "center" },
   longPressHint: {
     color: "#AAA39C",
     fontSize: 10,
@@ -7351,6 +7406,25 @@ Object.assign(styles, {
     marginTop: 8,
     marginBottom: 8,
   },
+  tabActionHeader: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 5,
+    marginBottom: 9,
+  },
+  tabActionTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  tabActionTitle: { fontSize: 18, lineHeight: 23, fontWeight: "900", letterSpacing: -0.5 },
+  tabActionCount: { fontSize: 9, fontWeight: "800" },
+  tabActionButton: {
+    minHeight: 34,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabActionButtonText: { color: "#FFFFFF", fontSize: 9, fontWeight: "900" },
   sectionTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5 },
   timelineCard: { borderRadius: 10, padding: 16, borderWidth: 1 },
   fullScheduleButton: {
@@ -7403,7 +7477,27 @@ Object.assign(styles, {
     alignItems: "center",
     marginBottom: 16,
   },
-  placeFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
+  placeControlPanel: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 9,
+    marginBottom: 11,
+  },
+  placeControlLabel: { width: 30, fontSize: 8, fontWeight: "900" },
+  placeToolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    marginBottom: 7,
+  },
+  placeFilters: { flexDirection: "row", gap: 4 },
+  placeFilter: {
+    minHeight: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
   placeAdd: { borderRadius: 8, paddingHorizontal: 11, paddingVertical: 8 },
   batchButton: {
     borderRadius: 7,
@@ -7412,13 +7506,22 @@ Object.assign(styles, {
     paddingVertical: 8,
   },
   placeSearch: {
-    height: 45,
-    borderRadius: 9,
+    height: 39,
+    borderRadius: 10,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    marginBottom: 10,
+    marginBottom: 7,
+  },
+  placeTagControlRow: { flexDirection: "row", alignItems: "center" },
+  tagFilterRow: { gap: 5, paddingRight: 8, paddingBottom: 0 },
+  tagFilterChip: {
+    height: 30,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   tagFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
   candidateCard: { borderRadius: 10, padding: 15, borderWidth: 1 },
