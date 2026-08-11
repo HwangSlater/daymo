@@ -628,7 +628,6 @@ function TripOverview({
   return (
     <View>
       <TabIntro
-        number="01"
         title="여행 일정"
         caption="시간순으로 일정을 확인하고 바로 추가하세요"
         meta={`${schedule.length}개 일정`}
@@ -1097,7 +1096,6 @@ function Places({
   return (
     <View>
       <TabIntro
-        number="02"
         title="가고 싶은 장소"
         caption="장소를 모아두고 정해진 곳은 일정에 추가하세요"
         meta={`${places.length}곳 · 저장 ${places.filter((place) => place.status === "후보").length}`}
@@ -1806,7 +1804,6 @@ function Preparation({
   return (
     <View>
       <TabIntro
-        number="03"
         title="준비물"
         caption="담당을 정하고 챙긴 준비물을 체크하세요"
         meta={`${completedCount}/${items.length} 완료 · ${percentage}%`}
@@ -3440,7 +3437,6 @@ function Cooking({
   return (
     <View>
       <TabIntro
-        number="04"
         title="여행 요리"
         caption="만들 요리와 필요한 재료를 정리하세요"
         meta={`${recipes.length}개 메뉴`}
@@ -4031,7 +4027,6 @@ function Memories() {
   return (
     <View>
       <TabIntro
-        number="05"
         title="여행 기록"
         caption="사진과 메모로 여행의 순간을 남겨보세요"
         meta={`사진 ${photos.length}장 · 일기 ${diaries.length}개`}
@@ -4139,14 +4134,12 @@ function Memories() {
 }
 
 function TabIntro({
-  number,
   title,
   caption,
   meta,
   action,
   onAction,
 }: {
-  number: string;
   title: string;
   caption: string;
   meta: string;
@@ -4158,27 +4151,17 @@ function TabIntro({
     <View
       style={[styles.tabIntro, theme && { borderBottomColor: theme.border }]}
     >
-      <View
-        style={[
-          styles.tabIntroMark,
-          theme && { backgroundColor: theme.primarySoft },
-        ]}
-      >
-        <Text
-          style={[styles.tabIntroMarkText, theme && { color: theme.primary }]}
-        >
-          {number}
-        </Text>
-      </View>
       <View style={styles.tabIntroCopy}>
-        <Text style={[styles.tabIntroTitle, theme && { color: theme.text }]}>
-          {title}
-        </Text>
+        <View style={styles.tabIntroTitleRow}>
+          <Text style={[styles.tabIntroTitle, theme && { color: theme.text }]}>
+            {title}
+          </Text>
+          <View style={[styles.tabIntroMetaBadge, theme && { backgroundColor: theme.primarySoft }]}>
+            <Text style={[styles.tabIntroMeta, theme && { color: theme.primary }]}>{meta}</Text>
+          </View>
+        </View>
         <Text style={[styles.tabIntroCaption, theme && { color: theme.muted }]}>
           {caption}
-        </Text>
-        <Text style={[styles.tabIntroMeta, theme && { color: theme.primary }]}>
-          {meta}
         </Text>
       </View>
       <Pressable
@@ -6372,36 +6355,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tabIntro: {
-    minHeight: 78,
+    minHeight: 62,
     borderBottomWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingBottom: 10,
-    marginBottom: 8,
+    paddingBottom: 9,
+    marginBottom: 7,
   },
-  tabIntroMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 11,
-    transform: [{ rotate: "-3deg" }],
+  tabIntroCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
+  tabIntroTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  tabIntroTitle: { flexShrink: 1, fontSize: 17, fontWeight: "900", letterSpacing: -0.5 },
+  tabIntroMetaBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
   },
-  tabIntroMarkText: { fontSize: 10, fontWeight: "900" },
-  tabIntroCopy: { flex: 1, paddingRight: 8 },
-  tabIntroTitle: { fontSize: 17, fontWeight: "900", letterSpacing: -0.5 },
   tabIntroCaption: {
     fontSize: 9,
     lineHeight: 14,
     fontWeight: "700",
-    marginTop: 3,
+    marginTop: 4,
   },
-  tabIntroMeta: { fontSize: 9, fontWeight: "900", marginTop: 6 },
+  tabIntroMeta: { fontSize: 8, fontWeight: "900" },
   tabIntroAction: {
-    height: 34,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    height: 32,
+    borderRadius: 11,
+    paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
   },
