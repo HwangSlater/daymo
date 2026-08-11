@@ -432,46 +432,64 @@ function NotebookHome({
           </View>
         </View>
         <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
-        <View style={(s as any).paperStay}>
-          <View
-            style={[
-              (s as any).paperPin,
-              { backgroundColor: `${theme.secondary}22` },
-            ]}
-          >
-            <Text style={{ color: theme.secondary }}>⌂</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[(s as any).paperStayLabel, { color: theme.muted }]}>
-              숙소
-            </Text>
-            <Text style={[(s as any).paperStayName, { color: theme.text }]}>
-              JS호텔 · 오후 3시 체크인
-            </Text>
-          </View>
-          <Text style={{ color: theme.muted }}>›</Text>
-        </View>
-        <View style={(s as any).paperCounts}>
-          {[
-            { label: "일정", value: "3", color: theme.primary },
-            { label: "장소", value: "8", color: theme.secondary },
-            { label: "준비", value: "2/6", color: theme.accent },
-          ].map((item, index) => (
+        <View
+          style={[
+            (s as any).paperStayBoard,
+            { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+          ]}
+        >
+          <View style={(s as any).paperStay}>
             <View
-              key={item.label}
               style={[
-                (s as any).paperCountChip,
+                (s as any).paperStayIcon,
                 {
-                  backgroundColor: `${item.color}${theme.dark ? "20" : "12"}`,
-                  borderColor: `${item.color}${theme.dark ? "70" : "55"}`,
-                  transform: [{ rotate: index === 1 ? "0deg" : index === 0 ? "-1deg" : "1deg" }],
+                  backgroundColor: `${theme.secondary}18`,
+                  borderColor: `${theme.secondary}66`,
                 },
               ]}
             >
-              <Text style={[(s as any).paperCountLabel, { color: theme.muted }]}>{item.label}</Text>
-              <Text style={[(s as any).paperCountValue, { color: item.color }]}>{item.value}</Text>
+              <Svg width={22} height={22} viewBox="0 0 22 22">
+                <Path
+                  d="M4 19V7.5L11 3l7 4.5V19M7.5 19v-5h7v5M8 9h1M13 9h1"
+                  fill="none"
+                  stroke={theme.secondary}
+                  strokeWidth={1.7}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
             </View>
-          ))}
+            <View style={{ flex: 1 }}>
+              <Text style={[(s as any).paperStayLabel, { color: theme.secondary }]}>숙소</Text>
+              <Text numberOfLines={1} style={[(s as any).paperStayName, { color: theme.text }]}>JS호텔</Text>
+            </View>
+            <View style={[(s as any).paperStayTime, { backgroundColor: `${theme.secondary}18` }]}>
+              <Text style={[(s as any).paperStayTimeLabel, { color: theme.muted }]}>체크인</Text>
+              <Text style={[(s as any).paperStayTimeValue, { color: theme.secondary }]}>15:00</Text>
+            </View>
+          </View>
+          <View style={(s as any).paperCounts}>
+            {[
+              { label: "일정", value: "3", color: theme.primary },
+              { label: "장소", value: "8", color: theme.secondary },
+              { label: "준비", value: "2/6", color: theme.accent },
+            ].map((item, index) => (
+              <View
+                key={item.label}
+                style={[
+                  (s as any).paperCountChip,
+                  {
+                    backgroundColor: `${item.color}${theme.dark ? "20" : "12"}`,
+                    borderColor: `${item.color}${theme.dark ? "70" : "55"}`,
+                    transform: [{ rotate: index === 1 ? "0deg" : index === 0 ? "-1deg" : "1deg" }],
+                  },
+                ]}
+              >
+                <Text style={[(s as any).paperCountLabel, { color: theme.muted }]}>{item.label}</Text>
+                <Text style={[(s as any).paperCountValue, { color: item.color }]}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </Pressable>
       <View style={(s as any).pencilActions}>
@@ -3609,22 +3627,40 @@ Object.assign(s, {
   paperDate: { fontSize: 11, marginTop: 6 },
   paperDoodle: { fontSize: 30, marginTop: 2, transform: [{ rotate: "12deg" }] },
   paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginVertical: 17 },
+  paperStayBoard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 11,
+  },
   paperStay: { flexDirection: "row", alignItems: "center" },
-  paperPin: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+  paperStayIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: 11,
   },
-  paperStayLabel: { fontSize: 11, fontWeight: "700" },
-  paperStayName: { fontSize: 12, fontWeight: "800", marginTop: 3 },
+  paperStayLabel: { fontSize: 11, fontWeight: "900" },
+  paperStayName: { fontSize: 13, fontWeight: "900", marginTop: 3 },
+  paperStayTime: {
+    minWidth: 58,
+    minHeight: 40,
+    borderRadius: 11,
+    paddingHorizontal: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paperStayTimeLabel: { fontSize: 11, fontWeight: "700" },
+  paperStayTimeValue: { fontSize: 12, fontWeight: "900", marginTop: 1 },
   paperCounts: {
     flexDirection: "row",
     gap: 7,
-    marginTop: 17,
-    paddingLeft: 44,
+    marginTop: 11,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(100,110,120,.18)",
   },
   paperCountChip: {
     minHeight: 30,
