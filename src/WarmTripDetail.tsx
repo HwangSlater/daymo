@@ -4426,17 +4426,26 @@ function DetailSheet({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
-  const sheetMark = title.includes("일정")
-    ? "01"
+  const sheetKind = title.includes("일정")
+    ? "일정"
     : title.includes("장소")
-      ? "02"
+      ? "장소"
       : title.includes("준비") || title.includes("담당")
-        ? "03"
+        ? "준비"
         : title.includes("요리") || title.includes("재료")
-          ? "04"
-          : title.includes("기록") || title.includes("사진")
-            ? "05"
-            : "+";
+          ? "요리"
+          : title.includes("기록") || title.includes("사진") || title.includes("일기") || title.includes("카드")
+            ? "기록"
+            : "Daymo";
+  const sheetAccent = theme
+    ? sheetKind === "장소"
+      ? theme.secondary
+      : sheetKind === "준비" || sheetKind === "요리"
+        ? theme.accent
+        : sheetKind === "기록"
+          ? theme.secondary
+          : theme.primary
+    : "#FF6B63";
   return (
     <Modal
       visible={visible}
@@ -4450,21 +4459,28 @@ function DetailSheet({
           style={[styles.sheet, theme && { backgroundColor: theme.background }]}
         >
           <View style={styles.sheetHandle} />
-          <View style={styles.sheetHead}>
+          <View
+            style={[
+              styles.sheetHead,
+              styles.sheetHeadDecorated,
+              { backgroundColor: `${sheetAccent}0D`, borderColor: `${sheetAccent}45` },
+            ]}
+          >
+            <View style={[styles.sheetHeadTape, { backgroundColor: `${sheetAccent}66` }]} />
             <View style={styles.sheetHeadMain}>
               <View
                 style={[
                   styles.sheetMark,
-                  theme && { backgroundColor: theme.primarySoft },
+                  { backgroundColor: `${sheetAccent}18` },
                 ]}
               >
                 <Text
                   style={[
                     styles.sheetMarkText,
-                    theme && { color: theme.primary },
+                    { color: sheetAccent },
                   ]}
                 >
-                  {sheetMark}
+                  {sheetKind}
                 </Text>
               </View>
               <View style={styles.sheetHeadCopy}>
@@ -4503,7 +4519,9 @@ function DetailSheet({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {children}
+            <View style={[styles.sheetFormBody, { borderLeftColor: `${sheetAccent}55` }]}>
+              {children}
+            </View>
           </ScrollView>
           <Pressable
             onPress={onSubmit}
@@ -5352,12 +5370,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+  sheetHeadDecorated: {
+    minHeight: 82,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    marginTop: 2,
+    position: "relative",
+  },
+  sheetHeadTape: {
+    position: "absolute",
+    top: -5,
+    left: 32,
+    width: 38,
+    height: 10,
+    borderRadius: 2,
+    opacity: 0.48,
+    transform: [{ rotate: "-3deg" }],
+  },
+  sheetFormBody: {
+    borderLeftWidth: 2,
+    paddingLeft: 12,
+    paddingRight: 1,
+  },
   sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
   sheetHeadCopy: { flex: 1 },
   sheetMark: {
-    width: 42,
+    minWidth: 42,
     height: 42,
     borderRadius: 14,
+    paddingHorizontal: 9,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
