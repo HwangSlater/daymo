@@ -376,9 +376,12 @@ export function WarmTripDetail({
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.detailLeadRow}>
-            <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
-              2026. 08. 21 — 08. 23
+          <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
+            2026. 08. 21 — 08. 23
+          </Text>
+          <View style={styles.detailTitleRow}>
+            <Text style={[styles.title, appTheme && { color: appTheme.text }]}>
+              {title}
             </Text>
             <Pressable
               onPress={() => setMemoPanel(true)}
@@ -390,15 +393,20 @@ export function WarmTripDetail({
                 },
               ]}
             >
-              <Text style={[styles.tripMemoButtonText, appTheme && { color: appTheme.primary }]}>메모 확인</Text>
+              <View
+                style={[
+                  styles.tripMemoIcon,
+                  appTheme && { backgroundColor: appTheme.primarySoft },
+                ]}
+              >
+                <Text style={[styles.tripMemoIconText, appTheme && { color: appTheme.primary }]}>≡</Text>
+              </View>
+              <Text style={[styles.tripMemoButtonText, appTheme && { color: appTheme.text }]}>메모</Text>
               <View style={[styles.tripMemoCount, appTheme && { backgroundColor: appTheme.primarySoft }]}>
                 <Text style={[styles.tripMemoCountText, appTheme && { color: appTheme.primary }]}>{tripNotes.length}</Text>
               </View>
             </Pressable>
           </View>
-          <Text style={[styles.title, appTheme && { color: appTheme.text }]}>
-            {title}
-          </Text>
           <Text
             style={[styles.subtitle, appTheme && { color: appTheme.muted }]}
           >
@@ -4368,27 +4376,38 @@ const styles = StyleSheet.create({
   headerMore: { color: "#5D3531", fontSize: 16, letterSpacing: 2 },
   page: { paddingHorizontal: 20, paddingTop: 25, paddingBottom: 48 },
   date: { color: "#B76A59", fontSize: 11, letterSpacing: 1, fontWeight: "900" },
-  detailLeadRow: {
+  detailTitleRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "space-between",
+    gap: 12,
   },
   tripMemoButton: {
-    minHeight: 32,
-    borderRadius: 11,
+    height: 40,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#E5E3DD",
     backgroundColor: "#FFFFFF",
-    paddingLeft: 10,
-    paddingRight: 6,
+    paddingLeft: 6,
+    paddingRight: 7,
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
+    marginBottom: 2,
   },
-  tripMemoButtonText: { color: "#B76A59", fontSize: 9, fontWeight: "900" },
+  tripMemoIcon: {
+    width: 27,
+    height: 27,
+    borderRadius: 9,
+    backgroundColor: "#FFF0ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tripMemoIconText: { color: "#B76A59", fontSize: 15, fontWeight: "900", lineHeight: 16 },
+  tripMemoButtonText: { color: "#35333A", fontSize: 9, fontWeight: "900" },
   tripMemoCount: {
-    minWidth: 20,
-    height: 20,
+    minWidth: 19,
+    height: 19,
     borderRadius: 7,
     backgroundColor: "#FFF0ED",
     alignItems: "center",
