@@ -46,6 +46,14 @@ type Transportation = {
   status: "예매 완료" | "예매 전";
 };
 
+const transportationLabel = (item: Pick<Transportation, "method" | "service">) => {
+  const service = item.service.trim();
+  if (!service) return item.method;
+  return service.toLowerCase().startsWith(item.method.toLowerCase())
+    ? service
+    : `${item.method} · ${service}`;
+};
+
 type Props = {
   done: string[];
   toggle: (item: string) => void;
@@ -634,17 +642,13 @@ function TripOverview({
   const [transportMethod, setTransportMethod] = useState<Transportation["method"]>("KTX");
   const [transportService, setTransportService] = useState("");
   const [transportDate, setTransportDate] = useState("금 · 21");
-  const [transportRoute, setTransportRoute] = useState("");
-  const [transportTimes, setTransportTimes] = useState("");
+  const [transportDeparture, setTransportDeparture] = useState("");
+  const [transportDepartureTime, setTransportDepartureTime] = useState("");
+  const [transportArrival, setTransportArrival] = useState("");
+  const [transportArrivalTime, setTransportArrivalTime] = useState("");
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const scheduleFormValid = Boolean(newPlanTitle.trim());
-  const splitTransportPair = (value: string) => value
-    .split(/,|→|->/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const [transportDeparture = "", transportArrival = ""] = splitTransportPair(transportRoute);
-  const [transportDepartureTime = "", transportArrivalTime = ""] = splitTransportPair(transportTimes);
-  const transportFormValid = Boolean(transportDeparture && transportArrival);
+  const transportFormValid = Boolean(transportDeparture.trim() && transportArrival.trim());
   const addSchedule = () => {
     if (!newPlanTitle.trim()) return;
     setSchedule((current) => [
@@ -670,10 +674,10 @@ function TripOverview({
       method: transportMethod,
       service: transportService.trim(),
       date: transportDate,
-      departure: transportDeparture,
-      departureTime: transportDepartureTime || "시간 미정",
-      arrival: transportArrival,
-      arrivalTime: transportArrivalTime || "시간 미정",
+      departure: transportDeparture.trim(),
+      departureTime: transportDepartureTime.trim() || "시간 미정",
+      arrival: transportArrival.trim(),
+      arrivalTime: transportArrivalTime.trim() || "시간 미정",
       status: transportStatus,
     };
     setTransportations((current) => [...current, next]);
@@ -687,8 +691,10 @@ function TripOverview({
       },
     ]);
     setTransportService("");
-    setTransportRoute("");
-    setTransportTimes("");
+    setTransportDeparture("");
+    setTransportDepartureTime("");
+    setTransportArrival("");
+    setTransportArrivalTime("");
     setSheet(null);
   };
   return (
@@ -912,16 +918,31 @@ function TripOverview({
         <View style={[styles.transportFormPreview, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
           <Text style={[styles.transportFormOwner, theme && { color: theme.primary }]}>{transportOwner} · {transportDirection}</Text>
           <Text style={[styles.transportFormRoute, theme && { color: theme.text }]}>{transportDeparture || "출발지"} → {transportArrival || "도착지"}</Text>
-          <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod}{transportService.trim() ? ` ${transportService.trim()}` : ""} · {transportDepartureTime || "시간 미정"}</Text>
+          <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportationLabel({ method: transportMethod, service: transportService })} · {transportDepartureTime || "시간 미정"}</Text>
         </View>
         <OptionField label="탑승자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
         <OptionField label="구분" options={["가는 편", "오는 편"]} value={transportDirection} onChange={(value) => setTransportDirection(value as Transportation["direction"])} />
         <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
         <OptionField label="날짜" options={["금 · 21", "토 · 22", "일 · 23"]} value={transportDate} onChange={setTransportDate} />
-        <DetailField label="편명 · 선택" value={transportService} onChangeText={setTransportService} placeholder="예: KTX 177, 우등" />
-        <DetailField label="이동 경로 · 필수" value={transportRoute} onChangeText={setTransportRoute} placeholder="영등포, 부산" />
-        <Text style={[styles.transportCombinedHint, theme && { color: theme.muted }]}>출발지와 도착지를 쉼표로 나눠 입력하세요.</Text>
-        <DetailField label="출발·도착 시간 · 선택" value={transportTimes} onChangeText={setTransportTimes} placeholder="19:59, 23:09" />
+        <DetailField label="편명·등급 · 선택" value={transportService} onChangeText={setTransportService} placeholder="예: 177호, 우등" />
+        <PairedDetailField
+          label="이동 경로 · 필수"
+          leftValue={transportDeparture}
+          rightValue={transportArrival}
+          onChangeLeft={setTransportDeparture}
+          onChangeRight={setTransportArrival}
+          leftPlaceholder="출발지"
+          rightPlaceholder="도착지"
+        />
+        <PairedDetailField
+          label="출발·도착 시간 · 선택"
+          leftValue={transportDepartureTime}
+          rightValue={transportArrivalTime}
+          onChangeLeft={setTransportDepartureTime}
+          onChangeRight={setTransportArrivalTime}
+          leftPlaceholder="19:59"
+          rightPlaceholder="23:09"
+        />
         <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
       </DetailSheet>
       <InfoPanel
@@ -934,7 +955,7 @@ function TripOverview({
           .map((item) => (
             <View key={item.id} style={[styles.transportDetailBlock, theme && { borderColor: theme.border }]}>
               <Text style={[styles.transportDetailDirection, theme && { color: theme.primary }]}>{item.direction} · {item.status}</Text>
-              <InfoLine label="교통" value={[item.method, item.service].filter(Boolean).join(" · ")} />
+              <InfoLine label="교통" value={transportationLabel(item)} />
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
             </View>
@@ -4570,7 +4591,7 @@ function TransportCard({
         <Text style={[styles.transportOwner, { color }]}>{owner}</Text>
         <Text style={[styles.transportStatus, theme && { color: theme.muted }]}>{primary.status}</Text>
       </View>
-      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{primary.method}{primary.service ? ` · ${primary.service}` : ""}</Text>
+      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{transportationLabel(primary)}</Text>
       <View style={styles.transportRoute}>
         <View style={styles.transportStop}>
           <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{primary.departure}</Text>
@@ -4701,6 +4722,53 @@ function Moment({
             {!compact && <Text style={styles.mapLinkArrow}>↗</Text>}
           </Pressable>
         ) : null}
+      </View>
+    </View>
+  );
+}
+
+function PairedDetailField({
+  label,
+  leftValue,
+  rightValue,
+  onChangeLeft,
+  onChangeRight,
+  leftPlaceholder,
+  rightPlaceholder,
+}: {
+  label: string;
+  leftValue: string;
+  rightValue: string;
+  onChangeLeft: (text: string) => void;
+  onChangeRight: (text: string) => void;
+  leftPlaceholder: string;
+  rightPlaceholder: string;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={styles.detailField}>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
+      </View>
+      <View style={styles.pairedFieldRow}>
+        <TextInput
+          value={leftValue}
+          onChangeText={onChangeLeft}
+          placeholder={leftPlaceholder}
+          placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+          style={[styles.pairedFieldInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+        />
+        <View style={[styles.pairedFieldArrow, theme && { backgroundColor: theme.primarySoft }]}>
+          <Text style={[styles.pairedFieldArrowText, theme && { color: theme.primary }]}>→</Text>
+        </View>
+        <TextInput
+          value={rightValue}
+          onChangeText={onChangeRight}
+          placeholder={rightPlaceholder}
+          placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+          style={[styles.pairedFieldInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+        />
       </View>
     </View>
   );
@@ -5271,7 +5339,10 @@ const styles = StyleSheet.create({
   transportFormOwner: { fontSize: 8, fontWeight: "900" },
   transportFormRoute: { fontSize: 16, fontWeight: "900", marginTop: 6 },
   transportFormMeta: { fontSize: 9, fontWeight: "700", marginTop: 4 },
-  transportCombinedHint: { fontSize: 8, lineHeight: 12, fontWeight: "700", marginTop: -10, marginBottom: 13, paddingHorizontal: 2 },
+  pairedFieldRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  pairedFieldInput: { flex: 1, minWidth: 0, height: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 11, textAlign: "center" },
+  pairedFieldArrow: { width: 27, height: 27, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  pairedFieldArrowText: { fontSize: 13, lineHeight: 15, fontWeight: "900" },
   transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 9, marginBottom: 9 },
   transportDetailDirection: { fontSize: 9, fontWeight: "900", marginBottom: 3 },
   travelInfoPair: { flexDirection: "row", alignItems: "stretch", gap: 9 },
