@@ -3397,6 +3397,7 @@ function InfoSheet({
             </Pressable>
           </View>
           <ScrollView
+            style={(s as any).sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={(s as any).infoSheetBody}
@@ -5144,7 +5145,7 @@ Object.assign(s, {
     paddingTop: 10,
     paddingBottom: 24,
   },
-  sheetScroll: { flexGrow: 0 },
+  sheetScroll: { flexGrow: 0, flexShrink: 1 },
   regionChoices: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -5657,7 +5658,7 @@ Object.assign(s, {
     maxHeight: "91%",
   },
   fieldInput: {
-    height: 54,
+    height: 49,
     borderRadius: 14,
     paddingHorizontal: 15,
     fontSize: 14,
