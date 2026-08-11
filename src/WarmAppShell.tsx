@@ -3351,21 +3351,31 @@ function InfoSheet({
           ]}
         >
           <View style={(s as any).sheetHandle} />
-          <View style={(s as any).sheetHead}>
-            <Text
-              style={[(s as any).sheetTitle, theme && { color: theme.text }]}
-            >
-              {title}
-            </Text>
+          <View style={[(s as any).sheetHead, (s as any).infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
+            <View style={(s as any).sheetHeadCopy}>
+              <View style={(s as any).sheetKindRow}>
+                <View style={[(s as any).sheetKindDot, theme && { backgroundColor: theme.primary }]} />
+                <Text style={[(s as any).sheetKindText, theme && { color: theme.primary }]}>우리 설정</Text>
+                <View style={[(s as any).sheetRouteLine, theme && { backgroundColor: theme.border }]} />
+                <View style={[(s as any).sheetRouteDot, theme && { borderColor: theme.primary }]} />
+              </View>
+              <Text
+                numberOfLines={1}
+                style={[(s as any).sheetTitle, theme && { color: theme.text }]}
+              >
+                {title}
+              </Text>
+            </View>
             <Pressable
               onPress={onClose}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}
+              style={[(s as any).infoSheetDone, theme && { backgroundColor: theme.surface }]}
             >
               <Text
                 style={[
-                  (s as any).sheetClose,
+                  (s as any).infoSheetDoneText,
                   theme && { color: theme.primary },
                 ]}
               >
@@ -3373,7 +3383,13 @@ function InfoSheet({
               </Text>
             </Pressable>
           </View>
-          {children}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={(s as any).infoSheetBody}
+          >
+            {children}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -4240,6 +4256,23 @@ Object.assign(s, {
     justifyContent: "center",
   },
   sheetClose: { color: "#6556D8", fontSize: 22, lineHeight: 24, fontWeight: "500" },
+  infoSheetHead: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  infoSheetDone: {
+    minWidth: 52,
+    height: 32,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 10,
+  },
+  infoSheetDoneText: { fontSize: 13, lineHeight: 17, fontWeight: "900" },
+  infoSheetBody: { paddingBottom: 8 },
   field: { marginBottom: 14 },
   fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 7 },
   fieldLabelDot: { width: 5, height: 5, borderRadius: 3, marginRight: 7 },
