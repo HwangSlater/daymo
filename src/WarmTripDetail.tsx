@@ -558,7 +558,7 @@ export function WarmTripDetail({
             ))}
           </View>
           <DetailField
-            label="새 메모"
+            label="새 메모 · 선택 사항"
             value={memoDraft}
             onChangeText={setMemoDraft}
             placeholder="예: 체크인 전에 장보기"
@@ -4657,8 +4657,8 @@ function Memories() {
             <View key={`${color}-preview-${index}`} style={[styles.cardMiniPhoto, { backgroundColor: color }]} />
           ))}
         </View>
-        <DetailField label="카드 제목" value={cardTitle} onChangeText={setCardTitle} />
-        <DetailField label="짧은 문구" value={cardCaption} onChangeText={setCardCaption} multiline />
+        <DetailField label="카드 제목 · 선택 사항" value={cardTitle} onChangeText={setCardTitle} placeholder="예: 우리의 서울 주말" />
+        <DetailField label="짧은 문구 · 선택 사항" value={cardCaption} onChangeText={setCardCaption} placeholder="사진과 함께 남길 말을 적어보세요" multiline />
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>현재 여행 기록에 저장되며 언제든 다시 꾸밀 수 있어요.</Text>
       </DetailSheet>
       <DetailSheet
@@ -4670,8 +4670,8 @@ function Memories() {
         onClose={() => setDiaryWriting(false)}
         onSubmit={addDiary}
       >
-        <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
-        <DetailField label="여행 이야기" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
+        <DetailField label="일기 제목 · 선택 사항" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
+        <DetailField label="여행 이야기 · 필수" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
       </DetailSheet>
     </View>
   );
@@ -5149,7 +5149,7 @@ function DetailSheet({
               ? "숙소"
               : title.includes("예약")
                 ? "예약"
-          : title.includes("기록") || title.includes("사진") || title.includes("일기") || title.includes("카드")
+          : title.includes("기록") || title.includes("사진") || title.includes("일기") || title.includes("카드") || title.includes("메모")
             ? "기록"
             : "Daymo";
   const sheetAccent = theme
