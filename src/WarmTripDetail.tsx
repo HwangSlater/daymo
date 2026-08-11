@@ -1798,7 +1798,6 @@ function Preparation({
               </Text>
             </View>
             <View style={styles.packingJourneyActions}>
-              <Text style={[styles.packingJourneyPercent, theme && { color: theme.primary }]}>{percentage}%</Text>
               <Pressable
                 onPress={() => setAdding(true)}
                 accessibilityRole="button"
@@ -1813,21 +1812,24 @@ function Preparation({
               </Pressable>
             </View>
           </View>
-          <View style={[styles.packingJourneyTrack, theme && { backgroundColor: theme.primarySoft }]}>
-            <View style={[styles.packingJourneyFill, { width: `${percentage}%` }, theme && { backgroundColor: theme.primary }]} />
-            {[0, 50, 100].map((point) => (
-              <View
-                key={point}
-                style={[
-                  styles.packingJourneyPoint,
-                  { left: `${point}%` },
-                  theme && {
-                    backgroundColor: percentage >= point ? theme.primary : theme.surface,
-                    borderColor: percentage >= point ? theme.primary : theme.border,
-                  },
-                ]}
-              />
-            ))}
+          <View style={styles.packingJourneyProgressRow}>
+            <View style={[styles.packingJourneyTrack, theme && { backgroundColor: theme.primarySoft }]}>
+              <View style={[styles.packingJourneyFill, { width: `${percentage}%` }, theme && { backgroundColor: theme.primary }]} />
+              {[0, 50, 100].map((point) => (
+                <View
+                  key={point}
+                  style={[
+                    styles.packingJourneyPoint,
+                    { left: `${point}%` },
+                    theme && {
+                      backgroundColor: percentage >= point ? theme.primary : theme.surface,
+                      borderColor: percentage >= point ? theme.primary : theme.border,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+            <Text style={[styles.packingJourneyPercent, theme && { color: theme.primary }]}>{percentage}%</Text>
           </View>
         </View>
       </View>
@@ -6301,8 +6303,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
   },
   packingJourneyTitle: { fontSize: 12, lineHeight: 17, fontWeight: "900", marginTop: 1 },
-  packingJourneyPercent: { fontSize: 17, lineHeight: 20, fontWeight: "900" },
-  packingJourneyActions: { alignItems: "flex-end", gap: 4, marginLeft: 8 },
+  packingJourneyPercent: { width: 34, fontSize: 12, lineHeight: 16, fontWeight: "900", textAlign: "right" },
+  packingJourneyActions: { alignItems: "flex-end", marginLeft: 8 },
   packingJourneyAdd: {
     minWidth: 82,
     minHeight: 34,
@@ -6313,11 +6315,13 @@ const styles = StyleSheet.create({
   },
   packingJourneyAddText: { color: "#FFFFFF", fontSize: 8, fontWeight: "900" },
   packingJourneyTrack: {
+    flex: 1,
     height: 6,
     borderRadius: 999,
     position: "relative",
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
+  packingJourneyProgressRow: { flexDirection: "row", alignItems: "center" },
   packingJourneyFill: { height: 6, borderRadius: 999 },
   packingJourneyPoint: {
     position: "absolute",
