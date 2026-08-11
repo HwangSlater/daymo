@@ -3605,29 +3605,9 @@ function Cooking({
               >
                 <Text style={[styles.cookingMoreText, theme && { color: theme.muted }]}>···</Text>
               </Pressable>
-              <View style={[styles.cookV2RecipeArt, theme && { backgroundColor: theme.primarySoft }]}>
-                <View style={[styles.cookV2RecipeTape, theme && { backgroundColor: theme.secondary }]} />
-                <View style={[styles.cookV2RecipePaper, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <View style={styles.cookV2RecipeRings}>
-                    {[0, 1, 2].map((ring) => (
-                      <View key={ring} style={[styles.cookV2RecipeRing, theme && { backgroundColor: theme.primary }]} />
-                    ))}
-                  </View>
-                  <View style={styles.cookV2RecipeHeading}>
-                    <View style={[styles.cookV2RecipeSeal, theme && { backgroundColor: theme.primary }]} />
-                    <Text style={[styles.cookV2RecipeLabel, theme && { color: theme.primary }]}>한 끼</Text>
-                  </View>
-                  {["long", "short", "long"].map((length, index) => (
-                    <View
-                      key={`${length}-${index}`}
-                      style={[
-                        styles.cookV2RecipeRule,
-                        length === "short" && styles.cookV2RecipeRuleShort,
-                        theme && { backgroundColor: theme.border },
-                      ]}
-                    />
-                  ))}
-                </View>
+              <View style={[styles.cookV2ProgressBadge, theme && { backgroundColor: theme.primarySoft }]}>
+                <Text style={[styles.cookV2ProgressBadgeValue, theme && { color: theme.primary }]}>{ingredientProgress}%</Text>
+                <Text style={[styles.cookV2ProgressBadgeLabel, theme && { color: theme.muted }]}>재료 준비</Text>
               </View>
             </View>
           </View>
@@ -6472,47 +6452,16 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   cookV2Hero: { borderWidth: 1, overflow: "hidden" },
-  cookV2RecipeArt: {
-    width: 62,
-    height: 67,
+  cookV2ProgressBadge: {
+    width: 64,
+    minHeight: 58,
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
-    transform: [{ rotate: "2deg" }],
+    paddingVertical: 9,
   },
-  cookV2RecipeTape: {
-    position: "absolute",
-    zIndex: 2,
-    top: 2,
-    width: 23,
-    height: 7,
-    borderRadius: 2,
-    opacity: 0.42,
-    transform: [{ rotate: "-5deg" }],
-  },
-  cookV2RecipePaper: {
-    width: 45,
-    height: 52,
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 7,
-    paddingTop: 10,
-  },
-  cookV2RecipeRings: {
-    position: "absolute",
-    top: -3,
-    left: 8,
-    right: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  cookV2RecipeRing: { width: 3, height: 7, borderRadius: 2 },
-  cookV2RecipeHeading: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 },
-  cookV2RecipeSeal: { width: 7, height: 7, borderRadius: 4 },
-  cookV2RecipeLabel: { fontSize: 6, fontWeight: "900" },
-  cookV2RecipeRule: { width: "100%", height: 1, borderRadius: 1, marginBottom: 6 },
-  cookV2RecipeRuleShort: { width: "65%" },
+  cookV2ProgressBadgeValue: { fontSize: 18, lineHeight: 22, fontWeight: "900" },
+  cookV2ProgressBadgeLabel: { fontSize: 7, fontWeight: "800", marginTop: 2 },
   cookV2ProgressRow: {
     flexDirection: "row",
     alignItems: "center",
