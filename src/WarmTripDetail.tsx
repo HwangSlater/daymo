@@ -652,20 +652,26 @@ function TripOverview({
             compact
           />
         ))}
-        <Pressable
-          onPress={() => setFullSchedule(true)}
-          style={[
-            styles.fullScheduleButton,
-            theme && { backgroundColor: theme.surfaceAlt },
-          ]}
-        >
-          <Text
-            style={[styles.fullScheduleText, theme && { color: theme.text }]}
+        {schedule.length === 0 && (
+          <EmptyState
+            title="아직 일정이 없어요"
+            description="첫 일정을 추가해 여행의 흐름을 만들어 보세요."
+            action="일정 추가"
+            onPress={() => setSheet("schedule")}
+          />
+        )}
+        {schedule.length > 0 && (
+          <Pressable
+            onPress={() => setFullSchedule(true)}
+            style={[
+              styles.fullScheduleButton,
+              theme && { backgroundColor: theme.surfaceAlt },
+            ]}
           >
-            전체 일정 보기 · {schedule.length}개
-          </Text>
-          <Text style={styles.fullScheduleArrow}>→</Text>
-        </Pressable>
+            <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>전체 일정 보기 · {schedule.length}개</Text>
+            <Text style={[styles.fullScheduleArrow, theme && { color: theme.primary }]}>→</Text>
+          </Pressable>
+        )}
       </View>
 
       <SectionLabel label={`여행 정보 · ${hasKitchen ? 3 : 2}개`} />
@@ -712,12 +718,12 @@ function TripOverview({
         ]}
       >
         <View>
-          <Text style={styles.readyEyebrow}>출발 전 확인</Text>
+          <Text style={[styles.readyEyebrow, theme && { color: theme.primary }]}>출발 전 확인</Text>
           <Text style={[styles.readyText, theme && { color: theme.text }]}>
             준비물 3개가 남아 있어요.
           </Text>
         </View>
-        <Text style={styles.cardArrow}>→</Text>
+        <Text style={[styles.cardArrow, theme && { color: theme.primary }]}>→</Text>
       </Pressable>
       <DetailSheet
         visible={sheet === "schedule"}
@@ -902,6 +908,7 @@ function Places({
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
+  const [showAllPlaces, setShowAllPlaces] = useState(false);
   const allTags = Array.from(new Set(places.flatMap((place) => place.tags)));
   const statusPlaces =
     filter === "전체"
@@ -915,6 +922,7 @@ function Places({
       .toLowerCase()
       .includes(query.trim().toLowerCase()),
   );
+  const displayedPlaces = showAllPlaces ? visible : visible.slice(0, 6);
   const draftTags = tagText
     .split(/[,#\n]/)
     .map((tag) => tag.trim())
@@ -1167,7 +1175,7 @@ function Places({
       </View>
       </View>
       <View style={styles.placeList}>
-        {visible.map((place, index) => (
+        {displayedPlaces.map((place, index) => (
           <View
             key={place.name}
             style={[
@@ -1202,8 +1210,8 @@ function Places({
               <Pressable onPress={() => openEdit(place)} style={[(styles as any).placeMiniIconButton, { backgroundColor: theme?.surfaceAlt ?? "#F4F1EB" }]}>
                 <Text style={[(styles as any).placeMiniEditText, { color: theme?.muted ?? "#727C8D" }]}>수정</Text>
               </Pressable>
-              <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[(styles as any).placeMiniMapButton, { backgroundColor: place.mapUrl ? "#E6F5ED" : theme?.surfaceAlt }]}>
-                <Text style={[(styles as any).placeMiniMapText, { color: place.mapUrl ? "#16844E" : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
+              <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[(styles as any).placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
+                <Text style={[(styles as any).placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
               </Pressable>
               <Pressable
                 disabled={place.status === "일정"}
@@ -1218,7 +1226,26 @@ function Places({
             </View>
           </View>
         ))}
+        {visible.length === 0 && (
+          <EmptyState
+            title="조건에 맞는 장소가 없어요"
+            description="검색어나 선택한 상태·태그를 초기화해 보세요."
+            action="필터 초기화"
+            onPress={() => {
+              setQuery("");
+              setFilter("전체");
+              setTagFilter(null);
+            }}
+          />
+        )}
       </View>
+      {visible.length > 6 && (
+        <ListMoreButton
+          expanded={showAllPlaces}
+          hiddenCount={visible.length - 6}
+          onPress={() => setShowAllPlaces((value) => !value)}
+        />
+      )}
       <View
         style={[
           styles.packingListTools,
@@ -1286,15 +1313,15 @@ function Places({
         onClose={() => setPlanningPlace(null)}
         onSubmit={confirmPlan}
       >
-        <View style={styles.planPlaceSummary}>
-          <Text style={styles.planPlaceName}>{planningPlace?.name}</Text>
-          <Text style={styles.planPlaceMeta}>
+        <View style={[styles.planPlaceSummary, theme && { backgroundColor: theme.primarySoft }]}>
+          <Text style={[styles.planPlaceName, theme && { color: theme.text }]}>{planningPlace?.name}</Text>
+          <Text style={[styles.planPlaceMeta, theme && { color: theme.muted }]}>
             {planningPlace?.area} · {planningPlace?.category}
           </Text>
           <View style={styles.placeTags}>
             {planningPlace?.tags.map((tag) => (
-              <View key={tag} style={styles.placeTag}>
-                <Text style={styles.placeTagText}># {tag}</Text>
+              <View key={tag} style={[styles.placeTag, theme && { backgroundColor: theme.surface }]}>
+                <Text style={[styles.placeTagText, theme && { color: theme.primary }]}># {tag}</Text>
               </View>
             ))}
           </View>
@@ -2412,11 +2439,19 @@ function Preparation({
         })}
       </View>
       {visibleItems.length === 0 && (
-        <View style={styles.emptyPacking}>
-          <Text style={styles.emptyPackingText}>
-            선택한 조건의 준비물이 없어요.
-          </Text>
-        </View>
+        <EmptyState
+          title={items.length === 0 ? "아직 준비물이 없어요" : "조건에 맞는 준비물이 없어요"}
+          description={items.length === 0 ? "여행에 필요한 준비물을 추가해 보세요." : "상태·담당·태그 필터를 초기화해 보세요."}
+          action={items.length === 0 ? "준비물 추가" : "필터 초기화"}
+          onPress={() => {
+            if (items.length === 0) setAdding(true);
+            else {
+              setFilter("전체");
+              setOwnerFilter("전체");
+              setTagFilter("전체 태그");
+            }
+          }}
+        />
       )}
       <View
         style={[
@@ -3123,6 +3158,9 @@ function Cooking({
   const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>([]);
   const activeRecipe =
     recipes.find((recipe) => recipe.id === activeId) || recipes[0];
+  const menuRecipes = recipes.length > 4 && activeRecipe
+    ? [activeRecipe, ...recipes.filter((recipe) => recipe.id !== activeRecipe.id)].slice(0, 4)
+    : recipes;
   const ingredients = activeRecipe?.ingredients || [];
   const readyIngredientCount = ingredients.filter((item) =>
     readyIngredientIds.includes(item.id),
@@ -3438,7 +3476,8 @@ function Cooking({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.cookV2MenuList}
           >
-            {recipes.map((recipe, index) => {
+            {menuRecipes.map((recipe) => {
+              const index = recipes.findIndex((item) => item.id === recipe.id);
               const selected = recipe.id === activeId;
               return (
                 <Pressable
@@ -3529,7 +3568,7 @@ function Cooking({
             ]}
           >
             <View style={styles.cookingHeroCopy}>
-              <Text style={[styles.cookingEyebrow, theme && { color: theme.primary }]}>이번 여행의 한 끼</Text>
+              <Text style={[styles.cookingEyebrow, theme && { color: theme.primary }]}>{ingredientProgress === 100 ? "재료 준비 완료" : "이번 여행의 한 끼"}</Text>
               <Text
                 style={[styles.cookingTitle, theme && { color: theme.text }]}
               >
@@ -3573,9 +3612,9 @@ function Cooking({
             </Text>
             <Pressable
               onPress={() => setAddingIngredient(true)}
-              style={styles.placeAdd}
+              style={[styles.placeAdd, theme && { backgroundColor: theme.primarySoft }]}
             >
-              <Text style={styles.placeAddText}>+ 재료</Text>
+              <Text style={[styles.placeAddText, theme && { color: theme.primary }]}>＋ 재료 추가</Text>
             </Pressable>
           </View>
           {groups.map((section, groupIndex) => {
@@ -3675,7 +3714,7 @@ function Cooking({
                         {item.owner}
                       </Text>
                     </View>
-                    <Text style={styles.ingredientQuantity}>
+                    <Text style={[styles.ingredientQuantity, theme && { color: theme.muted }]}>
                       {item.quantity}
                     </Text>
                   </Pressable>
@@ -4045,6 +4084,8 @@ function Memories() {
     },
   ]);
   const [makingCard, setMakingCard] = useState(false);
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  const [showAllDiaries, setShowAllDiaries] = useState(false);
   const [cardStyle, setCardStyle] = useState("필름");
   const [cardTitle, setCardTitle] = useState("우리의 구로 여행");
   const [cardCaption, setCardCaption] = useState("천천히 걸어서 더 좋았던 2박 3일");
@@ -4110,7 +4151,7 @@ function Memories() {
         action="일기 쓰기"
         onPress={() => setDiaryWriting(true)}
       />
-      {diaries.map((diary, index) => (
+      {(showAllDiaries ? diaries : diaries.slice(0, 3)).map((diary, index) => (
         <View
           key={`${diary.date}-${index}`}
           style={[
@@ -4129,9 +4170,24 @@ function Memories() {
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
         </View>
       ))}
+      {diaries.length === 0 && (
+        <EmptyState
+          title="아직 작성한 일기가 없어요"
+          description="여행에서 기억하고 싶은 순간을 글로 남겨보세요."
+          action="일기 쓰기"
+          onPress={() => setDiaryWriting(true)}
+        />
+      )}
+      {diaries.length > 3 && (
+        <ListMoreButton
+          expanded={showAllDiaries}
+          hiddenCount={diaries.length - 3}
+          onPress={() => setShowAllDiaries((value) => !value)}
+        />
+      )}
       <SectionLabel label={`여행 사진 · ${photos.length}장`} />
       <View style={styles.memoryGrid}>
-        {photos.map((color, index) => (
+        {(showAllPhotos ? photos : photos.slice(0, 6)).map((color, index) => (
           <View
             key={`${color}-${index}`}
             style={[
@@ -4149,6 +4205,21 @@ function Memories() {
           </View>
         ))}
       </View>
+      {photos.length === 0 && (
+        <EmptyState
+          title="아직 추가한 사진이 없어요"
+          description="여행의 첫 장면을 기록에 추가해 보세요."
+          action="사진 추가"
+          onPress={addPhoto}
+        />
+      )}
+      {photos.length > 6 && (
+        <ListMoreButton
+          expanded={showAllPhotos}
+          hiddenCount={photos.length - 6}
+          onPress={() => setShowAllPhotos((value) => !value)}
+        />
+      )}
       <DetailSheet
         visible={makingCard}
         title="여행 기념 카드 꾸미기"
@@ -4246,6 +4317,55 @@ function TabActionHeader({
         <Text style={styles.tabActionButtonText}>＋ {action}</Text>
       </Pressable>
     </View>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+  action,
+  onPress,
+}: {
+  title: string;
+  description: string;
+  action: string;
+  onPress: () => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={[styles.emptyState, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+      <View style={[styles.emptyStateMark, theme && { backgroundColor: theme.primarySoft }]}>
+        <View style={[styles.emptyStateLine, theme && { backgroundColor: theme.primary }]} />
+        <View style={[styles.emptyStateLine, styles.emptyStateLineShort, theme && { backgroundColor: theme.primary }]} />
+      </View>
+      <View style={styles.emptyStateCopy}>
+        <Text style={[styles.emptyStateTitle, theme && { color: theme.text }]}>{title}</Text>
+        <Text style={[styles.emptyStateDescription, theme && { color: theme.muted }]}>{description}</Text>
+      </View>
+      <Pressable onPress={onPress} style={[styles.emptyStateAction, theme && { backgroundColor: theme.primarySoft }]}>
+        <Text style={[styles.emptyStateActionText, theme && { color: theme.primary }]}>{action}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function ListMoreButton({
+  expanded,
+  hiddenCount,
+  onPress,
+}: {
+  expanded: boolean;
+  hiddenCount: number;
+  onPress: () => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <Pressable onPress={onPress} style={[styles.listMoreButton, theme && { borderColor: theme.border }]}>
+      <Text style={[styles.listMoreText, theme && { color: theme.text }]}>
+        {expanded ? "간단히 보기" : `${hiddenCount}개 더 보기`}
+      </Text>
+      <Text style={[styles.listMoreChevron, theme && { color: theme.primary }]}>{expanded ? "↑" : "↓"}</Text>
+    </Pressable>
   );
 }
 
@@ -7147,6 +7267,18 @@ const styles = StyleSheet.create({
   placeControlPanel: { borderWidth: 1, borderRadius: 14, padding: 9, marginBottom: 11 },
   placeControlLabel: { width: 30, fontSize: 8, fontWeight: "900" },
   placeTagControlRow: { flexDirection: "row", alignItems: "center" },
+  emptyState: { minHeight: 76, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 10, flexDirection: "row", alignItems: "center" },
+  emptyStateMark: { width: 34, height: 38, borderRadius: 9, paddingHorizontal: 7, justifyContent: "center", gap: 5, marginRight: 10, transform: [{ rotate: "-2deg" }] },
+  emptyStateLine: { height: 2, borderRadius: 2, opacity: 0.55 },
+  emptyStateLineShort: { width: "65%" },
+  emptyStateCopy: { flex: 1, minWidth: 0 },
+  emptyStateTitle: { fontSize: 11, fontWeight: "900" },
+  emptyStateDescription: { fontSize: 8, lineHeight: 12, fontWeight: "700", marginTop: 3 },
+  emptyStateAction: { minHeight: 30, borderRadius: 9, paddingHorizontal: 9, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  emptyStateActionText: { fontSize: 8, fontWeight: "900" },
+  listMoreButton: { minHeight: 39, borderWidth: 1, borderRadius: 10, marginTop: 8, marginBottom: 5, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  listMoreText: { fontSize: 9, fontWeight: "900" },
+  listMoreChevron: { fontSize: 11, fontWeight: "900", marginLeft: 6 },
   longPressHint: {
     color: "#AAA39C",
     fontSize: 10,
