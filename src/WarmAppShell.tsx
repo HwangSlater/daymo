@@ -519,9 +519,7 @@ function NotebookHome({
               <Text style={[(s as any).paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
             </View>
           </View>
-          <View
-            style={[(s as any).paperCounts, { borderTopColor: theme.border }]}
-          >
+          <View style={(s as any).paperCounts}>
             {[
               { label: "일정", value: "3", color: theme.primary },
               { label: "장소", value: "8", color: theme.secondary },
@@ -543,9 +541,7 @@ function NotebookHome({
           </View>
         </View>
         </Pressable>
-        <View
-          style={[(s as any).pencilActions, { borderTopColor: theme.border }]}
-        >
+        <View style={(s as any).pencilActions}>
         <HomeQuick
           theme={theme}
           icon="＋"
@@ -3772,9 +3768,7 @@ Object.assign(s, {
   paperCounts: {
     flexDirection: "row",
     gap: 18,
-    marginTop: 11,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: 13,
   },
   paperCountChip: {
     minHeight: 30,
@@ -3787,9 +3781,8 @@ Object.assign(s, {
   pencilActions: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 13,
-    paddingTop: 13,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: 10,
+    paddingTop: 5,
   },
   noteTitleRow: {
     flexDirection: "row",
