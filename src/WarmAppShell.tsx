@@ -348,65 +348,128 @@ function NotebookHome({
       showsVerticalScrollIndicator={false}
       contentContainerStyle={s.page}
     >
-      <View style={(s as any).homeV2Head}>
+      <View style={(s as any).notebookHead}>
         <View>
-          <Text style={[(s as any).homeV2Brand, { color: theme.text }]}>Daymo</Text>
-          <Text style={[(s as any).homeV2Greeting, { color: theme.muted }]}>하늘님, 다음 여행을 준비해볼까요?</Text>
+          <Text style={[s.logo, { color: theme.text }]}>Daymo</Text>
+          <Text style={[(s as any).notebookHello, { color: theme.muted }]}>
+            우리의 여행 수첩
+          </Text>
         </View>
-        <View style={[(s as any).homeV2Space, { backgroundColor: theme.primarySoft }]}>
-          <View style={[(s as any).homeV2SpaceDot, { backgroundColor: theme.primary }]} />
-          <Text style={[(s as any).homeV2SpaceText, { color: theme.primary }]}>친구 4명</Text>
+        <View
+          style={[(s as any).tinyDay, { backgroundColor: theme.primarySoft }]}
+        >
+          <Text style={[(s as any).tinyDayText, { color: theme.primary }]}>
+            우리 1,026일
+          </Text>
         </View>
       </View>
-      <Pressable onPress={() => open()} style={[(s as any).homeV2Trip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={(s as any).homeV2TripTop}>
-          <View style={[(s as any).homeV2DateBadge, { backgroundColor: theme.primarySoft }]}>
-            <Text style={[(s as any).homeV2DateMonth, { color: theme.primary }]}>AUG</Text>
-            <Text style={[(s as any).homeV2DateDay, { color: theme.text }]}>21</Text>
+      <View
+        style={[
+          (s as any).paperTrip,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
+        <View
+          style={[
+            (s as any).paperTape,
+            { backgroundColor: `${theme.primary}55` },
+          ]}
+        />
+        <View style={(s as any).paperTripHead}>
+          <View>
+            <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
+              열두 밤 뒤에 떠나요
+            </Text>
+            <Text style={[(s as any).paperTitle, { color: theme.text }]}>
+              서울 구로구
+            </Text>
+            <Text style={[(s as any).paperDate, { color: theme.muted }]}>
+              8월 21일 금요일 — 23일 일요일
+            </Text>
           </View>
-          <View style={(s as any).homeV2TripCopy}>
-            <View style={(s as any).homeV2KickerRow}>
-              <Text style={[(s as any).homeV2Kicker, { color: theme.primary }]}>다음 여행 · D-10</Text>
-              <Text style={[(s as any).homeV2Status, { color: theme.secondary }]}>준비 중</Text>
-            </View>
-            <Text style={[(s as any).homeV2TripTitle, { color: theme.text }]}>서울 구로구</Text>
-            <Text style={[(s as any).homeV2TripDate, { color: theme.muted }]}>8월 21일 금요일 — 23일 일요일</Text>
+          <Text style={[(s as any).paperDoodle, { color: theme.secondary }]}>
+            ✿
+          </Text>
+        </View>
+        <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
+        <Pressable onPress={() => open()} style={(s as any).paperStay}>
+          <View
+            style={[
+              (s as any).paperPin,
+              { backgroundColor: `${theme.secondary}22` },
+            ]}
+          >
+            <Text style={{ color: theme.secondary }}>⌂</Text>
           </View>
-          <Text style={[(s as any).homeV2Arrow, { color: theme.muted }]}>›</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[(s as any).paperStayLabel, { color: theme.muted }]}>
+              숙소
+            </Text>
+            <Text style={[(s as any).paperStayName, { color: theme.text }]}>
+              JS호텔 · 오후 3시 체크인
+            </Text>
+          </View>
+          <Text style={{ color: theme.muted }}>›</Text>
+        </Pressable>
+        <View style={(s as any).paperCounts}>
+          <Text style={[(s as any).paperCount, { color: theme.text }]}>
+            일정 <Text style={{ color: theme.primary }}>3</Text>
+          </Text>
+          <Text style={[(s as any).paperCount, { color: theme.text }]}>
+            장소 <Text style={{ color: theme.secondary }}>8</Text>
+          </Text>
+          <Text style={[(s as any).paperCount, { color: theme.text }]}>
+            준비 <Text style={{ color: theme.accent }}>2/6</Text>
+          </Text>
         </View>
-        <View style={[(s as any).homeV2StayRow, { borderTopColor: theme.border }]}>
-          <Text style={[(s as any).homeV2StayIcon, { color: theme.secondary }]}>⌂</Text>
-          <Text style={[(s as any).homeV2StayText, { color: theme.text }]}>JS호텔</Text>
-          <Text style={[(s as any).homeV2StayMeta, { color: theme.muted }]}>금요일 15:00 체크인</Text>
-        </View>
-        <View style={(s as any).homeV2ProgressHead}>
-          <Text style={[(s as any).homeV2ProgressLabel, { color: theme.muted }]}>준비물 6개 중 2개 완료</Text>
-          <Text style={[(s as any).homeV2ProgressValue, { color: theme.accent }]}>33%</Text>
-        </View>
-        <View style={[(s as any).homeV2ProgressTrack, { backgroundColor: theme.surfaceAlt }]}>
-          <View style={[(s as any).homeV2ProgressFill, { backgroundColor: theme.accent }]} />
-        </View>
-      </Pressable>
-      <View style={(s as any).homeV2Actions}>
-        {[
-          { icon: "＋", label: "일정 추가", color: theme.primary, tint: theme.primarySoft, onPress: () => open("schedule-add" as TripDetailDestination) },
-          { icon: "⌖", label: "장소 보기", color: theme.secondary, tint: `${theme.secondary}18`, onPress: () => open("places") },
-          { icon: "✓", label: "준비 확인", color: theme.accent, tint: `${theme.accent}18`, onPress: () => open("preparation") },
-        ].map((action) => (
-          <Pressable key={action.label} onPress={action.onPress} style={[(s as any).homeV2Action, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={[(s as any).homeV2ActionIcon, { backgroundColor: action.tint }]}><Text style={{ color: action.color, fontWeight: "900" }}>{action.icon}</Text></View>
-            <Text style={[(s as any).homeV2ActionText, { color: theme.text }]}>{action.label}</Text>
-          </Pressable>
-        ))}
       </View>
-      <View style={(s as any).homeV2SectionHead}>
+      <View style={(s as any).pencilActions}>
+        <HomeQuick
+          theme={theme}
+          icon="＋"
+          label="일정 추가"
+          tint={theme.primarySoft}
+          color={theme.primary}
+          onPress={() => open("schedule-add")}
+        />
+        <HomeQuick
+          theme={theme}
+          icon="⌖"
+          label="저장 장소"
+          tint={`${theme.secondary}20`}
+          color={theme.secondary}
+          onPress={() => open("places")}
+        />
+        <HomeQuick
+          theme={theme}
+          icon="✓"
+          label="준비물"
+          tint={`${theme.accent}20`}
+          color={theme.accent}
+          onPress={() => open("preparation")}
+        />
+      </View>
+      <View style={(s as any).noteTitleRow}>
         <View>
-          <Text style={[(s as any).homeV2SectionEyebrow, { color: theme.primary }]}>지금 확인하면 좋아요</Text>
-          <Text style={[(s as any).homeV2SectionTitle, { color: theme.text }]}>남은 준비</Text>
+          <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>
+            출발 전 확인
+          </Text>
+          <Text style={[(s as any).noteTitle, { color: theme.text }]}>
+            이번 여행 할 일
+          </Text>
         </View>
-        <Pressable onPress={goTrips}><Text style={[(s as any).homeV2SectionMore, { color: theme.primary }]}>여행 전체 보기</Text></Pressable>
+        <Pressable onPress={goTrips}>
+          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>
+            전체 보기
+          </Text>
+        </Pressable>
       </View>
-      <View style={[(s as any).homeV2Tasks, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View
+        style={[
+          (s as any).memoPaper,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+        ]}
+      >
         <MemoRow
           theme={theme}
           color={theme.primary}
@@ -5065,40 +5128,4 @@ Object.assign(s, {
   memberEditorEyebrow: { fontSize: 8, fontWeight: "900", marginBottom: 9 },
   memberRemoveButton: { height: 38, alignItems: "center", justifyContent: "center", marginTop: 5 },
   memberRemoveText: { color: "#DF5148", fontSize: 9, fontWeight: "900" },
-  homeV2Head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 7, marginBottom: 19 },
-  homeV2Brand: { fontSize: 25, fontWeight: "900", letterSpacing: -0.8 },
-  homeV2Greeting: { fontSize: 10, fontWeight: "700", marginTop: 5 },
-  homeV2Space: { height: 31, borderRadius: 10, paddingHorizontal: 10, flexDirection: "row", alignItems: "center" },
-  homeV2SpaceDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-  homeV2SpaceText: { fontSize: 8, fontWeight: "900" },
-  homeV2Trip: { borderRadius: 15, borderWidth: 1, padding: 15 },
-  homeV2TripTop: { flexDirection: "row", alignItems: "center" },
-  homeV2DateBadge: { width: 50, height: 57, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  homeV2DateMonth: { fontSize: 7, fontWeight: "900", letterSpacing: 0.7 },
-  homeV2DateDay: { fontSize: 21, lineHeight: 23, fontWeight: "900", marginTop: 2 },
-  homeV2TripCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
-  homeV2KickerRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  homeV2Kicker: { fontSize: 8, fontWeight: "900" },
-  homeV2Status: { fontSize: 7, fontWeight: "900" },
-  homeV2TripTitle: { fontSize: 17, fontWeight: "900", marginTop: 4 },
-  homeV2TripDate: { fontSize: 9, fontWeight: "700", marginTop: 4 },
-  homeV2Arrow: { fontSize: 20, marginLeft: 5 },
-  homeV2StayRow: { height: 38, flexDirection: "row", alignItems: "center", marginTop: 13, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E6E3DC" },
-  homeV2StayIcon: { fontSize: 12, marginRight: 7 },
-  homeV2StayText: { fontSize: 9, fontWeight: "900" },
-  homeV2StayMeta: { flex: 1, textAlign: "right", fontSize: 8, fontWeight: "700" },
-  homeV2ProgressHead: { flexDirection: "row", justifyContent: "space-between", marginTop: 2, marginBottom: 7 },
-  homeV2ProgressLabel: { fontSize: 8, fontWeight: "700" },
-  homeV2ProgressValue: { fontSize: 8, fontWeight: "900" },
-  homeV2ProgressTrack: { height: 5, borderRadius: 3, overflow: "hidden" },
-  homeV2ProgressFill: { width: "33%", height: "100%", borderRadius: 3 },
-  homeV2Actions: { flexDirection: "row", gap: 7, marginTop: 9 },
-  homeV2Action: { flex: 1, minWidth: 0, height: 57, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center" },
-  homeV2ActionIcon: { width: 25, height: 25, borderRadius: 8, alignItems: "center", justifyContent: "center", marginRight: 6 },
-  homeV2ActionText: { fontSize: 8, fontWeight: "900" },
-  homeV2SectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 23, marginBottom: 9 },
-  homeV2SectionEyebrow: { fontSize: 8, fontWeight: "900" },
-  homeV2SectionTitle: { fontSize: 15, fontWeight: "900", marginTop: 4 },
-  homeV2SectionMore: { fontSize: 8, fontWeight: "900", paddingVertical: 4 },
-  homeV2Tasks: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 13, overflow: "hidden" },
 });
