@@ -4206,13 +4206,13 @@ function Cooking({
         onSubmit={addIngredient}
       >
         <DetailField
-          label="재료"
+          label="재료 이름 · 필수"
           value={name}
           onChangeText={setName}
           placeholder="예: 팽이버섯"
         />
         <DetailField
-          label="수량"
+          label="수량 · 선택"
           value={quantity}
           onChangeText={setQuantity}
           placeholder="예: 1봉"
@@ -4225,7 +4225,7 @@ function Cooking({
               theme && { color: theme.muted },
             ]}
           >
-            분류
+            분류 · 선택
           </Text>
           <View style={styles.tagSuggestions}>
             {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
@@ -4275,7 +4275,7 @@ function Cooking({
           />
         </View>
         <OptionField
-          label="누가 준비하나요?"
+          label="준비 방법 · 선택"
           options={["미정", "하늘", "여울", "구매"]}
           value={owner}
           onChange={setOwner}
@@ -5130,6 +5130,9 @@ function DetailSheet({
             </View>
             <Pressable
               onPress={onClose}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`${title} 닫기`}
               style={[
                 styles.sheetCloseButton,
                 theme && { backgroundColor: theme.surfaceAlt },
