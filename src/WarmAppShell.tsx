@@ -2037,7 +2037,7 @@ function Together({
                 },
               ]}
             >
-              <Text style={(s as any).togetherAvatarText}>찬</Text>
+              <Text style={(s as any).togetherAvatarText}>하</Text>
             </View>
             <View
               style={[
@@ -2049,7 +2049,7 @@ function Together({
                 },
               ]}
             >
-              <Text style={(s as any).togetherAvatarText}>세</Text>
+              <Text style={(s as any).togetherAvatarText}>다</Text>
             </View>
           </View>
           <View style={(s as any).togetherProfileCopy}>
@@ -2068,54 +2068,34 @@ function Together({
             ›
           </Text>
         </Pressable>
-        <View
-          style={[
-            (s as any).togetherStats,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <View style={(s as any).togetherStat}>
-            <Text style={[(s as any).togetherStatValue, { color: theme.text }]}>
-              12
-            </Text>
-            <Text
-              style={[(s as any).togetherStatLabel, { color: theme.muted }]}
-            >
-              함께한 여행
-            </Text>
+        <View style={(s as any).historyHeading}>
+          <View>
+            <Text style={[(s as any).historyEyebrow, { color: theme.primary }]}>지금까지의 기록</Text>
+            <Text style={[(s as any).historyTitle, { color: theme.text }]}>함께 쌓은 여행</Text>
           </View>
-          <View
-            style={[
-              (s as any).togetherStatDivider,
-              { backgroundColor: theme.border },
-            ]}
-          />
-          <View style={(s as any).togetherStat}>
-            <Text style={[(s as any).togetherStatValue, { color: theme.text }]}>
-              38
-            </Text>
-            <Text
-              style={[(s as any).togetherStatLabel, { color: theme.muted }]}
+          <Text style={[(s as any).historyPeriod, { color: theme.muted }]}>2023 — 2026</Text>
+        </View>
+        <View style={(s as any).historyGrid}>
+          {[
+            { value: "12", unit: "번", label: "함께한 여행", color: theme.primary },
+            { value: "31", unit: "일", label: "여행한 날", color: theme.secondary },
+            { value: "8", unit: "곳", label: "방문한 지역", color: theme.accent },
+            { value: "146", unit: "장", label: "남긴 사진", color: theme.primary },
+          ].map((stat) => (
+            <View
+              key={stat.label}
+              style={[
+                (s as any).historyCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
             >
-              모은 장소
-            </Text>
-          </View>
-          <View
-            style={[
-              (s as any).togetherStatDivider,
-              { backgroundColor: theme.border },
-            ]}
-          />
-          <View style={(s as any).togetherStat}>
-            <Text style={[(s as any).togetherStatValue, { color: theme.text }]}>
-              146
-            </Text>
-            <Text
-              style={[(s as any).togetherStatLabel, { color: theme.muted }]}
-            >
-              남긴 사진
-            </Text>
-          </View>
+              <View style={[(s as any).historyDot, { backgroundColor: stat.color }]} />
+              <Text style={[(s as any).historyValue, { color: theme.text }]}>
+                {stat.value}<Text style={[(s as any).historyUnit, { color: theme.muted }]}> {stat.unit}</Text>
+              </Text>
+              <Text style={[(s as any).historyLabel, { color: theme.muted }]}>{stat.label}</Text>
+            </View>
+          ))}
         </View>
         <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>
           함께 쓰는 공간
@@ -4457,6 +4437,28 @@ Object.assign(s, {
     flexDirection: "row",
     alignItems: "center",
   },
+  historyHeading: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 20,
+    marginBottom: 9,
+  },
+  historyEyebrow: { fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
+  historyTitle: { fontSize: 15, fontWeight: "900", marginTop: 4 },
+  historyPeriod: { fontSize: 8, fontWeight: "700" },
+  historyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  historyCard: {
+    width: "48.8%",
+    minHeight: 86,
+    borderRadius: 11,
+    borderWidth: 1,
+    padding: 12,
+  },
+  historyDot: { width: 7, height: 7, borderRadius: 4, marginBottom: 9 },
+  historyValue: { fontSize: 18, fontWeight: "900" },
+  historyUnit: { fontSize: 9, fontWeight: "800" },
+  historyLabel: { fontSize: 9, fontWeight: "700", marginTop: 5 },
   settingGroup: {
     borderRadius: 10,
     paddingHorizontal: 15,
