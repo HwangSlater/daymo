@@ -572,7 +572,16 @@ function NotebookHome({
           <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>전체 보기</Text>
         </Pressable>
       </View>
-      <View style={(s as any).memoPaper}>
+      <View
+        style={[
+          (s as any).memoPaper,
+          {
+            backgroundColor: theme.dark ? theme.surface : "rgba(255,255,255,.72)",
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <View pointerEvents="none" style={[(s as any).memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
         <MemoRow theme={theme} color={theme.primary} text="숙소 예약 정보 확인" meta="오늘 · 공용" onPress={() => open("overview", trip)} />
         <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
         <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
@@ -603,7 +612,7 @@ function MemoRow({
       accessibilityLabel={`${text}, ${meta}`}
       style={[
         (s as any).memoRow,
-        { borderColor: theme.border, backgroundColor: theme.surface },
+        { borderColor: theme.border },
         last && (s as any).memoRowLast,
       ]}
     >
@@ -4081,28 +4090,35 @@ Object.assign(s, {
   },
   noteTitleSmall: { fontSize: 11, fontWeight: "800", marginBottom: 4 },
   noteTitle: { fontSize: 20, fontWeight: "900", letterSpacing: -0.6 },
-  memoPaper: { marginTop: 0 },
-  memoRow: {
-    minHeight: 64,
-    flexDirection: "row",
-    alignItems: "center",
+  memoPaper: {
+    marginTop: 0,
     borderWidth: 1,
-    borderRadius: 15,
-    paddingHorizontal: 14,
-    marginBottom: 9,
+    borderRadius: 8,
+    paddingLeft: 15,
+    paddingRight: 5,
+    overflow: "hidden",
     shadowColor: "#17233D",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
+    shadowOpacity: 0.035,
+    shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
   },
-  memoRowLast: { transform: [{ rotate: "0.15deg" }] },
+  memoPaperSpine: { position: "absolute", left: 10, top: 0, bottom: 0, width: 1 },
+  memoRow: {
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingLeft: 9,
+    paddingRight: 10,
+  },
+  memoRowLast: { borderBottomWidth: 0 },
   memoCheck: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    borderWidth: 1.5,
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1.4,
     marginRight: 12,
-    transform: [{ rotate: "-3deg" }],
+    transform: [{ rotate: "-2deg" }],
   },
   memoText: { fontSize: 12, fontWeight: "800" },
   memoMeta: { fontSize: 11, marginTop: 4 },
