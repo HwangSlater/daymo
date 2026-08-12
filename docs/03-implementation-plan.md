@@ -20,6 +20,7 @@
 3. 일정·장소·준비·요리·메모·사진을 긴 텍스트가 아닌 연결 가능한 데이터로 저장한다.
 4. 두 명 이상이 동시에 체크·담당 변경·메모 작성해도 결과가 일치해야 한다.
 5. UI 변경과 서버 연결을 한꺼번에 하지 않고 기능별로 검증한다.
+6. 개인 UI 상태와 초안은 기기에만 저장하고, 공동 데이터는 서버 원본 + SQLite 증분 캐시로 운영한다.
 
 ## 3. 확정된 화면 구조
 
@@ -45,6 +46,8 @@
 - 앱 배포: EAS Build/Update, TestFlight, Android Internal Testing
 - 사진: S3 호환 외부 스토리지 권장. VPS 로컬 저장은 제한된 알파에서만 사용
 - 관측: Sentry, Spring Boot Actuator, 구조화 서버 로그
+- 모바일 저장: SecureStore + AsyncStorage + SQLite + 파일 LRU 캐시
+- 동기화: ETag/304, opaque sync cursor, tombstone, SSE, 제한된 pending mutation
 
 Redis·Elasticsearch·Kafka·Kubernetes는 2GB VPS와 초기 규모에 불필요하므로 도입하지 않는다.
 

@@ -14,6 +14,8 @@
 | 앱 JS bundle | 단계별 측정, 기능 추가 전후 증가량 기록 |
 | 사진 업로드 | 백그라운드 진행 표시, 화면 조작을 막지 않음 |
 | 대형 목록 | 300개 항목에서 스크롤 프레임 저하가 체감되지 않음 |
+| 변경 없는 홈 재검증 | `304`, 응답 body 0 |
+| 일반 증분 동기화 | 압축 후 100KB 이하 목표 |
 
 측정은 개발 모드가 아니라 release build에서 iPhone SE급과 중급 Android 실기기로 수행한다. 지도 path와 앱 아이콘은 로컬 asset으로 유지하고, 첫 화면에서 사진 원본·전체 여행 상세를 미리 받지 않는다.
 
@@ -29,6 +31,9 @@
 - 준비물 중복 후보, 진행률, 담당 표시
 - 요리 재료→준비물 변환
 - 권한과 `permissions.canEdit/canDelete`
+- sync cursor 저장/재개, tombstone, idempotency, 충돌 병합
+- 사진 캐시 LRU와 Wi-Fi/데이터 절약 정책
+- 로컬 필터·달력·진행률 계산이 네트워크를 호출하지 않는지 검증
 
 ### DB/API 권한 테스트
 
@@ -50,6 +55,8 @@
 7. 사진 촬영/선택→업로드 실패→재시도→삭제
 8. 통합 검색→정확한 여행 상세 탭 이동
 9. 라이트/다크와 4개 테마, 큰 글자 크기 점검
+10. 오프라인에서 체크→재실행→재연결→두 기기 동일 결과 확인
+11. 오래된 cursor 만료→bootstrap 복구, 로그아웃→기기 공동 캐시 삭제
 
 ## 3. 접근성
 
@@ -64,6 +71,7 @@
 ## 4. 보안과 개인정보
 
 - access token은 SecureStore, 일반 설정만 AsyncStorage
+- 공동 데이터 SQLite는 OS sandbox에 두고 로그아웃/공간 권한 상실 시 제거
 - 비밀번호와 OAuth secret은 앱 코드/로그에 저장하지 않음
 - 모든 endpoint에서 공간 membership을 확인하고 repository query에도 공간 범위를 포함
 - 초대 token은 원문 저장 없이 hash와 만료 시각 저장
@@ -78,6 +86,7 @@
 - Sentry: crash, unhandled rejection, 화면/API breadcrumb. 개인정보는 scrub
 - 서버: request ID, actor ID hash, endpoint, status, latency만 구조화 로그
 - 지표: 로그인 성공률, API p95, 앱 시작 시간, 사진 실패율, 동기화 충돌률
+- 데이터 지표: endpoint별 압축 응답 byte, 304 비율, sync 변경 개수, 사진 품질별 전송량
 - 알림: 인증 장애, 5xx 급증, DB/Storage 용량, 백업 실패
 - 사용자 오류는 ‘무엇이 실패했는지’와 ‘다시 시도/임시 저장’ 행동을 함께 제공
 
