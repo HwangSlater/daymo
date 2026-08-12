@@ -23,12 +23,14 @@ React Native UI
   ├─ local UI state (Zustand / form)
   ├─ server cache (TanStack Query)
   └─ feature repositories
-       ├─ Supabase DB + RLS: 일반 CRUD/Realtime
-       ├─ Edge API: 초대, 통합 검색, 일괄 입력, 파일 확정
-       └─ Storage: 사진 원본/표시본/썸네일
+       └─ HTTPS REST/SSE
+            └─ Spring Boot modular monolith
+                 ├─ PostgreSQL: 도메인 데이터·검색
+                 ├─ S3-compatible storage: 사진
+                 └─ background jobs: 썸네일·정리
 ```
 
-- 화면은 Supabase 테이블을 직접 조합하지 않고 feature repository를 거친다.
+- 화면은 서버 테이블 구조를 직접 알지 않고 feature repository와 REST API를 거친다.
 - 모든 데이터 조회는 활성 `space_id`와 `trip_id` 범위로 제한한다.
 - 홈은 여러 테이블을 연속 호출하지 않고 집계 RPC/API 하나로 받는다.
 - 앱 시작 시 세션과 마지막 공간/홈 캐시를 먼저 그린 뒤 백그라운드 갱신한다.
@@ -40,7 +42,9 @@ React Native UI
 
 ### 계정과 공간
 
-- `profiles`: `id(auth.users FK)`, `display_name`, `avatar_path`, `timezone`
+- `users`: `id`, `email`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
+- `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
+- `refresh_tokens`: `user_id`, `token_hash`, `expires_at`, `revoked_at`, `device_name`
 - `spaces`: `name`, `relationship_type(couple|friends|family|other)`, `owner_id`
 - `memberships`: `space_id`, `user_id`, `role(owner|editor|viewer)`, `nickname`, `joined_at`
 - `space_invites`: `space_id`, `token_hash`, `role`, `expires_at`, `accepted_at`
@@ -96,16 +100,17 @@ React Native UI
 
 `결정 필요`: 현재 요구사항에는 상대 메모 삭제가 포함된다. 그룹 확장을 고려해 `editor가 타인 메모 삭제 가능`을 공간 설정으로 둘지, owner만 허용할지 인증 단계 전에 확정한다.
 
-RLS 원칙:
+서버 권한 검증 원칙:
 
-- membership이 없는 `space_id` 데이터는 SELECT 자체가 불가능하다.
+- 모든 API application service가 인증 사용자 membership을 확인한다.
+- repository 조회 자체에 `space_id` 또는 권한 조건을 포함해 IDOR를 차단한다.
 - 하위 엔티티의 `trip_id`가 속한 공간을 서버에서 역참조한다.
-- 클라이언트가 전달한 작성자와 완료자는 신뢰하지 않고 `auth.uid()`를 사용한다.
+- 클라이언트가 전달한 작성자와 완료자는 신뢰하지 않고 SecurityContext 사용자 ID를 사용한다.
 - 삭제는 기본적으로 soft delete하고 audit log를 남긴다.
 
 ## 5. 동시 편집과 오프라인
 
-- 목록 갱신은 Realtime 이벤트를 받아 해당 Query key만 무효화한다.
+- 중요한 공동 변경은 SSE로 이벤트를 받고 해당 Query key만 무효화한다. 연결 실패 시 앱 활성화/짧은 주기 재조회로 보완한다.
 - 수정 API에 `version`을 전달하고 불일치 시 `409 VERSION_CONFLICT`를 반환한다.
 - 체크박스와 담당 변경은 마지막 서버 결과를 기준으로 재조정한다.
 - 작성 중인 긴 메모/일기는 로컬 draft를 보존한다.

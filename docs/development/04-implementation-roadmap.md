@@ -12,14 +12,16 @@
 작업:
 
 - 현재 UI 화면/폼/버튼 목록을 회귀 체크리스트로 고정
-- Supabase 채택과 리전, 요금제 확인
+- ConoHa VPS OS/도메인/방화벽과 Docker 운영 기준 확인
+- Java 21, Spring Boot, PostgreSQL 버전 확정
+- 사진을 외부 S3 호환 스토리지에 둘지 제한된 알파 동안 VPS에 둘지 확정
 - 앱 bundle identifier와 Android package name 확정
 - 개인정보 처리방침/이용약관 초안 위치 결정
 - dev/staging/prod 프로젝트와 secret 관리 방식 생성
 
 결정 필요:
 
-1. 백엔드를 Supabase로 확정할지
+1. 사진 저장소를 외부 오브젝트 스토리지로 바로 시작할지
 2. 첫 출시를 초대된 소수 사용자용으로 할지 공개 가입으로 할지
 3. editor의 타인 메모 삭제 허용 여부
 
@@ -28,7 +30,8 @@
 ## 1단계 — 앱 구조와 기반 공사 (3~5일)
 
 - Expo Router 도입, 현재 2개 대형 파일을 route/feature 단위로 점진 분리
-- QueryClient, Supabase client, SecureStore session, 환경 설정 구성
+- QueryClient, typed REST client, SecureStore session, 환경 설정 구성
+- Spring Boot 모듈, PostgreSQL/Flyway, OpenAPI, Testcontainers 구성
 - 공통 API 오류/로딩/재시도/토스트 처리
 - theme token과 기존 UI 회귀 테스트
 - CI에 typecheck, test, Expo export 추가
@@ -49,7 +52,7 @@
 
 ## 3단계 — 우리 공간과 멤버 (5~7일)
 
-- spaces, memberships, invites, relationship profile 마이그레이션/RLS
+- spaces, memberships, invites, relationship profile Flyway migration과 서비스 권한 검증
 - 공간 생성, 초대 링크, 참여, 공간 전환
 - 멤버별 담당 선택에 실제 membership 연결
 - 멤버 내보내기 확인창과 권한
@@ -77,7 +80,7 @@
 - 예약 정보 CRUD
 - 가는 편/오는 편 교통 CRUD와 후속 입력 제안
 - 여행 메모 CRUD, 작성자/수정 시각/삭제 권한
-- Realtime으로 두 기기 갱신
+- SSE와 재조회로 두 기기 갱신
 
 검증: 시간대, 날짜 변경, 버전 충돌, 상대가 삭제/수정한 데이터 반영.
 
@@ -142,7 +145,7 @@
 - 접근성 라벨, 글자 확대, 색 대비, 키보드/스크린리더
 - 저속 네트워크, 재시도, 빈 상태, 권한 거부 전체 점검
 - 앱 시작/홈/대형 목록/이미지 성능 측정
-- RLS 보안 테스트, rate limit, 백업/복원 훈련
+- API 권한/IDOR 보안 테스트, rate limit, 백업/복원 훈련
 - Sentry, 운영 로그, 알림, 상태 대시보드
 - TestFlight/Android 내부 테스트와 실제 여행 파일럿
 - 스토어 설명, 개인정보 처리방침, 계정 삭제 경로
