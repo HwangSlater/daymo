@@ -1,0 +1,152 @@
+# ConoHa VPS 운영 설계
+
+## 1. 서버 기준
+
+- CPU: 3 Core
+- RAM: 2GB
+- SSD: 100GB
+- Traffic: 무제한
+- 권장 OS: Ubuntu 24.04 LTS
+- 구성: Nginx + Spring Boot + PostgreSQL을 Docker Compose로 운영
+- 빌드: GitHub Actions에서 수행. VPS는 완성된 image만 pull
+
+이 사양은 초기 소수 사용자와 수백~수천 건의 여행 데이터에는 충분하다. 트래픽이 무제한이므로 월 전송량은 우선 병목에서 제외한다. 일반 CRUD보다 사진 저장 용량, 이미지 변환, 메모리 제한 없는 JVM에서 먼저 문제가 발생할 가능성이 크다.
+
+## 2. 네트워크 구성
+
+```text
+Internet
+  └─ ConoHa firewall: 22(제한), 80, 443
+       └─ Nginx :80/:443
+            ├─ /v1/* → Spring Boot :8080
+            ├─ /actuator/health → 내부 health check만
+            └─ TLS termination / rate limit / upload limit
+
+Docker private network
+  ├─ api:8080
+  └─ postgres:5432 (외부 미공개)
+```
+
+- SSH 22번은 가능하면 관리자 IP로 제한하고 비밀번호 로그인을 끈다.
+- PostgreSQL과 Actuator 상세 endpoint는 외부에 공개하지 않는다.
+- UFW와 ConoHa 보안 그룹을 동시에 확인한다.
+- 도메인의 A/AAAA 레코드를 VPS에 연결하고 Let's Encrypt 인증서를 자동 갱신한다.
+
+## 3. 컨테이너와 JVM
+
+Spring Boot JVM 시작 옵션 권장값:
+
+```text
+-Xms256m
+-Xmx768m
+-XX:+UseG1GC
+-XX:MaxMetaspaceSize=192m
+-XX:+ExitOnOutOfMemoryError
+-Dfile.encoding=UTF-8
+-Duser.timezone=UTC
+```
+
+- Tomcat worker thread는 초기 40개 안팎으로 제한한다.
+- HikariCP pool은 API replica 하나 기준 최대 10개에서 시작한다.
+- 큰 JSON/파일을 JVM 메모리에 통째로 읽지 않고 stream 처리한다.
+- 이미지 리사이즈는 가급적 앱에서 먼저 하고, 서버 변환 작업은 동시 실행 수를 1로 제한한다.
+- `restart: unless-stopped`, health check, log rotation을 설정한다.
+
+## 4. PostgreSQL 초기값
+
+2GB 단일 서버에서 보수적으로 시작한다.
+
+```text
+shared_buffers = 128MB
+effective_cache_size = 512MB
+work_mem = 2MB
+maintenance_work_mem = 64MB
+max_connections = 30
+```
+
+실제 지표 없이 값을 키우지 않는다. 애플리케이션 pool과 관리/백업 연결을 합쳐 `max_connections`를 넘지 않게 한다. 인덱스는 `space_id`, `trip_id`, 날짜, soft-delete 조건과 검색 쿼리를 기준으로 만든다.
+
+## 5. 디스크 배분
+
+| 용도 | 목표 상한 |
+| --- | --- |
+| OS, Docker, 운영 여유 | 25GB |
+| PostgreSQL | 20GB |
+| Docker images/cache | 10GB |
+| 로그/임시 파일 | 5GB |
+| 로컬 사진(알파 한정) | 30GB |
+| 비상 여유 | 10GB |
+
+- 디스크 70%에서 경고, 85%에서 사진 업로드 제한을 검토한다.
+- 배포 후 사용하지 않는 image를 안전하게 정리하되 실행 중 image와 volume은 건드리지 않는다.
+- 애플리케이션 로그는 7~14일 또는 총 1GB 내에서 rotate한다.
+- DB 백업을 같은 SSD에만 두는 것은 백업이 아니다.
+
+## 6. 사진 저장
+
+### 권장 운영안
+
+S3 호환 오브젝트 스토리지를 사용한다. API는 인증/권한을 확인해 짧은 만료의 업로드·다운로드 서명 URL만 발급한다. DB에는 object key와 이미지 메타데이터를 저장한다.
+
+장점:
+
+- 사진 증가가 VPS 디스크와 API 배포에 영향을 주지 않음
+- VPS 장애 시 사진 원본을 별도로 보존
+- 앱이 직접 업로드해 JVM 메모리와 대역폭 부담 감소
+
+VPS 트래픽이 무제한이므로 외부 스토리지를 권장하는 주된 이유는 전송 비용이 아니라 100GB 디스크 한도, 서버 장애 시 복구, 백업 분리다. 초기 비공개 알파에서는 로컬 저장의 경제성이 더 좋아질 수 있다.
+
+### 제한된 알파 대안
+
+초기 둘만 사용할 때는 VPS 로컬 volume을 쓸 수 있다. 단, 외부 일일 백업, 30GB quota, 업로드 크기 제한, 경로 traversal 방지, Nginx `X-Accel-Redirect` 기반 권한 다운로드가 필요하다. 공개 가입 전에는 외부 스토리지로 이전한다.
+
+## 7. 배포 절차
+
+1. GitHub Actions가 Gradle test와 image build 수행
+2. commit SHA 태그로 GHCR push
+3. VPS에서 새 image pull
+4. PostgreSQL backup과 Flyway migration 사전 검증
+5. API 교체 후 `/actuator/health/readiness` 확인
+6. 실패 시 이전 SHA image로 복귀
+7. 앱 smoke test: 로그인, 홈, 여행 조회, 쓰기, 사진 URL
+
+단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 두 JVM을 상시 운영하지 않는다.
+
+## 8. 백업
+
+- PostgreSQL: 매일 `pg_dump` 암호화 후 VPS 밖으로 전송, 14~30일 보존
+- 사진: 오브젝트 스토리지 versioning/lifecycle 또는 별도 bucket 복제
+- env와 secret: 비밀번호 관리 도구에 별도 보관
+- 월 1회 local/staging에 실제 복원 시험
+- 배포 직전 schema 변경이 크면 추가 backup
+
+복원 문서에는 빈 서버에서 Docker 설치, secret 배치, DB 복원, image 실행, DNS 전환 순서를 포함한다.
+
+## 9. 모니터링
+
+- Spring Boot Actuator: health, JVM heap, GC, HTTP latency, DB pool
+- 서버: CPU, RAM, swap, disk, load average
+- PostgreSQL: connection, slow query, DB size, backup 성공
+- 앱/API 오류: Sentry
+- 초기에는 외부 uptime monitor로 `/actuator/health/readiness` 또는 별도 `/health` 확인
+
+경고 기준 초기값:
+
+- 메모리 85% 이상 10분
+- swap 지속 사용
+- 디스크 70% 경고/85% 긴급
+- API 5xx 5분간 2% 이상
+- p95 1초 초과
+- backup 1회 실패
+
+## 10. 확장 시점
+
+다음 중 하나가 반복되면 인프라를 분리한다.
+
+- 메모리 부족/OOM 또는 swap으로 API 지연
+- DB와 API가 자원을 경쟁
+- 사진 처리로 CPU가 장시간 포화
+- SSD 70% 이상 증가 추세
+- 배포 재시작을 허용할 수 없는 사용자 규모
+
+확장 순서는 `외부 사진 저장 확정 → DB managed/별도 VPS → API RAM 증설 → 필요할 때만 Redis`다. 마이크로서비스는 사용자 규모가 아니라 명확한 운영 병목이 생겼을 때 검토한다.

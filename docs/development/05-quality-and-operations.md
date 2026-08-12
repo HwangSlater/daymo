@@ -30,7 +30,7 @@
 - 요리 재료→준비물 변환
 - 권한과 `permissions.canEdit/canDelete`
 
-### DB/RLS 테스트
+### DB/API 권한 테스트
 
 - 다른 공간의 모든 row 조회·수정 차단
 - viewer 쓰기 차단, editor 공간 관리 차단
@@ -65,7 +65,7 @@
 
 - access token은 SecureStore, 일반 설정만 AsyncStorage
 - 비밀번호와 OAuth secret은 앱 코드/로그에 저장하지 않음
-- 모든 테이블 RLS 기본 거부 후 필요한 정책만 허용
+- 모든 endpoint에서 공간 membership을 확인하고 repository query에도 공간 범위를 포함
 - 초대 token은 원문 저장 없이 hash와 만료 시각 저장
 - 외부 URL은 `https`와 허용 scheme을 검사한 뒤 열기
 - 업로드 파일 MIME, signature, 크기를 서버에서 재검증
@@ -96,7 +96,7 @@
 - [ ] OAuth 제공자별 운영 redirect 검증
 - [ ] 개인정보 처리방침·이용약관·계정 삭제 URL 공개
 - [ ] 카메라·사진 권한 목적 문구 검토
-- [ ] RLS와 Storage policy 자동 테스트 통과
+- [ ] API 권한/IDOR와 사진 접근 정책 자동 테스트 통과
 - [ ] 실제 두 계정 공동 편집 1주 파일럿
 - [ ] 저속/오프라인/서버 오류 점검
 - [ ] 앱 시작과 목록/사진 성능 예산 통과

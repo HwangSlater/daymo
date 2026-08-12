@@ -31,7 +31,7 @@ npx tsc --noEmit
 ### P0
 
 - Expo Router: 화면별 파일과 딥링크 구조
-- Supabase JS: Auth, PostgreSQL, Storage, Realtime
+- REST API client: Spring Boot API와 통신하는 fetch 기반 typed client
 - TanStack Query: 서버 캐시, 재시도, 낙관적 업데이트
 - Zustand: 작성 중인 폼과 화면 전용 상태
 - React Hook Form + Zod: 폼 검증과 API 스키마 공유
@@ -46,24 +46,35 @@ npx tsc --noEmit
 
 ## 3. 백엔드 환경
 
-초기 권장안은 Supabase다. 소규모 공동 앱에 필요한 인증, PostgreSQL, 행 단위 권한, 실시간 이벤트, 파일 저장을 한 환경에서 제공한다.
+백엔드는 사용자의 주 언어와 보유 인프라에 맞춰 **Java 21 + Spring Boot 3.x 모놀리식 API**로 구축한다. 운영 서버는 ConoHa VPS `3Core / RAM 2GB / SSD 100GB / 트래픽 무제한`이다. 초기 규모에서는 API와 PostgreSQL을 같은 VPS에 배치하되 컨테이너별 메모리 상한을 둔다.
 
 | 환경 | 용도 | 데이터 |
 | --- | --- | --- |
-| local | 개발자 PC, 마이그레이션/테스트 | 가명 시드 데이터만 |
-| staging | TestFlight·내부 테스트 | 테스트 계정과 가명 데이터 |
-| production | 실제 사용자 | 운영 데이터 |
+| local | 개발자 PC, API·DB 통합 테스트 | 가명 시드 데이터만 |
+| staging | 로컬 또는 별도 소형 인스턴스/포트 | 테스트 계정과 가명 데이터 |
+| production | ConoHa VPS | 실제 운영 데이터 |
 
-필수 도구:
+백엔드 권장 스택:
+
+- Java 21 LTS, Spring Boot 3.x, Gradle Kotlin DSL
+- Spring Web MVC, Validation, Security, OAuth2 Client, Actuator
+- Spring Data JPA + QueryDSL. 복잡한 검색/집계는 명시적 SQL 또는 jOOQ 도입 검토
+- PostgreSQL 16, Flyway, Testcontainers
+- JWT access token + 회전형 refresh token
+- springdoc-openapi로 OpenAPI 문서 생성
+- JUnit 5, AssertJ, MockMvc, RestAssured
+- Nginx, Docker Compose, Let's Encrypt
+
+Redis, Elasticsearch, Kafka, Kubernetes는 초기 환경에 넣지 않는다. 캐시는 앱과 Caffeine으로 해결하고 검색은 PostgreSQL에서 시작한다. 스키마는 Flyway migration으로만 변경한다.
+
+로컬 실행 예시:
 
 ```bash
-npx supabase init
-npx supabase start
-npx supabase db reset
-npx supabase gen types typescript --local
+cd server
+./gradlew test
+docker compose up -d postgres
+./gradlew bootRun --args='--spring.profiles.active=local'
 ```
-
-Supabase CLI는 Docker Desktop을 사용한다. 스키마 변경은 대시보드에서 직접 수정하지 않고 `supabase/migrations/`에 SQL로 남긴다.
 
 ## 4. 환경 변수
 
@@ -71,12 +82,16 @@ Supabase CLI는 Docker Desktop을 사용한다. 스키마 변경은 대시보드
 
 ```dotenv
 EXPO_PUBLIC_APP_ENV=local
-EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-EXPO_PUBLIC_SUPABASE_ANON_KEY=
-EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:54321/functions/v1/api
+EXPO_PUBLIC_API_BASE_URL=http://localhost:8080/v1
 EXPO_PUBLIC_SENTRY_DSN=
 
-# OAuth는 서버/배포 환경의 secret으로만 관리
+# 아래 값은 서버 환경 변수이며 앱 .env에 넣지 않음
+SPRING_PROFILES_ACTIVE=local
+DB_URL=jdbc:postgresql://localhost:5432/daymo
+DB_USERNAME=daymo
+DB_PASSWORD=
+JWT_SIGNING_KEY=
+REFRESH_TOKEN_PEPPER=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 APPLE_CLIENT_ID=
@@ -85,9 +100,13 @@ KAKAO_REST_API_KEY=
 KAKAO_CLIENT_SECRET=
 NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
+S3_ENDPOINT=
+S3_BUCKET=
+S3_ACCESS_KEY=
+S3_SECRET_KEY=
 ```
 
-`EXPO_PUBLIC_*` 값은 앱 번들에서 읽을 수 있으므로 비밀키를 넣지 않는다. OAuth secret, service-role key, 서명 키는 Supabase secret 또는 CI secret으로만 보관한다.
+`EXPO_PUBLIC_*` 값은 앱 번들에서 읽을 수 있으므로 비밀키를 넣지 않는다. DB 비밀번호, OAuth secret, JWT 키, S3 키는 VPS의 root 전용 env 파일 또는 CI secret으로 관리한다.
 
 ## 5. OAuth 리디렉션
 
@@ -95,7 +114,7 @@ NAVER_CLIENT_SECRET=
 - 개발: Expo development build의 리디렉션 URI 등록
 - 운영: iOS Universal Link와 Android App Link를 추가하고 스킴은 보조 수단으로 유지
 - 제공자: Apple, Google, Kakao, Naver
-- 로그인 완료 후 URL query에 이메일을 직접 전달하는 현재 데모 방식은 폐기한다. 서버가 authorization code를 교환하고 Supabase 세션을 발급해야 한다.
+- 로그인 완료 후 URL query에 이메일을 직접 전달하는 현재 데모 방식은 폐기한다. Spring Security OAuth2 Client가 authorization code를 교환하고 일회용 앱 로그인 코드를 발급한다. 앱은 코드를 API에 교환해 access/refresh token을 받는다.
 
 ## 6. 권장 프로젝트 구조
 
@@ -106,14 +125,19 @@ src/
   features/
     auth/ spaces/ trips/ places/ schedule/
     packing/ cooking/ memos/ memories/ search/
-  lib/                       # supabase, query client, logger, links
+  lib/                       # API client, query client, logger, links
   store/                     # UI/작성 중 상태
   theme/                     # 색상 토큰
   types/                     # 생성된 DB 타입과 API 타입
-supabase/
-  migrations/
-  seed.sql
-  functions/api/
+server/
+  src/main/java/...          # Spring Boot domain/application/infra/api
+  src/main/resources/db/migration/
+  src/test/java/...
+  build.gradle.kts
+infra/
+  compose.production.yml
+  nginx/
+  scripts/
 docs/development/
 ```
 
@@ -127,6 +151,7 @@ docs/development/
 - DB 마이그레이션은 되돌리기 SQL 또는 전진 수정 계획을 PR에 기록
 - UI 피드백용 Vercel Preview와 앱용 EAS Update를 분리
 - staging 검증 후 EAS Build로 TestFlight/Android Internal Testing 배포
+- 서버는 GitHub Actions에서 테스트·이미지 빌드 후 GHCR에 올리고, VPS가 고정 태그 이미지를 pull해 무중단에 가깝게 교체한다.
 
 CI 최소 작업:
 
@@ -134,5 +159,29 @@ CI 최소 작업:
 2. `npx tsc --noEmit`
 3. lint/format 검사
 4. 단위 테스트
-5. Supabase migration/RLS 테스트
-6. Expo export 검증
+5. Gradle 테스트와 Flyway migration 검증
+6. Docker image build
+7. Expo export 검증
+
+## 8. VPS 자원 예산
+
+| 프로세스 | 메모리 목표/상한 |
+| --- | --- |
+| Spring Boot JVM | `-Xms256m -Xmx768m`, 컨테이너 900MB |
+| PostgreSQL | 컨테이너 550MB, `shared_buffers` 약 128MB |
+| Nginx | 64MB 이하 |
+| OS·Docker·여유 | 약 500MB |
+
+- swap 2GB를 비상용으로 두되 지속적인 swap 사용은 장애 신호로 본다.
+- JVM은 `UseContainerSupport`를 사용하고 Actuator로 heap/GC를 감시한다.
+- API와 DB 외에 상주형 서비스는 추가하지 않는다.
+- 빌드는 VPS에서 하지 않고 CI에서 수행해 배포 중 메모리 부족을 막는다.
+
+## 9. 사진 저장 결정
+
+트래픽은 무제한이므로 사진 조회량에 따른 전송량 비용은 주요 제약이 아니다. 하지만 100GB에는 OS, Docker image, DB, 로그, 백업도 함께 들어간다. 사진 원본을 VPS 디스크에 장기 보관하면 저장 용량과 장애 복구가 여전히 위험하다.
+
+- 권장: S3 호환 외부 오브젝트 스토리지에 사진을 저장하고 VPS에는 메타데이터만 저장
+- 초기 비공개 알파 대안: `/srv/daymo/uploads`에 저장하되 사진용 상한을 30GB로 두고 매일 외부 백업
+- 어느 방식이든 업로드 전 앱에서 표시본을 압축하고 썸네일을 생성한다.
+- 운영 공개 전에는 외부 오브젝트 스토리지로 확정한다.

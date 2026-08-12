@@ -317,7 +317,7 @@
 
 1. 앱에서 권한 확인, 선택/촬영, 방향 보정과 리사이즈
 2. `upload-url` 요청
-3. Storage에 직접 업로드
+3. 서명 URL을 사용해 S3 호환 Storage에 직접 업로드
 4. `complete`에 크기, MIME, 촬영일, 연결 대상을 전달
 5. 서버 검증 후 Photo 생성, 썸네일 작업 큐 등록
 
@@ -339,4 +339,4 @@
 }
 ```
 
-Realtime topic은 `space:{spaceId}`로 구독하고 payload에는 `entity`, `entityId`, `tripId`, `operation`, `updatedAt`만 보낸다. 상세 데이터는 권한이 적용된 API로 다시 조회한다.
+`GET /spaces/{spaceId}/events`는 인증된 SSE 연결이다. 이벤트에는 `entity`, `entityId`, `tripId`, `operation`, `updatedAt`만 담고 상세 데이터는 권한이 적용된 API로 다시 조회한다. 모바일 백그라운드에서는 연결 유지를 보장하지 않고 앱 활성화 시 갱신한다.

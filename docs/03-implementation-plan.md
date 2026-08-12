@@ -36,14 +36,17 @@
 ## 4. 권장 기술 구조
 
 - 클라이언트: Expo Router, TanStack Query, Zustand, React Hook Form, Zod
-- 백엔드 권장안: Supabase Auth + PostgreSQL/RLS + Storage + Realtime + Edge Functions
-- 일반 CRUD: RLS가 적용된 repository
-- 서버 함수: 초대, OAuth 보조, 통합 검색, 일괄 가져오기, 사진 업로드 확정
+- 백엔드: Java 21 + Spring Boot 3.x 모놀리식 API
+- 운영: ConoHa VPS 3Core/2GB/SSD 100GB, Nginx + Docker Compose
+- 데이터: PostgreSQL + Flyway, 서비스 계층에서 공간별 권한 검증
+- 인증: Spring Security, 이메일과 Apple/Google/Kakao/Naver OAuth, JWT/refresh token
+- 서버 기능: 초대, 통합 검색, 일괄 가져오기, 사진 업로드 확정, SSE 동기화
 - 검색: 초기 PostgreSQL FTS와 `pg_trgm`
 - 앱 배포: EAS Build/Update, TestFlight, Android Internal Testing
-- 관측: Sentry와 구조화 서버 로그
+- 사진: S3 호환 외부 스토리지 권장. VPS 로컬 저장은 제한된 알파에서만 사용
+- 관측: Sentry, Spring Boot Actuator, 구조화 서버 로그
 
-Supabase 채택은 개발 0단계의 사용자 승인 사항이다.
+Redis·Elasticsearch·Kafka·Kubernetes는 2GB VPS와 초기 규모에 불필요하므로 도입하지 않는다.
 
 ## 5. 개발 순서
 
