@@ -421,17 +421,17 @@ function NotebookHome({
       <View
         style={[
           (s as any).paperTrip,
-          {
-            backgroundColor: theme.surface,
-            borderColor: theme.border,
-          },
+          { backgroundColor: theme.dark ? "#F7F0D9" : "#FFFDF4", borderColor: theme.dark ? "#CFC5A9" : "#DED8C7" },
         ]}
       >
+        <View pointerEvents="none" style={(s as any).paperTripLines}>
+          {[49, 85, 121, 157, 193, 229].map((top) => (
+            <View key={top} style={[(s as any).paperTripLine, { top }]} />
+          ))}
+          <View style={(s as any).paperTripMargin} />
+        </View>
         <View
-          style={[
-            (s as any).paperTape,
-            { backgroundColor: `${theme.primary}${theme.dark ? "75" : "55"}` },
-          ]}
+          style={(s as any).paperTape}
         />
         <View pointerEvents="none" style={(s as any).paperTripRoute}>
           <Svg width="100%" height="100%" viewBox="0 0 112 42">
@@ -461,13 +461,13 @@ function NotebookHome({
         >
         <View style={(s as any).paperTripHead}>
           <View style={(s as any).paperTripCopy}>
-            <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
+            <Text style={[(s as any).paperKicker, { color: "#B85E52" }]}>
               다음 여행
             </Text>
-            <Text style={[(s as any).paperTitle, { color: theme.text }]}>
+            <Text style={[(s as any).paperTitle, { color: "#283046" }]}>
               {trip.name}
             </Text>
-            <Text style={[(s as any).paperDate, { color: theme.muted }]}>
+            <Text style={[(s as any).paperDate, { color: "#756F63" }]}>
               {trip.date}
             </Text>
           </View>
@@ -476,16 +476,16 @@ function NotebookHome({
               (s as any).paperTripStamp,
               {
                 backgroundColor: "transparent",
-                borderColor: theme.border,
+                borderColor: "#B8AD93",
               },
             ]}
           >
-            <Text style={[(s as any).paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
-            <Text style={[(s as any).paperTripStampDay, { color: theme.text }]}>{trip.start.slice(-2)}</Text>
-            <View style={[(s as any).paperTripStampRule, { backgroundColor: theme.primary }]} />
+            <Text style={[(s as any).paperTripStampMonth, { color: "#B85E52" }]}>{Number(trip.start.slice(5, 7))}월</Text>
+            <Text style={[(s as any).paperTripStampDay, { color: "#283046" }]}>{trip.start.slice(-2)}</Text>
+            <View style={[(s as any).paperTripStampRule, { backgroundColor: "#B85E52" }]} />
           </View>
         </View>
-        <View style={[(s as any).paperRule, { borderColor: theme.border }]} />
+        <View style={[(s as any).paperRule, { borderColor: "#BEB49D" }]} />
         <View
           style={[
             (s as any).paperStayBoard,
@@ -501,7 +501,7 @@ function NotebookHome({
                 (s as any).paperStayIcon,
                 {
                   backgroundColor: "transparent",
-                  borderColor: theme.border,
+                  borderColor: "#C7BDA5",
                 },
               ]}
             >
@@ -509,7 +509,7 @@ function NotebookHome({
                 <Path
                   d="M4 19V7.5L11 3l7 4.5V19M7.5 19v-5h7v5M8 9h1M13 9h1"
                   fill="none"
-                  stroke={theme.secondary}
+                  stroke="#358D82"
                   strokeWidth={1.7}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -517,56 +517,45 @@ function NotebookHome({
               </Svg>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[(s as any).paperStayLabel, { color: theme.secondary }]}>숙소</Text>
-              <Text numberOfLines={1} style={[(s as any).paperStayName, { color: theme.text }]}>JS호텔</Text>
+              <Text style={[(s as any).paperStayLabel, { color: "#358D82" }]}>숙소</Text>
+              <Text numberOfLines={1} style={[(s as any).paperStayName, { color: "#283046" }]}>JS호텔</Text>
             </View>
             <View
               style={[
                 (s as any).paperStayTime,
                 {
                   backgroundColor: "transparent",
-                  borderColor: theme.border,
+                  borderColor: "#C7BDA5",
                 },
               ]}
             >
-              <Text style={[(s as any).paperStayTimeLabel, { color: theme.muted }]}>체크인</Text>
-              <Text style={[(s as any).paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
+              <Text style={[(s as any).paperStayTimeLabel, { color: "#756F63" }]}>체크인</Text>
+              <Text style={[(s as any).paperStayTimeValue, { color: "#B85E52" }]}>15:00</Text>
             </View>
-          </View>
-          <View style={(s as any).paperCounts}>
-            {[
-              { label: "일정", value: "3", color: theme.primary },
-              { label: "장소", value: "8", color: theme.secondary },
-              { label: "준비", value: "2/6", color: theme.accent },
-            ].map((item) => (
-              <View
-                key={item.label}
-                style={[
-                  (s as any).paperCountChip,
-                  {
-                    backgroundColor: "transparent",
-                  },
-                ]}
-              >
-                <Text style={[(s as any).paperCountLabel, { color: theme.muted }]}>{item.label}</Text>
-                <Text style={[(s as any).paperCountValue, { color: item.color }]}>{item.value}</Text>
-              </View>
-            ))}
           </View>
         </View>
         </Pressable>
-      </View>
-      <View
-        style={[
-          (s as any).quickRail,
-          { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
-        <HomeQuick theme={theme} icon="＋" label="일정 추가" tint="transparent" color={theme.primary} onPress={() => open("schedule-add", trip)} embedded layout="rail" />
-        <View style={[(s as any).quickRailDivider, { backgroundColor: theme.border }]} />
-        <HomeQuick theme={theme} icon="⌖" label="저장 장소" tint="transparent" color={theme.secondary} onPress={() => open("places", trip)} embedded layout="rail" />
-        <View style={[(s as any).quickRailDivider, { backgroundColor: theme.border }]} />
-        <HomeQuick theme={theme} icon="✓" label="준비물" tint="transparent" color={theme.accent} onPress={() => open("preparation", trip)} embedded layout="rail" />
+        <View style={(s as any).paperTripActions}>
+          {[
+            { label: "일정 추가", meta: "3개", color: "#B85E52", destination: "schedule-add" as TripDetailDestination },
+            { label: "저장 장소", meta: "8곳", color: "#358D82", destination: "places" as TripDetailDestination },
+            { label: "준비물", meta: "2 / 6", color: "#7564B5", destination: "preparation" as TripDetailDestination },
+          ].map((item, index) => (
+            <Pressable
+              key={item.label}
+              onPress={() => open(item.destination, trip)}
+              style={({ pressed }) => [
+                (s as any).paperTripAction,
+                index > 0 && (s as any).paperTripActionBorder,
+                pressed && (s as any).pressed,
+              ]}
+            >
+              <Text style={[(s as any).paperTripActionLabel, { color: item.color }]}>{item.label}</Text>
+              <Text style={(s as any).paperTripActionMeta}>{item.meta}</Text>
+              <View style={[(s as any).paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
+            </Pressable>
+          ))}
+        </View>
       </View>
       <View style={(s as any).scrapTitleRow}>
         <View>
@@ -3850,36 +3839,41 @@ Object.assign(s, {
   },
   tinyDayText: { fontSize: 11, fontWeight: "800" },
   paperTrip: {
-    borderRadius: 20,
-    borderWidth: 1.2,
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 15,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.09,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-    transform: [{ rotate: "-.2deg" }],
+    borderRadius: 5,
+    borderWidth: 1,
+    paddingHorizontal: 19,
+    paddingTop: 25,
+    paddingBottom: 0,
+    shadowColor: "#473E2D",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 2, height: 5 },
+    elevation: 2,
+    transform: [{ rotate: "-.35deg" }],
     overflow: "visible",
   },
-  paperTripMain: { borderRadius: 15 },
+  paperTripMain: { borderRadius: 3 },
+  paperTripLines: { ...StyleSheet.absoluteFillObject, overflow: "hidden", borderRadius: 4 },
+  paperTripLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(112, 143, 164, .16)" },
+  paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .18)" },
   paperTripRoute: {
     position: "absolute",
     width: 112,
     height: 42,
-    top: 16,
+    top: 21,
     right: 62,
-    opacity: 0.42,
+    opacity: 0.3,
   },
   paperTape: {
     position: "absolute",
-    width: 54,
-    height: 16,
-    top: -8,
-    left: 24,
-    opacity: 0.75,
-    transform: [{ rotate: "-3deg" }],
+    width: 78,
+    height: 20,
+    top: -11,
+    left: "50%",
+    marginLeft: -39,
+    opacity: 0.82,
+    backgroundColor: "rgba(218, 198, 157, .68)",
+    transform: [{ rotate: "1.5deg" }],
   },
   paperTripHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   paperTripCopy: { flex: 1, paddingRight: 12 },
@@ -3887,9 +3881,9 @@ Object.assign(s, {
   paperTitle: { fontSize: 28, fontWeight: "900", letterSpacing: -1.3 },
   paperDate: { fontSize: 11, marginTop: 6 },
   paperTripStamp: {
-    width: 54,
-    height: 64,
-    borderRadius: 14,
+    width: 52,
+    height: 58,
+    borderRadius: 3,
     borderWidth: 1.2,
     alignItems: "center",
     justifyContent: "center",
@@ -3898,7 +3892,7 @@ Object.assign(s, {
   paperTripStampMonth: { fontSize: 11, fontWeight: "900", letterSpacing: 0.8 },
   paperTripStampDay: { fontSize: 20, lineHeight: 23, fontWeight: "900" },
   paperTripStampRule: { width: 22, height: 2, borderRadius: 1, marginTop: 2 },
-  paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginVertical: 14 },
+  paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginTop: 16, marginBottom: 13 },
   paperStayBoard: {
     borderRadius: 14,
     borderWidth: 0,
@@ -3932,6 +3926,24 @@ Object.assign(s, {
   },
   paperStayTimeLabel: { fontSize: 11, fontWeight: "700" },
   paperStayTimeValue: { fontSize: 12, fontWeight: "900", marginTop: 1 },
+  paperTripActions: {
+    flexDirection: "row",
+    marginTop: 14,
+    marginHorizontal: -19,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(118, 107, 83, .22)",
+  },
+  paperTripAction: {
+    flex: 1,
+    minHeight: 55,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  paperTripActionBorder: { borderLeftWidth: 1, borderLeftColor: "rgba(118, 107, 83, .18)" },
+  paperTripActionLabel: { fontSize: 11, fontWeight: "900", letterSpacing: -0.2 },
+  paperTripActionMeta: { color: "#756F63", fontSize: 10, fontWeight: "700", marginTop: 3 },
+  paperTripActionUnderline: { position: "absolute", width: 42, height: 5, bottom: 8, borderRadius: 3, transform: [{ rotate: "-1deg" }] },
   paperCounts: {
     flexDirection: "row",
     gap: 18,
