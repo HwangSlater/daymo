@@ -35,8 +35,11 @@ npx tsc --noEmit
 - TanStack Query: 서버 캐시, 재시도, 낙관적 업데이트
 - Zustand: 작성 중인 폼과 화면 전용 상태
 - React Hook Form + Zod: 폼 검증과 API 스키마 공유
-- AsyncStorage: 비민감 설정과 마지막 조회 캐시
+- AsyncStorage: 비민감 preference와 작은 UI 상태
 - SecureStore: 세션 토큰
+- Expo SQLite: 공동 데이터 조회 캐시, 동기화 cursor와 pending mutation
+- Expo FileSystem: 사진 썸네일, 임시 업로드 파일과 캐시 정리
+- NetInfo: 오프라인·Wi-Fi 상태와 데이터 절약 정책
 - Expo Image Picker/Camera/Image Manipulator: 사진 선택·촬영·압축
 - Expo Linking: 네이버·카카오·웹 지도 링크
 - Jest + React Native Testing Library: 단위·컴포넌트 테스트

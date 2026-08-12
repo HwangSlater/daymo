@@ -10,6 +10,7 @@
 4. [단계별 개발 계획](./04-implementation-roadmap.md): 구현 순서, 완료 기준, 승인 지점
 5. [품질·운영 기준](./05-quality-and-operations.md): 테스트, 성능, 보안, 모니터링
 6. [ConoHa VPS 운영](./06-conoha-vps-deployment.md): 2GB 서버 구성, 배포, 백업과 용량 정책
+7. [기기 저장·동기화](./07-local-first-and-sync.md): 로컬/서버 책임, 증분 동기화, 데이터 절약
 
 ## 문서 상태
 

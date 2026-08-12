@@ -12,6 +12,10 @@
 - 쓰기 재시도: 생성/일괄 API는 `Idempotency-Key` 헤더 지원
 - 동시 수정: `version`을 요청에 포함하고 성공 시 증가된 값을 반환
 - 삭제: `204 No Content`; 복구 가능한 데이터는 soft delete
+- 캐시 가능한 GET은 `ETag`, `Cache-Control: private`, `Last-Modified`를 반환
+- 클라이언트는 `If-None-Match`를 보내고 변경이 없으면 서버는 body 없는 `304` 반환
+- JSON 응답은 Nginx에서 gzip 압축하며 HTTPS를 사용
+- `X-Client-Mutation-Id`는 기기에서 생성한 UUID로, 동일 쓰기의 중복 처리를 막음
 
 성공 응답:
 
@@ -43,6 +47,20 @@
 
 주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `VALIDATION_ERROR(422)`, `RATE_LIMITED(429)`다.
 
+### 캐시 유효성 기본값
+
+| API | 기기 캐시 | 백그라운드 재검증 |
+| --- | --- | --- |
+| `/me`, 공간/멤버 | SQLite 24시간 | 앱 시작 및 우리 탭 진입 |
+| dashboard | SQLite 10분 | 홈 진입과 앱 활성화 |
+| 여행 목록/지역/캘린더 | SQLite 1시간 | 여행 탭 진입 |
+| 여행 상세 하위 데이터 | SQLite, 만료로 삭제하지 않음 | 상세 진입과 SSE 이벤트 |
+| 검색 결과 | 메모리 5분 | 같은 검색어 재요청 시 |
+| 사진 썸네일 | 파일 캐시 30일/LRU | URL 만료 또는 파일 없음 |
+| 사진 원본 | 기본 미보관 | 사용자 열기/저장 시 요청 |
+
+TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기다. 만료된 캐시도 화면에 먼저 표시할 수 있고, 권한 상실·로그아웃 시 해당 공간 캐시를 즉시 제거한다.
+
 ## 2. 인증과 프로필
 
 | Method | Path | 용도 |
@@ -53,9 +71,8 @@
 | POST | `/auth/refresh` | 세션 갱신 |
 | GET | `/auth/oauth/{provider}/start` | OAuth 시작 (`apple/google/kakao/naver`) |
 | GET | `/auth/oauth/{provider}/callback` | code 교환 후 앱으로 복귀 |
-| GET | `/me` | 내 프로필·환경설정·공간 목록 |
+| GET | `/me` | 내 프로필·참여 공간 목록 |
 | PATCH | `/me` | 이름/프로필 사진 수정 |
-| PATCH | `/me/preferences` | 테마, 다크모드, 마지막 공간 저장 |
 | DELETE | `/me` | 계정 탈퇴 요청 |
 
 `POST /auth/signup`
@@ -72,7 +89,6 @@
     "id": "uuid",
     "displayName": "하늘",
     "avatarUrl": null,
-    "preferences": { "themeId": "daymo", "appearance": "system", "lastSpaceId": "uuid" },
     "spaces": [{ "id": "uuid", "name": "주말 여행", "relationshipType": "friends", "role": "owner" }]
   }
 }
@@ -185,7 +201,7 @@
 | PATCH/DELETE | `/trip-places/{tripPlaceId}` | 수정/삭제 |
 | POST | `/trip-places/{tripPlaceId}/schedule` | 장소를 일정에 담기 |
 | POST | `/trip-places/{tripPlaceId}/register-stay` | 숙소로 등록 |
-| POST | `/places/parse-share-text` | 네이버/카카오 공유 텍스트 분석 |
+| POST | `/places/resolve-external-link` | 선택적으로 단축 URL 확인/장소 정보 보강 |
 | POST | `/trips/{tripId}/places/import` | 여러 장소 붙여넣기 |
 | GET | `/spaces/{spaceId}/tags?scope=place` | 사용 중인 태그 |
 
@@ -202,26 +218,26 @@
 }
 ```
 
-공유 텍스트 분석 요청/응답:
+공유 텍스트의 이름·주소·URL 파싱은 기기에서 먼저 수행하며 API를 호출하지 않는다. 단축 URL redirect나 외부 장소 정보 보강이 필요할 때만 다음 요청을 사용한다.
 
 ```json
-{ "text": "[네이버지도]\nJS호텔\n서울 구로구 남부순환로105길 32 JS호텔\nhttps://naver.me/FJOPOMvx" }
+{ "provider": "naver_map", "url": "https://naver.me/FJOPOMvx" }
 ```
 
 ```json
 {
   "data": {
     "provider": "naver_map",
+    "resolvedUrl": "https://map.naver.com/...",
     "name": "JS호텔",
     "address": "서울 구로구 남부순환로105길 32 JS호텔",
-    "url": "https://naver.me/FJOPOMvx",
     "suggestedCategory": "lodging",
     "confidence": 0.96
   }
 }
 ```
 
-자동 분류는 입력 폼의 제안일 뿐이다. 사용자가 `숙소`로 저장한 장소에만 숙소 등록 동작을 노출한다.
+외부 URL 확인이 실패해도 사용자가 기기에서 추출한 내용으로 저장할 수 있다. 자동 분류는 입력 폼의 제안일 뿐이며, 사용자가 `숙소`로 저장한 장소에만 숙소 등록 동작을 노출한다.
 
 ## 7. 준비물
 
@@ -234,7 +250,6 @@
 | POST | `/checklist-items/{itemId}/complete` | 체크 |
 | DELETE | `/checklist-items/{itemId}/complete` | 체크 해제 |
 | POST | `/checklist-items/{itemId}/assign` | 멤버/공용/미정 담당 변경 |
-| GET | `/trips/{tripId}/checklist-export` | 복사용 텍스트 생성 |
 
 ```json
 {
@@ -254,7 +269,6 @@
 | --- | --- | --- |
 | GET/POST | `/trips/{tripId}/recipes` | 요리 목록/추가 |
 | GET/PATCH/DELETE | `/recipes/{recipeId}` | 요리 상세/수정/삭제 |
-| POST | `/recipes/import` | 고정 텍스트 형식 여러 요리 분석 |
 | POST | `/recipes/{recipeId}/ingredients` | 재료 추가 |
 | PATCH/DELETE | `/ingredients/{ingredientId}` | 재료 수정/삭제 |
 | POST | `/ingredients/to-checklist` | 선택 재료를 준비물로 추가 |
@@ -273,7 +287,7 @@
 }
 ```
 
-일괄 가져오기는 미리보기 결과를 먼저 반환하고 사용자가 확인한 뒤 저장한다. AI 호출을 도입하더라도 원문과 분석 결과를 구분하며 자동 저장하지 않는다.
+고정 텍스트 형식의 문법 분석과 미리보기는 기기에서 처리하고, 확인된 요리 목록만 일반/일괄 저장 API로 전송한다. 향후 AI 분석 API를 도입하더라도 원문과 분석 결과를 구분하며 자동 저장하지 않는다.
 
 ## 9. 메모·사진·일기
 
@@ -340,3 +354,70 @@
 ```
 
 `GET /spaces/{spaceId}/events`는 인증된 SSE 연결이다. 이벤트에는 `entity`, `entityId`, `tripId`, `operation`, `updatedAt`만 담고 상세 데이터는 권한이 적용된 API로 다시 조회한다. 모바일 백그라운드에서는 연결 유지를 보장하지 않고 앱 활성화 시 갱신한다.
+
+## 11. 증분 동기화 API
+
+| Method | Path | 용도 |
+| --- | --- | --- |
+| GET | `/spaces/{spaceId}/sync?cursor=` | cursor 이후 공동 데이터 변경/삭제 수신 |
+| POST | `/spaces/{spaceId}/sync/mutations` | 안전한 pending mutation 일괄 전송 |
+| GET | `/spaces/{spaceId}/sync/bootstrap` | 최초 또는 cursor 만료 시 압축 snapshot |
+
+증분 조회 응답:
+
+```json
+{
+  "data": {
+    "changes": [
+      { "entity": "checklistItem", "operation": "upsert", "id": "uuid", "version": 4, "payload": { "name": "충전기", "completedAt": null } },
+      { "entity": "memo", "operation": "delete", "id": "uuid", "deletedAt": "2026-08-12T03:10:00Z" }
+    ],
+    "nextCursor": "opaque-signed-cursor",
+    "hasMore": false,
+    "serverTime": "2026-08-12T03:11:00Z"
+  }
+}
+```
+
+- cursor는 시각 문자열이 아니라 서버가 발급한 opaque 값이다.
+- 변경이 많으면 `hasMore=true`로 여러 번 받고 마지막 응답의 cursor만 확정 저장한다.
+- 삭제 tombstone은 모든 활성 기기가 받을 기간 동안 보관한다. cursor가 보존 기간보다 오래되면 `410 SYNC_CURSOR_EXPIRED`를 반환하고 bootstrap을 다시 받는다.
+- 응답 payload는 화면에 필요한 동기화 필드만 담으며 사진 binary와 지도 path를 포함하지 않는다.
+
+pending mutation 요청:
+
+```json
+{
+  "deviceId": "installation-uuid",
+  "mutations": [
+    {
+      "mutationId": "uuid",
+      "entity": "checklistItem",
+      "operation": "complete",
+      "entityId": "uuid",
+      "baseVersion": 3,
+      "payload": { "completed": true },
+      "clientOccurredAt": "2026-08-12T03:09:00Z"
+    }
+  ]
+}
+```
+
+각 결과는 `applied`, `duplicate`, `conflict`, `rejected` 중 하나다. 체크처럼 의도를 재적용할 수 있는 동작은 최신 version에 반영할 수 있고, 메모 본문 수정처럼 덮어쓰기가 위험한 동작은 `conflict`와 서버 최신본을 반환한다.
+
+오프라인 큐 허용:
+
+- 허용: 새 준비물/장소/메모 추가, 체크 상태 지정, 담당 지정, 개인이 작성한 내용 수정
+- 온라인 권장: 일정 순서 변경, 많은 항목 일괄 추가
+- 온라인 필수: 삭제, 목록 교체, 멤버 내보내기, 권한/공간 변경, 계정 탈퇴
+
+## 12. 사진 전송 최적화
+
+사진 응답은 `thumbnailUrl`, `displayUrl`, `originalUrl nullable`, 각 byte 크기와 checksum을 분리한다.
+
+- 목록: 320~480px 썸네일만 요청
+- 전체 화면: 기기 화면에 맞는 1280~1920px 표시본 요청
+- 원본: 사용자가 확대하거나 기기에 저장할 때만 서명 URL 요청
+- 업로드: 앱에서 방향 보정 후 표시본을 만들고 Wi-Fi 전용 원본 업로드 옵션 지원
+- HTTP range, immutable object key, 긴 CDN/브라우저 캐시를 사용
+- 데이터 절약 모드에서는 자동 동영상/원본 다운로드를 하지 않고 낮은 품질 썸네일을 우선
