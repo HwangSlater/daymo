@@ -418,16 +418,17 @@ function NotebookHome({
           </Text>
         </View>
       </View>
-      <View
-        style={[
-          (s as any).paperTrip,
-          { backgroundColor: theme.dark ? "#F7F0D9" : "#FFFDF4", borderColor: theme.dark ? "#CFC5A9" : "#DED8C7" },
-        ]}
-      >
-        <View pointerEvents="none" style={(s as any).paperTripLines}>
-          {[49, 85, 121, 157, 193, 229].map((top) => (
-            <View key={top} style={[(s as any).paperTripLine, { top }]} />
-          ))}
+      <View style={(s as any).paperTripStack}>
+        <View style={[(s as any).paperTripBack, (s as any).paperTripBackLeft, { backgroundColor: theme.dark ? "#746D5B" : "#E7DECA" }]} />
+        <View style={[(s as any).paperTripBack, (s as any).paperTripBackRight, { backgroundColor: theme.dark ? "#575B60" : "#DDE5E3" }]} />
+        <View
+          style={[
+            (s as any).paperTrip,
+            { backgroundColor: theme.dark ? "#F7F0D9" : "#FFFDF4", borderColor: theme.dark ? "#CFC5A9" : "#DED8C7" },
+          ]}
+        >
+        <View pointerEvents="none" style={(s as any).paperTripTexture}>
+          <View style={(s as any).paperTripWashTop} />
           <View style={(s as any).paperTripMargin} />
         </View>
         <View
@@ -555,6 +556,9 @@ function NotebookHome({
               <View style={[(s as any).paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
             </Pressable>
           ))}
+        </View>
+        <View pointerEvents="none" style={(s as any).paperTripCornerShadow} />
+        <View pointerEvents="none" style={(s as any).paperTripCorner} />
         </View>
       </View>
       <View style={(s as any).scrapTitleRow}>
@@ -3838,6 +3842,31 @@ Object.assign(s, {
     transform: [{ rotate: "1.5deg" }],
   },
   tinyDayText: { fontSize: 11, fontWeight: "800" },
+  paperTripStack: {
+    position: "relative",
+    marginBottom: 3,
+  },
+  paperTripBack: {
+    position: "absolute",
+    left: 7,
+    right: 7,
+    top: 4,
+    bottom: -7,
+    borderRadius: 5,
+    opacity: 0.95,
+  },
+  paperTripBackLeft: {
+    transform: [{ rotate: "-1.8deg" }],
+    left: 4,
+    right: 11,
+    bottom: -5,
+  },
+  paperTripBackRight: {
+    transform: [{ rotate: "1.35deg" }],
+    left: 11,
+    right: 3,
+    bottom: -8,
+  },
   paperTrip: {
     borderRadius: 5,
     borderWidth: 1,
@@ -3845,17 +3874,17 @@ Object.assign(s, {
     paddingTop: 25,
     paddingBottom: 0,
     shadowColor: "#473E2D",
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 2, height: 5 },
-    elevation: 2,
+    shadowOpacity: 0.18,
+    shadowRadius: 11,
+    shadowOffset: { width: 2, height: 8 },
+    elevation: 5,
     transform: [{ rotate: "-.35deg" }],
     overflow: "visible",
   },
   paperTripMain: { borderRadius: 3 },
-  paperTripLines: { ...StyleSheet.absoluteFillObject, overflow: "hidden", borderRadius: 4 },
-  paperTripLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(112, 143, 164, .16)" },
-  paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .18)" },
+  paperTripTexture: { ...StyleSheet.absoluteFillObject, overflow: "hidden", borderRadius: 4 },
+  paperTripWashTop: { position: "absolute", left: -15, top: -25, width: 190, height: 96, borderRadius: 80, backgroundColor: "rgba(236, 217, 174, .16)", transform: [{ rotate: "-8deg" }] },
+  paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .12)" },
   paperTripRoute: {
     position: "absolute",
     width: 112,
@@ -3944,6 +3973,27 @@ Object.assign(s, {
   paperTripActionLabel: { fontSize: 11, fontWeight: "900", letterSpacing: -0.2 },
   paperTripActionMeta: { color: "#756F63", fontSize: 10, fontWeight: "700", marginTop: 3 },
   paperTripActionUnderline: { position: "absolute", width: 42, height: 5, bottom: 8, borderRadius: 3, transform: [{ rotate: "-1deg" }] },
+  paperTripCornerShadow: {
+    position: "absolute",
+    right: -1,
+    bottom: -1,
+    width: 17,
+    height: 17,
+    backgroundColor: "rgba(91, 78, 52, .11)",
+    borderTopLeftRadius: 15,
+  },
+  paperTripCorner: {
+    position: "absolute",
+    right: -1,
+    bottom: -1,
+    width: 12,
+    height: 12,
+    backgroundColor: "#E7DDBF",
+    borderTopLeftRadius: 11,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(115, 100, 69, .22)",
+  },
   paperCounts: {
     flexDirection: "row",
     gap: 18,
