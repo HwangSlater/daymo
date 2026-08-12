@@ -11,6 +11,7 @@
 5. [품질·운영 기준](./05-quality-and-operations.md): 테스트, 성능, 보안, 모니터링
 6. [ConoHa VPS 운영](./06-conoha-vps-deployment.md): 2GB 서버 구성, 배포, 백업과 용량 정책
 7. [기기 저장·동기화](./07-local-first-and-sync.md): 로컬/서버 책임, 증분 동기화, 데이터 절약
+8. [개인정보·출시 준수](./08-privacy-and-release-compliance.md): 동의, 처리방침, 권한, 탈퇴, 스토어 신고
 
 ## 문서 상태
 
