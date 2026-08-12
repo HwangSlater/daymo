@@ -79,6 +79,9 @@ React Native UI
 - `users`: `id`, `email`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
 - `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
 - `refresh_tokens`: `user_id`, `token_hash`, `expires_at`, `revoked_at`, `device_name`
+- `legal_documents`: `type`, `version`, `locale`, `content_url`, `effective_at`, `required`
+- `legal_acceptances`: `user_id`, `document_id`, `accepted`, `accepted_at`, `withdrawn_at`, `evidence_hash`
+- `privacy_requests`: `user_id`, `type(access|correction|deletion|restriction|withdrawal)`, `status`, `requested_at`, `completed_at`
 - `spaces`: `name`, `relationship_type(couple|friends|family|other)`, `owner_id`
 - `memberships`: `space_id`, `user_id`, `role(owner|editor|viewer)`, `nickname`, `joined_at`
 - `space_invites`: `space_id`, `token_hash`, `role`, `expires_at`, `accepted_at`
@@ -140,6 +143,7 @@ React Native UI
 - 하위 엔티티의 `trip_id`가 속한 공간을 서버에서 역참조한다.
 - 클라이언트가 전달한 작성자와 완료자는 신뢰하지 않고 SecurityContext 사용자 ID를 사용한다.
 - 삭제는 기본적으로 soft delete하고 audit log를 남긴다.
+- 법적 문서 동의 이력은 문서 version별로 남기되 동의 철회 후 불필요한 증빙 데이터는 정해진 보유기간에 파기한다.
 
 ## 5. 동시 편집과 오프라인
 

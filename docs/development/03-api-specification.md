@@ -74,12 +74,40 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | GET | `/me` | 내 프로필·참여 공간 목록 |
 | PATCH | `/me` | 이름/프로필 사진 수정 |
 | DELETE | `/me` | 계정 탈퇴 요청 |
+| GET | `/legal/documents?context=signup` | 현재 약관/고지와 필수·선택 구분 |
+| POST | `/legal/acceptances` | 문서 version별 동의/확인 기록 |
+| GET | `/me/legal-acceptances` | 내 동의 내역 |
+| DELETE | `/me/legal-acceptances/{type}` | 선택 동의 철회 |
+| POST | `/me/privacy-requests` | 열람·정정·삭제·처리정지 요청 |
+| GET | `/me/privacy-requests/{requestId}` | 요청 처리 상태 |
 
 `POST /auth/signup`
 
 ```json
 { "email": "sky@example.com", "password": "minimum-8", "displayName": "하늘" }
 ```
+
+실제 가입 요청은 클라이언트가 임의 문구를 보내지 않고 서버가 발급한 문서 version을 참조한다.
+
+```json
+{
+  "email": "sky@example.com",
+  "password": "minimum-8",
+  "displayName": "하늘",
+  "legalAcceptances": [
+    { "documentId": "terms-v1-uuid", "accepted": true },
+    { "documentId": "privacy-notice-v1-uuid", "accepted": true },
+    { "documentId": "marketing-v1-uuid", "accepted": false }
+  ],
+  "ageEligibilityConfirmed": true
+}
+```
+
+- 서비스 이용약관 동의와 개인정보 처리 관련 고지/동의는 문서 종류와 법적 근거를 구분한다.
+- 계약 이행에 필요한 개인정보까지 관행적으로 모두 ‘필수 동의’로 만들지 않는다.
+- 마케팅, 선택 분석, 선택 프로필 등은 각각 선택 가능하고 거부해도 핵심 기능을 사용할 수 있어야 한다.
+- 필수 문서의 중요한 변경은 재동의 또는 재확인을 요구하고 단순 문구 수정은 변경 공지로 처리한다.
+- 시스템 사진/카메라 권한은 이 API 동의와 별개이며 실제 기능을 누른 시점에 OS prompt를 요청한다.
 
 `GET /me` 핵심 응답:
 
