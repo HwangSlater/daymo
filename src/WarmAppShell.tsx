@@ -424,11 +424,13 @@ function NotebookHome({
         <View
           style={[
             (s as any).paperTrip,
-            { backgroundColor: theme.dark ? "#F7F0D9" : "#FFFDF4", borderColor: theme.dark ? "#CFC5A9" : "#DED8C7" },
+            { backgroundColor: "#FFFEFC", borderColor: theme.dark ? "#BFC4CB" : "#D9D9D5" },
           ]}
         >
         <View pointerEvents="none" style={(s as any).paperTripTexture}>
-          <View style={(s as any).paperTripWashTop} />
+          {[63, 113, 163, 213].map((top) => (
+            <View key={top} style={[(s as any).paperTripSoftLine, { top }]} />
+          ))}
           <View style={(s as any).paperTripMargin} />
         </View>
         <View
@@ -3883,8 +3885,8 @@ Object.assign(s, {
   },
   paperTripMain: { borderRadius: 3 },
   paperTripTexture: { ...StyleSheet.absoluteFillObject, overflow: "hidden", borderRadius: 4 },
-  paperTripWashTop: { position: "absolute", left: -15, top: -25, width: 190, height: 96, borderRadius: 80, backgroundColor: "rgba(236, 217, 174, .16)", transform: [{ rotate: "-8deg" }] },
-  paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .12)" },
+  paperTripSoftLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(104, 139, 160, .10)" },
+  paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .14)" },
   paperTripRoute: {
     position: "absolute",
     width: 112,
@@ -3988,7 +3990,7 @@ Object.assign(s, {
     bottom: -1,
     width: 12,
     height: 12,
-    backgroundColor: "#E7DDBF",
+    backgroundColor: "#E7E7E2",
     borderTopLeftRadius: 11,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderTopWidth: StyleSheet.hairlineWidth,
