@@ -2286,24 +2286,22 @@ function Search({
         </View>
       )}
       <View
-        style={(s as any).searchCategories}
+        style={[
+          (s as any).searchCategories,
+          { backgroundColor: theme.surfaceAlt },
+        ]}
       >
-        <View
-          pointerEvents="none"
-          style={[
-            (s as any).searchCategoryRoute,
-            { backgroundColor: theme.dark ? "#465064" : "#CDD1D0" },
-          ]}
-        />
         {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
           <Pressable
             key={item}
             onPress={() => setCategory(item)}
             style={[
               (s as any).searchCategory,
+              { borderColor: "transparent" },
               category === item && (s as any).searchCategoryActive,
               category === item && {
-                backgroundColor: theme.primarySoft,
+                backgroundColor: theme.surface,
+                borderColor: `${theme.primary}38`,
               },
             ]}
           >
@@ -2317,22 +2315,6 @@ function Search({
             >
               {item}
             </Text>
-            <View
-              style={[
-                (s as any).searchCategoryStop,
-                {
-                  backgroundColor:
-                    category === item ? theme.primary : theme.surface,
-                  borderColor:
-                    category === item
-                      ? theme.primary
-                      : theme.dark
-                        ? "#586176"
-                        : "#B9BEBD",
-                },
-                category === item && (s as any).searchCategoryStopActive,
-              ]}
-            />
           </Pressable>
         ))}
       </View>
@@ -5688,10 +5670,10 @@ Object.assign(s, {
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
     flex: 1,
-    height: 42,
-    borderRadius: 7,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
     paddingHorizontal: 0,
-    paddingBottom: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5699,36 +5681,17 @@ Object.assign(s, {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    position: "relative",
-    paddingHorizontal: 2,
-    paddingTop: 4,
+    borderRadius: 11,
+    padding: 4,
+    gap: 2,
     marginTop: 4,
     marginBottom: 14,
   },
   searchCategoryActive: {
-    transform: [{ translateY: -1 }],
-  },
-  searchCategoryRoute: {
-    position: "absolute",
-    left: 28,
-    right: 28,
-    bottom: 5,
-    height: StyleSheet.hairlineWidth,
-  },
-  searchCategoryStop: {
-    position: "absolute",
-    bottom: 0,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  searchCategoryStopActive: {
-    width: 10,
-    height: 10,
-    bottom: -1.5,
-    borderRadius: 5,
-    borderWidth: 2,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
   },
   searchGuide: {
     minHeight: 34,
