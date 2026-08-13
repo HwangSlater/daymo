@@ -1719,6 +1719,10 @@ function TripCalendar({
     { length: cellCount },
     (_, index) => index - firstDay + 1,
   );
+  const monthKey = `${month.year}-${String(month.value).padStart(2, "0")}`;
+  const monthTrips = trips.filter(
+    (trip) => trip.start.slice(0, 7) === monthKey,
+  );
   const move = (amount: number) => {
     const next = new Date(month.year, month.value - 1 + amount, 1);
     setMonth({ year: next.getFullYear(), value: next.getMonth() + 1 });
@@ -1728,44 +1732,66 @@ function TripCalendar({
     <View
       style={[
         (s as any).calendarCard,
-        { backgroundColor: theme.surface, borderColor: theme.border },
+        {
+          backgroundColor: theme.dark ? "#FCFCFA" : "#FFFEFC",
+          borderColor: theme.dark ? "#BBC0C8" : "#D9D9D5",
+        },
       ]}
     >
-      <View
-        style={[
-          (s as any).calendarTape,
-          { backgroundColor: `${theme.primary}${theme.dark ? "62" : "38"}` },
-        ]}
-      />
+      <View pointerEvents="none" style={(s as any).calendarPageBack} />
       <View style={(s as any).calendarHead}>
         <Pressable
           onPress={() => move(-1)}
-          style={[(s as any).monthArrow, { backgroundColor: theme.surfaceAlt }]}
+          style={[(s as any).monthArrow, { borderColor: "#D8D4CA" }]}
         >
-          <Text style={[(s as any).monthArrowText, { color: theme.text }]}>
+          <Text style={[(s as any).monthArrowText, { color: "#384052" }]}>
             ‹
           </Text>
         </Pressable>
         <View>
-          <Text style={[(s as any).calendarMonth, { color: theme.text }]}>
+          <Text style={[(s as any).calendarMonth, { color: "#283046" }]}>
             {month.year}. {String(month.value).padStart(2, "0")}
           </Text>
-          <Text style={[(s as any).calendarSub, { color: theme.muted }]}>
-            여행이 있는 날은 색으로 이어져요
+          <Text style={(s as any).calendarSub}>
+            {monthTrips.length
+              ? `${monthTrips.length}개의 여행이 적혀 있어요`
+              : "아직 적힌 여행이 없어요"}
           </Text>
         </View>
         <Pressable
           onPress={() => move(1)}
-          style={[(s as any).monthArrow, { backgroundColor: theme.surfaceAlt }]}
+          style={[(s as any).monthArrow, { borderColor: "#D8D4CA" }]}
         >
-          <Text style={[(s as any).monthArrowText, { color: theme.text }]}>
+          <Text style={[(s as any).monthArrowText, { color: "#384052" }]}>
             ›
           </Text>
         </Pressable>
       </View>
+      {monthTrips.length > 0 && (
+        <View style={(s as any).calendarLegend}>
+          {monthTrips.map((trip) => (
+            <View key={trip.name} style={(s as any).calendarLegendItem}>
+              <View
+                style={[
+                  (s as any).calendarLegendLine,
+                  { backgroundColor: trip.color },
+                ]}
+              />
+              <Text style={(s as any).calendarLegendText}>{trip.name}</Text>
+            </View>
+          ))}
+        </View>
+      )}
       <View style={(s as any).weekRow}>
-        {["일", "월", "화", "수", "목", "금", "토"].map((day) => (
-          <Text key={day} style={[(s as any).weekName, { color: theme.muted }]}>
+        {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => (
+          <Text
+            key={day}
+            style={[
+              (s as any).weekName,
+              index === 0 && (s as any).weekNameSunday,
+              index === 6 && (s as any).weekNameSaturday,
+            ]}
+          >
             {day}
           </Text>
         ))}
@@ -1808,7 +1834,8 @@ function TripCalendar({
               <Text
                 style={[
                   (s as any).dayNumber,
-                  { color: theme.text },
+                  index % 7 === 0 && (s as any).dayNumberSunday,
+                  index % 7 === 6 && (s as any).dayNumberSaturday,
                   trip && [(s as any).dayNumberTrip, { color: trip.color }],
                   selected && (s as any).dayNumberSelected,
                 ]}
@@ -1823,29 +1850,6 @@ function TripCalendar({
             </Pressable>
           );
         })}
-      </View>
-      <View style={(s as any).calendarLegend}>
-        {trips
-          .filter(
-            (trip) =>
-              trip.start.slice(0, 7) ===
-              `${month.year}-${String(month.value).padStart(2, "0")}`,
-          )
-          .map((trip) => (
-            <View key={trip.name} style={(s as any).calendarLegendItem}>
-              <View
-                style={[
-                  (s as any).calendarLegendDot,
-                  { backgroundColor: trip.color },
-                ]}
-              />
-              <Text
-                style={[(s as any).calendarLegendText, { color: theme.muted }]}
-              >
-                {trip.name}
-              </Text>
-            </View>
-          ))}
       </View>
     </View>
   );
@@ -5537,31 +5541,77 @@ Object.assign(s, {
   },
   emptyInlineActionText: { fontSize: 11, fontWeight: "900" },
   calendarCard: {
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 7,
+    paddingHorizontal: 13,
+    paddingTop: 21,
+    paddingBottom: 9,
     borderWidth: 1,
     position: "relative",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.04,
+    marginTop: 6,
+    shadowColor: "#3F4654",
+    shadowOpacity: 0.09,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 1, height: 5 },
   },
-  calendarTape: {
+  calendarPageBack: {
     position: "absolute",
-    width: 44,
+    left: 5,
+    right: 5,
+    bottom: -6,
     height: 12,
-    top: -6,
-    left: 22,
-    opacity: 0.72,
-    transform: [{ rotate: "-3deg" }],
+    borderRadius: 5,
+    backgroundColor: "#DDE5E3",
+    opacity: 0.8,
+    zIndex: -1,
+    transform: [{ rotate: "0.35deg" }],
   },
   monthArrow: {
-    width: 33,
-    height: 33,
-    borderRadius: 8,
+    width: 31,
+    height: 31,
+    borderRadius: 4,
+    borderWidth: 1,
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
+  calendarHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 9,
+  },
+  calendarMonth: { color: "#283046", fontSize: 19, fontWeight: "900", textAlign: "center", letterSpacing: 0.2 },
+  calendarSub: { color: "#7B7A76", fontSize: 10, textAlign: "center", marginTop: 2 },
+  calendarLegend: {
+    minHeight: 25,
+    borderTopWidth: 0,
+    marginTop: 0,
+    paddingTop: 0,
+    marginBottom: 6,
+    flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: 9,
+  },
+  calendarLegendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  calendarLegendLine: { width: 12, height: 3, borderRadius: 2 },
+  calendarLegendText: { color: "#6F716F", fontSize: 10, fontWeight: "700" },
+  weekRow: { flexDirection: "row", marginBottom: 3, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#DFE1E2", paddingBottom: 5 },
+  weekName: { width: "14.285%", textAlign: "center", color: "#85888D", fontSize: 10, fontWeight: "800" },
+  weekNameSunday: { color: "#C66D68" },
+  weekNameSaturday: { color: "#617EA4" },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingTop: 2 },
+  dayCell: {
+    width: "14.285%",
+    height: 37,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 1,
+  },
+  dayNumber: { color: "#424957", fontSize: 11, fontWeight: "700" },
+  dayNumberSunday: { color: "#B96863" },
+  dayNumberSaturday: { color: "#5F789A" },
   emptyDate: {
     borderRadius: 16,
     borderWidth: 1,
