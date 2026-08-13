@@ -2293,13 +2293,17 @@ function Search({
           },
         ]}
       >
-        {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
+        {["전체", "장소", "일정", "요리", "준비", "기록"].map((item, index) => (
           <Pressable
             key={item}
             onPress={() => setCategory(item)}
             style={[
               (s as any).searchCategory,
-              { borderBottomColor: "transparent" },
+              {
+                borderBottomColor: "transparent",
+                borderRightWidth: index < 5 ? 1 : 0,
+                borderRightColor: theme.dark ? "#394150" : "#D8D8D3",
+              },
               category === item && (s as any).searchCategoryActive,
               category === item && { borderBottomColor: theme.primary },
             ]}
