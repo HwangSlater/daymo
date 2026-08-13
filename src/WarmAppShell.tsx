@@ -2206,15 +2206,26 @@ function Search({
       tags: ["요리", "메모"],
     },
   ];
-  const results = useMemo(
+  const searchableResults = useMemo(
     () =>
       allResults.filter(
         (item) =>
           trips.some((trip) => trip.name === item.trip) &&
-          (category === "전체" || item.type === category) &&
           `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`.includes(query.trim()),
       ),
-    [query, category, trips],
+    [query, trips],
+  );
+  const results = searchableResults.filter(
+    (item) => category === "전체" || item.type === category,
+  );
+  const searchFilters = ["전체", "장소", "일정", "요리", "준비", "기록"].map(
+    (label) => ({
+      label,
+      count:
+        label === "전체"
+          ? searchableResults.length
+          : searchableResults.filter((item) => item.type === label).length,
+    }),
   );
   return (
     <ScrollView
@@ -2285,23 +2296,25 @@ function Search({
           </View>
         </View>
       )}
-      <View
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
         style={[
           (s as any).searchCategories,
-          { backgroundColor: theme.surfaceAlt },
         ]}
+        contentContainerStyle={(s as any).searchCategoriesContent}
       >
-        {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
+        {searchFilters.map((item) => (
           <Pressable
-            key={item}
-            onPress={() => setCategory(item)}
+            key={item.label}
+            onPress={() => setCategory(item.label)}
             style={[
               (s as any).searchCategory,
-              { borderColor: "transparent" },
-              category === item && (s as any).searchCategoryActive,
-              category === item && {
-                backgroundColor: theme.surface,
-                borderColor: `${theme.primary}38`,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+              category === item.label && (s as any).searchCategoryActive,
+              category === item.label && {
+                backgroundColor: theme.primarySoft,
+                borderColor: `${theme.primary}70`,
               },
             ]}
           >
@@ -2309,15 +2322,36 @@ function Search({
               style={[
                 (s as any).searchCategoryText,
                 { color: theme.muted },
-                category === item && (s as any).searchCategoryTextActive,
-                category === item && { color: theme.primary },
+                category === item.label && (s as any).searchCategoryTextActive,
+                category === item.label && { color: theme.primary },
               ]}
             >
-              {item}
+              {item.label}
             </Text>
+            <View
+              style={[
+                (s as any).searchCategoryCount,
+                {
+                  backgroundColor:
+                    category === item.label ? theme.primary : theme.surfaceAlt,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  (s as any).searchCategoryCountText,
+                  {
+                    color:
+                      category === item.label ? "#FFFFFF" : theme.muted,
+                  },
+                ]}
+              >
+                {item.count}
+              </Text>
+            </View>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
       <View style={(s as any).searchResultHead}>
         <Text style={[(s as any).searchResultTitle, { color: theme.text }]}>
           {query || category !== "전체" ? "검색 결과" : "여행 기록"}
@@ -5669,30 +5703,43 @@ Object.assign(s, {
   },
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
-    flex: 1,
-    height: 34,
-    borderRadius: 8,
+    height: 36,
+    minWidth: 61,
+    borderRadius: 18,
     borderWidth: 1,
-    paddingHorizontal: 0,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    gap: 5,
     alignItems: "center",
     justifyContent: "center",
   },
   searchCategories: {
     width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 11,
-    padding: 4,
-    gap: 2,
     marginTop: 4,
     marginBottom: 14,
   },
+  searchCategoriesContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingVertical: 5,
+    paddingHorizontal: 1,
+  },
   searchCategoryActive: {
     shadowColor: "#17233D",
-    shadowOpacity: 0.07,
-    shadowRadius: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
+  searchCategoryCount: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchCategoryCountText: { fontSize: 9, fontWeight: "900" },
   searchGuide: {
     minHeight: 34,
     flexDirection: "row",
