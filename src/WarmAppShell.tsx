@@ -2288,7 +2288,9 @@ function Search({
       <View
         style={[
           (s as any).searchCategories,
-          { borderBottomColor: theme.border },
+          {
+            borderBottomColor: theme.dark ? "#394150" : "#D8D8D3",
+          },
         ]}
       >
         {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
@@ -4125,7 +4127,7 @@ Object.assign(s, {
     minHeight: 62,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     paddingLeft: 9,
     paddingRight: 10,
   },
