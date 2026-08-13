@@ -2212,6 +2212,9 @@ function Search({
         모든 여행의 기록
       </Text>
       <Text style={[s.screenTitle, { color: theme.text }]}>찾기</Text>
+      <View style={[(s as any).searchIndexLabel, { backgroundColor: theme.primarySoft }]}>
+        <Text style={[(s as any).searchIndexLabelText, { color: theme.primary }]}>INDEX · 여행 기록 색인</Text>
+      </View>
       <View
         style={[
           (s as any).searchBoxNew,
@@ -2273,7 +2276,7 @@ function Search({
         <View
           style={[
             (s as any).searchGuide,
-            { backgroundColor: theme.surfaceAlt },
+            { backgroundColor: theme.dark ? theme.surface : "rgba(255,255,255,.68)", borderColor: theme.border },
           ]}
         >
           <Text
@@ -2288,7 +2291,7 @@ function Search({
                 onPress={() => setQuery(word)}
                 style={[
                   (s as any).searchSuggestion,
-                  { backgroundColor: theme.surface },
+                  { borderBottomColor: `${theme.secondary}65` },
                 ]}
               >
                 <Text
@@ -2312,15 +2315,18 @@ function Search({
           {results.length}개
         </Text>
       </View>
-      {results.map((item) => (
+      {results.length > 0 && (
+      <View style={[(s as any).searchResultsSheet, { backgroundColor: theme.dark ? theme.surface : "rgba(255,255,255,.76)", borderColor: theme.border }]}>
+      <View pointerEvents="none" style={[(s as any).searchResultsSpine, { backgroundColor: `${theme.primary}38` }]} />
+      {results.map((item, index) => (
         <View
           key={item.title}
           style={[
             (s as any).searchResultCard,
             {
-              backgroundColor: theme.surface,
               borderColor: theme.border,
             },
+            index === results.length - 1 && (s as any).searchResultCardLast,
           ]}
         >
           <Pressable
@@ -2340,11 +2346,6 @@ function Search({
             }}
             style={(s as any).searchResultMain}
           >
-            <View
-              style={[(s as any).searchResultMark, { borderColor: item.color }]}
-            >
-              <View style={[(s as any).searchResultMarkDot, { backgroundColor: item.color }]} />
-            </View>
             <View style={(s as any).searchResultCopy}>
               <View style={(s as any).searchResultLine}>
                 <Text numberOfLines={1} style={[(s as any).searchResultName, { color: theme.text }]}>{item.title}</Text>
@@ -2398,6 +2399,8 @@ function Search({
           )}
         </View>
       ))}
+      </View>
+      )}
       {!results.length && (
         <View
           style={[
@@ -5567,54 +5570,71 @@ Object.assign(s, {
   },
   searchBoxNew: {
     height: 52,
-    borderRadius: 16,
+    borderRadius: 6,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 13,
     marginTop: 19,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.045,
+    shadowRadius: 5,
+    shadowOffset: { width: 1, height: 3 },
   },
+  searchIndexLabel: {
+    alignSelf: "flex-start",
+    marginTop: 13,
+    marginBottom: -13,
+    marginLeft: 13,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    transform: [{ rotate: "-1deg" }],
+    zIndex: 2,
+  },
+  searchIndexLabelText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.25 },
   searchCategory: {
     height: 32,
-    borderRadius: 11,
+    borderRadius: 4,
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   searchGuide: {
-    borderRadius: 16,
+    borderRadius: 6,
+    borderWidth: 1,
     padding: 14,
     marginBottom: 16,
   },
   searchSuggestion: {
-    borderRadius: 9,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+    paddingHorizontal: 2,
+    paddingVertical: 5,
+    borderBottomWidth: 1.5,
+    marginRight: 12,
   },
+  searchResultsSheet: {
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingLeft: 13,
+    overflow: "hidden",
+    shadowColor: "#17233D",
+    shadowOpacity: 0.035,
+    shadowRadius: 5,
+    shadowOffset: { width: 1, height: 3 },
+  },
+  searchResultsSpine: { position: "absolute", top: 0, bottom: 0, left: 9, width: 1 },
   searchResultCard: {
     minHeight: 78,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     padding: 0,
-    marginBottom: 8,
     overflow: "hidden",
   },
+  searchResultCardLast: { borderBottomWidth: 0 },
   searchResultMain: {
     minHeight: 78,
     flexDirection: "row",
     alignItems: "center",
     padding: 11,
   },
-  searchResultMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    transform: [{ rotate: "-2deg" }],
-  },
-  searchResultMarkDot: { width: 7, height: 7, borderRadius: 4 },
   searchResultTypeBadge: {
     borderRadius: 7,
     paddingHorizontal: 7,
@@ -5655,7 +5675,7 @@ Object.assign(s, {
     justifyContent: "center",
   },
   searchInputNew: { flex: 1, fontSize: 13, marginLeft: 9 },
-  searchResultCopy: { flex: 1, paddingLeft: 11, paddingRight: 9 },
+  searchResultCopy: { flex: 1, paddingLeft: 4, paddingRight: 9 },
   togetherProfile: {
     marginTop: 21,
     borderRadius: 11,
