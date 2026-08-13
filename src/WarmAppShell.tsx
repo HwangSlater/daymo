@@ -5679,20 +5679,19 @@ Object.assign(s, {
     minHeight: 34,
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 15,
     marginTop: 10,
     marginBottom: 0,
   },
   searchGuideTitle: {
-    width: "16.666%",
     fontSize: 10,
     fontWeight: "800",
-    textAlign: "center",
+    marginRight: 12,
   },
   searchSuggestions: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
+    gap: 12,
   },
   searchSuggestion: {
     paddingHorizontal: 1,
