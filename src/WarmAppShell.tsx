@@ -2324,11 +2324,12 @@ function Search({
           style={[
             (s as any).searchResultCard,
             {
-              borderColor: theme.border,
+              borderBottomColor: theme.background,
             },
             index === results.length - 1 && (s as any).searchResultCardLast,
           ]}
         >
+          <View style={[(s as any).searchResultIndexLine, { backgroundColor: item.color }]} />
           <Pressable
             onPress={() => {
               const trip = trips.find((candidate) => candidate.name === item.trip);
@@ -5624,11 +5625,21 @@ Object.assign(s, {
   searchResultsSpine: { position: "absolute", top: 0, bottom: 0, left: 9, width: 1 },
   searchResultCard: {
     minHeight: 78,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 5,
     padding: 0,
     overflow: "hidden",
+    position: "relative",
   },
   searchResultCardLast: { borderBottomWidth: 0 },
+  searchResultIndexLine: {
+    position: "absolute",
+    left: 0,
+    top: 14,
+    width: 3,
+    height: 24,
+    borderRadius: 2,
+    opacity: 0.72,
+  },
   searchResultMain: {
     minHeight: 78,
     flexDirection: "row",
