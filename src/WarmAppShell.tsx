@@ -2285,7 +2285,12 @@ function Search({
           </View>
         </View>
       )}
-      <View style={(s as any).searchCategories}>
+      <View
+        style={[
+          (s as any).searchCategories,
+          { borderBottomColor: theme.border },
+        ]}
+      >
         {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
           <Pressable
             key={item}
@@ -5662,7 +5667,7 @@ Object.assign(s, {
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
     flex: 1,
-    height: 34,
+    height: 40,
     borderBottomWidth: 2,
     paddingHorizontal: 0,
     alignItems: "center",
@@ -5672,7 +5677,9 @@ Object.assign(s, {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginTop: 2,
+    marginBottom: 14,
   },
   searchCategoryActive: { borderBottomWidth: 2 },
   searchGuide: {
@@ -5680,7 +5687,7 @@ Object.assign(s, {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
-    marginTop: 10,
+    marginTop: 4,
     marginBottom: 0,
   },
   searchGuideTitle: {
