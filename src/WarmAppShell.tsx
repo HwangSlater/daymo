@@ -2262,11 +2262,7 @@ function Search({
           <Text style={[(s as any).searchGuideTitle, { color: theme.muted }]}>
             최근
           </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={(s as any).searchSuggestions}
-          >
+          <View style={(s as any).searchSuggestions}>
             {["은행골", "충전기", "부산", "밀푀유나베"].map((word) => (
               <Pressable
                 key={word}
@@ -2286,14 +2282,10 @@ function Search({
                 </Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
         </View>
       )}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={(s as any).searchCategories}
-      >
+      <View style={(s as any).searchCategories}>
         {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
           <Pressable
             key={item}
@@ -2317,7 +2309,7 @@ function Search({
             </Text>
           </Pressable>
         ))}
-      </ScrollView>
+      </View>
       <View style={(s as any).searchResultHead}>
         <Text style={[(s as any).searchResultTitle, { color: theme.text }]}>
           {query || category !== "전체" ? "검색 결과" : "여행 기록"}
@@ -5669,11 +5661,18 @@ Object.assign(s, {
   },
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
+    flex: 1,
     height: 34,
     borderBottomWidth: 2,
-    paddingHorizontal: 10,
+    paddingHorizontal: 0,
     alignItems: "center",
     justifyContent: "center",
+  },
+  searchCategories: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
   },
   searchCategoryActive: { borderBottomWidth: 2 },
   searchGuide: {
@@ -5684,14 +5683,16 @@ Object.assign(s, {
     marginBottom: 0,
   },
   searchGuideTitle: {
+    width: "16.666%",
     fontSize: 10,
     fontWeight: "800",
-    marginRight: 10,
+    textAlign: "center",
   },
   searchSuggestions: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    justifyContent: "space-around",
   },
   searchSuggestion: {
     paddingHorizontal: 1,
