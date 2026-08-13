@@ -2285,48 +2285,35 @@ function Search({
           </View>
         </View>
       )}
-      <View style={(s as any).searchCategories}>
-        {[
-          { label: "전체", color: theme.primary },
-          { label: "장소", color: "#19B6A3" },
-          { label: "일정", color: "#FF6B5F" },
-          { label: "요리", color: "#F0A351" },
-          { label: "준비", color: "#8B7CF6" },
-          { label: "기록", color: "#D49A47" },
-        ].map((item, index) => (
+      <View
+        style={[
+          (s as any).searchCategories,
+          { backgroundColor: theme.surfaceAlt },
+        ]}
+      >
+        {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
           <Pressable
-            key={item.label}
-            onPress={() => setCategory(item.label)}
+            key={item}
+            onPress={() => setCategory(item)}
             style={[
               (s as any).searchCategory,
-              {
+              { borderColor: "transparent" },
+              category === item && (s as any).searchCategoryActive,
+              category === item && {
                 backgroundColor: theme.surface,
-                borderColor: `${item.color}${theme.dark ? "45" : "28"}`,
-                transform: [{ rotate: index % 2 ? "0.35deg" : "-0.35deg" }],
-              },
-              category === item.label && (s as any).searchCategoryActive,
-              category === item.label && {
-                backgroundColor: `${item.color}${theme.dark ? "24" : "12"}`,
-                borderColor: `${item.color}70`,
+                borderColor: `${theme.primary}38`,
               },
             ]}
           >
-            <View
-              style={[
-                (s as any).searchCategoryMark,
-                { backgroundColor: item.color },
-                category === item.label && (s as any).searchCategoryMarkActive,
-              ]}
-            />
             <Text
               style={[
                 (s as any).searchCategoryText,
                 { color: theme.muted },
-                category === item.label && (s as any).searchCategoryTextActive,
-                category === item.label && { color: item.color },
+                category === item && (s as any).searchCategoryTextActive,
+                category === item && { color: theme.primary },
               ]}
             >
-              {item.label}
+              {item}
             </Text>
           </Pressable>
         ))}
@@ -5683,8 +5670,8 @@ Object.assign(s, {
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
     flex: 1,
-    height: 38,
-    borderRadius: 7,
+    height: 34,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 0,
     alignItems: "center",
@@ -5694,28 +5681,18 @@ Object.assign(s, {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 5,
-    gap: 5,
-    marginTop: 2,
+    borderRadius: 11,
+    padding: 4,
+    gap: 2,
+    marginTop: 4,
     marginBottom: 14,
   },
   searchCategoryActive: {
     shadowColor: "#17233D",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 3 },
-    transform: [{ translateY: -2 }],
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
   },
-  searchCategoryMark: {
-    position: "absolute",
-    top: 0,
-    width: 7,
-    height: 3,
-    borderBottomLeftRadius: 3,
-    borderBottomRightRadius: 3,
-    opacity: 0.55,
-  },
-  searchCategoryMarkActive: { width: 20, opacity: 1 },
   searchGuide: {
     minHeight: 34,
     flexDirection: "row",
