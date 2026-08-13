@@ -2268,8 +2268,7 @@ function Search({
           </Pressable>
         )}
       </View>
-      {!query && category === "전체" && (
-        <View style={(s as any).searchGuide}>
+      <View style={(s as any).searchGuide}>
           <Text style={[(s as any).searchGuideTitle, { color: theme.muted }]}>
             최근
           </Text>
@@ -2294,8 +2293,7 @@ function Search({
               </Pressable>
             ))}
           </View>
-        </View>
-      )}
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
