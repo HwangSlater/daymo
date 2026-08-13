@@ -2257,6 +2257,38 @@ function Search({
           </Pressable>
         )}
       </View>
+      {!query && category === "전체" && (
+        <View style={(s as any).searchGuide}>
+          <Text style={[(s as any).searchGuideTitle, { color: theme.muted }]}>
+            최근
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={(s as any).searchSuggestions}
+          >
+            {["은행골", "충전기", "부산", "밀푀유나베"].map((word) => (
+              <Pressable
+                key={word}
+                onPress={() => setQuery(word)}
+                style={[
+                  (s as any).searchSuggestion,
+                  { borderBottomColor: `${theme.secondary}55` },
+                ]}
+              >
+                <Text
+                  style={[
+                    (s as any).searchSuggestionText,
+                    { color: theme.secondary },
+                  ]}
+                >
+                  {word}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -2286,49 +2318,6 @@ function Search({
           </Pressable>
         ))}
       </ScrollView>
-      {!query && category === "전체" && (
-        <View
-          style={[
-            (s as any).searchGuide,
-            {
-              backgroundColor: theme.dark
-                ? theme.surfaceAlt
-                : theme.primarySoft,
-            },
-          ]}
-        >
-          <Text
-            style={[(s as any).searchGuideTitle, { color: theme.secondary }]}
-          >
-            최근 검색
-          </Text>
-          <View style={(s as any).searchSuggestions}>
-            {["은행골", "충전기", "부산", "밀푀유나베"].map((word) => (
-              <Pressable
-                key={word}
-                onPress={() => setQuery(word)}
-                style={[
-                  (s as any).searchSuggestion,
-                  {
-                    backgroundColor: theme.dark
-                      ? theme.surface
-                      : "rgba(255,255,255,.58)",
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    (s as any).searchSuggestionText,
-                    { color: theme.secondary },
-                  ]}
-                >
-                  {word}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      )}
       <View style={(s as any).searchResultHead}>
         <Text style={[(s as any).searchResultTitle, { color: theme.text }]}>
           {query || category !== "전체" ? "검색 결과" : "여행 기록"}
@@ -5688,18 +5677,28 @@ Object.assign(s, {
   },
   searchCategoryActive: { borderBottomWidth: 2 },
   searchGuide: {
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 14,
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 0,
+  },
+  searchGuideTitle: {
+    fontSize: 10,
+    fontWeight: "800",
+    marginRight: 10,
+  },
+  searchSuggestions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   searchSuggestion: {
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderBottomWidth: 0,
-    borderRadius: 12,
-    marginRight: 5,
+    paddingHorizontal: 1,
+    paddingVertical: 5,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  searchSuggestionText: { fontSize: 11, fontWeight: "800" },
   searchResultsSheet: {
     gap: 9,
   },
