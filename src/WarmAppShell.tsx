@@ -1723,10 +1723,16 @@ function TripCalendar({
   const monthTrips = trips.filter(
     (trip) => trip.start.slice(0, 7) === monthKey,
   );
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const move = (amount: number) => {
     const next = new Date(month.year, month.value - 1 + amount, 1);
     setMonth({ year: next.getFullYear(), value: next.getMonth() + 1 });
     setSelectedDate(null);
+  };
+  const moveToToday = () => {
+    setMonth({ year: today.getFullYear(), value: today.getMonth() + 1 });
+    setSelectedDate(todayKey);
   };
   return (
     <View
@@ -1740,15 +1746,7 @@ function TripCalendar({
     >
       <View pointerEvents="none" style={(s as any).calendarPageBack} />
       <View style={(s as any).calendarHead}>
-        <Pressable
-          onPress={() => move(-1)}
-          style={[(s as any).monthArrow, { borderColor: "#D8D4CA" }]}
-        >
-          <Text style={[(s as any).monthArrowText, { color: "#384052" }]}>
-            ‹
-          </Text>
-        </Pressable>
-        <View>
+        <View style={(s as any).calendarTitleBlock}>
           <Text style={[(s as any).calendarMonth, { color: "#283046" }]}>
             {month.year}. {String(month.value).padStart(2, "0")}
           </Text>
@@ -1758,14 +1756,17 @@ function TripCalendar({
               : "아직 적힌 여행이 없어요"}
           </Text>
         </View>
-        <Pressable
-          onPress={() => move(1)}
-          style={[(s as any).monthArrow, { borderColor: "#D8D4CA" }]}
-        >
-          <Text style={[(s as any).monthArrowText, { color: "#384052" }]}>
-            ›
-          </Text>
-        </Pressable>
+        <View style={(s as any).calendarControls}>
+          <Pressable onPress={moveToToday} style={(s as any).calendarTodayButton}>
+            <Text style={(s as any).calendarTodayText}>오늘</Text>
+          </Pressable>
+          <Pressable onPress={() => move(-1)} style={(s as any).monthArrow}>
+            <Text style={(s as any).monthArrowText}>‹</Text>
+          </Pressable>
+          <Pressable onPress={() => move(1)} style={(s as any).monthArrow}>
+            <Text style={(s as any).monthArrowText}>›</Text>
+          </Pressable>
+        </View>
       </View>
       {monthTrips.length > 0 && (
         <View style={(s as any).calendarLegend}>
@@ -1812,6 +1813,7 @@ function TripCalendar({
             trip && index % 7 !== 6 && key < trip.end,
           );
           const selected = key === selectedDate;
+          const isToday = key === todayKey;
           return (
             <Pressable
               key={`${index}-${day}`}
@@ -1831,17 +1833,25 @@ function TripCalendar({
                 ],
               ]}
             >
-              <Text
+              <View
                 style={[
-                  (s as any).dayNumber,
-                  index % 7 === 0 && (s as any).dayNumberSunday,
-                  index % 7 === 6 && (s as any).dayNumberSaturday,
-                  trip && [(s as any).dayNumberTrip, { color: trip.color }],
-                  selected && (s as any).dayNumberSelected,
+                  (s as any).dayNumberBadge,
+                  isToday && (s as any).dayNumberToday,
                 ]}
               >
-                {valid ? day : ""}
-              </Text>
+                <Text
+                  style={[
+                    (s as any).dayNumber,
+                    index % 7 === 0 && (s as any).dayNumberSunday,
+                    index % 7 === 6 && (s as any).dayNumberSaturday,
+                    trip && [(s as any).dayNumberTrip, { color: trip.color }],
+                    isToday && (s as any).dayNumberTodayText,
+                    selected && (s as any).dayNumberSelected,
+                  ]}
+                >
+                  {valid ? day : ""}
+                </Text>
+              </View>
               {trip && (
                 <View
                   style={[(s as any).dayTripDot, { backgroundColor: trip.color }]}
@@ -5566,11 +5576,8 @@ Object.assign(s, {
     transform: [{ rotate: "0.35deg" }],
   },
   monthArrow: {
-    width: 31,
-    height: 31,
-    borderRadius: 4,
-    borderWidth: 1,
-    backgroundColor: "transparent",
+    width: 27,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5578,10 +5585,24 @@ Object.assign(s, {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 9,
+    marginBottom: 8,
   },
-  calendarMonth: { color: "#283046", fontSize: 19, fontWeight: "900", textAlign: "center", letterSpacing: 0.2 },
-  calendarSub: { color: "#7B7A76", fontSize: 10, textAlign: "center", marginTop: 2 },
+  calendarTitleBlock: { alignItems: "flex-start" },
+  calendarControls: { flexDirection: "row", alignItems: "center", gap: 1 },
+  calendarTodayButton: {
+    height: 27,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#D8D4CA",
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 3,
+  },
+  calendarTodayText: { color: "#596071", fontSize: 10, fontWeight: "800" },
+  monthArrowText: { color: "#384052", fontSize: 25, fontWeight: "500", lineHeight: 27 },
+  calendarMonth: { color: "#283046", fontSize: 19, fontWeight: "900", textAlign: "left", letterSpacing: 0.2 },
+  calendarSub: { color: "#7B7A76", fontSize: 10, textAlign: "left", marginTop: 2 },
   calendarLegend: {
     minHeight: 25,
     borderTopWidth: 0,
@@ -5610,8 +5631,19 @@ Object.assign(s, {
     marginVertical: 1,
   },
   dayNumber: { color: "#424957", fontSize: 11, fontWeight: "700" },
+  dayNumberBadge: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   dayNumberSunday: { color: "#B96863" },
   dayNumberSaturday: { color: "#5F789A" },
+  dayNumberToday: {
+    backgroundColor: "#FF6A63",
+  },
+  dayNumberTodayText: { color: "#FFFFFF" },
   emptyDate: {
     borderRadius: 16,
     borderWidth: 1,
