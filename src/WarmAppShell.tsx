@@ -2288,24 +2288,21 @@ function Search({
       <View
         style={[
           (s as any).searchCategories,
-          {
-            borderBottomColor: theme.dark ? "#394150" : "#D8D8D3",
-          },
+          { backgroundColor: theme.surfaceAlt },
         ]}
       >
-        {["전체", "장소", "일정", "요리", "준비", "기록"].map((item, index) => (
+        {["전체", "장소", "일정", "요리", "준비", "기록"].map((item) => (
           <Pressable
             key={item}
             onPress={() => setCategory(item)}
             style={[
               (s as any).searchCategory,
-              {
-                borderBottomColor: "transparent",
-                borderRightWidth: index < 5 ? 1 : 0,
-                borderRightColor: theme.dark ? "#394150" : "#D8D8D3",
-              },
+              { borderColor: "transparent" },
               category === item && (s as any).searchCategoryActive,
-              category === item && { borderBottomColor: theme.primary },
+              category === item && {
+                backgroundColor: theme.surface,
+                borderColor: `${theme.primary}38`,
+              },
             ]}
           >
             <Text
@@ -5673,8 +5670,9 @@ Object.assign(s, {
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
     flex: 1,
-    height: 40,
-    borderBottomWidth: 2,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
     paddingHorizontal: 0,
     alignItems: "center",
     justifyContent: "center",
@@ -5683,11 +5681,18 @@ Object.assign(s, {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginTop: 2,
+    borderRadius: 11,
+    padding: 4,
+    gap: 2,
+    marginTop: 4,
     marginBottom: 14,
   },
-  searchCategoryActive: { borderBottomWidth: 2 },
+  searchCategoryActive: {
+    shadowColor: "#17233D",
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+  },
   searchGuide: {
     minHeight: 34,
     flexDirection: "row",
