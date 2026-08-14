@@ -613,7 +613,7 @@ export function WarmTripDetail({
               }}
             />
           )}
-          {mode === "기록" && <Memories />}
+          {mode === "기록" && <Memories tripName={title} tripDate={tripDate} />}
         </ScrollView>
         <DetailSheet
           visible={memoPanel}
@@ -5069,51 +5069,116 @@ function Cooking({
   );
 }
 
-function Memories() {
+type MemoryPhoto = { id: string; color: string; date: string; caption: string };
+type TravelDiary = { id: string; title: string; body: string; date: string };
+
+function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
-  const [photos, setPhotos] = useState([
-    "#E7B4A6",
-    "#DFC98A",
-    "#AFC9C3",
-    "#D4BDD4",
-    "#C7D493",
-    "#9CBBC6",
+  const [photos, setPhotos] = useState<MemoryPhoto[]>([
+    { id: "photo-1", color: "#E7B4A6", date: "1일차", caption: "도착한 날" },
+    { id: "photo-2", color: "#DFC98A", date: "1일차", caption: "느린 점심" },
+    { id: "photo-3", color: "#AFC9C3", date: "2일차", caption: "함께 걷기" },
+    { id: "photo-4", color: "#D4BDD4", date: "2일차", caption: "저녁 준비" },
+    { id: "photo-5", color: "#C7D493", date: "3일차", caption: "마지막 아침" },
+    { id: "photo-6", color: "#9CBBC6", date: "3일차", caption: "돌아오는 길" },
   ]);
+  const [photoEditing, setPhotoEditing] = useState(false);
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [photoSelected, setPhotoSelected] = useState(false);
+  const [photoColor, setPhotoColor] = useState("#E7B4A6");
+  const [photoDate, setPhotoDate] = useState("1일차");
+  const [photoCaption, setPhotoCaption] = useState("");
   const [diaryWriting, setDiaryWriting] = useState(false);
   const [diaryTitle, setDiaryTitle] = useState("");
   const [diaryBody, setDiaryBody] = useState("");
-  const [diaries, setDiaries] = useState([
+  const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
+  const [diaries, setDiaries] = useState<TravelDiary[]>([
     {
+      id: "diary-1",
       title: "느리게 걸어서 더 좋았던 날",
       body: "계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.",
-      date: "2026. 08. 23",
+      date: tripDate,
     },
   ]);
   const [makingCard, setMakingCard] = useState(false);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showAllDiaries, setShowAllDiaries] = useState(false);
   const [cardStyle, setCardStyle] = useState("필름");
-  const [cardTitle, setCardTitle] = useState("우리의 구로 여행");
-  const [cardCaption, setCardCaption] = useState("천천히 걸어서 더 좋았던 2박 3일");
-  const addPhoto = () => {
-    setPhotos((current) => ["#19B6A3", ...current]);
-    notify("사진을 기록에 추가했어요");
+  const [cardTitle, setCardTitle] = useState(`우리의 ${tripName} 여행`);
+  const [cardCaption, setCardCaption] = useState("함께 남긴 여행의 순간");
+  const photoPalette = ["#E7B4A6", "#DFC98A", "#AFC9C3", "#D4BDD4", "#C7D493", "#9CBBC6"];
+  const openPhotoCreate = () => {
+    setEditingPhotoId(null);
+    setPhotoSelected(false);
+    setPhotoColor(photoPalette[photos.length % photoPalette.length]);
+    setPhotoDate("1일차");
+    setPhotoCaption("");
+    setPhotoEditing(true);
   };
-  const addDiary = () => {
-    if (!diaryBody.trim()) return;
-    setDiaries((current) => [
-      {
-        title: diaryTitle.trim() || "이번 여행 이야기",
-        body: diaryBody.trim(),
-        date: "방금",
-      },
-      ...current,
+  const openPhotoEdit = (photo: MemoryPhoto) => {
+    setEditingPhotoId(photo.id);
+    setPhotoSelected(true);
+    setPhotoColor(photo.color);
+    setPhotoDate(photo.date);
+    setPhotoCaption(photo.caption);
+    setPhotoEditing(true);
+  };
+  const savePhoto = () => {
+    if (!photoSelected) return;
+    const next = { id: editingPhotoId ?? `photo-${Date.now()}`, color: photoColor, date: photoDate.trim() || "날짜 미정", caption: photoCaption.trim() };
+    setPhotos((current) => editingPhotoId
+      ? current.map((photo) => photo.id === editingPhotoId ? next : photo)
+      : [next, ...current]);
+    setPhotoEditing(false);
+    notify(editingPhotoId ? "사진 정보를 수정했어요" : "사진을 기록에 추가했어요");
+  };
+  const deletePhoto = () => {
+    const target = photos.find((photo) => photo.id === editingPhotoId);
+    if (!target) return;
+    Alert.alert("사진을 기록에서 삭제할까요?", target.caption || target.date, [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: () => {
+        setPhotos((current) => current.filter((photo) => photo.id !== target.id));
+        setPhotoEditing(false);
+        notify("사진을 삭제했어요");
+      } },
     ]);
+  };
+  const openDiaryCreate = () => {
+    setEditingDiaryId(null);
+    setDiaryTitle("");
+    setDiaryBody("");
+    setDiaryWriting(true);
+  };
+  const openDiaryEdit = (diary: TravelDiary) => {
+    setEditingDiaryId(diary.id);
+    setDiaryTitle(diary.title);
+    setDiaryBody(diary.body);
+    setDiaryWriting(true);
+  };
+  const saveDiary = () => {
+    if (!diaryBody.trim()) return;
+    const next = { id: editingDiaryId ?? `diary-${Date.now()}`, title: diaryTitle.trim() || "이번 여행 이야기", body: diaryBody.trim(), date: editingDiaryId ? diaries.find((diary) => diary.id === editingDiaryId)?.date ?? "방금" : "방금" };
+    setDiaries((current) => editingDiaryId
+      ? current.map((diary) => diary.id === editingDiaryId ? next : diary)
+      : [next, ...current]);
     setDiaryTitle("");
     setDiaryBody("");
     setDiaryWriting(false);
-    notify("여행 일기를 저장했어요");
+    notify(editingDiaryId ? "여행 일기를 수정했어요" : "여행 일기를 저장했어요");
+  };
+  const deleteDiary = () => {
+    const target = diaries.find((diary) => diary.id === editingDiaryId);
+    if (!target) return;
+    Alert.alert("일기를 삭제할까요?", target.title, [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: () => {
+        setDiaries((current) => current.filter((diary) => diary.id !== target.id));
+        setDiaryWriting(false);
+        notify("여행 일기를 삭제했어요");
+      } },
+    ]);
   };
   return (
     <View>
@@ -5121,8 +5186,20 @@ function Memories() {
         label="여행 기록"
         count={`사진 ${photos.length} · 일기 ${diaries.length}`}
         action="사진 추가"
-        onPress={addPhoto}
+        onPress={openPhotoCreate}
       />
+      <View style={[(styles as any).memoryStats, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        {[
+          ["사진", `${photos.length}장`],
+          ["일기", `${diaries.length}편`],
+          ["기록한 날", `${new Set(photos.map((photo) => photo.date)).size}일`],
+        ].map(([label, value], index) => (
+          <View key={label} style={[(styles as any).memoryStat, index > 0 && (styles as any).memoryStatBorder, index > 0 && theme && { borderLeftColor: theme.border }]}>
+            <Text style={[(styles as any).memoryStatValue, theme && { color: theme.text }]}>{value}</Text>
+            <Text style={[(styles as any).memoryStatLabel, theme && { color: theme.muted }]}>{label}</Text>
+          </View>
+        ))}
+      </View>
       <SectionLabel
         label="여행 기념 카드"
         action="꾸미기"
@@ -5137,12 +5214,12 @@ function Memories() {
       >
         <View style={[styles.keepsakeTape, theme && { backgroundColor: theme.secondary }]} />
         <View style={styles.keepsakePhotos}>
-          {photos.slice(0, 3).map((color, index) => (
+          {photos.slice(0, 3).map((photo, index) => (
             <View
-              key={`${color}-${index}`}
+              key={photo.id}
               style={[
                 styles.keepsakePhoto,
-                { backgroundColor: color },
+                { backgroundColor: photo.color },
                 index === 0 && styles.keepsakePhotoMain,
                 index === 1 && styles.keepsakePhotoTop,
                 index === 2 && styles.keepsakePhotoBottom,
@@ -5151,7 +5228,7 @@ function Memories() {
           ))}
         </View>
         <View style={styles.keepsakeCopy}>
-          <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{cardStyle} · 2026. 08</Text>
+          <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{cardStyle} · {tripDate}</Text>
           <Text style={[styles.keepsakeTitle, theme && { color: theme.text }]}>{cardTitle}</Text>
           <Text numberOfLines={2} style={[styles.keepsakeCaption, theme && { color: theme.muted }]}>{cardCaption}</Text>
         </View>
@@ -5160,11 +5237,14 @@ function Memories() {
       <SectionLabel
         label="여행 일기"
         action="일기 쓰기"
-        onPress={() => setDiaryWriting(true)}
+        onPress={openDiaryCreate}
       />
       {(showAllDiaries ? diaries : diaries.slice(0, 3)).map((diary, index) => (
-        <View
-          key={`${diary.date}-${index}`}
+        <Pressable
+          key={diary.id}
+          onPress={() => openDiaryEdit(diary)}
+          accessibilityRole="button"
+          accessibilityLabel={`${diary.title} 일기 수정`}
           style={[
             styles.diaryCard,
             theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -5179,14 +5259,14 @@ function Memories() {
           <Text style={[styles.diaryDate, theme && { color: theme.primary }]}>{diary.date}</Text>
           <Text style={[styles.diaryTitle, theme && { color: theme.text }]}>{diary.title}</Text>
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
-        </View>
+        </Pressable>
       ))}
       {diaries.length === 0 && (
         <EmptyState
           title="아직 작성한 일기가 없어요"
           description="여행에서 기억하고 싶은 순간을 글로 남겨보세요."
           action="일기 쓰기"
-          onPress={() => setDiaryWriting(true)}
+          onPress={openDiaryCreate}
         />
       )}
       {diaries.length > 3 && (
@@ -5198,22 +5278,25 @@ function Memories() {
       )}
       <SectionLabel label={`여행 사진 · ${photos.length}장`} />
       <View style={styles.memoryGrid}>
-        {(showAllPhotos ? photos : photos.slice(0, 6)).map((color, index) => (
-          <View
-            key={`${color}-${index}`}
+        {(showAllPhotos ? photos : photos.slice(0, 6)).map((photo, index) => (
+          <Pressable
+            key={photo.id}
+            onPress={() => openPhotoEdit(photo)}
+            accessibilityRole="button"
+            accessibilityLabel={`${photo.caption || photo.date} 사진 수정`}
             style={[
               styles.memoryTile,
               theme && { backgroundColor: theme.surface, borderColor: theme.border },
             ]}
           >
-            <View style={[styles.memoryTilePhoto, { backgroundColor: color }]}>
+            <View style={[styles.memoryTilePhoto, { backgroundColor: photo.color }]}>
               <View style={styles.memoryTileGlow} />
             </View>
             <View style={styles.memoryTileCaption}>
-              <Text style={[styles.tileNumber, theme && { color: theme.text }]}>NO. {String(index + 1).padStart(2, "0")}</Text>
-              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>08. {21 + (index % 3)}</Text>
+              <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{photo.caption || `사진 ${index + 1}`}</Text>
+              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{photo.date}</Text>
             </View>
-          </View>
+          </Pressable>
         ))}
       </View>
       {photos.length === 0 && (
@@ -5221,7 +5304,7 @@ function Memories() {
           title="아직 추가한 사진이 없어요"
           description="여행의 첫 장면을 기록에 추가해 보세요."
           action="사진 추가"
-          onPress={addPhoto}
+          onPress={openPhotoCreate}
         />
       )}
       {photos.length > 6 && (
@@ -5249,8 +5332,8 @@ function Memories() {
           onChange={setCardStyle}
         />
         <View style={styles.cardMiniPreview}>
-          {photos.slice(0, 3).map((color, index) => (
-            <View key={`${color}-preview-${index}`} style={[styles.cardMiniPhoto, { backgroundColor: color }]} />
+          {photos.slice(0, 3).map((photo) => (
+            <View key={`${photo.id}-preview`} style={[styles.cardMiniPhoto, { backgroundColor: photo.color }]} />
           ))}
         </View>
         <DetailField label="카드 제목 · 선택 사항" value={cardTitle} onChangeText={setCardTitle} placeholder="예: 우리의 서울 주말" />
@@ -5258,13 +5341,46 @@ function Memories() {
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>현재 여행 기록에 저장되며 언제든 다시 꾸밀 수 있어요.</Text>
       </DetailSheet>
       <DetailSheet
+        visible={photoEditing}
+        title={editingPhotoId ? "사진 기록 수정" : "사진 추가"}
+        subtitle="사진을 고르고 날짜와 짧은 설명을 함께 남겨보세요"
+        submit={photoSelected ? (editingPhotoId ? "변경 저장" : "사진 추가") : "사진을 선택해 주세요"}
+        submitDisabled={!photoSelected}
+        destructiveLabel={editingPhotoId ? "사진 삭제" : undefined}
+        onDestructive={deletePhoto}
+        onClose={() => setPhotoEditing(false)}
+        onSubmit={savePhoto}
+      >
+        <Pressable
+          onPress={() => {
+            const nextIndex = (photoPalette.indexOf(photoColor) + 1) % photoPalette.length;
+            setPhotoColor(photoPalette[nextIndex]);
+            setPhotoSelected(true);
+          }}
+          accessibilityRole="button"
+          style={[(styles as any).photoPickerPreview, { backgroundColor: photoSelected ? photoColor : theme?.surfaceAlt ?? "#F2EFEA", borderColor: theme?.border ?? "#E5E1DC" }]}
+        >
+          <View style={[(styles as any).photoPickerMark, theme && { backgroundColor: theme.surface }]}>
+            <Text style={[(styles as any).photoPickerMarkText, theme && { color: theme.primary }]}>{photoSelected ? "사진 다시 선택" : "기기에서 사진 선택"}</Text>
+          </View>
+        </Pressable>
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>사진을 선택하면 이곳에서 미리 확인할 수 있어요.</Text>
+        <DetailField label="여행 날짜 · 선택 사항" value={photoDate} onChangeText={setPhotoDate} placeholder="예: 2일차 또는 8월 22일" />
+        <DetailField label="사진 설명 · 선택 사항" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
+      </DetailSheet>
+      <DetailSheet
         visible={diaryWriting}
-        title="여행 일기 쓰기"
+        title={editingDiaryId ? "여행 일기 수정" : "여행 일기 쓰기"}
         subtitle="그날의 기분과 오래 기억하고 싶은 이야기를 남겨보세요"
-        submit={diaryBody.trim() ? "일기 저장" : "내용을 입력해 주세요"}
+        submit={diaryBody.trim() ? (editingDiaryId ? "변경 저장" : "일기 저장") : "내용을 입력해 주세요"}
         submitDisabled={!diaryBody.trim()}
-        onClose={() => setDiaryWriting(false)}
-        onSubmit={addDiary}
+        destructiveLabel={editingDiaryId ? "일기 삭제" : undefined}
+        onDestructive={deleteDiary}
+        onClose={() => {
+          setDiaryWriting(false);
+          setEditingDiaryId(null);
+        }}
+        onSubmit={saveDiary}
       >
         <DetailField label="일기 제목 · 선택 사항" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
         <DetailField label="여행 이야기 · 필수" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
@@ -9090,6 +9206,28 @@ Object.assign(styles, {
     justifyContent: "space-between",
   },
   memoryButton: { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 11 },
+  memoryStats: {
+    minHeight: 64,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  memoryStat: { flex: 1, alignItems: "center", justifyContent: "center" },
+  memoryStatBorder: { borderLeftWidth: StyleSheet.hairlineWidth },
+  memoryStatValue: { fontSize: 14, fontWeight: "900" },
+  memoryStatLabel: { fontSize: 10, fontWeight: "700", marginTop: 3 },
+  photoPickerPreview: {
+    height: 176,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  photoPickerMark: { borderRadius: 999, paddingHorizontal: 15, paddingVertical: 9 },
+  photoPickerMarkText: { fontSize: 12, fontWeight: "900" },
   noteCard: { borderRadius: 9, padding: 16, borderWidth: 1, marginBottom: 9 },
   memoryTile: {
     width: "31.4%",
