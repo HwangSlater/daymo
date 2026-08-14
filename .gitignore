@@ -4,12 +4,17 @@ dist/
 .DS_Store
 *.log
 
-ios/Pods/
-ios/build/
-ios/DerivedData/
-ios/*.xcworkspace/xcuserdata/
-ios/*.xcodeproj/xcuserdata/
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/ios/DerivedData/
+mobile/ios/*.xcworkspace/xcuserdata/
+mobile/ios/*.xcodeproj/xcuserdata/
 
-android/.gradle/
-android/app/build/
-android/build/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+
+server/.gradle/
+server/build/
+server/.env
+infra/.env

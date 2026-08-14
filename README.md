@@ -5,6 +5,7 @@ Expo/React Native로 만든 모바일 UI 우선 프로토타입입니다. 아직
 ## 실행
 
 ```bash
+cd mobile
 npm install
 npm run ios
 # 또는 npm run android / npm run web

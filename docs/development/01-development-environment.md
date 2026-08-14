@@ -4,7 +4,7 @@
 
 | 항목 | 현재 버전/설정 |
 | --- | --- |
-| Node.js | 24 LTS, `.nvmrc`와 `package.json engines` 고정 |
+| Node.js | 24 LTS, 루트 `.nvmrc`와 `mobile/package.json` engines 고정 |
 | npm | Node 20에 포함된 버전, `package-lock.json` 고정 |
 | Expo | SDK 54 |
 | React Native | 0.81.4 |
@@ -21,16 +21,17 @@
 | Node.js | 현재 shell `v26.7.0` | 기준은 Node 24 LTS로 확정, SDK 검증 전 실제 전환 필요 |
 | npm | `11.19.0` | 선택한 Node LTS에 포함된 버전으로 lockfile 재검증 |
 | Java | 설치되지 않음 | 백엔드 생성 전에 JDK 21 설치 필수 |
-| iOS bundle ID | `com.hwangslater.daymo` | 확정·`app.json` 반영 완료 |
-| Android package | `com.hwangslater.daymo` | 확정·`app.json` 반영 완료 |
+| iOS bundle ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
+| Android package | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
 | 테스트/lint | npm script 없음 | 기반 공사에서 typecheck·lint·unit test script 추가 |
 | 의존성 감사 | high 11, moderate 9 | `audit fix --force` 금지, Expo SDK 업그레이드 검증 작업으로 분리 |
 
 현재 Node 26에서 UI는 실행되지만 프로젝트 기준은 Node 24 LTS다. SDK 검증 전에 `nvm use`로 실제 shell을 전환하고 `npm ci`와 네이티브 빌드를 다시 확인한다. npm audit의 자동 제안은 Expo/React Native의 호환 조합을 깨뜨릴 수 있으므로 그대로 적용하지 않는다.
 
-의존성 설치는 반드시 저장소 루트에서 실행한다.
+Node 기준은 저장소 루트 `.nvmrc`를 사용하고 모바일 의존성 설치·실행은 `mobile/`에서 수행한다.
 
 ```bash
+cd mobile
 npm ci
 npm run ios
 npm run android
@@ -38,7 +39,7 @@ npm run web
 npx tsc --noEmit
 ```
 
-첫 기반 커밋에서 `.nvmrc`, `.env.example`, `package.json engines`와 `typecheck`, `lint`, `test`, `test:e2e`, `export` npm script를 추가한다.
+첫 기반 커밋에서 루트 `.nvmrc`, `mobile/.env.example`, `mobile/package.json` engines와 `typecheck`, `lint`, `test`, `test:e2e`, `export` npm script를 추가한다.
 
 네이티브 의존성을 추가할 때는 Expo 호환 버전을 위해 `npm install`보다 `npx expo install <package>`를 우선한다.
 
@@ -153,16 +154,21 @@ RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 ## 6. 권장 프로젝트 구조
 
 ```text
-app/                         # Expo Router routes
-src/
-  components/                # 공통 UI
-  features/
-    auth/ spaces/ trips/ places/ schedule/
-    packing/ cooking/ memos/ memories/ search/
-  lib/                       # API client, query client, logger, links
-  store/                     # UI/작성 중 상태
-  theme/                     # 색상 토큰
-  types/                     # 생성된 DB 타입과 API 타입
+mobile/
+  app/                       # Expo Router routes
+  src/
+    components/              # 공통 UI
+    features/
+      auth/ spaces/ trips/ places/ schedule/
+      packing/ cooking/ memos/ memories/ search/
+    lib/                     # API client, query client, logger, links
+    store/                   # UI/작성 중 상태
+    theme/                   # 색상 토큰
+    types/                   # 생성된 API 타입
+  assets/
+  ios/
+  android/
+  package.json
 server/
   src/main/java/...          # Spring Boot domain/application/infra/api
   src/main/resources/db/migration/
@@ -184,6 +190,7 @@ docs/development/
 - 커밋: 스키마, API, UI 연결, 테스트를 의미 단위로 분리
 - DB 마이그레이션은 되돌리기 SQL 또는 전진 수정 계획을 PR에 기록
 - UI 피드백용 Vercel Preview와 `daymo.xyz` 공개 문서 deployment, 앱용 EAS Update를 분리
+- Vercel Git project의 Root Directory는 `mobile`로 설정하고 `mobile/vercel.json`을 사용
 - staging 검증 후 EAS Build로 iOS TestFlight와 Android 비공개 테스트를 같은 release 단위로 병행
 - EAS Update는 동일 native runtime의 JavaScript·스타일·이미지 수정에만 사용하고 내부 검증 후 단계적으로 확대
 - native module, permission, app config, SDK/runtime 변경은 새 store binary로 배포
@@ -193,10 +200,10 @@ docs/development/
 
 PR CI는 client `typecheck`·`lint`·unit test와 server Gradle test·Testcontainers PostgreSQL test를 매번 실행한다. EAS iOS/Android native build는 일반 PR에서 실행하지 않고 beta 또는 production release candidate에서만 두 플랫폼을 같은 release 단위로 생성한다. Dependabot은 매주 client/server 의존성을 생태계별 묶음 PR로 만들며 자동 merge하지 않는다.
 
-CI 최소 작업:
+CI 최소 작업에서 client job의 working directory는 `mobile`, server job은 `server`로 고정한다.
 
-1. `npm ci`
-2. `npx tsc --noEmit`
+1. `cd mobile && npm ci`
+2. `cd mobile && npx tsc --noEmit`
 3. lint/format 검사
 4. 단위 테스트
 5. Gradle 테스트와 Flyway migration 검증

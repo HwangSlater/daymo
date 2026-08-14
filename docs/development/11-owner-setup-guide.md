@@ -441,6 +441,8 @@ staging-api.daymo.xyz  beta 기간 같은 VPS의 beta API, production 전환 후
 
 Vercel project에는 apex와 `www`만 연결하고 API·사진 요청은 보내지 않는다. Vercel Hobby는 비상업 beta·문서 제공 단계에서만 사용한다. 앱을 수익화하기 전 당시 Vercel 이용 조건을 다시 확인하고 Hobby가 허용되지 않으면 결제 여부를 자동 가정하지 말고 정적 문서를 다른 host로 이전한다.
 
+모바일 프로젝트가 `mobile/`로 분리되어 있으므로 Vercel의 Git project Settings → Build and Deployment → Root Directory를 `mobile`로 변경한다. Framework Preset은 Other, build/output은 `mobile/vercel.json`의 Expo export와 `dist` 설정을 사용한다.
+
 `api.daymo.xyz`는 가비아 A record로 VPS 공인 IPv4에 직접 연결한다. Nginx에서 Let's Encrypt 인증서를 발급하고 자동 갱신 timer, 갱신 dry-run과 만료 알림을 설정한다.
 
 필요한 공개 페이지:

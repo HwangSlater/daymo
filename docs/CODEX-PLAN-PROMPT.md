@@ -12,7 +12,7 @@
    - 현재 카카오톡 공지에서 실제로 사용하고 있는 원본 여행 데이터
 3. `development/README.md`와 연결된 문서 전체
    - 현재 UI를 기준으로 확정된 개발 환경, API, 데이터 모델, 단계별 계획, 품질 기준
-4. `../src/WarmAppShell.tsx`, `../src/WarmTripDetail.tsx`
+4. `../mobile/src/WarmAppShell.tsx`, `../mobile/src/WarmTripDetail.tsx`
    - 실제 사용자 검토를 거친 최신 UI와 동작
 
 문서와 UI의 내용을 모두 읽고 분석하라. 과거 계획과 최신 UI가 다르면 최신 UI와 `development/` 문서를 우선하되 요구사항 원문을 누락하지 않는다.
