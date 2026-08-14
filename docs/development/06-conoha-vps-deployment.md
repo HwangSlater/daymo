@@ -192,11 +192,11 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 - 서버: CPU, RAM, swap, disk, load average
 - PostgreSQL: connection, slow query, DB size, backup 성공
 - 앱/API 오류: Sentry
-- 초기에는 UptimeRobot 무료 외부 monitor가 공개용 `/health`를 5분마다 확인
+- UptimeRobot 무료 외부 monitor가 공개용 `/health`를 5분마다 확인
 
 인증 전체 실패, readiness 실패, 지속적인 5xx 급증, DB/사진 volume 임계치와 복원 불가 수준의 백업 실패는 Daymo 운영 이메일로 즉시 알린다. 경고·회복 이력은 하루 한 번 요약한다. 알림 본문에는 token, 이메일, 사용자 입력, 사진 경로 같은 개인정보·secret을 넣지 않는다.
 
-UptimeRobot 제공 URL의 외부 basic status page를 사용해 VPS 장애와 분리한다. 무료 plan에는 custom domain이 포함되지 않으므로 초기에는 `status.daymo.xyz`를 연결하지 않는다. API·로그인·사진 업로드처럼 사용자가 이해할 수 있는 구성요소와 현재 상태만 공개하고 과거 incident history는 공개하지 않는다. 내부 host, IP, stack trace와 방어 구조는 노출하지 않는다. 로그인 불가 또는 장기 장애가 확인되면 현재 상태와 `/app-config`의 `serviceNotice`를 함께 갱신한다.
+UptimeRobot 무료 plan과 제공 URL의 basic status page만 사용해 VPS 장애와 분리한다. 유료 plan, custom domain과 `status.daymo.xyz`는 운영 계획에서 제외한다. API·로그인·사진 업로드처럼 사용자가 이해할 수 있는 구성요소와 현재 상태만 공개하고 과거 incident history는 공개하지 않는다. 내부 host, IP, stack trace와 방어 구조는 노출하지 않는다. 로그인 불가 또는 장기 장애가 확인되면 현재 상태와 `/app-config`의 `serviceNotice`를 함께 갱신한다.
 
 경고 기준 초기값:
 
