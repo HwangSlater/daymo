@@ -76,6 +76,7 @@
 10. 오프라인에서 체크→재실행→재연결→두 기기 동일 결과 확인
 11. 오래된 cursor 만료→bootstrap 복구, 로그아웃→기기 공동 캐시 삭제
 12. 선택 동의 거부 상태 가입, 철회, 처리방침 version 변경, 탈퇴 후 데이터 제거
+13. 내 데이터 export 범위, 다른 멤버 콘텐츠 제외, 앱 종료 후 생성, 24시간·1회 다운로드와 만료 archive 삭제
 
 ### 계약·마이그레이션 테스트
 
@@ -125,7 +126,8 @@
 
 ## 5. 관측과 장애 처리
 
-- Sentry: crash, unhandled rejection, 화면/API breadcrumb. 개인정보는 scrub
+- Sentry: crash, unhandled rejection, 최소 화면/API breadcrumb. 개인정보는 scrub하고 행동 분석에는 사용하지 않음
+- 첫 출시에는 화면 조회·버튼 클릭을 수집하는 제3자 행동 분석 SDK를 넣지 않음
 - 서버: request ID, actor ID hash, endpoint, status, latency만 구조화 로그
 - 지표: 로그인 성공률, API p95, 앱 시작 시간, 사진 실패율, 동기화 충돌률
 - 데이터 지표: endpoint별 압축 응답 byte, 304 비율, sync 변경 개수, 사진 품질별 전송량

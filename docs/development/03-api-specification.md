@@ -92,6 +92,9 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | DELETE | `/me/legal-acceptances/{type}` | 선택 동의 철회 |
 | POST | `/me/privacy-requests` | 열람·정정·삭제·처리정지 요청 |
 | GET | `/me/privacy-requests/{requestId}` | 요청 처리 상태 |
+| POST | `/me/data-exports` | 내 데이터 비동기 export 요청 |
+| GET | `/me/data-exports/{exportId}` | 생성 상태·만료 시각 조회 |
+| GET | `/me/data-exports/{exportId}/download` | 24시간·1회용 token으로 다운로드 |
 | POST | `/privacy/photo-requests` | 비회원 포함 사진 등장 당사자의 삭제·처리정지 요청 |
 | POST | `/reports` | 사용자 또는 콘텐츠 신고 |
 | GET | `/me/reports` | 내가 제출한 신고와 처리 상태 |
@@ -136,6 +139,10 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
   "ageEligibilityConfirmed": true
 }
 ```
+
+내 데이터 export는 계정·프로필, 약관/동의 이력, 공간 참여 이력, 사용자가 직접 작성한 메모·일기 등 구조화 JSON/CSV와 사용자가 직접 올린 사진 원본을 archive로 생성한다. 다른 멤버가 작성한 콘텐츠 본문과 사진 원본은 포함하지 않는다. 같은 사용자의 진행 중 job은 하나로 합치며 앱을 닫아도 서버에서 계속 처리한다.
+
+완료 시 앱 내 상태와 이메일로 알리되 archive를 첨부하지 않는다. 다운로드는 인증 session과 별도 1회용 token을 함께 요구하고 token hash만 저장한다. 준비 후 24시간 또는 최초 정상 다운로드 즉시 archive와 token을 폐기한다. 파일 시스템 경로와 private 사진 URL은 export에 포함하지 않는다.
 
 사용자·콘텐츠의 더보기 메뉴에는 `신고`와 `차단`을 별도 문구로 제공한다. 신고는 사유와 선택 설명을 받아 운영 검토 queue에 넣고, 같은 대상의 반복 제출은 idempotent하게 합치되 신고자에게 접수 번호를 반환한다. 신고자의 신원은 신고 대상과 공간 멤버에게 공개하지 않는다.
 
