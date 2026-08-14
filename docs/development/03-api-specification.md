@@ -408,7 +408,7 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 | GET | `/trips/{tripId}/photos` | 사진 목록 |
 | PATCH/DELETE | `/photos/{photoId}` | 캡션/연결 수정, 삭제 |
 | GET | `/trips/{tripId}/trash` | 7일 안의 삭제된 메모·사진 조회 |
-| POST | `/trash/{targetType}/{targetId}/restore` | owner·editor가 휴지통 항목 복원 |
+| POST | `/trash/{targetType}/{targetId}/restore` | 항목 종류와 작성자에 따른 권한으로 복원 |
 | GET | `/photos/{photoId}/content?variant=thumbnail|display|original` | 권한 검사 후 사진 응답 |
 | GET | `/spaces/{spaceId}/stats` | 여행·지역·기록 통계 |
 
@@ -440,7 +440,7 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 
 메모 삭제는 공간 owner와 editor에게 허용하며 viewer는 차단한다. 타인의 메모 삭제도 동일하게 허용하지만 서버는 `deletedBy`, `deletedAt`과 audit log를 남기고 기본 조회에서 제외한다.
 
-메모와 사진은 삭제 후 7일간 휴지통에서 복원할 수 있다. 7일이 지나면 DB row와 사진 variant를 최종 삭제하고 삭제 ledger를 남겨 오래된 백업을 복원할 때 다시 노출되지 않게 한다.
+메모와 사진은 삭제 후 7일간 휴지통에서 복원할 수 있다. 사진 업로더는 본인 사진의 설명과 날짜·장소·일정 연결을 수정하고 삭제·복구할 수 있다. owner는 공간의 모든 사진에 같은 권한을 가진다. 다른 editor는 타인이 올린 사진의 설명·연결을 수정하거나 삭제·복구할 수 없다. 사진 응답의 `permissions.canEdit`, `canDelete`, `canRestore`도 이 규칙을 반영하고 서버가 uploader/owner 권한을 매 요청마다 확인한다. 7일이 지나면 DB row와 사진 variant를 최종 삭제하고 삭제 ledger를 남겨 오래된 백업을 복원할 때 다시 노출되지 않게 한다.
 
 사진 업로드 순서:
 
@@ -569,4 +569,4 @@ pending mutation 요청:
 - 원본: 사용자가 확대하거나 기기에 저장할 때만 다운로드 요청
 - 업로드: 선택한 원본을 VPS에 저장하고 서버 작업이 표시본·썸네일을 생성. 완료 전에는 `uploading` 상태 표시
 - HTTP range, immutable file key와 기기 파일 캐시를 사용
-- 데이터 절약 모드에서도 사용자가 명시적으로 추가한 사진 원본 업로드는 필요하지만 예상 전송량과 Wi-Fi 대기 선택을 먼저 보여 준다. 원본 자동 다운로드는 하지 않고 낮은 품질 썸네일을 우선한다.
+- 사진 업로드 네트워크 기본값은 `Wi-Fi 및 모바일 데이터`이며 사진 추가 후 원본까지 즉시 전송한다. 설정에서 `Wi-Fi에서만 업로드`를 고르면 모바일 데이터에서는 원본을 기기 내 영속 대기열에 보관하고 Wi-Fi 연결 및 OS 실행 기회가 생길 때 자동 재개한다. 사진마다 선택을 다시 묻지 않으며 대기 개수·용량, 실패 상태와 `모바일 데이터로 지금 업로드` 동작만 제공한다. 원본 자동 다운로드는 하지 않고 낮은 품질 썸네일을 우선한다.
