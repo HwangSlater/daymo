@@ -8,7 +8,6 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,
@@ -18,6 +17,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
@@ -3440,7 +3440,12 @@ function Title({
         <Text style={s.sectionTitle}>{title}</Text>
       </View>
       {action && (
-        <Pressable onPress={onPress}>
+        <Pressable
+          onPress={onPress}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={action}
+        >
           <Text style={s.sectionAction}>{action} ›</Text>
         </Pressable>
       )}
@@ -5067,7 +5072,7 @@ Object.assign(s, {
   zoomButton: { height: 44, alignItems: "center", justifyContent: "center" },
   zoomButtonDisabled: { opacity: 0.28 },
   zoomText: { color: "#17233D", fontSize: 19, fontWeight: "700" },
-  zoomResetText: { fontSize: 9, fontWeight: "900" },
+  zoomResetText: { fontSize: 10, fontWeight: "900" },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 7 },
   mapResults: { marginTop: 18 },
   mapResultHead: {
@@ -6045,7 +6050,7 @@ Object.assign(s, {
     alignItems: "center",
     justifyContent: "center",
   },
-  searchCategoryCountText: { fontSize: 9, fontWeight: "900" },
+  searchCategoryCountText: { fontSize: 10, fontWeight: "900" },
   searchGuide: {
     minHeight: 34,
     flexDirection: "row",
@@ -6422,7 +6427,7 @@ Object.assign(s, {
   },
   accountLogoutText: { color: "#DF5148", fontSize: 11, fontWeight: "900" },
   accountDelete: { minHeight: 40, alignItems: "center", justifyContent: "center", marginTop: 5 },
-  accountDeleteText: { color: "#A36E67", fontSize: 10, fontWeight: "800", textDecorationLine: "underline" },
+  accountDeleteText: { color: "#A36E67", fontSize: 11, fontWeight: "800", textDecorationLine: "underline" },
   togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 6 },
   togetherSwitch: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
   togetherSwitchText: { fontSize: 11, fontWeight: "900" },
@@ -6494,7 +6499,7 @@ Object.assign(s, {
   memberStripRole: {
     width: "100%",
     textAlign: "center",
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "700",
     marginTop: 2,
   },

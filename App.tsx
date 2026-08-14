@@ -11,6 +11,10 @@ import {
 } from "react-native";
 import { WarmTripDetail } from "./src/WarmTripDetail";
 import { WarmAppShell } from "./src/WarmAppShell";
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+} from "react-native-safe-area-context";
 
 type MainTab = "Today" | "Trips" | "Search" | "Me";
 type TripTab = "일정" | "장소" | "음식" | "준비" | "메모" | "사진" | "정보";
@@ -51,9 +55,12 @@ const tripTabs: TripTab[] = [
 
 export default function App() {
   return (
-    <View style={s.webStage}>
-      <WarmAppShell />
-    </View>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <View style={s.webStage}>
+        <StatusBar style="auto" />
+        <WarmAppShell />
+      </View>
+    </SafeAreaProvider>
   );
 }
 
