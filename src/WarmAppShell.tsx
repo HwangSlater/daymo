@@ -2275,6 +2275,7 @@ function Search({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("전체");
+  const [recentQueries, setRecentQueries] = useState(["은행골", "충전기", "부산", "밀푀유나베"]);
   const [savedTitles, setSavedTitles] = useState(() => new Set(["은행골블랙"]));
   const allResults = [
     {
@@ -2331,7 +2332,9 @@ function Search({
       allResults.filter(
         (item) =>
           trips.some((trip) => trip.name === item.trip) &&
-          `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`.includes(query.trim()),
+          `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`
+            .toLocaleLowerCase("ko-KR")
+            .includes(query.trim().toLocaleLowerCase("ko-KR")),
       ),
     [query, trips],
   );
@@ -2347,6 +2350,12 @@ function Search({
           : searchableResults.filter((item) => item.type === label).length,
     }),
   );
+  const runSearch = (value: string) => {
+    const next = value.trim();
+    if (!next) return;
+    setQuery(next);
+    setRecentQueries((current) => [next, ...current.filter((word) => word !== next)].slice(0, 6));
+  };
   return (
     <ScrollView
       style={{ backgroundColor: "transparent" }}
@@ -2354,7 +2363,7 @@ function Search({
       keyboardShouldPersistTaps="handled"
     >
       <Text style={[s.overline, { color: theme.primary }]}>
-        모든 여행의 기록
+        이 공간의 모든 기록
       </Text>
       <Text style={[s.screenTitle, { color: theme.text }]}>찾기</Text>
       <Text style={[(s as any).searchIntro, { color: theme.muted }]}>
@@ -2370,8 +2379,11 @@ function Search({
           <Path d="m15.5 15.5 4 4M10 17a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" fill="none" stroke={theme.muted} strokeWidth={1.8} strokeLinecap="round" />
         </Svg>
         <TextInput
+          accessibilityLabel="여행 기록 검색"
           value={query}
           onChangeText={setQuery}
+          onSubmitEditing={() => runSearch(query)}
+          returnKeyType="search"
           placeholder="장소, 음식, 준비물, 메모 검색"
           placeholderTextColor={theme.muted}
           style={[(s as any).searchInputNew, { color: theme.text }]}
@@ -2379,6 +2391,8 @@ function Search({
         {query.length > 0 && (
           <Pressable
             onPress={() => setQuery("")}
+            accessibilityRole="button"
+            accessibilityLabel="검색어 지우기"
             style={[
               (s as any).searchClear,
               { backgroundColor: theme.surfaceAlt },
@@ -2388,18 +2402,26 @@ function Search({
           </Pressable>
         )}
       </View>
-      <View style={(s as any).searchGuide}>
+      <View style={(s as any).searchGuideHead}>
           <Text style={[(s as any).searchGuideTitle, { color: theme.muted }]}>
-            최근
+            최근 검색
           </Text>
-          <View style={(s as any).searchSuggestions}>
-            {["은행골", "충전기", "부산", "밀푀유나베"].map((word) => (
+          {recentQueries.length > 0 && (
+            <Pressable onPress={() => setRecentQueries([])} accessibilityRole="button">
+              <Text style={[(s as any).searchRecentClear, { color: theme.muted }]}>전체 삭제</Text>
+            </Pressable>
+          )}
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={(s as any).searchSuggestions}>
+            {recentQueries.map((word) => (
               <Pressable
                 key={word}
-                onPress={() => setQuery(word)}
+                onPress={() => runSearch(word)}
+                accessibilityRole="button"
+                accessibilityLabel={`최근 검색어 ${word}`}
                 style={[
                   (s as any).searchSuggestion,
-                  { borderBottomColor: `${theme.secondary}55` },
+                  { backgroundColor: theme.surface, borderColor: theme.border },
                 ]}
               >
                 <Text
@@ -2410,10 +2432,23 @@ function Search({
                 >
                   {word}
                 </Text>
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    setRecentQueries((current) => current.filter((item) => item !== word));
+                  }}
+                  hitSlop={7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${word} 최근 검색어 삭제`}
+                >
+                  <Text style={[(s as any).searchSuggestionRemove, { color: theme.muted }]}>×</Text>
+                </Pressable>
               </Pressable>
             ))}
-          </View>
-      </View>
+            {recentQueries.length === 0 && (
+              <Text style={[(s as any).searchRecentEmpty, { color: theme.muted }]}>검색하면 최근 검색어가 여기에 남아요</Text>
+            )}
+      </ScrollView>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -2426,6 +2461,9 @@ function Search({
           <Pressable
             key={item.label}
             onPress={() => setCategory(item.label)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: category === item.label }}
+            accessibilityLabel={`${item.label}, 결과 ${item.count}개`}
             style={[
               (s as any).searchCategory,
               { backgroundColor: theme.surface, borderColor: theme.border },
@@ -2514,6 +2552,8 @@ function Search({
                         : "overview";
               open(destination, trip);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.trip} 여행의 ${item.type} ${item.title} 열기`}
             style={(s as any).searchResultMain}
           >
             <View style={(s as any).searchResultCopy}>
@@ -2555,14 +2595,27 @@ function Search({
                     return next;
                   })
                 }
+                accessibilityRole="button"
+                accessibilityState={{ selected: savedTitles.has(item.title) }}
+                accessibilityLabel={`${item.title} ${savedTitles.has(item.title) ? "저장 취소" : "저장"}`}
                 style={(s as any).searchResultAction}
               >
                 <Text style={[(s as any).searchResultActionText, { color: savedTitles.has(item.title) ? theme.secondary : theme.muted }]}>{savedTitles.has(item.title) ? "저장됨" : "저장"}</Text>
               </Pressable>
-              <Pressable onPress={() => open("schedule-add", trips.find((trip) => trip.name === item.trip))} style={(s as any).searchResultAction}>
-                <Text style={[(s as any).searchResultActionText, { color: theme.primary }]}>일정에 담기</Text>
+              <Pressable
+                onPress={() => open("schedule-add", trips.find((trip) => trip.name === item.trip))}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.trip} 여행의 일정 추가 화면 열기`}
+                style={(s as any).searchResultAction}
+              >
+                <Text style={[(s as any).searchResultActionText, { color: theme.primary }]}>일정 추가</Text>
               </Pressable>
-              <Pressable onPress={() => Linking.openURL(`https://map.naver.com/p/search/${encodeURIComponent(item.title)}`)} style={(s as any).searchResultAction}>
+              <Pressable
+                onPress={() => Linking.openURL(`https://map.naver.com/p/search/${encodeURIComponent(item.title)}`)}
+                accessibilityRole="link"
+                accessibilityLabel={`${item.title} 네이버 지도에서 보기`}
+                style={(s as any).searchResultAction}
+              >
                 <Text style={[(s as any).searchResultActionText, { color: "#03A94F" }]}>N 지도</Text>
               </Pressable>
             </View>
@@ -2593,6 +2646,7 @@ function Search({
                 setQuery("");
                 setCategory("전체");
               }}
+              accessibilityRole="button"
               style={[(s as any).emptyInlineAction, { backgroundColor: theme.primarySoft }]}
             >
               <Text style={[(s as any).emptyInlineActionText, { color: theme.primary }]}>검색 초기화</Text>
@@ -5913,6 +5967,13 @@ Object.assign(s, {
     marginTop: 4,
     marginBottom: 0,
   },
+  searchGuideHead: {
+    height: 26,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
   searchGuideTitle: {
     fontSize: 10,
     fontWeight: "800",
@@ -5921,14 +5982,24 @@ Object.assign(s, {
   searchSuggestions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 7,
+    paddingRight: 16,
+    paddingBottom: 5,
   },
   searchSuggestion: {
-    paddingHorizontal: 1,
-    paddingVertical: 5,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 32,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingLeft: 11,
+    paddingRight: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
   },
   searchSuggestionText: { fontSize: 11, fontWeight: "800" },
+  searchSuggestionRemove: { fontSize: 15, lineHeight: 18, fontWeight: "600" },
+  searchRecentClear: { fontSize: 10, fontWeight: "800" },
+  searchRecentEmpty: { fontSize: 11, paddingVertical: 7 },
   searchResultsSheet: {
     gap: 9,
   },
