@@ -431,7 +431,12 @@ function NotebookHome({
           {[63, 113, 163, 213].map((top) => (
             <View key={top} style={[(s as any).paperTripSoftLine, { top }]} />
           ))}
-          <View style={(s as any).paperTripMargin} />
+          <View
+            style={[
+              (s as any).paperTripMargin,
+              { backgroundColor: `${theme.primary}24` },
+            ]}
+          />
         </View>
         <View
           style={(s as any).paperTape}
@@ -464,7 +469,7 @@ function NotebookHome({
         >
         <View style={(s as any).paperTripHead}>
           <View style={(s as any).paperTripCopy}>
-            <Text style={[(s as any).paperKicker, { color: "#B85E52" }]}>
+            <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
               다음 여행
             </Text>
             <Text style={[(s as any).paperTitle, { color: "#283046" }]}>
@@ -483,9 +488,9 @@ function NotebookHome({
               },
             ]}
           >
-            <Text style={[(s as any).paperTripStampMonth, { color: "#B85E52" }]}>{Number(trip.start.slice(5, 7))}월</Text>
+            <Text style={[(s as any).paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
             <Text style={[(s as any).paperTripStampDay, { color: "#283046" }]}>{trip.start.slice(-2)}</Text>
-            <View style={[(s as any).paperTripStampRule, { backgroundColor: "#B85E52" }]} />
+            <View style={[(s as any).paperTripStampRule, { backgroundColor: theme.primary }]} />
           </View>
         </View>
         <View style={[(s as any).paperRule, { borderColor: "#BEB49D" }]} />
@@ -533,14 +538,14 @@ function NotebookHome({
               ]}
             >
               <Text style={[(s as any).paperStayTimeLabel, { color: "#756F63" }]}>체크인</Text>
-              <Text style={[(s as any).paperStayTimeValue, { color: "#B85E52" }]}>15:00</Text>
+              <Text style={[(s as any).paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
             </View>
           </View>
         </View>
         </Pressable>
         <View style={(s as any).paperTripActions}>
           {[
-            { label: "일정 추가", meta: "3개", color: "#B85E52", destination: "schedule-add" as TripDetailDestination },
+            { label: "일정 추가", meta: "3개", color: theme.primary, destination: "schedule-add" as TripDetailDestination },
             { label: "저장 장소", meta: "8곳", color: "#358D82", destination: "places" as TripDetailDestination },
             { label: "준비물", meta: "2 / 6", color: "#7564B5", destination: "preparation" as TripDetailDestination },
           ].map((item, index) => (

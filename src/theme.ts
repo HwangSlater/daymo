@@ -19,7 +19,7 @@ export type AppTheme = {
 };
 
 const palettes: Record<ThemeId, { name: string; primary: string; soft: string; secondary: string; accent: string; navigation: string }> = {
-  daymo: { name: 'Daymo', primary: '#FF6B5F', soft: '#FFF0ED', secondary: '#19B6A3', accent: '#8B7CF6', navigation: '#17233D' },
+  daymo: { name: 'Daymo', primary: '#5577B7', soft: '#EEF3FC', secondary: '#2CA596', accent: '#C18A52', navigation: '#1C2942' },
   sunset: { name: '선셋', primary: '#F06B4F', soft: '#FFF0E8', secondary: '#E69055', accent: '#A45C8D', navigation: '#3A2435' },
   forest: { name: '포레스트', primary: '#4D8B63', soft: '#EAF4EC', secondary: '#86A873', accent: '#D09A45', navigation: '#18342A' },
   ocean: { name: '오션', primary: '#3478D4', soft: '#EAF2FF', secondary: '#13A7B5', accent: '#7468D8', navigation: '#142A4A' },
