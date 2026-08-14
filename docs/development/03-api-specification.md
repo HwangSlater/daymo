@@ -45,7 +45,7 @@
 }
 ```
 
-주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `RATE_LIMITED(429)`다.
+주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
 
 ### 캐시 유효성 기본값
 
@@ -395,6 +395,15 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 4. `complete`에 크기, MIME, 촬영일과 연결 대상을 전달
 5. 서버가 실제 signature·checksum을 검증한 뒤 private volume으로 원자 이동하고 Photo 생성
 6. thumbnail/display variant 생성 작업은 동시 실행 수를 1로 제한
+
+초기 업로드 제한:
+
+- 이미지 원본 1개 최대 20MB
+- 공간별 원본·표시본·썸네일 합계 최대 1GB
+- VPS 사진 volume 전체 30GB
+- 동영상과 움직이는 사진 원본은 미지원
+
+앱은 선택 직후 예상 크기를 안내하지만 서버가 실제 byte와 quota를 최종 검증한다. 한도 초과 시 기존 사진의 조회·다운로드·삭제는 유지하고 새 업로드만 차단한다.
 
 다운로드는 파일 시스템 경로를 공개하지 않는다. Spring Security가 사용자의 공간 membership을 확인한 뒤 Nginx `X-Accel-Redirect` 또는 제한된 내부 경로로 파일을 전달한다. Range 요청과 적절한 private cache header를 지원한다.
 
