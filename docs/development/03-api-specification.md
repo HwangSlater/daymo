@@ -152,6 +152,8 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 | PATCH | `/spaces/{spaceId}/members/{membershipId}` | 별명·권한 변경 |
 | DELETE | `/spaces/{spaceId}/members/{membershipId}` | 내보내기/나가기 |
 | POST | `/spaces/{spaceId}/invites` | 초대 링크 생성 |
+| GET | `/spaces/{spaceId}/invites` | 활성 초대 링크 목록·사용 현황 |
+| DELETE | `/spaces/{spaceId}/invites/{inviteId}` | 초대 링크 즉시 폐기 |
 | POST | `/invites/{token}/accept` | 초대 참여 |
 
 공간 생성 요청:
@@ -161,6 +163,26 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 ```
 
 멤버 삭제는 대상 이름과 영향을 확인하는 UI를 거친다. 마지막 owner는 다른 멤버에게 owner를 이전한 뒤에만 나갈 수 있다. 혼자 있는 공간은 단순 나가기를 제공하지 않고 별도의 공간 삭제 확인과 재인증을 거친다.
+
+초대 링크는 생성 시점부터 7일간, 최대 10명까지 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 별도 owner 승인 없이 즉시 참여하며 기본 권한은 `editor`다. 미로그인 사용자는 인증 완료 후 원래 초대 흐름으로 복귀한다. owner는 만료 전에도 링크를 폐기하거나 참여 후 멤버별 권한을 변경할 수 있다. 링크 원문은 생성 응답에서만 반환하고 서버에는 hash만 저장한다. 참여 API는 만료·폐기·사용 횟수를 transaction 안에서 재검증하며 이미 참여한 사용자의 재요청은 중복 membership을 만들지 않는다.
+
+```json
+{}
+```
+
+초기 버전의 초대 생성 요청에서는 `role`을 받지 않고 서버가 `editor`로 고정한다. 이후 읽기 전용 공유가 필요해질 때 별도 정책과 UI를 검토한다.
+
+참여 성공 전에는 공간 이름과 멤버 개인정보를 노출하지 않는다. 이미 해당 공간의 멤버라면 성공 응답과 함께 공간으로 이동하되 초대 사용 횟수는 올리지 않는다.
+
+```json
+{
+  "id": "invite_01",
+  "inviteUrl": "https://daymo.xyz/invites/one-time-token",
+  "expiresAt": "2026-08-21T12:00:00Z",
+  "maxUses": 10,
+  "usedCount": 0
+}
+```
 
 ## 4. 홈과 여행 탐색
 

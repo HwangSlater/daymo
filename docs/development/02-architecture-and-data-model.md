@@ -87,10 +87,13 @@ React Native UI
 - `privacy_requests`: `user_id`, `type(access|correction|deletion|restriction|withdrawal)`, `status`, `requested_at`, `completed_at`
 - `spaces`: `name`, `relationship_type(couple|friends|family|other)`, `owner_id`
 - `memberships`: `space_id`, `user_id`, `role(owner|editor|viewer)`, `nickname`, `joined_at`
-- `space_invites`: `space_id`, `token_hash`, `role`, `expires_at`, `accepted_at`
+- `space_invites`: `space_id`, `token_hash`, `role`, `max_uses(10)`, `used_count`, `expires_at`, `revoked_at`, `created_by`
+- `space_invite_acceptances`: `invite_id`, `membership_id`, `accepted_by`, `accepted_at`
 - `relationship_profiles`: `space_id`, `started_on nullable`
 
 OAuth provider의 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 기존 비밀번호 또는 이미 연결된 provider로 재인증한 뒤 `oauth_accounts`를 연결한다. 사용자는 연결된 로그인 방식을 확인·해제할 수 있지만 사용 가능한 마지막 로그인 수단은 해제할 수 없다.
+
+공간 초대 링크는 생성 시점부터 7일 동안 유효하며 최대 10회 참여에 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 유효한 링크를 통해 별도 owner 승인 없이 바로 참여하고, 기본 권한은 함께 여행을 편집할 수 있는 `editor`다. 소유자가 링크를 폐기하면 남은 기간과 횟수에 관계없이 즉시 사용할 수 없게 한다. 여러 명이 동시에 참여해도 정원을 넘지 않도록 사용 횟수 증가와 membership 생성을 하나의 transaction에서 처리한다.
 
 ### 여행
 
