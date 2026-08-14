@@ -4,7 +4,7 @@
 
 | 항목 | 현재 버전/설정 |
 | --- | --- |
-| Node.js | 20 LTS 권장 |
+| Node.js | 24 LTS, `.nvmrc`와 `package.json engines` 고정 |
 | npm | Node 20에 포함된 버전, `package-lock.json` 고정 |
 | Expo | SDK 54 |
 | React Native | 0.81.4 |
@@ -18,7 +18,7 @@
 
 | 항목 | 확인 결과 | 조치 |
 | --- | --- | --- |
-| Node.js | `v26.7.0` | 프로젝트 표준 LTS로 전환하고 `.nvmrc`/`engines`로 고정 필요 |
+| Node.js | 현재 shell `v26.7.0` | 기준은 Node 24 LTS로 확정, SDK 검증 전 실제 전환 필요 |
 | npm | `11.19.0` | 선택한 Node LTS에 포함된 버전으로 lockfile 재검증 |
 | Java | 설치되지 않음 | 백엔드 생성 전에 JDK 21 설치 필수 |
 | iOS bundle ID | `com.anonymous.daymo` | 실제 역도메인 식별자로 변경 필요 |
@@ -26,7 +26,7 @@
 | 테스트/lint | npm script 없음 | 기반 공사에서 typecheck·lint·unit test script 추가 |
 | 의존성 감사 | high 11, moderate 9 | `audit fix --force` 금지, Expo SDK 업그레이드 검증 작업으로 분리 |
 
-현재 Node 26에서 UI는 실행되지만 문서 기준과 다르다. 재현 가능한 개발을 위해 첫 코드 작업 전에 Node LTS를 하나로 확정한다. npm audit의 자동 제안은 Expo/React Native의 호환 조합을 깨뜨릴 수 있으므로 그대로 적용하지 않는다.
+현재 Node 26에서 UI는 실행되지만 프로젝트 기준은 Node 24 LTS다. SDK 검증 전에 `nvm use`로 실제 shell을 전환하고 `npm ci`와 네이티브 빌드를 다시 확인한다. npm audit의 자동 제안은 Expo/React Native의 호환 조합을 깨뜨릴 수 있으므로 그대로 적용하지 않는다.
 
 의존성 설치는 반드시 저장소 루트에서 실행한다.
 
