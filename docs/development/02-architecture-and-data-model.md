@@ -217,4 +217,6 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 여행 상세은 탭별 지연 조회하되 상단 여행 정보와 첫 탭은 한 번에 받는다.
 - 목록 응답은 cursor pagination, 기본 20개다.
 - 사진은 썸네일을 먼저 표시하고 화면 크기에 맞는 표시본을 요청한다.
+- 원본 MIME과 EXIF는 private original에 그대로 보존하되 `taken_at`만 별도 추출한다. 표시본·썸네일에서는 GPS와 기기 식별 EXIF를 제거한다.
+- 표시본은 긴 변 최대 1440px JPEG, 썸네일은 긴 변 최대 480px JPEG로 생성하며 작은 원본을 확대하지 않는다.
 - 홈 캐시는 stale-while-revalidate로 즉시 표시한다.
