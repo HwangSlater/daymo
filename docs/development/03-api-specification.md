@@ -153,7 +153,7 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 { "name": "주말 여행", "relationshipType": "friends", "startedOn": null, "timezone": "Asia/Seoul" }
 ```
 
-멤버 삭제는 대상 이름과 영향을 확인하는 UI를 거친다. 마지막 owner는 나갈 수 없다.
+멤버 삭제는 대상 이름과 영향을 확인하는 UI를 거친다. 마지막 owner는 다른 멤버에게 owner를 이전한 뒤에만 나갈 수 있다. 혼자 있는 공간은 단순 나가기를 제공하지 않고 별도의 공간 삭제 확인과 재인증을 거친다.
 
 ## 4. 홈과 여행 탐색
 
