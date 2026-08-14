@@ -1,4 +1,4 @@
-export type ThemeId = 'daymo' | 'sunset' | 'forest' | 'ocean';
+export type ThemeId = 'daymo' | 'rose' | 'sky' | 'forest' | 'sage' | 'vintage';
 export type AppearanceMode = 'system' | 'light' | 'dark';
 
 export type AppTheme = {
@@ -19,10 +19,12 @@ export type AppTheme = {
 };
 
 const palettes: Record<ThemeId, { name: string; primary: string; soft: string; secondary: string; accent: string; navigation: string }> = {
-  daymo: { name: 'Daymo', primary: '#5577B7', soft: '#EEF3FC', secondary: '#2CA596', accent: '#C18A52', navigation: '#1C2942' },
-  sunset: { name: '선셋', primary: '#F06B4F', soft: '#FFF0E8', secondary: '#E69055', accent: '#A45C8D', navigation: '#3A2435' },
-  forest: { name: '포레스트', primary: '#4D8B63', soft: '#EAF4EC', secondary: '#86A873', accent: '#D09A45', navigation: '#18342A' },
-  ocean: { name: '오션', primary: '#3478D4', soft: '#EAF2FF', secondary: '#13A7B5', accent: '#7468D8', navigation: '#142A4A' },
+  daymo: { name: 'Daymo 퍼플', primary: '#8B639B', soft: '#F6EEF5', secondary: '#945A83', accent: '#B96D82', navigation: '#403D88' },
+  rose: { name: '로즈 베리', primary: '#BB3865', soft: '#FCEEF1', secondary: '#963352', accent: '#C96873', navigation: '#5D3140' },
+  sky: { name: '클리어 스카이', primary: '#1976D2', soft: '#E3F2FD', secondary: '#246FA7', accent: '#517DA2', navigation: '#0D47A1' },
+  forest: { name: '그린 가든', primary: '#347A3A', soft: '#E8F5E9', secondary: '#4F8B55', accent: '#5F8662', navigation: '#1B5E20' },
+  sage: { name: '세이지 피크닉', primary: '#62745F', soft: '#F7F4ED', secondary: '#71816D', accent: '#9A793D', navigation: '#36443A' },
+  vintage: { name: '빈티지 노트', primary: '#8C5A50', soft: '#F5ECE8', secondary: '#7E4E46', accent: '#696B79', navigation: '#0F3040' },
 };
 
 export const themeOptions = (Object.keys(palettes) as ThemeId[]).map((id) => ({ id, ...palettes[id] }));
