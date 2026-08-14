@@ -103,6 +103,8 @@ VPS 트래픽이 무제한이므로 외부 스토리지 이전을 검토할 이�
 
 초기에는 VPS의 `/srv/daymo/uploads` private volume을 사용한다. 외부 일일 백업, 30GB quota, 업로드 크기 제한, 경로 traversal 방지, Nginx `X-Accel-Redirect` 기반 권한 다운로드를 적용한다. 공개 가입 전에는 실제 저장 증가량과 복구 시간을 보고 외부 스토리지 이전 여부를 다시 결정한다.
 
+초기 quota는 이미지 1개 20MB, 공간별 1GB, 전체 사진 volume 30GB다. 동영상은 지원하지 않는다. 서버는 DB 집계만 믿지 않고 정기적으로 실제 파일 사용량과 photo metadata를 대조한다.
+
 ## 7. 배포 절차
 
 1. GitHub Actions가 Gradle test와 image build 수행
