@@ -570,6 +570,7 @@ export function WarmTripDetail({
           {mode === "장소" && (
             <Places
               registeredStayName={registeredStay.name}
+              dayOptions={tripDayOptions}
               onRegisterStay={(place) => {
                 setRegisteredStay({
                   name: place.name,
@@ -579,6 +580,12 @@ export function WarmTripDetail({
                 });
                 setFeedback(`${place.name}을(를) 이번 여행 숙소로 등록했어요`);
               }}
+              onUpdateRegisteredStay={(place) => setRegisteredStay((current) => ({
+                ...current,
+                name: place.name,
+                address: place.address || place.area,
+              }))}
+              onRemoveRegisteredStay={() => setRegisteredStay({ name: "", checkin: "", checkout: "", address: "" })}
               addToSchedule={(item) =>
                 setSchedule((current) => [...current, item])
               }
@@ -865,7 +872,7 @@ function TripOverview({
   const [hasReservation, setHasReservation] = useState(true);
   const [stay, setStay] = useState(registeredStay);
   const [stayDraft, setStayDraft] = useState(stay);
-  const [hasStay, setHasStay] = useState(true);
+  const [hasStay, setHasStay] = useState(Boolean(registeredStay.name));
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportRouteValid = Boolean(
     transportDeparture.trim() &&
@@ -1471,6 +1478,7 @@ function TripOverview({
 }
 
 type PlaceItem = {
+  id: string;
   name: string;
   area: string;
   address?: string;
@@ -1500,15 +1508,22 @@ function Places({
   addToSchedule,
   registeredStayName,
   onRegisterStay,
+  onUpdateRegisteredStay,
+  onRemoveRegisteredStay,
+  dayOptions,
 }: {
   addToSchedule: (item: ScheduleItem) => void;
   registeredStayName: string;
   onRegisterStay: (place: PlaceItem) => void;
+  onUpdateRegisteredStay: (place: PlaceItem) => void;
+  onRemoveRegisteredStay: () => void;
+  dayOptions: string[];
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const [places, setPlaces] = useState<PlaceItem[]>([
     {
+      id: "place-js-hotel",
       name: "JS호텔",
       area: "서울 구로구",
       address: "서울 구로구 남부순환로105길 32 JS호텔",
@@ -1518,6 +1533,7 @@ function Places({
       status: "후보",
     },
     {
+      id: "place-eunhaengol",
       name: "은행골블랙",
       area: "구로",
       category: "식당",
@@ -1526,6 +1542,7 @@ function Places({
       status: "일정",
     },
     {
+      id: "place-usagi",
       name: "우사기쇼쿠도",
       area: "가산",
       category: "식당",
@@ -1534,6 +1551,7 @@ function Places({
       status: "후보",
     },
     {
+      id: "place-gocheok",
       name: "고척스카이돔",
       area: "구로",
       category: "구경",
@@ -1542,13 +1560,13 @@ function Places({
       status: "후보",
     },
   ]);
-  const [filter, setFilter] = useState<"전체" | "후보" | "일정">("전체");
+  const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "숙소">("전체");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
-  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [planningPlace, setPlanningPlace] = useState<PlaceItem | null>(null);
-  const [planningDay, setPlanningDay] = useState("토 · 22");
+  const [planningDay, setPlanningDay] = useState(dayOptions[Math.min(1, dayOptions.length - 1)]);
   const [planningTime, setPlanningTime] = useState("11:00");
   const [name, setName] = useState("");
   const [area, setArea] = useState("구로");
@@ -1561,9 +1579,13 @@ function Places({
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
   const [showAllPlaces, setShowAllPlaces] = useState(false);
   const allTags = Array.from(new Set(places.flatMap((place) => place.tags)));
-  const statusPlaces =
-    filter === "전체"
-      ? places
+  useEffect(() => {
+    if (tagFilter && !allTags.includes(tagFilter)) setTagFilter(null);
+  }, [places, tagFilter]);
+  const statusPlaces = filter === "전체"
+    ? places
+    : filter === "숙소"
+      ? places.filter((place) => place.name === registeredStayName)
       : places.filter((place) => place.status === filter);
   const taggedPlaces = tagFilter
     ? statusPlaces.filter((place) => place.tags.includes(tagFilter))
@@ -1577,8 +1599,12 @@ function Places({
   const draftTags = tagText
     .split(/[,#\n]/)
     .map((tag) => tag.trim())
-    .filter(Boolean);
-  const placeFormValid = Boolean(name.trim());
+    .filter(Boolean)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
+  const duplicatePlace = places.some(
+    (place) => place.id !== editingId && place.name.trim().toLowerCase() === name.trim().toLowerCase(),
+  );
+  const placeFormValid = Boolean(name.trim()) && !duplicatePlace;
   const addTag = (tag: string) => {
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
@@ -1612,14 +1638,14 @@ function Places({
     setCategory("식당");
     setMapUrl("");
     setTagText("");
-    setEditingName(null);
+    setEditingId(null);
   };
   const openCreate = () => {
     resetForm();
     setAdding(true);
   };
   const openEdit = (place: PlaceItem) => {
-    setEditingName(place.name);
+    setEditingId(place.id);
     setName(place.name);
     setArea(place.area);
     setAddress(place.address ?? "");
@@ -1630,32 +1656,42 @@ function Places({
   };
   const savePlace = () => {
     if (!name.trim()) return;
-    const wasEditing = Boolean(editingName);
+    const wasEditing = Boolean(editingId);
     const next = {
+      id: editingId ?? `place-${Date.now()}`,
       name: name.trim(),
       area: area.trim() || "지역 미정",
       address: address.trim(),
       category,
       mapUrl: mapUrl.trim(),
       tags: draftTags,
-      status: editingName
-        ? places.find((place) => place.name === editingName)?.status || "후보"
+      status: editingId
+        ? places.find((place) => place.id === editingId)?.status || "후보"
         : "후보",
     } as PlaceItem;
     setPlaces((current) =>
-      editingName
-        ? current.map((place) => (place.name === editingName ? next : place))
+      editingId
+        ? current.map((place) => (place.id === editingId ? next : place))
         : [...current, next],
     );
+    const editedRepresentative = places.find((place) => place.id === editingId)?.name === registeredStayName;
+    if (editedRepresentative) {
+      if (next.category === "숙소") onUpdateRegisteredStay(next);
+      else onRemoveRegisteredStay();
+    }
     resetForm();
     setAdding(false);
     notify(wasEditing ? "장소 정보를 수정했어요" : "장소를 저장했어요");
   };
   const deletePlace = () => {
-    if (!editingName) return;
+    if (!editingId) return;
+    const target = places.find((place) => place.id === editingId);
+    if (!target) return;
     Alert.alert(
       "장소를 삭제할까요?",
-      `${editingName}을(를) 저장한 장소에서 삭제합니다.`,
+      target.name === registeredStayName
+        ? "대표 숙소 정보에서도 함께 사라집니다."
+        : `${target.name}을(를) 저장한 장소에서 삭제합니다.`,
       [
         { text: "취소", style: "cancel" },
         {
@@ -1663,8 +1699,9 @@ function Places({
           style: "destructive",
           onPress: () => {
             setPlaces((current) =>
-              current.filter((place) => place.name !== editingName),
+              current.filter((place) => place.id !== editingId),
             );
+            if (target.name === registeredStayName) onRemoveRegisteredStay();
             setAdding(false);
             resetForm();
             notify("장소를 삭제했어요");
@@ -1682,13 +1719,14 @@ function Places({
     if (!planningPlace) return;
     addToSchedule({
       time: `${planningDay.slice(0, 1)} · ${planningTime || "시간 미정"}`,
+      date: planningDay,
       title: planningPlace.name,
       note: `${planningPlace.category} · ${planningPlace.area}`,
       mapUrl: planningPlace.mapUrl,
     });
     setPlaces((current) =>
       current.map((place) =>
-        place.name === planningPlace.name
+        place.id === planningPlace.id
           ? { ...place, status: "일정" }
           : place,
       ),
@@ -1701,7 +1739,7 @@ function Places({
       places
         .map(
           (place) =>
-            `${place.name} | ${place.area} | ${place.category} | ${place.tags.map((tag) => `#${tag}`).join(" ")} | ${place.mapUrl}`,
+            `${place.name} | ${place.area} | ${place.address ?? ""} | ${place.category} | ${place.tags.map((tag) => `#${tag}`).join(" ")} | ${place.mapUrl}`,
         )
         .join("\n"),
     );
@@ -1716,30 +1754,40 @@ function Places({
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => {
-        const [
-          rawName,
-          rawArea = "지역 미정",
-          rawCategory = "장소",
-          rawTags = "",
-          rawUrl = "",
-        ] = line.split("|").map((value) => value.trim());
+      .map((line, index) => {
+        const fields = line.split("|").map((value) => value.trim());
+        const [rawName, rawArea = "지역 미정"] = fields;
+        const isNewFormat = fields.length >= 6;
+        const rawAddress = isNewFormat ? fields[2] : "";
+        const rawCategory = fields[isNewFormat ? 3 : 2] || "장소";
+        const rawTags = fields[isNewFormat ? 4 : 3] || "";
+        const rawUrl = fields[isNewFormat ? 5 : 4] || "";
         return {
+          id: `place-import-${Date.now()}-${index}`,
           name: rawName,
           area: rawArea,
+          address: rawAddress,
           category: rawCategory,
           tags: rawTags.split(/[# ,]+/).filter(Boolean),
           mapUrl: rawUrl,
           status: "후보" as const,
         };
       })
-      .filter((place) => place.name);
+      .filter((place, index, items) =>
+        Boolean(place.name) &&
+        items.findIndex((item) => item.name.toLowerCase() === place.name.toLowerCase()) === index,
+      );
     if (!parsed.length) return;
-    setPlaces((current) =>
-      importMode === "교체" ? parsed : [...current, ...parsed],
-    );
+    const existingNames = new Set(places.map((place) => place.name.toLowerCase()));
+    const additions = importMode === "교체"
+      ? parsed
+      : parsed.filter((place) => !existingNames.has(place.name.toLowerCase()));
+    setPlaces((current) => importMode === "교체" ? additions : [...current, ...additions]);
+    if (importMode === "교체" && registeredStayName && !additions.some((place) => place.name === registeredStayName)) {
+      onRemoveRegisteredStay();
+    }
     setImporting(false);
-    notify(`장소 ${parsed.length}개를 반영했어요`);
+    notify(additions.length ? `장소 ${additions.length}개를 반영했어요` : "이미 저장한 장소뿐이에요");
   };
 
   return (
@@ -1754,10 +1802,13 @@ function Places({
       <View style={styles.placeToolbar}>
         <Text style={[styles.placeControlLabel, theme && { color: theme.muted }]}>상태</Text>
         <View style={styles.placeFilters}>
-          {(["전체", "후보", "일정"] as const).map((item) => (
+          {(["전체", "후보", "일정", "숙소"] as const).map((item) => (
             <Pressable
               key={item}
               onPress={() => setFilter(item)}
+              accessibilityRole="button"
+              accessibilityLabel={item === "후보" ? "저장한 후보 장소" : item === "숙소" ? "대표 숙소" : item}
+              accessibilityState={{ selected: filter === item }}
               style={[
                 styles.placeFilter,
                 theme && { borderColor: theme.border },
@@ -1772,7 +1823,7 @@ function Places({
                   filter === item && theme && { color: theme.primary },
                 ]}
               >
-                {item === "후보" ? "저장" : item}
+                  {item === "후보" ? "저장" : item === "숙소" ? "대표 숙소" : item}
               </Text>
             </Pressable>
           ))}
@@ -1811,6 +1862,8 @@ function Places({
         >
         <Pressable
           onPress={() => setTagFilter(null)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: tagFilter === null }}
           style={[
             styles.tagFilterChip,
             tagFilter === null && styles.tagFilterChipActive,
@@ -1832,6 +1885,8 @@ function Places({
           <Pressable
             key={tag}
             onPress={() => setTagFilter(tagFilter === tag ? null : tag)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: tagFilter === tag }}
             style={[
               styles.tagFilterChip,
               tagFilter === tag && styles.tagFilterChipActive,
@@ -1856,7 +1911,7 @@ function Places({
       <View style={styles.placeList}>
         {displayedPlaces.map((place, index) => (
           <View
-            key={place.name}
+            key={place.id}
             style={[
               (styles as any).placeMiniCard,
               { backgroundColor: theme?.surface ?? "#FFFFFF", borderColor: theme?.border ?? "#E5E3DD" },
@@ -1870,8 +1925,8 @@ function Places({
               <View style={(styles as any).placeMiniInfo}>
                 <View style={(styles as any).placeMiniTitleRow}>
                   <Text numberOfLines={1} style={[(styles as any).placeMiniName, { color: theme?.text ?? "#17233D" }]}>{place.name}</Text>
-                  <View style={[(styles as any).placeMiniStatus, { backgroundColor: place.status === "일정" ? `${theme?.accent}1E` : `${theme?.primary}16` }]}>
-                    <Text style={[(styles as any).placeMiniStatusText, { color: place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.status === "일정" ? "일정에 담김" : "저장"}</Text>
+                  <View style={[(styles as any).placeMiniStatus, { backgroundColor: place.name === registeredStayName ? `${theme?.secondary}1E` : place.status === "일정" ? `${theme?.accent}1E` : `${theme?.primary}16` }]}>
+                    <Text style={[(styles as any).placeMiniStatusText, { color: place.name === registeredStayName ? theme?.secondary : place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.name === registeredStayName ? "대표 숙소" : place.status === "일정" ? "일정에 담김" : "저장"}</Text>
                   </View>
                 </View>
                 <Text numberOfLines={1} style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.address ? `${place.category} · ${place.address}` : `${place.area} · ${place.category}`}</Text>
@@ -1904,18 +1959,21 @@ function Places({
                     { backgroundColor: registeredStayName === place.name ? theme?.surfaceAlt : theme?.secondary },
                   ]}
                 >
-                  <Text style={[(styles as any).placeMiniPlanText, registeredStayName === place.name && { color: theme?.muted }]}>{registeredStayName === place.name ? "숙소 등록됨 ✓" : "숙소로 등록"}</Text>
+                  <Text style={[(styles as any).placeMiniPlanText, registeredStayName === place.name && { color: theme?.muted }]}>{registeredStayName === place.name ? "대표 숙소" : "대표 숙소로 등록"}</Text>
                 </Pressable>
               ) : (
                 <Pressable
                   disabled={place.status === "일정"}
                   onPress={() => choose(index)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${place.name} 일정에 담기`}
+                  accessibilityState={{ disabled: place.status === "일정" }}
                   style={[
                     (styles as any).placeMiniPlanButton,
                     { backgroundColor: place.status === "일정" ? theme?.surfaceAlt : theme?.primary },
                   ]}
                 >
-                  <Text style={[(styles as any).placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "완료 ✓" : "일정에 담기"}</Text>
+                  <Text style={[(styles as any).placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "일정에 담김" : "일정에 담기"}</Text>
                 </Pressable>
               )}
             </View>
@@ -2023,7 +2081,7 @@ function Places({
         </View>
         <OptionField
           label="날짜"
-          options={["금 · 21", "토 · 22", "일 · 23"]}
+          options={dayOptions}
           value={planningDay}
           onChange={setPlanningDay}
         />
@@ -2036,22 +2094,24 @@ function Places({
       </DetailSheet>
       <DetailSheet
         visible={adding}
-        title={editingName ? "장소 수정" : "장소 추가"}
+        title={editingId ? "장소 수정" : "장소 추가"}
         subtitle="이름만 입력해도 저장할 수 있어요"
         submit={
-          name.trim()
-            ? editingName
+          placeFormValid
+            ? editingId
               ? "변경 저장"
               : "장소 저장"
-            : "장소 이름을 입력해 주세요"
+            : duplicatePlace
+              ? "이미 저장한 장소예요"
+              : "장소 이름을 입력해 주세요"
         }
-        destructiveLabel={editingName ? "장소 삭제" : undefined}
+        destructiveLabel={editingId ? "장소 삭제" : undefined}
         submitDisabled={!placeFormValid}
         onDestructive={deletePlace}
         onClose={() => setAdding(false)}
         onSubmit={savePlace}
       >
-        {!editingName && (
+        {!editingId && (
           <View
             style={[
               styles.naverAutoFill,
