@@ -90,6 +90,8 @@ React Native UI
 - `space_invites`: `space_id`, `token_hash`, `role`, `expires_at`, `accepted_at`
 - `relationship_profiles`: `space_id`, `started_on nullable`
 
+OAuth provider의 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 기존 비밀번호 또는 이미 연결된 provider로 재인증한 뒤 `oauth_accounts`를 연결한다. 사용자는 연결된 로그인 방식을 확인·해제할 수 있지만 사용 가능한 마지막 로그인 수단은 해제할 수 없다.
+
 ### 여행
 
 - `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `cover_photo_id`
