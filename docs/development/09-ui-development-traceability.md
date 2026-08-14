@@ -97,7 +97,7 @@
 
 | UI | 책임 | 계약/저장 | 완료 조건 |
 | --- | --- | --- | --- |
-| 사진 선택·압축·업로드 | H | picker/filesystem/upload URL | 권한 거부, 중단, 재시도, checksum |
+| 사진 선택·원본 업로드 | H | picker/filesystem/upload session | 권한 거부, 중단, 재시도, checksum |
 | 사진 날짜·설명 수정 | S | photo patch | 촬영일→여행 일차 변환 |
 | 일기 CRUD와 draft | H | local draft + diary API | 제목·본문, 충돌 비교, 삭제 |
 | 여행 통계 | S | trip/space stats | 현재 여행과 전체 통계 구분 |

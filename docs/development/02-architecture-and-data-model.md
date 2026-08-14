@@ -124,7 +124,7 @@ React Native UI
 
 - `memos`: `trip_id`, `body`, `author_id`, `edited_at`, `deleted_at`, `deleted_by`
 - `diaries`: `trip_id`, `author_id`, `title nullable`, `body`, `written_on`
-- `photos`: `trip_id`, `uploader_id`, `original_path nullable`, `display_path`, `thumbnail_path`, `taken_at`, `caption`, `width`, `height`, `checksum`, `status`
+- `photos`: `trip_id`, `uploader_id`, `original_path`, `display_path`, `thumbnail_path`, `taken_at`, `caption`, `width`, `height`, `original_bytes`, `checksum`, `status`
 - `photo_links`: `photo_id`, `target_type(trip|day|place|schedule|stay)`, `target_id`
 - `audit_logs`: `space_id`, `actor_id`, `action`, `target_type`, `target_id`, `metadata`
 
