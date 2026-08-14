@@ -80,12 +80,12 @@ React Native UI
 - `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
 - `refresh_tokens`: `user_id`, `token_hash`, `expires_at`, `revoked_at`, `device_name`
 - `devices`: `user_id`, `installation_id`, `platform`, `app_version`, `last_seen_at`, `revoked_at`
-- `notification_preferences`: `user_id`, `space_id nullable`, `trip_updates`, `assignment_reminders`, `marketing`, `updated_at`
+- `notification_preferences`: `user_id`, `space_id nullable`, `invite_joined`, `assignment_changes`, `trip_reminders`, `marketing`, `updated_at`
 - `push_tokens`: `device_id`, `provider`, `token_ciphertext`, `last_validated_at`, `revoked_at`
 - `legal_documents`: `type`, `version`, `locale`, `content_url`, `effective_at`, `required`
 - `legal_acceptances`: `user_id`, `document_id`, `accepted`, `accepted_at`, `withdrawn_at`, `evidence_hash`
 - `privacy_requests`: `user_id`, `type(access|correction|deletion|restriction|withdrawal)`, `status`, `requested_at`, `completed_at`
-- `spaces`: `name`, `relationship_type(couple|friends|family|other)`, `owner_id`
+- `spaces`: `name`, `relationship_type(couple|friends|family|other)`, `owner_id`, `timezone`, `deletion_requested_at`, `deletion_scheduled_at`, `deleted_at`
 - `memberships`: `space_id`, `user_id`, `role(owner|editor|viewer)`, `nickname`, `joined_at`
 - `space_invites`: `space_id`, `token_hash`, `role`, `max_uses(10)`, `used_count`, `expires_at`, `revoked_at`, `created_by`
 - `space_invite_acceptances`: `invite_id`, `membership_id`, `accepted_by`, `accepted_at`
@@ -159,6 +159,7 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 삭제는 기본적으로 soft delete하고 audit log를 남긴다.
 - 메모·사진 등 사용자 공동 콘텐츠는 삭제 후 일반 조회에서 즉시 제외하고 7일간 휴지통에 보관한다. owner와 editor가 복원할 수 있으며 7일 뒤 원본 파일과 row를 최종 삭제한다.
 - 마지막 owner는 다른 멤버에게 owner를 이전하기 전에는 공간을 나갈 수 없다. 멤버가 본인뿐이면 명시적인 공간 삭제 절차만 제공한다.
+- 공간 삭제는 owner 재인증 후 요청하며 즉시 일반 목록과 동기화 대상에서 숨긴다. 요청 후 7일 동안 owner가 복구할 수 있고, 유예기간이 지나면 공간과 종속 콘텐츠의 최종 삭제 작업을 시작한다.
 - 법적 문서 동의 이력은 문서 version별로 남기되 동의 철회 후 불필요한 증빙 데이터는 정해진 보유기간에 파기한다.
 - 계정 최종 삭제 시 공동 일정·장소·준비·요리·메모·사진은 공간 기록으로 유지하되 작성자 연결을 비식별 주체로 치환한다. 이메일·OAuth·프로필과 개인 설정은 삭제하고 공동 화면에는 `탈퇴한 멤버`로 표시한다.
 
