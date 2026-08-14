@@ -184,7 +184,9 @@ docs/development/
 - 커밋: 스키마, API, UI 연결, 테스트를 의미 단위로 분리
 - DB 마이그레이션은 되돌리기 SQL 또는 전진 수정 계획을 PR에 기록
 - UI 피드백용 Vercel Preview와 앱용 EAS Update를 분리
-- staging 검증 후 EAS Build로 TestFlight/Android Internal Testing 배포
+- staging 검증 후 EAS Build로 iOS TestFlight와 Android 비공개 테스트를 같은 release 단위로 병행
+- EAS Update는 동일 native runtime의 JavaScript·스타일·이미지 수정에만 사용하고 내부 검증 후 단계적으로 확대
+- native module, permission, app config, SDK/runtime 변경은 새 store binary로 배포
 - 서버는 GitHub Actions에서 테스트·이미지 빌드 후 GHCR에 올리고, VPS가 고정 태그 이미지를 pull해 무중단에 가깝게 교체한다.
 
 CI 최소 작업:

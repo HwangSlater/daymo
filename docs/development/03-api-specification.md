@@ -61,6 +61,14 @@
 
 TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기다. 만료된 캐시도 화면에 먼저 표시할 수 있고, 권한 상실·로그아웃 시 해당 공간 캐시를 즉시 제거한다.
 
+### 앱 호환성과 기능 설정
+
+| Method | Path | 용도 |
+| --- | --- | --- |
+| GET | `/app-config?platform=ios&appVersion=1.0.0&runtimeVersion=1` | 최소 지원 버전, 업데이트 안내와 공개 가능한 feature flag 조회 |
+
+이 endpoint는 로그인 전에도 사용할 수 있고 5분 private cache와 ETag를 적용한다. 응답은 `minimumSupportedVersion`, `latestVersion`, `updateRequired`, `updateMessage`, `storeUrl`, `features`를 포함한다. 강제 업데이트는 보안 또는 API 호환 불가 상황에서만 `updateRequired=true`로 설정한다. feature flag 조회 실패 시 앱은 마지막 정상 cache를 사용하고, cache도 없으면 위험 기능을 꺼 둔 안전한 기본값으로 시작한다. flag는 UI 노출과 점진적 공개에만 사용하며 서버 권한 검사를 대신하지 않는다.
+
 ## 2. 인증과 프로필
 
 | Method | Path | 용도 |

@@ -184,7 +184,10 @@
 - API 권한/IDOR 보안 테스트, rate limit, 백업/복원 훈련
 - Sentry, 운영 로그, 알림, 상태 대시보드
 - 제3자 행동 분석 SDK 없이 출시하고 Sentry는 30일·가명 설치 ID·오류 진단 최소 정보·PII scrubbing만 사용
-- TestFlight/Android 내부 테스트와 실제 여행 파일럿
+- 같은 release의 TestFlight/Android 비공개 테스트와 실제 여행 파일럿
+- OTA는 내부 대상부터 검증해 단계적으로 확대하고 native 변경은 store build로 배포
+- 보안·API 비호환일 때만 최소 지원 버전을 올려 강제 업데이트
+- 위험 기능은 server feature flag로 소수 대상부터 켜고 즉시 끌 수 있게 구성
 - 스토어 설명, 개인정보 처리방침, 계정 삭제 경로
 - App Store Privacy와 Google Play Data safety 실제 처리 현황 대조
 - 개인정보 유출 대응 연락망과 통지/신고 모의훈련
