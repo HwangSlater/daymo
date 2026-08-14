@@ -248,21 +248,30 @@ Google 계정 연결 과정에서 생성되는 rclone OAuth token과 restic repo
 
 ## 9. 이메일과 오류 수집
 
-이메일 발송은 ConoHa에서 메일 서버를 직접 운영하지 않고 외부 전문 발송 서비스의 SMTP를 사용하기로 결정했다.
+이메일 발송은 ConoHa에서 메일 서버를 직접 운영하지 않고 Resend SMTP를 사용하기로 결정했다.
 
 ```dotenv
-MAIL_PROVIDER=smtp
+MAIL_PROVIDER=resend
 MAIL_FROM=no-reply@daymo.xyz
-SMTP_HOST=
+SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
-SMTP_USERNAME=
+SMTP_USERNAME=resend
 SMTP_PASSWORD=
 SMTP_STARTTLS=true
 ```
 
 로컬 개발에서는 Mailpit 같은 로컬 메일 서버를 사용해 실제 발송 키 없이 검증할 수 있다.
 
-SMTP 비밀번호는 앱에 넣지 않고 Spring Boot 운영 secret에만 둔다. `daymo.xyz` DNS에는 선택한 공급자가 안내하는 SPF·DKIM을 설정하고 DMARC 정책도 단계적으로 적용한다.
+`SMTP_PASSWORD`에는 Resend API Key를 넣는다. 앱에 포함하지 않고 Spring Boot 운영 secret에만 둔다. `daymo.xyz` DNS에는 Resend가 안내하는 도메인 인증·DKIM 레코드를 설정하고 DMARC 정책도 단계적으로 적용한다.
+
+도메인 구매 후 진행 순서:
+
+1. Resend 계정에서 `daymo.xyz` 추가
+2. Resend가 표시한 DNS 레코드를 도메인 등록기관에 입력
+3. 도메인 검증 완료 확인
+4. 발송 전용 API Key 생성
+5. VPS secret에 SMTP 설정 등록
+6. 가입 인증·재전송·비밀번호 재설정·초대 메일 테스트
 
 Sentry를 사용할 경우:
 
