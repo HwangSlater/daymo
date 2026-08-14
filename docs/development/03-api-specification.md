@@ -67,7 +67,9 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | --- | --- | --- |
 | GET | `/app-config?platform=ios&appVersion=1.0.0&runtimeVersion=1` | 최소 지원 버전, 업데이트 안내와 공개 가능한 feature flag 조회 |
 
-이 endpoint는 로그인 전에도 사용할 수 있고 5분 private cache와 ETag를 적용한다. 응답은 `minimumSupportedVersion`, `latestVersion`, `updateRequired`, `updateMessage`, `storeUrl`, `features`를 포함한다. 강제 업데이트는 보안 또는 API 호환 불가 상황에서만 `updateRequired=true`로 설정한다. feature flag 조회 실패 시 앱은 마지막 정상 cache를 사용하고, cache도 없으면 위험 기능을 꺼 둔 안전한 기본값으로 시작한다. flag는 UI 노출과 점진적 공개에만 사용하며 서버 권한 검사를 대신하지 않는다.
+이 endpoint는 로그인 전에도 사용할 수 있고 5분 private cache와 ETag를 적용한다. 응답은 `minimumSupportedVersion`, `latestVersion`, `updateRequired`, `updateMessage`, `storeUrl`, `features`, `serviceNotice`, `statusPageUrl`을 포함한다. 강제 업데이트는 보안 또는 API 호환 불가 상황에서만 `updateRequired=true`로 설정한다. feature flag 조회 실패 시 앱은 마지막 정상 cache를 사용하고, cache도 없으면 위험 기능을 꺼 둔 안전한 기본값으로 시작한다. flag는 UI 노출과 점진적 공개에만 사용하며 서버 권한 검사를 대신하지 않는다.
+
+위험 기능의 rollout은 가명 install ID를 안정적으로 bucket 처리해 내부 대상 → 10% → 50% → 100% 순서로 확대한다. 장애 중 `serviceNotice`는 로그인 전 화면에서도 간결한 영향 범위와 상태 페이지 이동을 제공하되 계정·여행 정보는 포함하지 않는다.
 
 ## 2. 인증과 프로필
 

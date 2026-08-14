@@ -382,6 +382,8 @@ GitHub의 `main`은 직접 push하지 못하게 보호하고 pull request의 필
 
 앱 beta는 TestFlight와 Android 비공개 테스트를 병행한다. EAS OTA는 같은 native runtime의 JavaScript·이미지 변경만 내부 확인 후 단계적으로 확대하고, native 변경은 store 심사를 거친다. 강제 업데이트는 보안·API 비호환 상황에만 사용한다. 위험 기능은 server feature flag로 소수 대상부터 활성화하고 문제가 생기면 앱 재배포 없이 끈다.
 
+기능과 OTA는 내부 → 10% → 50% → 100% 순서로 확대하고 문제가 발견되면 중단 후 이전 정상 OTA로 복귀한다. 치명적 서버 장애는 Daymo 전용 운영 이메일로 즉시 받고 나머지는 일일 요약으로 확인한다. 로그인 불가·장기 장애에는 앱 공지와 `status.daymo.xyz` 상태 페이지를 함께 사용한다.
+
 현재 예정 사양:
 
 ```text
