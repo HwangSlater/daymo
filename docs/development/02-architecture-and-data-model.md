@@ -79,6 +79,8 @@ React Native UI
 - `users`: `id`, `email`, `email_verified_at nullable`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
 - `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
 - `refresh_tokens`: `user_id`, `token_hash`, `expires_at`, `revoked_at`, `device_name`
+- `email_verification_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`
+- `password_reset_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`
 - `devices`: `user_id`, `installation_id`, `platform`, `app_version`, `last_seen_at`, `revoked_at`
 - `notification_preferences`: `user_id`, `space_id nullable`, `invite_joined`, `assignment_changes`, `trip_reminders`, `marketing`, `updated_at`
 - `push_tokens`: `device_id`, `provider`, `token_ciphertext`, `last_validated_at`, `revoked_at`
@@ -92,6 +94,8 @@ React Native UI
 - `relationship_profiles`: `space_id`, `started_on nullable`
 
 OAuth provider의 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 기존 비밀번호 또는 이미 연결된 provider로 재인증한 뒤 `oauth_accounts`를 연결한다. 사용자는 연결된 로그인 방식을 확인·해제할 수 있지만 사용 가능한 마지막 로그인 수단은 해제할 수 없다.
+
+이메일 계정 비밀번호는 8~128자로 받고 문자 종류 조합은 강제하지 않는다. Unicode, 공백, 붙여넣기와 비밀번호 관리자를 허용하되 흔하거나 유출된 비밀번호 및 이메일과 동일한 값은 거부한다. NFC 정규화 후 전체 값을 Argon2id로 단방향 hash하며 원문·복호화 가능한 값을 저장하지 않는다. 주기적 변경은 강제하지 않고 유출 정황이나 계정 침해가 확인될 때만 재설정한다.
 
 공간 초대 링크는 생성 시점부터 7일 동안 유효하며 최대 10회 참여에 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 유효한 링크를 통해 별도 owner 승인 없이 바로 참여하고, 기본 권한은 함께 여행을 편집할 수 있는 `editor`다. 소유자가 링크를 폐기하면 남은 기간과 횟수에 관계없이 즉시 사용할 수 없게 한다. 여러 명이 동시에 참여해도 정원을 넘지 않도록 사용 횟수 증가와 membership 생성을 하나의 transaction에서 처리한다.
 

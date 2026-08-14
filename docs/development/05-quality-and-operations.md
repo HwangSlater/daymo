@@ -83,6 +83,11 @@
 - access token은 SecureStore, 일반 설정만 AsyncStorage
 - 공동 데이터 SQLite는 OS sandbox에 두고 로그아웃/공간 권한 상실 시 제거
 - 비밀번호와 OAuth secret은 앱 코드/로그에 저장하지 않음
+- 비밀번호 8~128자, Unicode/NFC, 공백, 자동완성·붙여넣기, 흔한·유출 비밀번호 차단 경계값 테스트
+- Argon2id 비용은 운영 VPS에서 부하 테스트하고 OWASP 최소 기준보다 낮추지 않으며 로그인 rate limit과 함께 검증
+- 이메일 인증 링크의 30분 만료·1회 사용·재전송 시 이전 token 폐기와 앱/웹 fallback 테스트
+- 메일 보안 스캐너의 GET 요청만으로 이메일 인증이 완료되지 않는지 테스트
+- 비밀번호 재설정 링크의 30분 만료·1회 사용·계정 비노출·성공 후 전체 세션 폐기 테스트
 - 모든 endpoint에서 공간 membership을 확인하고 repository query에도 공간 범위를 포함
 - 초대 token은 원문 저장 없이 hash와 만료 시각 저장
 - 외부 URL은 `https`와 허용 scheme을 검사한 뒤 열기
