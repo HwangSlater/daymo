@@ -125,6 +125,10 @@
 | D-017I | PR 승인 | **결정 완료: 1인 개발 중 사람 승인 0명**, 필수 CI로 보호 |
 | D-017J | 배포 동시성 | **결정 완료: 실행 중 배포는 완료하고 최신 대기 배포만 유지** |
 | D-017K | DB rollback | **결정 완료: server image만 rollback**, DB down migration 금지·forward migration 사용 |
+| D-018 | 모바일 beta | **결정 완료: iOS TestFlight·Android 비공개 테스트 병행** |
+| D-018A | OTA 정책 | **결정 완료: 동일 native runtime의 JS·asset만 내부 검증 후 단계적 배포**, native 변경은 store release |
+| D-018B | 강제 업데이트 | **결정 완료: 보안 또는 API 비호환일 때만 사용** |
+| D-018C | 위험 기능 공개 | **결정 완료: server feature flag로 일부 대상부터 활성화** |
 
 ## 4. 문서에서 보완한 계약
 

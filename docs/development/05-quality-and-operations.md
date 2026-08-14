@@ -166,6 +166,9 @@
 - [ ] 앱 시작과 목록/사진 성능 예산 통과
 - [ ] 백업·복구와 장애 연락 경로 확인
 - [ ] TestFlight/Android 내부 테스트 승인
+- [ ] iOS·Android 동일 release 기능과 API 호환성 확인
+- [ ] OTA runtime 일치, 내부 검증, 단계적 확대와 중단 절차 확인
+- [ ] 최소 지원 버전·feature flag가 서버 장애 시 안전한 기본값을 사용하는지 확인
 
 ## 8. 단계별 품질 게이트
 
@@ -183,5 +186,7 @@ pull request가 필수 CI를 통과해 `main`에 merge되면 자동 production �
 `main`은 보호 브랜치로 설정한다. 직접 push를 막고 pull request에서 필수 CI를 통과해야 merge할 수 있게 한다. 관리자 우회도 비상 장애 대응 외에는 사용하지 않으며, 우회한 경우 사유를 운영 기록에 남긴다.
 
 1인 개발 단계에서는 사람의 별도 승인을 요구하지 않고 required status check만 요구한다. 병합 방식은 squash merge로 고정해 PR 하나를 `main`의 커밋 하나로 남긴다. production 배포는 동시에 하나만 실행하며, 실행 중인 배포는 중단하지 않고 최신 대기 배포만 남긴다. 롤백은 이전 server image로만 수행하고 DB down migration은 실행하지 않는다.
+
+앱 beta는 iOS TestFlight와 Android 비공개 테스트를 병행한다. OTA는 native runtime이 같은 JavaScript·asset 변경만 내부 대상에서 먼저 확인한 뒤 단계적으로 확대하며, native 변경은 store binary로 출시한다. 강제 업데이트는 보안 사고나 API 호환 단절처럼 구버전 사용이 안전하지 않을 때만 사용한다. 위험 기능은 서버 feature flag로 일부 대상부터 공개하고 장애 시 원격으로 끌 수 있게 한다.
 
 의존성 감사의 취약점 개수만으로 강제 업그레이드하지 않는다. 실제 앱 번들/개발 도구 노출 여부, 공식 호환 버전, exploit 가능성과 업데이트 위험을 기록하고 높은 위험은 출시 전에 해결하거나 명시적으로 수용한다.

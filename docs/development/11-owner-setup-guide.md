@@ -380,6 +380,8 @@ GitHub의 `main`은 직접 push하지 못하게 보호하고 pull request의 필
 
 초기 1인 개발에서는 다른 사람의 PR 승인을 요구하지 않고 필수 CI를 통과한 PR만 squash merge한다. production 배포는 한 번에 하나만 실행하며 최신 대기 배포만 보존한다. 장애 rollback은 server image만 되돌리고 DB down migration은 사용하지 않는다.
 
+앱 beta는 TestFlight와 Android 비공개 테스트를 병행한다. EAS OTA는 같은 native runtime의 JavaScript·이미지 변경만 내부 확인 후 단계적으로 확대하고, native 변경은 store 심사를 거친다. 강제 업데이트는 보안·API 비호환 상황에만 사용한다. 위험 기능은 server feature flag로 소수 대상부터 활성화하고 문제가 생기면 앱 재배포 없이 끈다.
+
 현재 예정 사양:
 
 ```text
