@@ -1027,11 +1027,16 @@ function TripsExplorer({
   openCreatorOnMount?: boolean;
   onCreatorOpened?: () => void;
 }) {
+  const initialCalendarDate = new Date();
+  const initialDateKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, "0")}-${String(initialCalendarDate.getDate()).padStart(2, "0")}`;
   const [display, setDisplay] = useState<TripView>("목록");
   const [filter, setFilter] = useState<"전체" | "예정" | "추억">("전체");
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [month, setMonth] = useState({ year: 2026, value: 8 });
+  const [month, setMonth] = useState({
+    year: initialCalendarDate.getFullYear(),
+    value: initialCalendarDate.getMonth() + 1,
+  });
   const [creating, setCreating] = useState(false);
   const [place, setPlace] = useState("");
   const [tripStart, setTripStart] = useState("2026-09-12");
@@ -1044,11 +1049,21 @@ function TripsExplorer({
     setCreating(true);
     onCreatorOpened?.();
   }, [openCreatorOnMount, onCreatorOpened]);
+  const showDisplay = (nextDisplay: TripView) => {
+    setDisplay(nextDisplay);
+    if (nextDisplay === "캘린더" && !selectedDate) {
+      setMonth({
+        year: initialCalendarDate.getFullYear(),
+        value: initialCalendarDate.getMonth() + 1,
+      });
+      setSelectedDate(initialDateKey);
+    }
+  };
   const filtered =
     filter === "예정"
-      ? items.filter((trip) => trip.start >= new Date().toISOString().slice(0, 10))
+      ? items.filter((trip) => trip.end >= initialDateKey)
       : filter === "추억"
-        ? items.filter((trip) => trip.start < new Date().toISOString().slice(0, 10))
+        ? items.filter((trip) => trip.end < initialDateKey)
         : items;
   const visibleTrips = selectedRegion
     ? filtered.filter((trip) => trip.region === selectedRegion)
@@ -1061,27 +1076,27 @@ function TripsExplorer({
         (trip) => selectedDate >= trip.start && selectedDate <= trip.end,
       )
     : [];
+  const tripDateValid = tripStart <= tripEnd;
   const addTrip = () => {
-    if (!place.trim()) return;
+    if (!place.trim() || !tripDateValid) return;
     const range = formatTripRange(tripStart, tripEnd);
-    setItems((current) => [
-      {
-        name: place.trim(),
-        date: range,
-        note,
-        color: "#19B6A3",
-        mark: tripStart.slice(5, 7),
-        region: newRegion,
-        start: tripStart,
-        end: tripEnd,
-      },
-      ...current,
-    ]);
+    const nextTrip: Trip = {
+      name: place.trim(),
+      date: range,
+      note,
+      color: theme.secondary,
+      mark: tripStart.slice(5, 7),
+      region: newRegion,
+      start: tripStart,
+      end: tripEnd,
+    };
+    setItems((current) => [nextTrip, ...current]);
     setPlace("");
     setCreating(false);
     setShowAllRegions(false);
     setSelectedRegion(null);
     setDisplay("목록");
+    open(nextTrip);
   };
   const createFromDate = () => {
     if (selectedDate) {
@@ -1117,7 +1132,10 @@ function TripsExplorer({
         {(["목록", "지도", "캘린더"] as TripView[]).map((item) => (
           <Pressable
             key={item}
-            onPress={() => setDisplay(item)}
+            onPress={() => showDisplay(item)}
+            accessibilityRole="tab"
+            accessibilityLabel={`${item} 보기`}
+            accessibilityState={{ selected: display === item }}
             style={[
               (s as any).viewChoice,
               display === item && (s as any).viewChoiceActive,
@@ -1176,7 +1194,13 @@ function TripsExplorer({
                 style={[s.tripFilters, { backgroundColor: theme.surfaceAlt }]}
               >
                 {(["전체", "예정", "추억"] as const).map((item) => (
-                  <Pressable key={item} onPress={() => setFilter(item)}>
+                  <Pressable
+                    key={item}
+                    onPress={() => setFilter(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item} 여행만 보기`}
+                    accessibilityState={{ selected: filter === item }}
+                  >
                     <Text
                       style={[
                         s.filter,
@@ -1214,11 +1238,20 @@ function TripsExplorer({
           )}
           {display === "캘린더" && selectedDate && (
             <View style={(s as any).calendarResults}>
-              <Text
-                style={[(s as any).calendarResultDate, { color: theme.text }]}
-              >
-                {Number(selectedDate.slice(-2))}일의 여행
-              </Text>
+              <View style={(s as any).calendarResultHead}>
+                <Text
+                  style={[(s as any).calendarResultDate, { color: theme.text }]}
+                >
+                  {Number(selectedDate.slice(5, 7))}월 {Number(selectedDate.slice(-2))}일의 여행
+                </Text>
+                <Pressable
+                  onPress={() => setSelectedDate(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="선택한 날짜 해제"
+                >
+                  <Text style={[(s as any).calendarResultClear, { color: theme.muted }]}>선택 해제</Text>
+                </Pressable>
+              </View>
               {dateTrips.length ? (
                 <TripRows items={dateTrips} open={open} compact theme={theme} />
               ) : (
@@ -1257,8 +1290,14 @@ function TripsExplorer({
         visible={creating}
         title="새 여행"
         subtitle="여행지와 기간을 정하고 첫 여행을 만들어 보세요"
-        submit={place.trim() ? "여행 만들기" : "여행지를 입력해 주세요"}
-        submitDisabled={!place.trim()}
+        submit={
+          !place.trim()
+            ? "여행지를 입력해 주세요"
+            : !tripDateValid
+              ? "종료일을 다시 확인해 주세요"
+              : "여행 만들기"
+        }
+        submitDisabled={!place.trim() || !tripDateValid}
         onClose={() => {
           setCreating(false);
           setShowAllRegions(false);
@@ -1520,6 +1559,10 @@ function KoreaTripMap({
     );
     setZoom(nextZoom);
   };
+  const resetMap = () => {
+    setZoom(1.5);
+    setCenter({ x: 150, y: 210 });
+  };
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -1627,6 +1670,9 @@ function KoreaTripMap({
                 setCenter(clampCenter({ x: pin.x, y: pin.y }, zoom));
               onSelect(pin.name);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`${pin.name}, 여행 ${count}개`}
+            accessibilityState={{ selected: active }}
             style={[
               (s as any).mapPin,
               { left, top },
@@ -1738,6 +1784,15 @@ function KoreaTripMap({
         </Pressable>
         <View style={[(s as any).zoomDivider, { backgroundColor: theme.border }]} />
         <Pressable
+          onPress={resetMap}
+          accessibilityRole="button"
+          accessibilityLabel="지도 전체 위치로 돌아가기"
+          style={(s as any).zoomButton}
+        >
+          <Text style={[(s as any).zoomResetText, { color: theme.muted }]}>전체</Text>
+        </Pressable>
+        <View style={[(s as any).zoomDivider, { backgroundColor: theme.border }]} />
+        <Pressable
           disabled={zoom >= MAP_MAX_ZOOM}
           onPress={() => changeZoom(0.5)}
           accessibilityRole="button"
@@ -1778,8 +1833,10 @@ function TripCalendar({
     (_, index) => index - firstDay + 1,
   );
   const monthKey = `${month.year}-${String(month.value).padStart(2, "0")}`;
+  const monthStart = `${monthKey}-01`;
+  const monthEnd = `${monthKey}-${String(days).padStart(2, "0")}`;
   const monthTrips = trips.filter(
-    (trip) => trip.start.slice(0, 7) === monthKey,
+    (trip) => trip.start <= monthEnd && trip.end >= monthStart,
   );
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -1829,7 +1886,7 @@ function TripCalendar({
       {monthTrips.length > 0 && (
         <View style={(s as any).calendarLegend}>
           {monthTrips.map((trip) => (
-            <View key={trip.name} style={(s as any).calendarLegendItem}>
+            <View key={`${trip.name}-${trip.start}`} style={(s as any).calendarLegendItem}>
               <View
                 style={[
                   (s as any).calendarLegendLine,
@@ -1876,7 +1933,10 @@ function TripCalendar({
             <Pressable
               key={`${index}-${day}`}
               disabled={!valid}
-              onPress={() => setSelectedDate(key)}
+              onPress={() => setSelectedDate(selectedDate === key ? null : key)}
+              accessibilityRole={valid ? "button" : undefined}
+              accessibilityLabel={valid ? `${month.value}월 ${day}일${trip ? `, ${trip.name}` : ""}` : undefined}
+              accessibilityState={valid ? { selected } : undefined}
               style={[
                 (s as any).dayCell,
                 trip && {
@@ -4864,6 +4924,7 @@ Object.assign(s, {
   zoomButton: { height: 44, alignItems: "center", justifyContent: "center" },
   zoomButtonDisabled: { opacity: 0.28 },
   zoomText: { color: "#17233D", fontSize: 19, fontWeight: "700" },
+  zoomResetText: { fontSize: 9, fontWeight: "900" },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 7 },
   mapResults: { marginTop: 18 },
   mapResultHead: {
@@ -4960,12 +5021,19 @@ Object.assign(s, {
   calendarLegendDot: { width: 7, height: 7, borderRadius: 4 },
   calendarLegendText: { color: "#737780", fontSize: 11, fontWeight: "700" },
   calendarResults: { marginTop: 17 },
+  calendarResultHead: {
+    minHeight: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   calendarResultDate: {
     color: "#17233D",
     fontSize: 15,
     fontWeight: "900",
     marginBottom: 4,
   },
+  calendarResultClear: { fontSize: 10, fontWeight: "800" },
   emptyDate: {
     backgroundColor: "#EEF8F5",
     borderRadius: 17,
