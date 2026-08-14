@@ -66,6 +66,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | Method | Path | 용도 |
 | --- | --- | --- |
 | POST | `/auth/signup` | 이메일 회원가입 |
+| POST | `/auth/email-verifications` | 가입 이메일 인증 발송/재전송 |
+| POST | `/auth/email-verifications/confirm` | 일회용 code로 이메일 확인 |
 | POST | `/auth/login` | 이메일 로그인 |
 | POST | `/auth/logout` | 현재 세션 종료 |
 | POST | `/auth/refresh` | 세션 갱신 |
@@ -91,6 +93,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 ```json
 { "email": "sky@example.com", "password": "minimum-8", "displayName": "하늘" }
 ```
+
+공개 가입에서는 이메일 인증 전 계정의 여행 공간 생성과 초대 참여를 허용하지 않는다. 가입·인증 재전송·로그인·비밀번호 재설정에는 IP, 계정, installation 단위 rate limit을 적용하고 응답으로 계정 존재 여부를 노출하지 않는다. 자동 가입이 관찰되면 서버가 발급한 bot challenge token을 요구할 수 있게 하되 특정 CAPTCHA 공급자는 운영 단계에서 결정한다.
 
 실제 가입 요청은 클라이언트가 임의 문구를 보내지 않고 서버가 발급한 문서 version을 참조한다.
 

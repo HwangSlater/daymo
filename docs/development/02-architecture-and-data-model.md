@@ -76,7 +76,7 @@ React Native UI
 
 ### 계정과 공간
 
-- `users`: `id`, `email`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
+- `users`: `id`, `email`, `email_verified_at nullable`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
 - `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
 - `refresh_tokens`: `user_id`, `token_hash`, `expires_at`, `revoked_at`, `device_name`
 - `devices`: `user_id`, `installation_id`, `platform`, `app_version`, `last_seen_at`, `revoked_at`
