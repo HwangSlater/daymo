@@ -384,7 +384,7 @@ GitHub의 `main`은 직접 push하지 못하게 보호하고 pull request의 필
 
 기능과 OTA는 내부 → 10% → 50% → 100% 순서로 확대하고 문제가 발견되면 중단 후 이전 정상 OTA로 복귀한다. 치명적 서버 장애는 Daymo 전용 운영 이메일로 즉시 받고 나머지는 일일 요약으로 확인한다. 로그인 불가·장기 장애에는 앱 공지와 외부 상태 페이지를 함께 사용한다.
 
-서버와 도메인이 준비되면 UptimeRobot 계정을 만들고 무료 plan에서 `https://api.daymo.xyz/health`를 5분 간격으로 등록한다. 장애·복구 수신 주소는 Daymo 운영 이메일로 지정하고 초기 basic status page는 UptimeRobot 제공 URL을 사용한다. 무료 plan에는 custom domain이 없으므로 `status.daymo.xyz` 연결은 유료 전환 또는 별도 외부 host 도입 때 다시 결정한다. 공개 페이지는 현재 상태만 표시하고 과거 장애 이력은 공개하지 않는다. 무료 plan 조건은 실제 등록 시 공식 요금표에서 다시 확인한다.
+서버와 도메인이 준비되면 UptimeRobot 계정을 만들고 무료 plan에서 `https://api.daymo.xyz/health`를 5분 간격으로 등록한다. 장애·복구 수신 주소는 Daymo 운영 이메일로 지정하고 basic status page는 UptimeRobot 제공 URL을 사용한다. 유료 plan, custom domain과 `status.daymo.xyz`는 설정하지 않는다. 공개 페이지는 현재 상태만 표시하고 과거 장애 이력은 공개하지 않는다. 무료 plan 조건이 달라지면 유료 결제 대신 무료 대안을 다시 검토한다.
 
 현재 예정 사양:
 
