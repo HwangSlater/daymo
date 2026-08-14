@@ -138,6 +138,8 @@ RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 
 `EXPO_PUBLIC_*` 값은 앱 번들에서 읽을 수 있으므로 비밀키를 넣지 않는다. DB 비밀번호, OAuth secret, JWT 키, 사진 URL 서명 키, restic 비밀번호와 rclone OAuth token은 VPS의 root 전용 env/config 파일 또는 CI secret으로 관리한다.
 
+외부 공개 문의 주소는 `support@daymo.xyz`, Resend 자동 발신 주소는 `no-reply@daymo.xyz`로 분리한다. `support@daymo.xyz`의 수신 메일은 Daymo 전용 Google 계정으로 전달하며 개인 이메일 주소를 앱·스토어·정책 문서에 직접 노출하지 않는다.
+
 ## 5. OAuth 리디렉션
 
 - 앱 스킴: `daymo://oauth`
