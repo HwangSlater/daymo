@@ -248,15 +248,21 @@ Google 계정 연결 과정에서 생성되는 rclone OAuth token과 restic repo
 
 ## 9. 이메일과 오류 수집
 
-이메일 발송:
+이메일 발송은 ConoHa에서 메일 서버를 직접 운영하지 않고 외부 전문 발송 서비스의 SMTP를 사용하기로 결정했다.
 
 ```dotenv
-MAIL_PROVIDER=
-MAIL_FROM=
-MAIL_API_KEY=
+MAIL_PROVIDER=smtp
+MAIL_FROM=no-reply@daymo.xyz
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_STARTTLS=true
 ```
 
 로컬 개발에서는 Mailpit 같은 로컬 메일 서버를 사용해 실제 발송 키 없이 검증할 수 있다.
+
+SMTP 비밀번호는 앱에 넣지 않고 Spring Boot 운영 secret에만 둔다. `daymo.xyz` DNS에는 선택한 공급자가 안내하는 SPF·DKIM을 설정하고 DMARC 정책도 단계적으로 적용한다.
 
 Sentry를 사용할 경우:
 
