@@ -19,8 +19,8 @@ export type AppTheme = {
 };
 
 const palettes: Record<ThemeId, { name: string; primary: string; soft: string; secondary: string; accent: string; navigation: string }> = {
-  daymo: { name: 'Daymo 퍼플', primary: '#8B639B', soft: '#F6EEF5', secondary: '#945A83', accent: '#B96D82', navigation: '#403D88' },
-  rose: { name: '로즈 베리', primary: '#BB3865', soft: '#FCEEF1', secondary: '#963352', accent: '#C96873', navigation: '#5D3140' },
+  rose: { name: 'Daymo', primary: '#BB3865', soft: '#FCEEF1', secondary: '#963352', accent: '#C96873', navigation: '#5D3140' },
+  daymo: { name: '소프트 퍼플', primary: '#8B639B', soft: '#F6EEF5', secondary: '#945A83', accent: '#B96D82', navigation: '#403D88' },
   sky: { name: '클리어 스카이', primary: '#1976D2', soft: '#E3F2FD', secondary: '#246FA7', accent: '#517DA2', navigation: '#0D47A1' },
   forest: { name: '그린 가든', primary: '#347A3A', soft: '#E8F5E9', secondary: '#4F8B55', accent: '#5F8662', navigation: '#1B5E20' },
   sage: { name: '세이지 피크닉', primary: '#62745F', soft: '#F7F4ED', secondary: '#71816D', accent: '#9A793D', navigation: '#36443A' },
