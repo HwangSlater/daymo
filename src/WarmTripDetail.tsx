@@ -365,6 +365,7 @@ export function WarmTripDetail({
   const [feedback, setFeedback] = useState("");
   const [packingItems, setPackingItems] = useState(packing);
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
+  const [openCookingPicker, setOpenCookingPicker] = useState(false);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>({
     name: "JS호텔",
     checkin: `${firstTripDate} 15:00`,
@@ -598,10 +599,19 @@ export function WarmTripDetail({
               items={packingItems}
               setItems={setPackingItems}
               recipes={recipes}
+              openCookingPickerOnMount={openCookingPicker}
+              onCookingPickerOpened={() => setOpenCookingPicker(false)}
             />
           )}
           {mode === "요리" && (
-            <Cooking recipes={recipes} setRecipes={setRecipes} />
+            <Cooking
+              recipes={recipes}
+              setRecipes={setRecipes}
+              openPreparationImport={() => {
+                setOpenCookingPicker(true);
+                setMode("준비");
+              }}
+            />
           )}
           {mode === "기록" && <Memories />}
         </ScrollView>
@@ -2298,12 +2308,16 @@ function Preparation({
   items,
   setItems,
   recipes,
+  openCookingPickerOnMount,
+  onCookingPickerOpened,
 }: {
   done: string[];
   toggle: (item: string) => void;
   items: PackingItem[];
   setItems: React.Dispatch<React.SetStateAction<PackingItem[]>>;
   recipes: Recipe[];
+  openCookingPickerOnMount?: boolean;
+  onCookingPickerOpened?: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -2326,11 +2340,22 @@ function Preparation({
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
-  const [cookingPicker, setCookingPicker] = useState(false);
+  const [cookingPicker, setCookingPicker] = useState(Boolean(openCookingPickerOnMount));
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
   const [collapsedPackingTags, setCollapsedPackingTags] = useState<string[]>([]);
+  useEffect(() => {
+    if (openCookingPickerOnMount) {
+      setCookingPicker(true);
+      onCookingPickerOpened?.();
+    }
+  }, [openCookingPickerOnMount]);
   const completedCount = items.filter((item) => done.includes(item.id)).length;
+  const selectedCookingUniqueCount = new Set(
+    recipes.flatMap((recipe) => recipe.ingredients)
+      .filter((ingredient) => selectedCookingItems.includes(ingredient.id))
+      .map((ingredient) => ingredient.name.trim().toLowerCase()),
+  ).size;
   const percentage = items.length
     ? Math.round((completedCount / items.length) * 100)
     : 0;
@@ -2560,14 +2585,17 @@ function Preparation({
         )
         .map((ingredient) => ({ recipe, ingredient })),
     );
-    if (!selected.length) {
+    const uniqueSelected = selected.filter(({ ingredient }, index, values) =>
+      values.findIndex(({ ingredient: value }) => value.name.trim().toLowerCase() === ingredient.name.trim().toLowerCase()) === index,
+    );
+    if (!uniqueSelected.length) {
       setCookingPicker(false);
       return;
     }
     const stamp = Date.now();
     setItems((current) => [
       ...current,
-      ...selected.map(({ recipe, ingredient }, index) => ({
+      ...uniqueSelected.map(({ recipe, ingredient }, index) => ({
         id: `cooking-${stamp}-${index}`,
         name: ingredient.name,
         quantity: ingredient.quantity,
@@ -2577,12 +2605,12 @@ function Preparation({
             : ingredient.owner === "여울"
               ? ("동행" as const)
               : ("미정" as const),
-        tags: ["요리 재료", recipe.name, ingredient.group],
+        tags: Array.from(new Set(["요리 재료", recipe.name, ingredient.group, ...(ingredient.owner === "구매" ? ["구매"] : [])])),
       })),
     ]);
     setSelectedCookingItems([]);
     setCookingPicker(false);
-    notify(`요리 재료 ${selected.length}개를 준비에 추가했어요`);
+    notify(`요리 재료 ${uniqueSelected.length}개를 준비에 추가했어요`);
   };
   const renderPackingRow = (item: PackingItem, index: number) => {
     const completed = done.includes(item.id);
@@ -3725,11 +3753,11 @@ function Preparation({
         title="요리 재료 불러오기"
         subtitle="준비물에 추가할 재료를 선택하세요"
         submit={
-          selectedCookingItems.length
-            ? `${selectedCookingItems.length}개 준비물에 추가`
+          selectedCookingUniqueCount
+            ? `${selectedCookingUniqueCount}개 준비물에 추가`
             : "재료를 선택해 주세요"
         }
-        submitDisabled={!selectedCookingItems.length}
+        submitDisabled={!selectedCookingUniqueCount}
         onClose={() => {
           setCookingPicker(false);
           setSelectedCookingItems([]);
@@ -4012,9 +4040,11 @@ const initialRecipes: Recipe[] = [
 function Cooking({
   recipes,
   setRecipes,
+  openPreparationImport,
 }: {
   recipes: Recipe[];
   setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
+  openPreparationImport: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -4026,6 +4056,7 @@ function Cooking({
   const [aiImporting, setAiImporting] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [showMyIngredients, setShowMyIngredients] = useState(false);
+  const [ingredientOwnerFilter, setIngredientOwnerFilter] = useState("전체");
   const [showAllRecipes, setShowAllRecipes] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
@@ -4057,6 +4088,22 @@ function Cooking({
       .filter((item) => item.owner === "하늘")
       .map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
   );
+  const allCookingIngredients = recipes.flatMap((recipe) =>
+    recipe.ingredients.map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
+  );
+  const shoppingOwnerOptions = ["전체", "하늘", "여울", "구매", "미정"];
+  const filteredShoppingCount = ingredientOwnerFilter === "전체"
+    ? allCookingIngredients.length
+    : allCookingIngredients.filter((item) => item.owner === ingredientOwnerFilter).length;
+  const duplicateIngredient = Boolean(activeRecipe) && activeRecipe.ingredients.some(
+    (item) => item.id !== editingIngredient?.id && item.name.trim().toLowerCase() === name.trim().toLowerCase(),
+  );
+  const ingredientFormValid = Boolean(name.trim()) && !duplicateIngredient;
+  const duplicateRecipe = recipes.some(
+    (recipe) => recipe.id !== (editingRecipe ? activeRecipe?.id : undefined) && recipe.name.trim().toLowerCase() === recipeName.trim().toLowerCase(),
+  );
+  const recipeUrlValid = !recipeUrl.trim() || /^(https?:\/\/)?[^\s]+\.[^\s]+/i.test(recipeUrl.trim());
+  const recipeFormValid = Boolean(recipeName.trim()) && !duplicateRecipe && recipeUrlValid;
   const cookingPrompt = `아래 메모를 Daymo 요리 목록 형식으로 변환하라.
 규칙:
 1. 설명, 인사, 번호, 마크다운을 절대 쓰지 않는다.
@@ -4070,7 +4117,7 @@ function Cooking({
 [내 메모]
 여기에 만들 요리와 재료 메모를 붙여넣으세요.`;
   const addIngredient = () => {
-    if (!name.trim() || !activeRecipe) return;
+    if (!ingredientFormValid || !activeRecipe) return;
     const wasEditing = Boolean(editingIngredient);
     const next = {
       id: `${Date.now()}`,
@@ -4117,7 +4164,7 @@ function Cooking({
     setOwner("미정");
   };
   const addRecipe = () => {
-    if (!recipeName.trim()) return;
+    if (!recipeFormValid) return;
     if (editingRecipe && activeRecipe) {
       setRecipes((current) =>
         current.map((recipe) =>
@@ -4215,11 +4262,27 @@ function Cooking({
         }
       });
     if (!parsed.length) return;
-    setRecipes((current) => [...current, ...parsed]);
-    setActiveId(parsed[0].id);
+    const existingRecipeNames = new Set(recipes.map((recipe) => recipe.name.trim().toLowerCase()));
+    const uniqueParsed = parsed
+      .filter((recipe, index, values) =>
+        !existingRecipeNames.has(recipe.name.trim().toLowerCase()) &&
+        values.findIndex((value) => value.name.trim().toLowerCase() === recipe.name.trim().toLowerCase()) === index,
+      )
+      .map((recipe) => ({
+        ...recipe,
+        ingredients: recipe.ingredients.filter((item, index, values) =>
+          values.findIndex((value) => value.name.trim().toLowerCase() === item.name.trim().toLowerCase()) === index,
+        ),
+      }));
+    if (!uniqueParsed.length) {
+      notify("이미 등록한 요리뿐이에요");
+      return;
+    }
+    setRecipes((current) => [...current, ...uniqueParsed]);
+    setActiveId(uniqueParsed[0].id);
     setAiResult("");
     setAiImporting(false);
-    notify(`요리 ${parsed.length}개를 추가했어요`);
+    notify(`요리 ${uniqueParsed.length}개를 추가했어요`);
   };
   const deleteRecipe = () => {
     if (!activeRecipe) return;
@@ -4317,8 +4380,15 @@ function Cooking({
           owner: itemOwner,
         };
       })
-      .filter((item) => item.name);
+      .filter((item, index, values) =>
+        Boolean(item.name) &&
+        values.findIndex((value) => value.name.trim().toLowerCase() === item.name.trim().toLowerCase()) === index,
+      );
     if (!parsed.length) return;
+    const existingNames = new Set(ingredients.map((item) => item.name.trim().toLowerCase()));
+    const additions = importMode === "교체"
+      ? parsed
+      : parsed.filter((item) => !existingNames.has(item.name.trim().toLowerCase()));
     setRecipes((current) =>
       current.map((recipe) =>
         recipe.id === activeId
@@ -4326,14 +4396,14 @@ function Cooking({
               ...recipe,
               ingredients:
                 importMode === "교체"
-                  ? parsed
-                  : [...recipe.ingredients, ...parsed],
+                  ? additions
+                  : [...recipe.ingredients, ...additions],
             }
           : recipe,
       ),
     );
     setImporting(false);
-    notify(`요리 재료 ${parsed.length}개를 반영했어요`);
+    notify(additions.length ? `요리 재료 ${additions.length}개를 반영했어요` : "이미 등록한 재료뿐이에요");
   };
   return (
     <View>
@@ -4369,6 +4439,9 @@ function Cooking({
                 <Pressable
                   key={recipe.id}
                   onPress={() => setActiveId(recipe.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`${recipe.name} 메뉴, 재료 ${recipe.ingredients.length}개`}
                   style={[
                     styles.cookV2MenuCard,
                     theme && {
@@ -4389,7 +4462,7 @@ function Cooking({
           </ScrollView>
         </View>
       )}
-      {myCookingIngredients.length > 0 && (
+      {allCookingIngredients.length > 0 && (
         <View
           style={[
             styles.myCookingBox,
@@ -4399,7 +4472,12 @@ function Cooking({
             },
           ]}
         >
-          <Pressable onPress={() => setShowMyIngredients(true)} style={styles.myCookingCompact}>
+          <Pressable
+            onPress={() => setShowMyIngredients(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`통합 장보기 목록, 전체 재료 ${allCookingIngredients.length}개`}
+            style={styles.myCookingCompact}
+          >
             <View style={[styles.myCookingIcon, theme && { backgroundColor: theme.primarySoft }]}>
               {[0, 1, 2].map((line) => (
                 <View key={line} style={styles.cookV2MemoLine}>
@@ -4415,9 +4493,9 @@ function Cooking({
               ))}
             </View>
             <View style={styles.myCookingCopy}>
-              <Text style={[styles.cookV2MyEyebrow, theme && { color: theme.primary }]}>나의 장보기</Text>
-              <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>준비할 재료 {myCookingIngredients.length}개</Text>
-              <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>{myCookingIngredients.slice(0, 3).map((item) => item.name).join(" · ")}{myCookingIngredients.length > 3 ? ` 외 ${myCookingIngredients.length - 3}개` : ""}</Text>
+              <Text style={[styles.cookV2MyEyebrow, theme && { color: theme.primary }]}>통합 장보기</Text>
+              <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>전체 재료 {allCookingIngredients.length}개</Text>
+              <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>내 준비 {myCookingIngredients.length}개 · 구매 {allCookingIngredients.filter((item) => item.owner === "구매").length}개</Text>
             </View>
             <Text style={[styles.recipeListArrow, theme && { color: theme.primary }]}>›</Text>
           </Pressable>
@@ -4474,6 +4552,7 @@ function Cooking({
               {activeRecipe.url ? (
                 <Pressable
                   onPress={openRecipeLink}
+                  accessibilityRole="link"
                   style={styles.recipeLink}
                 >
                   <Text style={[styles.recipeLinkIcon, theme && { color: theme.primary }]}>▶</Text>
@@ -4484,6 +4563,7 @@ function Cooking({
             <View style={styles.cookingHeroActions}>
               <Pressable
                 onPress={openRecipeActions}
+                accessibilityRole="button"
                 accessibilityLabel="요리 관리"
                 style={[
                   styles.cookingMoreButton,
@@ -4509,6 +4589,14 @@ function Cooking({
               <Text style={[styles.placeAddText, theme && { color: theme.primary }]}>＋ 재료 추가</Text>
             </Pressable>
           </View>
+          {ingredients.length === 0 && (
+            <EmptyState
+              title="아직 재료가 없어요"
+              description="첫 재료를 추가하거나 목록을 붙여넣어 요리를 준비해 보세요."
+              action="첫 재료 추가"
+              onPress={() => setAddingIngredient(true)}
+            />
+          )}
           {groups.map((section, groupIndex) => {
             const sectionItems = ingredients.filter((item) => item.group === section);
             const collapsed = collapsedCookingGroups.includes(section);
@@ -4559,6 +4647,8 @@ function Cooking({
                     key={item.id}
                     onPress={() => openIngredientEdit(item)}
                     onLongPress={() => removeIngredient(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name}, ${item.quantity}, ${item.owner}, 수정`}
                     style={[
                       styles.ingredientRow,
                       readyIngredientIds.includes(item.id) && styles.cookV2IngredientDone,
@@ -4575,6 +4665,7 @@ function Cooking({
                       }}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: readyIngredientIds.includes(item.id) }}
+                      accessibilityLabel={`${item.name} ${readyIngredientIds.includes(item.id) ? "준비 완료 해제" : "준비 완료"}`}
                       style={[
                         styles.cookV2IngredientCheck,
                         theme && {
@@ -4692,6 +4783,8 @@ function Cooking({
                 setActiveId(recipe.id);
                 setShowAllRecipes(false);
               }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: recipe.id === activeId }}
               style={[
                 styles.recipeListRow,
                 index > 0 && styles.recipeListRowBorder,
@@ -4713,15 +4806,26 @@ function Cooking({
       </DetailSheet>
       <DetailSheet
         visible={showMyIngredients}
-        title="내가 준비할 재료"
-        subtitle={`전체 요리에서 하늘이 준비할 재료 ${myCookingIngredients.length}개`}
-        submit="닫기"
+        title="통합 장보기 목록"
+        subtitle={`요리 ${recipes.length}개의 재료를 준비 방법별로 확인하세요`}
+        submit="준비 탭에서 가져오기"
         onClose={() => setShowMyIngredients(false)}
-        onSubmit={() => setShowMyIngredients(false)}
+        onSubmit={() => {
+          setShowMyIngredients(false);
+          openPreparationImport();
+        }}
       >
+        <OptionField
+          label={`준비 방법 · ${filteredShoppingCount}개`}
+          options={shoppingOwnerOptions}
+          value={ingredientOwnerFilter}
+          onChange={setIngredientOwnerFilter}
+        />
         {recipes.map((recipe) => {
-          const mine = recipe.ingredients.filter((item) => item.owner === "하늘");
-          if (!mine.length) return null;
+          const matching = ingredientOwnerFilter === "전체"
+            ? recipe.ingredients
+            : recipe.ingredients.filter((item) => item.owner === ingredientOwnerFilter);
+          if (!matching.length) return null;
           return (
             <View key={recipe.id} style={[styles.myIngredientGroup, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <Pressable
@@ -4732,12 +4836,12 @@ function Cooking({
                 style={styles.myIngredientGroupHead}
               >
                 <Text numberOfLines={1} style={[styles.myIngredientGroupTitle, theme && { color: theme.text }]}>{recipe.name}</Text>
-                <Text style={[styles.myIngredientGroupCount, theme && { color: theme.primary }]}>{mine.length}개 ›</Text>
+                <Text style={[styles.myIngredientGroupCount, theme && { color: theme.primary }]}>{matching.length}개 ›</Text>
               </Pressable>
-              {mine.map((item) => (
+              {matching.map((item) => (
                 <View key={item.id} style={[styles.myIngredientRow, theme && { borderTopColor: theme.border }]}>
                   <Text numberOfLines={1} style={[styles.myIngredientName, theme && { color: theme.text }]}>{item.name}</Text>
-                  <Text numberOfLines={1} style={[styles.myIngredientQuantity, theme && { color: theme.muted }]}>{item.quantity}</Text>
+                  <Text numberOfLines={1} style={[styles.myIngredientQuantity, theme && { color: theme.muted }]}>{item.quantity} · {item.owner}</Text>
                 </View>
               ))}
             </View>
@@ -4748,8 +4852,8 @@ function Cooking({
         visible={addingIngredient}
         title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
         subtitle="분류와 준비 방법은 저장한 뒤에도 바꿀 수 있어요"
-        submit={name.trim() ? (editingIngredient ? "변경 저장" : "재료 추가") : "재료 이름을 입력해 주세요"}
-        submitDisabled={!name.trim()}
+        submit={ingredientFormValid ? (editingIngredient ? "변경 저장" : "재료 추가") : duplicateIngredient ? "이 요리에 이미 있는 재료예요" : "재료 이름을 입력해 주세요"}
+        submitDisabled={!ingredientFormValid}
         onClose={closeIngredientSheet}
         onSubmit={addIngredient}
       >
@@ -4833,8 +4937,14 @@ function Cooking({
         visible={addingRecipe}
         title={editingRecipe ? "요리 수정" : "요리 추가"}
         subtitle="이름만 먼저 저장하고 재료는 메뉴 안에서 추가할 수 있어요"
-        submit={recipeName.trim() ? (editingRecipe ? "변경 저장" : "요리 추가") : "요리 이름을 입력해 주세요"}
-        submitDisabled={!recipeName.trim()}
+        submit={recipeFormValid
+          ? (editingRecipe ? "변경 저장" : "요리 추가")
+          : duplicateRecipe
+            ? "이미 등록한 요리예요"
+            : !recipeUrlValid
+              ? "레시피 링크를 확인해 주세요"
+              : "요리 이름을 입력해 주세요"}
+        submitDisabled={!recipeFormValid}
         onClose={closeRecipeSheet}
         onSubmit={addRecipe}
       >
