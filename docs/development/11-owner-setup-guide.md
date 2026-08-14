@@ -328,14 +328,14 @@ SSD 100GB
 
 ## 13. 도메인과 공개 페이지
 
-기존 개인 도메인을 재사용하지 않고 Daymo 전용 도메인을 새로 구매하기로 결정했다. 실제 도메인명과 등록기관은 구매 가능 여부를 확인한 뒤 기록한다.
+기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 구매하기로 결정했다. 현재 상태는 등록·DNS 연결 대기이며 등록기관은 구매 후 기록한다.
 
 예시:
 
 ```text
-api.<owned-domain>          운영 API
-staging-api.<owned-domain>  staging API
-www.<owned-domain>          약관·처리방침·삭제 요청
+api.daymo.xyz          운영 API
+staging-api.daymo.xyz  staging API
+www.daymo.xyz          약관·처리방침·삭제 요청
 ```
 
 필요한 공개 페이지:

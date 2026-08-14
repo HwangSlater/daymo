@@ -135,7 +135,7 @@ RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 
 - 앱 스킴: `daymo://oauth`
 - 개발: Expo development build의 리디렉션 URI 등록
-- 운영: iOS Universal Link와 Android App Link를 추가하고 스킴은 보조 수단으로 유지
+- 운영: `daymo.xyz` 기반 iOS Universal Link와 Android App Link를 추가하고 스킴은 보조 수단으로 유지
 - 제공자: Apple, Google, Kakao, Naver
 - 로그인 완료 후 URL query에 이메일을 직접 전달하는 현재 데모 방식은 폐기한다. Spring Security OAuth2 Client가 authorization code를 교환하고 일회용 앱 로그인 코드를 발급한다. 앱은 코드를 API에 교환해 access/refresh token을 받는다.
 
