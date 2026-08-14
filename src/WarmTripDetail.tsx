@@ -7,13 +7,13 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { AppTheme } from "./theme";
 
@@ -5405,7 +5405,12 @@ function SectionLabel({
         {label}
       </Text>
       {action && (
-        <Pressable onPress={onPress} hitSlop={8}>
+        <Pressable
+          onPress={onPress}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={action}
+        >
           <Text
             style={[styles.sectionAction, theme && { color: theme.primary }]}
           >
@@ -5496,7 +5501,14 @@ function ListMoreButton({
 }) {
   const theme = useContext(DetailThemeContext);
   return (
-    <Pressable onPress={onPress} style={[styles.listMoreButton, theme && { borderColor: theme.border }]}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={expanded ? "목록 간단히 보기" : `${hiddenCount}개 더 보기`}
+      accessibilityState={{ expanded }}
+      style={[styles.listMoreButton, theme && { borderColor: theme.border }]}
+    >
       <Text style={[styles.listMoreText, theme && { color: theme.text }]}>
         {expanded ? "간단히 보기" : `${hiddenCount}개 더 보기`}
       </Text>
@@ -6459,7 +6471,7 @@ const styles = StyleSheet.create({
   transportSwitchHintText: { fontSize: 11, lineHeight: 13, fontWeight: "900" },
   transportSwitchHintArrow: { fontSize: 13, lineHeight: 15, fontWeight: "900" },
   pairedFieldRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  pairedFieldInput: { flex: 1, minWidth: 0, height: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 11, textAlign: "center" },
+  pairedFieldInput: { flex: 1, minWidth: 0, height: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 13, textAlign: "center" },
   pairedFieldArrow: { width: 27, height: 27, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   pairedFieldArrowText: { fontSize: 13, lineHeight: 15, fontWeight: "900" },
   transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 9, marginBottom: 9 },
@@ -8712,7 +8724,7 @@ const styles = StyleSheet.create({
   emptyStateLineShort: { width: "65%" },
   emptyStateCopy: { flex: 1, minWidth: 0 },
   emptyStateTitle: { fontSize: 11, fontWeight: "900" },
-  emptyStateDescription: { fontSize: 11, lineHeight: 12, fontWeight: "700", marginTop: 3 },
+  emptyStateDescription: { fontSize: 11, lineHeight: 16, fontWeight: "700", marginTop: 3 },
   emptyStateAction: { minHeight: 30, borderRadius: 9, paddingHorizontal: 9, alignItems: "center", justifyContent: "center", marginLeft: 8 },
   emptyStateActionText: { fontSize: 11, fontWeight: "900" },
   listMoreButton: { minHeight: 39, borderWidth: 1, borderRadius: 10, marginTop: 8, marginBottom: 5, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center" },
