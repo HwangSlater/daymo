@@ -121,13 +121,15 @@ KAKAO_REST_API_KEY=
 KAKAO_CLIENT_SECRET=
 NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
-S3_ENDPOINT=
-S3_BUCKET=
-S3_ACCESS_KEY=
-S3_SECRET_KEY=
+PHOTO_STORAGE_TYPE=local
+PHOTO_LOCAL_ROOT=/srv/daymo/uploads
+PHOTO_DOWNLOAD_SIGNING_KEY=
+RESTIC_REPOSITORY=rclone:daymo-drive:daymo-backup
+RESTIC_PASSWORD_FILE=/etc/daymo/secrets/restic-password
+RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 ```
 
-`EXPO_PUBLIC_*` 값은 앱 번들에서 읽을 수 있으므로 비밀키를 넣지 않는다. DB 비밀번호, OAuth secret, JWT 키, S3 키는 VPS의 root 전용 env 파일 또는 CI secret으로 관리한다.
+`EXPO_PUBLIC_*` 값은 앱 번들에서 읽을 수 있으므로 비밀키를 넣지 않는다. DB 비밀번호, OAuth secret, JWT 키, 사진 URL 서명 키, restic 비밀번호와 rclone OAuth token은 VPS의 root 전용 env/config 파일 또는 CI secret으로 관리한다.
 
 ## 5. OAuth 리디렉션
 
@@ -202,7 +204,8 @@ CI 최소 작업:
 
 트래픽은 무제한이므로 사진 조회량에 따른 전송량 비용은 주요 제약이 아니다. 하지만 100GB에는 OS, Docker image, DB, 로그, 백업도 함께 들어간다. 사진 원본을 VPS 디스크에 장기 보관하면 저장 용량과 장애 복구가 여전히 위험하다.
 
-- 권장: S3 호환 외부 오브젝트 스토리지에 사진을 저장하고 VPS에는 메타데이터만 저장
-- 초기 비공개 알파 대안: `/srv/daymo/uploads`에 저장하되 사진용 상한을 30GB로 두고 매일 외부 백업
-- 어느 방식이든 업로드 전 앱에서 표시본을 압축하고 썸네일을 생성한다.
-- 운영 공개 전에는 외부 오브젝트 스토리지로 확정한다.
+- 결정: 초기 운영 원본은 ConoHa VPS의 `/srv/daymo/uploads` private volume에 저장한다.
+- 사진용 상한은 우선 30GB로 두고 DB와 사진을 Google Drive에 자동 외부 백업한다.
+- 백업은 폴더 mirror가 아니라 암호화·중복 제거·시점 복구가 가능한 restic snapshot을 rclone Google Drive backend로 전송한다.
+- 업로드 전 앱에서 표시본을 압축하고 썸네일을 생성한다.
+- 저장량과 복구 시간을 측정해 공개 규모가 커질 때만 S3 호환 외부 저장소 이전을 재검토한다.

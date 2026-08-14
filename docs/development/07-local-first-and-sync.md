@@ -38,7 +38,7 @@
 
 - 앱 bundle: 대한민국 지도 path, 아이콘, 기본 일러스트
 - 기기 파일 캐시: 사진 썸네일, 최근 표시본, 업로드 대기 파일
-- 서버/object storage: 공유 사진 원본과 표시본
+- VPS private volume: 공유 사진 원본과 표시본
 - 사용자가 ‘기기에 저장’을 선택한 사진: 앱 캐시가 아닌 사진 보관함. 앱 cache eviction 대상에서 제외
 
 ## 3. 로컬 저장 기술
@@ -143,7 +143,7 @@ outbox mutation에는 `mutation_id`, `space_id`, `entity`, `operation`, `entity_
 - 304 응답은 DB 조회도 피할 수 있도록 ETag를 집계 version/cache와 연결한다.
 - sync API 한 번으로 여러 엔티티의 변경을 전달해 탭마다 요청하지 않는다.
 - pending mutation batch는 여러 작은 모바일 요청을 합친다.
-- 사진 직접 업로드는 Spring Boot의 RAM과 네트워크 proxy 부담을 줄인다.
+- 사진 stream 업로드와 Nginx 내부 전송은 Spring Boot가 파일 전체를 RAM에 올리지 않게 한다.
 - 공유 텍스트 파싱·목록 export·진행률 계산은 기기에서 수행해 API 호출 자체를 없앤다.
 - 기기 캐시가 있어 일시적 서버 장애에도 읽기 기능을 유지한다.
 

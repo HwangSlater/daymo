@@ -26,7 +26,7 @@ React Native UI
        └─ HTTPS REST/SSE
             └─ Spring Boot modular monolith
                  ├─ PostgreSQL: 도메인 데이터·검색
-                 ├─ S3-compatible storage: 사진
+                 ├─ private VPS volume: 사진
                  └─ background jobs: 썸네일·정리
 ```
 
@@ -47,7 +47,7 @@ React Native UI
 | 홈/여행/일정/장소/준비/요리 조회본 | SQLite 캐시 | 즉시 표시하고 변경분만 수신 |
 | 여행·일정·담당·체크·태그·공동 메모 원본 | 서버 | 멤버 간 동일한 결과와 백업 필요 |
 | 프로필과 공간 멤버/권한 | 서버 | 인증·권한 판단의 기준 |
-| 사진 원본 | 서버 object storage | 다른 멤버 공유와 기기 분실 대비 |
+| 사진 표시본/선택 원본 | VPS private volume | 다른 멤버 공유와 기기 분실 대비 |
 | 사진 썸네일·최근 표시본 | 기기 파일 캐시 | 반복 다운로드 방지 |
 
 서버 호출 없이 기기에서 처리하는 행동:

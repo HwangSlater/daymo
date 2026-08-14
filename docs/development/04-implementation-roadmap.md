@@ -14,11 +14,11 @@
 - 현재 UI 화면/폼/버튼 목록을 회귀 체크리스트로 고정
 - ConoHa VPS OS/도메인/방화벽과 Docker 운영 기준 확인
 - Java 21, Spring Boot, PostgreSQL 버전 확정
-- 사진을 외부 S3 호환 스토리지에 둘지 제한된 알파 동안 VPS에 둘지 확정
+- 확정된 VPS private 사진 volume과 Google Drive 암호화 백업 경로 검증
 - 앱 bundle identifier와 Android package name 확정
 - 개인정보 처리방침/이용약관 초안 위치 결정
 - 개인정보 처리자/보호책임자 연락처와 사업자 표시 정보 확정
-- ConoHa, S3, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인
+- ConoHa, Google Drive, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인
 - dev/staging/prod 프로젝트와 secret 관리 방식 생성
 - [`10-implementation-readiness.md`](./10-implementation-readiness.md)의 D-001~D-004 결정
 - Node LTS/JDK 21 설치, `.nvmrc`·`engines`·앱 식별자 고정
@@ -27,7 +27,7 @@
 
 결정 필요:
 
-1. 사진 저장소를 외부 오브젝트 스토리지로 바로 시작할지
+1. Google Drive 백업 계정을 개인 계정과 Daymo 전용 계정 중 어디에 둘지
 2. 첫 출시를 초대된 소수 사용자용으로 할지 공개 가입으로 할지
 3. editor의 타인 메모 삭제 허용 여부
 4. 가입 가능 연령을 만 14세 이상으로 제한할지 법정대리인 동의 절차를 구현할지
@@ -140,7 +140,7 @@
 ## 9단계 — 사진·일기·회고 (8~12일)
 
 - 카메라/앨범 권한과 다중 선택
-- 리사이즈, 직접 업로드, 썸네일, 재시도
+- 리사이즈, VPS stream 업로드, 썸네일, 재시도
 - 데이터 절약/Wi-Fi 원본 업로드 옵션과 LRU 파일 캐시
 - 여행/날짜/장소/일정/숙소에 사진 연결
 - 여행 일기 CRUD와 draft 보존

@@ -345,10 +345,12 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 | PATCH/DELETE | `/memos/{memoId}` | 메모 수정/삭제 |
 | GET/POST | `/trips/{tripId}/diaries` | 일기 조회/작성 |
 | PATCH/DELETE | `/diaries/{diaryId}` | 일기 수정/삭제 |
-| POST | `/trips/{tripId}/photos/upload-url` | 서명 업로드 URL 발급 |
-| POST | `/trips/{tripId}/photos/complete` | 업로드 확정 |
+| POST | `/trips/{tripId}/photo-uploads` | 업로드 session 생성 |
+| PUT | `/photo-uploads/{uploadId}/content` | 압축한 사진을 VPS로 stream 업로드 |
+| POST | `/photo-uploads/{uploadId}/complete` | checksum 검증 후 사진 확정 |
 | GET | `/trips/{tripId}/photos` | 사진 목록 |
 | PATCH/DELETE | `/photos/{photoId}` | 캡션/연결 수정, 삭제 |
+| GET | `/photos/{photoId}/content?variant=thumbnail|display|original` | 권한 검사 후 사진 응답 |
 | GET | `/spaces/{spaceId}/stats` | 여행·지역·기록 통계 |
 
 여행 기념 카드의 조합과 이미지 렌더링은 P1에서 기기 기능으로 처리하므로 별도 API를 두지 않는다. 카드에 사용한 사진은 기존 권한 있는 사진 조회 API로 받는다.
@@ -380,10 +382,13 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 사진 업로드 순서:
 
 1. 앱에서 권한 확인, 선택/촬영, 방향 보정과 리사이즈
-2. `upload-url` 요청
-3. 서명 URL을 사용해 S3 호환 Storage에 직접 업로드
-4. `complete`에 크기, MIME, 촬영일, 연결 대상을 전달
-5. 서버 검증 후 Photo 생성, 썸네일 작업 큐 등록
+2. `photo-uploads`에서 최대 크기·MIME·checksum과 임시 upload ID 확정
+3. `content` 요청 body를 JVM 메모리에 적재하지 않고 임시 파일로 stream 저장
+4. `complete`에 크기, MIME, 촬영일과 연결 대상을 전달
+5. 서버가 실제 signature·checksum을 검증한 뒤 private volume으로 원자 이동하고 Photo 생성
+6. thumbnail/display variant 생성 작업은 동시 실행 수를 1로 제한
+
+다운로드는 파일 시스템 경로를 공개하지 않는다. Spring Security가 사용자의 공간 membership을 확인한 뒤 Nginx `X-Accel-Redirect` 또는 제한된 내부 경로로 파일을 전달한다. Range 요청과 적절한 private cache header를 지원한다.
 
 ## 10. 통합 검색과 실시간 이벤트
 
@@ -481,5 +486,5 @@ pending mutation 요청:
 - 전체 화면: 기기 화면에 맞는 1280~1920px 표시본 요청
 - 원본: 사용자가 확대하거나 기기에 저장할 때만 서명 URL 요청
 - 업로드: 앱에서 방향 보정 후 표시본을 만들고 Wi-Fi 전용 원본 업로드 옵션 지원
-- HTTP range, immutable object key, 긴 CDN/브라우저 캐시를 사용
+- HTTP range, immutable file key와 기기 파일 캐시를 사용
 - 데이터 절약 모드에서는 자동 동영상/원본 다운로드를 하지 않고 낮은 품질 썸네일을 우선
