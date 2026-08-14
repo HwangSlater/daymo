@@ -44,7 +44,7 @@
 - 서버 기능: 초대, 통합 검색, 일괄 가져오기, 사진 업로드 확정, SSE 동기화
 - 검색: 초기 PostgreSQL FTS와 `pg_trgm`
 - 앱 배포: EAS Build/Update, TestFlight, Android Internal Testing
-- 사진: S3 호환 외부 스토리지 권장. VPS 로컬 저장은 제한된 알파에서만 사용
+- 사진: ConoHa VPS private disk에 원본·표시본·썸네일 저장, restic으로 Daymo 전용 Google Drive에 암호화 백업
 - 관측: Sentry, Spring Boot Actuator, 구조화 서버 로그
 - 모바일 저장: SecureStore + AsyncStorage + SQLite + 파일 LRU 캐시
 - 동기화: ETag/304, opaque sync cursor, tombstone, SSE, 제한된 pending mutation

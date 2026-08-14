@@ -19,7 +19,7 @@
 - 개인정보 처리방침/이용약관 초안 위치 결정
 - 개인정보 처리자/보호책임자 연락처와 사업자 표시 정보 확정
 - ConoHa, Google Drive, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인
-- dev/staging/prod 프로젝트와 secret 관리 방식 생성
+- local과 VPS beta→production 전환 환경, 서로 다른 secret과 설정 관리 방식 생성
 - 공개 가입에 필요한 이메일 소유 확인, 가입·로그인 rate limit, 자동 가입 방어와 문의 경로 설계
 - [`10-implementation-readiness.md`](./10-implementation-readiness.md)의 D-001~D-004 결정
 - Node LTS/JDK 21 설치, `.nvmrc`·`engines`·앱 식별자 고정
@@ -190,6 +190,8 @@
 - 개인정보 유출 대응 연락망과 통지/신고 모의훈련
 
 완료 기준: 두 명 이상이 카카오톡 공지 없이 여행 하나를 생성·준비·기록·회고할 수 있고 치명적 데이터 손실이 없다.
+
+베타는 초대 코드 제한 없이 공개 회원가입을 허용하고 실제 계정·여행 데이터를 production까지 유지한다. 따라서 베타 시작 시점부터 개인정보 고지, 신고 대응, 백업과 운영 보안 게이트를 적용한다. production 전환 직전 전체 DB·사진 snapshot을 생성하고 복원 검증 후 도메인·환경 표시만 전환한다.
 
 ## 출시 후 최종 후순위
 

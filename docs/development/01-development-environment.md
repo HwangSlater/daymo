@@ -72,8 +72,10 @@ Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋�
 | 환경 | 용도 | 데이터 |
 | --- | --- | --- |
 | local | 개발자 PC, API·DB 통합 테스트 | 가명 시드 데이터만 |
-| staging | 로컬 또는 별도 소형 인스턴스/포트 | 테스트 계정과 가명 데이터 |
-| production | ConoHa VPS | 실제 운영 데이터 |
+| beta/staging | 구매한 ConoHa VPS의 최초 운영 모드 | 공개 가입·실사용 데이터, production 수준 보호 |
+| production | 같은 ConoHa VPS를 출시 점검 후 전환 | beta 데이터와 계정 유지 |
+
+2GB VPS에서 staging과 production JVM·DB를 동시에 상시 운영하지 않는다. VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 출시 체크리스트 통과 후 데이터 초기화 없이 production 설정과 `api.daymo.xyz`로 전환한다. beta부터 실사용 개인정보가 들어오므로 약관·처리방침·백업·신고 대응과 보안 기준은 production과 동일하게 적용한다.
 
 백엔드 권장 스택:
 

@@ -111,20 +111,24 @@ VPS 트래픽이 무제한이므로 외부 스토리지 이전을 검토할 이�
 
 ## 7. 배포 절차
 
-1. GitHub Actions가 Gradle test와 image build 수행
-2. commit SHA 태그로 GHCR push
-3. VPS에서 새 image pull
-4. PostgreSQL backup과 Flyway migration 사전 검증
-5. API 교체 후 `/actuator/health/readiness` 확인
-6. 실패 시 이전 SHA image로 복귀
-7. 앱 smoke test: 로그인, 홈, 여행 조회, 쓰기, 사진 URL
+`main` push가 production 자동 배포 trigger다. 별도 수동 승인 단계는 두지 않지만 필수 검증 실패 시 배포하지 않는다.
+
+1. GitHub Actions가 앱 typecheck/test와 Gradle test 수행
+2. 직전 production schema snapshot으로 Flyway migration 검증
+3. image build 후 commit SHA 태그로 GHCR push
+4. 배포 직전 PostgreSQL backup과 사진/DB 정합성 checkpoint 생성
+5. VPS에서 새 image pull, expand-contract migration 후 API 교체
+6. `/actuator/health/readiness`와 로그인·홈·여행 읽기 smoke test
+7. 실패 시 이전 SHA image로 자동 복귀하고 운영자에게 경고
 
 단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 두 JVM을 상시 운영하지 않는다.
+
+VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사진을 유지한 채 production으로 전환한다. 전환 직전 전체 snapshot을 만들고 별도 환경에서 복원을 확인한다. beta 데이터는 삭제하지 않으므로 beta 시작 전부터 production 수준의 약관·보안·백업·신고 운영을 적용한다.
 
 ## 8. 백업
 
 - PostgreSQL: 매일 `pg_dump` 암호화 후 VPS 밖으로 전송, 14~30일 보존
-- 사진: 오브젝트 스토리지 versioning/lifecycle 또는 별도 bucket 복제
+- 사진: Daymo 전용 Google Drive의 restic 암호화 snapshot
 - env와 secret: 비밀번호 관리 도구에 별도 보관
 - 월 1회 local/staging에 실제 복원 시험
 - 배포 직전 schema 변경이 크면 추가 backup
