@@ -163,6 +163,8 @@ Google Drive에는 노출 가능한 폴더 원본을 그대로 올리지 않는�
 
 백업은 사용자가 이미 보유한 Daymo 전용 Google 계정을 사용한다. 2단계 인증과 복구 수단을 설정하고, VPS에는 Google 비밀번호가 아니라 rclone OAuth token만 둔다. 최초 연결은 관리자 PC에서 브라우저로 승인한 뒤 암호화된 rclone 설정을 VPS secret 경로로 전달한다.
 
+백업 job은 매일 04:00 Asia/Seoul에 DB dump와 사진을 restic snapshot으로 저장하고 일간 14개·주간 8개·월간 6개를 보존한다. 한 단계라도 실패하면 Daymo 운영 이메일로 즉시 알린다. 매월 자동 표본 복원 결과를 확인하고, 분기마다 빈 local/staging 환경에서 전체 복원과 앱 smoke test를 직접 수행한다.
+
 ## 3. 로컬 개발 환경
 
 ### 현재 확인된 상태

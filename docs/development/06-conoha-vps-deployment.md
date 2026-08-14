@@ -155,10 +155,12 @@ OS security patch는 자동 설치한다. 자동 재부팅은 끄고 `/var/run/r
 
 ## 8. 백업
 
-- PostgreSQL: 매일 `pg_dump` 암호화 후 VPS 밖으로 전송, 14~30일 보존
+- PostgreSQL·사진: 매일 04:00 Asia/Seoul에 `pg_dump`와 사진을 하나의 외부 restic snapshot으로 생성
 - 사진: Daymo 전용 Google Drive의 restic 암호화 snapshot
 - env와 secret: 비밀번호 관리 도구에 별도 보관
-- 월 1회 local/staging에 실제 복원 시험
+- 보존: 일간 14개·주간 8개·월간 6개
+- 검증: 매월 자동 표본 복원, 분기마다 빈 local/staging에서 전체 수동 복원
+- 실패: 백업·upload·snapshot integrity 중 하나라도 실패하면 즉시 운영 이메일
 - schema 변경이 있는 모든 배포 직전에 추가 DB snapshot
 
 schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 직전 DB snapshot 성공을 배포 조건으로 둔다. migration은 `add → dual read/write 또는 backfill → 전환 → 후속 release에서 제거` 순서의 expand-contract만 허용한다. 같은 배포에서 기존 컬럼·테이블을 즉시 삭제하지 않는다.
@@ -179,14 +181,16 @@ schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 
   secret 원문
 ```
 
-권장 실행 흐름:
+매일 04:00 Asia/Seoul 실행 흐름:
 
 1. `pg_dump`를 임시 staging 경로에 생성하고 압축
 2. DB dump와 사진 volume의 파일 일관성을 확인
 3. restic snapshot을 `rclone:daymo-drive:daymo-backup`에 저장
 4. snapshot integrity 확인 후 임시 DB dump 삭제
-5. 성공·실패를 외부 모니터로 통지
-6. 보존 정책 적용: 일간 14개, 주간 8개, 월간 6개부터 시작
+5. 실패 단계가 하나라도 있으면 즉시 운영 이메일을 보내고 성공 시각을 기록
+6. `restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune`에 해당하는 보존 정책 적용
+
+매월 자동 검증은 최신 snapshot에서 DB를 격리된 임시 PostgreSQL container에 복원해 migration metadata와 주요 table count를 검사하고, 무작위 사진 표본의 checksum과 decode 가능 여부를 확인한 뒤 임시 data를 삭제한다. 분기마다 별도의 빈 local/staging 환경에서 DB와 전체 사진 경로를 수동 복원해 로그인·여행 조회·사진 열기 smoke test까지 수행한다.
 
 Google Drive 동기화 폴더를 단순 `sync`하지 않는다. 서버에서 파일이 손상·삭제되었을 때 원격도 똑같이 삭제될 수 있기 때문이다. restic repository password와 rclone OAuth token은 서로 분리해 root 전용 파일 또는 secret store에 둔다. 두 값을 모두 분실하면 복구할 수 없으므로 비밀번호 관리 도구에 별도 보관한다.
 
@@ -197,7 +201,7 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 - 복구 목표 시간이 길어짐
 - 공개 사용자 증가로 30GB 사진 상한이 부족해짐
 
-매월 자동 백업 성공만 확인하지 않고 별도 local/staging 서버에서 DB와 임의 사진을 실제 복원한다.
+백업 성공 로그만 신뢰하지 않고 매월 자동 표본 복원과 분기 전체 수동 복원을 모두 통과해야 복구 가능한 백업으로 본다.
 
 복원 문서에는 빈 서버에서 Docker 설치, secret 배치, DB 복원, image 실행, DNS 전환 순서를 포함한다.
 
