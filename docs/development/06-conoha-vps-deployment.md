@@ -36,7 +36,8 @@ Docker private network
 - PostgreSQL과 Actuator 상세 endpoint는 외부에 공개하지 않는다.
 - Spring Boot `8080`도 외부에 직접 공개하지 않고 모든 앱 API 요청을 Nginx를 통해서만 전달한다.
 - UFW와 ConoHa 보안 그룹을 동시에 확인한다.
-- 도메인의 A/AAAA 레코드를 VPS에 연결하고 Let's Encrypt 인증서를 자동 갱신한다.
+- 가비아 DNS의 `api.daymo.xyz` A record를 VPS 공인 IPv4에 직접 연결한다. 별도 proxy와 Cloudflare는 사용하지 않는다.
+- Nginx의 `api.daymo.xyz` 인증서는 Let's Encrypt로 무료 발급하고 자동 갱신 timer와 정기 dry-run을 확인한다.
 
 ## 3. 컨테이너와 JVM
 

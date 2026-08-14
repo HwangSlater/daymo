@@ -421,15 +421,20 @@ SSD 100GB
 
 ## 13. 도메인과 공개 페이지
 
-기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 구매하기로 결정했다. 현재 상태는 등록·DNS 연결 대기이며 등록기관은 구매 후 기록한다.
+기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 가비아에서 구매하고 가비아 DNS를 사용하기로 결정했다. 현재 상태는 등록·DNS 연결 대기다. Cloudflare와 별도 DNS proxy는 사용하지 않는다.
 
 예시:
 
 ```text
-api.daymo.xyz          운영 API
-staging-api.daymo.xyz  staging API
-www.daymo.xyz          약관·처리방침·삭제 요청
+daymo.xyz              Vercel 소개·약관·처리방침·계정 삭제 안내
+www.daymo.xyz          daymo.xyz로 redirect
+api.daymo.xyz          가비아 A record → ConoHa 운영 API
+staging-api.daymo.xyz  beta 기간 같은 VPS의 beta API, production 전환 후 제거 가능
 ```
+
+Vercel project에는 apex와 `www`만 연결하고 API·사진 요청은 보내지 않는다. Vercel Hobby는 비상업 beta·문서 제공 단계에서만 사용한다. 앱을 수익화하기 전 당시 Vercel 이용 조건을 다시 확인하고 Hobby가 허용되지 않으면 결제 여부를 자동 가정하지 말고 정적 문서를 다른 host로 이전한다.
+
+`api.daymo.xyz`는 가비아 A record로 VPS 공인 IPv4에 직접 연결한다. Nginx에서 Let's Encrypt 인증서를 발급하고 자동 갱신 timer, 갱신 dry-run과 만료 알림을 설정한다.
 
 필요한 공개 페이지:
 

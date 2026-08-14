@@ -162,6 +162,9 @@
 - [ ] GitHub Environment Secrets와 VPS root 전용 secret 파일의 권한·노출 여부 확인
 - [ ] OS security update 자동 설치와 재부팅 필요 알림 확인
 - [ ] OAuth 제공자별 운영 redirect 검증
+- [ ] 가비아의 apex/`www`→Vercel, `api`→ConoHa DNS와 proxy 미사용 확인
+- [ ] Let's Encrypt 자동 갱신 dry-run과 인증서 만료 알림 확인
+- [ ] Vercel 사용이 현재 비상업 beta의 이용 조건에 맞는지 확인
 - [ ] 개인정보 처리방침·이용약관·계정 삭제 URL 공개
 - [ ] 개인정보 항목/목적/근거/보유기간/위탁/국외 이전/파기/권리행사 표 검토
 - [ ] 선택 동의가 기본 해제이며 거부해도 가입 가능한지 확인
