@@ -91,7 +91,7 @@ React Native UI
 - `legal_acceptances`: `user_id`, `document_id`, `accepted`, `accepted_at`, `withdrawn_at`, `evidence_hash`
 - `privacy_requests`: `user_id`, `type(access|correction|deletion|restriction|withdrawal)`, `status`, `requested_at`, `completed_at`
 - `spaces`: `name`, `relationship_type(couple|friends|family|other)`, `owner_id`, `timezone`, `deletion_requested_at`, `deletion_scheduled_at`, `deleted_at`
-- `memberships`: `space_id`, `user_id`, `role(owner|editor|viewer)`, `nickname`, `joined_at`
+- `memberships`: `space_id`, `user_id`, `role(owner|editor|viewer)`, `nickname`, `joined_at`, `left_at`, `removed_by`
 - `space_invites`: `space_id`, `token_hash`, `role`, `max_uses(10)`, `used_count`, `expires_at`, `revoked_at`, `created_by`
 - `space_invite_acceptances`: `invite_id`, `membership_id`, `accepted_by`, `accepted_at`
 - `relationship_profiles`: `space_id`, `started_on nullable`
@@ -178,6 +178,8 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 여행의 기본 정리 동작은 되돌릴 수 있는 보관이다. 보관은 일반 목록에서 숨기는 정리 상태일 뿐 편집 잠금이 아니므로 owner와 editor는 보관 중에도 일정·장소·준비물·요리·기록·사진을 계속 추가·수정할 수 있다. 여행 삭제는 보관함의 별도 관리 메뉴에서만 시작하고 즉시 조회에서 숨긴 뒤 7일간 여행 휴지통에서 복구할 수 있다. 유예기간이 지나면 종속 데이터 purge를 시작한다.
 - 여행 종료일이 공간 timezone의 오늘보다 이전이어도 자동 보관하지 않는다. 지난 여행의 `여행·장소·요리` 탭에서 쓰기 동작을 시작할 때 기기 UI가 한 번 확인하고, 동의 시 `(tripId, deviceId)` 기준 10분간 다시 묻지 않는다. `준비·기록·사진`은 여행 후 정리를 고려해 확인 대상에서 제외한다. 이는 로컬 실수 방지 장치이며 서버 권한이나 version 검증을 대체하지 않는다.
 - 마지막 owner는 다른 멤버에게 owner를 이전하기 전에는 공간을 나갈 수 없다. 멤버가 본인뿐이면 명시적인 공간 삭제 절차만 제공한다.
+- 멤버가 스스로 공간을 나가도 그동안 만든 공동 일정·장소·준비·요리·기록·사진은 유지하고 작성자 계정 연결과 당시 표시 이름도 유지한다. 나가기 확인 전에 본인이 업로드한 사진을 모아 검토·삭제할 진입점을 제공한다. 완료 후 membership을 비활성화하고 해당 공간의 로컬 snapshot·서명 URL·사진 cache를 제거한다.
+- owner가 멤버를 내보낼 때도 공동 콘텐츠와 작성자 이름은 유지하고 membership 접근만 즉시 차단한다. 내보내기 동작에 해당 멤버 콘텐츠 일괄 삭제 옵션을 제공하지 않으며, 필요한 정리는 콘텐츠별 기존 권한과 7일 휴지통 절차를 따른다.
 - 공간 삭제는 owner가 공간 이름을 정확히 입력한 뒤 삭제 영향과 7일 유예 안내를 다시 확인해야 요청할 수 있다. 요청 즉시 일반 목록과 동기화 대상에서 숨기고, 7일 동안 owner가 복구할 수 있으며 유예기간이 지나면 공간과 종속 콘텐츠의 최종 삭제 작업을 시작한다.
 - 법적 문서 동의 이력은 문서 version별로 남기되 동의 철회 후 불필요한 증빙 데이터는 정해진 보유기간에 파기한다.
 - 계정 최종 삭제 시 공동 일정·장소·준비·요리·메모·사진은 공간 기록으로 유지하되 작성자 연결을 비식별 주체로 치환한다. 이메일·OAuth·프로필과 개인 설정은 삭제하고 공동 화면에는 `탈퇴한 멤버`로 표시한다.
