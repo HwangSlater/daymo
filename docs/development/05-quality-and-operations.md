@@ -59,6 +59,15 @@
 11. 오래된 cursor 만료→bootstrap 복구, 로그아웃→기기 공동 캐시 삭제
 12. 선택 동의 거부 상태 가입, 철회, 처리방침 version 변경, 탈퇴 후 데이터 제거
 
+### 계약·마이그레이션 테스트
+
+- Spring OpenAPI 생성물이 변경되면 앱 typed client 생성 diff를 함께 검토
+- 문서의 요청·응답 example을 OpenAPI validation test로 실행
+- 모든 Flyway migration을 빈 DB와 직전 production snapshot 구조에 각각 적용
+- migration 이후 앱의 최소 지원 schema/version이 bootstrap 가능한지 확인
+- dashboard 집계와 원본 테이블의 일정·장소·준비·지난 여행 수가 일치하는지 검증
+- bulk append/replace가 부분 성공 없이 원자적으로 처리되는지 검증
+
 ## 3. 접근성
 
 - 누를 수 있는 영역은 가능하면 44×44pt 이상
@@ -118,3 +127,14 @@
 - [ ] 앱 시작과 목록/사진 성능 예산 통과
 - [ ] 백업·복구와 장애 연락 경로 확인
 - [ ] TestFlight/Android 내부 테스트 승인
+
+## 8. 단계별 품질 게이트
+
+| 게이트 | 필수 조건 |
+| --- | --- |
+| 로컬 커밋 | typecheck, lint, 관련 단위 테스트, diff check |
+| 기능 단계 완료 | iOS/Android smoke, API/DB 테스트, UI 회귀, 오프라인/오류 상태 |
+| staging | migration rehearsal, 두 계정 E2E, 성능 예산, 로그 PII 점검 |
+| production 후보 | 보안·백업 복원·스토어/법률 체크리스트와 release build 실기기 검수 |
+
+의존성 감사의 취약점 개수만으로 강제 업그레이드하지 않는다. 실제 앱 번들/개발 도구 노출 여부, 공식 호환 버전, exploit 가능성과 업데이트 위험을 기록하고 높은 위험은 출시 전에 해결하거나 명시적으로 수용한다.

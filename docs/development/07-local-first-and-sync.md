@@ -52,6 +52,8 @@
 
 SQLite에는 서버 응답 JSON 전체를 한 blob으로만 쌓지 않는다. 조회가 잦은 `trips`, `schedule_items`, `trip_places`, `checklist_items`, `recipes`, `memos`는 최소 필드 table로 두고 서버 ID/version/update 시각을 함께 저장한다.
 
+로컬 migration은 앱 버전과 독립된 schema version을 가진다. migration 실패 시 DB 파일을 즉시 지우지 않고 진단 정보를 남긴 뒤, 서버가 원본인 snapshot만 재-bootstrap할 수 있는 복구 경로를 제공한다. 전송되지 않은 outbox와 draft는 복구 전에 별도 보존한다.
+
 ## 4. 읽기 흐름
 
 ```text
@@ -109,6 +111,8 @@ SQLite에는 서버 응답 JSON 전체를 한 blob으로만 쌓지 않는다. �
 - `last_successful_sync_at`
 - `bootstrap_schema_version`
 - `pending_mutation_count`
+
+outbox mutation에는 `mutation_id`, `space_id`, `entity`, `operation`, `entity_id`, `base_version`, `payload`, `dependency_ids`, `attempt_count`, `next_attempt_at`, `last_error_code`를 저장한다. 서로 의존하는 생성 작업은 client UUID로 연결하고 성공 전까지 후속 작업을 먼저 보내지 않는다.
 
 앱 시작, foreground 복귀, 수동 새로고침, SSE 이벤트 수신 시 동기화를 요청한다. 짧은 시간의 중복 요청은 하나로 합친다.
 

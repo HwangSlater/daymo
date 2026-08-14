@@ -20,6 +20,10 @@
 - 개인정보 처리자/보호책임자 연락처와 사업자 표시 정보 확정
 - ConoHa, S3, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인
 - dev/staging/prod 프로젝트와 secret 관리 방식 생성
+- [`10-implementation-readiness.md`](./10-implementation-readiness.md)의 D-001~D-004 결정
+- Node LTS/JDK 21 설치, `.nvmrc`·`engines`·앱 식별자 고정
+- npm audit 경고를 별도 Expo SDK 호환 브랜치에서 검증
+- 현재 모든 UI 동작을 [`09-ui-development-traceability.md`](./09-ui-development-traceability.md)로 회귀 고정
 
 결정 필요:
 
@@ -39,12 +43,15 @@
 - 공통 API 오류/로딩/재시도/토스트 처리
 - theme token과 기존 UI 회귀 테스트
 - CI에 typecheck, test, Expo export 추가
+- SQLite snapshot·SecureStore·outbox를 최소 spike로 먼저 검증
+- OpenAPI 생성 타입을 앱 typed client의 단일 계약으로 고정
 
 완료 기준: 더미 repository와 실제 repository를 바꿔 끼울 수 있고 기존 화면/딥링크가 동일하게 동작한다. 네트워크를 끊고 재실행해도 마지막 홈과 여행을 즉시 볼 수 있다.
 
 ## 2단계 — 인증과 프로필 (4~7일)
 
 - 이메일 회원가입·로그인·로그아웃·비밀번호 재설정
+- 기기별 로그인 session 조회·폐기
 - Apple·Google 로그인, 이어 Kakao·Naver 서버 OAuth
 - 프로필 이름/사진, 세션 자동 복원
 - 탈퇴와 토큰 폐기
@@ -64,6 +71,7 @@
 - 멤버별 담당 선택에 실제 membership 연결
 - 멤버 내보내기 확인창과 권한
 - 테마/다크모드/마지막 공간은 기기에 저장하고 membership은 서버에서 검증
+- 서비스 알림 설정과 마케팅 동의를 분리하고 push token 생명주기 연결
 
 검증: 서로 다른 두 계정, 친구 4명 공간, 권한 없는 공간 접근 차단.
 
@@ -74,6 +82,7 @@
 - 지역 선택 UX와 region code 저장
 - 홈 dashboard 집계와 빠른 이동
 - 완료 여행 아카이브, 여행 삭제 확인
+- 홈의 지난 여행 기록 카드와 정확한 기록 탭 이동
 - 시작 캐시로 홈 즉시 표시
 - ETag와 sync cursor로 변경분만 내려받고 삭제 tombstone 반영
 

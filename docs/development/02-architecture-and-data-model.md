@@ -5,7 +5,7 @@
 | 현재 UI | 핵심 도메인 | 서버 연결 시 유지할 동작 |
 | --- | --- | --- |
 | 로그인/회원가입 | Auth, User | 이메일과 Apple/Google/Kakao/Naver 로그인 |
-| 홈 | Dashboard | 다음 여행, 숙소, 일정·장소·준비 개수, 빠른 이동 |
+| 홈 | Dashboard | 다음 여행, 숙소, 일정·장소·준비 개수, 빠른 이동, 지난 여행 기록 |
 | 여행 목록/지도/캘린더 | Trip | 같은 여행 데이터를 세 가지 표현으로 조회 |
 | 여행 상세 `여행` | TripDay, Schedule, Stay, Transport, Reservation | 날짜별 전체 일정과 여행 정보 |
 | `장소` | Place, TripPlace, Tag | 검색·태그·후보/일정 상태, 숙소 등록, 지도 열기 |
@@ -79,6 +79,9 @@ React Native UI
 - `users`: `id`, `email`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
 - `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
 - `refresh_tokens`: `user_id`, `token_hash`, `expires_at`, `revoked_at`, `device_name`
+- `devices`: `user_id`, `installation_id`, `platform`, `app_version`, `last_seen_at`, `revoked_at`
+- `notification_preferences`: `user_id`, `space_id nullable`, `trip_updates`, `assignment_reminders`, `marketing`, `updated_at`
+- `push_tokens`: `device_id`, `provider`, `token_ciphertext`, `last_validated_at`, `revoked_at`
 - `legal_documents`: `type`, `version`, `locale`, `content_url`, `effective_at`, `required`
 - `legal_acceptances`: `user_id`, `document_id`, `accepted`, `accepted_at`, `withdrawn_at`, `evidence_hash`
 - `privacy_requests`: `user_id`, `type(access|correction|deletion|restriction|withdrawal)`, `status`, `requested_at`, `completed_at`
@@ -89,7 +92,7 @@ React Native UI
 
 ### 여행
 
-- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cover_photo_id`
+- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `cover_photo_id`
 - `trip_days`: `trip_id`, `date`, `day_index`
 - `schedule_items`: `trip_id`, `trip_day_id`, `start_at`, `end_at`, `title`, `type`, `note`, `trip_place_id`, `sort_order`
 - `transports`: `trip_id`, `direction(outbound|return)`, `method`, `departure_name`, `departure_at`, `arrival_name`, `arrival_at`, `booking_status`, `note`
@@ -118,10 +121,12 @@ React Native UI
 ### 메모와 기록
 
 - `memos`: `trip_id`, `body`, `author_id`, `edited_at`, `deleted_at`, `deleted_by`
-- `diaries`: `trip_id`, `author_id`, `body`, `written_on`
-- `photos`: `trip_id`, `uploader_id`, `storage_path`, `thumbnail_path`, `taken_at`, `caption`, `width`, `height`
+- `diaries`: `trip_id`, `author_id`, `title nullable`, `body`, `written_on`
+- `photos`: `trip_id`, `uploader_id`, `original_path nullable`, `display_path`, `thumbnail_path`, `taken_at`, `caption`, `width`, `height`, `checksum`, `status`
 - `photo_links`: `photo_id`, `target_type(trip|day|place|schedule|stay)`, `target_id`
 - `audit_logs`: `space_id`, `actor_id`, `action`, `target_type`, `target_id`, `metadata`
+
+기념 카드는 별도 공동 원본을 만들지 않는다. 선택한 사진 ID, 제목과 스타일은 기기 draft로 유지하고 렌더링 결과를 사용자가 저장·공유한다. 향후 멤버 간 카드 구성을 공유해야 할 때만 `keepsakes` 도메인을 추가한다.
 
 ## 4. 권한
 

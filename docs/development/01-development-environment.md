@@ -14,6 +14,20 @@
 | Android | Android Studio, SDK 35 이상, JDK 17 |
 | Web | Expo Web. 피드백용 모바일 폭 프리뷰이며 정식 웹 제품은 후순위 |
 
+### 2026-08-14 현재 개발 PC 감사
+
+| 항목 | 확인 결과 | 조치 |
+| --- | --- | --- |
+| Node.js | `v26.7.0` | 프로젝트 표준 LTS로 전환하고 `.nvmrc`/`engines`로 고정 필요 |
+| npm | `11.19.0` | 선택한 Node LTS에 포함된 버전으로 lockfile 재검증 |
+| Java | 설치되지 않음 | 백엔드 생성 전에 JDK 21 설치 필수 |
+| iOS bundle ID | `com.anonymous.daymo` | 실제 역도메인 식별자로 변경 필요 |
+| Android package | 미지정 | iOS ID와 함께 확정 필요 |
+| 테스트/lint | npm script 없음 | 기반 공사에서 typecheck·lint·unit test script 추가 |
+| 의존성 감사 | high 11, moderate 9 | `audit fix --force` 금지, Expo SDK 업그레이드 검증 작업으로 분리 |
+
+현재 Node 26에서 UI는 실행되지만 문서 기준과 다르다. 재현 가능한 개발을 위해 첫 코드 작업 전에 Node LTS를 하나로 확정한다. npm audit의 자동 제안은 Expo/React Native의 호환 조합을 깨뜨릴 수 있으므로 그대로 적용하지 않는다.
+
 의존성 설치는 반드시 저장소 루트에서 실행한다.
 
 ```bash
@@ -23,6 +37,8 @@ npm run android
 npm run web
 npx tsc --noEmit
 ```
+
+첫 기반 커밋에서 `.nvmrc`, `.env.example`, `package.json engines`와 `typecheck`, `lint`, `test`, `test:e2e`, `export` npm script를 추가한다.
 
 네이티브 의존성을 추가할 때는 Expo 호환 버전을 위해 `npm install`보다 `npx expo install <package>`를 우선한다.
 
@@ -44,6 +60,8 @@ npx tsc --noEmit
 - Expo Linking: 네이버·카카오·웹 지도 링크
 - Jest + React Native Testing Library: 단위·컴포넌트 테스트
 - Maestro: 실제 기기 흐름 E2E
+
+`결정 필요`: Expo SDK 54를 유지해 먼저 기능 개발할지, 기반 공사 전에 지원되는 새 SDK로 한 번 업그레이드할지 확정한다. 현재 의존성 감사 결과 때문에 권장안은 **기능 코드를 넣기 전에 별도 업그레이드 브랜치에서 최신 안정 SDK 호환성을 검증하고, 실패하면 SDK 54 기준 보안 패치 가능 범위를 기록한 뒤 진행**하는 것이다.
 
 패키지는 한 단계씩 추가하고 Expo SDK 54 호환성을 확인한다. 라우터 도입은 현재 단일 화면 파일을 기능별로 분리하는 작업과 함께 진행한다.
 

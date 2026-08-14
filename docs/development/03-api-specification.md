@@ -45,7 +45,7 @@
 }
 ```
 
-주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `VALIDATION_ERROR(422)`, `RATE_LIMITED(429)`다.
+주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `RATE_LIMITED(429)`다.
 
 ### 캐시 유효성 기본값
 
@@ -69,8 +69,13 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | POST | `/auth/login` | 이메일 로그인 |
 | POST | `/auth/logout` | 현재 세션 종료 |
 | POST | `/auth/refresh` | 세션 갱신 |
+| POST | `/auth/password/forgot` | 비밀번호 재설정 메일 요청 |
+| POST | `/auth/password/reset` | 일회용 token으로 비밀번호 변경 |
+| GET | `/auth/sessions` | 로그인된 기기/세션 목록 |
+| DELETE | `/auth/sessions/{sessionId}` | 특정 기기 세션 폐기 |
 | GET | `/auth/oauth/{provider}/start` | OAuth 시작 (`apple/google/kakao/naver`) |
 | GET | `/auth/oauth/{provider}/callback` | code 교환 후 앱으로 복귀 |
+| POST | `/auth/oauth/exchange` | 일회용 앱 로그인 code를 session token으로 교환 |
 | GET | `/me` | 내 프로필·참여 공간 목록 |
 | PATCH | `/me` | 이름/프로필 사진 수정 |
 | DELETE | `/me` | 계정 탈퇴 요청 |
@@ -102,6 +107,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
   "ageEligibilityConfirmed": true
 }
 ```
+
+OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버가 1분 이내 만료되고 한 번만 쓸 수 있는 `loginCode`를 앱 링크로 돌려주고 앱은 `/auth/oauth/exchange`로 session token을 교환한다. provider 시작 요청에는 앱이 만든 `state`와 PKCE challenge를 사용한다.
 
 - 서비스 이용약관 동의와 개인정보 처리 관련 고지/동의는 문서 종류와 법적 근거를 구분한다.
 - 계약 이행에 필요한 개인정보까지 관행적으로 모두 ‘필수 동의’로 만들지 않는다.
@@ -168,11 +175,14 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
   "regionName": "서울",
   "startDate": "2026-08-21",
   "endDate": "2026-08-23",
-  "summary": "숙소에서 수다와 밀푀유나베"
+  "summary": "숙소에서 수다와 밀푀유나베",
+  "cookingEnabled": true
 }
 ```
 
 서버는 여행과 기간 내 `trip_days`를 한 트랜잭션으로 생성한다. 종료일은 시작일보다 빠를 수 없으며 초기 최대 기간은 60일로 제한한다.
+
+`cookingEnabled`는 요리 탭 표시의 서버 원본이다. 숙소의 주방 여부를 자동 확정하지 않고 숙소 등록/수정 시 사용자에게 변경을 제안한다.
 
 대시보드 응답:
 
@@ -182,7 +192,10 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
     "nextTrip": { "id": "uuid", "title": "서울 구로구", "startDate": "2026-08-21", "endDate": "2026-08-23" },
     "stay": { "name": "JS호텔", "checkInAt": "2026-08-21T06:00:00Z" },
     "counts": { "schedule": 3, "places": 8, "packingDone": 2, "packingTotal": 6 },
-    "relationshipDay": null
+    "relationshipDay": null,
+    "recentCompletedTrips": [
+      { "id": "uuid", "title": "부산", "startDate": "2026-07-24", "endDate": "2026-07-26", "summary": "바다 산책과 단체 사진", "accentColor": "#19B6A3" }
+    ]
   }
 }
 ```
@@ -231,7 +244,10 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | POST | `/trip-places/{tripPlaceId}/register-stay` | 숙소로 등록 |
 | POST | `/places/resolve-external-link` | 선택적으로 단축 URL 확인/장소 정보 보강 |
 | POST | `/trips/{tripId}/places/import` | 여러 장소 붙여넣기 |
-| GET | `/spaces/{spaceId}/tags?scope=place` | 사용 중인 태그 |
+| GET | `/spaces/{spaceId}/tags?scope={scope}` | 범위별 사용 중인 태그 (`place|packing|ingredient`) |
+| POST | `/spaces/{spaceId}/tags` | 명시적으로 사용자 태그 생성 |
+| PATCH | `/tags/{tagId}` | 태그 이름·색 수정 |
+| DELETE | `/tags/{tagId}` | 사용 중이 아닌 태그 삭제 |
 
 장소 추가 요청:
 
@@ -247,6 +263,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 ```
 
 공유 텍스트의 이름·주소·URL 파싱은 기기에서 먼저 수행하며 API를 호출하지 않는다. 단축 URL redirect나 외부 장소 정보 보강이 필요할 때만 다음 요청을 사용한다.
+
+장소·준비물·재료 쓰기 요청의 `tags` 문자열은 서버가 공간과 scope 안에서 정규화해 기존 태그를 연결하거나 새 태그를 upsert한다. 명시적 태그 API는 이름·색 관리용이며 일반 추가 화면에서 태그 생성을 위해 별도 선행 호출하지 않는다.
 
 ```json
 { "provider": "naver_map", "url": "https://naver.me/FJOPOMvx" }
@@ -291,6 +309,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 완료 API 응답에는 `completedAt`, `completedBy`, 최신 `version`이 포함된다. 동일 여행에서 정규화한 이름과 담당이 같은 미완료 항목은 `duplicateCandidate`로 경고하되 저장을 막지 않는다.
 
+일괄 API는 `mode=append|replace`를 명시한다. `replace`는 온라인 전용이며 현재 version, 삭제/추가 preview token과 확인용 idempotency key를 요구하고 전체를 한 transaction으로 처리한다. 행별 validation 오류가 하나라도 있으면 원본 목록을 변경하지 않는다.
+
 ## 8. 요리와 재료
 
 | Method | Path | 용도 |
@@ -331,6 +351,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | PATCH/DELETE | `/photos/{photoId}` | 캡션/연결 수정, 삭제 |
 | GET | `/spaces/{spaceId}/stats` | 여행·지역·기록 통계 |
 
+여행 기념 카드의 조합과 이미지 렌더링은 P1에서 기기 기능으로 처리하므로 별도 API를 두지 않는다. 카드에 사용한 사진은 기존 권한 있는 사진 조회 API로 받는다.
+
 메모 생성:
 
 ```json
@@ -365,7 +387,7 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 ## 10. 통합 검색과 실시간 이벤트
 
-`GET /spaces/{spaceId}/search?q=은행골&types=trip,place,schedule,recipe,packing,memo&limit=20`
+`GET /spaces/{spaceId}/search?q=은행골&types=trip,place,schedule,recipe,packing,diary,photo,memo&limit=20`
 
 결과 공통 형태:
 
@@ -383,7 +405,19 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 `GET /spaces/{spaceId}/events`는 인증된 SSE 연결이다. 이벤트에는 `entity`, `entityId`, `tripId`, `operation`, `updatedAt`만 담고 상세 데이터는 권한이 적용된 API로 다시 조회한다. 모바일 백그라운드에서는 연결 유지를 보장하지 않고 앱 활성화 시 갱신한다.
 
-## 11. 증분 동기화 API
+모바일 SSE 구현이 표준 `EventSource`에서 Bearer header를 안정적으로 전달하지 못하는 경우를 대비해 `POST /spaces/{spaceId}/events/ticket`에서 60초 이내 만료되는 1회용 연결 ticket을 발급한다. 장기 access token을 URL에 넣지 않는다. 기반 단계에서 development build로 연결을 검증한 뒤 SSE가 불안정하면 P0는 foreground sync polling으로 출시하고 실시간 연결을 P1로 미룬다.
+
+## 11. 알림 설정과 기기
+
+| Method | Path | 용도 |
+| --- | --- | --- |
+| GET/PATCH | `/me/notification-preferences` | 여행 변경·담당·마케팅 알림 설정 |
+| POST | `/me/devices/push-token` | 현재 설치의 push token 등록/갱신 |
+| DELETE | `/me/devices/{deviceId}/push-token` | 로그아웃 또는 권한 해제 시 token 폐기 |
+
+OS 알림 권한 요청 전 설명, 권한 상태 확인과 설정 앱 이동은 기기에서 처리한다. 마케팅 수신 동의와 서비스 동작 알림 설정은 법적 의미가 다르므로 한 필드로 합치지 않는다.
+
+## 12. 증분 동기화 API
 
 | Method | Path | 용도 |
 | --- | --- | --- |
@@ -439,7 +473,7 @@ pending mutation 요청:
 - 온라인 권장: 일정 순서 변경, 많은 항목 일괄 추가
 - 온라인 필수: 삭제, 목록 교체, 멤버 내보내기, 권한/공간 변경, 계정 탈퇴
 
-## 12. 사진 전송 최적화
+## 13. 사진 전송 최적화
 
 사진 응답은 `thumbnailUrl`, `displayUrl`, `originalUrl nullable`, 각 byte 크기와 checksum을 분리한다.
 
