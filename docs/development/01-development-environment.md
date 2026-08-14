@@ -191,6 +191,8 @@ docs/development/
 가비아에서 `daymo.xyz` DNS를 관리한다. apex/`www`는 Vercel의 소개·약관·개인정보처리방침·계정 삭제 안내로 연결하고 `api` A record는 ConoHa VPS 공인 IP에 직접 연결한다. Cloudflare와 별도 proxy는 사용하지 않는다. API HTTPS는 Nginx와 Let's Encrypt로 자동 발급·갱신한다. Vercel Hobby는 비상업 beta에만 사용하며 수익화 전에 당시 이용 조건을 다시 확인하고 부적합하면 정적 문서를 다른 host로 이전한다.
 - 서버는 GitHub Actions에서 테스트·이미지 빌드 후 GHCR에 올리고, VPS가 고정 태그 이미지를 pull해 무중단에 가깝게 교체한다.
 
+PR CI는 client `typecheck`·`lint`·unit test와 server Gradle test·Testcontainers PostgreSQL test를 매번 실행한다. EAS iOS/Android native build는 일반 PR에서 실행하지 않고 beta 또는 production release candidate에서만 두 플랫폼을 같은 release 단위로 생성한다. Dependabot은 매주 client/server 의존성을 생태계별 묶음 PR로 만들며 자동 merge하지 않는다.
+
 CI 최소 작업:
 
 1. `npm ci`

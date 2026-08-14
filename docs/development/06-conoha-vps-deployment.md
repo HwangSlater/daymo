@@ -117,7 +117,7 @@ VPS 트래픽이 무제한이므로 외부 스토리지 이전을 검토할 이�
 
 pull request가 필수 CI를 통과해 `main`에 merge되는 것이 production 자동 배포 trigger다. 별도 수동 배포 승인 단계는 두지 않지만 필수 검증 실패 시 merge와 배포를 막는다.
 
-1. GitHub Actions가 앱 typecheck/test와 Gradle test 수행
+1. GitHub Actions가 앱 typecheck·lint·unit test와 Gradle·Testcontainers DB test 수행
 2. 직전 production schema snapshot으로 Flyway migration 검증
 3. image build 후 commit SHA 태그로 GHCR push
 4. schema 변경이 있으면 배포 직전 PostgreSQL snapshot 생성과 성공 여부 확인, 사진/DB 정합성 checkpoint 생성
@@ -141,6 +141,8 @@ VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사
 - squash merge만 허용하고 merge commit과 rebase merge는 비활성화
 - merge 후에만 production 자동 배포
 - 비상시 관리자 우회는 허용하되 사유와 후속 검증을 운영 기록에 남김
+
+EAS iOS/Android build는 server 자동 배포 workflow와 분리한다. 일반 PR에서는 실행하지 않고 beta/production release candidate에서만 두 플랫폼을 함께 생성한다. Dependabot은 매주 ecosystem별 묶음 PR만 만들고 자동 merge 권한은 주지 않는다.
 
 ### 서버 계정과 시크릿
 
