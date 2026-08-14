@@ -9,12 +9,12 @@
 | 항목 | 현재 상태 | 판정 |
 | --- | --- | --- |
 | UI | 10단계 검토 완료, 홈 지난 여행 추가 | 기준선 태그 필요 |
-| 앱 구조 | `WarmAppShell.tsx`, `WarmTripDetail.tsx` 대형 로컬 상태 | 점진 분리 필요 |
+| 앱 구조 | `mobile/src/WarmAppShell.tsx`, `mobile/src/WarmTripDetail.tsx` 대형 로컬 상태 | 점진 분리 필요 |
 | API/서버 | 문서만 존재 | Spring Boot 프로젝트 없음 |
 | Node | v26.7.0 | 표준 LTS와 불일치 |
 | Java | 없음 | JDK 21 설치 필요 |
-| iOS ID | `com.hwangslater.daymo` | 확정·`app.json` 반영 완료 |
-| Android ID | `com.hwangslater.daymo` | 확정·`app.json` 반영 완료 |
+| iOS ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
+| Android ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
 | 자동 검사 | `tsc`만 수동 실행 | lint/test/CI 필요 |
 | npm audit | high 11, moderate 9 | 강제 수정 금지, SDK 호환 업그레이드 검증 |
 | 개인정보/인프라 | 개인 운영 확정, 일본 VPS 구매 예정 | 구매·실제 리전·외부 제공자 계약 확인 전 운영 데이터 사용 금지 |
@@ -210,7 +210,7 @@
 
 1. D-001~D-003 승인
 2. Node LTS, npm, JDK 21, Android SDK 설치 확인
-3. `.nvmrc`, `engines`, `.env.example` 작성
+3. 루트 `.nvmrc`, `mobile/package.json` engines, `mobile/.env.example` 작성
 4. iOS bundle ID, Android package, 앱 링크 scheme 분리
 5. local과 VPS beta→production API URL·secret 주입 경계 설정
 
@@ -287,7 +287,7 @@
 - [x] D-001~D-004 승인 완료
 - [ ] 기준선 commit/tag와 회귀 캡처 확보
 - [ ] Node LTS와 JDK 21 설치 확인
-- [ ] `npm ci`, iOS, Android, local server 실행 문서 검증
+- [ ] `mobile/`에서 `npm ci`, iOS, Android와 `server/` local 실행 문서 검증
 - [ ] 앱/서버 식별자와 dev 환경 변수 확정
 - [ ] client/server CI 통과
 - [ ] Flyway V1과 Testcontainers 통과
