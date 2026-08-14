@@ -389,7 +389,7 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 
 사진 업로드 순서:
 
-1. 앱에서 권한 확인, 선택/촬영, 방향 보정과 리사이즈
+1. 앱에서 권한 확인, 선택/촬영, 원본 checksum·크기·MIME 확인
 2. `photo-uploads`에서 최대 크기·MIME·checksum과 임시 upload ID 확정
 3. `content` 요청 body를 JVM 메모리에 적재하지 않고 임시 파일로 stream 저장
 4. `complete`에 크기, MIME, 촬영일과 연결 대상을 전달
@@ -488,11 +488,11 @@ pending mutation 요청:
 
 ## 13. 사진 전송 최적화
 
-사진 응답은 `thumbnailUrl`, `displayUrl`, `originalUrl nullable`, 각 byte 크기와 checksum을 분리한다.
+사진 응답은 권한이 필요한 `thumbnailUrl`, `displayUrl`, `originalUrl`, 각 byte 크기와 checksum을 분리한다. Daymo에 추가가 완료된 사진은 원본을 반드시 보유한다.
 
 - 목록: 320~480px 썸네일만 요청
 - 전체 화면: 기기 화면에 맞는 1280~1920px 표시본 요청
-- 원본: 사용자가 확대하거나 기기에 저장할 때만 서명 URL 요청
-- 업로드: 앱에서 방향 보정 후 표시본을 만들고 Wi-Fi 전용 원본 업로드 옵션 지원
+- 원본: 사용자가 확대하거나 기기에 저장할 때만 다운로드 요청
+- 업로드: 선택한 원본을 VPS에 저장하고 서버 작업이 표시본·썸네일을 생성. 완료 전에는 `uploading` 상태 표시
 - HTTP range, immutable file key와 기기 파일 캐시를 사용
-- 데이터 절약 모드에서는 자동 동영상/원본 다운로드를 하지 않고 낮은 품질 썸네일을 우선
+- 데이터 절약 모드에서도 사용자가 명시적으로 추가한 사진 원본 업로드는 필요하지만 예상 전송량과 Wi-Fi 대기 선택을 먼저 보여 준다. 원본 자동 다운로드는 하지 않고 낮은 품질 썸네일을 우선한다.

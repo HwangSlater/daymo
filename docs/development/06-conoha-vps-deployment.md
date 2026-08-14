@@ -52,7 +52,7 @@ Spring Boot JVM 시작 옵션 권장값:
 - Tomcat worker thread는 초기 40개 안팎으로 제한한다.
 - HikariCP pool은 API replica 하나 기준 최대 10개에서 시작한다.
 - 큰 JSON/파일을 JVM 메모리에 통째로 읽지 않고 stream 처리한다.
-- 이미지 리사이즈는 가급적 앱에서 먼저 하고, 서버 변환 작업은 동시 실행 수를 1로 제한한다.
+- 원본은 변경하지 않고 저장하며 서버의 표시본·썸네일 변환 작업은 동시 실행 수를 1로 제한한다.
 - `restart: unless-stopped`, health check, log rotation을 설정한다.
 
 ## 4. PostgreSQL 초기값
