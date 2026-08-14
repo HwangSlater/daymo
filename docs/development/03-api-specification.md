@@ -383,6 +383,8 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 
 클라이언트는 `permissions`에 따라 수정·삭제를 표시한다. 삭제 응답 이후 목록과 상단 메모 개수/미리보기를 함께 갱신한다.
 
+메모 삭제는 공간 owner와 editor에게 허용하며 viewer는 차단한다. 타인의 메모 삭제도 동일하게 허용하지만 서버는 `deletedBy`, `deletedAt`과 audit log를 남기고 기본 조회에서 제외한다.
+
 사진 업로드 순서:
 
 1. 앱에서 권한 확인, 선택/촬영, 방향 보정과 리사이즈
