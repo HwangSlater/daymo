@@ -67,7 +67,7 @@ Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋�
 
 ## 3. 백엔드 환경
 
-백엔드는 사용자의 주 언어와 보유 인프라에 맞춰 **Java 21 + Spring Boot 3.x 모놀리식 API**로 구축한다. 운영 서버는 ConoHa VPS `3Core / RAM 2GB / SSD 100GB / 트래픽 무제한`이다. 초기 규모에서는 API와 PostgreSQL을 같은 VPS에 배치하되 컨테이너별 메모리 상한을 둔다.
+백엔드는 사용자의 주 언어와 보유 인프라에 맞춰 **Java 21 + Spring Boot 3.x 모놀리식 API**로 구축한다. 운영 서버는 Ubuntu 24.04 LTS 기반 ConoHa VPS `3Core / RAM 2GB / SSD 100GB / 트래픽 무제한`이다. Nginx·API·PostgreSQL은 Docker Compose로 같은 VPS에서 운영하고 컨테이너별 메모리 상한을 둔다. PostgreSQL data는 container layer가 아닌 private named/bind volume에 보존한다.
 
 | 환경 | 용도 | 데이터 |
 | --- | --- | --- |

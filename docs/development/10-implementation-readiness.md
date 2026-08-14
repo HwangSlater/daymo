@@ -141,6 +141,10 @@
 | D-019A | 배포 계정 | **결정 완료: 제한된 `daymo-deploy` 사용**, root 직접 배포 금지 |
 | D-019B | 운영 secret | **결정 완료: GitHub Environment Secrets + VPS root 전용 `0600` 파일** |
 | D-019C | OS update | **결정 완료: security patch 자동 설치**, 재부팅은 알림 후 직접 수행 |
+| D-020 | VPS OS | **결정 완료: Ubuntu 24.04 LTS** |
+| D-020A | 서버 실행 | **결정 완료: Docker Compose로 Nginx·Spring Boot·PostgreSQL 운영** |
+| D-020B | 외부 요청 | **결정 완료: Nginx만 80/443 공개**, Spring Boot 직접 공개 금지 |
+| D-020C | PostgreSQL 위치 | **결정 완료: 같은 VPS의 private Docker volume**, 외부 DB 미사용 |
 
 ## 4. 문서에서 보완한 계약
 

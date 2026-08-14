@@ -7,8 +7,8 @@
 - SSD: 100GB
 - Traffic: 무제한
 - Region/country: 계약한 VPS의 실제 데이터센터 국가를 출시 전 확인
-- 권장 OS: Ubuntu 24.04 LTS
-- 구성: Nginx + Spring Boot + PostgreSQL을 Docker Compose로 운영
+- OS: Ubuntu 24.04 LTS로 확정
+- 구성: Nginx + Spring Boot + PostgreSQL을 Docker Compose로 같은 VPS에서 운영
 - 빌드: GitHub Actions에서 수행. VPS는 완성된 image만 pull
 
 이 사양은 초기 소수 사용자와 수백~수천 건의 여행 데이터에는 충분하다. 트래픽이 무제한이므로 월 전송량은 우선 병목에서 제외한다. 일반 CRUD보다 사진 저장 용량, 이미지 변환, 메모리 제한 없는 JVM에서 먼저 문제가 발생할 가능성이 크다.
@@ -34,6 +34,7 @@ Docker private network
 
 - SSH 22번은 가능하면 관리자 IP로 제한하고 key 인증만 허용한다. `PasswordAuthentication no`, `PermitRootLogin no`를 적용한다.
 - PostgreSQL과 Actuator 상세 endpoint는 외부에 공개하지 않는다.
+- Spring Boot `8080`도 외부에 직접 공개하지 않고 모든 앱 API 요청을 Nginx를 통해서만 전달한다.
 - UFW와 ConoHa 보안 그룹을 동시에 확인한다.
 - 도메인의 A/AAAA 레코드를 VPS에 연결하고 Let's Encrypt 인증서를 자동 갱신한다.
 
@@ -60,6 +61,8 @@ Spring Boot JVM 시작 옵션 권장값:
 ## 4. PostgreSQL 초기값
 
 2GB 단일 서버에서 보수적으로 시작한다.
+
+PostgreSQL은 같은 Compose project의 private network와 VPS private volume을 사용한다. DB port는 host/public interface에 publish하지 않으며 container를 교체해도 data volume은 유지한다. 외부 managed DB는 초기 범위에 포함하지 않는다.
 
 ```text
 shared_buffers = 128MB

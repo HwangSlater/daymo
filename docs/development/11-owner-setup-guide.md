@@ -415,6 +415,8 @@ SSD 100GB
 
 외부에는 80/443만 기본 공개하고 PostgreSQL 5432, Spring Boot 8080과 Actuator 상세 endpoint는 공개하지 않는다. SSH 22는 관리자 IP 제한을 권장한다.
 
+서버 OS는 Ubuntu 24.04 LTS로 고정한다. Nginx·Spring Boot·PostgreSQL은 하나의 Docker Compose project로 실행하되 private network로 분리한다. 외부 요청은 Nginx 80/443만 받고 API 8080과 DB 5432는 host에 publish하지 않는다. PostgreSQL data는 container 삭제와 무관한 VPS private volume에 보존하며 초기에는 외부 DB 서비스를 구매하지 않는다.
+
 ## 13. 도메인과 공개 페이지
 
 기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 구매하기로 결정했다. 현재 상태는 등록·DNS 연결 대기이며 등록기관은 구매 후 기록한다.
