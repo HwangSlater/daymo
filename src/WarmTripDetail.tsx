@@ -2308,6 +2308,7 @@ function Preparation({
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [names, setNames] = useState("");
   const [quantity, setQuantity] = useState("");
   const [owner, setOwner] = useState<PackingItem["owner"]>("미정");
@@ -2329,17 +2330,15 @@ function Preparation({
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
   const [collapsedPackingTags, setCollapsedPackingTags] = useState<string[]>([]);
-  const completedCount = done.filter((name) =>
-    items.some((item) => item.name === name),
-  ).length;
+  const completedCount = items.filter((item) => done.includes(item.id)).length;
   const percentage = items.length
     ? Math.round((completedCount / items.length) * 100)
     : 0;
   const visibleItems = items.filter((item) => {
     const matchesFilter =
       filter === "전체" ||
-      (filter === "남은 준비" && !done.includes(item.name)) ||
-      (filter === "완료" && done.includes(item.name));
+      (filter === "남은 준비" && !done.includes(item.id)) ||
+      (filter === "완료" && done.includes(item.id));
     const matchesOwner = ownerFilter === "전체" || item.owner === ownerFilter;
     const matchesTag =
       tagFilter === "전체 태그" || packingTags(item).includes(tagFilter);
@@ -2350,13 +2349,28 @@ function Preparation({
     "전체 태그",
     ...Array.from(new Set(items.flatMap((item) => packingTags(item)))),
   ];
+  useEffect(() => {
+    if (tagFilter !== "전체 태그" && !managementTags.includes(tagFilter)) {
+      setTagFilter("전체 태그");
+    }
+  }, [items, tagFilter]);
   const draftPackingTags = tagText
     .split(/[,#\n]/)
     .map((tag) => tag.trim())
-    .filter(Boolean);
-  const newPackingCount = names
+    .filter(Boolean)
+    .filter((tag, index, tags) => tags.indexOf(tag) === index);
+  const parsedPackingNames = names
     .split(/[\n,]/)
-    .filter((name) => name.trim()).length;
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .filter((name, index, values) => values.findIndex((value) => value.toLowerCase() === name.toLowerCase()) === index);
+  const duplicateEditedPacking = Boolean(editingId) && items.some(
+    (item) => item.id !== editingId && item.owner === owner && item.name.trim().toLowerCase() === parsedPackingNames[0]?.toLowerCase(),
+  );
+  const newPackingNames = parsedPackingNames.filter((name) =>
+    !items.some((item) => item.owner === owner && item.name.trim().toLowerCase() === name.toLowerCase()),
+  );
+  const newPackingCount = editingId ? Number(Boolean(parsedPackingNames[0]) && !duplicateEditedPacking) : newPackingNames.length;
   const availableTags = managementTags.slice(1);
   const quickTags = Array.from(
     new Set([
@@ -2373,11 +2387,18 @@ function Preparation({
       }, new Map<string, PackingItem[]>()),
     );
   const remainingGroups = groupByPrimaryTag(
-    visibleItems.filter((item) => !done.includes(item.name)),
+    visibleItems.filter((item) => !done.includes(item.id)),
   );
   const completedGroups = groupByPrimaryTag(
-    visibleItems.filter((item) => done.includes(item.name)),
+    visibleItems.filter((item) => done.includes(item.id)),
   );
+  const countForOwner = (target: "전체" | PackingItem["owner"]) =>
+    items.filter((item) => {
+      const matchesOwner = target === "전체" || item.owner === target;
+      const matchesStatus = filter === "전체" || (filter === "완료" ? done.includes(item.id) : !done.includes(item.id));
+      const matchesTag = tagFilter === "전체 태그" || packingTags(item).includes(tagFilter);
+      return matchesOwner && matchesStatus && matchesTag;
+    }).length;
   const selectOwnerFilter = (nextOwner: "전체" | PackingItem["owner"]) => {
     setOwnerFilter(nextOwner);
     if (nextOwner !== "전체") {
@@ -2386,30 +2407,43 @@ function Preparation({
       );
     }
   };
+  const openPackingCreate = () => {
+    setEditingId(null);
+    setNames("");
+    setQuantity("");
+    setOwner("미정");
+    setTagText("");
+    setAdding(true);
+  };
   const submit = () => {
-    const parsed = names
-      .split(/[\n,]/)
-      .map((name) => name.trim())
-      .filter(Boolean);
-    if (!parsed.length) return;
+    if (!newPackingCount) return;
     const stamp = Date.now();
-    setItems((current) => [
-      ...current,
-      ...parsed.map((name, index) => ({
-        id: `${stamp}-${index}`,
-        name,
-        quantity: quantity.trim(),
-        owner,
-        tags: draftPackingTags,
-      })),
-    ]);
+    if (editingId) {
+      const nextName = parsedPackingNames[0];
+      setItems((current) => current.map((item) => item.id === editingId
+        ? { ...item, name: nextName, quantity: quantity.trim(), owner, tags: draftPackingTags }
+        : item));
+    } else {
+      setItems((current) => [
+        ...current,
+        ...newPackingNames.map((name, index) => ({ id: `${stamp}-${index}`, name, quantity: quantity.trim(), owner, tags: draftPackingTags })),
+      ]);
+    }
     setNames("");
     setQuantity("");
     setTagText("");
+    setEditingId(null);
     setAdding(false);
-    notify(`준비물 ${parsed.length}개를 추가했어요`);
+    notify(editingId ? "준비물 정보를 수정했어요" : `준비물 ${newPackingNames.length}개를 추가했어요`);
   };
   const assignOwner = (item: PackingItem, nextOwner: PackingItem["owner"]) => {
+    const duplicate = items.some(
+      (value) => value.id !== item.id && value.owner === nextOwner && value.name.trim().toLowerCase() === item.name.trim().toLowerCase(),
+    );
+    if (duplicate) {
+      notify(`${packingOwnerName(nextOwner)}의 목록에 같은 준비물이 있어요`);
+      return;
+    }
     setItems((current) =>
       current.map((value) =>
         value.id === item.id ? { ...value, owner: nextOwner } : value,
@@ -2419,7 +2453,36 @@ function Preparation({
     notify(`${item.name} 담당을 ${packingOwnerName(nextOwner)}(으)로 변경했어요`);
   };
   const complete = (item: PackingItem) => {
-    toggle(item.name);
+    toggle(item.id);
+  };
+  const openPackingEdit = (item: PackingItem) => {
+    setAssigningItem(null);
+    setEditingId(item.id);
+    setNames(item.name);
+    setQuantity(item.quantity);
+    setOwner(item.owner);
+    setTagText(packingTags(item).join(", "));
+    setAdding(true);
+  };
+  const closePackingForm = () => {
+    setAdding(false);
+    setEditingId(null);
+    setNames("");
+    setQuantity("");
+    setTagText("");
+    setOwner("미정");
+  };
+  const deletePacking = () => {
+    const target = items.find((item) => item.id === editingId);
+    if (!target) return;
+    Alert.alert("준비물을 삭제할까요?", target.name, [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: () => {
+        setItems((current) => current.filter((item) => item.id !== target.id));
+        closePackingForm();
+        notify("준비물을 삭제했어요");
+      } },
+    ]);
   };
   const copyPacking = async () => {
     await Clipboard.setStringAsync(
@@ -2467,13 +2530,18 @@ function Preparation({
           tags: rawTags.split(/[# ,]+/).filter(Boolean),
         };
       })
-      .filter((item) => item.name);
+      .filter((item, index, values) =>
+        Boolean(item.name) &&
+        values.findIndex((value) => value.owner === item.owner && value.name.toLowerCase() === item.name.toLowerCase()) === index,
+      );
     if (!parsed.length) return;
-    setItems((current) =>
-      importMode === "교체" ? parsed : [...current, ...parsed],
-    );
+    const existing = new Set(items.map((item) => `${item.owner}:${item.name.toLowerCase()}`));
+    const additions = importMode === "교체"
+      ? parsed
+      : parsed.filter((item) => !existing.has(`${item.owner}:${item.name.toLowerCase()}`));
+    setItems((current) => importMode === "교체" ? additions : [...current, ...additions]);
     setImporting(false);
-    notify(`준비물 ${parsed.length}개를 반영했어요`);
+    notify(additions.length ? `준비물 ${additions.length}개를 반영했어요` : "이미 있는 준비물뿐이에요");
   };
   const toggleCookingItem = (id: string) =>
     setSelectedCookingItems((current) =>
@@ -2517,14 +2585,14 @@ function Preparation({
     notify(`요리 재료 ${selected.length}개를 준비에 추가했어요`);
   };
   const renderPackingRow = (item: PackingItem, index: number) => {
-    const completed = done.includes(item.name);
+    const completed = done.includes(item.id);
     return (
       <Pressable
         key={item.id}
         onPress={() => complete(item)}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: completed }}
-        accessibilityLabel={`${item.name} 준비 완료`}
+        accessibilityLabel={`${item.name} ${completed ? "완료 해제" : "완료"}`}
         style={({ pressed }) => [
           styles.packingV2Row,
           index > 0 && styles.packingV2RowBorder,
@@ -2576,6 +2644,8 @@ function Preparation({
             setAssigningItem(item);
           }}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.name} 담당 및 정보 관리`}
           style={[styles.packingV2Assignee, theme && { backgroundColor: theme.primarySoft }]}
         >
           <Text style={[styles.packingOwnerChangeText, theme && { color: theme.primary }]}>
@@ -2592,7 +2662,7 @@ function Preparation({
         label="준비물"
         count={`${items.length}개`}
         action="준비물 추가"
-        onPress={() => setAdding(true)}
+        onPress={openPackingCreate}
       />
       <View
         style={[
@@ -2663,6 +2733,8 @@ function Preparation({
                 <Pressable
                   key={item}
                   onPress={() => setFilter(item)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   style={[
                     styles.packingV2StatusChip,
                     active && theme && { backgroundColor: theme.primarySoft },
@@ -2673,7 +2745,12 @@ function Preparation({
               );
             })}
           </View>
-          <Pressable onPress={() => setTagPicker(true)} style={[styles.packingV2TagButton, theme && { borderColor: theme.border }]}>
+          <Pressable
+            onPress={() => setTagPicker(true)}
+            accessibilityRole="button"
+            accessibilityLabel="준비물 태그 선택"
+            style={[styles.packingV2TagButton, theme && { borderColor: theme.border }]}
+          >
             <Text style={[styles.packingV2TagButtonText, theme && { color: theme.primary }]}>
               {tagFilter === "전체 태그" ? `태그 ${availableTags.length}` : `#${tagFilter}`}
             </Text>
@@ -2683,13 +2760,13 @@ function Preparation({
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingV2Owners}>
           {(["전체", ...ownerSections] as const).map((ownerName) => {
             const active = ownerFilter === ownerName;
-            const remaining = ownerName === "전체"
-              ? items.length - completedCount
-              : items.filter((item) => item.owner === ownerName && !done.includes(item.name)).length;
+            const matchingCount = countForOwner(ownerName);
             return (
               <Pressable
                 key={ownerName}
                 onPress={() => selectOwnerFilter(ownerName)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={[
                   styles.packingV2OwnerChip,
                   theme && { borderColor: active ? theme.primary : theme.border },
@@ -2699,7 +2776,7 @@ function Preparation({
                 <Text style={[styles.packingV2OwnerName, theme && { color: active ? theme.primary : theme.text }]}>
                   {ownerName === "전체" ? "전체" : packingOwnerName(ownerName)}
                 </Text>
-                <Text style={[styles.packingV2OwnerCount, theme && { color: active ? theme.primary : theme.muted }]}>{remaining}</Text>
+                <Text style={[styles.packingV2OwnerCount, theme && { color: active ? theme.primary : theme.muted }]}>{matchingCount}</Text>
               </Pressable>
             );
           })}
@@ -2753,7 +2830,7 @@ function Preparation({
       >
         {ownerSections.map((ownerName, index) => {
           const remaining = items.filter(
-            (item) => item.owner === ownerName && !done.includes(item.name),
+            (item) => item.owner === ownerName && !done.includes(item.id),
           ).length;
           const active = ownerFilter === ownerName;
           return (
@@ -2908,7 +2985,7 @@ function Preparation({
             (item) => (packingTags(item)[0] || "태그 없음") === sourceTag,
           );
           const doneInGroup = allInGroup.filter((item) =>
-            done.includes(item.name),
+            done.includes(item.id),
           ).length;
           return (
             <View
@@ -2995,7 +3072,7 @@ function Preparation({
           );
           if (!ownerItems.length) return null;
           const ownerDone = ownerItems.filter((item) =>
-            done.includes(item.name),
+            done.includes(item.id),
           ).length;
           const collapsed = collapsedOwners.includes(sectionOwner);
           const ownerColor = theme
@@ -3114,7 +3191,7 @@ function Preparation({
                         </Text>
                       </View>
                       {taggedItems.map((item) => {
-                        const completed = done.includes(item.name);
+                        const completed = done.includes(item.id);
                         return (
                           <Pressable
                             key={item.id}
@@ -3234,7 +3311,7 @@ function Preparation({
           description={items.length === 0 ? "여행에 필요한 준비물을 추가해 보세요." : "상태·담당·태그 필터를 초기화해 보세요."}
           action={items.length === 0 ? "준비물 추가" : "필터 초기화"}
           onPress={() => {
-            if (items.length === 0) setAdding(true);
+            if (items.length === 0) openPackingCreate();
             else {
               setFilter("전체");
               setOwnerFilter("전체");
@@ -3354,7 +3431,7 @@ function Preparation({
       </DetailSheet>
       <DetailSheet
         visible={Boolean(assigningItem)}
-        title="담당 지정"
+        title="준비물 관리"
         subtitle={
           assigningItem
             ? `‘${assigningItem.name}’을(를) 누가 챙길지 선택하세요`
@@ -3379,6 +3456,8 @@ function Preparation({
                 onPress={() =>
                   assigningItem && assignOwner(assigningItem, ownerName)
                 }
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
                 style={[
                   styles.assignmentOption,
                   theme && {
@@ -3451,18 +3530,29 @@ function Preparation({
             );
           })}
         </View>
+        {assigningItem && (
+          <Pressable
+            onPress={() => openPackingEdit(assigningItem)}
+            accessibilityRole="button"
+            style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[styles.infoManageButtonText, theme && { color: theme.primary }]}>이 준비물 정보 수정</Text>
+          </Pressable>
+        )}
       </DetailSheet>
       <DetailSheet
         visible={adding}
-        title="준비물 추가"
-        subtitle="한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"
+        title={editingId ? "준비물 수정" : "준비물 추가"}
+        subtitle={editingId ? "이름, 수량, 담당과 태그를 바꿀 수 있어요" : "한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"}
         submit={
           newPackingCount
-            ? `${newPackingCount}개 추가`
-            : "준비물을 입력해 주세요"
+            ? editingId ? "변경 저장" : `${newPackingCount}개 추가`
+            : duplicateEditedPacking ? "같은 담당자에게 이미 있는 준비물이에요" : "준비물을 입력해 주세요"
         }
         submitDisabled={!newPackingCount}
-        onClose={() => setAdding(false)}
+        destructiveLabel={editingId ? "준비물 삭제" : undefined}
+        onDestructive={deletePacking}
+        onClose={closePackingForm}
         onSubmit={submit}
       >
         <DetailField
@@ -3470,7 +3560,7 @@ function Preparation({
           value={names}
           onChangeText={setNames}
           placeholder={"충전기, 안경, 갈아입을 옷"}
-          multiline
+          multiline={!editingId}
         />
         <DetailField
           label="수량 · 선택 사항"

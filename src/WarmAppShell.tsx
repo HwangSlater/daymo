@@ -104,7 +104,7 @@ export function WarmAppShell() {
   const [openTripCreator, setOpenTripCreator] = useState(false);
   const [tripDestination, setTripDestination] =
     useState<TripDetailDestination>("overview");
-  const [done, setDone] = useState<string[]>(["깻잎", "양파"]);
+  const [done, setDone] = useState<string[]>(["charger", "toiletries"]);
   const [activeGroupId, setActiveGroupId] = useState<GroupId>("friends");
   const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
   const tripItems = tripsByGroup[activeGroupId];
