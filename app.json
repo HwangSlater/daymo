@@ -12,10 +12,11 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.daymo",
+      "bundleIdentifier": "com.hwangslater.daymo",
       "usesAppleSignIn": true
     },
     "android": {
+      "package": "com.hwangslater.daymo",
       "icon": "./assets/daymo-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/daymo-icon.png",
