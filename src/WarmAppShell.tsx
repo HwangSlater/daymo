@@ -114,7 +114,7 @@ export function WarmAppShell() {
         typeof update === "function" ? update(current[activeGroupId]) : update,
     }));
   const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
-  const [themeId, setThemeId] = useState<ThemeId>("daymo");
+  const [themeId, setThemeId] = useState<ThemeId>("rose");
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const [user, setUser] = useState<DaymoUser | null>({
     name: "하늘",
