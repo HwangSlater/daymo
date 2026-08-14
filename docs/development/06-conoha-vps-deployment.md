@@ -194,6 +194,10 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 - 앱/API 오류: Sentry
 - 초기에는 외부 uptime monitor로 `/actuator/health/readiness` 또는 별도 `/health` 확인
 
+인증 전체 실패, readiness 실패, 지속적인 5xx 급증, DB/사진 volume 임계치와 복원 불가 수준의 백업 실패는 Daymo 운영 이메일로 즉시 알린다. 경고·회복 이력은 하루 한 번 요약한다. 알림 본문에는 token, 이메일, 사용자 입력, 사진 경로 같은 개인정보·secret을 넣지 않는다.
+
+`status.daymo.xyz`에는 API·로그인·사진 업로드처럼 사용자가 이해할 수 있는 구성요소와 현재 상태만 공개한다. 내부 host, IP, stack trace와 방어 구조는 노출하지 않는다. 로그인 불가 또는 장기 장애가 확인되면 상태 페이지 incident와 `/app-config`의 `serviceNotice`를 함께 갱신한다.
+
 경고 기준 초기값:
 
 - 메모리 85% 이상 10분
