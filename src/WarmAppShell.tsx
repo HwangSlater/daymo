@@ -175,6 +175,7 @@ export function WarmAppShell() {
             }}
             theme={theme}
             trip={homeTrip}
+            trips={tripItems}
             todayKey={todayKey}
             relationship={activeGroupId === "ours" ? "연인" : "친구"}
           />
@@ -449,6 +450,7 @@ function NotebookHome({
   goTrips,
   theme,
   trip,
+  trips,
   todayKey,
   relationship,
 }: {
@@ -456,6 +458,7 @@ function NotebookHome({
   goTrips: () => void;
   theme: AppTheme;
   trip: Trip | null;
+  trips: Trip[];
   todayKey: string;
   relationship: "연인" | "친구";
 }) {
@@ -657,6 +660,52 @@ function NotebookHome({
         <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
         <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
       </View>
+      {trips.some((item) => item.end < todayKey) && (
+        <View style={(s as any).homeArchiveSection}>
+          <View style={(s as any).homeArchiveHead}>
+            <View>
+              <Text style={[(s as any).homeArchiveEyebrow, { color: theme.secondary }]}>지난 페이지</Text>
+              <Text style={[(s as any).homeArchiveTitle, { color: theme.text }]}>다시 펼쳐보는 여행</Text>
+            </View>
+            <Pressable
+              onPress={goTrips}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="지난 여행 전체 보기"
+            >
+              <Text style={[(s as any).homeArchiveMore, { color: theme.muted }]}>전체 보기</Text>
+            </Pressable>
+          </View>
+          <View style={(s as any).homeArchiveRow}>
+            {trips
+              .filter((item) => item.end < todayKey)
+              .slice(0, 2)
+              .map((item, index) => (
+                <Pressable
+                  key={`${item.name}-${item.start}`}
+                  onPress={() => open("memories", item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name} 여행 기록 보기`}
+                  style={({ pressed }) => [
+                    (s as any).homeArchiveCard,
+                    {
+                      backgroundColor: theme.dark ? theme.surface : "rgba(255,255,255,.78)",
+                      borderColor: theme.border,
+                      transform: [{ rotate: index === 0 ? "-0.6deg" : "0.5deg" }],
+                    },
+                    pressed && (s as any).pressed,
+                  ]}
+                >
+                  <View style={[(s as any).homeArchiveTape, { backgroundColor: `${item.color}32` }]} />
+                  <Text style={[(s as any).homeArchiveDate, { color: item.color }]}>{item.date}</Text>
+                  <Text numberOfLines={1} style={[(s as any).homeArchivePlace, { color: theme.text }]}>{item.name}</Text>
+                  <Text numberOfLines={2} style={[(s as any).homeArchiveNote, { color: theme.muted }]}>{item.note}</Text>
+                  <Text style={[(s as any).homeArchiveAction, { color: item.color }]}>기록 보기  ›</Text>
+                </Pressable>
+              ))}
+          </View>
+        </View>
+      )}
         </>
       ) : (
         <View
@@ -4441,6 +4490,42 @@ Object.assign(s, {
   },
   memoText: { fontSize: 12, fontWeight: "800" },
   memoMeta: { fontSize: 11, marginTop: 4 },
+  homeArchiveSection: { marginTop: 24 },
+  homeArchiveHead: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  homeArchiveEyebrow: { fontSize: 11, fontWeight: "900", marginBottom: 4 },
+  homeArchiveTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.5 },
+  homeArchiveMore: { fontSize: 11, fontWeight: "800" },
+  homeArchiveRow: { flexDirection: "row", gap: 10 },
+  homeArchiveCard: {
+    flex: 1,
+    minHeight: 132,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingTop: 17,
+    paddingBottom: 12,
+    shadowColor: "#17233D",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  homeArchiveTape: {
+    position: "absolute",
+    top: -5,
+    left: "35%",
+    width: 44,
+    height: 11,
+    transform: [{ rotate: "-2deg" }],
+  },
+  homeArchiveDate: { fontSize: 11, fontWeight: "900" },
+  homeArchivePlace: { fontSize: 15, fontWeight: "900", marginTop: 5 },
+  homeArchiveNote: { fontSize: 11, lineHeight: 15, marginTop: 5 },
+  homeArchiveAction: { fontSize: 11, fontWeight: "900", marginTop: "auto", paddingTop: 8 },
   homeEmptyTrip: {
     minHeight: 250,
     borderRadius: 8,
