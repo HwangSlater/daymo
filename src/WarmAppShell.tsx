@@ -156,6 +156,8 @@ export function WarmAppShell() {
         initialDestination={tripDestination}
         tripName={selectedTrip.name}
         tripDate={selectedTrip.date}
+        tripStart={selectedTrip.start}
+        tripEnd={selectedTrip.end}
         appTheme={theme}
         onClose={() => setTripOpen(false)}
       />

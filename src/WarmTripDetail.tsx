@@ -35,6 +35,7 @@ const destinationMode = (destination: TripDetailDestination): ViewMode =>
       : "여행";
 type ScheduleItem = {
   time: string;
+  date?: string;
   title: string;
   note: string;
   mapUrl: string;
@@ -62,7 +63,32 @@ type Props = {
   appTheme?: AppTheme;
   tripName?: string;
   tripDate?: string;
+  tripStart?: string;
+  tripEnd?: string;
 };
+
+const parseTripDate = (value?: string) => {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const buildTripDates = (start?: string, end?: string) => {
+  const first = parseTripDate(start);
+  const last = parseTripDate(end);
+  if (!first || !last || first > last) return [];
+  const result: Date[] = [];
+  const cursor = new Date(first);
+  while (cursor <= last && result.length < 366) {
+    result.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return result;
+};
+
+const dayLabel = (date: Date) =>
+  `${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]} · ${date.getDate()}`;
+const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
 
 type PackingItem = {
   id: string;
@@ -313,7 +339,14 @@ export function WarmTripDetail({
   appTheme,
   tripName = "서울 구로구",
   tripDate = "8월 21일 — 23일",
+  tripStart,
+  tripEnd,
 }: Props) {
+  const tripDates = buildTripDates(tripStart, tripEnd);
+  const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["금 · 21", "토 · 22", "일 · 23"];
+  const tripDateOptions = tripDates.length ? tripDates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
+  const firstTripDate = tripDateOptions[0];
+  const lastTripDate = tripDateOptions[tripDateOptions.length - 1];
   const [mode, setMode] = useState<ViewMode>(() =>
     destinationMode(initialDestination),
   );
@@ -334,25 +367,28 @@ export function WarmTripDetail({
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>({
     name: "JS호텔",
-    checkin: "8월 21일 15:00",
-    checkout: "8월 23일 12:00",
+    checkin: `${firstTripDate} 15:00`,
+    checkout: `${lastTripDate} 11:00`,
     address: "서울 구로구 남부순환로105길 32 JS호텔",
   });
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
     {
-      time: "금 · 12:30",
+      time: `${tripDayOptions[0].slice(0, 1)} · 12:30`,
+      date: tripDayOptions[0],
       title: "애슐리퀸즈에서 점심",
       note: "가산 퍼블릭점",
       mapUrl: "https://naver.me/5Bvl09Pa",
     },
     {
-      time: "금 · 15:00",
+      time: `${tripDayOptions[0].slice(0, 1)} · 15:00`,
+      date: tripDayOptions[0],
       title: "JS호텔 체크인",
       note: "체크아웃은 일요일 12시",
       mapUrl: "https://naver.me/5nhRr02Z",
     },
     {
-      time: "금 · 19:30",
+      time: `${tripDayOptions[0].slice(0, 1)} · 19:30`,
+      date: tripDayOptions[0],
       title: "함께 저녁 만들기",
       note: "밀푀유나베와 주먹밥",
       mapUrl: "",
@@ -526,6 +562,8 @@ export function WarmTripDetail({
               setSchedule={setSchedule}
               hasKitchen={hasKitchen}
               registeredStay={registeredStay}
+              dayOptions={tripDayOptions}
+              dateOptions={tripDateOptions}
               openScheduleOnMount={initialDestination === "schedule-add"}
             />
           )}
@@ -535,8 +573,8 @@ export function WarmTripDetail({
               onRegisterStay={(place) => {
                 setRegisteredStay({
                   name: place.name,
-                  checkin: "8월 21일 15:00",
-                  checkout: "8월 23일 11:00",
+                  checkin: `${firstTripDate} 15:00`,
+                  checkout: `${lastTripDate} 11:00`,
                   address: place.address || place.area,
                 });
                 setFeedback(`${place.name}을(를) 이번 여행 숙소로 등록했어요`);
@@ -774,6 +812,8 @@ function TripOverview({
   setSchedule,
   hasKitchen,
   registeredStay,
+  dayOptions,
+  dateOptions,
   openScheduleOnMount,
 }: {
   setMode: (mode: ViewMode) => void;
@@ -781,6 +821,8 @@ function TripOverview({
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
   hasKitchen: boolean;
   registeredStay: StayInfo;
+  dayOptions: string[];
+  dateOptions: string[];
   openScheduleOnMount?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -790,23 +832,28 @@ function TripOverview({
   >(openScheduleOnMount ? "schedule" : null);
   const [fullSchedule, setFullSchedule] = useState(false);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState<number | null>(null);
-  const [planDay, setPlanDay] = useState("토 · 22");
+  const defaultPlanDay = dayOptions[Math.min(1, dayOptions.length - 1)];
+  const firstDay = dayOptions[0];
+  const lastDay = dayOptions[dayOptions.length - 1];
+  const firstDate = dateOptions[0];
+  const lastDate = dateOptions[dateOptions.length - 1];
+  const [planDay, setPlanDay] = useState(defaultPlanDay);
   const [planType, setPlanType] = useState("장소");
   const [planTime, setPlanTime] = useState("11:00");
   const [newPlanTitle, setNewPlanTitle] = useState("");
   const [planPlace, setPlanPlace] = useState("");
   const [planMapUrl, setPlanMapUrl] = useState("");
   const [transportations, setTransportations] = useState<Transportation[]>([
-    { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: "금 · 21", departure: "부산", departureTime: "08:10", arrival: "서울", arrivalTime: "10:48", status: "예매 완료" },
-    { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: "일 · 23", departure: "서울", departureTime: "20:15", arrival: "부산", arrivalTime: "22:52", status: "예매 완료" },
-    { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", date: "금 · 21", departure: "진주", departureTime: "07:50", arrival: "서울경부", arrivalTime: "11:25", status: "예매 완료" },
-    { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", date: "일 · 23", departure: "서울경부", departureTime: "21:30", arrival: "진주", arrivalTime: "01:05", status: "예매 완료" },
+    { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: firstDay, departure: "부산", departureTime: "08:10", arrival: "서울", arrivalTime: "10:48", status: "예매 완료" },
+    { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: lastDay, departure: "서울", departureTime: "20:15", arrival: "부산", arrivalTime: "22:52", status: "예매 완료" },
+    { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", date: firstDay, departure: "진주", departureTime: "07:50", arrival: "서울경부", arrivalTime: "11:25", status: "예매 완료" },
+    { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", date: lastDay, departure: "서울경부", departureTime: "21:30", arrival: "진주", arrivalTime: "01:05", status: "예매 완료" },
   ]);
   const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
   const [transportOwner, setTransportOwner] = useState<Transportation["owner"]>("하늘");
   const [transportDirection, setTransportDirection] = useState<Transportation["direction"]>("가는 편");
   const [transportMethod, setTransportMethod] = useState<Transportation["method"]>("KTX");
-  const [transportDate, setTransportDate] = useState("금 · 21");
+  const [transportDate, setTransportDate] = useState(firstDay);
   const [transportDeparture, setTransportDeparture] = useState("");
   const [transportDepartureTime, setTransportDepartureTime] = useState("");
   const [transportArrival, setTransportArrival] = useState("");
@@ -820,7 +867,27 @@ function TripOverview({
   const [stayDraft, setStayDraft] = useState(stay);
   const [hasStay, setHasStay] = useState(true);
   const scheduleFormValid = Boolean(newPlanTitle.trim());
-  const transportFormValid = Boolean(transportDeparture.trim() && transportArrival.trim());
+  const transportRouteValid = Boolean(
+    transportDeparture.trim() &&
+    transportArrival.trim() &&
+    transportDeparture.trim() !== transportArrival.trim(),
+  );
+  const transportTimesValid = Boolean(transportDepartureTime.trim()) === Boolean(transportArrivalTime.trim());
+  const transportFormValid = transportRouteValid && transportTimesValid;
+  const transportSubmitLabel = transportFormValid
+    ? (editingTransportId ? "변경 저장" : "교통편 추가")
+    : !transportDeparture.trim() || !transportArrival.trim()
+      ? "출발지와 도착지를 입력해 주세요"
+      : transportDeparture.trim() === transportArrival.trim()
+        ? "출발지와 도착지를 다르게 입력해 주세요"
+        : "출발·도착 시간을 모두 입력해 주세요";
+  const stayMoment = (value: string) => {
+    const dateIndex = dateOptions.findIndex((date) => value.startsWith(date));
+    const time = value.match(/(\d{1,2}):(\d{2})$/);
+    return dateIndex < 0 || !time ? -1 : dateIndex * 1440 + Number(time[1]) * 60 + Number(time[2]);
+  };
+  const stayRangeValid = stayMoment(stayDraft.checkout) > stayMoment(stayDraft.checkin);
+  const stayFormValid = Boolean(stayDraft.name.trim()) && stayRangeValid;
   const transportDirectionColor = transportDirection === "가는 편"
     ? theme?.primary ?? "#FF6B63"
     : theme?.secondary ?? "#55BFB4";
@@ -830,7 +897,7 @@ function TripOverview({
   const switchTransportDirection = () => {
     const nextDirection = transportDirection === "가는 편" ? "오는 편" : "가는 편";
     setTransportDirection(nextDirection);
-    setTransportDate(nextDirection === "가는 편" ? "금 · 21" : "일 · 23");
+    setTransportDate(nextDirection === "가는 편" ? firstDay : lastDay);
     setTransportDeparture(transportArrival);
     setTransportArrival(transportDeparture);
     setTransportDepartureTime(transportArrivalTime);
@@ -841,6 +908,7 @@ function TripOverview({
     const wasEditing = editingScheduleIndex !== null;
     const next = {
         time: `${planDay.slice(0, 1)} · ${planTime || "시간 미정"}`,
+        date: planDay,
         title: newPlanTitle.trim(),
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
         mapUrl: planMapUrl.trim(),
@@ -860,7 +928,7 @@ function TripOverview({
     setNewPlanTitle("");
     setPlanPlace("");
     setPlanMapUrl("");
-    setPlanDay("토 · 22");
+    setPlanDay(defaultPlanDay);
     setPlanTime("11:00");
     setSheet("schedule");
   };
@@ -868,7 +936,7 @@ function TripOverview({
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
     setEditingScheduleIndex(index);
-    setPlanDay(["금 · 21", "토 · 22", "일 · 23"].find((value) => value.startsWith(day)) ?? "토 · 22");
+    setPlanDay(item.date ?? dayOptions.find((value) => value.startsWith(day)) ?? defaultPlanDay);
     setPlanTime(time);
     setPlanType(["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? savedType : "장소");
     setNewPlanTitle(item.title);
@@ -918,6 +986,7 @@ function TripOverview({
       ...current,
       {
         time: `${transportDate.slice(0, 1)} · ${next.departureTime}`,
+        date: transportDate,
         title: `${next.method} ${next.departure} 출발`,
         note: `${next.arrival} ${next.arrivalTime} 도착 · ${next.owner}`,
         mapUrl: "",
@@ -943,7 +1012,7 @@ function TripOverview({
             text: "오는 편 등록",
             onPress: () => {
               setTransportDirection("오는 편");
-              setTransportDate("일 · 23");
+              setTransportDate(lastDay);
               setTransportDeparture(next.arrival);
               setTransportArrival(next.departure);
               setTransportDepartureTime("");
@@ -965,7 +1034,7 @@ function TripOverview({
   const openTransportCreate = () => {
     setEditingTransportId(null);
     setTransportDirection("가는 편");
-    setTransportDate("금 · 21");
+    setTransportDate(firstDay);
     setTransportDeparture("");
     setTransportDepartureTime("");
     setTransportArrival("");
@@ -1004,7 +1073,7 @@ function TripOverview({
     setSheet("reservation");
   };
   const openStay = (create = false) => {
-    setStayDraft(create ? { name: "", checkin: "8월 21일 15:00", checkout: "8월 23일 11:00", address: "" } : stay);
+    setStayDraft(create ? { name: "", checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00`, address: "" } : stay);
     setSheet("stay");
   };
   const updateStayDateTime = (
@@ -1016,7 +1085,7 @@ function TripOverview({
       const saved = current[field];
       const savedTime = saved.match(/\d{1,2}:\d{2}$/)?.[0];
       const savedDate = saved.replace(/\s*\d{1,2}:\d{2}$/, "").trim();
-      const fallbackDate = field === "checkin" ? "8월 21일" : "8월 23일";
+      const fallbackDate = field === "checkin" ? firstDate : lastDate;
       const fallbackTime = field === "checkin" ? "15:00" : "11:00";
       const nextDate = part === "date" ? value : savedDate || fallbackDate;
       const nextTime = part === "time" ? value : savedTime || fallbackTime;
@@ -1111,7 +1180,7 @@ function TripOverview({
         <View style={styles.travelInfoPair}>
           {hasStay && (
             <TravelMiniCard
-              label="숙소"
+              label="대표 숙소"
               mark="15"
               title={stay.name}
               meta={`${stay.checkin} 체크인`}
@@ -1136,7 +1205,7 @@ function TripOverview({
           <EmptyState title="예약 정보가 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={() => openReservation(true)} />
         )}
         {!hasStay && (
-          <EmptyState title="숙소 정보가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 추가" onPress={() => openStay(true)} />
+          <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 추가" onPress={() => openStay(true)} />
         )}
       </View>
 
@@ -1194,7 +1263,7 @@ function TripOverview({
         />
         <OptionField
           label="날짜"
-          options={["금 · 21", "토 · 22", "일 · 23"]}
+          options={dayOptions}
           value={planDay}
           onChange={setPlanDay}
         />
@@ -1250,7 +1319,7 @@ function TripOverview({
         visible={sheet === "transport"}
         title={editingTransportId ? "교통편 수정" : "교통편 추가"}
         subtitle="가는 편과 오는 편을 나누어 저장하고 한곳에서 확인하세요"
-        submit={transportFormValid ? (editingTransportId ? "변경 저장" : "교통편 추가") : "출발지와 도착지를 입력해 주세요"}
+        submit={transportSubmitLabel}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
         submitDisabled={!transportFormValid}
         onClose={() => setSheet(null)}
@@ -1278,7 +1347,7 @@ function TripOverview({
         </Pressable>
         <OptionField label="이용자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
         <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
-        <OptionField label="날짜" options={["금 · 21", "토 · 22", "일 · 23"]} value={transportDate} onChange={setTransportDate} />
+        <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
         <PairedDetailField
           label="이동 경로 · 필수"
           leftValue={transportDeparture}
@@ -1335,6 +1404,7 @@ function TripOverview({
           { text: "삭제", style: "destructive", onPress: () => { setHasReservation(false); setSheet(null); notify("예약 정보를 삭제했어요"); } },
         ])}
       >
+        <Text style={[styles.formGuideText, theme && { color: theme.muted }]}>예약 정보는 여행 정보에 보관돼요. 시간 흐름에도 보여야 한다면 일정에서 종류를 ‘예약’으로 추가해 주세요.</Text>
         <DetailField label="예약 이름 · 필수" value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 은행골블랙" />
         <DetailField label="예약 일시 · 선택 사항" value={reservationDraft.date} onChangeText={(date) => setReservationDraft((current) => ({ ...current, date }))} placeholder="예: 토요일 18:30" />
         <DetailField label="인원 · 선택 사항" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
@@ -1343,10 +1413,10 @@ function TripOverview({
       </DetailSheet>
       <DetailSheet
         visible={sheet === "stay"}
-        title={hasStay ? "숙소 정보 수정" : "숙소 정보 추가"}
-        subtitle="숙소 이름만 입력하고 시간과 주소는 나중에 채워도 돼요"
-        submit={stayDraft.name.trim() ? "숙소 정보 저장" : "숙소 이름을 입력해 주세요"}
-        submitDisabled={!stayDraft.name.trim()}
+        title={hasStay ? "대표 숙소 수정" : "대표 숙소 추가"}
+        subtitle="이번 여행에서 머무를 대표 숙소와 이용 시간을 기록하세요"
+        submit={stayFormValid ? "숙소 정보 저장" : !stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : "체크아웃 시간을 다시 확인해 주세요"}
+        submitDisabled={!stayFormValid}
         destructiveLabel={hasStay ? "숙소 정보 삭제" : undefined}
         onClose={() => setSheet(null)}
         onSubmit={() => { setStay(stayDraft); setHasStay(true); setSheet(null); notify("숙소 정보를 저장했어요"); }}
@@ -1359,7 +1429,7 @@ function TripOverview({
         <StayDateTimePicker
           label="체크인"
           value={stayDraft.checkin}
-          dates={["8월 21일", "8월 22일", "8월 23일"]}
+          dates={dateOptions}
           times={["14:00", "15:00", "16:00", "18:00"]}
           onDateChange={(value) => updateStayDateTime("checkin", "date", value)}
           onTimeChange={(value) => updateStayDateTime("checkin", "time", value)}
@@ -1367,7 +1437,7 @@ function TripOverview({
         <StayDateTimePicker
           label="체크아웃"
           value={stayDraft.checkout}
-          dates={["8월 21일", "8월 22일", "8월 23일"]}
+          dates={dateOptions}
           times={["10:00", "11:00", "12:00", "13:00"]}
           onDateChange={(value) => updateStayDateTime("checkout", "date", value)}
           onTimeChange={(value) => updateStayDateTime("checkout", "time", value)}
@@ -6551,6 +6621,12 @@ const styles = StyleSheet.create({
   },
   infoPanelCloseText: { fontSize: 15, lineHeight: 19, fontWeight: "700" },
   detailField: { marginBottom: 14 },
+  formGuideText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#756F6B",
+    marginBottom: 14,
+  },
   fieldLabelRow: {
     flexDirection: "row",
     alignItems: "center",
