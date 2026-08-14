@@ -98,7 +98,7 @@ iOS purpose string과 Android permission 설명은 구체적인 실제 용도로
 
 ## 8. 보안·운영 의무
 
-- TLS, 비밀번호 단방향 hash, secret 분리, 최소 권한, 관리자 MFA
+- TLS, 비밀번호 Argon2id 단방향 hash, secret 분리, 최소 권한, 관리자 MFA
 - DB/사진 암호화와 외부 암호화 백업
 - 개인정보 관리자 접근 최소화와 접속기록 보존/위변조 방지
 - 운영 로그 PII masking, 개발/스테이징에 실데이터 사용 금지

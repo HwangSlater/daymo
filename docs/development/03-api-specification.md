@@ -66,13 +66,13 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | Method | Path | 용도 |
 | --- | --- | --- |
 | POST | `/auth/signup` | 이메일 회원가입 |
-| POST | `/auth/email-verifications` | 가입 이메일 인증 발송/재전송 |
-| POST | `/auth/email-verifications/confirm` | 일회용 code로 이메일 확인 |
+| POST | `/auth/email-verifications` | 가입 이메일 인증 링크 발송/재전송 |
+| POST | `/auth/email-verifications/confirm` | 링크의 일회용 token으로 이메일 확인 |
 | POST | `/auth/login` | 이메일 로그인 |
 | POST | `/auth/logout` | 현재 세션 종료 |
 | POST | `/auth/refresh` | 세션 갱신 |
-| POST | `/auth/password/forgot` | 비밀번호 재설정 메일 요청 |
-| POST | `/auth/password/reset` | 일회용 token으로 비밀번호 변경 |
+| POST | `/auth/password/forgot` | 30분·1회용 비밀번호 재설정 링크 요청 |
+| POST | `/auth/password/reset` | 링크 token으로 비밀번호 변경·기존 세션 종료 |
 | GET | `/auth/sessions` | 로그인된 기기/세션 목록 |
 | DELETE | `/auth/sessions/{sessionId}` | 특정 기기 세션 폐기 |
 | GET | `/auth/oauth/{provider}/start` | OAuth 시작 (`apple/google/kakao/naver`) |
@@ -100,6 +100,14 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 ```
 
 공개 가입에서는 이메일 인증 전 계정의 여행 공간 생성과 초대 참여를 허용하지 않는다. 가입·인증 재전송·로그인·비밀번호 재설정에는 IP, 계정, installation 단위 rate limit을 적용하고 응답으로 계정 존재 여부를 노출하지 않는다. 자동 가입이 관찰되면 서버가 발급한 bot challenge token을 요구할 수 있게 하되 특정 CAPTCHA 공급자는 운영 단계에서 결정한다.
+
+비밀번호는 8~128자이며 영문·숫자·특수문자 조합을 강제하지 않는다. Unicode와 내부 공백을 허용하고 NFC 정규화 후 길이를 검사한다. 흔한·유출된 비밀번호와 정규화한 이메일 전체와 동일한 값은 `PASSWORD_TOO_COMMON`으로 거부하되 세부 차단 목록은 응답에 노출하지 않는다. 클라이언트는 붙여넣기·OS Password AutoFill을 막지 않고 사용자에게는 기본 안내를 `8자 이상 입력해 주세요`로 표시한다.
+
+가입 이메일에는 `https://daymo.xyz/auth/verify-email?token=...` 형식의 인증 링크를 보낸다. token은 원문을 저장하지 않고 hash와 30분 만료 시각만 저장하며 성공 시 즉시 폐기한다. 링크의 최초 GET은 메일 보안 스캐너의 자동 방문에 대비해 인증 상태를 변경하지 않는다. Universal Link/App Link로 앱이 열리거나 웹 완료 화면이 로드된 뒤 클라이언트가 token을 `POST /auth/email-verifications/confirm`으로 보내 인증을 완료한다. 앱이 없거나 연결에 실패해도 웹에서 완료할 수 있고, 앱은 다음 활성화 때 인증 상태를 다시 조회한다.
+
+재전송하면 이전 미사용 token을 모두 폐기하고 새 링크만 유효하게 한다. 만료·이미 사용·교체된 token은 같은 일반 오류 화면을 보여주고 재전송 동작을 제공한다. 인증 완료 여부와 관계없이 발송 API 응답은 계정 존재를 노출하지 않는다.
+
+비밀번호 재설정도 `https://daymo.xyz/auth/reset-password?token=...` 형식의 30분·1회용 링크로 제공한다. token 원문은 저장하지 않으며 새 링크 발급 시 기존 미사용 token을 모두 폐기한다. 링크의 GET은 상태를 변경하지 않고 앱 또는 웹의 새 비밀번호 화면이 `POST /auth/password/reset`을 호출한다. 새 비밀번호에는 가입과 같은 규칙을 적용하고, 성공 transaction에서 해당 사용자의 모든 refresh token과 로그인 세션을 폐기한 뒤 다시 로그인하도록 안내한다. 요청·응답과 오류 화면은 계정 존재 여부를 노출하지 않는다.
 
 실제 가입 요청은 클라이언트가 임의 문구를 보내지 않고 서버가 발급한 문서 version을 참조한다.
 
