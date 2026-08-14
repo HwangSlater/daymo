@@ -85,6 +85,7 @@
 - 멤버 내보내기 확인창과 권한
 - 테마/다크모드/마지막 공간은 기기에 저장하고 membership은 서버에서 검증
 - 서비스 알림 설정과 마케팅 동의를 분리하고 push token 생명주기 연결
+- 잠금화면 상세정보 없는 push payload와 기기별 opt-in 생체 앱 잠금
 
 검증: 서로 다른 두 계정, 친구 4명 공간, 권한 없는 공간 접근 차단.
 
@@ -181,7 +182,7 @@
 - 앱 시작/홈/대형 목록/이미지 성능 측정
 - API 권한/IDOR 보안 테스트, rate limit, 백업/복원 훈련
 - Sentry, 운영 로그, 알림, 상태 대시보드
-- 제3자 행동 분석 SDK 없이 출시하고 Sentry는 오류 진단 최소 정보·PII scrubbing만 사용
+- 제3자 행동 분석 SDK 없이 출시하고 Sentry는 30일·가명 설치 ID·오류 진단 최소 정보·PII scrubbing만 사용
 - TestFlight/Android 내부 테스트와 실제 여행 파일럿
 - 스토어 설명, 개인정보 처리방침, 계정 삭제 경로
 - App Store Privacy와 Google Play Data safety 실제 처리 현황 대조
