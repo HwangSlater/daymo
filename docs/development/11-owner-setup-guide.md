@@ -109,7 +109,7 @@ rclone을 통해 Google Drive 자동 백업
 
 Google Drive에는 노출 가능한 폴더 원본을 그대로 올리지 않는다. restic이 암호화·중복 제거된 시점별 snapshot을 만들고 rclone이 Google Drive와 연결한다. 단순 mirror sync는 서버의 실수나 손상이 백업에도 복제될 수 있어 사용하지 않는다.
 
-백업 계정은 개인 주계정보다 Daymo 전용 Google 계정을 권장한다. 2단계 인증과 복구 수단을 설정하고, VPS에는 Google 비밀번호가 아니라 rclone OAuth token만 둔다. 최초 연결은 관리자 PC에서 브라우저로 승인한 뒤 암호화된 rclone 설정을 VPS secret 경로로 전달한다.
+백업은 사용자가 이미 보유한 Daymo 전용 Google 계정을 사용한다. 2단계 인증과 복구 수단을 설정하고, VPS에는 Google 비밀번호가 아니라 rclone OAuth token만 둔다. 최초 연결은 관리자 PC에서 브라우저로 승인한 뒤 암호화된 rclone 설정을 VPS secret 경로로 전달한다.
 
 ## 3. 로컬 개발 환경
 
@@ -393,4 +393,4 @@ www.<owned-domain>          약관·처리방침·삭제 요청
 3. 첫 알파 공개 회원가입 확정, 공간은 초대 멤버 전용
 4. 사진 저장은 ConoHa VPS 디스크, 초기 상한은 30GB로 확정
 5. 외부 백업은 Google Drive로 시작
-6. Google Drive 백업을 개인 계정과 Daymo 전용 계정 중 어디에 둘지 결정
+6. Google Drive 백업은 기존 Daymo 전용 계정 사용으로 확정
