@@ -21,8 +21,8 @@
 | Node.js | 현재 shell `v26.7.0` | 기준은 Node 24 LTS로 확정, SDK 검증 전 실제 전환 필요 |
 | npm | `11.19.0` | 선택한 Node LTS에 포함된 버전으로 lockfile 재검증 |
 | Java | 설치되지 않음 | 백엔드 생성 전에 JDK 21 설치 필수 |
-| iOS bundle ID | `com.anonymous.daymo` | 실제 역도메인 식별자로 변경 필요 |
-| Android package | 미지정 | iOS ID와 함께 확정 필요 |
+| iOS bundle ID | `com.hwangslater.daymo` | 확정·`app.json` 반영 완료 |
+| Android package | `com.hwangslater.daymo` | 확정·`app.json` 반영 완료 |
 | 테스트/lint | npm script 없음 | 기반 공사에서 typecheck·lint·unit test script 추가 |
 | 의존성 감사 | high 11, moderate 9 | `audit fix --force` 금지, Expo SDK 업그레이드 검증 작업으로 분리 |
 
@@ -61,7 +61,7 @@ npx tsc --noEmit
 - Jest + React Native Testing Library: 단위·컴포넌트 테스트
 - Maestro: 실제 기기 흐름 E2E
 
-`결정 필요`: Expo SDK 54를 유지해 먼저 기능 개발할지, 기반 공사 전에 지원되는 새 SDK로 한 번 업그레이드할지 확정한다. 현재 의존성 감사 결과 때문에 권장안은 **기능 코드를 넣기 전에 별도 업그레이드 브랜치에서 최신 안정 SDK 호환성을 검증하고, 실패하면 SDK 54 기준 보안 패치 가능 범위를 기록한 뒤 진행**하는 것이다.
+Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋에서 최신 안정판 호환성을 검증하기로 확정했다. 회귀가 크면 검증 커밋만 되돌리고 SDK 54 기준 보안 패치 가능 범위를 기록한 뒤 진행한다.
 
 패키지는 한 단계씩 추가하고 Expo SDK 54 호환성을 확인한다. 라우터 도입은 현재 단일 화면 파일을 기능별로 분리하는 작업과 함께 진행한다.
 
