@@ -101,6 +101,7 @@ export function WarmAppShell() {
   const systemScheme = useColorScheme();
   const [view, setView] = useState<MainView>("홈");
   const [isTripOpen, setTripOpen] = useState(false);
+  const [openTripCreator, setOpenTripCreator] = useState(false);
   const [tripDestination, setTripDestination] =
     useState<TripDetailDestination>("overview");
   const [done, setDone] = useState<string[]>(["깻잎", "양파"]);
@@ -120,6 +121,11 @@ export function WarmAppShell() {
     name: "하늘",
     email: "sky@daymo.app",
   });
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const homeTrip = [...tripItems]
+    .filter((trip) => trip.end >= todayKey)
+    .sort((left, right) => left.start.localeCompare(right.start))[0] ?? null;
   const theme = resolveTheme(
     themeId,
     appearance === "system" ? systemScheme === "dark" : appearance === "dark",
@@ -161,9 +167,13 @@ export function WarmAppShell() {
         {view === "홈" && (
           <NotebookHome
             open={openTrip}
-            goTrips={() => setView("여행")}
+            goTrips={() => {
+              setOpenTripCreator(true);
+              setView("여행");
+            }}
             theme={theme}
-            trip={tripItems[0] ?? trips[0]}
+            trip={homeTrip}
+            todayKey={todayKey}
             relationship={activeGroupId === "ours" ? "연인" : "친구"}
           />
         )}
@@ -173,6 +183,8 @@ export function WarmAppShell() {
             theme={theme}
             items={tripItems}
             setItems={setTripItems}
+            openCreatorOnMount={openTripCreator}
+            onCreatorOpened={() => setOpenTripCreator(false)}
           />
         )}
         {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} />}
@@ -389,12 +401,14 @@ function NotebookHome({
   goTrips,
   theme,
   trip,
+  todayKey,
   relationship,
 }: {
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
   goTrips: () => void;
   theme: AppTheme;
-  trip: Trip;
+  trip: Trip | null;
+  todayKey: string;
   relationship: "연인" | "친구";
 }) {
   return (
@@ -414,10 +428,12 @@ function NotebookHome({
           style={[(s as any).tinyDay, { backgroundColor: theme.primarySoft }]}
         >
           <Text style={[(s as any).tinyDayText, { color: theme.primary }]}>
-            {relationship === "연인" ? "우리 1,026일" : "함께한 여행"}
+            {relationship === "연인" ? "둘만의 여행" : "함께한 여행"}
           </Text>
         </View>
       </View>
+      {trip ? (
+        <>
       <View style={(s as any).paperTripStack}>
         <View style={[(s as any).paperTripBack, (s as any).paperTripBackLeft, { backgroundColor: theme.dark ? "#746D5B" : "#E7DECA" }]} />
         <View style={[(s as any).paperTripBack, (s as any).paperTripBackRight, { backgroundColor: theme.dark ? "#575B60" : "#DDE5E3" }]} />
@@ -470,7 +486,9 @@ function NotebookHome({
         <View style={(s as any).paperTripHead}>
           <View style={(s as any).paperTripCopy}>
             <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
-              다음 여행
+              {trip.start <= todayKey && trip.end >= todayKey
+                ? "지금 여행 중"
+                : "다음 여행"}
             </Text>
             <Text style={[(s as any).paperTitle, { color: "#283046" }]}>
               {trip.name}
@@ -574,7 +592,7 @@ function NotebookHome({
           <Text style={[(s as any).noteTitle, { color: theme.text }]}>출발 전, 이것만</Text>
         </View>
         <Pressable onPress={() => open("overview", trip)}>
-          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>전체 보기</Text>
+          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>여행 보기</Text>
         </Pressable>
       </View>
       <View
@@ -591,6 +609,32 @@ function NotebookHome({
         <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
         <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
       </View>
+        </>
+      ) : (
+        <View
+          style={[
+            (s as any).homeEmptyTrip,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+          ]}
+        >
+          <View
+            style={[
+              (s as any).homeEmptyTripMark,
+              { backgroundColor: theme.primarySoft },
+            ]}
+          >
+            <Text style={[(s as any).homeEmptyTripMarkText, { color: theme.primary }]}>＋</Text>
+          </View>
+          <Text style={[(s as any).homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어볼까요?</Text>
+          <Text style={[(s as any).homeEmptyTripCopy, { color: theme.muted }]}>여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요.</Text>
+          <Pressable
+            onPress={goTrips}
+            style={[(s as any).homeEmptyTripAction, { backgroundColor: theme.primary }]}
+          >
+            <Text style={(s as any).homeEmptyTripActionText}>새 여행 만들기</Text>
+          </Pressable>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -973,11 +1017,15 @@ function TripsExplorer({
   theme,
   items,
   setItems,
+  openCreatorOnMount = false,
+  onCreatorOpened,
 }: {
   open: (trip: Trip) => void;
   theme: AppTheme;
   items: Trip[];
   setItems: React.Dispatch<React.SetStateAction<Trip[]>>;
+  openCreatorOnMount?: boolean;
+  onCreatorOpened?: () => void;
 }) {
   const [display, setDisplay] = useState<TripView>("목록");
   const [filter, setFilter] = useState<"전체" | "예정" | "추억">("전체");
@@ -991,6 +1039,11 @@ function TripsExplorer({
   const [note, setNote] = useState("새 여행");
   const [newRegion, setNewRegion] = useState("서울");
   const [showAllRegions, setShowAllRegions] = useState(false);
+  useEffect(() => {
+    if (!openCreatorOnMount) return;
+    setCreating(true);
+    onCreatorOpened?.();
+  }, [openCreatorOnMount, onCreatorOpened]);
   const filtered =
     filter === "예정"
       ? items.filter((trip) => trip.start >= new Date().toISOString().slice(0, 10))
@@ -4171,15 +4224,54 @@ Object.assign(s, {
   },
   memoRowLast: { borderBottomWidth: 0 },
   memoCheck: {
-    width: 16,
-    height: 16,
-    borderRadius: 3,
-    borderWidth: 1.4,
+    width: 4,
+    height: 24,
+    borderRadius: 2,
+    borderWidth: 0,
     marginRight: 12,
     transform: [{ rotate: "-2deg" }],
   },
   memoText: { fontSize: 12, fontWeight: "800" },
   memoMeta: { fontSize: 11, marginTop: 4 },
+  homeEmptyTrip: {
+    minHeight: 250,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#17233D",
+    shadowOpacity: 0.045,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  homeEmptyTripMark: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    transform: [{ rotate: "-2deg" }],
+  },
+  homeEmptyTripMarkText: { fontSize: 22, fontWeight: "700" },
+  homeEmptyTripTitle: { fontSize: 17, fontWeight: "900", textAlign: "center" },
+  homeEmptyTripCopy: {
+    maxWidth: 270,
+    fontSize: 11,
+    lineHeight: 17,
+    textAlign: "center",
+    marginTop: 7,
+  },
+  homeEmptyTripAction: {
+    minHeight: 42,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 17,
+  },
+  homeEmptyTripActionText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
   safe: {
     flex: 1,
     width: "100%",
