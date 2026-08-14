@@ -144,10 +144,12 @@
 
 ## 6. 백업과 복구
 
-- production PostgreSQL PITR 또는 일일 백업 활성화
+- production PostgreSQL dump와 사진을 매일 04:00 Asia/Seoul에 외부 restic snapshot으로 백업
 - Storage 파일과 DB 메타데이터의 불일치를 주기적으로 검사
 - soft delete 보존 기간 동안 관리자 복구 가능
-- 분기마다 staging에서 백업 복원 훈련
+- 일간 14개·주간 8개·월간 6개 snapshot 보존
+- 백업 job이 한 번이라도 실패하거나 무결성 확인이 실패하면 즉시 운영 이메일 알림
+- 매월 격리된 임시 container에서 DB와 임의 사진을 자동 표본 복원하고, 분기마다 빈 local/staging 환경에서 전체 수동 복원 훈련
 - schema를 변경하는 모든 배포 직전에 DB snapshot 생성과 성공 여부 확인
 - migration은 expand-contract로 나누고, 컬럼·테이블 삭제 같은 contract 단계는 이전 앱·서버가 더는 사용하지 않는 것이 확인된 후 별도 release에서 수행
 - readiness/smoke test 실패 시 이전 commit SHA image로 자동 롤백하며, 운영자가 실행할 수 있는 수동 롤백 명령도 유지
