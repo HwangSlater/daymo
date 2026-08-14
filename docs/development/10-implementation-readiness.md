@@ -116,7 +116,11 @@
 | D-017 | 베타 서버 운영 | **결정 완료: ConoHa VPS를 beta/staging으로 먼저 사용 후 production 전환**, 동시 상시 운영 없음 |
 | D-017A | 베타 가입 | **결정 완료: 베타부터 공개 회원가입** |
 | D-017B | 베타 데이터 | **결정 완료: 계정·여행·사진을 production까지 유지**, 전환 전 전체 snapshot·복원 검증 |
-| D-017C | production 배포 | **결정 완료: `main` push + 필수 CI 통과 시 자동 배포**, health 실패 시 이전 image 자동 복귀 |
+| D-017C | production 배포 | **결정 완료: PR 필수 CI 통과 후 `main` merge 시 자동 배포**, health 실패 시 이전 image 자동 복귀 |
+| D-017D | `main` 보호 | **결정 완료: 직접 push 금지, pull request와 필수 CI 통과 후 merge** |
+| D-017E | DB migration | **결정 완료: expand-contract만 허용**, 파괴적 변경은 호환성 확인 후 별도 release |
+| D-017F | 배포 rollback | **결정 완료: readiness/smoke 실패 시 자동 rollback**, 수동 rollback 명령도 유지 |
+| D-017G | 배포 전 백업 | **결정 완료: schema 변경이 있는 모든 배포 직전 DB snapshot 필수** |
 
 ## 4. 문서에서 보완한 계약
 
