@@ -20,6 +20,7 @@
 - 개인정보 처리자/보호책임자 연락처와 사업자 표시 정보 확정
 - ConoHa, Google Drive, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인
 - dev/staging/prod 프로젝트와 secret 관리 방식 생성
+- 공개 가입에 필요한 이메일 소유 확인, 가입·로그인 rate limit, 자동 가입 방어와 문의 경로 설계
 - [`10-implementation-readiness.md`](./10-implementation-readiness.md)의 D-001~D-004 결정
 - Node LTS/JDK 21 설치, `.nvmrc`·`engines`·앱 식별자 고정
 - npm audit 경고를 별도 Expo SDK 호환 브랜치에서 검증
@@ -28,7 +29,7 @@
 결정 필요:
 
 1. Google Drive 백업 계정을 개인 계정과 Daymo 전용 계정 중 어디에 둘지
-2. 첫 출시를 초대된 소수 사용자용으로 할지 공개 가입으로 할지
+2. 공개 회원가입 확정: 공간 콘텐츠는 초대 멤버 전용으로 유지
 3. editor의 타인 메모 삭제 허용 여부
 4. 가입 가능 연령을 만 14세 이상으로 제한할지 법정대리인 동의 절차를 구현할지
 
@@ -51,6 +52,8 @@
 ## 2단계 — 인증과 프로필 (4~7일)
 
 - 이메일 회원가입·로그인·로그아웃·비밀번호 재설정
+- 가입 이메일 인증, 인증 재전송과 만료 처리
+- IP·계정·기기 기준 가입/로그인 rate limit과 반복 실패 방어
 - 기기별 로그인 session 조회·폐기
 - Apple·Google 로그인, 이어 Kakao·Naver 서버 OAuth
 - 프로필 이름/사진, 세션 자동 복원
