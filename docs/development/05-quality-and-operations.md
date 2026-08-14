@@ -88,6 +88,10 @@
 - 이메일 인증 링크의 30분 만료·1회 사용·재전송 시 이전 token 폐기와 앱/웹 fallback 테스트
 - 메일 보안 스캐너의 GET 요청만으로 이메일 인증이 완료되지 않는지 테스트
 - 비밀번호 재설정 링크의 30분 만료·1회 사용·계정 비노출·성공 후 전체 세션 폐기 테스트
+- access token 15분 만료, refresh token 90일 sliding expiration·회전·재사용 탐지와 동시 refresh 단일화 테스트
+- 계정 삭제·로그인 정보 변경의 작업별 1회용 재인증 proof, 교차 작업·재사용·만료 거부 테스트
+- 공간 삭제의 공간 이름 입력·영향 재확인·owner 권한 검증과 우회 요청 거부 테스트
+- 5개 활성 기기 한도, 여섯 번째 로그인 시 최장 미사용 세션·push token 폐기와 현재 기기 보호 테스트
 - 모든 endpoint에서 공간 membership을 확인하고 repository query에도 공간 범위를 포함
 - 초대 token은 원문 저장 없이 hash와 만료 시각 저장
 - 외부 URL은 `https`와 허용 scheme을 검사한 뒤 열기

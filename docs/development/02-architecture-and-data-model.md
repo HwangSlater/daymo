@@ -78,7 +78,7 @@ React Native UI
 
 - `users`: `id`, `email`, `email_verified_at nullable`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
 - `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
-- `refresh_tokens`: `user_id`, `token_hash`, `expires_at`, `revoked_at`, `device_name`
+- `refresh_tokens`: `user_id`, `device_id`, `token_family_id`, `token_hash`, `last_used_at`, `expires_at`, `replaced_by`, `revoked_at`, `revoke_reason`
 - `email_verification_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`
 - `password_reset_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`
 - `devices`: `user_id`, `installation_id`, `platform`, `app_version`, `last_seen_at`, `revoked_at`
@@ -96,6 +96,12 @@ React Native UI
 OAuth provider의 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 기존 비밀번호 또는 이미 연결된 provider로 재인증한 뒤 `oauth_accounts`를 연결한다. 사용자는 연결된 로그인 방식을 확인·해제할 수 있지만 사용 가능한 마지막 로그인 수단은 해제할 수 없다.
 
 이메일 계정 비밀번호는 8~128자로 받고 문자 종류 조합은 강제하지 않는다. Unicode, 공백, 붙여넣기와 비밀번호 관리자를 허용하되 흔하거나 유출된 비밀번호 및 이메일과 동일한 값은 거부한다. NFC 정규화 후 전체 값을 Argon2id로 단방향 hash하며 원문·복호화 가능한 값을 저장하지 않는다. 주기적 변경은 강제하지 않고 유출 정황이나 계정 침해가 확인될 때만 재설정한다.
+
+access token은 15분 동안 유효하고 refresh token은 마지막 정상 사용 시점부터 90일 동안 유효하다. refresh 성공 때마다 새 token으로 교체하고 이전 token을 즉시 폐기한다. 이미 교체된 token이 다시 사용되면 재사용 공격으로 보고 해당 token family를 전부 폐기한다. 앱은 refresh token만 OS SecureStore/Keychain에 저장하고 access token은 가능하면 메모리에만 둔다.
+
+사용자당 활성 기기 세션은 최대 5개다. 새 기기 로그인으로 한도를 넘으면 `devices.last_seen_at`이 가장 오래된 세션의 refresh token family와 push token을 폐기한다. 현재 로그인 중인 기기와 새 기기는 자동 종료 후보에서 제외하고, 로그인 응답에 종료된 기기의 표시 이름과 마지막 사용 시각을 포함한다.
+
+계정 삭제, 이메일·비밀번호 변경, 로그인 방식 연결·해제는 실행할 때마다 별도의 재인증을 요구한다. 이메일 계정은 현재 비밀번호, OAuth 계정은 연결된 provider의 새 인증 결과로 확인한다. 재인증 결과는 해당 작업과 nonce에만 묶인 1회용 proof로 발급하며 다른 민감 작업이나 후속 요청에 재사용하지 않는다. 공간 삭제는 재인증 대신 공간 이름 입력과 최종 경고 확인을 연속으로 요구한다.
 
 공간 초대 링크는 생성 시점부터 7일 동안 유효하며 최대 10회 참여에 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 유효한 링크를 통해 별도 owner 승인 없이 바로 참여하고, 기본 권한은 함께 여행을 편집할 수 있는 `editor`다. 소유자가 링크를 폐기하면 남은 기간과 횟수에 관계없이 즉시 사용할 수 없게 한다. 여러 명이 동시에 참여해도 정원을 넘지 않도록 사용 횟수 증가와 membership 생성을 하나의 transaction에서 처리한다.
 
@@ -163,7 +169,7 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 삭제는 기본적으로 soft delete하고 audit log를 남긴다.
 - 메모·사진 등 사용자 공동 콘텐츠는 삭제 후 일반 조회에서 즉시 제외하고 7일간 휴지통에 보관한다. owner와 editor가 복원할 수 있으며 7일 뒤 원본 파일과 row를 최종 삭제한다.
 - 마지막 owner는 다른 멤버에게 owner를 이전하기 전에는 공간을 나갈 수 없다. 멤버가 본인뿐이면 명시적인 공간 삭제 절차만 제공한다.
-- 공간 삭제는 owner 재인증 후 요청하며 즉시 일반 목록과 동기화 대상에서 숨긴다. 요청 후 7일 동안 owner가 복구할 수 있고, 유예기간이 지나면 공간과 종속 콘텐츠의 최종 삭제 작업을 시작한다.
+- 공간 삭제는 owner가 공간 이름을 정확히 입력한 뒤 삭제 영향과 7일 유예 안내를 다시 확인해야 요청할 수 있다. 요청 즉시 일반 목록과 동기화 대상에서 숨기고, 7일 동안 owner가 복구할 수 있으며 유예기간이 지나면 공간과 종속 콘텐츠의 최종 삭제 작업을 시작한다.
 - 법적 문서 동의 이력은 문서 version별로 남기되 동의 철회 후 불필요한 증빙 데이터는 정해진 보유기간에 파기한다.
 - 계정 최종 삭제 시 공동 일정·장소·준비·요리·메모·사진은 공간 기록으로 유지하되 작성자 연결을 비식별 주체로 치환한다. 이메일·OAuth·프로필과 개인 설정은 삭제하고 공동 화면에는 `탈퇴한 멤버`로 표시한다.
 
