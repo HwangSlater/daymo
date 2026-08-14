@@ -90,7 +90,8 @@ React Native UI
 - `legal_documents`: `type`, `version`, `locale`, `content_url`, `effective_at`, `required`
 - `legal_acceptances`: `user_id`, `document_id`, `accepted`, `accepted_at`, `withdrawn_at`, `evidence_hash`
 - `privacy_requests`: `user_id nullable`, `requester_email`, `type(access|correction|deletion|restriction|withdrawal)`, `target_type nullable`, `target_id nullable`, `status`, `requested_at`, `verified_at`, `completed_at`
-- `content_reports`: `reporter_id`, `space_id`, `target_type(user|trip|memo|diary|photo|other)`, `target_id`, `reason`, `details`, `status`, `reviewed_by`, `reviewed_at`, `resolution`
+- `content_reports`: `reporter_id`, `space_id`, `target_type(user|trip|memo|diary|photo|other)`, `target_id`, `reason`, `details`, `status`, `reviewed_by`, `reviewed_at`, `resolved_at`, `appeal_deadline`, `resolution`, `purge_at`
+- `report_appeals`: `report_id`, `appellant_id`, `reason`, `status`, `submitted_at`, `reviewed_by`, `reviewed_at`, `resolution`
 - `user_blocks`: `blocker_id`, `blocked_user_id`, `created_at`, `revoked_at`
 - `admin_users`: `email`, `password_hash nullable`, `status`, `mfa_method`, `mfa_enrolled_at`, `last_login_at`
 - `admin_mfa_credentials`: `admin_user_id`, `type(totp)`, `secret_ciphertext`, `key_version`, `verified_at`, `revoked_at`
@@ -189,6 +190,8 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 사용자는 앱 안에서 콘텐츠와 사용자를 각각 신고·차단할 수 있다. 차단은 차단한 사람과 상대 사이의 새 초대, 새 공간 합류와 관련 알림을 막는다. 이미 같은 공간에 있으면 공동 데이터 일부를 조용히 숨기지 않고 공간 나가기 또는 owner에게 내보내기 요청을 안내한다. 신고와 차단은 별도 동작이며 차단만으로 기존 공동 콘텐츠를 삭제하지 않는다.
 - 사용자 입력 텍스트와 외부 URL은 서버의 versioned moderation rule로 검사한다. 명백한 금지 패턴과 위험 scheme/domain만 저장을 거부하고 애매한 표현은 과도하게 차단하지 않는다. 개인 사진은 외부 자동 판별 업체로 전송하지 않으며 초대 전용 접근, 이용규칙, 신고·임시 제한과 24시간 검토로 대응한다.
 - moderation은 일반 앱과 분리된 관리자 웹에서 수행한다. 관리자 identity·session·권한은 일반 `users`와 분리하고 공개 가입을 제공하지 않으며 MFA를 필수로 한다. 모든 조회·제한·삭제·복원·신고 처리에는 별도 관리자 감사 로그를 남긴다.
+- 관리자 웹은 마지막 조작 후 1시간이 지나면 잠그고 TOTP를 다시 확인해야 한다. 일반 사용자 자동 로그인 정책을 관리자 session에 적용하지 않는다.
+- 신고 기록은 처리 완료 후 1년, 관리자 감사 로그는 생성 후 2년 보관하고 법적 보존 사유가 없으면 자동 파기한다. 신고 처리 결과는 14일간 이의를 받을 수 있다. 긴급 신고는 운영자에게 즉시 알리고 일반 신고는 1시간 단위로 묶어 알린다.
 - 공간 삭제는 owner가 공간 이름을 정확히 입력한 뒤 삭제 영향과 7일 유예 안내를 다시 확인해야 요청할 수 있다. 요청 즉시 일반 목록과 동기화 대상에서 숨기고, 7일 동안 owner가 복구할 수 있으며 유예기간이 지나면 공간과 종속 콘텐츠의 최종 삭제 작업을 시작한다.
 - 법적 문서 동의 이력은 문서 version별로 남기되 동의 철회 후 불필요한 증빙 데이터는 정해진 보유기간에 파기한다.
 - 계정 최종 삭제 시 공동 일정·장소·준비·요리·메모·사진은 공간 기록으로 유지하되 작성자 연결을 비식별 주체로 치환한다. 이메일·OAuth·프로필과 개인 설정은 삭제하고 공동 화면에는 `탈퇴한 멤버`로 표시한다.
