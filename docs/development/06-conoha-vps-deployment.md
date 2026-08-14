@@ -87,9 +87,9 @@ max_connections = 30
 
 ## 6. 사진 저장
 
-### 권장 운영안
+### 향후 확장 대안
 
-S3 호환 오브젝트 스토리지를 사용한다. API는 인증/권한을 확인해 짧은 만료의 업로드·다운로드 서명 URL만 발급한다. DB에는 object key와 이미지 메타데이터를 저장한다.
+사진 증가로 VPS 로컬 저장이 한계에 도달하면 S3 호환 오브젝트 스토리지를 검토한다. API는 인증/권한을 확인해 짧은 만료의 업로드·다운로드 서명 URL만 발급하고 DB에는 object key와 이미지 메타데이터만 저장하는 방식이다.
 
 장점:
 
@@ -97,11 +97,11 @@ S3 호환 오브젝트 스토리지를 사용한다. API는 인증/권한을 확
 - VPS 장애 시 사진 원본을 별도로 보존
 - 앱이 직접 업로드해 JVM 메모리와 대역폭 부담 감소
 
-VPS 트래픽이 무제한이므로 외부 스토리지를 권장하는 주된 이유는 전송 비용이 아니라 100GB 디스크 한도, 서버 장애 시 복구, 백업 분리다. 초기 비공개 알파에서는 로컬 저장의 경제성이 더 좋아질 수 있다.
+VPS 트래픽이 무제한이므로 외부 스토리지 이전을 검토할 이유는 전송 비용이 아니라 100GB 디스크 한도, 서버 장애 시 복구와 백업 분리다.
 
-### 제한된 알파 대안
+### 현재 선택: VPS 로컬 저장
 
-초기 둘만 사용할 때는 VPS 로컬 volume을 쓸 수 있다. 단, 외부 일일 백업, 30GB quota, 업로드 크기 제한, 경로 traversal 방지, Nginx `X-Accel-Redirect` 기반 권한 다운로드가 필요하다. 공개 가입 전에는 외부 스토리지로 이전한다.
+초기에는 VPS의 `/srv/daymo/uploads` private volume을 사용한다. 외부 일일 백업, 30GB quota, 업로드 크기 제한, 경로 traversal 방지, Nginx `X-Accel-Redirect` 기반 권한 다운로드를 적용한다. 공개 가입 전에는 실제 저장 증가량과 복구 시간을 보고 외부 스토리지 이전 여부를 다시 결정한다.
 
 ## 7. 배포 절차
 
@@ -122,6 +122,42 @@ VPS 트래픽이 무제한이므로 외부 스토리지를 권장하는 주된 �
 - env와 secret: 비밀번호 관리 도구에 별도 보관
 - 월 1회 local/staging에 실제 복원 시험
 - 배포 직전 schema 변경이 크면 추가 backup
+
+### Google Drive 자동 백업
+
+초기 외부 백업 위치는 소유한 Google 계정의 Drive로 정한다. `rclone`으로 Google Drive에 연결하고, `restic`이 rclone backend를 통해 암호화된 snapshot을 저장한다.
+
+```text
+백업 대상
+  /srv/daymo/uploads
+  /srv/daymo/backup-staging/daymo.sql.gz
+
+백업 제외
+  application log
+  Docker image/cache
+  thumbnail 재생성 가능 임시 파일
+  secret 원문
+```
+
+권장 실행 흐름:
+
+1. `pg_dump`를 임시 staging 경로에 생성하고 압축
+2. DB dump와 사진 volume의 파일 일관성을 확인
+3. restic snapshot을 `rclone:daymo-drive:daymo-backup`에 저장
+4. snapshot integrity 확인 후 임시 DB dump 삭제
+5. 성공·실패를 외부 모니터로 통지
+6. 보존 정책 적용: 일간 14개, 주간 8개, 월간 6개부터 시작
+
+Google Drive 동기화 폴더를 단순 `sync`하지 않는다. 서버에서 파일이 손상·삭제되었을 때 원격도 똑같이 삭제될 수 있기 때문이다. restic repository password와 rclone OAuth token은 서로 분리해 root 전용 파일 또는 secret store에 둔다. 두 값을 모두 분실하면 복구할 수 없으므로 비밀번호 관리 도구에 별도 보관한다.
+
+Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 별도 백업 서비스나 오브젝트 스토리지를 검토한다.
+
+- 백업 크기·시간이 일일 작업 창을 지속적으로 초과
+- Google 계정 정지나 OAuth 재인증이 운영 위험이 됨
+- 복구 목표 시간이 길어짐
+- 공개 사용자 증가로 30GB 사진 상한이 부족해짐
+
+매월 자동 백업 성공만 확인하지 않고 별도 local/staging 서버에서 DB와 임의 사진을 실제 복원한다.
 
 복원 문서에는 빈 서버에서 Docker 설치, secret 배치, DB 복원, image 실행, DNS 전환 순서를 포함한다.
 

@@ -14,6 +14,7 @@
 8. [개인정보·출시 준수](./08-privacy-and-release-compliance.md): 동의, 처리방침, 권한, 탈퇴, 스토어 신고
 9. [UI-개발 추적표](./09-ui-development-traceability.md): 현재 화면별 데이터·API·로컬 처리·테스트 연결
 10. [개발 착수 준비](./10-implementation-readiness.md): 현재 차이, 결정 목록, 0단계 실행 순서와 완료 게이트
+11. [소유자 준비 안내](./11-owner-setup-guide.md): 개발 환경, 계정, 시크릿과 로컬 사진 저장 선택
 
 ## 문서 상태
 

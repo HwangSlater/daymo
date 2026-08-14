@@ -55,7 +55,8 @@
 | 서비스 | 예상 역할 | 확인할 사항 |
 | --- | --- | --- |
 | ConoHa VPS | 계정·여행 DB/API 보관 | 실제 리전/국가, 운영자 접근, 백업 위치, 삭제 |
-| S3 호환 스토리지 | 사진 저장 | 국가, 암호화, lifecycle, 서명 URL, 재위탁 |
+| Google Drive | 암호화된 DB·사진 백업 | 계정 국가, OAuth token, 보유기간, 삭제·복구 절차 |
+| S3 호환 스토리지(향후 선택 시) | 사진 저장 | 국가, 암호화, lifecycle, 서명 URL, 재위탁 |
 | Apple/Google/Kakao/Naver | OAuth | 받는 필드 최소화, 탈퇴 시 연결 해제/token revoke |
 | Sentry | 오류 추적 | 국외 이전, IP/기기정보, PII scrubbing, 보유기간 |
 | GitHub/GHCR | 코드/image 배포 | 운영 개인정보를 올리지 않음 |
