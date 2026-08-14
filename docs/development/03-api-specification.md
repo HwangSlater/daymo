@@ -83,7 +83,9 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | DELETE | `/me/auth-methods/{provider}` | provider 연결 해제, 마지막 수단은 차단 |
 | GET | `/me` | 내 프로필·참여 공간 목록 |
 | PATCH | `/me` | 이름/프로필 사진 수정 |
-| DELETE | `/me` | 계정 탈퇴 요청 |
+| DELETE | `/me` | 7일 유예 계정 삭제 요청 |
+| POST | `/me/deletion/cancel` | 유예기간 안에 재인증 후 삭제 취소 |
+| GET | `/me/deletion` | 삭제 상태와 최종 삭제 예정일 조회 |
 | GET | `/legal/documents?context=signup` | 현재 약관/고지와 필수·선택 구분 |
 | POST | `/legal/acceptances` | 문서 version별 동의/확인 기록 |
 | GET | `/me/legal-acceptances` | 내 동의 내역 |
@@ -361,6 +363,8 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 | POST | `/photo-uploads/{uploadId}/complete` | checksum 검증 후 사진 확정 |
 | GET | `/trips/{tripId}/photos` | 사진 목록 |
 | PATCH/DELETE | `/photos/{photoId}` | 캡션/연결 수정, 삭제 |
+| GET | `/trips/{tripId}/trash` | 7일 안의 삭제된 메모·사진 조회 |
+| POST | `/trash/{targetType}/{targetId}/restore` | owner·editor가 휴지통 항목 복원 |
 | GET | `/photos/{photoId}/content?variant=thumbnail|display|original` | 권한 검사 후 사진 응답 |
 | GET | `/spaces/{spaceId}/stats` | 여행·지역·기록 통계 |
 
@@ -391,6 +395,8 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 클라이언트는 `permissions`에 따라 수정·삭제를 표시한다. 삭제 응답 이후 목록과 상단 메모 개수/미리보기를 함께 갱신한다.
 
 메모 삭제는 공간 owner와 editor에게 허용하며 viewer는 차단한다. 타인의 메모 삭제도 동일하게 허용하지만 서버는 `deletedBy`, `deletedAt`과 audit log를 남기고 기본 조회에서 제외한다.
+
+메모와 사진은 삭제 후 7일간 휴지통에서 복원할 수 있다. 7일이 지나면 DB row와 사진 variant를 최종 삭제하고 삭제 ledger를 남겨 오래된 백업을 복원할 때 다시 노출되지 않게 한다.
 
 사진 업로드 순서:
 
