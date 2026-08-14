@@ -6,11 +6,11 @@
 
 ### 앱 식별자
 
-현재 iOS 식별자는 임시값 `com.anonymous.daymo`이며 Android package는 아직 없다. 스토어 등록 전에 영구 식별자를 정해야 한다.
+앱 식별자는 `com.hwangslater.daymo`로 확정했다.
 
 ```text
-iOS Bundle Identifier 예시: com.hwangslater.daymo
-Android Package Name 예시: com.hwangslater.daymo
+iOS Bundle Identifier: com.hwangslater.daymo
+Android Package Name: com.hwangslater.daymo
 앱 URL Scheme: daymo
 ```
 
@@ -386,7 +386,7 @@ www.<owned-domain>          약관·처리방침·삭제 요청
 
 ## 16. 개발 시작 전 사용자 결정
 
-1. 실제 iOS/Android 앱 식별자
+1. 앱 식별자 `com.hwangslater.daymo` 확정 완료
 2. Expo SDK 54 유지 또는 선행 업그레이드 검증
 3. 첫 알파를 초대 전용으로 운영할지
 4. 사진 저장은 ConoHa VPS 디스크, 초기 상한은 30GB로 확정
