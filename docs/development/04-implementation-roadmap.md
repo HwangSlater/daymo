@@ -86,6 +86,7 @@
 - 테마/다크모드/마지막 공간은 기기에 저장하고 membership은 서버에서 검증
 - 서비스 알림 설정과 마케팅 동의를 분리하고 push token 생명주기 연결
 - 잠금화면 상세정보 없는 push payload와 기기별 opt-in 생체 앱 잠금
+- 백그라운드 1분 잠금, OS 기기 암호 fallback, app switcher privacy cover와 스크린샷 허용
 
 검증: 서로 다른 두 계정, 친구 4명 공간, 권한 없는 공간 접근 차단.
 

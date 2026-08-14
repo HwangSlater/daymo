@@ -131,6 +131,7 @@
 - Sentry event는 가명 설치 ID만 사용하고 30일 후 만료; 계정 ID·이메일·본문·사진 경로 미수집
 - 잠금화면 push에 여행·멤버·장소·준비물 상세가 없고 앱 진입 후 membership 재검증
 - 생체 앱 잠금 opt-in/off 기본값, 실패·미등록·기기 변경 fallback과 서버 재인증 분리 테스트
+- 백그라운드 59초/60초 경계, 앱 재시작, OS 암호 fallback, app switcher cover와 스크린샷 허용 테스트
 - 서버: request ID, actor ID hash, endpoint, status, latency만 구조화 로그
 - 지표: 로그인 성공률, API p95, 앱 시작 시간, 사진 실패율, 동기화 충돌률
 - 데이터 지표: endpoint별 압축 응답 byte, 304 비율, sync 변경 개수, 사진 품질별 전송량
