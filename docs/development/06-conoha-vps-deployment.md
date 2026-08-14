@@ -123,6 +123,8 @@ pull request가 필수 CI를 통과해 `main`에 merge되는 것이 production �
 
 단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 두 JVM을 상시 운영하지 않는다.
 
+production deploy workflow는 concurrency group을 하나로 고정한다. 실행 중인 배포는 끝까지 검사하고 강제 취소하지 않으며, 대기 중인 이전 workflow는 폐기하고 가장 최신 commit의 배포만 다음으로 실행한다. 롤백할 때는 이전 commit SHA의 server image만 복구한다. DB에는 down migration을 실행하지 않고 expand-contract로 유지한 호환 schema를 사용하며, 필요한 데이터 수정은 새 forward migration으로 처리한다.
+
 VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사진을 유지한 채 production으로 전환한다. 전환 직전 전체 snapshot을 만들고 별도 환경에서 복원을 확인한다. beta 데이터는 삭제하지 않으므로 beta 시작 전부터 production 수준의 약관·보안·백업·신고 운영을 적용한다.
 
 ### GitHub 브랜치 보호
@@ -131,6 +133,8 @@ VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사
 - pull request 필수
 - 앱 typecheck/test, backend test, migration 검증, image build를 required status check로 지정
 - required check가 오래된 commit에서 통과했으면 최신 commit 기준으로 다시 검사
+- 1인 개발 단계에서는 별도 사람 승인을 0명으로 두고 required status check를 승인 조건으로 사용
+- squash merge만 허용하고 merge commit과 rebase merge는 비활성화
 - merge 후에만 production 자동 배포
 - 비상시 관리자 우회는 허용하되 사유와 후속 검증을 운영 기록에 남김
 

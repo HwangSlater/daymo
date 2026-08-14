@@ -121,6 +121,10 @@
 | D-017E | DB migration | **결정 완료: expand-contract만 허용**, 파괴적 변경은 호환성 확인 후 별도 release |
 | D-017F | 배포 rollback | **결정 완료: readiness/smoke 실패 시 자동 rollback**, 수동 rollback 명령도 유지 |
 | D-017G | 배포 전 백업 | **결정 완료: schema 변경이 있는 모든 배포 직전 DB snapshot 필수** |
+| D-017H | PR 병합 | **결정 완료: squash merge만 사용** |
+| D-017I | PR 승인 | **결정 완료: 1인 개발 중 사람 승인 0명**, 필수 CI로 보호 |
+| D-017J | 배포 동시성 | **결정 완료: 실행 중 배포는 완료하고 최신 대기 배포만 유지** |
+| D-017K | DB rollback | **결정 완료: server image만 rollback**, DB down migration 금지·forward migration 사용 |
 
 ## 4. 문서에서 보완한 계약
 
