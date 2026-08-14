@@ -117,7 +117,7 @@ Google Drive에는 노출 가능한 폴더 원본을 그대로 올리지 않는�
 
 | 항목 | 현재 상태 | 필요한 조치 |
 | --- | --- | --- |
-| Node.js | `v26.7.0` | Expo 지원 LTS로 고정 |
+| Node.js | 현재 shell `v26.7.0` | Node 24 LTS로 전환 확정 |
 | npm | `11.19.0` | 선택한 Node 버전과 함께 고정 |
 | Java | 설치되지 않음 | JDK 21 설치 |
 | Expo | SDK 54 | 기능 개발 전에 최신 안정 SDK 업그레이드 검증 확정 |
@@ -389,7 +389,7 @@ www.<owned-domain>          약관·처리방침·삭제 요청
 ## 16. 개발 시작 전 사용자 결정
 
 1. 앱 식별자 `com.hwangslater.daymo` 확정 완료
-2. 기능 개발 전 Expo 최신 안정 SDK 업그레이드 검증 확정
+2. Node 24 LTS와 기능 개발 전 Expo 최신 안정 SDK 업그레이드 검증 확정
 3. 첫 알파 공개 회원가입 확정, 공간은 초대 멤버 전용
 4. 사진 저장은 ConoHa VPS 디스크, 초기 상한은 30GB로 확정
 5. 외부 백업은 Google Drive로 시작
