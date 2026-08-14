@@ -158,6 +158,10 @@
 | D-023A | backend PR CI | **결정 완료: 모든 PR에서 Gradle test·Testcontainers DB test** |
 | D-023B | EAS native build | **결정 완료: release candidate에서만 iOS·Android 병행**, 일반 PR 생략 |
 | D-023C | dependency update | **결정 완료: 매주 묶음 PR·직접 검토 merge**, 자동 merge 금지 |
+| D-024 | 가입 CAPTCHA | **결정 완료: 정상 가입에는 미표시**, 위험 신호가 있을 때만 challenge |
+| D-024A | 로그인 실패 | **결정 완료: 점진적 지연 + 최대 15분 일시 제한**, 장기 계정 lock 금지 |
+| D-024B | 인증 메일 재전송 | **결정 완료: 60초 간격·계정/IP별 하루 5회** |
+| D-024C | 계정 존재 보호 | **결정 완료: 로그인·인증·재설정 모두 일반 응답 사용** |
 
 ## 4. 문서에서 보완한 계약
 
