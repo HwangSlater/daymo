@@ -32,7 +32,7 @@ Docker private network
   └─ postgres:5432 (외부 미공개)
 ```
 
-- SSH 22번은 가능하면 관리자 IP로 제한하고 비밀번호 로그인을 끈다.
+- SSH 22번은 가능하면 관리자 IP로 제한하고 key 인증만 허용한다. `PasswordAuthentication no`, `PermitRootLogin no`를 적용한다.
 - PostgreSQL과 Actuator 상세 endpoint는 외부에 공개하지 않는다.
 - UFW와 ConoHa 보안 그룹을 동시에 확인한다.
 - 도메인의 A/AAAA 레코드를 VPS에 연결하고 Let's Encrypt 인증서를 자동 갱신한다.
@@ -137,6 +137,18 @@ VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사
 - squash merge만 허용하고 merge commit과 rebase merge는 비활성화
 - merge 후에만 production 자동 배포
 - 비상시 관리자 우회는 허용하되 사유와 후속 검증을 운영 기록에 남김
+
+### 서버 계정과 시크릿
+
+- 배포는 제한된 `daymo-deploy` 계정의 전용 SSH key로만 접속하고 root 직접 SSH·배포를 금지
+- `daymo-deploy`를 `docker` group에 넣지 않고, 소유자가 root인 allowlist 배포 script만 passwordless sudo 허용
+- GitHub Environment Secrets에는 배포 SSH key·host·검증에 필요한 CI credential만 저장
+- DB·JWT·OAuth·SMTP·사진 서명·restic/rclone secret은 `/etc/daymo/secrets/`의 root 소유 `0600` 파일에 저장
+- secret 원문을 repository, image, compose file, workflow log와 shell history에 기록하지 않음
+
+### OS 보안 업데이트
+
+OS security patch는 자동 설치한다. 자동 재부팅은 끄고 `/var/run/reboot-required`가 생기면 운영 이메일로 알려 사용자가 상태·백업을 확인한 뒤 직접 재부팅한다. 일반 package와 major version upgrade는 자동 설치하지 않고 release note와 호환성을 확인한다.
 
 ## 8. 백업
 
