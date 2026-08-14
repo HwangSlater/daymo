@@ -182,4 +182,6 @@ pull request가 필수 CI를 통과해 `main`에 merge되면 자동 production �
 
 `main`은 보호 브랜치로 설정한다. 직접 push를 막고 pull request에서 필수 CI를 통과해야 merge할 수 있게 한다. 관리자 우회도 비상 장애 대응 외에는 사용하지 않으며, 우회한 경우 사유를 운영 기록에 남긴다.
 
+1인 개발 단계에서는 사람의 별도 승인을 요구하지 않고 required status check만 요구한다. 병합 방식은 squash merge로 고정해 PR 하나를 `main`의 커밋 하나로 남긴다. production 배포는 동시에 하나만 실행하며, 실행 중인 배포는 중단하지 않고 최신 대기 배포만 남긴다. 롤백은 이전 server image로만 수행하고 DB down migration은 실행하지 않는다.
+
 의존성 감사의 취약점 개수만으로 강제 업그레이드하지 않는다. 실제 앱 번들/개발 도구 노출 여부, 공식 호환 버전, exploit 가능성과 업데이트 위험을 기록하고 높은 위험은 출시 전에 해결하거나 명시적으로 수용한다.
