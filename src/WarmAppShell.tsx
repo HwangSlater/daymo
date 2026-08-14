@@ -202,6 +202,7 @@ export function WarmAppShell() {
             setActiveGroupId={setActiveGroupId}
             user={user}
             setUser={setUser}
+            openTrip={(trip) => openTrip("overview", trip)}
             onLogout={() => setUser(null)}
           />
         )}
@@ -225,11 +226,14 @@ function AuthScreen({
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [marketingAgreed, setMarketingAgreed] = useState(false);
   const oauthBaseUrl = process.env.EXPO_PUBLIC_DAYMO_AUTH_URL?.replace(/\/$/, "");
   const authFormValid =
     email.trim().includes("@") &&
     password.length >= 6 &&
-    (mode === "login" || (Boolean(name.trim()) && password === confirm));
+    (mode === "login" || (Boolean(name.trim()) && password === confirm && termsAgreed && privacyAgreed));
   const submit = () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail.includes("@")) {
@@ -246,6 +250,10 @@ function AuthScreen({
     }
     if (mode === "signup" && password !== confirm) {
       setError("비밀번호가 서로 달라요.");
+      return;
+    }
+    if (mode === "signup" && (!termsAgreed || !privacyAgreed)) {
+      setError("필수 약관에 동의해 주세요.");
       return;
     }
     setError("");
@@ -318,6 +326,44 @@ function AuthScreen({
           {mode === "signup" && (
             <Field theme={theme} label="비밀번호 확인 · 필수" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
           )}
+          {mode === "signup" && (
+            <View style={[(s as any).authConsentList, { borderColor: theme.border }]}>
+              <Pressable
+                onPress={() => {
+                  const next = !(termsAgreed && privacyAgreed && marketingAgreed);
+                  setTermsAgreed(next);
+                  setPrivacyAgreed(next);
+                  setMarketingAgreed(next);
+                }}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: termsAgreed && privacyAgreed && marketingAgreed }}
+                style={[(s as any).authConsentRow, (s as any).authConsentAll, { borderBottomColor: theme.border }]}
+              >
+                <View style={[(s as any).authConsentCheck, { borderColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.surface }]}>
+                  {termsAgreed && privacyAgreed && marketingAgreed && <Text style={(s as any).authConsentTick}>✓</Text>}
+                </View>
+                <Text style={[(s as any).authConsentAllText, { color: theme.text }]}>모두 동의</Text>
+              </Pressable>
+              {[
+                { label: "이용약관 동의 · 필수", checked: termsAgreed, toggle: setTermsAgreed },
+                { label: "개인정보 수집·이용 동의 · 필수", checked: privacyAgreed, toggle: setPrivacyAgreed },
+                { label: "여행 소식과 혜택 알림 · 선택", checked: marketingAgreed, toggle: setMarketingAgreed },
+              ].map((consent) => (
+                <Pressable
+                  key={consent.label}
+                  onPress={() => consent.toggle(!consent.checked)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: consent.checked }}
+                  style={(s as any).authConsentRow}
+                >
+                  <View style={[(s as any).authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
+                    {consent.checked && <Text style={(s as any).authConsentTick}>✓</Text>}
+                  </View>
+                  <Text style={[(s as any).authConsentText, { color: theme.text }]}>{consent.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           {error ? <Text style={(s as any).authError}>{error}</Text> : null}
           <Pressable
             onPress={submit}
@@ -358,7 +404,7 @@ function AuthScreen({
             <Text style={[(s as any).authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontWeight: "900" }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
           </Pressable>
         </View>
-        <Text style={[(s as any).authPrivacy, { color: theme.muted }]}>계속하면 Daymo 이용약관과 개인정보 처리방침에 동의하게 됩니다.</Text>
+        <Text style={[(s as any).authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -2669,6 +2715,7 @@ function Together({
   setActiveGroupId,
   user,
   setUser,
+  openTrip,
   onLogout,
 }: {
   theme: AppTheme;
@@ -2681,6 +2728,7 @@ function Together({
   setActiveGroupId: (group: GroupId) => void;
   user: DaymoUser;
   setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
+  openTrip: (trip: Trip) => void;
   onLogout: () => void;
 }) {
   const [notifications, setNotifications] = useState(true);
@@ -2705,6 +2753,7 @@ function Together({
     setMemberC(group.members[1] || "");
     setMemberD(group.members[2] || "");
     setRelationship(group.relationship);
+    setSelectedMember(0);
   };
   const memberSetters = [setMemberA, setMemberB, setMemberC, setMemberD];
   const memberEntries = [memberA, memberB, memberC, memberD]
@@ -2764,12 +2813,19 @@ function Together({
             </Text>
             <Text style={[s.screenTitle, { color: theme.text }]}>우리</Text>
           </View>
-          <Pressable onPress={() => setPanel("account")} style={[(s as any).togetherAccountButton, { backgroundColor: theme.primarySoft }]}>
+          <Pressable
+            onPress={() => setPanel("account")}
+            accessibilityRole="button"
+            accessibilityLabel="내 프로필 열기"
+            style={[(s as any).togetherAccountButton, { backgroundColor: theme.primarySoft }]}
+          >
             <Text style={[(s as any).togetherAccountInitial, { color: theme.primary }]}>{user.name.slice(0, 1)}</Text>
           </Pressable>
         </View>
         <Pressable
           onPress={() => setPanel("groups")}
+          accessibilityRole="button"
+          accessibilityLabel={`현재 여행 공간 ${spaceName}, 공간 바꾸기`}
           style={[
             (s as any).workspaceCard,
             { backgroundColor: theme.surface, borderColor: theme.border },
@@ -2792,6 +2848,8 @@ function Together({
             <Pressable
               key={group.id}
               onPress={() => selectGroup(group)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activeGroupId === group.id }}
               style={[
                 (s as any).groupTab,
                 { backgroundColor: theme.surface, borderColor: theme.border },
@@ -2852,7 +2910,7 @@ function Together({
               label: "멤버 초대",
               onPress: () => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" }),
             },
-            { icon: "⇧", label: "기록 내보내기", onPress: exportData },
+            { icon: "⇧", label: "여행 목록 공유", onPress: exportData },
             {
               icon: notifications ? "●" : "○",
               label: notifications ? "알림 켜짐" : "알림 꺼짐",
@@ -2862,6 +2920,8 @@ function Together({
             <Pressable
               key={action.label}
               onPress={action.onPress}
+              accessibilityRole={action.label.startsWith("알림") ? "switch" : "button"}
+              accessibilityState={action.label.startsWith("알림") ? { checked: notifications } : undefined}
               style={[
                 (s as any).togetherQuick,
                 { backgroundColor: theme.surface, borderColor: theme.border },
@@ -2905,6 +2965,9 @@ function Together({
         </View>
         {trips[0] && (
           <Pressable
+            onPress={() => openTrip(trips[0])}
+            accessibilityRole="button"
+            accessibilityLabel={`최근 여행 ${trips[0].name} 열기`}
             style={[(s as any).historyLatest, { borderColor: theme.border }]}
           >
             <View style={[(s as any).historyLatestDot, { backgroundColor: trips[0].color }]} />
@@ -2987,6 +3050,8 @@ function Together({
                   selectGroup(group);
                   setPanel(null);
                 }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: activeGroupId === group.id }}
                 style={[(s as any).groupChoice, { backgroundColor: theme.surface, borderColor: activeGroupId === group.id ? theme.primary : theme.border }]}
               >
                 <View style={[(s as any).groupChoiceAvatar, { backgroundColor: activeGroupId === group.id ? theme.primary : theme.primarySoft }]}>
@@ -3036,12 +3101,30 @@ function Together({
             <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>프로필 변경 내용은 바로 저장돼요.</Text>
             <Pressable
               onPress={() => {
-                setPanel(null);
-                onLogout();
+                Alert.alert("로그아웃할까요?", "기기에만 저장된 변경 내용이 있다면 동기화 후 로그아웃해 주세요.", [
+                  { text: "취소", style: "cancel" },
+                  { text: "로그아웃", style: "destructive", onPress: () => { setPanel(null); onLogout(); } },
+                ]);
               }}
               style={[(s as any).accountLogout, { borderColor: theme.border }]}
             >
               <Text style={(s as any).accountLogoutText}>로그아웃</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Alert.alert(
+                  "Daymo 계정을 삭제할까요?",
+                  "참여 중인 여행 공간과 서버에 저장된 내 데이터에 더 이상 접근할 수 없어요. 이 작업은 되돌릴 수 없습니다.",
+                  [
+                    { text: "취소", style: "cancel" },
+                    { text: "계정 삭제", style: "destructive", onPress: () => { setPanel(null); onLogout(); } },
+                  ],
+                );
+              }}
+              accessibilityRole="button"
+              style={(s as any).accountDelete}
+            >
+              <Text style={(s as any).accountDeleteText}>계정 삭제</Text>
             </Pressable>
           </>
         )}
@@ -3064,6 +3147,8 @@ function Together({
                 <Pressable
                   key={`${member}-manage`}
                   onPress={() => setSelectedMember(slot)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selectedMember === slot }}
                   style={[
                     (s as any).memberManagerCard,
                     { backgroundColor: theme.surface, borderColor: selectedMember === slot ? theme.primary : theme.border },
@@ -3104,7 +3189,7 @@ function Together({
                   <Choice
                     theme={theme}
                     selected={memberRoles[selectedMember] === "보기만"}
-                    label="보기만 · 내용을 확인하고 체크"
+                    label="보기만 · 내용을 확인"
                     onPress={() => setMemberRoles((roles) => roles.map((role, index) => index === selectedMember ? "보기만" : role))}
                   />
                   <Pressable
@@ -3157,6 +3242,8 @@ function Together({
               <Pressable
                 key={option.id}
                 onPress={() => setThemeId(option.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: themeId === option.id }}
                 style={[
                   (s as any).themeOption,
                   { backgroundColor: theme.surface, borderColor: theme.border },
@@ -6298,6 +6385,13 @@ Object.assign(s, {
   authSubmitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "900" },
   authSwitch: { alignItems: "center", paddingTop: 17, paddingBottom: 2 },
   authSwitchText: { fontSize: 11, fontWeight: "700" },
+  authConsentList: { borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: 7, marginBottom: 12 },
+  authConsentRow: { minHeight: 38, flexDirection: "row", alignItems: "center" },
+  authConsentAll: { borderBottomWidth: 1, marginBottom: 4 },
+  authConsentAllText: { flex: 1, fontSize: 12, fontWeight: "900" },
+  authConsentCheck: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, alignItems: "center", justifyContent: "center", marginRight: 10 },
+  authConsentTick: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  authConsentText: { flex: 1, fontSize: 11, fontWeight: "700" },
   authPrivacy: { fontSize: 11, lineHeight: 13, textAlign: "center", marginTop: 15 },
   accountPreview: {
     minHeight: 82,
@@ -6327,6 +6421,8 @@ Object.assign(s, {
     marginTop: 18,
   },
   accountLogoutText: { color: "#DF5148", fontSize: 11, fontWeight: "900" },
+  accountDelete: { minHeight: 40, alignItems: "center", justifyContent: "center", marginTop: 5 },
+  accountDeleteText: { color: "#A36E67", fontSize: 10, fontWeight: "800", textDecorationLine: "underline" },
   togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 6 },
   togetherSwitch: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
   togetherSwitchText: { fontSize: 11, fontWeight: "900" },
