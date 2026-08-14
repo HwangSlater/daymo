@@ -137,6 +137,10 @@
 | D-018I | 외부 상태 감시 | **결정 완료: UptimeRobot이 공개 `/health`를 5분마다 확인** |
 | D-018J | 공개 장애 이력 | **결정 완료: 현재 장애만 공개**, 과거 incident history 비공개 |
 | D-018K | 예정 점검 공지 | **결정 완료: 초기 운영 범위에서 제외** |
+| D-019 | VPS SSH 인증 | **결정 완료: SSH key만 허용**, 비밀번호·root 원격 로그인 차단 |
+| D-019A | 배포 계정 | **결정 완료: 제한된 `daymo-deploy` 사용**, root 직접 배포 금지 |
+| D-019B | 운영 secret | **결정 완료: GitHub Environment Secrets + VPS root 전용 `0600` 파일** |
+| D-019C | OS update | **결정 완료: security patch 자동 설치**, 재부팅은 알림 후 직접 수행 |
 
 ## 4. 문서에서 보완한 계약
 

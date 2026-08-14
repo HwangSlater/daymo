@@ -156,6 +156,9 @@
 
 - [ ] iOS/Android 앱 ID와 서명 인증서 확정
 - [ ] local과 VPS beta→production 설정·secret 분리, 동일 VPS에서 두 JVM/DB 동시 상시 운영 금지
+- [ ] SSH key 전용·root 원격 로그인 차단·제한된 deploy 계정과 sudo allowlist 확인
+- [ ] GitHub Environment Secrets와 VPS root 전용 secret 파일의 권한·노출 여부 확인
+- [ ] OS security update 자동 설치와 재부팅 필요 알림 확인
 - [ ] OAuth 제공자별 운영 redirect 검증
 - [ ] 개인정보 처리방침·이용약관·계정 삭제 URL 공개
 - [ ] 개인정보 항목/목적/근거/보유기간/위탁/국외 이전/파기/권리행사 표 검토

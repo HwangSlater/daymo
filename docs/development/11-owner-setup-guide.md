@@ -370,6 +370,12 @@ EXPO_TOKEN
 
 VPS root 비밀번호 대신 제한된 배포용 SSH 키를 사용한다.
 
+VPS에는 `daymo-deploy` 계정을 만들고 SSH public key를 등록한다. SSH 설정은 key 인증만 허용하고 비밀번호와 root 원격 로그인을 차단한다. `daymo-deploy`에는 임의 root shell이나 Docker socket 접근을 주지 않고, root 소유 allowlist 배포 script 실행만 sudoers에 허용한다.
+
+GitHub Environment Secrets에는 배포 SSH key·host 등 CI에 실제 필요한 값만 넣는다. 애플리케이션 운영 secret은 `/etc/daymo/secrets/` 아래 root 소유 `0600` 파일로 두고 workflow 출력이나 image layer에 복사하지 않는다.
+
+OS security patch는 자동 설치하되 자동 재부팅은 사용하지 않는다. 재부팅 필요 알림을 Daymo 운영 이메일로 받은 뒤 백업과 서비스 상태를 확인하고 직접 재부팅한다. 일반 package·major upgrade는 수동 검토한다.
+
 ## 12. ConoHa VPS 준비
 
 구매 계획은 ConoHa VPS 일본 리전이다. 구매 직후 영수증·계약 화면과 관리 콘솔에서 실제 데이터센터 국가와 세부 지역을 확인해 운영 기록과 개인정보 처리방침 초안에 반영한다.
