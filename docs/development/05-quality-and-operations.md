@@ -190,6 +190,17 @@
 | staging | migration rehearsal, 두 계정 E2E, 성능 예산, 로그 PII 점검 |
 | production 후보 | 보안·백업 복원·스토어/법률 체크리스트와 release build 실기기 검수 |
 
+### CI 실행 기준
+
+| Trigger | 필수 작업 |
+| --- | --- |
+| 모든 pull request | client typecheck·lint·unit test, server Gradle test·Testcontainers DB test, migration 검증, server image build |
+| `main` merge | 같은 검증 결과 확인 후 server production 자동 배포 |
+| beta/production release candidate | EAS Build로 iOS·Android native binary 생성, 두 플랫폼 smoke test |
+| 매주 dependency schedule | client/server 생태계별 묶음 update PR 생성, 자동 merge 금지 |
+
+의존성 PR도 일반 PR과 같은 CI를 통과해야 하며 release note·Expo/Spring 호환성·보안 영향 확인 후 직접 squash merge한다. EAS build를 모든 PR에서 실행하지 않는다.
+
 베타는 공개 가입과 실사용 데이터 유지를 선택했으므로 staging 표기가 있어도 production 개인정보·보안 기준을 적용한다. production 전환 전에 DB·사진 전체 snapshot과 실제 복원 검증을 완료하며 데이터 초기화는 하지 않는다.
 
 pull request가 필수 CI를 통과해 `main`에 merge되면 자동 production 배포한다. typecheck·test·backend test·migration 검증·image build 중 하나라도 실패하면 merge와 배포를 막는다. 배포 후 readiness와 smoke test가 실패하면 이전 commit SHA image로 자동 복귀하고 경고를 보낸다. schema 변경은 이전/신규 image가 함께 읽을 수 있는 expand-contract 방식만 허용한다.

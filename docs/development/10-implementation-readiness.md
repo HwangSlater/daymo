@@ -154,6 +154,10 @@
 | D-022B | API DNS | **결정 완료: 가비아 A record로 `api.daymo.xyz`→ConoHa 직접 연결**, proxy 미사용 |
 | D-022C | API HTTPS | **결정 완료: Let's Encrypt 무료 인증서 자동 발급·갱신** |
 | D-022D | Vercel 사용 조건 | **결정 완료: 비상업 beta에만 Hobby 사용**, 상업화 전 조건 재검토·필요 시 정적 host 이전 |
+| D-023 | 모바일 PR CI | **결정 완료: 모든 PR에서 typecheck·lint·unit test** |
+| D-023A | backend PR CI | **결정 완료: 모든 PR에서 Gradle test·Testcontainers DB test** |
+| D-023B | EAS native build | **결정 완료: release candidate에서만 iOS·Android 병행**, 일반 PR 생략 |
+| D-023C | dependency update | **결정 완료: 매주 묶음 PR·직접 검토 merge**, 자동 merge 금지 |
 
 ## 4. 문서에서 보완한 계약
 

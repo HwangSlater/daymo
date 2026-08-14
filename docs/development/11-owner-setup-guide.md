@@ -386,6 +386,8 @@ VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 계정·여행·�
 
 GitHub의 `main`은 직접 push하지 못하게 보호하고 pull request의 필수 CI가 통과한 뒤에만 merge한다. merge되면 자동 배포하되 schema 변경 배포는 직전 DB snapshot이 성공해야 하며, health/smoke test가 실패하면 이전 image로 자동 복귀한다. DB 변경은 기존 버전과 함께 동작하는 expand-contract 방식으로 나눈다.
 
+모든 PR에서 앱 typecheck·lint·unit test와 server Gradle·Testcontainers test를 실행한다. EAS iOS/Android build는 일반 PR에서 제외하고 release candidate에서만 병행한다. Dependabot은 매주 생태계별 묶음 PR을 만들지만 자동 merge하지 않으며 CI와 호환성 확인 후 직접 병합한다.
+
 초기 1인 개발에서는 다른 사람의 PR 승인을 요구하지 않고 필수 CI를 통과한 PR만 squash merge한다. production 배포는 한 번에 하나만 실행하며 최신 대기 배포만 보존한다. 장애 rollback은 server image만 되돌리고 DB down migration은 사용하지 않는다.
 
 앱 beta는 TestFlight와 Android 비공개 테스트를 병행한다. EAS OTA는 같은 native runtime의 JavaScript·이미지 변경만 내부 확인 후 단계적으로 확대하고, native 변경은 store 심사를 거친다. 강제 업데이트는 보안·API 비호환 상황에만 사용한다. 위험 기능은 server feature flag로 소수 대상부터 활성화하고 문제가 생기면 앱 재배포 없이 끈다.
