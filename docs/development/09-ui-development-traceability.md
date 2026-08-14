@@ -87,11 +87,11 @@
 | 여러 요리 CRUD | S | recipe API/version | 30개 메뉴, 동일 이름 정책 |
 | 재료·분류·준비 방법 | S | ingredient CRUD | 500개 재료, 직접 분류 |
 | 통합 장보기·내 재료 | L | SQLite derived query | 요리별 수량 보존, 필터 정확 |
-| 재료 체크 | S | ingredient completion | 준비물과의 관계 결정 필요 |
+| 재료 체크 | S | ingredient completion | 준비물과 상태 분리, 출처 연결·반영 제안 |
 | 레시피/YouTube 링크 | H | external link validation | 허용 scheme, 열기 실패 |
 | GPT 프롬프트·붙여넣기 | H | clipboard/local parser, confirmed bulk write | 자동 저장 금지, 오류 행별 표시 |
 
-`결정 필요`: 요리 재료와 가져온 준비물의 완료 상태를 양방향 동기화할지 분리할지 확정한다. 권장안은 출처 연결은 유지하되 완료 상태는 분리하고, 한쪽 완료 시 다른 쪽에 반영 여부를 제안하는 방식이다.
+요리 재료와 가져온 준비물의 완료 상태는 분리하고 출처 연결을 유지한다. 한쪽 완료 시 다른 쪽에 반영할지만 제안하며 자동으로 양방향 변경하지 않는다.
 
 ## 기록
 

@@ -26,12 +26,12 @@
 - npm audit 경고를 별도 Expo SDK 호환 브랜치에서 검증
 - 현재 모든 UI 동작을 [`09-ui-development-traceability.md`](./09-ui-development-traceability.md)로 회귀 고정
 
-결정 필요:
+확정된 기반 정책:
 
-1. Google Drive 백업 계정을 개인 계정과 Daymo 전용 계정 중 어디에 둘지
-2. 공개 회원가입 확정: 공간 콘텐츠는 초대 멤버 전용으로 유지
-3. editor의 타인 메모 삭제 허용 여부
-4. 가입 가능 연령을 만 14세 이상으로 제한할지 법정대리인 동의 절차를 구현할지
+1. Google Drive 백업은 Daymo 전용 Google 계정 사용
+2. 공개 회원가입, 공간 콘텐츠는 초대 멤버 전용
+3. owner/editor의 타인 메모 삭제 허용과 감사 로그 유지
+4. 만 14세 이상만 가입, 생년월일 원본 미수집
 
 완료 기준: 개발자가 새 PC에서 문서만 보고 iOS/Android/local backend를 실행할 수 있다.
 
