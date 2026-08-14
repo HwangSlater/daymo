@@ -78,6 +78,9 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | GET | `/auth/oauth/{provider}/start` | OAuth 시작 (`apple/google/kakao/naver`) |
 | GET | `/auth/oauth/{provider}/callback` | code 교환 후 앱으로 복귀 |
 | POST | `/auth/oauth/exchange` | 일회용 앱 로그인 code를 session token으로 교환 |
+| GET | `/me/auth-methods` | 연결된 이메일·OAuth 로그인 방식 조회 |
+| POST | `/me/auth-methods/{provider}/link` | 재인증 후 provider 연결 시작 |
+| DELETE | `/me/auth-methods/{provider}` | provider 연결 해제, 마지막 수단은 차단 |
 | GET | `/me` | 내 프로필·참여 공간 목록 |
 | PATCH | `/me` | 이름/프로필 사진 수정 |
 | DELETE | `/me` | 계정 탈퇴 요청 |
@@ -113,6 +116,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 ```
 
 OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버가 1분 이내 만료되고 한 번만 쓸 수 있는 `loginCode`를 앱 링크로 돌려주고 앱은 `/auth/oauth/exchange`로 session token을 교환한다. provider 시작 요청에는 앱이 만든 `state`와 PKCE challenge를 사용한다.
+
+provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 서버는 `ACCOUNT_LINK_REQUIRED`와 짧게 유효한 연결 context를 반환하고, 사용자가 기존 계정으로 재인증한 뒤에만 provider subject를 연결한다.
 
 - 서비스 이용약관 동의와 개인정보 처리 관련 고지/동의는 문서 종류와 법적 근거를 구분한다.
 - 계약 이행에 필요한 개인정보까지 관행적으로 모두 ‘필수 동의’로 만들지 않는다.
