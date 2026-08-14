@@ -118,7 +118,7 @@ Google Drive에는 노출 가능한 폴더 원본을 그대로 올리지 않는�
 | Node.js | `v26.7.0` | Expo 지원 LTS로 고정 |
 | npm | `11.19.0` | 선택한 Node 버전과 함께 고정 |
 | Java | 설치되지 않음 | JDK 21 설치 |
-| Expo | SDK 54 | 유지 또는 선행 업그레이드 검증 결정 |
+| Expo | SDK 54 | 기능 개발 전에 최신 안정 SDK 업그레이드 검증 확정 |
 | React Native | 0.81.4 | Expo 호환 조합 유지 |
 | PostgreSQL | 미구성 | Docker 기반 PostgreSQL 16 준비 |
 | Spring Boot | 프로젝트 없음 | 기반 단계에서 생성 |
@@ -387,7 +387,7 @@ www.<owned-domain>          약관·처리방침·삭제 요청
 ## 16. 개발 시작 전 사용자 결정
 
 1. 앱 식별자 `com.hwangslater.daymo` 확정 완료
-2. Expo SDK 54 유지 또는 선행 업그레이드 검증
+2. 기능 개발 전 Expo 최신 안정 SDK 업그레이드 검증 확정
 3. 첫 알파를 초대 전용으로 운영할지
 4. 사진 저장은 ConoHa VPS 디스크, 초기 상한은 30GB로 확정
 5. 외부 백업은 Google Drive로 시작
