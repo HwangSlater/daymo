@@ -53,7 +53,7 @@ React Native UI
 서버 호출 없이 기기에서 처리하는 행동:
 
 - 네이버·카카오 공유 텍스트에서 이름·주소·URL 형식 추출
-- 준비물/장소/요리 목록의 복사 텍스트 생성과 붙여넣기 문법 검사
+- 준비물/요리 목록의 복사 텍스트 생성과 붙여넣기 문법 검사
 - 이미 받은 목록의 태그·담당·상태 필터와 정렬
 - 여행 날짜의 달력 범위, 진행률, 개수와 연애 일수 계산
 - 대한민국 지도 확대/이동과 지역 선택
@@ -103,11 +103,11 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 
 계정 삭제, 이메일·비밀번호 변경, 로그인 방식 연결·해제는 실행할 때마다 별도의 재인증을 요구한다. 이메일 계정은 현재 비밀번호, OAuth 계정은 연결된 provider의 새 인증 결과로 확인한다. 재인증 결과는 해당 작업과 nonce에만 묶인 1회용 proof로 발급하며 다른 민감 작업이나 후속 요청에 재사용하지 않는다. 공간 삭제는 재인증 대신 공간 이름 입력과 최종 경고 확인을 연속으로 요구한다.
 
-공간 초대 링크는 생성 시점부터 7일 동안 유효하며 최대 10회 참여에 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 유효한 링크를 통해 별도 owner 승인 없이 바로 참여하고, 기본 권한은 함께 여행을 편집할 수 있는 `editor`다. 소유자가 링크를 폐기하면 남은 기간과 횟수에 관계없이 즉시 사용할 수 없게 한다. 여러 명이 동시에 참여해도 정원을 넘지 않도록 사용 횟수 증가와 membership 생성을 하나의 transaction에서 처리한다.
+하나의 공간에는 owner를 포함해 최대 10명까지 참여할 수 있다. 공간 초대 링크는 생성 시점부터 7일 동안 유효하며 최대 10회 참여에 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 유효한 링크를 통해 별도 owner 승인 없이 바로 참여하고, 기본 권한은 함께 여행을 편집할 수 있는 `editor`다. 소유자가 링크를 폐기하면 남은 기간과 횟수에 관계없이 즉시 사용할 수 없게 한다. 여러 명이 동시에 참여해도 공간 정원을 넘지 않도록 사용 횟수 증가와 membership 생성을 하나의 transaction에서 처리한다.
 
 ### 여행
 
-- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `cover_photo_id`
+- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `cover_photo_id`, `archived_at`, `deleted_at`, `deletion_scheduled_at`
 - `trip_days`: `trip_id`, `date`, `day_index`
 - `schedule_items`: `trip_id`, `trip_day_id`, `start_at`, `end_at`, `title`, `type`, `note`, `trip_place_id`, `sort_order`
 - `transports`: `trip_id`, `direction(outbound|return)`, `method`, `departure_name`, `departure_at`, `arrival_name`, `arrival_at`, `booking_status`, `note`
@@ -168,6 +168,7 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 클라이언트가 전달한 작성자와 완료자는 신뢰하지 않고 SecurityContext 사용자 ID를 사용한다.
 - 삭제는 기본적으로 soft delete하고 audit log를 남긴다.
 - 메모·사진 등 사용자 공동 콘텐츠는 삭제 후 일반 조회에서 즉시 제외하고 7일간 휴지통에 보관한다. owner와 editor가 복원할 수 있으며 7일 뒤 원본 파일과 row를 최종 삭제한다.
+- 여행의 기본 정리 동작은 되돌릴 수 있는 보관이다. 여행 삭제는 보관함의 별도 관리 메뉴에서만 시작하고 즉시 일반 목록에서 숨긴 뒤 7일간 여행 휴지통에서 복구할 수 있다. 유예기간이 지나면 일정·장소·준비물·요리·기록·사진 연결을 포함한 종속 데이터 purge를 시작한다.
 - 마지막 owner는 다른 멤버에게 owner를 이전하기 전에는 공간을 나갈 수 없다. 멤버가 본인뿐이면 명시적인 공간 삭제 절차만 제공한다.
 - 공간 삭제는 owner가 공간 이름을 정확히 입력한 뒤 삭제 영향과 7일 유예 안내를 다시 확인해야 요청할 수 있다. 요청 즉시 일반 목록과 동기화 대상에서 숨기고, 7일 동안 owner가 복구할 수 있으며 유예기간이 지나면 공간과 종속 콘텐츠의 최종 삭제 작업을 시작한다.
 - 법적 문서 동의 이력은 문서 version별로 남기되 동의 철회 후 불필요한 증빙 데이터는 정해진 보유기간에 파기한다.
@@ -180,7 +181,7 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 체크박스와 담당 변경은 마지막 서버 결과를 기준으로 재조정한다.
 - 작성 중인 긴 메모/일기는 로컬 draft를 보존한다.
 - P0는 오프라인 읽기와 draft 보존을 보장한다. P1에서 idempotency가 보장되는 준비물 체크·담당 변경·새 항목 추가를 pending mutation으로 지원한다.
-- 삭제·일괄 교체·권한 변경은 온라인에서만 수행한다. 모든 동작을 무리하게 오프라인화하지 않는다.
+- 삭제·준비물 일괄 교체·권한 변경은 온라인에서만 수행한다. 모든 동작을 무리하게 오프라인화하지 않는다.
 
 ## 6. 성능 설계
 
