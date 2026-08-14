@@ -150,7 +150,7 @@
 ## 7. 출시 체크리스트
 
 - [ ] iOS/Android 앱 ID와 서명 인증서 확정
-- [ ] dev/staging/prod 분리
+- [ ] local과 VPS beta→production 설정·secret 분리, 동일 VPS에서 두 JVM/DB 동시 상시 운영 금지
 - [ ] OAuth 제공자별 운영 redirect 검증
 - [ ] 개인정보 처리방침·이용약관·계정 삭제 URL 공개
 - [ ] 개인정보 항목/목적/근거/보유기간/위탁/국외 이전/파기/권리행사 표 검토
@@ -173,5 +173,9 @@
 | 기능 단계 완료 | iOS/Android smoke, API/DB 테스트, UI 회귀, 오프라인/오류 상태 |
 | staging | migration rehearsal, 두 계정 E2E, 성능 예산, 로그 PII 점검 |
 | production 후보 | 보안·백업 복원·스토어/법률 체크리스트와 release build 실기기 검수 |
+
+베타는 공개 가입과 실사용 데이터 유지를 선택했으므로 staging 표기가 있어도 production 개인정보·보안 기준을 적용한다. production 전환 전에 DB·사진 전체 snapshot과 실제 복원 검증을 완료하며 데이터 초기화는 하지 않는다.
+
+`main` push는 필수 CI가 모두 성공한 경우 자동 production 배포한다. typecheck·test·backend test·migration 검증·image build 중 하나라도 실패하면 배포 job을 시작하지 않는다. 배포 후 readiness와 smoke test가 실패하면 이전 commit SHA image로 자동 복귀하고 경고를 보낸다. schema 변경은 이전/신규 image가 함께 읽을 수 있는 expand-contract 방식만 허용한다.
 
 의존성 감사의 취약점 개수만으로 강제 업그레이드하지 않는다. 실제 앱 번들/개발 도구 노출 여부, 공식 호환 버전, exploit 가능성과 업데이트 위험을 기록하고 높은 위험은 출시 전에 해결하거나 명시적으로 수용한다.

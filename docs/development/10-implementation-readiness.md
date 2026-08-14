@@ -113,6 +113,10 @@
 | D-016W | 앱 전환 화면 | **결정 완료: background 즉시 privacy cover로 가림** |
 | D-016X | 생체 인증 fallback | **결정 완료: OS 기기 암호·PIN 허용**, 서버 재인증과 분리 |
 | D-016Y | 스크린샷 | **결정 완료: 일반 스크린샷 허용**, Android 전역 차단 미사용 |
+| D-017 | 베타 서버 운영 | **결정 완료: ConoHa VPS를 beta/staging으로 먼저 사용 후 production 전환**, 동시 상시 운영 없음 |
+| D-017A | 베타 가입 | **결정 완료: 베타부터 공개 회원가입** |
+| D-017B | 베타 데이터 | **결정 완료: 계정·여행·사진을 production까지 유지**, 전환 전 전체 snapshot·복원 검증 |
+| D-017C | production 배포 | **결정 완료: `main` push + 필수 CI 통과 시 자동 배포**, health 실패 시 이전 image 자동 복귀 |
 
 ## 4. 문서에서 보완한 계약
 
@@ -150,7 +154,7 @@
 2. Node LTS, npm, JDK 21, Android SDK 설치 확인
 3. `.nvmrc`, `engines`, `.env.example` 작성
 4. iOS bundle ID, Android package, 앱 링크 scheme 분리
-5. dev/staging/prod API URL과 secret 주입 경계 설정
+5. local과 VPS beta→production API URL·secret 주입 경계 설정
 
 ### 0-C. 저장소 구조
 
