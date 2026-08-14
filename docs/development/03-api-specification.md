@@ -418,7 +418,7 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 
 `GET /spaces/{spaceId}/events`는 인증된 SSE 연결이다. 이벤트에는 `entity`, `entityId`, `tripId`, `operation`, `updatedAt`만 담고 상세 데이터는 권한이 적용된 API로 다시 조회한다. 모바일 백그라운드에서는 연결 유지를 보장하지 않고 앱 활성화 시 갱신한다.
 
-모바일 SSE 구현이 표준 `EventSource`에서 Bearer header를 안정적으로 전달하지 못하는 경우를 대비해 `POST /spaces/{spaceId}/events/ticket`에서 60초 이내 만료되는 1회용 연결 ticket을 발급한다. 장기 access token을 URL에 넣지 않는다. 기반 단계에서 development build로 연결을 검증한 뒤 SSE가 불안정하면 P0는 foreground sync polling으로 출시하고 실시간 연결을 P1로 미룬다.
+모바일 SSE 구현이 표준 `EventSource`에서 Bearer header를 안정적으로 전달하지 못하는 경우를 대비해 `POST /spaces/{spaceId}/events/ticket`에서 60초 이내 만료되는 1회용 연결 ticket을 발급한다. 장기 access token을 URL에 넣지 않는다. SSE는 변경 신호일 뿐 데이터 원본이 아니며 수신 뒤 증분 sync 또는 대상 GET으로 최신 상태를 확인한다. 연결이 불안정하면 foreground polling으로 자동 전환한다.
 
 ## 11. 알림 설정과 기기
 
