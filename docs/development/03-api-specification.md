@@ -92,6 +92,11 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | DELETE | `/me/legal-acceptances/{type}` | 선택 동의 철회 |
 | POST | `/me/privacy-requests` | 열람·정정·삭제·처리정지 요청 |
 | GET | `/me/privacy-requests/{requestId}` | 요청 처리 상태 |
+| POST | `/privacy/photo-requests` | 비회원 포함 사진 등장 당사자의 삭제·처리정지 요청 |
+| POST | `/reports` | 사용자 또는 콘텐츠 신고 |
+| GET | `/me/reports` | 내가 제출한 신고와 처리 상태 |
+| GET/POST | `/me/blocks` | 차단 사용자 목록/추가 |
+| DELETE | `/me/blocks/{blockedUserId}` | 사용자 차단 해제 |
 
 `POST /auth/signup`
 
@@ -130,6 +135,12 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
   "ageEligibilityConfirmed": true
 }
 ```
+
+사용자·콘텐츠의 더보기 메뉴에는 `신고`와 `차단`을 별도 문구로 제공한다. 신고는 사유와 선택 설명을 받아 운영 검토 queue에 넣고, 같은 대상의 반복 제출은 idempotent하게 합치되 신고자에게 접수 번호를 반환한다. 신고자의 신원은 신고 대상과 공간 멤버에게 공개하지 않는다.
+
+접수 API는 즉시 `receivedAt`, `status=received`, `reviewDueAt`을 반환하며 최초 검토 목표는 접수 후 24시간 이내다. 사진 무단 노출, 구체적 위협, 아동 안전처럼 긴급 사유는 운영 검토 전에도 대상 콘텐츠를 `restricted`로 임시 제한할 수 있다. 운영자 알림에는 신고 ID·유형·긴급도·기한만 넣고 신고 설명 원문이나 사진을 이메일·푸시에 첨부하지 않는다. 처리 결과와 이의 제기 방법은 `/me/reports`에서 확인하고 필요한 경우 이메일로도 알린다.
+
+차단하면 두 사용자 사이의 새 초대 생성·수락, 새 공간 동시 합류와 직접 관련 알림을 서버에서 차단한다. 이미 같은 공간의 membership과 공동 콘텐츠를 자동 삭제하거나 일부만 숨기지 않으며, 차단한 사용자에게 `공간 나가기` 또는 `owner에게 내보내기 요청`을 안내한다. 차단 해제 전에는 상대가 보낸 초대 token도 수락할 수 없다.
 
 OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버가 1분 이내 만료되고 한 번만 쓸 수 있는 `loginCode`를 앱 링크로 돌려주고 앱은 `/auth/oauth/exchange`로 session token을 교환한다. provider 시작 요청에는 앱이 만든 `state`와 PKCE challenge를 사용한다.
 
@@ -446,6 +457,8 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 메모 삭제는 공간 owner와 editor에게 허용하며 viewer는 차단한다. 타인의 메모 삭제도 동일하게 허용하지만 서버는 `deletedBy`, `deletedAt`과 audit log를 남기고 기본 조회에서 제외한다.
 
 메모와 사진은 삭제 후 7일간 휴지통에서 복원할 수 있다. 사진 업로더는 본인 사진의 설명과 날짜·장소·일정 연결을 수정하고 삭제·복구할 수 있다. owner는 공간의 모든 사진에 같은 권한을 가진다. 다른 editor는 타인이 올린 사진의 설명·연결을 수정하거나 삭제·복구할 수 없다. 사진 응답의 `permissions.canEdit`, `canDelete`, `canRestore`도 이 규칙을 반영하고 서버가 uploader/owner 권한을 매 요청마다 확인한다. 7일이 지나면 DB row와 사진 variant를 최종 삭제하고 삭제 ledger를 남겨 오래된 백업을 복원할 때 다시 노출되지 않게 한다.
+
+사진에 등장한 당사자의 삭제·처리정지 요청이 접수되면 운영자가 대상과 요청자 확인에 필요한 최소 자료를 검토하고 사진을 `restricted`로 전환한다. 제한된 사진은 일반 목록·검색·통계·기념 카드와 모든 variant 다운로드에서 숨긴다. 업로더와 owner에게는 대상 사진, 임시 제한 사실, 이의 제기·처리 절차만 알리고 요청자의 연락처나 증빙을 공유하지 않는다. 확인 결과 삭제가 타당하면 기존 7일 삭제와 deletion ledger 절차로 전환하고, 확인되지 않거나 철회되면 audit log를 남긴 뒤 복원한다. 앱 API만으로 운영자 검토를 우회해 제한 상태를 해제할 수 없다.
 
 사진 업로드 순서:
 
