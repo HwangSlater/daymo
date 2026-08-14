@@ -181,7 +181,7 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 
 공간 삭제 화면의 1단계에서는 owner가 현재 공간 이름을 정확히 입력해야 한다. 2단계에서는 삭제되는 범위, 모든 멤버에게 미치는 영향, 7일 복구 기한을 보여주고 `7일 후 삭제` 최종 버튼을 다시 눌러야 한다. API 요청은 `confirmationName`과 `impactAcknowledged: true`를 받고 서버가 owner 권한과 최신 공간 이름을 검증한다. 별도 계정 재인증은 요구하지 않는다. 요청 성공 즉시 모든 멤버의 일반 공간 목록, sync 응답, 알림 대상에서 숨기고 7일 뒤 최종 삭제를 예약한다. 유예기간에는 owner의 삭제 예정 공간 화면에서만 확인·복구할 수 있다. 복구하면 기존 membership과 콘텐츠를 그대로 되살리고, 7일이 지나면 복구 API는 `410 GONE`을 반환한다.
 
-초대 링크는 생성 시점부터 7일간, 최대 10명까지 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 별도 owner 승인 없이 즉시 참여하며 기본 권한은 `editor`다. 미로그인 사용자는 인증 완료 후 원래 초대 흐름으로 복귀한다. owner는 만료 전에도 링크를 폐기하거나 참여 후 멤버별 권한을 변경할 수 있다. 링크 원문은 생성 응답에서만 반환하고 서버에는 hash만 저장한다. 참여 API는 만료·폐기·사용 횟수를 transaction 안에서 재검증하며 이미 참여한 사용자의 재요청은 중복 membership을 만들지 않는다.
+공간 정원은 owner를 포함해 최대 10명이다. 초대 링크는 생성 시점부터 7일간, 최대 10명까지 사용할 수 있다. 로그인과 이메일 인증을 마친 사용자는 별도 owner 승인 없이 즉시 참여하며 기본 권한은 `editor`다. 미로그인 사용자는 인증 완료 후 원래 초대 흐름으로 복귀한다. owner는 만료 전에도 링크를 폐기하거나 참여 후 멤버별 권한을 변경할 수 있다. 링크 원문은 생성 응답에서만 반환하고 서버에는 hash만 저장한다. 참여 API는 만료·폐기·사용 횟수와 공간 정원을 transaction 안에서 재검증하며 이미 참여한 사용자의 재요청은 중복 membership을 만들지 않는다. 정원이 찬 경우 `409 SPACE_MEMBER_LIMIT_REACHED`를 반환하되 초대 사용 횟수는 올리지 않는다.
 
 ```json
 {}
@@ -211,10 +211,14 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 | POST | `/spaces/{spaceId}/trips` | 여행 생성 |
 | GET | `/trips/{tripId}` | 여행 기본 정보 |
 | PATCH | `/trips/{tripId}` | 여행 수정 |
-| DELETE | `/trips/{tripId}` | 여행 삭제 |
+| DELETE | `/trips/{tripId}` | 보관함 관리 메뉴에서 여행 삭제 요청 |
 | POST | `/trips/{tripId}/archive` | 여행 보관 |
+| POST | `/trips/{tripId}/unarchive` | 보관 해제 |
+| POST | `/trips/{tripId}/restore` | 삭제 후 7일 이내 여행 복구 |
 
 여행 목록 query: `status`, `from`, `to`, `regionCode`, `q`, `limit`, `cursor`, `sort`.
+
+일반 여행 상세에는 삭제 동작을 노출하지 않고 `보관`만 제공한다. 보관은 데이터를 삭제하지 않으며 보관함에서 즉시 해제할 수 있다. 실제 삭제는 보관함의 관리 메뉴에서 영향 범위와 7일 복구 기한을 확인한 뒤 요청한다. 삭제된 여행은 일반 목록·검색·지도·캘린더·알림에서 즉시 제외하고 `status=trash` 관리 조회에서만 보여준다. 7일 안에 복구하면 기존 상태와 종속 콘텐츠를 되살리고, 기한이 지난 요청은 `410 GONE`을 반환한다.
 
 여행 생성 요청:
 
@@ -293,7 +297,6 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 | POST | `/trip-places/{tripPlaceId}/schedule` | 장소를 일정에 담기 |
 | POST | `/trip-places/{tripPlaceId}/register-stay` | 숙소로 등록 |
 | POST | `/places/resolve-external-link` | 선택적으로 단축 URL 확인/장소 정보 보강 |
-| POST | `/trips/{tripId}/places/import` | 여러 장소 붙여넣기 |
 | GET | `/spaces/{spaceId}/tags?scope={scope}` | 범위별 사용 중인 태그 (`place|packing|ingredient`) |
 | POST | `/spaces/{spaceId}/tags` | 명시적으로 사용자 태그 생성 |
 | PATCH | `/tags/{tagId}` | 태그 이름·색 수정 |

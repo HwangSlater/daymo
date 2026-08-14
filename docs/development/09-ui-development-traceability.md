@@ -39,7 +39,7 @@
 | 지역 선택과 여행 목록 | H | local filter, 필요 시 region query | 선택 직후 결과 표시 |
 | 기간 캘린더 | L | trip start/end 계산 | 월 경계·윤년·연속 배경 |
 | 새 여행 | S | `POST /spaces/{spaceId}/trips` | 중복 전송 방지, 생성 후 선택 여행으로 이동 |
-| 여행 수정·삭제·보관 | S | trip version/soft delete/archive | 충돌·권한·삭제 확인 |
+| 여행 수정·보관·삭제 | S | trip version/archive/7일 soft delete | 일반 화면은 보관만, 삭제는 보관함 관리 메뉴 |
 
 ## 여행 탭·일정·교통·숙소
 
@@ -66,7 +66,7 @@
 | 네이버 공유 텍스트 자동 채우기 | L | parser | 이름·주소·URL 변형 fixture |
 | 단축 URL 보강 | S | resolve endpoint | 실패해도 로컬 추출 값 저장 가능 |
 | 숙소로 등록 | S | register-stay transaction | lodging으로 저장한 장소에만 노출 |
-| 복사·붙여넣기 | H | local parse/preview, bulk API | 추가/교체 구분, 원자성, 오류 행 표시 |
+| 목록 복사·붙여넣기 | 제외 | 출시 후 최종 후순위 | 초기 API·개발 범위에 포함하지 않음 |
 
 ## 준비
 
