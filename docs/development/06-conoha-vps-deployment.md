@@ -111,19 +111,28 @@ VPS 트래픽이 무제한이므로 외부 스토리지 이전을 검토할 이�
 
 ## 7. 배포 절차
 
-`main` push가 production 자동 배포 trigger다. 별도 수동 승인 단계는 두지 않지만 필수 검증 실패 시 배포하지 않는다.
+pull request가 필수 CI를 통과해 `main`에 merge되는 것이 production 자동 배포 trigger다. 별도 수동 배포 승인 단계는 두지 않지만 필수 검증 실패 시 merge와 배포를 막는다.
 
 1. GitHub Actions가 앱 typecheck/test와 Gradle test 수행
 2. 직전 production schema snapshot으로 Flyway migration 검증
 3. image build 후 commit SHA 태그로 GHCR push
-4. 배포 직전 PostgreSQL backup과 사진/DB 정합성 checkpoint 생성
+4. schema 변경이 있으면 배포 직전 PostgreSQL snapshot 생성과 성공 여부 확인, 사진/DB 정합성 checkpoint 생성
 5. VPS에서 새 image pull, expand-contract migration 후 API 교체
 6. `/actuator/health/readiness`와 로그인·홈·여행 읽기 smoke test
-7. 실패 시 이전 SHA image로 자동 복귀하고 운영자에게 경고
+7. 실패 시 이전 SHA image로 자동 복귀하고 운영자에게 경고; 별도 수동 rollback 명령도 유지
 
 단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 두 JVM을 상시 운영하지 않는다.
 
 VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사진을 유지한 채 production으로 전환한다. 전환 직전 전체 snapshot을 만들고 별도 환경에서 복원을 확인한다. beta 데이터는 삭제하지 않으므로 beta 시작 전부터 production 수준의 약관·보안·백업·신고 운영을 적용한다.
+
+### GitHub 브랜치 보호
+
+- `main` 직접 push 금지
+- pull request 필수
+- 앱 typecheck/test, backend test, migration 검증, image build를 required status check로 지정
+- required check가 오래된 commit에서 통과했으면 최신 commit 기준으로 다시 검사
+- merge 후에만 production 자동 배포
+- 비상시 관리자 우회는 허용하되 사유와 후속 검증을 운영 기록에 남김
 
 ## 8. 백업
 
@@ -131,7 +140,9 @@ VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사
 - 사진: Daymo 전용 Google Drive의 restic 암호화 snapshot
 - env와 secret: 비밀번호 관리 도구에 별도 보관
 - 월 1회 local/staging에 실제 복원 시험
-- 배포 직전 schema 변경이 크면 추가 backup
+- schema 변경이 있는 모든 배포 직전에 추가 DB snapshot
+
+schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 직전 DB snapshot 성공을 배포 조건으로 둔다. migration은 `add → dual read/write 또는 backfill → 전환 → 후속 release에서 제거` 순서의 expand-contract만 허용한다. 같은 배포에서 기존 컬럼·테이블을 즉시 삭제하지 않는다.
 
 ### Google Drive 자동 백업
 

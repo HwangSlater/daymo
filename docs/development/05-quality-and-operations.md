@@ -145,7 +145,9 @@
 - Storage 파일과 DB 메타데이터의 불일치를 주기적으로 검사
 - soft delete 보존 기간 동안 관리자 복구 가능
 - 분기마다 staging에서 백업 복원 훈련
-- migration 배포 전 snapshot과 롤백/전진 수정 절차 확인
+- schema를 변경하는 모든 배포 직전에 DB snapshot 생성과 성공 여부 확인
+- migration은 expand-contract로 나누고, 컬럼·테이블 삭제 같은 contract 단계는 이전 앱·서버가 더는 사용하지 않는 것이 확인된 후 별도 release에서 수행
+- readiness/smoke test 실패 시 이전 commit SHA image로 자동 롤백하며, 운영자가 실행할 수 있는 수동 롤백 명령도 유지
 
 ## 7. 출시 체크리스트
 
@@ -176,6 +178,8 @@
 
 베타는 공개 가입과 실사용 데이터 유지를 선택했으므로 staging 표기가 있어도 production 개인정보·보안 기준을 적용한다. production 전환 전에 DB·사진 전체 snapshot과 실제 복원 검증을 완료하며 데이터 초기화는 하지 않는다.
 
-`main` push는 필수 CI가 모두 성공한 경우 자동 production 배포한다. typecheck·test·backend test·migration 검증·image build 중 하나라도 실패하면 배포 job을 시작하지 않는다. 배포 후 readiness와 smoke test가 실패하면 이전 commit SHA image로 자동 복귀하고 경고를 보낸다. schema 변경은 이전/신규 image가 함께 읽을 수 있는 expand-contract 방식만 허용한다.
+pull request가 필수 CI를 통과해 `main`에 merge되면 자동 production 배포한다. typecheck·test·backend test·migration 검증·image build 중 하나라도 실패하면 merge와 배포를 막는다. 배포 후 readiness와 smoke test가 실패하면 이전 commit SHA image로 자동 복귀하고 경고를 보낸다. schema 변경은 이전/신규 image가 함께 읽을 수 있는 expand-contract 방식만 허용한다.
+
+`main`은 보호 브랜치로 설정한다. 직접 push를 막고 pull request에서 필수 CI를 통과해야 merge할 수 있게 한다. 관리자 우회도 비상 장애 대응 외에는 사용하지 않으며, 우회한 경우 사유를 운영 기록에 남긴다.
 
 의존성 감사의 취약점 개수만으로 강제 업그레이드하지 않는다. 실제 앱 번들/개발 도구 노출 여부, 공식 호환 버전, exploit 가능성과 업데이트 위험을 기록하고 높은 위험은 출시 전에 해결하거나 명시적으로 수용한다.

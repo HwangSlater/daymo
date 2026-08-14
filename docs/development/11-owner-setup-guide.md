@@ -376,6 +376,8 @@ VPS root 비밀번호 대신 제한된 배포용 SSH 키를 사용한다.
 
 VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 계정·여행·사진을 지우지 않은 채 production으로 전환한다. 같은 2GB VPS에서 staging과 production을 동시에 상시 실행하지 않는다. 베타 시작 전부터 production 수준 약관·처리방침·백업·신고 운영을 갖추고, 전환 직전 전체 snapshot의 실제 복원을 확인한다.
 
+GitHub의 `main`은 직접 push하지 못하게 보호하고 pull request의 필수 CI가 통과한 뒤에만 merge한다. merge되면 자동 배포하되 schema 변경 배포는 직전 DB snapshot이 성공해야 하며, health/smoke test가 실패하면 이전 image로 자동 복귀한다. DB 변경은 기존 버전과 함께 동작하는 expand-contract 방식으로 나눈다.
+
 현재 예정 사양:
 
 ```text
