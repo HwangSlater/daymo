@@ -341,6 +341,8 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 
 고정 텍스트 형식의 문법 분석과 미리보기는 기기에서 처리하고, 확인된 요리 목록만 일반/일괄 저장 API로 전송한다. 향후 AI 분석 API를 도입하더라도 원문과 분석 결과를 구분하며 자동 저장하지 않는다.
 
+재료를 준비물로 가져오면 응답에 생성된 `checklistItemId`와 `sourceIngredientIds`를 반환한다. 재료와 준비물 완료 API는 서로를 자동 호출하지 않으며, 앱은 연결 정보를 이용해 다른 쪽 반영 여부를 확인한 뒤 사용자가 승인한 경우에만 별도 mutation을 보낸다.
+
 ## 9. 메모·사진·일기
 
 | Method | Path | 용도 |
