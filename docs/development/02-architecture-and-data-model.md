@@ -96,7 +96,7 @@ React Native UI
 - `trip_days`: `trip_id`, `date`, `day_index`
 - `schedule_items`: `trip_id`, `trip_day_id`, `start_at`, `end_at`, `title`, `type`, `note`, `trip_place_id`, `sort_order`
 - `transports`: `trip_id`, `direction(outbound|return)`, `method`, `departure_name`, `departure_at`, `arrival_name`, `arrival_at`, `booking_status`, `note`
-- `stays`: `trip_id`, `trip_place_id`, `check_in_at`, `check_out_at`, `booking_url`, `note`
+- `stays`: `trip_id`, `trip_place_id`, `check_in_at`, `check_out_at`, `has_kitchen nullable`, `booking_url`, `note`
 - `reservations`: `trip_id`, `target_type`, `target_id`, `reserved_at`, `status`, `booking_url`, `note`
 
 ### 장소와 태그
@@ -127,6 +127,8 @@ React Native UI
 - `audit_logs`: `space_id`, `actor_id`, `action`, `target_type`, `target_id`, `metadata`
 
 기념 카드는 별도 공동 원본을 만들지 않는다. 선택한 사진 ID, 제목과 스타일은 기기 draft로 유지하고 렌더링 결과를 사용자가 저장·공유한다. 향후 멤버 간 카드 구성을 공유해야 할 때만 `keepsakes` 도메인을 추가한다.
+
+`trips.cooking_enabled`가 요리 탭 표시의 최종 원본이다. 숙소의 `has_kitchen`은 사실 정보이며 숙소 등록·수정 시 탭을 켜거나 끌지 제안하는 데만 사용한다. 탭을 꺼도 기존 요리·재료는 보존하고 다시 켜면 그대로 표시한다.
 
 ## 4. 권한
 
