@@ -48,36 +48,61 @@ type Trip = {
   end: string;
 };
 type GroupId = "ours" | "friends" | "family";
+
+const sampleDate = (daysFromToday: number) => {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + daysFromToday);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+};
+
+const sampleDateRange = (start: string, end: string) => {
+  const startMonth = Number(start.slice(5, 7));
+  const startDay = Number(start.slice(8, 10));
+  const endMonth = Number(end.slice(5, 7));
+  const endDay = Number(end.slice(8, 10));
+  return startMonth === endMonth
+    ? `${startMonth}월 ${startDay}일 — ${endDay}일`
+    : `${startMonth}월 ${startDay}일 — ${endMonth}월 ${endDay}일`;
+};
+
+const upcomingSampleStart = sampleDate(12);
+const upcomingSampleEnd = sampleDate(14);
+const recentSampleStart = sampleDate(-23);
+const recentSampleEnd = sampleDate(-22);
+const archiveSampleStart = sampleDate(-45);
+const archiveSampleEnd = sampleDate(-43);
+
 const trips: Trip[] = [
   {
     name: "전주 한옥마을",
-    date: "8월 21일 — 23일",
+    date: sampleDateRange(upcomingSampleStart, upcomingSampleEnd),
     note: "숙소에서 수다와 버섯전골",
     color: "#FF6B5F",
-    mark: "08",
+    mark: upcomingSampleStart.slice(5, 7),
     region: "서울",
-    start: "2026-08-21",
-    end: "2026-08-23",
+    start: upcomingSampleStart,
+    end: upcomingSampleEnd,
   },
   {
     name: "강릉 안목",
-    date: "8월 1일 — 2일",
+    date: sampleDateRange(recentSampleStart, recentSampleEnd),
     note: "보드게임과 야식 장보기",
     color: "#8B7CF6",
-    mark: "08",
+    mark: recentSampleStart.slice(5, 7),
     region: "경기",
-    start: "2026-08-01",
-    end: "2026-08-02",
+    start: recentSampleStart,
+    end: recentSampleEnd,
   },
   {
     name: "부산",
-    date: "7월 24일 — 26일",
+    date: sampleDateRange(archiveSampleStart, archiveSampleEnd),
     note: "바다 산책과 단체 사진",
     color: "#19B6A3",
-    mark: "07",
+    mark: archiveSampleStart.slice(5, 7),
     region: "부산",
-    start: "2026-07-24",
-    end: "2026-07-26",
+    start: archiveSampleStart,
+    end: archiveSampleEnd,
   },
 ];
 const initialTripsByGroup: Record<GroupId, Trip[]> = {
