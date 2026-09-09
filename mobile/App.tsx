@@ -1,3 +1,4 @@
+import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { Platform, StyleSheet, View } from "react-native";
 import {
@@ -7,6 +8,7 @@ import {
   SafeAreaProvider,
 } from "react-native-safe-area-context";
 import { WarmAppShell } from "./src/WarmAppShell";
+import { fontAssets } from "./src/theme/typography";
 
 const isWeb = Platform.OS === "web";
 
@@ -18,6 +20,11 @@ const phoneFrame = { x: 0, y: 0, ...PHONE };
 const phoneInsets = { top: 44, left: 0, right: 0, bottom: 34 };
 
 export default function App() {
+  const [fontsReady] = useFonts(fontAssets);
+
+  // 서체가 준비되기 전에 그리면 OS 기본 폰트로 한 번 그렸다가 바뀌어 글자가 튄다.
+  if (!fontsReady) return <View style={s.blank} />;
+
   if (!isWeb) {
     return (
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
@@ -43,6 +50,7 @@ export default function App() {
 }
 
 const s = StyleSheet.create({
+  blank: { flex: 1, backgroundColor: "#D8D5CE" },
   stage: {
     flex: 1,
     backgroundColor: "#D8D5CE",
