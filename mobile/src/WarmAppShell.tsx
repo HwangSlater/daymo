@@ -32,6 +32,7 @@ import {
   themeOptions,
 } from "./theme";
 import { typo } from "./theme/typography";
+import { paperCorner } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -660,7 +661,16 @@ function NotebookHome({
           ))}
         </View>
         <View pointerEvents="none" style={s.paperTripCornerShadow} />
-        <View pointerEvents="none" style={s.paperTripCorner} />
+        <View
+          pointerEvents="none"
+          style={[
+            s.paperTripCorner,
+            {
+              backgroundColor: paperCorner(theme.dark).fill,
+              borderColor: paperCorner(theme.dark).edge,
+            },
+          ]}
+        />
         </View>
       </View>
       <View style={s.scrapTitleRow}>

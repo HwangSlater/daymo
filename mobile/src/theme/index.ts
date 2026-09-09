@@ -37,7 +37,9 @@ export function resolveTheme(id: ThemeId, dark: boolean): AppTheme {
     primary: palette.primary, primarySoft: `${palette.primary}24`, secondary: palette.secondary, accent: palette.accent, navigation: '#090D14',
   } : {
     id, name: palette.name, dark: false,
-    background: '#F7F5F0', surface: '#FFFFFF', surfaceAlt: '#EFEEE9', text: '#17233D', muted: '#747D8D', border: '#E5E3DD',
+    // muted는 세 배경(background/surface/surfaceAlt) 모두에서 WCAG AA 4.5:1을 넘겨야 한다.
+    // docs/development/05-quality-and-operations.md 3장. #747D8D는 3.57~4.15:1로 미달이었다.
+    background: '#F7F5F0', surface: '#FFFFFF', surfaceAlt: '#EFEEE9', text: '#17233D', muted: '#646C7A', border: '#E5E3DD',
     primary: palette.primary, primarySoft: palette.soft, secondary: palette.secondary, accent: palette.accent, navigation: palette.navigation,
   };
 }

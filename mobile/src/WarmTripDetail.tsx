@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { AppTheme } from "./theme";
 import { typo } from "./theme/typography";
+import { memoPaper } from "./theme/colors";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
@@ -343,6 +344,7 @@ export function WarmTripDetail({
   tripStart,
   tripEnd,
 }: Props) {
+  const memo = memoPaper(Boolean(appTheme?.dark));
   const tripDates = buildTripDates(tripStart, tripEnd);
   const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["금 · 21", "토 · 22", "일 · 23"];
   const tripDateOptions = tripDates.length ? tripDates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
@@ -489,19 +491,19 @@ export function WarmTripDetail({
               onPress={() => setMemoPanel(true)}
               style={[
                 styles.tripMemoButton,
-                { backgroundColor: "#FFF8D8", borderColor: "#E8D896" },
+                { backgroundColor: memo.surface, borderColor: memo.border },
               ]}
             >
-              <View style={[styles.tripMemoTape, { backgroundColor: "rgba(232, 177, 157, .62)" }]} />
-              <Text style={[styles.tripMemoLabel, { color: "#98772A" }]}>확인할 것</Text>
-              <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: "#54451F" }]}>
+              <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
+              <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
+              <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
                 {tripNotes[0]?.body || "메모를 남겨보세요"}
               </Text>
               <View style={styles.tripMemoBottom}>
-                <Text style={[styles.tripMemoButtonText, { color: "#79652C" }]}>메모 {tripNotes.length}개</Text>
-                <Text style={[styles.tripMemoArrow, { color: "#98772A" }]}>›</Text>
+                <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
+                <Text style={[styles.tripMemoArrow, { color: memo.label }]}>›</Text>
               </View>
-              <View style={[styles.tripMemoFold, { backgroundColor: "#EBDD9F" }]} />
+              <View style={[styles.tripMemoFold, { backgroundColor: memo.fold }]} />
             </Pressable>
           </View>
           <Text
