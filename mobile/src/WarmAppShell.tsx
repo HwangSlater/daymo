@@ -32,7 +32,7 @@ import {
   themeOptions,
 } from "./theme";
 import { typo } from "./theme/typography";
-import { paperCorner } from "./theme/colors";
+import { domain, paperCard, paperCorner } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -489,6 +489,7 @@ function NotebookHome({
   todayKey: string;
   relationship: "연인" | "친구";
 }) {
+  const paper = paperCard(theme.dark);
   return (
     <ScrollView
       style={{ backgroundColor: "transparent" }}
@@ -513,17 +514,17 @@ function NotebookHome({
       {trip ? (
         <>
       <View style={s.paperTripStack}>
-        <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: theme.dark ? "#746D5B" : "#E7DECA" }]} />
-        <View style={[s.paperTripBack, s.paperTripBackRight, { backgroundColor: theme.dark ? "#575B60" : "#DDE5E3" }]} />
+        <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />
+        <View style={[s.paperTripBack, s.paperTripBackRight, { backgroundColor: paper.backRight }]} />
         <View
           style={[
             s.paperTrip,
-            { backgroundColor: "#FFFEFC", borderColor: theme.dark ? "#BFC4CB" : "#D9D9D5" },
+            { backgroundColor: paper.surface, borderColor: paper.border },
           ]}
         >
         <View pointerEvents="none" style={s.paperTripTexture}>
           {[63, 113, 163, 213].map((top) => (
-            <View key={top} style={[s.paperTripSoftLine, { top }]} />
+            <View key={top} style={[s.paperTripSoftLine, { top, backgroundColor: paper.softLine }]} />
           ))}
           <View
             style={[
@@ -532,9 +533,7 @@ function NotebookHome({
             ]}
           />
         </View>
-        <View
-          style={s.paperTape}
-        />
+        <View style={[s.paperTape, { backgroundColor: paper.tape }]} />
         <View pointerEvents="none" style={s.paperTripRoute}>
           <Svg width="100%" height="100%" viewBox="0 0 112 42">
             <Path
@@ -568,10 +567,10 @@ function NotebookHome({
                 ? "지금 여행 중"
                 : "다음 여행"}
             </Text>
-            <Text style={[s.paperTitle, { color: "#283046" }]}>
+            <Text style={[s.paperTitle, { color: paper.title }]}>
               {trip.name}
             </Text>
-            <Text style={[s.paperDate, { color: "#756F63" }]}>
+            <Text style={[s.paperDate, { color: paper.muted }]}>
               {trip.date}
             </Text>
           </View>
@@ -580,16 +579,16 @@ function NotebookHome({
               s.paperTripStamp,
               {
                 backgroundColor: "transparent",
-                borderColor: "#B8AD93",
+                borderColor: paper.stampBorder,
               },
             ]}
           >
             <Text style={[s.paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
-            <Text style={[s.paperTripStampDay, { color: "#283046" }]}>{trip.start.slice(-2)}</Text>
+            <Text style={[s.paperTripStampDay, { color: paper.title }]}>{trip.start.slice(-2)}</Text>
             <View style={[s.paperTripStampRule, { backgroundColor: theme.primary }]} />
           </View>
         </View>
-        <View style={[s.paperRule, { borderColor: "#BEB49D" }]} />
+        <View style={[s.paperRule, { borderColor: paper.rule }]} />
         <View
           style={[
             s.paperStayBoard,
@@ -605,7 +604,7 @@ function NotebookHome({
                 s.paperStayIcon,
                 {
                   backgroundColor: "transparent",
-                  borderColor: "#C7BDA5",
+                  borderColor: paper.iconBorder,
                 },
               ]}
             >
@@ -613,7 +612,7 @@ function NotebookHome({
                 <Path
                   d="M4 19V7.5L11 3l7 4.5V19M7.5 19v-5h7v5M8 9h1M13 9h1"
                   fill="none"
-                  stroke="#358D82"
+                  stroke={domain("stay", theme.dark).solid}
                   strokeWidth={1.7}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -621,41 +620,41 @@ function NotebookHome({
               </Svg>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[s.paperStayLabel, { color: "#358D82" }]}>숙소</Text>
-              <Text numberOfLines={1} style={[s.paperStayName, { color: "#283046" }]}>달빛한옥</Text>
+              <Text style={[s.paperStayLabel, { color: domain("stay", theme.dark).solid }]}>숙소</Text>
+              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>달빛한옥</Text>
             </View>
             <View
               style={[
                 s.paperStayTime,
                 {
                   backgroundColor: "transparent",
-                  borderColor: "#C7BDA5",
+                  borderColor: paper.iconBorder,
                 },
               ]}
             >
-              <Text style={[s.paperStayTimeLabel, { color: "#756F63" }]}>체크인</Text>
+              <Text style={[s.paperStayTimeLabel, { color: paper.muted }]}>체크인</Text>
               <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
             </View>
           </View>
         </View>
         </Pressable>
-        <View style={s.paperTripActions}>
+        <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
           {[
             { label: "일정 추가", meta: "3개", color: theme.primary, destination: "schedule-add" as TripDetailDestination },
-            { label: "저장 장소", meta: "8곳", color: "#358D82", destination: "places" as TripDetailDestination },
-            { label: "준비물", meta: "2 / 6", color: "#7564B5", destination: "preparation" as TripDetailDestination },
+            { label: "저장 장소", meta: "8곳", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
+            { label: "준비물", meta: "2 / 6", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
           ].map((item, index) => (
             <Pressable
               key={item.label}
               onPress={() => open(item.destination, trip)}
               style={({ pressed }) => [
                 s.paperTripAction,
-                index > 0 && s.paperTripActionBorder,
+                index > 0 && [s.paperTripActionBorder, { borderLeftColor: paper.divider }],
                 pressed && s.pressed,
               ]}
             >
               <Text style={[s.paperTripActionLabel, { color: item.color }]}>{item.label}</Text>
-              <Text style={s.paperTripActionMeta}>{item.meta}</Text>
+              <Text style={[s.paperTripActionMeta, { color: paper.muted }]}>{item.meta}</Text>
               <View style={[s.paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
             </Pressable>
           ))}
