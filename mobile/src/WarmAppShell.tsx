@@ -328,22 +328,22 @@ function AuthScreen({
       <PaperBackdrop theme={theme} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={(s as any).authPage}
+        contentContainerStyle={s.authPage}
       >
-        <View style={(s as any).authBrand}>
-          <View style={[(s as any).authAppIconFrame, { borderColor: theme.border }]}>
+        <View style={s.authBrand}>
+          <View style={[s.authAppIconFrame, { borderColor: theme.border }]}>
             <Image
               source={require("../assets/daymo-icon-login.png")}
               resizeMode="contain"
-              style={(s as any).authAppIcon}
+              style={s.authAppIcon}
             />
           </View>
-          <Text style={[(s as any).authLogo, { color: theme.text }]}>Daymo</Text>
-          <Text style={[(s as any).authTagline, { color: theme.muted }]}>함께 떠나고, 오래 기억하는 여행</Text>
+          <Text style={[s.authLogo, { color: theme.text }]}>Daymo</Text>
+          <Text style={[s.authTagline, { color: theme.muted }]}>함께 떠나고, 오래 기억하는 여행</Text>
         </View>
-        <View style={[(s as any).authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[(s as any).authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
-          <Text style={[(s as any).authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
+        <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[s.authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
+          <Text style={[s.authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
           {mode === "signup" && (
             <Field theme={theme} label="이름 또는 별명 · 필수" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
           )}
@@ -353,7 +353,7 @@ function AuthScreen({
             <Field theme={theme} label="비밀번호 확인 · 필수" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
           )}
           {mode === "signup" && (
-            <View style={[(s as any).authConsentList, { borderColor: theme.border }]}>
+            <View style={[s.authConsentList, { borderColor: theme.border }]}>
               <Pressable
                 onPress={() => {
                   const next = !(termsAgreed && privacyAgreed && marketingAgreed);
@@ -363,12 +363,12 @@ function AuthScreen({
                 }}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: termsAgreed && privacyAgreed && marketingAgreed }}
-                style={[(s as any).authConsentRow, (s as any).authConsentAll, { borderBottomColor: theme.border }]}
+                style={[s.authConsentRow, s.authConsentAll, { borderBottomColor: theme.border }]}
               >
-                <View style={[(s as any).authConsentCheck, { borderColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.surface }]}>
-                  {termsAgreed && privacyAgreed && marketingAgreed && <Text style={(s as any).authConsentTick}>✓</Text>}
+                <View style={[s.authConsentCheck, { borderColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.surface }]}>
+                  {termsAgreed && privacyAgreed && marketingAgreed && <Text style={s.authConsentTick}>✓</Text>}
                 </View>
-                <Text style={[(s as any).authConsentAllText, { color: theme.text }]}>모두 동의</Text>
+                <Text style={[s.authConsentAllText, { color: theme.text }]}>모두 동의</Text>
               </Pressable>
               {[
                 { label: "이용약관 동의 · 필수", checked: termsAgreed, toggle: setTermsAgreed },
@@ -380,32 +380,32 @@ function AuthScreen({
                   onPress={() => consent.toggle(!consent.checked)}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: consent.checked }}
-                  style={(s as any).authConsentRow}
+                  style={s.authConsentRow}
                 >
-                  <View style={[(s as any).authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
-                    {consent.checked && <Text style={(s as any).authConsentTick}>✓</Text>}
+                  <View style={[s.authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
+                    {consent.checked && <Text style={s.authConsentTick}>✓</Text>}
                   </View>
-                  <Text style={[(s as any).authConsentText, { color: theme.text }]}>{consent.label}</Text>
+                  <Text style={[s.authConsentText, { color: theme.text }]}>{consent.label}</Text>
                 </Pressable>
               ))}
             </View>
           )}
-          {error ? <Text style={(s as any).authError}>{error}</Text> : null}
+          {error ? <Text style={s.authError}>{error}</Text> : null}
           <Pressable
             onPress={submit}
             disabled={!authFormValid}
             accessibilityRole="button"
             accessibilityState={{ disabled: !authFormValid }}
-            style={[(s as any).authSubmit, { backgroundColor: theme.primary }, !authFormValid && (s as any).authSubmitDisabled]}
+            style={[s.authSubmit, { backgroundColor: theme.primary }, !authFormValid && s.authSubmitDisabled]}
           >
-            <Text style={(s as any).authSubmitText}>{mode === "login" ? "로그인" : "회원가입"}</Text>
+            <Text style={s.authSubmitText}>{mode === "login" ? "로그인" : "회원가입"}</Text>
           </Pressable>
-          <View style={(s as any).authDivider}>
-            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
-            <Text style={[(s as any).authDividerText, { color: theme.muted }]}>또는 소셜 계정으로</Text>
-            <View style={[(s as any).authDividerLine, { backgroundColor: theme.border }]} />
+          <View style={s.authDivider}>
+            <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[s.authDividerText, { color: theme.muted }]}>또는 소셜 계정으로</Text>
+            <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
           </View>
-          <View style={(s as any).oauthGrid}>
+          <View style={s.oauthGrid}>
             {[
               { id: "kakao", label: "카카오", mark: "K", color: "#FEE500", text: "#241F10" },
               { id: "naver", label: "네이버", mark: "N", color: "#03C75A", text: "#FFFFFF" },
@@ -419,18 +419,18 @@ function AuthScreen({
                 accessibilityRole="button"
                 accessibilityLabel={`${provider.label} 계정으로 로그인`}
                 accessibilityState={{ disabled: oauthLoading !== null }}
-                style={[(s as any).oauthButton, { backgroundColor: provider.color, borderColor: provider.id === "google" ? theme.border : provider.color }]}
+                style={[s.oauthButton, { backgroundColor: provider.color, borderColor: provider.id === "google" ? theme.border : provider.color }]}
               >
-                <Text style={[(s as any).oauthMark, { color: provider.text }]}>{provider.mark}</Text>
-                <Text style={[(s as any).oauthLabel, { color: provider.text }]}>{oauthLoading === provider.id ? "연결 중" : provider.label}</Text>
+                <Text style={[s.oauthMark, { color: provider.text }]}>{provider.mark}</Text>
+                <Text style={[s.oauthLabel, { color: provider.text }]}>{oauthLoading === provider.id ? "연결 중" : provider.label}</Text>
               </Pressable>
             ))}
           </View>
-          <Pressable onPress={switchMode} style={(s as any).authSwitch}>
-            <Text style={[(s as any).authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontWeight: "900" }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
+          <Pressable onPress={switchMode} style={s.authSwitch}>
+            <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontWeight: "900" }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
           </Pressable>
         </View>
-        <Text style={[(s as any).authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
+        <Text style={[s.authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -438,31 +438,31 @@ function AuthScreen({
 
 function PaperBackdrop({ theme }: { theme: AppTheme }) {
   return (
-    <View pointerEvents="none" style={(s as any).paperBackdrop}>
+    <View pointerEvents="none" style={s.paperBackdrop}>
       {[92, 178, 264, 350, 436, 522, 608, 694, 780].map((top) => (
         <View
           key={top}
           style={[
-            (s as any).paperLine,
+            s.paperLine,
             { top, backgroundColor: theme.dark ? "#202A3B" : "#EDE9E1" },
           ]}
         />
       ))}
       <View
         style={[
-          (s as any).paperMargin,
+          s.paperMargin,
           { backgroundColor: `${theme.primary}18` },
         ]}
       />
       <View
         style={[
-          (s as any).paperSpeck,
+          s.paperSpeck,
           { top: 115, right: 24, backgroundColor: `${theme.secondary}35` },
         ]}
       />
       <View
         style={[
-          (s as any).paperSpeck,
+          s.paperSpeck,
           { top: 545, left: 18, backgroundColor: `${theme.accent}30` },
         ]}
       />
@@ -493,47 +493,47 @@ function NotebookHome({
       showsVerticalScrollIndicator={false}
       contentContainerStyle={s.page}
     >
-      <View style={(s as any).notebookHead}>
+      <View style={s.notebookHead}>
         <View>
           <Text style={[s.logo, { color: theme.text }]}>Daymo</Text>
-          <Text style={[(s as any).notebookHello, { color: theme.muted }]}>
+          <Text style={[s.notebookHello, { color: theme.muted }]}>
             우리의 여행 수첩
           </Text>
         </View>
         <View
-          style={[(s as any).tinyDay, { backgroundColor: theme.primarySoft }]}
+          style={[s.tinyDay, { backgroundColor: theme.primarySoft }]}
         >
-          <Text style={[(s as any).tinyDayText, { color: theme.primary }]}>
+          <Text style={[s.tinyDayText, { color: theme.primary }]}>
             {relationship === "연인" ? "둘만의 여행" : "함께한 여행"}
           </Text>
         </View>
       </View>
       {trip ? (
         <>
-      <View style={(s as any).paperTripStack}>
-        <View style={[(s as any).paperTripBack, (s as any).paperTripBackLeft, { backgroundColor: theme.dark ? "#746D5B" : "#E7DECA" }]} />
-        <View style={[(s as any).paperTripBack, (s as any).paperTripBackRight, { backgroundColor: theme.dark ? "#575B60" : "#DDE5E3" }]} />
+      <View style={s.paperTripStack}>
+        <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: theme.dark ? "#746D5B" : "#E7DECA" }]} />
+        <View style={[s.paperTripBack, s.paperTripBackRight, { backgroundColor: theme.dark ? "#575B60" : "#DDE5E3" }]} />
         <View
           style={[
-            (s as any).paperTrip,
+            s.paperTrip,
             { backgroundColor: "#FFFEFC", borderColor: theme.dark ? "#BFC4CB" : "#D9D9D5" },
           ]}
         >
-        <View pointerEvents="none" style={(s as any).paperTripTexture}>
+        <View pointerEvents="none" style={s.paperTripTexture}>
           {[63, 113, 163, 213].map((top) => (
-            <View key={top} style={[(s as any).paperTripSoftLine, { top }]} />
+            <View key={top} style={[s.paperTripSoftLine, { top }]} />
           ))}
           <View
             style={[
-              (s as any).paperTripMargin,
+              s.paperTripMargin,
               { backgroundColor: `${theme.primary}24` },
             ]}
           />
         </View>
         <View
-          style={(s as any).paperTape}
+          style={s.paperTape}
         />
-        <View pointerEvents="none" style={(s as any).paperTripRoute}>
+        <View pointerEvents="none" style={s.paperTripRoute}>
           <Svg width="100%" height="100%" viewBox="0 0 112 42">
             <Path
               d="M4 29C28 7 54 39 84 17"
@@ -555,52 +555,52 @@ function NotebookHome({
         <Pressable
           onPress={() => open("overview", trip)}
           style={({ pressed }) => [
-            (s as any).paperTripMain,
-            pressed && (s as any).pressed,
+            s.paperTripMain,
+            pressed && s.pressed,
           ]}
         >
-        <View style={(s as any).paperTripHead}>
-          <View style={(s as any).paperTripCopy}>
-            <Text style={[(s as any).paperKicker, { color: theme.primary }]}>
+        <View style={s.paperTripHead}>
+          <View style={s.paperTripCopy}>
+            <Text style={[s.paperKicker, { color: theme.primary }]}>
               {trip.start <= todayKey && trip.end >= todayKey
                 ? "지금 여행 중"
                 : "다음 여행"}
             </Text>
-            <Text style={[(s as any).paperTitle, { color: "#283046" }]}>
+            <Text style={[s.paperTitle, { color: "#283046" }]}>
               {trip.name}
             </Text>
-            <Text style={[(s as any).paperDate, { color: "#756F63" }]}>
+            <Text style={[s.paperDate, { color: "#756F63" }]}>
               {trip.date}
             </Text>
           </View>
           <View
             style={[
-              (s as any).paperTripStamp,
+              s.paperTripStamp,
               {
                 backgroundColor: "transparent",
                 borderColor: "#B8AD93",
               },
             ]}
           >
-            <Text style={[(s as any).paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
-            <Text style={[(s as any).paperTripStampDay, { color: "#283046" }]}>{trip.start.slice(-2)}</Text>
-            <View style={[(s as any).paperTripStampRule, { backgroundColor: theme.primary }]} />
+            <Text style={[s.paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
+            <Text style={[s.paperTripStampDay, { color: "#283046" }]}>{trip.start.slice(-2)}</Text>
+            <View style={[s.paperTripStampRule, { backgroundColor: theme.primary }]} />
           </View>
         </View>
-        <View style={[(s as any).paperRule, { borderColor: "#BEB49D" }]} />
+        <View style={[s.paperRule, { borderColor: "#BEB49D" }]} />
         <View
           style={[
-            (s as any).paperStayBoard,
+            s.paperStayBoard,
             {
               backgroundColor: "transparent",
               borderColor: "transparent",
             },
           ]}
         >
-          <View style={(s as any).paperStay}>
+          <View style={s.paperStay}>
             <View
               style={[
-                (s as any).paperStayIcon,
+                s.paperStayIcon,
                 {
                   backgroundColor: "transparent",
                   borderColor: "#C7BDA5",
@@ -619,25 +619,25 @@ function NotebookHome({
               </Svg>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[(s as any).paperStayLabel, { color: "#358D82" }]}>숙소</Text>
-              <Text numberOfLines={1} style={[(s as any).paperStayName, { color: "#283046" }]}>달빛한옥</Text>
+              <Text style={[s.paperStayLabel, { color: "#358D82" }]}>숙소</Text>
+              <Text numberOfLines={1} style={[s.paperStayName, { color: "#283046" }]}>달빛한옥</Text>
             </View>
             <View
               style={[
-                (s as any).paperStayTime,
+                s.paperStayTime,
                 {
                   backgroundColor: "transparent",
                   borderColor: "#C7BDA5",
                 },
               ]}
             >
-              <Text style={[(s as any).paperStayTimeLabel, { color: "#756F63" }]}>체크인</Text>
-              <Text style={[(s as any).paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
+              <Text style={[s.paperStayTimeLabel, { color: "#756F63" }]}>체크인</Text>
+              <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
             </View>
           </View>
         </View>
         </Pressable>
-        <View style={(s as any).paperTripActions}>
+        <View style={s.paperTripActions}>
           {[
             { label: "일정 추가", meta: "3개", color: theme.primary, destination: "schedule-add" as TripDetailDestination },
             { label: "저장 장소", meta: "8곳", color: "#358D82", destination: "places" as TripDetailDestination },
@@ -647,25 +647,25 @@ function NotebookHome({
               key={item.label}
               onPress={() => open(item.destination, trip)}
               style={({ pressed }) => [
-                (s as any).paperTripAction,
-                index > 0 && (s as any).paperTripActionBorder,
-                pressed && (s as any).pressed,
+                s.paperTripAction,
+                index > 0 && s.paperTripActionBorder,
+                pressed && s.pressed,
               ]}
             >
-              <Text style={[(s as any).paperTripActionLabel, { color: item.color }]}>{item.label}</Text>
-              <Text style={(s as any).paperTripActionMeta}>{item.meta}</Text>
-              <View style={[(s as any).paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
+              <Text style={[s.paperTripActionLabel, { color: item.color }]}>{item.label}</Text>
+              <Text style={s.paperTripActionMeta}>{item.meta}</Text>
+              <View style={[s.paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
             </Pressable>
           ))}
         </View>
-        <View pointerEvents="none" style={(s as any).paperTripCornerShadow} />
-        <View pointerEvents="none" style={(s as any).paperTripCorner} />
+        <View pointerEvents="none" style={s.paperTripCornerShadow} />
+        <View pointerEvents="none" style={s.paperTripCorner} />
         </View>
       </View>
-      <View style={(s as any).scrapTitleRow}>
+      <View style={s.scrapTitleRow}>
         <View>
-          <Text style={[(s as any).noteTitleSmall, { color: theme.primary }]}>우리의 체크리스트</Text>
-          <Text style={[(s as any).noteTitle, { color: theme.text }]}>출발 전, 이것만</Text>
+          <Text style={[s.noteTitleSmall, { color: theme.primary }]}>우리의 체크리스트</Text>
+          <Text style={[s.noteTitle, { color: theme.text }]}>출발 전, 이것만</Text>
         </View>
         <Pressable onPress={() => open("overview", trip)}>
           <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>여행 보기</Text>
@@ -673,24 +673,24 @@ function NotebookHome({
       </View>
       <View
         style={[
-          (s as any).memoPaper,
+          s.memoPaper,
           {
             backgroundColor: theme.dark ? theme.surface : "rgba(255,255,255,.72)",
             borderColor: theme.border,
           },
         ]}
       >
-        <View pointerEvents="none" style={[(s as any).memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
+        <View pointerEvents="none" style={[s.memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
         <MemoRow theme={theme} color={theme.primary} text="숙소 예약 정보 확인" meta="오늘 · 공용" onPress={() => open("overview", trip)} />
         <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
         <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
       </View>
       {trips.some((item) => item.end < todayKey) && (
-        <View style={(s as any).homeArchiveSection}>
-          <View style={(s as any).homeArchiveHead}>
+        <View style={s.homeArchiveSection}>
+          <View style={s.homeArchiveHead}>
             <View>
-              <Text style={[(s as any).homeArchiveEyebrow, { color: theme.secondary }]}>지난 페이지</Text>
-              <Text style={[(s as any).homeArchiveTitle, { color: theme.text }]}>다시 펼쳐보는 여행</Text>
+              <Text style={[s.homeArchiveEyebrow, { color: theme.secondary }]}>지난 페이지</Text>
+              <Text style={[s.homeArchiveTitle, { color: theme.text }]}>다시 펼쳐보는 여행</Text>
             </View>
             <Pressable
               onPress={goTrips}
@@ -698,10 +698,10 @@ function NotebookHome({
               accessibilityRole="button"
               accessibilityLabel="지난 여행 전체 보기"
             >
-              <Text style={[(s as any).homeArchiveMore, { color: theme.muted }]}>전체 보기</Text>
+              <Text style={[s.homeArchiveMore, { color: theme.muted }]}>전체 보기</Text>
             </Pressable>
           </View>
-          <View style={(s as any).homeArchiveRow}>
+          <View style={s.homeArchiveRow}>
             {trips
               .filter((item) => item.end < todayKey)
               .slice(0, 2)
@@ -712,20 +712,20 @@ function NotebookHome({
                   accessibilityRole="button"
                   accessibilityLabel={`${item.name} 여행 기록 보기`}
                   style={({ pressed }) => [
-                    (s as any).homeArchiveCard,
+                    s.homeArchiveCard,
                     {
                       backgroundColor: theme.dark ? theme.surface : "rgba(255,255,255,.78)",
                       borderColor: theme.border,
                       transform: [{ rotate: index === 0 ? "-0.6deg" : "0.5deg" }],
                     },
-                    pressed && (s as any).pressed,
+                    pressed && s.pressed,
                   ]}
                 >
-                  <View style={[(s as any).homeArchiveTape, { backgroundColor: `${item.color}32` }]} />
-                  <Text style={[(s as any).homeArchiveDate, { color: item.color }]}>{item.date}</Text>
-                  <Text numberOfLines={1} style={[(s as any).homeArchivePlace, { color: theme.text }]}>{item.name}</Text>
-                  <Text numberOfLines={2} style={[(s as any).homeArchiveNote, { color: theme.muted }]}>{item.note}</Text>
-                  <Text style={[(s as any).homeArchiveAction, { color: item.color }]}>기록 보기  ›</Text>
+                  <View style={[s.homeArchiveTape, { backgroundColor: `${item.color}32` }]} />
+                  <Text style={[s.homeArchiveDate, { color: item.color }]}>{item.date}</Text>
+                  <Text numberOfLines={1} style={[s.homeArchivePlace, { color: theme.text }]}>{item.name}</Text>
+                  <Text numberOfLines={2} style={[s.homeArchiveNote, { color: theme.muted }]}>{item.note}</Text>
+                  <Text style={[s.homeArchiveAction, { color: item.color }]}>기록 보기  ›</Text>
                 </Pressable>
               ))}
           </View>
@@ -735,25 +735,25 @@ function NotebookHome({
       ) : (
         <View
           style={[
-            (s as any).homeEmptyTrip,
+            s.homeEmptyTrip,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
           <View
             style={[
-              (s as any).homeEmptyTripMark,
+              s.homeEmptyTripMark,
               { backgroundColor: theme.primarySoft },
             ]}
           >
-            <Text style={[(s as any).homeEmptyTripMarkText, { color: theme.primary }]}>＋</Text>
+            <Text style={[s.homeEmptyTripMarkText, { color: theme.primary }]}>＋</Text>
           </View>
-          <Text style={[(s as any).homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어볼까요?</Text>
-          <Text style={[(s as any).homeEmptyTripCopy, { color: theme.muted }]}>여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요.</Text>
+          <Text style={[s.homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어볼까요?</Text>
+          <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요.</Text>
           <Pressable
             onPress={goTrips}
-            style={[(s as any).homeEmptyTripAction, { backgroundColor: theme.primary }]}
+            style={[s.homeEmptyTripAction, { backgroundColor: theme.primary }]}
           >
-            <Text style={(s as any).homeEmptyTripActionText}>새 여행 만들기</Text>
+            <Text style={s.homeEmptyTripActionText}>새 여행 만들기</Text>
           </Pressable>
         </View>
       )}
@@ -782,14 +782,14 @@ function MemoRow({
       accessibilityRole="button"
       accessibilityLabel={`${text}, ${meta}`}
       style={[
-        (s as any).memoRow,
+        s.memoRow,
         { borderColor: theme.border },
-        last && (s as any).memoRowLast,
+        last && s.memoRowLast,
       ]}
     >
       <View
         style={[
-          (s as any).memoCheck,
+          s.memoCheck,
           {
             borderColor: color,
             backgroundColor: `${color}${theme.dark ? "20" : "0D"}`,
@@ -797,241 +797,13 @@ function MemoRow({
         ]}
       />
       <View style={{ flex: 1 }}>
-        <Text style={[(s as any).memoText, { color: theme.text }]}>{text}</Text>
-        <Text style={[(s as any).memoMeta, { color: theme.muted }]}>
+        <Text style={[s.memoText, { color: theme.text }]}>{text}</Text>
+        <Text style={[s.memoMeta, { color: theme.muted }]}>
           {meta}
         </Text>
       </View>
       <Text style={{ color: theme.muted }}>›</Text>
     </Pressable>
-  );
-}
-
-function Home({
-  open,
-  goTrips,
-  theme,
-}: {
-  open: (destination?: TripDetailDestination) => void;
-  goTrips: () => void;
-  theme: AppTheme;
-}) {
-  return (
-    <ScrollView
-      style={{ backgroundColor: "transparent" }}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={s.page}
-    >
-      <View style={s.homeTop}>
-        <View>
-          <Text style={[s.logo, { color: theme.text }]}>Daymo</Text>
-          <Text style={[(s as any).logoSub, { color: theme.muted }]}>
-            TOGETHER, ANYWHERE
-          </Text>
-        </View>
-        <View style={(s as any).profileGroup}>
-          <View
-            style={[
-              (s as any).dayBadge,
-              {
-                backgroundColor: theme.primarySoft,
-                borderColor: theme.primary,
-              },
-            ]}
-          >
-            <View
-              style={[
-                (s as any).dayBadgeDot,
-                { backgroundColor: theme.primary },
-              ]}
-            />
-            <Text style={[(s as any).dayBadgeText, { color: theme.primary }]}>
-              D+1,026
-            </Text>
-          </View>
-          <View
-            style={[
-              s.people,
-              { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[s.peopleText, { color: theme.accent }]}>우리</Text>
-          </View>
-        </View>
-      </View>
-      <View style={(s as any).homeLead}>
-        <View>
-          <Text style={[(s as any).homeLeadLabel, { color: theme.primary }]}>
-            다음 여행 · D−12
-          </Text>
-          <Text style={[(s as any).homeLeadTitle, { color: theme.text }]}>
-            전주 한옥마을
-          </Text>
-          <Text style={[(s as any).homeLeadDate, { color: theme.muted }]}>
-            8.21 금 — 8.23 일 · 2박 3일
-          </Text>
-        </View>
-        <Pressable
-          onPress={goTrips}
-          style={[
-            (s as any).homeAllTrips,
-            { backgroundColor: theme.primarySoft },
-          ]}
-        >
-          <Text style={[(s as any).homeAllTripsText, { color: theme.primary }]}>
-            전체 여행
-          </Text>
-        </Pressable>
-      </View>
-      <Pressable
-        onPress={() => open()}
-        style={[(s as any).homeTripCard, { backgroundColor: theme.navigation }]}
-      >
-        <View style={(s as any).homeTripTop}>
-          <View>
-            <Text
-              style={[(s as any).homeStayLabel, { color: theme.secondary }]}
-            >
-              숙소
-            </Text>
-            <Text style={(s as any).homeStayName}>달빛한옥</Text>
-            <Text style={(s as any).homeStayMeta}>체크인 15:00 · 구로구</Text>
-          </View>
-          <View style={(s as any).homeTripArrow}>
-            <Text style={(s as any).homeTripArrowText}>›</Text>
-          </View>
-        </View>
-        <View style={(s as any).homeProgressRow}>
-          <HomeMetric value="3" label="일정" color={theme.primary} />
-          <HomeMetric value="8" label="장소" color={theme.secondary} />
-          <HomeMetric value="2/6" label="준비" color={theme.accent} />
-        </View>
-      </Pressable>
-      <View style={(s as any).homeQuickRow}>
-        <HomeQuick
-          theme={theme}
-          icon="＋"
-          label="일정 추가"
-          tint={theme.primarySoft}
-          color={theme.primary}
-          onPress={() => open("schedule-add")}
-        />
-        <HomeQuick
-          theme={theme}
-          icon="⌖"
-          label="장소 보기"
-          tint={`${theme.secondary}20`}
-          color={theme.secondary}
-          onPress={() => open("places")}
-        />
-        <HomeQuick
-          theme={theme}
-          icon="✓"
-          label="준비 체크"
-          tint={`${theme.accent}20`}
-          color={theme.accent}
-          onPress={() => open("preparation")}
-        />
-      </View>
-      <View style={(s as any).homeSectionHead}>
-        <View>
-          <Text
-            style={[(s as any).homeSectionEyebrow, { color: theme.accent }]}
-          >
-            이번 여행 할 일
-          </Text>
-          <Text style={[(s as any).homeSectionTitle, { color: theme.text }]}>
-            출발 전에 확인해요
-          </Text>
-        </View>
-        <Pressable onPress={() => open()}>
-          <Text
-            style={[(s as any).homeSectionAction, { color: theme.primary }]}
-          >
-            모두 보기 ›
-          </Text>
-        </Pressable>
-      </View>
-      <View
-        style={[
-          (s as any).homeActionCard,
-          { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
-        <Pressable
-          onPress={() => open()}
-          style={[(s as any).homeActionRow, { borderColor: theme.border }]}
-        >
-          <View
-            style={[
-              (s as any).homeActionIcon,
-              { backgroundColor: theme.primarySoft },
-            ]}
-          >
-            <Text style={{ color: theme.primary, fontWeight: "900" }}>!</Text>
-          </View>
-          <View style={(s as any).homeActionCopy}>
-            <Text style={[(s as any).homeActionTitle, { color: theme.text }]}>
-              숙소 예약 정보 확인
-            </Text>
-            <Text style={[(s as any).homeActionMeta, { color: theme.muted }]}>
-              함께 · 예약
-            </Text>
-          </View>
-          <Text style={[(s as any).homeActionDue, { color: theme.secondary }]}>
-            오늘
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => open("preparation")}
-          style={[(s as any).homeActionRow, { borderColor: theme.border }]}
-        >
-          <View
-            style={[
-              (s as any).homeActionIcon,
-              { backgroundColor: `${theme.accent}20` },
-            ]}
-          >
-            <Text style={{ color: theme.accent, fontWeight: "900" }}>2</Text>
-          </View>
-          <View style={(s as any).homeActionCopy}>
-            <Text style={[(s as any).homeActionTitle, { color: theme.text }]}>
-              아직 안 챙긴 준비물
-            </Text>
-            <Text style={[(s as any).homeActionMeta, { color: theme.muted }]}>
-              하늘 1 · 여울 1
-            </Text>
-          </View>
-          <Text style={[(s as any).homeActionDue, { color: theme.secondary }]}>
-            확인
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => open("places")}
-          style={[(s as any).homeActionRow, (s as any).homeActionRowLast]}
-        >
-          <View
-            style={[
-              (s as any).homeActionIcon,
-              { backgroundColor: `${theme.secondary}20` },
-            ]}
-          >
-            <Text style={{ color: theme.secondary, fontWeight: "900" }}>8</Text>
-          </View>
-          <View style={(s as any).homeActionCopy}>
-            <Text style={[(s as any).homeActionTitle, { color: theme.text }]}>
-              저장한 장소에서 일정 고르기
-            </Text>
-            <Text style={[(s as any).homeActionMeta, { color: theme.muted }]}>
-              식당 5 · 카페 3
-            </Text>
-          </View>
-          <Text style={[(s as any).homeActionDue, { color: theme.secondary }]}>
-            보기
-          </Text>
-        </Pressable>
-      </View>
-    </ScrollView>
   );
 }
 
@@ -1045,9 +817,9 @@ function HomeMetric({
   color: string;
 }) {
   return (
-    <View style={(s as any).homeMetric}>
-      <Text style={[(s as any).homeMetricValue, { color }]}>{value}</Text>
-      <Text style={(s as any).homeMetricLabel}>{label}</Text>
+    <View style={s.homeMetric}>
+      <Text style={[s.homeMetricValue, { color }]}>{value}</Text>
+      <Text style={s.homeMetricLabel}>{label}</Text>
     </View>
   );
 }
@@ -1076,11 +848,11 @@ function HomeQuick({
       accessibilityRole="button"
       accessibilityLabel={label}
       style={[
-        (s as any).homeQuick,
-        embedded && (s as any).homeQuickEmbedded,
-        layout === "large" && (s as any).homeQuickLarge,
-        layout === "small" && (s as any).homeQuickSmall,
-        layout === "rail" && (s as any).homeQuickRail,
+        s.homeQuick,
+        embedded && s.homeQuickEmbedded,
+        layout === "large" && s.homeQuickLarge,
+        layout === "small" && s.homeQuickSmall,
+        layout === "rail" && s.homeQuickRail,
         {
           backgroundColor: embedded ? tint : theme.surface,
           borderColor: embedded ? `${color}${theme.dark ? "65" : "3D"}` : theme.border,
@@ -1089,11 +861,11 @@ function HomeQuick({
     >
       <View
         style={[
-          (s as any).homeQuickIcon,
+          s.homeQuickIcon,
           { backgroundColor: tint, borderColor: embedded ? color : "transparent" },
-          embedded && (s as any).homeQuickIconEmbedded,
-          layout === "large" && (s as any).homeQuickIconLarge,
-          layout === "rail" && (s as any).homeQuickIconRail,
+          embedded && s.homeQuickIconEmbedded,
+          layout === "large" && s.homeQuickIconLarge,
+          layout === "rail" && s.homeQuickIconRail,
         ]}
       >
         {embedded ? (
@@ -1114,15 +886,15 @@ function HomeQuick({
             />
           </Svg>
         ) : (
-          <Text style={[(s as any).homeQuickIconText, { color }]}>{icon}</Text>
+          <Text style={[s.homeQuickIconText, { color }]}>{icon}</Text>
         )}
       </View>
       <Text
         style={[
-          (s as any).homeQuickLabel,
-          embedded && (s as any).homeQuickLabelEmbedded,
-          layout === "large" && (s as any).homeQuickLabelLarge,
-          layout === "rail" && (s as any).homeQuickLabelRail,
+          s.homeQuickLabel,
+          embedded && s.homeQuickLabelEmbedded,
+          layout === "large" && s.homeQuickLabelLarge,
+          layout === "rail" && s.homeQuickLabelRail,
           { color: theme.text },
         ]}
       >
@@ -1239,7 +1011,7 @@ function TripsExplorer({
           style={({ pressed }) => [
             s.newTrip,
             { backgroundColor: theme.primary },
-            pressed && (s as any).pressed,
+            pressed && s.pressed,
           ]}
         >
           <Text style={s.newTripText}>＋ 새 여행</Text>
@@ -1247,7 +1019,7 @@ function TripsExplorer({
       </View>
       <View
         style={[
-          (s as any).viewSwitch,
+          s.viewSwitch,
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
@@ -1259,8 +1031,8 @@ function TripsExplorer({
             accessibilityLabel={`${item} 보기`}
             accessibilityState={{ selected: display === item }}
             style={[
-              (s as any).viewChoice,
-              display === item && (s as any).viewChoiceActive,
+              s.viewChoice,
+              display === item && s.viewChoiceActive,
               display === item && {
                 backgroundColor: theme.primarySoft,
                 borderColor: theme.primary,
@@ -1269,9 +1041,9 @@ function TripsExplorer({
           >
             <Text
               style={[
-                (s as any).viewChoiceText,
+                s.viewChoiceText,
                 { color: theme.muted },
-                display === item && (s as any).viewChoiceTextActive,
+                display === item && s.viewChoiceTextActive,
                 display === item && { color: theme.primary },
               ]}
             >
@@ -1287,11 +1059,11 @@ function TripsExplorer({
       {display === "지도" ? (
         <View
           style={[
-            (s as any).tripExplorerMapPage,
+            s.tripExplorerMapPage,
             { backgroundColor: theme.background },
           ]}
         >
-          <View style={(s as any).tripExplorerMapHeader}>{explorerHead}</View>
+          <View style={s.tripExplorerMapHeader}>{explorerHead}</View>
           <KoreaTripMap
             theme={theme}
             trips={items}
@@ -1306,7 +1078,7 @@ function TripsExplorer({
       ) : (
         <ScrollView
           style={{ backgroundColor: "transparent" }}
-          contentContainerStyle={(s as any).tripExplorerPage}
+          contentContainerStyle={s.tripExplorerPage}
           showsVerticalScrollIndicator={false}
         >
           {explorerHead}
@@ -1359,10 +1131,10 @@ function TripsExplorer({
             />
           )}
           {display === "캘린더" && selectedDate && (
-            <View style={(s as any).calendarResults}>
-              <View style={(s as any).calendarResultHead}>
+            <View style={s.calendarResults}>
+              <View style={s.calendarResultHead}>
                 <Text
-                  style={[(s as any).calendarResultDate, { color: theme.text }]}
+                  style={[s.calendarResultDate, { color: theme.text }]}
                 >
                   {Number(selectedDate.slice(5, 7))}월 {Number(selectedDate.slice(-2))}일의 여행
                 </Text>
@@ -1371,7 +1143,7 @@ function TripsExplorer({
                   accessibilityRole="button"
                   accessibilityLabel="선택한 날짜 해제"
                 >
-                  <Text style={[(s as any).calendarResultClear, { color: theme.muted }]}>선택 해제</Text>
+                  <Text style={[s.calendarResultClear, { color: theme.muted }]}>선택 해제</Text>
                 </Pressable>
               </View>
               {dateTrips.length ? (
@@ -1379,7 +1151,7 @@ function TripsExplorer({
               ) : (
                 <View
                   style={[
-                    (s as any).emptyDate,
+                    s.emptyDate,
                     {
                       backgroundColor: theme.surface,
                       borderColor: theme.border,
@@ -1387,14 +1159,14 @@ function TripsExplorer({
                   ]}
                 >
                   <Text
-                    style={[(s as any).emptyDateTitle, { color: theme.muted }]}
+                    style={[s.emptyDateTitle, { color: theme.muted }]}
                   >
                     이날은 아직 여행이 없어요
                   </Text>
                   <Pressable onPress={createFromDate}>
                     <Text
                       style={[
-                        (s as any).emptyDateAction,
+                        s.emptyDateAction,
                         { color: theme.secondary },
                       ]}
                     >
@@ -1433,10 +1205,10 @@ function TripsExplorer({
           onChangeText={setPlace}
           placeholder="예: 제주 애월"
         />
-        <Text style={[(s as any).fieldLabel, { color: theme.muted }]}>
+        <Text style={[s.fieldLabel, { color: theme.muted }]}>
           지역
         </Text>
-        <View style={(s as any).regionChoices}>
+        <View style={s.regionChoices}>
           {regionPins
             .filter(
               (pin) =>
@@ -1451,9 +1223,9 @@ function TripsExplorer({
                 key={pin.name}
                 onPress={() => setNewRegion(pin.name)}
                 style={[
-                  (s as any).regionChoice,
+                  s.regionChoice,
                   { backgroundColor: theme.surface, borderColor: theme.border },
-                  newRegion === pin.name && (s as any).regionChoiceActive,
+                  newRegion === pin.name && s.regionChoiceActive,
                   newRegion === pin.name && {
                     backgroundColor: theme.primarySoft,
                     borderColor: theme.primary,
@@ -1462,9 +1234,9 @@ function TripsExplorer({
               >
                 <Text
                   style={[
-                    (s as any).regionChoiceText,
+                    s.regionChoiceText,
                     { color: theme.muted },
-                    newRegion === pin.name && (s as any).regionChoiceTextActive,
+                    newRegion === pin.name && s.regionChoiceTextActive,
                     newRegion === pin.name && { color: theme.primary },
                   ]}
                 >
@@ -1475,12 +1247,12 @@ function TripsExplorer({
           <Pressable
             onPress={() => setShowAllRegions((current) => !current)}
             style={[
-              (s as any).regionChoice,
-              (s as any).regionMoreChoice,
+              s.regionChoice,
+              s.regionMoreChoice,
               { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
             ]}
           >
-            <Text style={[(s as any).regionChoiceText, { color: theme.primary }]}>{showAllRegions ? "간단히 보기" : "전체 지역 +"}</Text>
+            <Text style={[s.regionChoiceText, { color: theme.primary }]}>{showAllRegions ? "간단히 보기" : "전체 지역 +"}</Text>
           </Pressable>
         </View>
         <TripDateRangePicker
@@ -1520,7 +1292,7 @@ function TripRows({
     return (
       <View
         style={[
-          (s as any).noTrips,
+          s.noTrips,
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
@@ -1534,14 +1306,14 @@ function TripRows({
             strokeLinejoin="round"
           />
         </Svg>
-        <Text style={[(s as any).noTripsTitle, { color: theme.text }]}>아직 이곳에 여행이 없어요</Text>
-        <Text style={[(s as any).noTripsText, { color: theme.muted }]}>다른 분류를 보거나 새로운 여행을 만들어 보세요.</Text>
+        <Text style={[s.noTripsTitle, { color: theme.text }]}>아직 이곳에 여행이 없어요</Text>
+        <Text style={[s.noTripsText, { color: theme.muted }]}>다른 분류를 보거나 새로운 여행을 만들어 보세요.</Text>
         {emptyAction && (
           <Pressable
             onPress={emptyAction}
-            style={[(s as any).emptyInlineAction, { backgroundColor: theme.primarySoft }]}
+            style={[s.emptyInlineAction, { backgroundColor: theme.primarySoft }]}
           >
-            <Text style={[(s as any).emptyInlineActionText, { color: theme.primary }]}>
+            <Text style={[s.emptyInlineActionText, { color: theme.primary }]}>
               {emptyActionLabel}
             </Text>
           </Pressable>
@@ -1560,12 +1332,12 @@ function TripRows({
               backgroundColor: theme.surface,
               borderColor: theme.border,
             },
-            compact && (s as any).tripRowCompact,
-            pressed && (s as any).pressed,
+            compact && s.tripRowCompact,
+            pressed && s.pressed,
           ]}
         >
-          <View style={[(s as any).tripRowAccent, { backgroundColor: trip.color }]} />
-          <View style={(s as any).tripThumb}>
+          <View style={[s.tripRowAccent, { backgroundColor: trip.color }]} />
+          <View style={s.tripThumb}>
             <TripArt color={trip.color} date={trip.mark} small />
           </View>
           <View style={s.tripInfo}>
@@ -1579,11 +1351,11 @@ function TripRows({
           </View>
           <View
             style={[
-              (s as any).tripRowArrow,
+              s.tripRowArrow,
               { backgroundColor: theme.primarySoft },
             ]}
           >
-            <Text style={[(s as any).tripRowArrowText, { color: theme.primary }]}>›</Text>
+            <Text style={[s.tripRowArrowText, { color: theme.primary }]}>›</Text>
           </View>
         </Pressable>
       ))}
@@ -1735,7 +1507,7 @@ function KoreaTripMap({
   return (
     <View
       {...(webWheel as any)}
-      style={(s as any).mapOnly}
+      style={s.mapOnly}
       onLayout={(event) => setSize(event.nativeEvent.layout)}
     >
       <Svg
@@ -1772,7 +1544,7 @@ function KoreaTripMap({
           />
         )}
       </Svg>
-      <View {...panResponder.panHandlers} style={(s as any).mapDragLayer} />
+      <View {...panResponder.panHandlers} style={s.mapDragLayer} />
       {regionPins.map((pin) => {
         const count = trips.filter((trip) => trip.region === pin.name).length;
         const active = selected === pin.name;
@@ -1796,26 +1568,26 @@ function KoreaTripMap({
             accessibilityLabel={`${pin.name}, 여행 ${count}개`}
             accessibilityState={{ selected: active }}
             style={[
-              (s as any).mapPin,
+              s.mapPin,
               { left, top },
               theme.dark && { backgroundColor: theme.surface, borderColor: theme.secondary },
-              count > 0 && (s as any).mapPinVisited,
-              active && (s as any).mapPinActive,
+              count > 0 && s.mapPinVisited,
+              active && s.mapPinActive,
             ]}
           >
             <Text
               numberOfLines={1}
               style={[
-                (s as any).mapPinText,
+                s.mapPinText,
                 theme.dark && { color: theme.secondary },
-                (count > 0 || active) && (s as any).mapPinTextVisited,
+                (count > 0 || active) && s.mapPinTextVisited,
               ]}
             >
               {pin.name}
             </Text>
             {count > 0 && (
-              <View style={(s as any).pinCount}>
-                <Text style={(s as any).pinCountText}>{count}</Text>
+              <View style={s.pinCount}>
+                <Text style={s.pinCountText}>{count}</Text>
               </View>
             )}
           </Pressable>
@@ -1824,15 +1596,15 @@ function KoreaTripMap({
       {selected && (
         <View
           style={[
-            (s as any).mapTray,
+            s.mapTray,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          <View style={[(s as any).mapTrayHandle, { backgroundColor: theme.border }]} />
-          <View style={(s as any).mapTrayHead}>
+          <View style={[s.mapTrayHandle, { backgroundColor: theme.border }]} />
+          <View style={s.mapTrayHead}>
             <View>
-              <Text style={[(s as any).mapTrayTitle, { color: theme.text }]}>{selected} 여행</Text>
-              <Text style={[(s as any).mapTrayCount, { color: theme.muted }]}>
+              <Text style={[s.mapTrayTitle, { color: theme.text }]}>{selected} 여행</Text>
+              <Text style={[s.mapTrayCount, { color: theme.muted }]}>
                 {results.length
                   ? `${results.length}개의 여행`
                   : "아직 등록된 여행이 없어요"}
@@ -1840,45 +1612,45 @@ function KoreaTripMap({
             </View>
             <Pressable
               onPress={() => onSelect(selected)}
-              style={[(s as any).mapTrayClose, { backgroundColor: theme.surfaceAlt }]}
+              style={[s.mapTrayClose, { backgroundColor: theme.surfaceAlt }]}
             >
-              <Text style={[(s as any).mapTrayCloseText, { color: theme.muted }]}>×</Text>
+              <Text style={[s.mapTrayCloseText, { color: theme.muted }]}>×</Text>
             </Pressable>
           </View>
           {results.length ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={(s as any).mapTrayList}
+              contentContainerStyle={s.mapTrayList}
             >
               {results.map((trip, index) => (
                 <Pressable
                   key={`${trip.name}-${index}`}
                   onPress={() => open(trip)}
-                  style={[(s as any).mapTrayCard, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+                  style={[s.mapTrayCard, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
                 >
                   <View
                     style={[
-                      (s as any).mapTrayMark,
+                      s.mapTrayMark,
                       { backgroundColor: trip.color },
                     ]}
                   >
-                    <Text style={(s as any).mapTrayMarkText}>{trip.mark}</Text>
+                    <Text style={s.mapTrayMarkText}>{trip.mark}</Text>
                   </View>
-                  <View style={(s as any).mapTrayCopy}>
-                    <Text numberOfLines={1} style={[(s as any).mapTrayName, { color: theme.text }]}>
+                  <View style={s.mapTrayCopy}>
+                    <Text numberOfLines={1} style={[s.mapTrayName, { color: theme.text }]}>
                       {trip.name}
                     </Text>
-                    <Text numberOfLines={1} style={[(s as any).mapTrayDate, { color: theme.muted }]}>
+                    <Text numberOfLines={1} style={[s.mapTrayDate, { color: theme.muted }]}>
                       {trip.date}
                     </Text>
                   </View>
-                  <Text style={[(s as any).mapTrayArrow, { color: theme.secondary }]}>›</Text>
+                  <Text style={[s.mapTrayArrow, { color: theme.secondary }]}>›</Text>
                 </Pressable>
               ))}
             </ScrollView>
           ) : (
-            <Text style={[(s as any).mapTrayEmpty, { color: theme.muted }]}>
+            <Text style={[s.mapTrayEmpty, { color: theme.muted }]}>
               이 지역에는 아직 여행이 없어요. 다른 지역을 선택해 보세요.
             </Text>
           )}
@@ -1886,9 +1658,9 @@ function KoreaTripMap({
       )}
       <View
         style={[
-          (s as any).zoomControls,
+          s.zoomControls,
           { backgroundColor: theme.surface, borderColor: theme.border },
-          selected && (s as any).zoomControlsRaised,
+          selected && s.zoomControlsRaised,
         ]}
       >
         <Pressable
@@ -1898,22 +1670,22 @@ function KoreaTripMap({
           accessibilityLabel="지도 축소"
           accessibilityState={{ disabled: zoom <= 1 }}
           style={[
-            (s as any).zoomButton,
-            zoom <= 1 && (s as any).zoomButtonDisabled,
+            s.zoomButton,
+            zoom <= 1 && s.zoomButtonDisabled,
           ]}
         >
-          <Text style={[(s as any).zoomText, { color: theme.text }]}>−</Text>
+          <Text style={[s.zoomText, { color: theme.text }]}>−</Text>
         </Pressable>
-        <View style={[(s as any).zoomDivider, { backgroundColor: theme.border }]} />
+        <View style={[s.zoomDivider, { backgroundColor: theme.border }]} />
         <Pressable
           onPress={resetMap}
           accessibilityRole="button"
           accessibilityLabel="지도 전체 위치로 돌아가기"
-          style={(s as any).zoomButton}
+          style={s.zoomButton}
         >
-          <Text style={[(s as any).zoomResetText, { color: theme.muted }]}>전체</Text>
+          <Text style={[s.zoomResetText, { color: theme.muted }]}>전체</Text>
         </Pressable>
-        <View style={[(s as any).zoomDivider, { backgroundColor: theme.border }]} />
+        <View style={[s.zoomDivider, { backgroundColor: theme.border }]} />
         <Pressable
           disabled={zoom >= MAP_MAX_ZOOM}
           onPress={() => changeZoom(0.5)}
@@ -1921,11 +1693,11 @@ function KoreaTripMap({
           accessibilityLabel="지도 확대"
           accessibilityState={{ disabled: zoom >= MAP_MAX_ZOOM }}
           style={[
-            (s as any).zoomButton,
-            zoom >= MAP_MAX_ZOOM && (s as any).zoomButtonDisabled,
+            s.zoomButton,
+            zoom >= MAP_MAX_ZOOM && s.zoomButtonDisabled,
           ]}
         >
-          <Text style={[(s as any).zoomText, { color: theme.text }]}>＋</Text>
+          <Text style={[s.zoomText, { color: theme.text }]}>＋</Text>
         </Pressable>
       </View>
     </View>
@@ -1974,67 +1746,67 @@ function TripCalendar({
   return (
     <View
       style={[
-        (s as any).calendarCard,
+        s.calendarCard,
         {
           backgroundColor: theme.dark ? "#FCFCFA" : "#FFFEFC",
           borderColor: theme.dark ? "#BBC0C8" : "#D9D9D5",
         },
       ]}
     >
-      <View pointerEvents="none" style={(s as any).calendarPageBack} />
-      <View style={(s as any).calendarHead}>
-        <View style={(s as any).calendarTitleBlock}>
-          <Text style={[(s as any).calendarMonth, { color: "#283046" }]}>
+      <View pointerEvents="none" style={s.calendarPageBack} />
+      <View style={s.calendarHead}>
+        <View style={s.calendarTitleBlock}>
+          <Text style={[s.calendarMonth, { color: "#283046" }]}>
             {month.year}. {String(month.value).padStart(2, "0")}
           </Text>
-          <Text style={(s as any).calendarSub}>
+          <Text style={s.calendarSub}>
             {monthTrips.length
               ? `${monthTrips.length}개의 여행이 적혀 있어요`
               : "아직 적힌 여행이 없어요"}
           </Text>
         </View>
-        <View style={(s as any).calendarControls}>
-          <Pressable onPress={moveToToday} style={(s as any).calendarTodayButton}>
-            <Text style={(s as any).calendarTodayText}>오늘</Text>
+        <View style={s.calendarControls}>
+          <Pressable onPress={moveToToday} style={s.calendarTodayButton}>
+            <Text style={s.calendarTodayText}>오늘</Text>
           </Pressable>
-          <Pressable onPress={() => move(-1)} style={(s as any).monthArrow}>
-            <Text style={(s as any).monthArrowText}>‹</Text>
+          <Pressable onPress={() => move(-1)} style={s.monthArrow}>
+            <Text style={s.monthArrowText}>‹</Text>
           </Pressable>
-          <Pressable onPress={() => move(1)} style={(s as any).monthArrow}>
-            <Text style={(s as any).monthArrowText}>›</Text>
+          <Pressable onPress={() => move(1)} style={s.monthArrow}>
+            <Text style={s.monthArrowText}>›</Text>
           </Pressable>
         </View>
       </View>
       {monthTrips.length > 0 && (
-        <View style={(s as any).calendarLegend}>
+        <View style={s.calendarLegend}>
           {monthTrips.map((trip) => (
-            <View key={`${trip.name}-${trip.start}`} style={(s as any).calendarLegendItem}>
+            <View key={`${trip.name}-${trip.start}`} style={s.calendarLegendItem}>
               <View
                 style={[
-                  (s as any).calendarLegendLine,
+                  s.calendarLegendLine,
                   { backgroundColor: trip.color },
                 ]}
               />
-              <Text style={(s as any).calendarLegendText}>{trip.name}</Text>
+              <Text style={s.calendarLegendText}>{trip.name}</Text>
             </View>
           ))}
         </View>
       )}
-      <View style={(s as any).weekRow}>
+      <View style={s.weekRow}>
         {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => (
           <Text
             key={day}
             style={[
-              (s as any).weekName,
-              index === 0 && (s as any).weekNameSunday,
-              index === 6 && (s as any).weekNameSaturday,
+              s.weekName,
+              index === 0 && s.weekNameSunday,
+              index === 6 && s.weekNameSaturday,
             ]}
           >
             {day}
           </Text>
         ))}
       </View>
-      <View style={(s as any).calendarGrid}>
+      <View style={s.calendarGrid}>
         {cells.map((day, index) => {
           const valid = day > 0 && day <= days;
           const key = valid
@@ -2060,33 +1832,33 @@ function TripCalendar({
               accessibilityLabel={valid ? `${month.value}월 ${day}일${trip ? `, ${trip.name}` : ""}` : undefined}
               accessibilityState={valid ? { selected } : undefined}
               style={[
-                (s as any).dayCell,
+                s.dayCell,
                 trip && {
                   backgroundColor: `${trip.color}${theme.dark ? "38" : "1C"}`,
                 },
-                trip && (s as any).dayRangeCell,
-                trip && !continuesFromPrevious && (s as any).dayRangeStart,
-                trip && !continuesToNext && (s as any).dayRangeEnd,
+                trip && s.dayRangeCell,
+                trip && !continuesFromPrevious && s.dayRangeStart,
+                trip && !continuesToNext && s.dayRangeEnd,
                 selected && [
-                  (s as any).dayCellSelected,
+                  s.dayCellSelected,
                   { borderColor: theme.text },
                 ],
               ]}
             >
               <View
                 style={[
-                  (s as any).dayNumberBadge,
-                  isToday && (s as any).dayNumberToday,
+                  s.dayNumberBadge,
+                  isToday && s.dayNumberToday,
                 ]}
               >
                 <Text
                   style={[
-                    (s as any).dayNumber,
-                    index % 7 === 0 && (s as any).dayNumberSunday,
-                    index % 7 === 6 && (s as any).dayNumberSaturday,
-                    trip && [(s as any).dayNumberTrip, { color: trip.color }],
-                    isToday && (s as any).dayNumberTodayText,
-                    selected && (s as any).dayNumberSelected,
+                    s.dayNumber,
+                    index % 7 === 0 && s.dayNumberSunday,
+                    index % 7 === 6 && s.dayNumberSaturday,
+                    trip && [s.dayNumberTrip, { color: trip.color }],
+                    isToday && s.dayNumberTodayText,
+                    selected && s.dayNumberSelected,
                   ]}
                 >
                   {valid ? day : ""}
@@ -2094,7 +1866,7 @@ function TripCalendar({
               </View>
               {trip && (
                 <View
-                  style={[(s as any).dayTripDot, { backgroundColor: trip.color }]}
+                  style={[s.dayTripDot, { backgroundColor: trip.color }]}
                 />
               )}
             </Pressable>
@@ -2172,67 +1944,67 @@ function TripDateRangePicker({
     ),
   );
   return (
-    <View style={(s as any).rangeField}>
-      <Text style={[(s as any).fieldLabel, { color: theme.muted }]}>기간</Text>
-      <View style={(s as any).rangeSummary}>
+    <View style={s.rangeField}>
+      <Text style={[s.fieldLabel, { color: theme.muted }]}>기간</Text>
+      <View style={s.rangeSummary}>
         <View>
-          <Text style={(s as any).rangeSummaryLabel}>
+          <Text style={s.rangeSummaryLabel}>
             {selectingEnd ? "마지막 날을 선택하세요" : "선택한 여행 기간"}
           </Text>
-          <Text style={(s as any).rangeSummaryValue}>
+          <Text style={s.rangeSummaryValue}>
             {formatTripRange(start, end)}
           </Text>
         </View>
-        <View style={(s as any).rangeNights}>
-          <Text style={(s as any).rangeNightsText}>
+        <View style={s.rangeNights}>
+          <Text style={s.rangeNightsText}>
             {nights ? `${nights}박` : "당일"}
           </Text>
         </View>
       </View>
       <View
         style={[
-          (s as any).rangeCalendar,
+          s.rangeCalendar,
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
-        <View style={(s as any).rangeMonthHead}>
+        <View style={s.rangeMonthHead}>
           <Pressable
             onPress={() => move(-1)}
             style={[
-              (s as any).rangeMonthButton,
+              s.rangeMonthButton,
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[(s as any).rangeMonthArrow, { color: theme.text }]}>
+            <Text style={[s.rangeMonthArrow, { color: theme.text }]}>
               ‹
             </Text>
           </Pressable>
-          <Text style={[(s as any).rangeMonthTitle, { color: theme.text }]}>
+          <Text style={[s.rangeMonthTitle, { color: theme.text }]}>
             {calendarMonth.year}. {String(calendarMonth.value).padStart(2, "0")}
           </Text>
           <Pressable
             onPress={() => move(1)}
             style={[
-              (s as any).rangeMonthButton,
+              s.rangeMonthButton,
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[(s as any).rangeMonthArrow, { color: theme.text }]}>
+            <Text style={[s.rangeMonthArrow, { color: theme.text }]}>
               ›
             </Text>
           </Pressable>
         </View>
-        <View style={(s as any).rangeWeek}>
+        <View style={s.rangeWeek}>
           {["일", "월", "화", "수", "목", "금", "토"].map((day) => (
             <Text
               key={day}
-              style={[(s as any).rangeWeekday, { color: theme.muted }]}
+              style={[s.rangeWeekday, { color: theme.muted }]}
             >
               {day}
             </Text>
           ))}
         </View>
-        <View style={(s as any).rangeGrid}>
+        <View style={s.rangeGrid}>
           {cells.map((day, index) => {
             const valid = day > 0 && day <= days;
             const key = valid
@@ -2247,31 +2019,31 @@ function TripDateRangePicker({
                 key={`${index}-${day}`}
                 disabled={!valid}
                 onPress={() => choose(key)}
-                style={(s as any).rangeDay}
+                style={s.rangeDay}
               >
                 {inRange && (
                   <View
                     style={[
-                      (s as any).rangeDayBand,
+                      s.rangeDayBand,
                       { backgroundColor: theme.dark ? `${theme.secondary}28` : `${theme.secondary}1F` },
                       (index % 7 === 0 || startsRange) &&
-                        (s as any).rangeDayBandStart,
+                        s.rangeDayBandStart,
                       (index % 7 === 6 || endsRange) &&
-                        (s as any).rangeDayBandEnd,
-                      startsRange && (s as any).rangeDayBandFirst,
-                      endsRange && (s as any).rangeDayBandLast,
+                        s.rangeDayBandEnd,
+                      startsRange && s.rangeDayBandFirst,
+                      endsRange && s.rangeDayBandLast,
                     ]}
                   />
                 )}
                 {valid && (
-                  <View style={[edge && (s as any).rangeDayCircle, edge && { backgroundColor: theme.secondary }]}>
+                  <View style={[edge && s.rangeDayCircle, edge && { backgroundColor: theme.secondary }]}>
                     <Text
                       style={[
-                        (s as any).rangeDayText,
+                        s.rangeDayText,
                         { color: theme.muted },
-                        inRange && (s as any).rangeDayTextActive,
+                        inRange && s.rangeDayTextActive,
                         inRange && { color: theme.dark ? theme.secondary : "#087D70" },
-                        edge && (s as any).rangeDayTextEdge,
+                        edge && s.rangeDayTextEdge,
                       ]}
                     >
                       {day}
@@ -2284,103 +2056,6 @@ function TripDateRangePicker({
         </View>
       </View>
     </View>
-  );
-}
-
-function Trips({ open }: { open: () => void }) {
-  const [filter, setFilter] = useState<"전체" | "예정" | "추억">("전체");
-  const [items, setItems] = useState(trips);
-  const [creating, setCreating] = useState(false);
-  const [place, setPlace] = useState("");
-  const [date, setDate] = useState("9월 12일 — 14일");
-  const [note, setNote] = useState("새 여행");
-  const visibleTrips =
-    filter === "예정"
-      ? items.slice(0, Math.max(1, items.length - 2))
-      : filter === "추억"
-        ? items.slice(-2)
-        : items;
-  const addTrip = () => {
-    if (!place.trim()) return;
-    setItems((current) => [
-      {
-        name: place.trim(),
-        date,
-        note,
-        color: "#19B6A3",
-        mark: date.slice(0, 2).replace(/\D/g, "") || "NEW",
-        region: "서울",
-        start: "2026-09-12",
-        end: "2026-09-14",
-      },
-      ...current,
-    ]);
-    setPlace("");
-    setCreating(false);
-    setFilter("전체");
-  };
-  return (
-    <>
-      <ScrollView
-        contentContainerStyle={s.page}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={s.screenHead}>
-          <View>
-            <Text style={s.overline}>우리의 여행 지도</Text>
-            <Text style={s.screenTitle}>여행</Text>
-          </View>
-          <Pressable
-            onPress={() => setCreating(true)}
-            style={({ pressed }) => [s.newTrip, pressed && (s as any).pressed]}
-          >
-            <Text style={s.newTripText}>새 여행</Text>
-          </Pressable>
-        </View>
-        <View style={s.tripFilters}>
-          {(["전체", "예정", "추억"] as const).map((item) => (
-            <Pressable key={item} onPress={() => setFilter(item)}>
-              <Text style={[s.filter, filter === item && s.filterActive]}>
-                {item}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        {visibleTrips.map((trip, index) => (
-          <Pressable
-            key={`${trip.name}-${index}`}
-            onPress={open}
-            style={({ pressed }) => [s.tripRow, pressed && (s as any).pressed]}
-          >
-            <View style={(s as any).tripThumb}>
-              <TripArt color={trip.color} date={trip.mark} small />
-            </View>
-            <View style={s.tripInfo}>
-              <Text style={s.tripName}>{trip.name}</Text>
-              <Text style={s.tripDate}>{trip.date}</Text>
-              <Text style={s.tripNote}>{trip.note}</Text>
-            </View>
-            <Text style={s.arrow}>›</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-      <FormSheet
-        visible={creating}
-        title="새 여행"
-        submit="여행 만들기"
-        onClose={() => setCreating(false)}
-        onSubmit={addTrip}
-      >
-        <Field
-          label="여행지"
-          value={place}
-          onChangeText={setPlace}
-          placeholder="예: 제주 애월"
-        />
-        <Field label="기간" value={date} onChangeText={setDate} />
-        <Field label="한 줄 메모" value={note} onChangeText={setNote} />
-      </FormSheet>
-    </>
   );
 }
 
@@ -2479,19 +2154,19 @@ function Search({
   return (
     <ScrollView
       style={{ backgroundColor: "transparent" }}
-      contentContainerStyle={(s as any).searchPage}
+      contentContainerStyle={s.searchPage}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={[s.overline, { color: theme.primary }]}>
         이 공간의 모든 기록
       </Text>
       <Text style={[s.screenTitle, { color: theme.text }]}>찾기</Text>
-      <Text style={[(s as any).searchIntro, { color: theme.muted }]}>
+      <Text style={[s.searchIntro, { color: theme.muted }]}>
         다녀온 여행과 준비 중인 기록을 한곳에서 찾아보세요
       </Text>
       <View
         style={[
-          (s as any).searchBoxNew,
+          s.searchBoxNew,
           { backgroundColor: theme.surface, borderColor: theme.border },
         ]}
       >
@@ -2506,7 +2181,7 @@ function Search({
           returnKeyType="search"
           placeholder="장소, 음식, 준비물, 메모 검색"
           placeholderTextColor={theme.muted}
-          style={[(s as any).searchInputNew, { color: theme.text }]}
+          style={[s.searchInputNew, { color: theme.text }]}
         />
         {query.length > 0 && (
           <Pressable
@@ -2514,25 +2189,25 @@ function Search({
             accessibilityRole="button"
             accessibilityLabel="검색어 지우기"
             style={[
-              (s as any).searchClear,
+              s.searchClear,
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={(s as any).searchClearText}>×</Text>
+            <Text style={s.searchClearText}>×</Text>
           </Pressable>
         )}
       </View>
-      <View style={(s as any).searchGuideHead}>
-          <Text style={[(s as any).searchGuideTitle, { color: theme.muted }]}>
+      <View style={s.searchGuideHead}>
+          <Text style={[s.searchGuideTitle, { color: theme.muted }]}>
             최근 검색
           </Text>
           {recentQueries.length > 0 && (
             <Pressable onPress={() => setRecentQueries([])} accessibilityRole="button">
-              <Text style={[(s as any).searchRecentClear, { color: theme.muted }]}>전체 삭제</Text>
+              <Text style={[s.searchRecentClear, { color: theme.muted }]}>전체 삭제</Text>
             </Pressable>
           )}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={(s as any).searchSuggestions}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.searchSuggestions}>
             {recentQueries.map((word) => (
               <Pressable
                 key={word}
@@ -2540,13 +2215,13 @@ function Search({
                 accessibilityRole="button"
                 accessibilityLabel={`최근 검색어 ${word}`}
                 style={[
-                  (s as any).searchSuggestion,
+                  s.searchSuggestion,
                   { backgroundColor: theme.surface, borderColor: theme.border },
                 ]}
               >
                 <Text
                   style={[
-                    (s as any).searchSuggestionText,
+                    s.searchSuggestionText,
                     { color: theme.secondary },
                   ]}
                 >
@@ -2561,21 +2236,21 @@ function Search({
                   accessibilityRole="button"
                   accessibilityLabel={`${word} 최근 검색어 삭제`}
                 >
-                  <Text style={[(s as any).searchSuggestionRemove, { color: theme.muted }]}>×</Text>
+                  <Text style={[s.searchSuggestionRemove, { color: theme.muted }]}>×</Text>
                 </Pressable>
               </Pressable>
             ))}
             {recentQueries.length === 0 && (
-              <Text style={[(s as any).searchRecentEmpty, { color: theme.muted }]}>검색하면 최근 검색어가 여기에 남아요</Text>
+              <Text style={[s.searchRecentEmpty, { color: theme.muted }]}>검색하면 최근 검색어가 여기에 남아요</Text>
             )}
       </ScrollView>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={[
-          (s as any).searchCategories,
+          s.searchCategories,
         ]}
-        contentContainerStyle={(s as any).searchCategoriesContent}
+        contentContainerStyle={s.searchCategoriesContent}
       >
         {searchFilters.map((item) => (
           <Pressable
@@ -2585,9 +2260,9 @@ function Search({
             accessibilityState={{ selected: category === item.label }}
             accessibilityLabel={`${item.label}, 결과 ${item.count}개`}
             style={[
-              (s as any).searchCategory,
+              s.searchCategory,
               { backgroundColor: theme.surface, borderColor: theme.border },
-              category === item.label && (s as any).searchCategoryActive,
+              category === item.label && s.searchCategoryActive,
               category === item.label && {
                 backgroundColor: theme.primarySoft,
                 borderColor: `${theme.primary}70`,
@@ -2596,9 +2271,9 @@ function Search({
           >
             <Text
               style={[
-                (s as any).searchCategoryText,
+                s.searchCategoryText,
                 { color: theme.muted },
-                category === item.label && (s as any).searchCategoryTextActive,
+                category === item.label && s.searchCategoryTextActive,
                 category === item.label && { color: theme.primary },
               ]}
             >
@@ -2606,7 +2281,7 @@ function Search({
             </Text>
             <View
               style={[
-                (s as any).searchCategoryCount,
+                s.searchCategoryCount,
                 {
                   backgroundColor:
                     category === item.label ? theme.primary : theme.surfaceAlt,
@@ -2615,7 +2290,7 @@ function Search({
             >
               <Text
                 style={[
-                  (s as any).searchCategoryCountText,
+                  s.searchCategoryCountText,
                   {
                     color:
                       category === item.label ? "#FFFFFF" : theme.muted,
@@ -2628,32 +2303,32 @@ function Search({
           </Pressable>
         ))}
       </ScrollView>
-      <View style={(s as any).searchResultHead}>
-        <Text style={[(s as any).searchResultTitle, { color: theme.text }]}>
+      <View style={s.searchResultHead}>
+        <Text style={[s.searchResultTitle, { color: theme.text }]}>
           {query || category !== "전체" ? "검색 결과" : "여행 기록"}
         </Text>
-        <Text style={[(s as any).searchResultCount, { color: theme.muted }]}>
+        <Text style={[s.searchResultCount, { color: theme.muted }]}>
           {results.length}개
         </Text>
       </View>
       {results.length > 0 && (
-      <View style={(s as any).searchResultsSheet}>
+      <View style={s.searchResultsSheet}>
       {results.map((item, index) => (
         <View
           key={item.title}
           style={[
-            (s as any).searchResultCard,
+            s.searchResultCard,
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
             },
-            index === results.length - 1 && (s as any).searchResultCardLast,
+            index === results.length - 1 && s.searchResultCardLast,
           ]}
         >
           <View
             pointerEvents="none"
             style={[
-              (s as any).searchResultColorTab,
+              s.searchResultColorTab,
               { backgroundColor: item.color },
             ]}
           />
@@ -2674,36 +2349,36 @@ function Search({
             }}
             accessibilityRole="button"
             accessibilityLabel={`${item.trip} 여행의 ${item.type} ${item.title} 열기`}
-            style={(s as any).searchResultMain}
+            style={s.searchResultMain}
           >
-            <View style={(s as any).searchResultCopy}>
-              <View style={(s as any).searchResultLine}>
-                <Text numberOfLines={1} style={[(s as any).searchResultName, { color: theme.text }]}>{item.title}</Text>
+            <View style={s.searchResultCopy}>
+              <View style={s.searchResultLine}>
+                <Text numberOfLines={1} style={[s.searchResultName, { color: theme.text }]}>{item.title}</Text>
                 <View
                   style={[
-                    (s as any).searchResultTypeBadge,
+                    s.searchResultTypeBadge,
                     {
                       backgroundColor: `${item.color}${theme.dark ? "28" : "14"}`,
                     },
                   ]}
                 >
-                  <Text style={[(s as any).searchResultType, { color: item.color }]}>{item.type}</Text>
+                  <Text style={[s.searchResultType, { color: item.color }]}>{item.type}</Text>
                 </View>
               </View>
-              <Text numberOfLines={1} style={[(s as any).searchResultDetail, { color: theme.muted }]}>{item.detail}</Text>
-              <View style={(s as any).searchResultMetaRow}>
-                <Text numberOfLines={1} style={[(s as any).searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
+              <Text numberOfLines={1} style={[s.searchResultDetail, { color: theme.muted }]}>{item.detail}</Text>
+              <View style={s.searchResultMetaRow}>
+                <Text numberOfLines={1} style={[s.searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
                 {item.tags.slice(0, 2).map((tag) => (
-                  <Text key={tag} style={[(s as any).searchResultTag, { color: item.color }]}>#{tag}</Text>
+                  <Text key={tag} style={[s.searchResultTag, { color: item.color }]}>#{tag}</Text>
                 ))}
               </View>
             </View>
-            <Text style={[(s as any).searchResultArrow, { color: theme.muted }]}>›</Text>
+            <Text style={[s.searchResultArrow, { color: theme.muted }]}>›</Text>
           </Pressable>
           {item.type === "장소" && (
             <View
               style={[
-                (s as any).searchResultActions,
+                s.searchResultActions,
                 { borderTopColor: theme.border },
               ]}
             >
@@ -2718,25 +2393,25 @@ function Search({
                 accessibilityRole="button"
                 accessibilityState={{ selected: savedTitles.has(item.title) }}
                 accessibilityLabel={`${item.title} ${savedTitles.has(item.title) ? "저장 취소" : "저장"}`}
-                style={(s as any).searchResultAction}
+                style={s.searchResultAction}
               >
-                <Text style={[(s as any).searchResultActionText, { color: savedTitles.has(item.title) ? theme.secondary : theme.muted }]}>{savedTitles.has(item.title) ? "저장됨" : "저장"}</Text>
+                <Text style={[s.searchResultActionText, { color: savedTitles.has(item.title) ? theme.secondary : theme.muted }]}>{savedTitles.has(item.title) ? "저장됨" : "저장"}</Text>
               </Pressable>
               <Pressable
                 onPress={() => open("schedule-add", trips.find((trip) => trip.name === item.trip))}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.trip} 여행의 일정 추가 화면 열기`}
-                style={(s as any).searchResultAction}
+                style={s.searchResultAction}
               >
-                <Text style={[(s as any).searchResultActionText, { color: theme.primary }]}>일정 추가</Text>
+                <Text style={[s.searchResultActionText, { color: theme.primary }]}>일정 추가</Text>
               </Pressable>
               <Pressable
                 onPress={() => Linking.openURL(`https://map.naver.com/p/search/${encodeURIComponent(item.title)}`)}
                 accessibilityRole="link"
                 accessibilityLabel={`${item.title} 네이버 지도에서 보기`}
-                style={(s as any).searchResultAction}
+                style={s.searchResultAction}
               >
-                <Text style={[(s as any).searchResultActionText, { color: "#03A94F" }]}>N 지도</Text>
+                <Text style={[s.searchResultActionText, { color: "#03A94F" }]}>N 지도</Text>
               </Pressable>
             </View>
           )}
@@ -2747,17 +2422,17 @@ function Search({
       {!results.length && (
         <View
           style={[
-            (s as any).searchEmpty,
+            s.searchEmpty,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
           <Svg width={48} height={48} viewBox="0 0 48 48">
             <Path d="m30 30 9 9M21 34a13 13 0 1 1 0-26 13 13 0 0 1 0 26Zm-5-14h10M21 15v10" fill="none" stroke={theme.primary} strokeWidth={1.6} strokeLinecap="round" />
           </Svg>
-          <Text style={[(s as any).searchEmptyTitle, { color: theme.text }]}>
+          <Text style={[s.searchEmptyTitle, { color: theme.text }]}>
             찾는 기록이 없어요
           </Text>
-          <Text style={[(s as any).searchEmptyCopy, { color: theme.muted }]}>
+          <Text style={[s.searchEmptyCopy, { color: theme.muted }]}>
             다른 단어나 카테고리로 검색해 보세요.
           </Text>
           {(query || category !== "전체") && (
@@ -2767,9 +2442,9 @@ function Search({
                 setCategory("전체");
               }}
               accessibilityRole="button"
-              style={[(s as any).emptyInlineAction, { backgroundColor: theme.primarySoft }]}
+              style={[s.emptyInlineAction, { backgroundColor: theme.primarySoft }]}
             >
-              <Text style={[(s as any).emptyInlineActionText, { color: theme.primary }]}>검색 초기화</Text>
+              <Text style={[s.emptyInlineActionText, { color: theme.primary }]}>검색 초기화</Text>
             </Pressable>
           )}
         </View>
@@ -2880,7 +2555,7 @@ function Together({
         style={{ backgroundColor: "transparent" }}
         contentContainerStyle={s.page}
       >
-        <View style={(s as any).togetherHead}>
+        <View style={s.togetherHead}>
           <View>
             <Text style={[s.overline, { color: theme.primary }]}>
               함께 관리하는 여행
@@ -2891,9 +2566,9 @@ function Together({
             onPress={() => setPanel("account")}
             accessibilityRole="button"
             accessibilityLabel="내 프로필 열기"
-            style={[(s as any).togetherAccountButton, { backgroundColor: theme.primarySoft }]}
+            style={[s.togetherAccountButton, { backgroundColor: theme.primarySoft }]}
           >
-            <Text style={[(s as any).togetherAccountInitial, { color: theme.primary }]}>{user.name.slice(0, 1)}</Text>
+            <Text style={[s.togetherAccountInitial, { color: theme.primary }]}>{user.name.slice(0, 1)}</Text>
           </Pressable>
         </View>
         <Pressable
@@ -2901,23 +2576,23 @@ function Together({
           accessibilityRole="button"
           accessibilityLabel={`현재 여행 공간 ${spaceName}, 공간 바꾸기`}
           style={[
-            (s as any).workspaceCard,
+            s.workspaceCard,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          <View style={[(s as any).workspaceMark, { backgroundColor: theme.primarySoft }]}>
+          <View style={[s.workspaceMark, { backgroundColor: theme.primarySoft }]}>
             <BottomNavIcon item="여행" color={theme.primary} />
           </View>
-          <View style={(s as any).workspaceCopy}>
-            <Text style={[(s as any).workspaceLabel, { color: theme.muted }]}>현재 여행 공간</Text>
-            <Text style={[(s as any).workspaceName, { color: theme.text }]}>{spaceName}</Text>
-            <Text style={[(s as any).workspaceMeta, { color: theme.muted }]}>{visibleMembers.length}명 · {relationship} · 여행 {trips.length}개</Text>
+          <View style={s.workspaceCopy}>
+            <Text style={[s.workspaceLabel, { color: theme.muted }]}>현재 여행 공간</Text>
+            <Text style={[s.workspaceName, { color: theme.text }]}>{spaceName}</Text>
+            <Text style={[s.workspaceMeta, { color: theme.muted }]}>{visibleMembers.length}명 · {relationship} · 여행 {trips.length}개</Text>
           </View>
-          <View style={[(s as any).workspaceSwitchBadge, { backgroundColor: theme.primarySoft }]}>
-            <Text style={[(s as any).workspaceSwitchBadgeText, { color: theme.primary }]}>바꾸기</Text>
+          <View style={[s.workspaceSwitchBadge, { backgroundColor: theme.primarySoft }]}>
+            <Text style={[s.workspaceSwitchBadgeText, { color: theme.primary }]}>바꾸기</Text>
           </View>
         </Pressable>
-        <View style={(s as any).groupTabs}>
+        <View style={s.groupTabs}>
           {groups.map((group) => (
             <Pressable
               key={group.id}
@@ -2925,7 +2600,7 @@ function Together({
               accessibilityRole="button"
               accessibilityState={{ selected: activeGroupId === group.id }}
               style={[
-                (s as any).groupTab,
+                s.groupTab,
                 { backgroundColor: theme.surface, borderColor: theme.border },
                 activeGroupId === group.id && {
                   backgroundColor: theme.primarySoft,
@@ -2936,7 +2611,7 @@ function Together({
               <Text
                 numberOfLines={1}
                 style={[
-                  (s as any).groupTabText,
+                  s.groupTabText,
                   { color: activeGroupId === group.id ? theme.primary : theme.muted },
                 ]}
               >
@@ -2944,40 +2619,40 @@ function Together({
               </Text>
             </Pressable>
           ))}
-          <Pressable onPress={() => setPanel("groups")} style={(s as any).groupTabMore}>
-            <Text style={[(s as any).groupTabMoreText, { color: theme.muted }]}>•••</Text>
+          <Pressable onPress={() => setPanel("groups")} style={s.groupTabMore}>
+            <Text style={[s.groupTabMoreText, { color: theme.muted }]}>•••</Text>
           </Pressable>
         </View>
-        <View style={(s as any).memberSectionHead}>
+        <View style={s.memberSectionHead}>
           <View>
-            <Text style={[(s as any).historyEyebrow, { color: theme.primary }]}>멤버</Text>
-            <Text style={[(s as any).memberSectionTitle, { color: theme.text }]}>함께하는 사람</Text>
+            <Text style={[s.historyEyebrow, { color: theme.primary }]}>멤버</Text>
+            <Text style={[s.memberSectionTitle, { color: theme.text }]}>함께하는 사람</Text>
           </View>
-          <Pressable onPress={() => setPanel("members")}><Text style={[(s as any).memberManageText, { color: theme.primary }]}>관리</Text></Pressable>
+          <Pressable onPress={() => setPanel("members")}><Text style={[s.memberManageText, { color: theme.primary }]}>관리</Text></Pressable>
         </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={[(s as any).memberStrip, { backgroundColor: theme.surface, borderColor: theme.border }]}
-          contentContainerStyle={(s as any).memberStripContent}
+          style={[s.memberStrip, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          contentContainerStyle={s.memberStripContent}
         >
           {visibleMembers.map((member, index) => (
-            <Pressable key={`${member}-${index}`} onPress={() => setPanel("members")} style={(s as any).memberStripItem}>
-              <View style={[(s as any).memberStripAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary, "#8B7CF6"][index] }]}>
-                <Text style={(s as any).memberStripInitial}>{member.slice(0, 1)}</Text>
+            <Pressable key={`${member}-${index}`} onPress={() => setPanel("members")} style={s.memberStripItem}>
+              <View style={[s.memberStripAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary, "#8B7CF6"][index] }]}>
+                <Text style={s.memberStripInitial}>{member.slice(0, 1)}</Text>
               </View>
-              <Text numberOfLines={1} style={[(s as any).memberStripName, { color: theme.text }]}>{index === 0 ? "나" : member}</Text>
-              <Text numberOfLines={1} style={[(s as any).memberStripRole, { color: theme.muted }]}>{memberRoles[index] ?? "편집 가능"}</Text>
+              <Text numberOfLines={1} style={[s.memberStripName, { color: theme.text }]}>{index === 0 ? "나" : member}</Text>
+              <Text numberOfLines={1} style={[s.memberStripRole, { color: theme.muted }]}>{memberRoles[index] ?? "편집 가능"}</Text>
             </Pressable>
           ))}
-          <Pressable onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={(s as any).memberStripItem}>
-            <View style={[(s as any).memberInviteAvatar, { borderColor: theme.border }]}><Text style={[(s as any).memberInvitePlus, { color: theme.primary }]}>＋</Text></View>
-            <Text style={[(s as any).memberStripName, { color: theme.muted }]}>초대</Text>
-            <Text style={[(s as any).memberStripRole, { color: theme.muted }]}>링크 공유</Text>
+          <Pressable onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={s.memberStripItem}>
+            <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Text style={[s.memberInvitePlus, { color: theme.primary }]}>＋</Text></View>
+            <Text style={[s.memberStripName, { color: theme.muted }]}>초대</Text>
+            <Text style={[s.memberStripRole, { color: theme.muted }]}>링크 공유</Text>
           </Pressable>
         </ScrollView>
-        <Text style={[(s as any).managementLabel, { color: theme.muted }]}>빠른 관리</Text>
-        <View style={(s as any).togetherQuickRow}>
+        <Text style={[s.managementLabel, { color: theme.muted }]}>빠른 관리</Text>
+        <View style={s.togetherQuickRow}>
           {[
             {
               icon: "＋",
@@ -2997,27 +2672,27 @@ function Together({
               accessibilityRole={action.label.startsWith("알림") ? "switch" : "button"}
               accessibilityState={action.label.startsWith("알림") ? { checked: notifications } : undefined}
               style={[
-                (s as any).togetherQuick,
+                s.togetherQuick,
                 { backgroundColor: theme.surface, borderColor: theme.border },
               ]}
             >
-              <View style={[(s as any).togetherQuickIcon, { backgroundColor: theme.primarySoft }]}>
-                <Text style={[(s as any).togetherQuickIconText, { color: theme.primary }]}>{action.icon}</Text>
+              <View style={[s.togetherQuickIcon, { backgroundColor: theme.primarySoft }]}>
+                <Text style={[s.togetherQuickIconText, { color: theme.primary }]}>{action.icon}</Text>
               </View>
-              <Text numberOfLines={1} style={[(s as any).togetherQuickLabel, { color: theme.text }]}>{action.label}</Text>
+              <Text numberOfLines={1} style={[s.togetherQuickLabel, { color: theme.text }]}>{action.label}</Text>
             </Pressable>
           ))}
         </View>
-        <View style={(s as any).historyHeading}>
+        <View style={s.historyHeading}>
           <View>
-            <Text style={[(s as any).historyEyebrow, { color: theme.primary }]}>지금까지의 기록</Text>
-            <Text style={[(s as any).historyTitle, { color: theme.text }]}>함께 쌓은 여행</Text>
+            <Text style={[s.historyEyebrow, { color: theme.primary }]}>지금까지의 기록</Text>
+            <Text style={[s.historyTitle, { color: theme.text }]}>함께 쌓은 여행</Text>
           </View>
-          <Text style={[(s as any).historyPeriod, { color: theme.muted }]}>{since.slice(0, 4)} — 2026</Text>
+          <Text style={[s.historyPeriod, { color: theme.muted }]}>{since.slice(0, 4)} — 2026</Text>
         </View>
         <View
           style={[
-            (s as any).historySummary,
+            s.historySummary,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
@@ -3028,12 +2703,12 @@ function Together({
           ].map((stat, index) => (
             <View
               key={stat.label}
-              style={[(s as any).historySummaryItem, index > 0 && { borderLeftColor: theme.border, borderLeftWidth: 1 }]}
+              style={[s.historySummaryItem, index > 0 && { borderLeftColor: theme.border, borderLeftWidth: 1 }]}
             >
-              <Text style={[(s as any).historySummaryValue, { color: stat.color }]}>
-                {stat.value}<Text style={[(s as any).historyUnit, { color: theme.muted }]}> {stat.unit}</Text>
+              <Text style={[s.historySummaryValue, { color: stat.color }]}>
+                {stat.value}<Text style={[s.historyUnit, { color: theme.muted }]}> {stat.unit}</Text>
               </Text>
-              <Text style={[(s as any).historySummaryLabel, { color: theme.muted }]}>{stat.label}</Text>
+              <Text style={[s.historySummaryLabel, { color: theme.muted }]}>{stat.label}</Text>
             </View>
           ))}
         </View>
@@ -3042,18 +2717,18 @@ function Together({
             onPress={() => openTrip(trips[0])}
             accessibilityRole="button"
             accessibilityLabel={`최근 여행 ${trips[0].name} 열기`}
-            style={[(s as any).historyLatest, { borderColor: theme.border }]}
+            style={[s.historyLatest, { borderColor: theme.border }]}
           >
-            <View style={[(s as any).historyLatestDot, { backgroundColor: trips[0].color }]} />
-            <Text style={[(s as any).historyLatestLabel, { color: theme.muted }]}>최근 여행</Text>
-            <Text numberOfLines={1} style={[(s as any).historyLatestName, { color: theme.text }]}>{trips[0].name}</Text>
-            <Text style={[(s as any).historyLatestDate, { color: theme.muted }]}>{trips[0].date}</Text>
+            <View style={[s.historyLatestDot, { backgroundColor: trips[0].color }]} />
+            <Text style={[s.historyLatestLabel, { color: theme.muted }]}>최근 여행</Text>
+            <Text numberOfLines={1} style={[s.historyLatestName, { color: theme.text }]}>{trips[0].name}</Text>
+            <Text style={[s.historyLatestDate, { color: theme.muted }]}>{trips[0].date}</Text>
           </Pressable>
         )}
-        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>공간 설정</Text>
+        <Text style={[s.settingGroupLabel, { color: theme.muted }]}>공간 설정</Text>
         <View
           style={[
-            (s as any).settingGroup,
+            s.settingGroup,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
@@ -3070,10 +2745,10 @@ function Together({
             onPress={() => setPanel("relationship")}
           />
         </View>
-        <Text style={[(s as any).settingGroupLabel, { color: theme.muted }]}>앱과 계정</Text>
+        <Text style={[s.settingGroupLabel, { color: theme.muted }]}>앱과 계정</Text>
         <View
           style={[
-            (s as any).settingGroup,
+            s.settingGroup,
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
@@ -3116,7 +2791,7 @@ function Together({
       >
         {panel === "groups" && (
           <>
-            <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 선택하세요.</Text>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 선택하세요.</Text>
             {groups.map((group) => (
               <Pressable
                 key={group.id}
@@ -3126,29 +2801,29 @@ function Together({
                 }}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: activeGroupId === group.id }}
-                style={[(s as any).groupChoice, { backgroundColor: theme.surface, borderColor: activeGroupId === group.id ? theme.primary : theme.border }]}
+                style={[s.groupChoice, { backgroundColor: theme.surface, borderColor: activeGroupId === group.id ? theme.primary : theme.border }]}
               >
-                <View style={[(s as any).groupChoiceAvatar, { backgroundColor: activeGroupId === group.id ? theme.primary : theme.primarySoft }]}>
-                  <Text style={[(s as any).groupChoiceAvatarText, { color: activeGroupId === group.id ? "#FFFFFF" : theme.primary }]}>{group.name.slice(0, 1)}</Text>
+                <View style={[s.groupChoiceAvatar, { backgroundColor: activeGroupId === group.id ? theme.primary : theme.primarySoft }]}>
+                  <Text style={[s.groupChoiceAvatarText, { color: activeGroupId === group.id ? "#FFFFFF" : theme.primary }]}>{group.name.slice(0, 1)}</Text>
                 </View>
-                <View style={(s as any).groupChoiceCopy}>
-                  <Text style={[(s as any).groupChoiceName, { color: theme.text }]}>{group.name}</Text>
-                  <Text numberOfLines={1} style={[(s as any).groupChoiceMeta, { color: theme.muted }]}>{[user.name, ...group.members].join(" · ")}</Text>
+                <View style={s.groupChoiceCopy}>
+                  <Text style={[s.groupChoiceName, { color: theme.text }]}>{group.name}</Text>
+                  <Text numberOfLines={1} style={[s.groupChoiceMeta, { color: theme.muted }]}>{[user.name, ...group.members].join(" · ")}</Text>
                 </View>
-                <Text style={[(s as any).groupChoiceCheck, { color: theme.primary }]}>{activeGroupId === group.id ? "✓" : ""}</Text>
+                <Text style={[s.groupChoiceCheck, { color: theme.primary }]}>{activeGroupId === group.id ? "✓" : ""}</Text>
               </Pressable>
             ))}
           </>
         )}
         {panel === "account" && (
           <>
-            <View style={[(s as any).accountPreview, { backgroundColor: theme.primarySoft }]}>
-              <View style={[(s as any).accountAvatar, { backgroundColor: theme.primary }]}>
-                <Text style={(s as any).accountAvatarText}>{user.name.trim().slice(0, 1) || "?"}</Text>
+            <View style={[s.accountPreview, { backgroundColor: theme.primarySoft }]}>
+              <View style={[s.accountAvatar, { backgroundColor: theme.primary }]}>
+                <Text style={s.accountAvatarText}>{user.name.trim().slice(0, 1) || "?"}</Text>
               </View>
-              <View style={(s as any).accountPreviewCopy}>
-                <Text style={[(s as any).accountPreviewName, { color: theme.text }]}>{user.name}</Text>
-                <Text style={[(s as any).accountPreviewEmail, { color: theme.muted }]}>{user.email}</Text>
+              <View style={s.accountPreviewCopy}>
+                <Text style={[s.accountPreviewName, { color: theme.text }]}>{user.name}</Text>
+                <Text style={[s.accountPreviewEmail, { color: theme.muted }]}>{user.email}</Text>
               </View>
             </View>
             <Field
@@ -3172,7 +2847,7 @@ function Together({
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>프로필 변경 내용은 바로 저장돼요.</Text>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>프로필 변경 내용은 바로 저장돼요.</Text>
             <Pressable
               onPress={() => {
                 Alert.alert("로그아웃할까요?", "기기에만 저장된 변경 내용이 있다면 동기화 후 로그아웃해 주세요.", [
@@ -3180,9 +2855,9 @@ function Together({
                   { text: "로그아웃", style: "destructive", onPress: () => { setPanel(null); onLogout(); } },
                 ]);
               }}
-              style={[(s as any).accountLogout, { borderColor: theme.border }]}
+              style={[s.accountLogout, { borderColor: theme.border }]}
             >
-              <Text style={(s as any).accountLogoutText}>로그아웃</Text>
+              <Text style={s.accountLogoutText}>로그아웃</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -3196,27 +2871,27 @@ function Together({
                 );
               }}
               accessibilityRole="button"
-              style={(s as any).accountDelete}
+              style={s.accountDelete}
             >
-              <Text style={(s as any).accountDeleteText}>계정 삭제</Text>
+              <Text style={s.accountDeleteText}>계정 삭제</Text>
             </Pressable>
           </>
         )}
         {panel === "members" && (
           <>
-            <View style={(s as any).memberManagerHead}>
+            <View style={s.memberManagerHead}>
               <View>
-                <Text style={[(s as any).memberManagerTitle, { color: theme.text }]}>{visibleMembers.length}명이 함께하고 있어요</Text>
-                <Text style={[(s as any).memberManagerCopy, { color: theme.muted }]}>관리할 멤버를 선택하세요.</Text>
+                <Text style={[s.memberManagerTitle, { color: theme.text }]}>{visibleMembers.length}명이 함께하고 있어요</Text>
+                <Text style={[s.memberManagerCopy, { color: theme.muted }]}>관리할 멤버를 선택하세요.</Text>
               </View>
               <Pressable
                 onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })}
-                style={[(s as any).memberManagerInvite, { backgroundColor: theme.primarySoft }]}
+                style={[s.memberManagerInvite, { backgroundColor: theme.primarySoft }]}
               >
-                <Text style={[(s as any).memberManagerInviteText, { color: theme.primary }]}>＋ 초대</Text>
+                <Text style={[s.memberManagerInviteText, { color: theme.primary }]}>＋ 초대</Text>
               </Pressable>
             </View>
-            <View style={(s as any).memberManagerGrid}>
+            <View style={s.memberManagerGrid}>
               {memberEntries.map(({ name: member, slot }, index) => (
                 <Pressable
                   key={`${member}-manage`}
@@ -3224,24 +2899,24 @@ function Together({
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selectedMember === slot }}
                   style={[
-                    (s as any).memberManagerCard,
+                    s.memberManagerCard,
                     { backgroundColor: theme.surface, borderColor: selectedMember === slot ? theme.primary : theme.border },
                     selectedMember === slot && { borderWidth: 2 },
                   ]}
                 >
-                  <View style={[(s as any).memberManagerAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary, "#8B7CF6"][index] }]}>
-                    <Text style={(s as any).memberStripInitial}>{member.slice(0, 1)}</Text>
+                  <View style={[s.memberManagerAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary, "#8B7CF6"][index] }]}>
+                    <Text style={s.memberStripInitial}>{member.slice(0, 1)}</Text>
                   </View>
-                  <View style={(s as any).memberManagerCardCopy}>
-                    <Text numberOfLines={1} style={[(s as any).memberManagerName, { color: theme.text }]}>{member}{slot === 0 ? " (나)" : ""}</Text>
-                    <Text numberOfLines={1} style={[(s as any).memberManagerRole, { color: selectedMember === slot ? theme.primary : theme.muted }]}>{memberRoles[slot]}</Text>
+                  <View style={s.memberManagerCardCopy}>
+                    <Text numberOfLines={1} style={[s.memberManagerName, { color: theme.text }]}>{member}{slot === 0 ? " (나)" : ""}</Text>
+                    <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === slot ? theme.primary : theme.muted }]}>{memberRoles[slot]}</Text>
                   </View>
                   <Text style={[{ color: theme.primary, fontWeight: "900" }, selectedMember !== slot && { opacity: 0 }]}>{"✓"}</Text>
                 </Pressable>
               ))}
             </View>
-            <View style={[(s as any).memberEditor, { backgroundColor: theme.primarySoft }]}>
-              <Text style={[(s as any).memberEditorEyebrow, { color: theme.primary }]}>선택한 멤버</Text>
+            <View style={[s.memberEditor, { backgroundColor: theme.primarySoft }]}>
+              <Text style={[s.memberEditorEyebrow, { color: theme.primary }]}>선택한 멤버</Text>
               <Field
                 theme={theme}
                 label={selectedMember === 0 ? "내 이름" : "멤버 이름"}
@@ -3250,10 +2925,10 @@ function Together({
                 placeholder="이름 또는 별명"
               />
               {selectedMember === 0 ? (
-                <Text style={[(s as any).memberRoleText, { color: theme.muted }]}>관리자는 공간과 모든 여행을 관리할 수 있어요.</Text>
+                <Text style={[s.memberRoleText, { color: theme.muted }]}>관리자는 공간과 모든 여행을 관리할 수 있어요.</Text>
               ) : (
                 <>
-                  <Text style={[(s as any).memberPermissionLabel, { color: theme.text }]}>이 공간에서 할 수 있는 일</Text>
+                  <Text style={[s.memberPermissionLabel, { color: theme.text }]}>이 공간에서 할 수 있는 일</Text>
                   <Choice
                     theme={theme}
                     selected={memberRoles[selectedMember] === "편집 가능"}
@@ -3285,9 +2960,9 @@ function Together({
                         ],
                       );
                     }}
-                    style={(s as any).memberRemoveButton}
+                    style={s.memberRemoveButton}
                   >
-                    <Text style={(s as any).memberRemoveText}>이 공간에서 내보내기</Text>
+                    <Text style={s.memberRemoveText}>이 공간에서 내보내기</Text>
                   </Pressable>
                 </>
               )}
@@ -3311,7 +2986,7 @@ function Together({
           </>
         )}
         {panel === "theme" && (
-          <View style={(s as any).themeGrid}>
+          <View style={s.themeGrid}>
             {themeOptions.map((option) => (
               <Pressable
                 key={option.id}
@@ -3319,7 +2994,7 @@ function Together({
                 accessibilityRole="radio"
                 accessibilityState={{ checked: themeId === option.id }}
                 style={[
-                  (s as any).themeOption,
+                  s.themeOption,
                   { backgroundColor: theme.surface, borderColor: theme.border },
                   themeId === option.id && {
                     borderColor: option.primary,
@@ -3327,33 +3002,33 @@ function Together({
                   },
                 ]}
               >
-                <View style={(s as any).themeSwatches}>
+                <View style={s.themeSwatches}>
                   <View
                     style={[
-                      (s as any).themeSwatch,
+                      s.themeSwatch,
                       { backgroundColor: option.primary },
                     ]}
                   />
                   <View
                     style={[
-                      (s as any).themeSwatch,
+                      s.themeSwatch,
                       { backgroundColor: option.secondary },
                     ]}
                   />
                   <View
                     style={[
-                      (s as any).themeSwatch,
+                      s.themeSwatch,
                       { backgroundColor: option.accent },
                     ]}
                   />
                 </View>
                 <Text
-                  style={[(s as any).themeOptionName, { color: theme.text }]}
+                  style={[s.themeOptionName, { color: theme.text }]}
                 >
                   {option.name}
                 </Text>
                 <Text
-                  style={[(s as any).themeOptionCheck, { color: theme.text }]}
+                  style={[s.themeOptionCheck, { color: theme.text }]}
                 >
                   {themeId === option.id ? "✓" : ""}
                 </Text>
@@ -3384,20 +3059,20 @@ function Together({
           </>
         )}
         {panel === "help" && (
-          <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>
+          <Text style={[s.sheetCopy, { color: theme.muted }]}>
             여행을 만들고 일정, 준비물, 메모와 사진을 한곳에서 함께 관리하세요.
           </Text>
         )}
         {panel === "profile" && (
           <>
-            <View style={[(s as any).profileSheetPreview, { backgroundColor: theme.primarySoft }]}>
-              <View style={[(s as any).profileSheetAvatar, { backgroundColor: theme.primary }]}>
-                <Text style={(s as any).togetherAvatarText}>{memberA.trim().slice(0, 1) || "?"}</Text>
+            <View style={[s.profileSheetPreview, { backgroundColor: theme.primarySoft }]}>
+              <View style={[s.profileSheetAvatar, { backgroundColor: theme.primary }]}>
+                <Text style={s.togetherAvatarText}>{memberA.trim().slice(0, 1) || "?"}</Text>
               </View>
-              <View style={[(s as any).profileSheetAvatar, (s as any).profileSheetAvatarSecond, { backgroundColor: theme.accent }]}>
-                <Text style={(s as any).togetherAvatarText}>{memberB.trim().slice(0, 1) || "?"}</Text>
+              <View style={[s.profileSheetAvatar, s.profileSheetAvatarSecond, { backgroundColor: theme.accent }]}>
+                <Text style={s.togetherAvatarText}>{memberB.trim().slice(0, 1) || "?"}</Text>
               </View>
-              <Text style={[(s as any).profileSheetName, { color: theme.text }]}>{spaceName}</Text>
+              <Text style={[s.profileSheetName, { color: theme.text }]}>{spaceName}</Text>
             </View>
             <Field
               theme={theme}
@@ -3413,7 +3088,7 @@ function Together({
               onChangeText={setSince}
               placeholder="YYYY. MM. DD"
             />
-            <Text style={[(s as any).sheetCopy, { color: theme.muted }]}>변경 내용은 닫으면 자동으로 저장돼요.</Text>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>변경 내용은 닫으면 자동으로 저장돼요.</Text>
           </>
         )}
       </InfoSheet>
@@ -3469,7 +3144,7 @@ function BottomBar({
         >
           <View
             style={[
-              (s as any).navIconWrap,
+              s.navIconWrap,
               active === item && {
                 backgroundColor: theme.primarySoft,
                 transform: [{ rotate: item === "여행" ? "-3deg" : "2deg" }],
@@ -3496,55 +3171,6 @@ function BottomBar({
   );
 }
 
-function Title({
-  label,
-  title,
-  action,
-  onPress,
-}: {
-  label: string;
-  title: string;
-  action?: string;
-  onPress?: () => void;
-}) {
-  return (
-    <View style={s.titleRow}>
-      <View>
-        <Text style={s.sectionLabel}>{label}</Text>
-        <Text style={s.sectionTitle}>{title}</Text>
-      </View>
-      {action && (
-        <Pressable
-          onPress={onPress}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel={action}
-        >
-          <Text style={s.sectionAction}>{action} ›</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-}
-function HomeTask({
-  text,
-  who,
-  color,
-  last,
-}: {
-  text: string;
-  who: string;
-  color: string;
-  last?: boolean;
-}) {
-  return (
-    <View style={[s.task, last && s.taskLast]}>
-      <View style={[s.taskDot, { backgroundColor: color }]} />
-      <Text style={s.taskText}>{text}</Text>
-      <Text style={s.taskWho}>{who}</Text>
-    </View>
-  );
-}
 function TripArt({
   color,
   date,
@@ -3585,7 +3211,7 @@ function Setting({
       style={({ pressed }) => [
         s.setting,
         theme && { borderColor: theme.border },
-        pressed && (s as any).pressed,
+        pressed && s.pressed,
       ]}
     >
       <Text style={[s.settingName, theme && { color: theme.text }]}>
@@ -3618,10 +3244,10 @@ function Field({
   autoCapitalize?: TextInputProps["autoCapitalize"];
 }) {
   return (
-    <View style={(s as any).field}>
-      <View style={(s as any).fieldLabelRow}>
-        <View style={[(s as any).fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
-        <Text style={[(s as any).fieldLabel, theme && { color: theme.text }]}>
+    <View style={s.field}>
+      <View style={s.fieldLabelRow}>
+        <View style={[s.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <Text style={[s.fieldLabel, theme && { color: theme.text }]}>
           {label}
         </Text>
       </View>
@@ -3630,7 +3256,7 @@ function Field({
         accessibilityLabel={label}
         placeholderTextColor={theme?.muted ?? "#9AA1AE"}
         style={[
-          (s as any).fieldInput,
+          s.fieldInput,
           theme && {
             backgroundColor: theme.surface,
             borderColor: theme.border,
@@ -3676,40 +3302,40 @@ function FormSheet({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={(s as any).modalBack}
+        style={s.modalBack}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={(s as any).modalDismiss} onPress={onClose} />
+        <Pressable style={s.modalDismiss} onPress={onClose} />
         <View
           style={[
-            (s as any).sheet,
+            s.sheet,
             theme && { backgroundColor: theme.background },
           ]}
         >
-          <View style={(s as any).sheetHandle} />
+          <View style={s.sheetHandle} />
           <View
             style={[
-              (s as any).sheetHead,
-              (s as any).sheetHeadDecorated,
+              s.sheetHead,
+              s.sheetHeadDecorated,
               { backgroundColor: `${sheetAccent}0B`, borderColor: `${sheetAccent}30` },
             ]}
           >
-            <View style={(s as any).sheetHeadMain}>
-              <View style={(s as any).sheetHeadCopy}>
-                <View style={(s as any).sheetKindRow}>
-                  <View style={[(s as any).sheetKindDot, { backgroundColor: sheetAccent }]} />
-                  <Text style={[(s as any).sheetKindText, { color: sheetAccent }]}>{sheetKind} 작성</Text>
-                  <View style={[(s as any).sheetRouteLine, { backgroundColor: `${sheetAccent}40` }]} />
-                  <View style={[(s as any).sheetRouteDot, { borderColor: sheetAccent }]} />
+            <View style={s.sheetHeadMain}>
+              <View style={s.sheetHeadCopy}>
+                <View style={s.sheetKindRow}>
+                  <View style={[s.sheetKindDot, { backgroundColor: sheetAccent }]} />
+                  <Text style={[s.sheetKindText, { color: sheetAccent }]}>{sheetKind} 작성</Text>
+                  <View style={[s.sheetRouteLine, { backgroundColor: `${sheetAccent}40` }]} />
+                  <View style={[s.sheetRouteDot, { borderColor: sheetAccent }]} />
                 </View>
                 <Text
                   numberOfLines={1}
-                  style={[(s as any).sheetTitle, theme && { color: theme.text }]}
+                  style={[s.sheetTitle, theme && { color: theme.text }]}
                 >
                   {title}
                 </Text>
                 {subtitle && (
-                  <Text numberOfLines={2} style={[(s as any).sheetSubtitle, theme && { color: theme.muted }]}>
+                  <Text numberOfLines={2} style={[s.sheetSubtitle, theme && { color: theme.muted }]}>
                     {subtitle}
                   </Text>
                 )}
@@ -3720,11 +3346,11 @@ function FormSheet({
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}
-              style={[(s as any).sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}
+              style={[s.sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}
             >
               <Text
                 style={[
-                  (s as any).sheetClose,
+                  s.sheetClose,
                   theme && { color: theme.primary },
                 ]}
               >
@@ -3733,13 +3359,13 @@ function FormSheet({
             </Pressable>
           </View>
           <ScrollView
-            style={(s as any).sheetScroll}
+            style={s.sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
-            <View style={(s as any).sheetFormBody}>
+            <View style={s.sheetFormBody}>
               {children}
             </View>
           </ScrollView>
@@ -3750,14 +3376,14 @@ function FormSheet({
             accessibilityLabel={submit}
             accessibilityState={{ disabled: submitDisabled }}
             style={({ pressed }) => [
-              (s as any).sheetSubmit,
+              s.sheetSubmit,
               theme && { backgroundColor: theme.primary },
-              submitDisabled && (s as any).sheetSubmitDisabled,
-              pressed && !submitDisabled && (s as any).controlPressed,
+              submitDisabled && s.sheetSubmitDisabled,
+              pressed && !submitDisabled && s.controlPressed,
             ]}
           >
-            <Text style={(s as any).sheetSubmitText}>{submit}</Text>
-            <View style={(s as any).sheetSubmitArrow}><Text style={(s as any).sheetSubmitArrowText}>→</Text></View>
+            <Text style={s.sheetSubmitText}>{submit}</Text>
+            <View style={s.sheetSubmitArrow}><Text style={s.sheetSubmitArrowText}>→</Text></View>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -3784,26 +3410,26 @@ function InfoSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={(s as any).modalBack}>
-        <Pressable style={(s as any).modalDismiss} onPress={onClose} />
+      <View style={s.modalBack}>
+        <Pressable style={s.modalDismiss} onPress={onClose} />
         <View
           style={[
-            (s as any).sheet,
+            s.sheet,
             theme && { backgroundColor: theme.background },
           ]}
         >
-          <View style={(s as any).sheetHandle} />
-          <View style={[(s as any).sheetHead, (s as any).infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
-            <View style={(s as any).sheetHeadCopy}>
-              <View style={(s as any).sheetKindRow}>
-                <View style={[(s as any).sheetKindDot, theme && { backgroundColor: theme.primary }]} />
-                <Text style={[(s as any).sheetKindText, theme && { color: theme.primary }]}>우리 설정</Text>
-                <View style={[(s as any).sheetRouteLine, theme && { backgroundColor: theme.border }]} />
-                <View style={[(s as any).sheetRouteDot, theme && { borderColor: theme.primary }]} />
+          <View style={s.sheetHandle} />
+          <View style={[s.sheetHead, s.infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
+            <View style={s.sheetHeadCopy}>
+              <View style={s.sheetKindRow}>
+                <View style={[s.sheetKindDot, theme && { backgroundColor: theme.primary }]} />
+                <Text style={[s.sheetKindText, theme && { color: theme.primary }]}>우리 설정</Text>
+                <View style={[s.sheetRouteLine, theme && { backgroundColor: theme.border }]} />
+                <View style={[s.sheetRouteDot, theme && { borderColor: theme.primary }]} />
               </View>
               <Text
                 numberOfLines={1}
-                style={[(s as any).sheetTitle, theme && { color: theme.text }]}
+                style={[s.sheetTitle, theme && { color: theme.text }]}
               >
                 {title}
               </Text>
@@ -3813,11 +3439,11 @@ function InfoSheet({
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}
-              style={[(s as any).infoSheetDone, theme && { backgroundColor: theme.surface }]}
+              style={[s.infoSheetDone, theme && { backgroundColor: theme.surface }]}
             >
               <Text
                 style={[
-                  (s as any).infoSheetDoneText,
+                  s.infoSheetDoneText,
                   theme && { color: theme.primary },
                 ]}
               >
@@ -3826,12 +3452,12 @@ function InfoSheet({
             </Pressable>
           </View>
           <ScrollView
-            style={(s as any).sheetScroll}
+            style={s.sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-            contentContainerStyle={(s as any).infoSheetBody}
+            contentContainerStyle={s.infoSheetBody}
           >
             {children}
           </ScrollView>
@@ -3858,9 +3484,9 @@ function Choice({
       accessibilityState={{ checked: Boolean(selected) }}
       accessibilityLabel={label}
       style={[
-        (s as any).choice,
+        s.choice,
         theme && { backgroundColor: theme.surface, borderColor: theme.border },
-        selected && (s as any).choiceSelected,
+        selected && s.choiceSelected,
         selected &&
           theme && {
             backgroundColor: theme.primarySoft,
@@ -3870,145 +3496,28 @@ function Choice({
     >
       <Text
         style={[
-          (s as any).choiceText,
+          s.choiceText,
           theme && { color: theme.text },
-          selected && (s as any).choiceTextSelected,
+          selected && s.choiceTextSelected,
           selected && theme && { color: theme.primary },
         ]}
       >
         {label}
       </Text>
-      <Text style={(s as any).choiceMark}>{selected ? "✓" : ""}</Text>
+      <Text style={s.choiceMark}>{selected ? "✓" : ""}</Text>
     </Pressable>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFF9F4" },
   body: { flex: 1 },
   page: { padding: 21, paddingBottom: 112 },
-  homeTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  logo: {
-    color: "#663C37",
-    fontSize: 29,
-    letterSpacing: -1.4,
-    fontWeight: "900",
-  },
-  people: {
-    paddingHorizontal: 11,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F4DED3",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  peopleText: { color: "#9A6156", fontSize: 11, fontWeight: "900" },
-  greeting: {
-    color: "#593532",
-    fontSize: 31,
-    lineHeight: 39,
-    letterSpacing: -1.6,
-    fontWeight: "800",
-    marginTop: 38,
-  },
-  greetingSub: { color: "#987C73", fontSize: 13, marginTop: 12 },
-  togetherCard: {
-    backgroundColor: "#F4D2C3",
-    borderRadius: 25,
-    padding: 20,
-    minHeight: 144,
-    marginTop: 27,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    overflow: "hidden",
-  },
-  togetherLabel: {
-    color: "#AD6B5E",
-    fontSize: 11,
-    letterSpacing: 0.8,
-    fontWeight: "900",
-  },
-  togetherDays: {
-    color: "#623933",
-    fontSize: 29,
-    letterSpacing: -1.2,
-    fontWeight: "800",
-    marginTop: 10,
-  },
-  togetherSub: { color: "#9A7167", fontSize: 11, marginTop: 4 },
-  heartShape: {
-    width: 87,
-    height: 87,
-    marginTop: 17,
-    marginRight: 3,
-    transform: [{ rotate: "-45deg" }],
-  },
-  heartLeft: {
-    position: "absolute",
-    width: 53,
-    height: 53,
-    borderRadius: 27,
-    backgroundColor: "#D98977",
-    left: 0,
-    top: 22,
-  },
-  heartRight: {
-    position: "absolute",
-    width: 53,
-    height: 53,
-    borderRadius: 27,
-    backgroundColor: "#D98977",
-    left: 22,
-    top: 0,
-  },
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginTop: 34,
-    marginBottom: 13,
-  },
-  sectionLabel: {
-    color: "#C17765",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-    marginBottom: 5,
-  },
-  sectionTitle: {
-    color: "#633B36",
-    fontSize: 20,
-    letterSpacing: -0.8,
-    fontWeight: "800",
-  },
-  sectionAction: { color: "#B2776A", fontSize: 11, fontWeight: "800" },
-  nextCard: {
-    backgroundColor: "#FFF",
-    borderRadius: 22,
-    padding: 13,
-    flexDirection: "row",
-    shadowColor: "#B98B7E",
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 2,
-  },
   tripArt: {
     width: 121,
     height: 136,
     borderRadius: 16,
     overflow: "hidden",
     position: "relative",
-  },
-  tripArtSmall: {
-    width: "100%",
-    height: 91,
-    borderRadius: 14,
-    marginBottom: 9,
   },
   artMoon: {
     position: "absolute",
@@ -4022,164 +3531,9 @@ const s = StyleSheet.create({
   artDate: { position: "absolute", left: 11, bottom: 11 },
   artText: { color: "#623C38", fontSize: 13, fontWeight: "900" },
   artLine: { width: 25, height: 2, backgroundColor: "#623C38", marginTop: 5 },
-  nextText: { flex: 1, paddingLeft: 15, paddingTop: 4 },
-  nextTag: {
-    alignSelf: "flex-start",
-    color: "#B56454",
-    backgroundColor: "#F9E5DC",
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 9,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  nextTitle: {
-    color: "#603A35",
-    fontSize: 20,
-    fontWeight: "800",
-    marginTop: 11,
-  },
-  nextDate: { color: "#A0857B", fontSize: 11, marginTop: 4 },
-  nextNote: { color: "#B1978E", fontSize: 11, marginTop: 13 },
-  taskCard: {
-    backgroundColor: "#FFF",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    shadowColor: "#B98B7E",
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
-  },
-  task: {
-    minHeight: 54,
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderColor: "#F3E8E2",
-  },
-  taskLast: { borderBottomWidth: 0 },
-  taskDot: { width: 8, height: 8, borderRadius: 4, marginRight: 10 },
-  taskText: { flex: 1, color: "#694942", fontSize: 12, fontWeight: "600" },
-  taskWho: { color: "#AB8C82", fontSize: 11, fontWeight: "800" },
-  archive: { flexDirection: "row" },
-  archiveCard: { width: "47%", marginRight: "4%" },
-  archiveName: { color: "#633D37", fontSize: 14, fontWeight: "800" },
-  archiveDate: { color: "#A58C82", fontSize: 11, marginTop: 3 },
-  screenHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginTop: 8,
-    marginBottom: 23,
-  },
-  overline: {
-    color: "#B87869",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  screenTitle: {
-    color: "#603934",
-    fontSize: 34,
-    letterSpacing: -1.7,
-    fontWeight: "800",
-    marginTop: 5,
-  },
-  newTrip: {
-    backgroundColor: "#E59681",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
   newTripText: { color: "#FFF9F4", fontSize: 11, fontWeight: "800" },
-  tripFilters: {
-    flexDirection: "row",
-    backgroundColor: "#F5EAE3",
-    padding: 4,
-    borderRadius: 15,
-    marginBottom: 15,
-  },
-  filter: {
-    color: "#A58B80",
-    fontSize: 11,
-    fontWeight: "800",
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 11,
-  },
   filterActive: { backgroundColor: "#FFF9F4", color: "#694038" },
-  tripRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: "#F0E2DB",
-  },
-  tripInfo: { flex: 1, paddingLeft: 13 },
-  tripName: { color: "#633B35", fontSize: 16, fontWeight: "800" },
-  tripDate: { color: "#9E8177", fontSize: 11, marginTop: 4 },
-  tripNote: { color: "#B49C93", fontSize: 11, marginTop: 5 },
   arrow: { color: "#A0665B", fontSize: 23, fontWeight: "300" },
-  searchPage: { padding: 21, flex: 1 },
-  searchBox: {
-    backgroundColor: "#F7EDE6",
-    borderRadius: 17,
-    height: 54,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    marginTop: 26,
-  },
-  searchSymbol: { color: "#C27C6C", fontSize: 25, marginRight: 7 },
-  searchInput: { flex: 1, color: "#633B35", fontSize: 13 },
-  resultOverline: {
-    color: "#B37A6C",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-    marginTop: 27,
-    marginBottom: 5,
-  },
-  result: {
-    minHeight: 64,
-    borderBottomWidth: 1,
-    borderColor: "#F0E3DC",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  resultDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: "#E6A18D",
-    marginRight: 12,
-  },
-  resultText: { flex: 1 },
-  resultTitle: { color: "#654039", fontSize: 14, fontWeight: "800" },
-  resultMeta: { color: "#A78D83", fontSize: 11, marginTop: 4 },
-  spaceCard: {
-    backgroundColor: "#E8D4C9",
-    borderRadius: 24,
-    padding: 19,
-    minHeight: 105,
-    marginTop: 26,
-    marginBottom: 26,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  spaceMonogram: {
-    width: 64,
-    height: 64,
-    borderRadius: 22,
-    backgroundColor: "#B86F61",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
-  },
-  monogramText: { color: "#FFF7F1", fontSize: 11, fontWeight: "900" },
-  spaceName: { color: "#643B36", fontSize: 17, fontWeight: "800" },
-  spaceCopy: { color: "#9A756B", fontSize: 11, marginTop: 5 },
   setting: {
     minHeight: 55,
     borderBottomWidth: 1,
@@ -4191,37 +3545,6 @@ const s = StyleSheet.create({
   settingName: { color: "#6A4941", fontSize: 14, fontWeight: "700" },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   settingValue: { color: "#B46F60", fontSize: 11, fontWeight: "800" },
-  settingsLabel: {
-    color: "#B37B6C",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-    marginTop: 29,
-    marginBottom: 5,
-  },
-  bottom: {
-    height: 76,
-    backgroundColor: "#FFF5EF",
-    borderTopWidth: 1,
-    borderColor: "#F0DED5",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 13,
-  },
-  navItem: { width: 52, alignItems: "center" },
-  navDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "#D7B6AB",
-    marginBottom: 5,
-  },
-  navDotActive: { width: 9, backgroundColor: "#C87867" },
-  navText: { color: "#AB8D82", fontSize: 12, fontWeight: "800" },
-  navTextActive: { color: "#7D4B42" },
-});
-
-Object.assign(s, {
   paperBackdrop: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
   paperLine: {
     position: "absolute",
@@ -4398,88 +3721,12 @@ Object.assign(s, {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(115, 100, 69, .22)",
   },
-  paperCounts: {
-    flexDirection: "row",
-    gap: 18,
-    marginTop: 13,
-  },
-  paperCountChip: {
-    minHeight: 30,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  paperCountLabel: { fontSize: 11, fontWeight: "800" },
-  paperCountValue: { fontSize: 12, fontWeight: "900" },
-  pencilActions: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  scrapQuickGrid: {
-    height: 124,
-    flexDirection: "row",
-    gap: 9,
-    marginTop: 14,
-  },
-  scrapQuickStack: { flex: 0.92, gap: 8 },
-  quickRail: {
-    height: 62,
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 12,
-    paddingHorizontal: 6,
-    borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.04,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  quickRailDivider: { width: StyleSheet.hairlineWidth, height: 25 },
   scrapTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
     marginTop: 25,
     marginBottom: 10,
-  },
-  prepBoard: {
-    marginTop: 24,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingTop: 16,
-    paddingBottom: 4,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-    transform: [{ rotate: "0.12deg" }],
-  },
-  prepTape: {
-    position: "absolute",
-    width: 48,
-    height: 14,
-    top: -7,
-    right: 26,
-    opacity: 0.75,
-    transform: [{ rotate: "3deg" }],
-  },
-  prepSketch: {
-    position: "absolute",
-    top: 10,
-    right: 74,
-    opacity: 0.28,
-    transform: [{ rotate: "-4deg" }],
-  },
-  noteTitleRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    marginBottom: 0,
   },
   noteTitleSmall: { fontSize: 11, fontWeight: "800", marginBottom: 4 },
   noteTitle: { fontSize: 20, fontWeight: "900", letterSpacing: -0.6 },
@@ -4607,196 +3854,13 @@ Object.assign(s, {
     letterSpacing: -1.8,
     fontWeight: "900",
   },
-  logoSub: {
-    color: "#7D8697",
-    fontSize: 11,
-    letterSpacing: 1.45,
-    fontWeight: "900",
-    marginTop: 1,
-  },
-  people: {
-    paddingHorizontal: 12,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#E9E5FF",
-    borderWidth: 1,
-    borderColor: "#D9D2FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  peopleText: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
-  greeting: {
-    color: "#17233D",
-    fontSize: 32,
-    lineHeight: 40,
-    letterSpacing: -1.8,
-    fontWeight: "800",
-    marginTop: 38,
-  },
-  greetingSub: { color: "#747D8D", fontSize: 13, marginTop: 12 },
-  togetherCard: {
-    backgroundColor: "#17233D",
-    borderRadius: 28,
-    padding: 21,
-    minHeight: 190,
-    marginTop: 27,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    overflow: "hidden",
-  },
-  cardGlow: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "#263657",
-    right: -52,
-    top: -70,
-  },
-  togetherLabel: {
-    color: "#FF8B80",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  togetherDays: {
-    color: "#FFFFFF",
-    fontSize: 26,
-    lineHeight: 32,
-    letterSpacing: -1.2,
-    fontWeight: "800",
-    marginTop: 11,
-  },
-  togetherSub: { color: "#AAB4C7", fontSize: 11, marginTop: 7 },
-  heartShape: {
-    width: 76,
-    height: 76,
-    marginTop: 28,
-    marginRight: 2,
-    transform: [{ rotate: "-45deg" }],
-  },
-  heartLeft: {
-    position: "absolute",
-    width: 46,
-    height: 46,
-    borderRadius: 24,
-    backgroundColor: "#FF6B5F",
-    left: 0,
-    top: 19,
-  },
-  heartRight: {
-    position: "absolute",
-    width: 46,
-    height: 46,
-    borderRadius: 24,
-    backgroundColor: "#FF6B5F",
-    left: 19,
-    top: 0,
-  },
-  colorLegend: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 17,
-    flexDirection: "row",
-    gap: 6,
-  },
-  legendPill: {
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    justifyContent: "center",
-  },
-  legendLove: { backgroundColor: "#FF6B5F" },
-  legendFriends: { backgroundColor: "#8B7CF6" },
-  legendTrip: { backgroundColor: "#19B6A3" },
-  legendText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    letterSpacing: 0.8,
-    fontWeight: "900",
-  },
-  sectionLabel: {
-    color: "#FF6257",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-    marginBottom: 5,
-  },
-  sectionTitle: {
-    color: "#17233D",
-    fontSize: 20,
-    letterSpacing: -0.8,
-    fontWeight: "800",
-  },
-  sectionAction: { color: "#6556D8", fontSize: 11, fontWeight: "800" },
-  nextCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 13,
-    flexDirection: "row",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.09,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 3,
-  },
-  nextTag: {
-    alignSelf: "flex-start",
-    color: "#087D70",
-    backgroundColor: "#DDF7F1",
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 9,
-    fontSize: 11,
-    letterSpacing: 0.4,
-    fontWeight: "900",
-  },
-  nextTitle: {
-    color: "#17233D",
-    fontSize: 20,
-    fontWeight: "800",
-    marginTop: 11,
-  },
-  bottom: {
-    height: 78,
-    backgroundColor: "#17233D",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 14,
-  },
-  navDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "#56627A",
-    marginBottom: 6,
-  },
-  navDotActive: { width: 18, backgroundColor: "#19B6A3" },
-  navText: { color: "#8994A8", fontSize: 12, fontWeight: "800" },
-  navTextActive: { color: "#FFFFFF" },
   pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
-});
-
-Object.assign(s, {
-  tripThumb: { width: 94 },
   modalBack: {
     flex: 1,
     backgroundColor: "rgba(10,18,35,.42)",
     justifyContent: "flex-end",
   },
   modalDismiss: { flex: 1 },
-  sheet: {
-    width: "100%",
-    maxWidth: 430,
-    alignSelf: "center",
-    backgroundColor: "#F7F5F0",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 36,
-  },
   sheetHandle: {
     width: 42,
     height: 4,
@@ -4819,16 +3883,6 @@ Object.assign(s, {
     paddingVertical: 12,
     marginTop: 2,
     position: "relative",
-  },
-  sheetHeadTape: {
-    position: "absolute",
-    top: -5,
-    left: 32,
-    width: 38,
-    height: 10,
-    borderRadius: 2,
-    opacity: 0.48,
-    transform: [{ rotate: "-3deg" }],
   },
   sheetFormBody: {
     paddingHorizontal: 1,
@@ -4881,16 +3935,6 @@ Object.assign(s, {
     fontWeight: "900",
     marginBottom: 0,
   },
-  fieldInput: {
-    height: 49,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 15,
-    color: "#17233D",
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: "#E5E3DD",
-  },
   sheetSubmit: {
     height: 50,
     borderRadius: 17,
@@ -4919,60 +3963,10 @@ Object.assign(s, {
     lineHeight: 22,
     marginBottom: 12,
   },
-  choice: {
-    minHeight: 56,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: "#DEDCD5",
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 9,
-    backgroundColor: "#FFFFFF",
-  },
   choiceSelected: { borderColor: "#8B7CF6", backgroundColor: "#E9E5FF" },
   choiceText: { color: "#576173", fontSize: 14, fontWeight: "800" },
   choiceTextSelected: { color: "#5546C8" },
   choiceMark: { color: "#6556D8", fontSize: 16, fontWeight: "900" },
-});
-
-Object.assign(s, {
-  profileGroup: { flexDirection: "row", alignItems: "center", gap: 8 },
-  dayBadge: {
-    height: 30,
-    borderRadius: 15,
-    paddingHorizontal: 10,
-    backgroundColor: "#FFF0ED",
-    borderWidth: 1,
-    borderColor: "#FFD6D0",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  dayBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#FF6B5F",
-  },
-  dayBadgeText: {
-    color: "#C94D45",
-    fontSize: 11,
-    letterSpacing: 0.45,
-    fontWeight: "900",
-  },
-  greeting: {
-    color: "#17233D",
-    fontSize: 32,
-    lineHeight: 40,
-    letterSpacing: -1.8,
-    fontWeight: "800",
-    marginTop: 48,
-  },
-});
-
-Object.assign(s, {
   tripExplorerPage: {
     paddingHorizontal: 21,
     paddingTop: 8,
@@ -4980,38 +3974,8 @@ Object.assign(s, {
   },
   tripExplorerMapPage: { flex: 1 },
   tripExplorerMapHeader: { paddingHorizontal: 21, paddingTop: 8 },
-  viewSwitch: {
-    flexDirection: "row",
-    backgroundColor: "#EDEAE5",
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 16,
-  },
-  viewChoice: {
-    flex: 1,
-    minHeight: 39,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  viewChoiceActive: {
-    backgroundColor: "#17233D",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.15,
-    shadowRadius: 7,
-    elevation: 2,
-  },
   viewChoiceText: { color: "#858783", fontSize: 13, fontWeight: "900" },
   viewChoiceTextActive: { color: "#FFFFFF" },
-  tripRowCompact: { minHeight: 86 },
-  noTrips: { paddingVertical: 40, alignItems: "center" },
-  noTripsText: { color: "#969A9E", fontSize: 11 },
-  mapCard: {
-    backgroundColor: "#17233D",
-    borderRadius: 24,
-    padding: 17,
-    overflow: "hidden",
-  },
   mapOnly: { flex: 1, width: "100%", position: "relative", overflow: "hidden" },
   mapDragLayer: { ...StyleSheet.absoluteFillObject },
   mapTray: {
@@ -5088,35 +4052,6 @@ Object.assign(s, {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
-  mapIntro: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  mapKicker: {
-    color: "#5ED8C9",
-    fontSize: 11,
-    letterSpacing: 1.1,
-    fontWeight: "900",
-  },
-  mapTitle: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: -0.8,
-    marginTop: 5,
-  },
-  mapScore: {
-    width: 49,
-    height: 49,
-    borderRadius: 16,
-    backgroundColor: "#263657",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mapScoreValue: { color: "#5ED8C9", fontSize: 17, fontWeight: "900" },
-  mapScoreLabel: { color: "#9FABC1", fontSize: 11, marginTop: 1 },
-  mapCanvas: { height: 354, marginTop: 4, position: "relative" },
   mapPin: {
     position: "absolute",
     transform: [{ translateX: -20 }, { translateY: -12 }],
@@ -5157,12 +4092,6 @@ Object.assign(s, {
     justifyContent: "center",
   },
   pinCountText: { color: "#17233D", fontSize: 11, fontWeight: "900" },
-  mapHint: {
-    color: "#8795AE",
-    fontSize: 11,
-    textAlign: "center",
-    marginTop: -3,
-  },
   zoomControls: {
     position: "absolute",
     right: 5,
@@ -5184,66 +4113,6 @@ Object.assign(s, {
   zoomText: { color: "#17233D", fontSize: 19, fontWeight: "700" },
   zoomResetText: { fontSize: 10, fontWeight: "900" },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 7 },
-  mapResults: { marginTop: 18 },
-  mapResultHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: 5,
-  },
-  mapResultTitle: { color: "#17233D", fontSize: 16, fontWeight: "900" },
-  mapResultCount: { color: "#19A996", fontSize: 11, fontWeight: "900" },
-  calendarCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#ECE9E3",
-  },
-  calendarHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 18,
-  },
-  monthArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "#F1EFEA",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  monthArrowText: { color: "#17233D", fontSize: 23, lineHeight: 25 },
-  calendarMonth: {
-    color: "#17233D",
-    fontSize: 19,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-  calendarSub: {
-    color: "#93969D",
-    fontSize: 11,
-    textAlign: "center",
-    marginTop: 3,
-  },
-  weekRow: { flexDirection: "row", marginBottom: 7 },
-  weekName: {
-    width: "14.285%",
-    textAlign: "center",
-    color: "#9B9DA2",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
-  dayCell: {
-    width: "14.285%",
-    aspectRatio: 1,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 2,
-  },
   dayRangeCell: {
     borderRadius: 0,
   },
@@ -5256,7 +4125,6 @@ Object.assign(s, {
     borderBottomRightRadius: 11,
   },
   dayCellSelected: { borderWidth: 2, borderColor: "#17233D" },
-  dayNumber: { color: "#525762", fontSize: 11, fontWeight: "700" },
   dayNumberTrip: { color: "#FFFFFF", fontWeight: "900" },
   dayNumberSelected: { fontSize: 12 },
   dayTripDot: {
@@ -5266,18 +4134,6 @@ Object.assign(s, {
     backgroundColor: "#FFFFFF",
     marginTop: 2,
   },
-  calendarLegend: {
-    borderTopWidth: 1,
-    borderTopColor: "#EFEEE9",
-    marginTop: 12,
-    paddingTop: 12,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 11,
-  },
-  calendarLegendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-  calendarLegendDot: { width: 7, height: 7, borderRadius: 4 },
-  calendarLegendText: { color: "#737780", fontSize: 11, fontWeight: "700" },
   calendarResults: { marginTop: 17 },
   calendarResultHead: {
     minHeight: 30,
@@ -5292,12 +4148,6 @@ Object.assign(s, {
     marginBottom: 4,
   },
   calendarResultClear: { fontSize: 10, fontWeight: "800" },
-  emptyDate: {
-    backgroundColor: "#EEF8F5",
-    borderRadius: 17,
-    padding: 20,
-    alignItems: "center",
-  },
   emptyDateTitle: { color: "#5E6D6B", fontSize: 11, fontWeight: "800" },
   emptyDateAction: {
     color: "#0B9888",
@@ -5305,99 +4155,9 @@ Object.assign(s, {
     fontWeight: "900",
     marginTop: 8,
   },
-  regionChoices: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 7,
-    marginTop: 7,
-    marginBottom: 16,
-  },
-  regionChoice: {
-    borderWidth: 1,
-    borderColor: "#DEDCD5",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
   regionChoiceActive: { borderColor: "#19A996", backgroundColor: "#DDF7F1" },
   regionChoiceText: { color: "#7E8388", fontSize: 12, fontWeight: "800" },
   regionChoiceTextActive: { color: "#087D70" },
-});
-
-Object.assign(s, {
-  homeLead: {
-    marginTop: 30,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-  },
-  homeLeadLabel: {
-    color: "#FF6257",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.6,
-  },
-  homeLeadTitle: {
-    color: "#17233D",
-    fontSize: 28,
-    fontWeight: "900",
-    letterSpacing: -1.3,
-    marginTop: 6,
-  },
-  homeLeadDate: { color: "#747D8D", fontSize: 11, marginTop: 5 },
-  homeAllTrips: {
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: "#EFECFF",
-  },
-  homeAllTripsText: { color: "#6556D8", fontSize: 13, fontWeight: "900" },
-  homeTripCard: {
-    marginTop: 16,
-    borderRadius: 24,
-    padding: 17,
-    backgroundColor: "#17233D",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 3,
-  },
-  homeTripTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  homeStayLabel: {
-    color: "#5ED8C9",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.7,
-  },
-  homeStayName: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "900",
-    marginTop: 5,
-  },
-  homeStayMeta: { color: "#9EABBF", fontSize: 11, marginTop: 4 },
-  homeTripArrow: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: "#263657",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  homeTripArrowText: { color: "#FFFFFF", fontSize: 24, lineHeight: 25 },
-  homeProgressRow: {
-    marginTop: 17,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderColor: "#2C3B59",
-    flexDirection: "row",
-  },
   homeMetric: {
     flex: 1,
     flexDirection: "row",
@@ -5407,7 +4167,6 @@ Object.assign(s, {
   },
   homeMetricValue: { fontSize: 18, fontWeight: "900" },
   homeMetricLabel: { color: "#AAB4C7", fontSize: 11, fontWeight: "800" },
-  homeQuickRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   homeQuick: {
     flex: 1,
     height: 72,
@@ -5481,66 +4240,7 @@ Object.assign(s, {
   homeQuickLabelEmbedded: { fontSize: 11, fontWeight: "800" },
   homeQuickLabelLarge: { fontSize: 16, fontWeight: "900" },
   homeQuickLabelRail: { fontSize: 11, fontWeight: "800" },
-  homeSectionHead: {
-    marginTop: 29,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-  },
-  homeSectionEyebrow: {
-    color: "#8B7CF6",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.6,
-  },
-  homeSectionTitle: {
-    color: "#17233D",
-    fontSize: 18,
-    fontWeight: "900",
-    marginTop: 4,
-  },
-  homeSectionAction: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
-  homeActionCard: {
-    borderRadius: 21,
-    paddingHorizontal: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#ECEAE5",
-  },
-  homeActionRow: {
-    minHeight: 66,
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderColor: "#EFEEE9",
-  },
-  homeActionRowLast: { borderBottomWidth: 0 },
-  homeActionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  homeActionCopy: { flex: 1, paddingHorizontal: 11 },
-  homeActionTitle: { color: "#273143", fontSize: 11, fontWeight: "900" },
-  homeActionMeta: { color: "#9299A4", fontSize: 11, marginTop: 4 },
-  homeActionDue: { color: "#0B9888", fontSize: 11, fontWeight: "900" },
   searchPage: { paddingHorizontal: 21, paddingTop: 8, paddingBottom: 100 },
-  searchBoxNew: {
-    height: 54,
-    borderRadius: 17,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E3E4E1",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    marginTop: 23,
-  },
-  searchSymbolNew: { color: "#17233D", fontSize: 22, marginRight: 8 },
-  searchInputNew: { flex: 1, color: "#17233D", fontSize: 13 },
   searchClear: {
     width: 25,
     height: 25,
@@ -5550,44 +4250,8 @@ Object.assign(s, {
     justifyContent: "center",
   },
   searchClearText: { color: "#727A82", fontSize: 17, lineHeight: 18 },
-  searchCategories: { gap: 7, paddingVertical: 14 },
-  searchCategory: {
-    height: 34,
-    borderRadius: 17,
-    paddingHorizontal: 14,
-    backgroundColor: "#EBEAE6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchCategoryActive: { backgroundColor: "#17233D" },
   searchCategoryText: { color: "#747A80", fontSize: 11, fontWeight: "900" },
   searchCategoryTextActive: { color: "#FFFFFF" },
-  searchGuide: {
-    borderRadius: 14,
-    backgroundColor: "#E4F6F2",
-    padding: 14,
-    marginBottom: 18,
-  },
-  searchGuideTitle: { color: "#126E64", fontSize: 14, fontWeight: "900" },
-  searchGuideCopy: {
-    color: "#63817D",
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 5,
-  },
-  searchSuggestions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 10,
-  },
-  searchSuggestion: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "#FFFFFF",
-  },
-  searchSuggestionText: { color: "#087D70", fontSize: 11, fontWeight: "800" },
   searchResultHead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -5596,96 +4260,20 @@ Object.assign(s, {
   },
   searchResultTitle: { color: "#17233D", fontSize: 16, fontWeight: "900" },
   searchResultCount: { color: "#8C939B", fontSize: 11, fontWeight: "800" },
-  searchResultCard: {
-    minHeight: 82,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#ECEAE5",
-    padding: 12,
-    marginBottom: 8,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  searchResultIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchResultDot: { width: 9, height: 9, borderRadius: 5 },
-  searchResultCopy: { flex: 1, paddingHorizontal: 11 },
   searchResultLine: { flexDirection: "row", alignItems: "center", gap: 7 },
   searchResultName: { color: "#273143", fontSize: 13, fontWeight: "900" },
   searchResultType: { fontSize: 11, fontWeight: "900" },
   searchResultDetail: { color: "#747D88", fontSize: 11, marginTop: 5 },
   searchResultTrip: { color: "#A0A5AB", fontSize: 11, marginTop: 3 },
   searchResultArrow: { color: "#9AA1A8", fontSize: 20 },
-  searchEmpty: { paddingVertical: 55, alignItems: "center" },
   searchEmptyTitle: { color: "#394353", fontSize: 14, fontWeight: "900" },
   searchEmptyCopy: { color: "#959BA2", fontSize: 11, marginTop: 6 },
-  emptyInlineAction: {
-    minHeight: 36,
-    borderRadius: 10,
-    paddingHorizontal: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
-  },
-  emptyInlineActionText: { fontSize: 11, fontWeight: "900" },
   togetherHead: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
   },
-  togetherEdit: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: "#EFECFF",
-  },
-  togetherEditText: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
-  togetherProfile: {
-    marginTop: 24,
-    borderRadius: 23,
-    padding: 17,
-    backgroundColor: "#17233D",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  togetherAvatarStack: { width: 114, height: 52, position: "relative" },
-  togetherAvatar: {
-    position: "absolute",
-    left: 0,
-    width: 50,
-    height: 50,
-    borderRadius: 18,
-    borderWidth: 3,
-    borderColor: "#17233D",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  togetherAvatarSecond: { left: 28 },
   togetherAvatarText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
-  togetherProfileCopy: { flex: 1, paddingLeft: 2 },
-  togetherProfileName: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
-  togetherProfileMeta: { color: "#AAB4C7", fontSize: 11, marginTop: 5 },
-  togetherChevron: { color: "#FFFFFF", fontSize: 22 },
-  togetherStats: {
-    marginTop: 10,
-    borderRadius: 19,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#ECEAE5",
-    height: 78,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  togetherStat: { flex: 1, alignItems: "center" },
-  togetherStatValue: { color: "#17233D", fontSize: 17, fontWeight: "900" },
-  togetherStatLabel: { color: "#8C939B", fontSize: 11, marginTop: 4 },
-  togetherStatDivider: { width: 1, height: 28, backgroundColor: "#E8E8E4" },
   settingGroupLabel: {
     color: "#7A818C",
     fontSize: 11,
@@ -5693,50 +4281,6 @@ Object.assign(s, {
     letterSpacing: 0.6,
     marginTop: 25,
     marginBottom: 8,
-  },
-  settingGroup: {
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#ECEAE5",
-    overflow: "hidden",
-  },
-  bottom: {
-    height: 76,
-    backgroundColor: "#17233D",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 7,
-  },
-  navItem: { width: 64, alignItems: "center" },
-  navIconWrap: {
-    width: 38,
-    height: 32,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 1,
-  },
-  navIconWrapActive: { backgroundColor: "#263657" },
-  navIcon: { color: "#78849A", fontSize: 18, fontWeight: "800" },
-  navIconActive: { color: "#5ED8C9" },
-  navText: { color: "#8994A8", fontSize: 12, fontWeight: "800" },
-  navTextActive: { color: "#FFFFFF" },
-});
-
-Object.assign(s, {
-  sheet: {
-    width: "100%",
-    maxWidth: 430,
-    maxHeight: "92%",
-    alignSelf: "center",
-    backgroundColor: "#F7F5F0",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 24,
   },
   sheetScroll: { flexGrow: 0, flexShrink: 1 },
   regionChoices: {
@@ -5854,19 +4398,7 @@ Object.assign(s, {
   },
   rangeDayTextActive: { color: "#087D70", fontWeight: "900" },
   rangeDayTextEdge: { color: "#FFFFFF" },
-});
-
-Object.assign(s, {
   themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  themeOption: {
-    width: "48%",
-    minHeight: 86,
-    borderRadius: 17,
-    padding: 13,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#DEDCD5",
-  },
   themeSwatches: { flexDirection: "row", gap: 5 },
   themeSwatch: { width: 22, height: 22, borderRadius: 8 },
   themeOptionName: {
@@ -5883,10 +4415,6 @@ Object.assign(s, {
     fontSize: 12,
     fontWeight: "900",
   },
-});
-
-// Shared notebook language: flatter paper, tighter corners, and fewer dashboard pills.
-Object.assign(s, {
   screenHead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -5966,15 +4494,6 @@ Object.assign(s, {
     borderBottomRightRadius: 3,
   },
   tripThumb: { width: 45, height: 52, marginRight: 1 },
-  tripTape: {
-    position: "absolute",
-    width: 34,
-    height: 9,
-    left: 18,
-    top: -5,
-    opacity: 0.8,
-    transform: [{ rotate: "-4deg" }],
-  },
   tripArtSmall: { width: "100%", height: 52, borderRadius: 9, marginBottom: 0 },
   tripInfo: { flex: 1, paddingLeft: 10 },
   tripName: { fontSize: 14, fontWeight: "900" },
@@ -6161,14 +4680,6 @@ Object.assign(s, {
     justifyContent: "center",
   },
   searchCategoryCountText: { fontSize: 10, fontWeight: "900" },
-  searchGuide: {
-    minHeight: 34,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 15,
-    marginTop: 4,
-    marginBottom: 0,
-  },
   searchGuideHead: {
     height: 26,
     flexDirection: "row",
@@ -6267,43 +4778,8 @@ Object.assign(s, {
     justifyContent: "center",
     paddingHorizontal: 24,
   },
-  searchResultIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   searchInputNew: { flex: 1, fontSize: 13, marginLeft: 9 },
   searchResultCopy: { flex: 1, paddingLeft: 4, paddingRight: 9 },
-  togetherProfile: {
-    marginTop: 21,
-    borderRadius: 11,
-    padding: 17,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    transform: [{ rotate: "-.3deg" }],
-  },
-  togetherAvatar: {
-    position: "absolute",
-    left: 0,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  togetherAvatarSecond: { left: 27 },
-  togetherStats: {
-    marginTop: 11,
-    borderRadius: 10,
-    borderWidth: 1,
-    height: 75,
-    flexDirection: "row",
-    alignItems: "center",
-  },
   historyHeading: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -6314,18 +4790,7 @@ Object.assign(s, {
   historyEyebrow: { fontSize: 11, fontWeight: "900", letterSpacing: 0.5 },
   historyTitle: { fontSize: 15, fontWeight: "900", marginTop: 4 },
   historyPeriod: { fontSize: 11, fontWeight: "700" },
-  historyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  historyCard: {
-    width: "48.8%",
-    minHeight: 86,
-    borderRadius: 11,
-    borderWidth: 1,
-    padding: 12,
-  },
-  historyDot: { width: 7, height: 7, borderRadius: 4, marginBottom: 9 },
-  historyValue: { fontSize: 18, fontWeight: "900" },
   historyUnit: { fontSize: 11, fontWeight: "800" },
-  historyLabel: { fontSize: 11, fontWeight: "700", marginTop: 5 },
   togetherQuickRow: { flexDirection: "row", gap: 7, marginTop: 9 },
   togetherQuick: {
     flex: 1,
@@ -6347,7 +4812,6 @@ Object.assign(s, {
   },
   togetherQuickIconText: { fontSize: 11, fontWeight: "900" },
   togetherQuickLabel: { maxWidth: "100%", fontSize: 11, fontWeight: "800" },
-  memberEditCard: { marginBottom: 18 },
   memberRoleText: { fontSize: 11, fontWeight: "700", marginTop: -7 },
   memberPermissionLabel: { fontSize: 11, fontWeight: "900", marginBottom: 8 },
   profileSheetPreview: {
@@ -6375,7 +4839,6 @@ Object.assign(s, {
     borderWidth: 1,
     overflow: "hidden",
   },
-  togetherEdit: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   themeOption: {
     width: "48%",
     minHeight: 86,
@@ -6427,12 +4890,8 @@ Object.assign(s, {
     justifyContent: "center",
     marginBottom: 1,
   },
-  navIcon: { fontSize: 18, fontWeight: "900" },
   navText: { fontSize: 12, fontWeight: "800" },
   controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
-});
-
-Object.assign(s, {
   authPage: {
     flexGrow: 1,
     width: "100%",
@@ -6458,16 +4917,6 @@ Object.assign(s, {
     elevation: 3,
   },
   authAppIcon: { width: "100%", height: "100%" },
-  authMark: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    transform: [{ rotate: "-4deg" }],
-    marginBottom: 12,
-  },
-  authMarkText: { color: "#FFFFFF", fontSize: 25, fontWeight: "900" },
   authLogo: { fontSize: 30, fontWeight: "900", letterSpacing: -1 },
   authTagline: { fontSize: 11, fontWeight: "700", marginTop: 6 },
   authCard: { borderRadius: 18, borderWidth: 1, padding: 20 },
@@ -6538,9 +4987,6 @@ Object.assign(s, {
   accountLogoutText: { color: "#DF5148", fontSize: 11, fontWeight: "900" },
   accountDelete: { minHeight: 40, alignItems: "center", justifyContent: "center", marginTop: 5 },
   accountDeleteText: { color: "#A36E67", fontSize: 11, fontWeight: "800", textDecorationLine: "underline" },
-  togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 6 },
-  togetherSwitch: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
-  togetherSwitchText: { fontSize: 11, fontWeight: "900" },
   groupChoice: {
     minHeight: 66,
     borderRadius: 12,
@@ -6568,7 +5014,6 @@ Object.assign(s, {
     marginTop: 17,
   },
   workspaceMark: { width: 43, height: 43, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  workspaceMarkText: { fontSize: 17, fontWeight: "900" },
   workspaceCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
   workspaceLabel: { fontSize: 11, fontWeight: "800" },
   workspaceName: { fontSize: 14, fontWeight: "900", marginTop: 3 },

@@ -803,19 +803,19 @@ export function WarmTripDetail({
 function DetailPaperBackdrop({ theme }: { theme?: AppTheme }) {
   if (!theme) return null;
   return (
-    <View pointerEvents="none" style={(styles as any).detailPaperBackdrop}>
+    <View pointerEvents="none" style={styles.detailPaperBackdrop}>
       {[80, 166, 252, 338, 424, 510, 596, 682, 768].map((top) => (
         <View
           key={top}
           style={[
-            (styles as any).detailPaperLine,
+            styles.detailPaperLine,
             { top, backgroundColor: theme.dark ? "#202A3B" : "#EDE9E1" },
           ]}
         />
       ))}
       <View
         style={[
-          (styles as any).detailPaperMargin,
+          styles.detailPaperMargin,
           { backgroundColor: `${theme.primary}16` },
         ]}
       />
@@ -1923,39 +1923,39 @@ function Places({
           <View
             key={place.id}
             style={[
-              (styles as any).placeMiniCard,
+              styles.placeMiniCard,
               { backgroundColor: theme?.surface ?? "#FFFFFF", borderColor: theme?.border ?? "#E5E3DD" },
             ]}
           >
-            <View style={[(styles as any).placeMiniTape, { backgroundColor: `${[theme?.primary, theme?.secondary, theme?.accent][index % 3] ?? "#8B7CF6"}38` }]} />
-            <View style={(styles as any).placeMiniTop}>
-              <View style={[(styles as any).placeMiniStamp, { backgroundColor: [theme?.primarySoft, `${theme?.secondary}1C`, `${theme?.accent}1C`][index % 3] }]}>
-                <Text style={[(styles as any).placeMiniNumber, { color: [theme?.primary, theme?.secondary, theme?.accent][index % 3] }]}>{String(index + 1).padStart(2, "0")}</Text>
+            <View style={[styles.placeMiniTape, { backgroundColor: `${[theme?.primary, theme?.secondary, theme?.accent][index % 3] ?? "#8B7CF6"}38` }]} />
+            <View style={styles.placeMiniTop}>
+              <View style={[styles.placeMiniStamp, { backgroundColor: [theme?.primarySoft, `${theme?.secondary}1C`, `${theme?.accent}1C`][index % 3] }]}>
+                <Text style={[styles.placeMiniNumber, { color: [theme?.primary, theme?.secondary, theme?.accent][index % 3] }]}>{String(index + 1).padStart(2, "0")}</Text>
               </View>
-              <View style={(styles as any).placeMiniInfo}>
-                <View style={(styles as any).placeMiniTitleRow}>
-                  <Text numberOfLines={1} style={[(styles as any).placeMiniName, { color: theme?.text ?? "#17233D" }]}>{place.name}</Text>
-                  <View style={[(styles as any).placeMiniStatus, { backgroundColor: place.name === registeredStayName ? `${theme?.secondary}1E` : place.status === "일정" ? `${theme?.accent}1E` : `${theme?.primary}16` }]}>
-                    <Text style={[(styles as any).placeMiniStatusText, { color: place.name === registeredStayName ? theme?.secondary : place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.name === registeredStayName ? "대표 숙소" : place.status === "일정" ? "일정에 담김" : "저장"}</Text>
+              <View style={styles.placeMiniInfo}>
+                <View style={styles.placeMiniTitleRow}>
+                  <Text numberOfLines={1} style={[styles.placeMiniName, { color: theme?.text ?? "#17233D" }]}>{place.name}</Text>
+                  <View style={[styles.placeMiniStatus, { backgroundColor: place.name === registeredStayName ? `${theme?.secondary}1E` : place.status === "일정" ? `${theme?.accent}1E` : `${theme?.primary}16` }]}>
+                    <Text style={[styles.placeMiniStatusText, { color: place.name === registeredStayName ? theme?.secondary : place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.name === registeredStayName ? "대표 숙소" : place.status === "일정" ? "일정에 담김" : "저장"}</Text>
                   </View>
                 </View>
-                <Text numberOfLines={1} style={[(styles as any).placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.address ? `${place.category} · ${place.address}` : `${place.area} · ${place.category}`}</Text>
+                <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.address ? `${place.category} · ${place.address}` : `${place.area} · ${place.category}`}</Text>
               </View>
             </View>
-            <View style={(styles as any).placeMiniTags}>
+            <View style={styles.placeMiniTags}>
               {place.tags.slice(0, 3).map((tag) => (
-                <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[(styles as any).placeMiniTag, { backgroundColor: theme?.primarySoft ?? "#F0EDFF" }]}>
-                  <Text style={[(styles as any).placeMiniTagText, { color: theme?.primary ?? "#6556D8" }]}># {tag}</Text>
+                <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[styles.placeMiniTag, { backgroundColor: theme?.primarySoft ?? "#F0EDFF" }]}>
+                  <Text style={[styles.placeMiniTagText, { color: theme?.primary ?? "#6556D8" }]}># {tag}</Text>
                 </Pressable>
               ))}
-              {place.tags.length > 3 && <Text style={[(styles as any).placeMiniMore, { color: theme?.muted }]}>+{place.tags.length - 3}</Text>}
+              {place.tags.length > 3 && <Text style={[styles.placeMiniMore, { color: theme?.muted }]}>+{place.tags.length - 3}</Text>}
             </View>
-            <View style={[(styles as any).placeMiniActions, { borderTopColor: theme?.border ?? "#E5E3DD" }]}>
-              <Pressable onPress={() => openEdit(place)} style={[(styles as any).placeMiniIconButton, { backgroundColor: theme?.surfaceAlt ?? "#F4F1EB" }]}>
-                <Text style={[(styles as any).placeMiniEditText, { color: theme?.muted ?? "#727C8D" }]}>수정</Text>
+            <View style={[styles.placeMiniActions, { borderTopColor: theme?.border ?? "#E5E3DD" }]}>
+              <Pressable onPress={() => openEdit(place)} style={[styles.placeMiniIconButton, { backgroundColor: theme?.surfaceAlt ?? "#F4F1EB" }]}>
+                <Text style={[styles.placeMiniEditText, { color: theme?.muted ?? "#727C8D" }]}>수정</Text>
               </Pressable>
-              <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[(styles as any).placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
-                <Text style={[(styles as any).placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
+              <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
+                <Text style={[styles.placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
               </Pressable>
               {place.category === "숙소" ? (
                 <Pressable
@@ -1965,11 +1965,11 @@ function Places({
                   accessibilityLabel={`${place.name}을 이번 여행 숙소로 등록`}
                   accessibilityState={{ disabled: registeredStayName === place.name }}
                   style={[
-                    (styles as any).placeMiniPlanButton,
+                    styles.placeMiniPlanButton,
                     { backgroundColor: registeredStayName === place.name ? theme?.surfaceAlt : theme?.secondary },
                   ]}
                 >
-                  <Text style={[(styles as any).placeMiniPlanText, registeredStayName === place.name && { color: theme?.muted }]}>{registeredStayName === place.name ? "대표 숙소" : "대표 숙소로 등록"}</Text>
+                  <Text style={[styles.placeMiniPlanText, registeredStayName === place.name && { color: theme?.muted }]}>{registeredStayName === place.name ? "대표 숙소" : "대표 숙소로 등록"}</Text>
                 </Pressable>
               ) : (
                 <Pressable
@@ -1979,11 +1979,11 @@ function Places({
                   accessibilityLabel={`${place.name} 일정에 담기`}
                   accessibilityState={{ disabled: place.status === "일정" }}
                   style={[
-                    (styles as any).placeMiniPlanButton,
+                    styles.placeMiniPlanButton,
                     { backgroundColor: place.status === "일정" ? theme?.surfaceAlt : theme?.primary },
                   ]}
                 >
-                  <Text style={[(styles as any).placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "일정에 담김" : "일정에 담기"}</Text>
+                  <Text style={[styles.placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "일정에 담김" : "일정에 담기"}</Text>
                 </Pressable>
               )}
             </View>
@@ -5188,15 +5188,15 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
         action="사진 추가"
         onPress={openPhotoCreate}
       />
-      <View style={[(styles as any).memoryStats, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={[styles.memoryStats, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
         {[
           ["사진", `${photos.length}장`],
           ["일기", `${diaries.length}편`],
           ["기록한 날", `${new Set(photos.map((photo) => photo.date)).size}일`],
         ].map(([label, value], index) => (
-          <View key={label} style={[(styles as any).memoryStat, index > 0 && (styles as any).memoryStatBorder, index > 0 && theme && { borderLeftColor: theme.border }]}>
-            <Text style={[(styles as any).memoryStatValue, theme && { color: theme.text }]}>{value}</Text>
-            <Text style={[(styles as any).memoryStatLabel, theme && { color: theme.muted }]}>{label}</Text>
+          <View key={label} style={[styles.memoryStat, index > 0 && styles.memoryStatBorder, index > 0 && theme && { borderLeftColor: theme.border }]}>
+            <Text style={[styles.memoryStatValue, theme && { color: theme.text }]}>{value}</Text>
+            <Text style={[styles.memoryStatLabel, theme && { color: theme.muted }]}>{label}</Text>
           </View>
         ))}
       </View>
@@ -5358,10 +5358,10 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
             setPhotoSelected(true);
           }}
           accessibilityRole="button"
-          style={[(styles as any).photoPickerPreview, { backgroundColor: photoSelected ? photoColor : theme?.surfaceAlt ?? "#F2EFEA", borderColor: theme?.border ?? "#E5E1DC" }]}
+          style={[styles.photoPickerPreview, { backgroundColor: photoSelected ? photoColor : theme?.surfaceAlt ?? "#F2EFEA", borderColor: theme?.border ?? "#E5E1DC" }]}
         >
-          <View style={[(styles as any).photoPickerMark, theme && { backgroundColor: theme.surface }]}>
-            <Text style={[(styles as any).photoPickerMarkText, theme && { color: theme.primary }]}>{photoSelected ? "사진 다시 선택" : "기기에서 사진 선택"}</Text>
+          <View style={[styles.photoPickerMark, theme && { backgroundColor: theme.surface }]}>
+            <Text style={[styles.photoPickerMarkText, theme && { color: theme.primary }]}>{photoSelected ? "사진 다시 선택" : "기기에서 사진 선택"}</Text>
           </View>
         </Pressable>
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>사진을 선택하면 이곳에서 미리 확인할 수 있어요.</Text>
@@ -5991,7 +5991,7 @@ function DetailSheet({
             </Pressable>
           </View>
           <ScrollView
-            style={(styles as any).sheetScroll}
+            style={styles.sheetScroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -6166,7 +6166,6 @@ function OptionField({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FFF9F4" },
   feedbackToast: {
     position: "absolute",
     left: 20,
@@ -6186,23 +6185,6 @@ const styles = StyleSheet.create({
   feedbackToastMark: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FF6B63", marginRight: 10 },
   feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
   controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
-  header: {
-    height: 55,
-    paddingHorizontal: 21,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  close: { color: "#5D3531", fontSize: 35, lineHeight: 35, fontWeight: "300" },
-  headerName: {
-    color: "#5D3531",
-    fontSize: 15,
-    letterSpacing: 0.8,
-    fontWeight: "900",
-  },
-  headerMore: { color: "#5D3531", fontSize: 16, letterSpacing: 2 },
-  page: { paddingHorizontal: 20, paddingTop: 25, paddingBottom: 48 },
-  date: { color: "#B76A59", fontSize: 11, letterSpacing: 1, fontWeight: "900" },
   detailTitleRow: {
     position: "relative",
   },
@@ -6310,121 +6292,6 @@ const styles = StyleSheet.create({
   memoEmpty: { alignItems: "center", paddingVertical: 22 },
   memoEmptyTitle: { fontSize: 13, fontWeight: "900" },
   memoEmptyHint: { fontSize: 11, marginTop: 5 },
-  title: {
-    color: "#522F2D",
-    fontSize: 36,
-    lineHeight: 41,
-    letterSpacing: -2,
-    fontWeight: "800",
-    marginTop: 8,
-  },
-  subtitle: { color: "#987C72", fontSize: 13, marginTop: 7 },
-  modeSwitch: {
-    backgroundColor: "#F5E9DF",
-    borderRadius: 18,
-    padding: 4,
-    flexDirection: "row",
-    marginTop: 27,
-    marginBottom: 24,
-  },
-  mode: {
-    flex: 1,
-    minHeight: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 14,
-  },
-  modeCurrent: {
-    backgroundColor: "#FFF9F4",
-    shadowColor: "#A97865",
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-  modeText: { color: "#A2867A", fontSize: 13, fontWeight: "800" },
-  modeTextCurrent: { color: "#603632" },
-  welcomeCard: {
-    backgroundColor: "#EBA18E",
-    minHeight: 190,
-    borderRadius: 27,
-    padding: 22,
-    overflow: "hidden",
-    marginBottom: 31,
-  },
-  welcomeMark: {
-    position: "absolute",
-    right: -3,
-    top: 0,
-    width: 142,
-    height: 142,
-  },
-  markCircle: {
-    width: 122,
-    height: 122,
-    borderRadius: 61,
-    borderWidth: 20,
-    borderColor: "#F8D7C9",
-    position: "absolute",
-    right: -22,
-    top: -30,
-  },
-  markLeaf: {
-    backgroundColor: "#92574E",
-    width: 72,
-    height: 18,
-    borderRadius: 20,
-    transform: [{ rotate: "-42deg" }],
-    position: "absolute",
-    right: 9,
-    top: 83,
-  },
-  welcomeEyebrow: {
-    color: "#754139",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  welcomeTitle: {
-    color: "#4F2C2A",
-    fontSize: 29,
-    lineHeight: 34,
-    letterSpacing: -1.4,
-    fontWeight: "800",
-    marginTop: 25,
-  },
-  welcomeCopy: {
-    color: "#75463E",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 11,
-    maxWidth: 245,
-  },
-  sectionLabel: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    color: "#633B36",
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
-  sectionAction: { color: "#B76A59", fontSize: 11, fontWeight: "800" },
-  timelineCard: {
-    backgroundColor: "#FFF",
-    borderRadius: 22,
-    padding: 17,
-    marginBottom: 30,
-    shadowColor: "#A97865",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 1,
-  },
   travelTimelineCard: { padding: 12, marginBottom: 15, position: "relative" },
   travelTimelineTape: {
     position: "absolute",
@@ -6578,224 +6445,19 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   dotLine: { alignItems: "center", width: 15 },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#E79783",
-    marginTop: 3,
-  },
   line: { flex: 1, width: 1, backgroundColor: "#F0DCD2", marginTop: 5 },
   momentContent: { flex: 1, paddingLeft: 7 },
   momentTitle: { color: "#5A3531", fontSize: 14, fontWeight: "800" },
   momentNote: { color: "#A18980", fontSize: 11, marginTop: 5 },
-  placeCard: {
-    minHeight: 91,
-    borderRadius: 21,
-    backgroundColor: "#F6D6C8",
-    padding: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 11,
-  },
-  placeStamp: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: "#FFF9F4",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 13,
-  },
-  stampText: {
-    color: "#AD6152",
-    fontSize: 22,
-    lineHeight: 21,
-    letterSpacing: -1,
-    fontWeight: "900",
-  },
-  stampSmall: {
-    color: "#B9877A",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-    marginTop: 3,
-  },
-  placeInfo: { flex: 1 },
-  placeKicker: {
-    color: "#AC695D",
-    fontSize: 11,
-    letterSpacing: 0.8,
-    fontWeight: "900",
-  },
-  placeName: {
-    color: "#5B3834",
-    fontSize: 17,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  placeNote: { color: "#9E776C", fontSize: 11, marginTop: 3 },
   cardArrow: { color: "#8B5147", fontSize: 21 },
-  twoCards: { flexDirection: "row", marginBottom: 22 },
-  smallCard: { flex: 1, minHeight: 108, borderRadius: 20, padding: 16 },
-  stayCard: { backgroundColor: "#E8E1B1", marginRight: 10 },
-  menuCard: { backgroundColor: "#D8C1D1" },
-  smallOverline: {
-    color: "#806E55",
-    fontSize: 11,
-    letterSpacing: 0.9,
-    fontWeight: "900",
-  },
-  smallTitle: {
-    color: "#5A423B",
-    fontSize: 16,
-    fontWeight: "800",
-    marginTop: 19,
-  },
-  smallText: { color: "#85746A", fontSize: 11, marginTop: 4 },
-  readyNudge: {
-    backgroundColor: "#6C403B",
-    borderRadius: 21,
-    padding: 18,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  readyEyebrow: {
-    color: "#F2BAA5",
-    fontSize: 11,
-    letterSpacing: 0.9,
-    fontWeight: "900",
-  },
   readyText: {
     color: "#FFF8F3",
     fontSize: 14,
     fontWeight: "800",
     marginTop: 5,
   },
-  prepareIntro: {
-    backgroundColor: "#F3D7C8",
-    borderRadius: 26,
-    padding: 21,
-    marginBottom: 28,
-  },
-  prepareEyebrow: {
-    color: "#A76255",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  prepareTitle: {
-    color: "#5E3934",
-    fontSize: 27,
-    lineHeight: 32,
-    letterSpacing: -1.3,
-    fontWeight: "800",
-    marginTop: 17,
-  },
-  progressRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginTop: 24,
-  },
-  progressText: { color: "#956F65", fontSize: 11, fontWeight: "700" },
-  progressNumber: {
-    color: "#A45B4E",
-    fontSize: 25,
-    letterSpacing: -1,
-    fontWeight: "800",
-  },
-  progressTrack: {
-    height: 8,
-    backgroundColor: "#E7B9AA",
-    borderRadius: 5,
-    overflow: "hidden",
-    marginTop: 8,
-  },
-  progressFill: { height: "100%", backgroundColor: "#A95D4F", borderRadius: 5 },
-  checklist: {
-    backgroundColor: "#FFF",
-    borderRadius: 21,
-    paddingHorizontal: 16,
-    marginBottom: 18,
-  },
-  checkRow: {
-    minHeight: 64,
-    borderBottomWidth: 1,
-    borderColor: "#F1E5DE",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  lastCheck: { borderBottomWidth: 0 },
-  checkbox: {
-    width: 23,
-    height: 23,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: "#D7B5AA",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 11,
-  },
-  checkboxDone: { backgroundColor: "#E48D78", borderColor: "#E48D78" },
-  checkboxDot: { width: 5, height: 5, borderRadius: 3, opacity: 0.72 },
-  checkIcon: { color: "#FFF", fontSize: 13, fontWeight: "900" },
-  checkInfo: { flex: 1 },
   checkName: { color: "#593934", fontSize: 14, fontWeight: "800" },
   checkNameDone: { color: "#B29B92", textDecorationLine: "line-through" },
-  checkNote: { color: "#A69087", fontSize: 11, marginTop: 3 },
-  personCircle: {
-    minWidth: 28,
-    height: 28,
-    paddingHorizontal: 6,
-    borderRadius: 14,
-    backgroundColor: "#F7EAE3",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  personText: { color: "#9B6257", fontSize: 11, fontWeight: "900" },
-  tinyNote: { backgroundColor: "#FFF3E8", borderRadius: 16, padding: 15 },
-  tinyLabel: { color: "#AE6C5F", fontSize: 11, fontWeight: "900" },
-  tinyText: { color: "#7B5B52", fontSize: 12, lineHeight: 18, marginTop: 5 },
-  memoryWelcome: {
-    borderRadius: 26,
-    backgroundColor: "#C4D6C5",
-    padding: 21,
-    minHeight: 211,
-    marginBottom: 30,
-  },
-  memoryEyebrow: {
-    color: "#5D7E6C",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  memoryTitle: {
-    color: "#3F5D4E",
-    fontSize: 26,
-    lineHeight: 32,
-    letterSpacing: -1.3,
-    fontWeight: "800",
-    marginTop: 22,
-  },
-  memoryButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#4D705E",
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 13,
-    marginTop: 19,
-  },
-  memoryButtonText: { color: "#F7F3E9", fontSize: 11, fontWeight: "800" },
-  noteCard: {
-    backgroundColor: "#FFF",
-    borderRadius: 18,
-    padding: 17,
-    marginBottom: 10,
-  },
-  noteAuthor: { color: "#B06C5E", fontSize: 11, fontWeight: "900" },
-  noteBody: { color: "#67443D", fontSize: 14, lineHeight: 20, marginTop: 8 },
   keepsakeCard: {
     minHeight: 142,
     borderRadius: 16,
@@ -6878,17 +6540,6 @@ const styles = StyleSheet.create({
   },
   cardMiniPhoto: { flex: 1, borderRadius: 9 },
   memoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  memoryTile: {
-    width: "32%",
-    aspectRatio: 0.82,
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 6,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.06,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-  },
   memoryTilePhoto: { flex: 1, borderRadius: 5, overflow: "hidden" },
   memoryTileGlow: {
     width: "70%",
@@ -6918,18 +6569,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalDismiss: { flex: 1 },
-  sheet: {
-    width: "100%",
-    maxWidth: 430,
-    alignSelf: "center",
-    backgroundColor: "#F7F5F0",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 28,
-    maxHeight: "91%",
-  },
   sheetHandle: {
     width: 42,
     height: 4,
@@ -6952,16 +6591,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 2,
     position: "relative",
-  },
-  sheetHeadTape: {
-    position: "absolute",
-    top: -5,
-    left: 32,
-    width: 38,
-    height: 10,
-    borderRadius: 2,
-    opacity: 0.48,
-    transform: [{ rotate: "-3deg" }],
   },
   sheetFormBody: {
     paddingHorizontal: 1,
@@ -7026,16 +6655,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "900",
     marginBottom: 0,
-  },
-  detailFieldInput: {
-    height: 49,
-    borderRadius: 15,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 15,
-    color: "#17233D",
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: "#E5E3DD",
   },
   detailFieldMultiline: {
     height: 104,
@@ -7106,43 +6725,11 @@ const styles = StyleSheet.create({
   },
   optionField: { marginBottom: 18 },
   optionRow: { gap: 8, paddingRight: 6 },
-  optionChip: {
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E0DA",
-    paddingHorizontal: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   optionChipActive: { backgroundColor: "#17233D", borderColor: "#17233D" },
   optionText: { color: "#747D8D", fontSize: 11, fontWeight: "800" },
   optionTextActive: { color: "#FFFFFF" },
   inlineFields: { flexDirection: "row", gap: 10 },
-  timeField: { width: 105 },
   titleField: { flex: 1 },
-  quickAdd: {
-    backgroundColor: "#E9E5FF",
-    borderRadius: 17,
-    padding: 14,
-    marginBottom: 17,
-  },
-  quickAddLabel: {
-    color: "#6556D8",
-    fontSize: 11,
-    letterSpacing: 0.7,
-    fontWeight: "900",
-    marginBottom: 10,
-  },
-  quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
-  quickChip: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 11,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  quickChipText: { color: "#5546C8", fontSize: 11, fontWeight: "800" },
   planPreview: {
     minHeight: 92,
     borderRadius: 20,
@@ -7249,162 +6836,10 @@ const styles = StyleSheet.create({
   mapLinkIconText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
   mapLinkText: { color: "#23714B", fontSize: 11, fontWeight: "900" },
   mapLinkArrow: { color: "#23714B", fontSize: 11, marginLeft: 4 },
-  placeHero: {
-    minHeight: 177,
-    borderRadius: 27,
-    backgroundColor: "#8B7CF6",
-    padding: 21,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    overflow: "hidden",
-    marginBottom: 22,
-  },
-  placeHeroEyebrow: {
-    color: "#DED9FF",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  placeHeroTitle: {
-    color: "#FFFFFF",
-    fontSize: 26,
-    lineHeight: 31,
-    letterSpacing: -1.2,
-    fontWeight: "900",
-    marginTop: 17,
-  },
-  placeHeroCopy: { color: "#E2DEFF", fontSize: 11, marginTop: 8 },
-  placeCount: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 24,
-  },
-  placeCountNo: {
-    color: "#6556D8",
-    fontSize: 25,
-    lineHeight: 27,
-    fontWeight: "900",
-  },
-  placeCountLabel: {
-    color: "#958BE8",
-    fontSize: 11,
-    letterSpacing: 0.7,
-    fontWeight: "900",
-    marginTop: 2,
-  },
-  placeToolbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-  },
-  placeFilters: { flexDirection: "row", gap: 5 },
-  placeFilter: {
-    height: 34,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ECE9E3",
-  },
-  placeFilterActive: { backgroundColor: "#17233D" },
   placeFilterText: { color: "#7C8390", fontSize: 11, fontWeight: "800" },
   placeFilterTextActive: { color: "#FFFFFF" },
-  placeAdd: {
-    height: 34,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E9E5FF",
-  },
   placeAddText: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
   placeList: { gap: 8 },
-  candidateCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 16,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  candidateTop: { flexDirection: "row" },
-  candidateNumber: {
-    width: 35,
-    height: 35,
-    borderRadius: 12,
-    backgroundColor: "#F0EDFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 11,
-  },
-  candidateNumberText: { color: "#7466DD", fontSize: 11, fontWeight: "900" },
-  candidateInfo: { flex: 1 },
-  candidateTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  candidateName: { color: "#17233D", fontSize: 16, fontWeight: "900" },
-  candidateMeta: {
-    color: "#727C8D",
-    fontSize: 11,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  candidateNote: { color: "#9A8F88", fontSize: 11, marginTop: 7 },
-  statusBadge: {
-    borderRadius: 9,
-    backgroundColor: "#FFF0ED",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  statusBadgePlanned: { backgroundColor: "#DDF7F1" },
-  statusText: { color: "#D25A50", fontSize: 11, fontWeight: "900" },
-  statusTextPlanned: { color: "#087D70" },
-  candidateActions: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#EFEEE9",
-  },
-  naverAction: {
-    height: 36,
-    borderRadius: 12,
-    paddingHorizontal: 11,
-    backgroundColor: "#E6F5ED",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  naverMini: {
-    width: 17,
-    height: 17,
-    borderRadius: 5,
-    backgroundColor: "#03C75A",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 6,
-  },
-  naverMiniText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
-  naverActionText: { color: "#23714B", fontSize: 11, fontWeight: "900" },
-  planAction: {
-    flex: 1,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: "#17233D",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  planActionDone: { backgroundColor: "#ECEAE5" },
-  planActionText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
-  planActionTextDone: { color: "#858B93" },
   placeFormIntro: {
     minHeight: 34,
     flexDirection: "row",
@@ -7418,17 +6853,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
-  placeSearch: {
-    height: 46,
-    borderRadius: 15,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E3DD",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 13,
-    marginBottom: 11,
-  },
   placeSearchIcon: { color: "#8B7CF6", fontSize: 20, marginRight: 7 },
   placeSearchInput: { flex: 1, color: "#17233D", fontSize: 12 },
   resultCount: {
@@ -7440,35 +6864,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resultCountText: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
-  tagFilterRow: { gap: 7, paddingRight: 12, paddingBottom: 14 },
-  tagFilterChip: {
-    height: 30,
-    borderRadius: 11,
-    backgroundColor: "#ECEAE5",
-    paddingHorizontal: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   tagFilterChipActive: { backgroundColor: "#8B7CF6" },
   tagFilterLabel: { color: "#777F8C", fontSize: 11, fontWeight: "800" },
   tagFilterLabelActive: { color: "#FFFFFF" },
   placeTags: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 9 },
-  placeTag: {
-    borderRadius: 8,
-    backgroundColor: "#F0EDFF",
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-  },
   placeTagText: { color: "#6556D8", fontSize: 11, fontWeight: "800" },
-  manageAction: {
-    height: 36,
-    borderRadius: 12,
-    paddingHorizontal: 11,
-    backgroundColor: "#F0EDFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  manageActionText: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
   tagEditor: { marginBottom: 18 },
   selectorLabel: { marginBottom: 9 },
   placeRecommendLabel: { fontSize: 11, fontWeight: "800", marginBottom: 7 },
@@ -7514,16 +6914,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   deletePlaceText: { color: "#D6534A", fontSize: 11, fontWeight: "900" },
-  fullScheduleButton: {
-    height: 43,
-    borderRadius: 13,
-    backgroundColor: "#F0EDFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 13,
-    marginTop: 5,
-  },
   fullScheduleText: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
   fullScheduleArrow: { color: "#6556D8", fontSize: 16 },
   fullScheduleList: { maxHeight: 520 },
@@ -7540,122 +6930,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: 5,
   },
-  prepareTools: { marginBottom: 18 },
-  prepareSearch: {
-    height: 45,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E3DD",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    marginBottom: 9,
-  },
-  prepareFilters: { flexDirection: "row", gap: 6 },
-  packingTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 5 },
-  packingTag: {
-    borderRadius: 7,
-    backgroundColor: "#F0EDFF",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  packingTagText: { color: "#6556D8", fontSize: 11, fontWeight: "800" },
-  tripSummary: {
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: "#E2F5F1",
-    paddingHorizontal: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  summaryDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#19B6A3",
-    marginRight: 8,
-  },
-  summaryLabel: {
-    color: "#168579",
-    fontSize: 11,
-    fontWeight: "900",
-    marginRight: 9,
-  },
-  summaryText: { flex: 1, color: "#324C50", fontSize: 11, fontWeight: "800" },
-  placeSummary: {
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: "#F0EDFF",
-    paddingHorizontal: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  placeSummaryText: {
-    flex: 1,
-    color: "#6556D8",
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  placeSummaryTotal: { color: "#8C83C5", fontSize: 11, fontWeight: "800" },
-  compactProgress: {
-    borderRadius: 15,
-    backgroundColor: "#F0EDFF",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 15,
-  },
-  compactProgressTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  compactProgressTitle: { color: "#5546C8", fontSize: 11, fontWeight: "900" },
-  compactProgressValue: { color: "#7168A5", fontSize: 11, fontWeight: "900" },
-  compactTrack: {
-    height: 5,
-    borderRadius: 3,
-    overflow: "hidden",
-    backgroundColor: "#D9D4F6",
-    marginTop: 3,
-  },
-  memorySummary: {
-    minHeight: 58,
-    borderRadius: 16,
-    backgroundColor: "#FFE9E5",
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 18,
-  },
-  memorySummaryTitle: { color: "#6A3D39", fontSize: 12, fontWeight: "900" },
-  memorySummaryMeta: { color: "#A36E67", fontSize: 11, marginTop: 4 },
-  packingOverview: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 2,
-  },
-  packingOverviewLabel: { color: "#7168A5", fontSize: 11, fontWeight: "900" },
-  packingOverviewValue: {
-    color: "#17233D",
-    fontSize: 27,
-    fontWeight: "900",
-    marginTop: 4,
-  },
-  packingOverviewTotal: { color: "#858C98", fontSize: 11, fontWeight: "800" },
-  packingPercent: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: "#8B7CF6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  packingPercentText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
   packingManageHead: {
     flexDirection: "row",
     alignItems: "center",
@@ -7673,16 +6947,6 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   packingShowAllText: { fontSize: 11, fontWeight: "900" },
-  ownerStats: {
-    minHeight: 61,
-    borderRadius: 17,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 13,
-    marginBottom: 14,
-    paddingHorizontal: 8,
-  },
   ownerStatSlot: { flex: 1, flexDirection: "row", alignItems: "center" },
   ownerStat: { flex: 1, alignItems: "center" },
   ownerStatActive: { borderRadius: 9, paddingVertical: 9 },
@@ -7695,28 +6959,6 @@ const styles = StyleSheet.create({
   },
   unassignedText: { color: "#D25A50" },
   ownerDivider: { width: 1, height: 26, backgroundColor: "#ECEAE5" },
-  inlineAdd: {
-    height: 31,
-    borderRadius: 10,
-    backgroundColor: "#17233D",
-    paddingHorizontal: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  inlineAddText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
-  packingActionRow: { flexDirection: "row", gap: 7, marginBottom: 12 },
-  packingPrimaryAction: {
-    flex: 1,
-    minHeight: 43,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  packingPrimaryActionText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "900",
-  },
   packingFilterBoard: {
     borderWidth: 1,
     borderRadius: 13,
@@ -7786,17 +7028,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   packingTagCount: { fontSize: 11, fontWeight: "800" },
-  packingCard: {
-    minHeight: 83,
-    borderRadius: 19,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ECEAE5",
-  },
   packingCardDone: { backgroundColor: "#F1F0EC", opacity: 0.76 },
   packingCardPressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
   completionMark: {
@@ -7902,16 +7133,6 @@ const styles = StyleSheet.create({
   },
   packingJourneyTitle: { fontSize: 12, lineHeight: 17, fontWeight: "900", marginTop: 1 },
   packingJourneyPercent: { width: 34, fontSize: 12, lineHeight: 16, fontWeight: "900", textAlign: "right" },
-  packingJourneyActions: { alignItems: "flex-end", marginLeft: 8 },
-  packingJourneyAdd: {
-    minWidth: 82,
-    minHeight: 34,
-    borderRadius: 11,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  packingJourneyAddText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
   packingJourneyTrack: {
     flex: 1,
     height: 6,
@@ -8198,135 +7419,12 @@ const styles = StyleSheet.create({
   cookingImportItemName: { color: "#35333A", fontSize: 11, fontWeight: "900" },
   cookingImportItemMeta: { color: "#8C8580", fontSize: 11, fontWeight: "700", marginTop: 3 },
   packingQuantity: { color: "#858D99", fontSize: 11, fontWeight: "800" },
-  claimButton: {
-    alignSelf: "flex-start",
-    height: 25,
-    borderRadius: 9,
-    backgroundColor: "#FFF0ED",
-    paddingHorizontal: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 7,
-  },
-  claimButtonText: { color: "#D25A50", fontSize: 11, fontWeight: "900" },
-  ownerBadge: {
-    minWidth: 49,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: "#E9E5FF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-    paddingHorizontal: 6,
-  },
-  ownerBadgeEmpty: { backgroundColor: "#FFF0ED" },
-  ownerBadgeText: { color: "#6556D8", fontSize: 11, fontWeight: "900" },
-  ownerBadgeTextEmpty: { color: "#D25A50" },
-  ownerChange: {
-    color: "#9A94B8",
-    fontSize: 11,
-    fontWeight: "800",
-    marginTop: 3,
-  },
-  emptyPacking: { height: 90, alignItems: "center", justifyContent: "center" },
-  emptyPackingText: { color: "#9299A4", fontSize: 11 },
-  activityBox: {
-    borderRadius: 19,
-    backgroundColor: "#17233D",
-    padding: 15,
-    marginTop: 18,
-  },
-  activityHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  activityTitle: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
-  activityLive: {
-    color: "#65D8CA",
-    fontSize: 11,
-    letterSpacing: 0.6,
-    fontWeight: "900",
-  },
-  activityRow: { minHeight: 32, flexDirection: "row", alignItems: "center" },
-  activityDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "#8B7CF6",
-    marginRight: 8,
-  },
-  activityText: { flex: 1, color: "#B6C0D0", fontSize: 11 },
-  activityTime: { color: "#65D8CA", fontSize: 11, fontWeight: "800" },
   settingHint: {
     color: "#7A7F89",
     fontSize: 11,
     lineHeight: 17,
     marginTop: -6,
     marginBottom: 16,
-  },
-  tabIntro: {
-    minHeight: 62,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingBottom: 9,
-    marginBottom: 7,
-  },
-  tabIntroCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
-  tabIntroTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  tabIntroTitle: { flexShrink: 1, fontSize: 17, fontWeight: "900", letterSpacing: -0.5 },
-  tabIntroMetaBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-  },
-  tabIntroCaption: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  tabIntroMeta: { fontSize: 11, fontWeight: "900" },
-  tabIntroAction: {
-    height: 32,
-    borderRadius: 11,
-    paddingHorizontal: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabIntroActionPlus: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    lineHeight: 17,
-    fontWeight: "700",
-  },
-  tabIntroActionText: { fontSize: 11, fontWeight: "900" },
-  batchActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 8,
-    marginTop: 8,
-    marginBottom: 10,
-  },
-  batchButton: {
-    borderWidth: 1,
-    borderColor: "#DDD9D2",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  batchButtonText: { color: "#66616A", fontSize: 11, fontWeight: "700" },
-  cookingHero: {
-    borderRadius: 18,
-    backgroundColor: "#FFF0D8",
-    padding: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
   },
   cookV2Hero: { borderWidth: 1, overflow: "hidden" },
   cookV2ProgressBadge: {
@@ -8339,21 +7437,6 @@ const styles = StyleSheet.create({
   },
   cookV2ProgressBadgeValue: { fontSize: 18, lineHeight: 22, fontWeight: "900" },
   cookV2ProgressBadgeLabel: { fontSize: 11, fontWeight: "800", marginTop: 2 },
-  recipeHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  recipeHeadTitle: { color: "#35333A", fontSize: 17, fontWeight: "900" },
-  recipeHeadCopy: { color: "#92909A", fontSize: 11, marginTop: 3 },
-  recipeAdd: {
-    backgroundColor: "#EAA260",
-    borderRadius: 11,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-  },
-  recipeAddText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
   recipeSelector: { marginBottom: 12 },
   recipeSelectorHead: {
     flexDirection: "row",
@@ -8363,14 +7446,6 @@ const styles = StyleSheet.create({
   },
   recipeSelectorTitle: { color: "#777F8C", fontSize: 11, fontWeight: "900" },
   recipeSelectorActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  recipeSelectorAdd: {
-    minHeight: 36,
-    borderRadius: 12,
-    paddingHorizontal: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  recipeSelectorAddText: { fontSize: 11, fontWeight: "900" },
   recipeSelectorCount: { color: "#92909A", fontSize: 11, fontWeight: "700" },
   recipeSelectorMore: { color: "#D9685F", fontSize: 11, fontWeight: "900" },
   cookV2MenuList: { gap: 8, paddingRight: 12 },
@@ -8421,36 +7496,6 @@ const styles = StyleSheet.create({
   recipeListNote: { color: "#8C8580", fontSize: 11, fontWeight: "700", marginTop: 3 },
   recipeListCount: { color: "#8C8580", fontSize: 11, fontWeight: "800", marginLeft: 8 },
   recipeListArrow: { color: "#8C8580", fontSize: 18, fontWeight: "700", marginLeft: 6 },
-  recipeTabs: { gap: 8, paddingRight: 18 },
-  recipeTab: {
-    width: 142,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#E5DED6",
-    backgroundColor: "#FFFFFF",
-    padding: 12,
-  },
-  recipeTabActive: { backgroundColor: "#6A4C3B", borderColor: "#6A4C3B" },
-  recipeTabTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  recipeTabNumber: { color: "#92909A", fontSize: 11, fontWeight: "900" },
-  recipeTabText: { color: "#716B67", fontSize: 12, fontWeight: "900" },
-  recipeTabTextActive: { color: "#FFFFFF" },
-  recipeTabNote: { color: "#92909A", fontSize: 11, fontWeight: "700", marginTop: 4 },
-  recipeTabCount: {
-    color: "#B08B70",
-    fontSize: 11,
-    fontWeight: "900",
-    backgroundColor: "#F5E9DD",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  recipeTabCountActive: { color: "#6A4C3B", backgroundColor: "#FBE0C4" },
   myCookingBox: {
     borderRadius: 15,
     borderWidth: 1,
@@ -8458,12 +7503,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     padding: 12,
     marginBottom: 12,
-  },
-  myCookingHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 9,
   },
   myCookingTitle: { color: "#35333A", fontSize: 11, fontWeight: "900" },
   myCookingSummary: { color: "#8C8580", fontSize: 11, fontWeight: "700", marginTop: 3 },
@@ -8477,7 +7516,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
-  myCookingIconText: { color: "#6556D8", fontSize: 13, fontWeight: "900" },
   cookV2MemoLine: {
     height: 6,
     flexDirection: "row",
@@ -8489,18 +7527,6 @@ const styles = StyleSheet.create({
   cookV2MemoRuleShort: { width: 10 },
   cookV2MyEyebrow: { fontSize: 11, fontWeight: "900", letterSpacing: 0.5, marginBottom: 2 },
   myCookingCopy: { flex: 1, minWidth: 0 },
-  myCookingCount: { color: "#D9685F", fontSize: 11, fontWeight: "900" },
-  myCookingMore: { paddingVertical: 6, paddingLeft: 10 },
-  myCookingList: { gap: 6 },
-  myCookingChip: {
-    width: "100%",
-    borderRadius: 10,
-    backgroundColor: "#F6F2ED",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  myCookingName: { color: "#35333A", fontSize: 11, fontWeight: "900" },
-  myCookingMeta: { color: "#8C8580", fontSize: 11, fontWeight: "700", marginTop: 3 },
   myIngredientGroup: {
     borderRadius: 14,
     borderWidth: 1,
@@ -8587,13 +7613,6 @@ const styles = StyleSheet.create({
   },
   recipeLinkIcon: { color: "#D9685F", fontSize: 11, fontWeight: "900" },
   recipeLinkText: { color: "#D9685F", fontSize: 11, fontWeight: "900" },
-  deleteRecipe: {
-    alignSelf: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    marginBottom: 18,
-  },
-  deleteRecipeText: { color: "#C36A63", fontSize: 11, fontWeight: "800" },
   emptyCooking: {
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
@@ -8636,30 +7655,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: -1,
   },
-  cookingCount: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cookingCountText: { color: "#C37835", fontSize: 18, fontWeight: "900" },
-  cookingCountLabel: { color: "#A58A73", fontSize: 11, fontWeight: "700" },
   cookingToolbar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   cookingTip: { color: "#77706A", fontSize: 11 },
-  cookingSection: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 15,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#EEE9E2",
-  },
   cookingSectionTitle: {
     color: "#A16E35",
     fontSize: 11,
@@ -8698,26 +7699,10 @@ const styles = StyleSheet.create({
   },
   cookV2IngredientTick: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
   cookV2IngredientNameDone: { textDecorationLine: "line-through" },
-  ingredientDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#E5A968",
-    marginRight: 10,
-  },
   ingredientBody: { flex: 1 },
   ingredientName: { color: "#383534", fontSize: 13, fontWeight: "800" },
   ingredientOwner: { color: "#96908A", fontSize: 11, marginTop: 2 },
   ingredientQuantity: { color: "#765D49", fontSize: 11, fontWeight: "700" },
-  tabActionHeader: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 5, marginBottom: 9 },
-  tabActionTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  tabActionTitle: { fontSize: 18, lineHeight: 23, fontWeight: "900", letterSpacing: -0.5 },
-  tabActionCount: { fontSize: 11, fontWeight: "800" },
-  tabActionButton: { minHeight: 34, borderRadius: 10, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
-  tabActionButtonText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
-  placeControlPanel: { borderWidth: 1, borderRadius: 14, padding: 9, marginBottom: 11 },
-  placeControlLabel: { width: 30, fontSize: 11, fontWeight: "900" },
-  placeTagControlRow: { flexDirection: "row", alignItems: "center" },
   emptyState: { minHeight: 76, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 10, flexDirection: "row", alignItems: "center" },
   emptyStateMark: { width: 34, height: 38, borderRadius: 9, paddingHorizontal: 7, justifyContent: "center", gap: 5, marginRight: 10, transform: [{ rotate: "-2deg" }] },
   emptyStateLine: { height: 2, borderRadius: 2, opacity: 0.55 },
@@ -8737,9 +7722,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 20,
   },
-});
-
-Object.assign(styles, {
   safe: {
     flex: 1,
     width: "100%",
@@ -8768,82 +7750,8 @@ Object.assign(styles, {
     fontWeight: "900",
   },
   headerMore: { color: "#17233D", fontSize: 16, letterSpacing: 2 },
-  date: { color: "#0B9989", fontSize: 11, letterSpacing: 1, fontWeight: "900" },
-  title: {
-    color: "#17233D",
-    fontSize: 38,
-    lineHeight: 43,
-    letterSpacing: -2.1,
-    fontWeight: "800",
-    marginTop: 8,
-  },
-  subtitle: { color: "#737D8E", fontSize: 13, marginTop: 7 },
-  modeSwitch: {
-    backgroundColor: "#E9E6DF",
-    borderRadius: 18,
-    padding: 4,
-    flexDirection: "row",
-    marginTop: 27,
-    marginBottom: 24,
-  },
-  modeCurrent: { backgroundColor: "#17233D", borderRadius: 14 },
   modeText: { color: "#7C8492", fontSize: 13, fontWeight: "800" },
   modeTextCurrent: { color: "#FFFFFF" },
-  welcomeCard: {
-    backgroundColor: "#19B6A3",
-    minHeight: 194,
-    borderRadius: 28,
-    padding: 22,
-    overflow: "hidden",
-    marginBottom: 31,
-  },
-  markCircle: {
-    width: 122,
-    height: 122,
-    borderRadius: 61,
-    borderWidth: 20,
-    borderColor: "#7FE0D3",
-    position: "absolute",
-    right: -22,
-    top: -30,
-  },
-  markLeaf: {
-    backgroundColor: "#0B746A",
-    width: 72,
-    height: 18,
-    borderRadius: 20,
-    transform: [{ rotate: "-42deg" }],
-    position: "absolute",
-    right: 9,
-    top: 83,
-  },
-  welcomeEyebrow: {
-    color: "#084F49",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  welcomeTitle: {
-    color: "#102F37",
-    fontSize: 29,
-    lineHeight: 34,
-    letterSpacing: -1.4,
-    fontWeight: "800",
-    marginTop: 25,
-  },
-  welcomeCopy: {
-    color: "#155A57",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 11,
-    maxWidth: 245,
-  },
-  sectionTitle: {
-    color: "#17233D",
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
   sectionAction: { color: "#6556D8", fontSize: 11, fontWeight: "800" },
   dot: {
     width: 8,
@@ -8852,78 +7760,12 @@ Object.assign(styles, {
     backgroundColor: "#19B6A3",
     marginTop: 3,
   },
-  placeCard: {
-    minHeight: 91,
-    borderRadius: 21,
-    backgroundColor: "#FFE2DD",
-    padding: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 11,
-  },
-  stayCard: { backgroundColor: "#DDF7F1", marginRight: 10 },
-  menuCard: { backgroundColor: "#E9E5FF" },
-  readyNudge: {
-    backgroundColor: "#17233D",
-    borderRadius: 21,
-    padding: 18,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   readyEyebrow: {
     color: "#6AD6C8",
     fontSize: 11,
     letterSpacing: 0.9,
     fontWeight: "900",
   },
-  prepareIntro: {
-    backgroundColor: "#E9E5FF",
-    borderRadius: 26,
-    padding: 21,
-    marginBottom: 28,
-  },
-  prepareEyebrow: {
-    color: "#6556D8",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  progressFill: { height: "100%", backgroundColor: "#8B7CF6", borderRadius: 5 },
-  checkboxDone: { backgroundColor: "#8B7CF6", borderColor: "#8B7CF6" },
-  memoryWelcome: {
-    borderRadius: 26,
-    backgroundColor: "#FFE0DA",
-    padding: 21,
-    minHeight: 211,
-    marginBottom: 30,
-  },
-  memoryEyebrow: {
-    color: "#C24840",
-    fontSize: 11,
-    letterSpacing: 1,
-    fontWeight: "900",
-  },
-  memoryTitle: {
-    color: "#5A302F",
-    fontSize: 26,
-    lineHeight: 32,
-    letterSpacing: -1.3,
-    fontWeight: "800",
-    marginTop: 22,
-  },
-  memoryButton: {
-    alignSelf: "flex-start",
-    backgroundColor: "#FF6B5F",
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 13,
-    marginTop: 19,
-  },
-});
-
-// Travel notebook visual language shared by every detail tab.
-Object.assign(styles, {
   detailPaperBackdrop: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
   detailPaperLine: {
     position: "absolute",
@@ -8965,15 +7807,6 @@ Object.assign(styles, {
     shadowOpacity: 0,
     elevation: 0,
   },
-  tripSummary: {
-    minHeight: 42,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 23,
-    transform: [{ rotate: "-.3deg" }],
-  },
   sectionLabel: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -9011,29 +7844,6 @@ Object.assign(styles, {
     alignItems: "center",
     justifyContent: "space-between",
   },
-  placeCard: {
-    minHeight: 94,
-    borderRadius: 10,
-    padding: 13,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  placeStamp: {
-    width: 55,
-    height: 61,
-    borderRadius: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    transform: [{ rotate: "-2deg" }],
-  },
-  smallCard: {
-    flex: 1,
-    minHeight: 98,
-    borderRadius: 9,
-    padding: 14,
-    borderWidth: 1,
-  },
   readyNudge: {
     minHeight: 67,
     borderRadius: 9,
@@ -9043,14 +7853,6 @@ Object.assign(styles, {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-  },
-  placeSummary: {
-    minHeight: 43,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
   },
   placeControlPanel: {
     borderWidth: 1,
@@ -9074,12 +7876,6 @@ Object.assign(styles, {
     paddingVertical: 6,
   },
   placeAdd: { borderRadius: 8, paddingHorizontal: 11, paddingVertical: 8 },
-  batchButton: {
-    borderRadius: 7,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
   placeSearch: {
     height: 39,
     borderRadius: 10,
@@ -9098,27 +7894,7 @@ Object.assign(styles, {
     alignItems: "center",
     justifyContent: "center",
   },
-  tagFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
-  candidateCard: { borderRadius: 10, padding: 15, borderWidth: 1 },
-  candidateNumber: {
-    width: 31,
-    height: 31,
-    borderRadius: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-    transform: [{ rotate: "-2deg" }],
-  },
   placeTag: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 5 },
-  packingOverview: {
-    minHeight: 83,
-    borderRadius: 10,
-    padding: 16,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
   ownerStats: {
     minHeight: 61,
     borderRadius: 9,
@@ -9127,15 +7903,6 @@ Object.assign(styles, {
     alignItems: "center",
     marginBottom: 13,
   },
-  prepareSearch: {
-    height: 45,
-    borderRadius: 9,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-  },
-  packingFilter: { borderRadius: 7, paddingHorizontal: 10, paddingVertical: 7 },
   packingCard: {
     minHeight: 58,
     borderRadius: 9,
@@ -9144,56 +7911,6 @@ Object.assign(styles, {
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-  },
-  checkbox: {
-    width: 27,
-    height: 27,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-    marginRight: 11,
-    transform: [{ rotate: "-5deg" }],
-  },
-  checkboxDone: {
-    transform: [{ rotate: "2deg" }, { scale: 1.04 }],
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  checkboxDot: { width: 5, height: 5, borderRadius: 3, opacity: 0.72 },
-  checkIcon: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: "900",
-    transform: [{ rotate: "-2deg" }],
-  },
-  ownerBadge: {
-    minWidth: 43,
-    minHeight: 36,
-    borderRadius: 7,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-  },
-  recipeHead: {
-    borderRadius: 9,
-    padding: 15,
-    marginBottom: 13,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  recipeTab: {
-    minWidth: 92,
-    minHeight: 51,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
   },
   cookingHero: {
     borderRadius: 9,
@@ -9208,16 +7925,6 @@ Object.assign(styles, {
     borderWidth: 1,
     marginBottom: 8,
   },
-  memorySummary: {
-    minHeight: 79,
-    borderRadius: 10,
-    padding: 15,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  memoryButton: { borderRadius: 8, paddingVertical: 8, paddingHorizontal: 11 },
   memoryStats: {
     minHeight: 64,
     borderRadius: 12,
@@ -9240,7 +7947,6 @@ Object.assign(styles, {
   },
   photoPickerMark: { borderRadius: 999, paddingHorizontal: 15, paddingVertical: 9 },
   photoPickerMarkText: { fontSize: 12, fontWeight: "900" },
-  noteCard: { borderRadius: 9, padding: 16, borderWidth: 1, marginBottom: 9 },
   memoryTile: {
     width: "31.4%",
     aspectRatio: 1,
@@ -9275,103 +7981,6 @@ Object.assign(styles, {
     maxHeight: "91%",
   },
   sheetScroll: { flexGrow: 0, flexShrink: 1 },
-});
-
-Object.assign(styles, {
-  welcomeCard: {
-    backgroundColor: "#19B6A3",
-    minHeight: 132,
-    borderRadius: 22,
-    padding: 18,
-    overflow: "hidden",
-    marginBottom: 24,
-  },
-  welcomeTitle: {
-    color: "#102F37",
-    fontSize: 23,
-    lineHeight: 27,
-    letterSpacing: -1.1,
-    fontWeight: "800",
-    marginTop: 14,
-  },
-  welcomeCopy: {
-    color: "#155A57",
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 7,
-    maxWidth: 245,
-  },
-  placeHero: {
-    minHeight: 116,
-    borderRadius: 22,
-    backgroundColor: "#8B7CF6",
-    padding: 17,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    overflow: "hidden",
-    marginBottom: 18,
-  },
-  placeHeroTitle: {
-    color: "#FFFFFF",
-    fontSize: 21,
-    lineHeight: 25,
-    letterSpacing: -1,
-    fontWeight: "900",
-    marginTop: 10,
-  },
-  placeHeroCopy: { color: "#E2DEFF", fontSize: 11, marginTop: 5 },
-  placeCount: {
-    width: 57,
-    height: 57,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 12,
-  },
-  prepareIntro: {
-    backgroundColor: "#E9E5FF",
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 22,
-  },
-  prepareTitle: {
-    color: "#5E3934",
-    fontSize: 22,
-    lineHeight: 27,
-    letterSpacing: -1,
-    fontWeight: "800",
-    marginTop: 11,
-  },
-  progressRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginTop: 16,
-  },
-  memoryWelcome: {
-    borderRadius: 22,
-    backgroundColor: "#FFE0DA",
-    padding: 18,
-    minHeight: 145,
-    marginBottom: 23,
-  },
-  memoryTitle: {
-    color: "#5A302F",
-    fontSize: 22,
-    lineHeight: 27,
-    letterSpacing: -1.1,
-    fontWeight: "800",
-    marginTop: 13,
-  },
-  memoryButton: {
-    alignSelf: "center",
-    backgroundColor: "#FF6B5F",
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 11,
-    marginTop: 0,
-  },
   placeMiniCard: {
     borderRadius: 12,
     borderWidth: 1,
