@@ -29,9 +29,9 @@
     "react-native-web": "^0.21.0"
   },
   "devDependencies": {
-    "@expo-google-fonts/noto-serif-kr": "^0.4.3",
+    "@expo-google-fonts/gowun-dodum": "^0.4.1",
+    "@expo-google-fonts/jua": "^0.4.1",
     "@types/react": "^19.2.18",
-    "pretendard": "^1.3.9",
     "typescript": "^5.9.3"
   }
 }
