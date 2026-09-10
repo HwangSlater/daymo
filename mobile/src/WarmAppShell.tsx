@@ -2441,6 +2441,38 @@ function Search({
   );
 }
 
+/**
+ * 앱에 담아 배포하는 제3자 저작물의 고지.
+ *
+ * 쿠키런 라이선스는 저작권 안내와 라이선스 전문을 함께 포함할 것을 임베딩 조건으로
+ * 건다(docs/product-rules/01-daymo-development-rules.md 9장). 전문은 분량이 많아
+ * 앱 안에 옮겨 적는 대신 공식 문서로 연결한다.
+ *
+ * 앞으로 고지할 저작물이 늘어나면 이 배열에 항목만 더한다.
+ */
+type OpenSourceNotice = {
+  id: string;
+  /** 저작물 이름. */
+  name: string;
+  /** 저작권자. 라이선스가 요구하는 저작권 안내 문구 그대로 쓴다. */
+  holder: string;
+  /** 앱이 이 저작물을 어떻게 쓰는지. */
+  usage: string;
+  /** 라이선스 전문 주소. */
+  licenseUrl: string;
+};
+
+const openSourceNotices: OpenSourceNotice[] = [
+  {
+    id: "cookierun",
+    name: "쿠키런 서체",
+    holder: "쿠키런 글꼴의 지식 재산권은 데브시스터즈(주)에 있습니다.",
+    usage:
+      "Daymo는 제목과 본문에 쿠키런 Regular와 Bold를 씁니다. 배포된 글꼴 파일을 그대로 담았고 수정하거나 개작하지 않았어요.",
+    licenseUrl: "https://www.cookierunfont.com/static/download/License_ko_en.pdf",
+  },
+];
+
 function Together({
   theme,
   themeId,
@@ -2513,6 +2545,7 @@ function Together({
     | "theme"
     | "appearance"
     | "help"
+    | "licenses"
     | "account"
     | "groups"
     | null
@@ -2539,7 +2572,9 @@ function Together({
             ? "화면 모드"
             : panel === "help"
               ? "Daymo 도움말"
-              : "공간 프로필";
+              : panel === "licenses"
+                ? "오픈소스 라이선스"
+                : "공간 프로필";
   return (
     <>
       <ScrollView
@@ -2775,6 +2810,11 @@ function Together({
             theme={theme}
             label="도움말"
             onPress={() => setPanel("help")}
+          />
+          <Setting
+            theme={theme}
+            label="오픈소스 라이선스"
+            onPress={() => setPanel("licenses")}
           />
         </View>
       </ScrollView>
@@ -3059,6 +3099,40 @@ function Together({
           <Text style={[s.sheetCopy, { color: theme.muted }]}>
             여행을 만들고 일정, 준비물, 메모와 사진을 한곳에서 함께 관리하세요.
           </Text>
+        )}
+        {panel === "licenses" && (
+          <>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>
+              Daymo에 담아 함께 배포하는 저작물과 라이선스예요.
+            </Text>
+            {openSourceNotices.map((notice) => (
+              <View
+                key={notice.id}
+                style={[s.noticeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              >
+                <Text style={[s.noticeName, { color: theme.text }]}>{notice.name}</Text>
+                <Text style={[s.noticeHolder, { color: theme.text }]}>{notice.holder}</Text>
+                <Text style={[s.noticeBody, { color: theme.muted }]}>{notice.usage}</Text>
+                <Pressable
+                  onPress={() => {
+                    Linking.openURL(notice.licenseUrl);
+                  }}
+                  accessibilityRole="link"
+                  accessibilityLabel={`${notice.name} 라이선스 전문 열기`}
+                  style={({ pressed }) => [
+                    s.noticeLink,
+                    { backgroundColor: theme.primarySoft },
+                    pressed && s.pressed,
+                  ]}
+                >
+                  <Text style={[s.noticeLinkText, { color: theme.primary }]}>
+                    라이선스 전문 보기
+                  </Text>
+                  <Glyph name="arrowRight" size={16} color={theme.primary} />
+                </Pressable>
+              </View>
+            ))}
+          </>
         )}
         {panel === "profile" && (
           <>
@@ -4969,6 +5043,20 @@ const s = StyleSheet.create({
   groupChoiceName: { fontSize: 14, fontFamily: typo.title.family },
   groupChoiceMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 4 },
   groupChoiceCheck: { width: 18, alignItems: "center", justifyContent: "center" },
+  noticeCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 8 },
+  noticeName: { fontSize: typo.title.size, lineHeight: typo.title.line, fontFamily: typo.title.family },
+  noticeHolder: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 8 },
+  noticeBody: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 6 },
+  noticeLink: {
+    minHeight: 40,
+    borderRadius: 10,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  noticeLinkText: { fontSize: typo.label.size, lineHeight: typo.label.line, fontFamily: typo.label.family },
   togetherAccountButton: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   togetherAccountInitial: { fontSize: 14, fontFamily: typo.label.family },
   workspaceCard: {

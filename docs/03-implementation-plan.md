@@ -4,7 +4,7 @@
 
 ## 1. 현재 상태
 
-- Expo SDK 54, React Native, TypeScript 기반 iOS/Android UI 프로토타입
+- Expo SDK 57, React Native, TypeScript 기반 iOS/Android UI 프로토타입
 - 홈, 여행 목록/지도/캘린더, 찾기, 우리 공간 관리 UI
 - 여행 상세의 여행·장소·준비·요리·기록 탭과 추가/수정 폼
 - 테마와 시스템 다크모드

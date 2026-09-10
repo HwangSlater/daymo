@@ -6,10 +6,10 @@
 | --- | --- |
 | Node.js | 24 LTS, 루트 `.nvmrc`와 `mobile/package.json` engines 고정 |
 | npm | Node 20에 포함된 버전, `package-lock.json` 고정 |
-| Expo | SDK 54 |
-| React Native | 0.81.4 |
-| React | 19.1.0 |
-| TypeScript | 5.9.x |
+| Expo | SDK 57 |
+| React Native | 0.86.3 |
+| React | 19.2.3 |
+| TypeScript | 6.0.x |
 | iOS | Xcode 최신 안정 버전, CocoaPods, iOS Simulator |
 | Android | Android Studio, SDK 35 이상, JDK 17 |
 | Web | Expo Web. 피드백용 모바일 폭 프리뷰이며 정식 웹 제품은 후순위 |
@@ -62,9 +62,9 @@ npx tsc --noEmit
 - Jest + React Native Testing Library: 단위·컴포넌트 테스트
 - Maestro: 실제 기기 흐름 E2E
 
-Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋에서 최신 안정판 호환성을 검증하기로 확정했다. 회귀가 크면 검증 커밋만 되돌리고 SDK 54 기준 보안 패치 가능 범위를 기록한 뒤 진행한다.
+Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋에서 최신 안정판 호환성을 검증하기로 확정했다. 그 검증 커밋에서 SDK 54를 57로 올렸고 되돌리지 않았으므로 이후 작업은 SDK 57을 기준으로 진행한다.
 
-패키지는 한 단계씩 추가하고 Expo SDK 54 호환성을 확인한다. 라우터 도입은 현재 단일 화면 파일을 기능별로 분리하는 작업과 함께 진행한다.
+패키지는 한 단계씩 추가하고 Expo SDK 57 호환성을 확인한다. 라우터 도입은 현재 단일 화면 파일을 기능별로 분리하는 작업과 함께 진행한다.
 
 ## 3. 백엔드 환경
 
