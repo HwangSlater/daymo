@@ -16,7 +16,7 @@ import * as Clipboard from "expo-clipboard";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { typo } from "./theme/typography";
-import { memoPaper } from "./theme/colors";
+import { memoPaper, status as statusColor } from "./theme/colors";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
@@ -711,18 +711,18 @@ export function WarmTripDetail({
                 key={note.id}
                 style={[
                   styles.tripMemoRow,
-                  { backgroundColor: "#FFF9DF", borderColor: "#E7DAA7" },
+                  { backgroundColor: memo.surface, borderColor: memo.border },
                 ]}
               >
                 <View style={styles.tripMemoRowHead}>
-                  <Text style={[styles.tripMemoAuthor, { color: "#9A6D35" }]}>{note.author}</Text>
+                  <Text style={[styles.tripMemoAuthor, { color: memo.meta }]}>{note.author}</Text>
                   <View style={styles.tripMemoActions}>
                     <Pressable onPress={() => {
                       setEditingMemoId(note.id);
                       setMemoDraft(note.body);
                       setMemoEditorOpen(true);
                     }}>
-                      <Text style={[styles.tripMemoEdit, { color: "#786D50" }]}>수정</Text>
+                      <Text style={[styles.tripMemoEdit, { color: memo.meta }]}>수정</Text>
                     </Pressable>
                     <Pressable onPress={() => Alert.alert(
                       "메모를 삭제할까요?",
@@ -740,11 +740,11 @@ export function WarmTripDetail({
                         } },
                       ],
                     )}>
-                      <Text style={styles.tripMemoDelete}>삭제</Text>
+                      <Text style={[styles.tripMemoDelete, { color: appTheme?.dark ? statusColor.danger.dark : statusColor.danger.light }]}>삭제</Text>
                     </Pressable>
                   </View>
                 </View>
-                <Text style={[styles.tripMemoBody, { color: "#403A2B" }]}>{note.body}</Text>
+                <Text style={[styles.tripMemoBody, { color: memo.text }]}>{note.body}</Text>
               </View>
             ))}
           </View>
@@ -1258,7 +1258,7 @@ function TripOverview({
         onDestructive={deleteSchedule}
       >
         <View style={styles.planPreview}>
-          <View style={styles.previewDate}>
+          <View style={[styles.previewDate, theme && { backgroundColor: theme.primary }]}>
             <Text style={styles.previewDay}>{planDay.slice(0, 1)}</Text>
             <Text style={styles.previewDateNo}>{planDay.slice(-2)}</Text>
           </View>
@@ -2232,9 +2232,9 @@ function Places({
                     draftTags.filter((item) => item !== tag).join(", "),
                   )
                 }
-                style={styles.draftTag}
+                style={[styles.draftTag, theme && { backgroundColor: theme.primarySoft }]}
               >
-                <Text style={styles.draftTagText}># {tag} ×</Text>
+                <Text style={[styles.draftTagText, theme && { color: theme.primary }]}># {tag} ×</Text>
               </Pressable>
             ))}
           </View>

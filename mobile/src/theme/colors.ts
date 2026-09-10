@@ -70,7 +70,7 @@ export function paperCorner(dark: boolean) {
 // 다른 색과 같은 명도로 내린 결과 갈색에 가까워진다. 의도한 절충이다.
 // ---------------------------------------------------------------------------
 
-export type DomainId = "place" | "stay" | "packing" | "cooking";
+export type DomainId = "place" | "stay" | "packing" | "cooking" | "record";
 
 const domainPalette = {
   place: {
@@ -88,6 +88,10 @@ const domainPalette = {
   cooking: {
     light: { solid: "#8E5E29", soft: "#FBEBDE" },
     dark: { solid: "#E5B282", soft: "#503C29" },
+  },
+  record: {
+    light: { solid: "#886026", soft: "#FAECDD" },
+    dark: { solid: "#DFB47F", soft: "#4E3D28" },
   },
 } as const;
 
@@ -129,4 +133,20 @@ export function paperCard(dark: boolean) {
         tape: "rgba(218, 198, 157, .68)",
         divider: "rgba(118, 107, 83, .22)",
       };
+}
+
+/**
+ * 찾기 결과의 종류를 도메인 색으로 잇는다. 일정은 앱의 중심 활동이라
+ * 도메인 색 대신 테마 강조색을 쓴다.
+ */
+export function kindColor(kind: string, dark: boolean, primary: string) {
+  const map: Record<string, DomainId> = {
+    장소: "place",
+    숙소: "stay",
+    준비: "packing",
+    요리: "cooking",
+    기록: "record",
+  };
+  const id = map[kind];
+  return id ? domain(id, dark).solid : primary;
 }

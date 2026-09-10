@@ -31,7 +31,7 @@ import {
 } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { typo } from "./theme/typography";
-import { domain, paperCard, paperCorner } from "./theme/colors";
+import { domain, kindColor, paperCard, paperCorner } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -1957,7 +1957,7 @@ function TripDateRangePicker({
       <Text style={[s.fieldLabel, { color: theme.muted }]}>기간</Text>
       <View style={s.rangeSummary}>
         <View>
-          <Text style={s.rangeSummaryLabel}>
+          <Text style={[s.rangeSummaryLabel, { color: theme.primary }]}>
             {selectingEnd ? "마지막 날을 선택하세요" : "선택한 여행 기간"}
           </Text>
           <Text style={s.rangeSummaryValue}>
@@ -2087,7 +2087,6 @@ function Search({
       type: "장소",
       trip: "전주 한옥마을",
       detail: "8.22 토요일 저녁 예약",
-      color: "#19B6A3",
       tags: ["스시", "저녁", "예약"],
     },
     {
@@ -2095,7 +2094,6 @@ function Search({
       type: "요리",
       trip: "전주 한옥마을",
       detail: "재료 6개 · 여울 준비",
-      color: "#F0A351",
       tags: ["저녁", "주방"],
     },
     {
@@ -2103,7 +2101,6 @@ function Search({
       type: "장소",
       trip: "강릉 안목",
       detail: "돈테키덮밥 · 11시 영업",
-      color: "#19B6A3",
       tags: ["식당", "점심"],
     },
     {
@@ -2111,7 +2108,6 @@ function Search({
       type: "준비",
       trip: "진주",
       detail: "아침에 챙길 것",
-      color: "#8B7CF6",
       tags: ["전자기기"],
     },
     {
@@ -2119,7 +2115,6 @@ function Search({
       type: "일정",
       trip: "부산",
       detail: "7.25 토요일 · 돌산",
-      color: "#FF6B5F",
       tags: ["야경", "행사"],
     },
     {
@@ -2127,7 +2122,6 @@ function Search({
       type: "기록",
       trip: "전주 한옥마을",
       detail: "함께 확인할 여행 메모",
-      color: "#D49A47",
       tags: ["요리", "메모"],
     },
   ];
@@ -2322,7 +2316,9 @@ function Search({
       </View>
       {results.length > 0 && (
       <View style={s.searchResultsSheet}>
-      {results.map((item, index) => (
+      {results.map((item, index) => {
+        const tone = kindColor(item.type, theme.dark, theme.primary);
+        return (
         <View
           key={item.title}
           style={[
@@ -2338,7 +2334,7 @@ function Search({
             pointerEvents="none"
             style={[
               s.searchResultColorTab,
-              { backgroundColor: item.color },
+              { backgroundColor: tone },
             ]}
           />
           <Pressable
@@ -2367,18 +2363,18 @@ function Search({
                   style={[
                     s.searchResultTypeBadge,
                     {
-                      backgroundColor: `${item.color}${theme.dark ? "28" : "14"}`,
+                      backgroundColor: `${tone}${theme.dark ? "28" : "14"}`,
                     },
                   ]}
                 >
-                  <Text style={[s.searchResultType, { color: item.color }]}>{item.type}</Text>
+                  <Text style={[s.searchResultType, { color: tone }]}>{item.type}</Text>
                 </View>
               </View>
               <Text numberOfLines={1} style={[s.searchResultDetail, { color: theme.muted }]}>{item.detail}</Text>
               <View style={s.searchResultMetaRow}>
                 <Text numberOfLines={1} style={[s.searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
                 {item.tags.slice(0, 2).map((tag) => (
-                  <Text key={tag} style={[s.searchResultTag, { color: item.color }]}>#{tag}</Text>
+                  <Text key={tag} style={[s.searchResultTag, { color: tone }]}>#{tag}</Text>
                 ))}
               </View>
             </View>
@@ -2425,7 +2421,8 @@ function Search({
             </View>
           )}
         </View>
-      ))}
+        );
+      })}
       </View>
       )}
       {!results.length && (
@@ -3513,7 +3510,9 @@ function Choice({
       >
         {label}
       </Text>
-      <Text style={s.choiceMark}>{selected ? "✓" : ""}</Text>
+      <Text style={[s.choiceMark, theme && { color: theme.primary }]}>
+        {selected ? "✓" : ""}
+      </Text>
     </Pressable>
   );
 }
