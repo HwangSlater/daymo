@@ -22,6 +22,7 @@ import * as WebBrowser from "expo-web-browser";
 import { TripDetailDestination, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
+import { isOnLand, nearestRegion } from "./koreaHitTest";
 import {
   AppTheme,
   AppearanceMode,
@@ -1407,10 +1408,22 @@ function KoreaTripMap({
   const [size, setSize] = useState({ width: 300, height: 420 });
   const [zoom, setZoom] = useState(1.5);
   const [center, setCenter] = useState({ x: 150, y: 210 });
+  // 두 손가락이 닿아 있는 동안은 시군구 층을 내린다. 668개 경로를 매 프레임
+  // 다시 그리면 확대가 끊긴다.
+  const [pinching, setPinching] = useState(false);
   const centerRef = useRef(center);
   centerRef.current = center;
-  const dragStart = useRef(center);
-  const lastWheel = useRef(0);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
+  // 손가락 하나가 움직이는 중인지, 두 개가 벌어지는 중인지, 그냥 톡 누른 건지.
+  const gesture = useRef<
+    | { kind: "none" }
+    | { kind: "pan"; from: { x: number; y: number } }
+    | { kind: "pinch"; span: number; zoom: number; at: { x: number; y: number }; on: { x: number; y: number } }
+  >({ kind: "none" });
+  const movedFar = useRef(false);
   const boxWidth = 300 / zoom;
   const boxHeight = 420 / zoom;
   const boxX = center.x - boxWidth / 2;
@@ -1427,87 +1440,186 @@ function KoreaTripMap({
       y: Math.max(halfHeight, Math.min(420 - halfHeight, point.y)),
     };
   };
+  /** 배율 level 에서의 보이는 상자와 화면 배율. */
+  const viewAt = (level: number, at: { x: number; y: number }) => {
+    const width = 300 / level;
+    const height = 420 / level;
+    const scale = Math.min(sizeRef.current.width / width, sizeRef.current.height / height);
+    return {
+      x: at.x - width / 2,
+      y: at.y - height / 2,
+      width,
+      height,
+      scale,
+      offsetX: (sizeRef.current.width - width * scale) / 2,
+      offsetY: (sizeRef.current.height - height * scale) / 2,
+    };
+  };
+  /** 화면 위의 점을 지도 좌표로 옮긴다. */
+  const toMapPoint = (screen: { x: number; y: number }) => {
+    const view = viewAt(zoomRef.current, centerRef.current);
+    return {
+      x: view.x + (screen.x - view.offsetX) / view.scale,
+      y: view.y + (screen.y - view.offsetY) / view.scale,
+    };
+  };
+  /**
+   * 지도의 한 점을 화면의 한 점에 붙여둔 채 배율만 바꾼다.
+   * 손가락 사이를 벌리면 잡은 자리가 손가락을 따라온다.
+   */
+  const zoomAround = (
+    level: number,
+    screen: { x: number; y: number },
+    on: { x: number; y: number },
+  ) => {
+    const next = Math.max(1, Math.min(MAP_MAX_ZOOM, level));
+    const view = viewAt(next, centerRef.current);
+    const at = clampCenter(
+      {
+        x: on.x - (screen.x - view.offsetX) / view.scale + view.width / 2,
+        y: on.y - (screen.y - view.offsetY) / view.scale + view.height / 2,
+      },
+      next,
+    );
+    centerRef.current = at;
+    zoomRef.current = next;
+    setCenter(at);
+    setZoom(next);
+  };
+  /** 확대·축소 버튼. 버튼은 눌린 만큼 딱 떨어지는 게 낫다. */
   const changeZoom = (
     amount: number,
     focus = { x: size.width / 2, y: size.height / 2 },
   ) => {
-    const nextZoom = Math.max(
+    const next = Math.max(
       1,
-      Math.min(MAP_MAX_ZOOM, Math.round((zoom + amount) * 2) / 2),
+      Math.min(MAP_MAX_ZOOM, Math.round((zoomRef.current + amount) * 2) / 2),
     );
-    if (nextZoom === zoom) return;
-    const mapX = boxX + (focus.x - mapOffsetX) / mapScale;
-    const mapY = boxY + (focus.y - mapOffsetY) / mapScale;
-    const nextWidth = 300 / nextZoom;
-    const nextHeight = 420 / nextZoom;
-    const nextScale = Math.min(
-      size.width / nextWidth,
-      size.height / nextHeight,
-    );
-    const nextOffsetX = (size.width - nextWidth * nextScale) / 2;
-    const nextOffsetY = (size.height - nextHeight * nextScale) / 2;
-    setCenter(
-      clampCenter(
-        {
-          x: mapX - (focus.x - nextOffsetX) / nextScale + nextWidth / 2,
-          y: mapY - (focus.y - nextOffsetY) / nextScale + nextHeight / 2,
-        },
-        nextZoom,
-      ),
-    );
-    setZoom(nextZoom);
+    if (next === zoomRef.current) return;
+    zoomAround(next, focus, toMapPoint(focus));
   };
   const resetMap = () => {
     setZoom(1.5);
     setCenter({ x: 150, y: 210 });
   };
+  /** 닿아 있는 두 손가락 사이의 거리와 중점. */
+  const spanOf = (touches: ReadonlyArray<{ locationX: number; locationY: number }>) => {
+    const dx = touches[0].locationX - touches[1].locationX;
+    const dy = touches[0].locationY - touches[1].locationY;
+    return {
+      distance: Math.max(1, Math.hypot(dx, dy)),
+      at: {
+        x: (touches[0].locationX + touches[1].locationX) / 2,
+        y: (touches[0].locationY + touches[1].locationY) / 2,
+      },
+    };
+  };
+  const beginPinch = (touches: ReadonlyArray<{ locationX: number; locationY: number }>) => {
+    const { distance, at } = spanOf(touches);
+    gesture.current = { kind: "pinch", span: distance, zoom: zoomRef.current, at, on: toMapPoint(at) };
+    setPinching(true);
+  };
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          zoom > 1 && Math.abs(gesture.dx) + Math.abs(gesture.dy) > 4,
-        onPanResponderGrant: () => {
-          dragStart.current = centerRef.current;
+        // 톡 누르는 것도 받아야 지역을 고를 수 있다.
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+          movedFar.current = false;
+          const touches = event.nativeEvent.touches;
+          if (touches.length >= 2) beginPinch(touches);
+          else gesture.current = { kind: "pan", from: centerRef.current };
         },
-        onPanResponderMove: (_, gesture) =>
-          setCenter(
-            clampCenter(
-              {
-                x: dragStart.current.x - gesture.dx / mapScale,
-                y: dragStart.current.y - gesture.dy / mapScale,
-              },
-              zoom,
-            ),
-          ),
+        onPanResponderMove: (event, state) => {
+          const touches = event.nativeEvent.touches;
+          if (Math.abs(state.dx) + Math.abs(state.dy) > 6) movedFar.current = true;
+
+          if (touches.length >= 2) {
+            if (gesture.current.kind !== "pinch") beginPinch(touches);
+            const active = gesture.current;
+            if (active.kind !== "pinch") return;
+            movedFar.current = true;
+            const { distance, at } = spanOf(touches);
+            // 벌린 비율이 그대로 배율이 된다. 단계 없이 이어진다.
+            zoomAround(active.zoom * (distance / active.span), at, active.on);
+            return;
+          }
+
+          if (gesture.current.kind === "pinch") {
+            // 손가락 하나가 떨어졌다. 남은 손가락으로 끌기를 새로 시작한다.
+            gesture.current = { kind: "pan", from: centerRef.current };
+            setPinching(false);
+            return;
+          }
+
+          if (gesture.current.kind !== "pan" || zoomRef.current <= 1) return;
+          const view = viewAt(zoomRef.current, centerRef.current);
+          const at = clampCenter(
+            {
+              x: gesture.current.from.x - state.dx / view.scale,
+              y: gesture.current.from.y - state.dy / view.scale,
+            },
+            zoomRef.current,
+          );
+          centerRef.current = at;
+          setCenter(at);
+        },
+        onPanResponderRelease: (event) => {
+          const wasPinching = gesture.current.kind === "pinch";
+          gesture.current = { kind: "none" };
+          setPinching(false);
+          if (wasPinching || movedFar.current) return;
+          // 움직이지 않았으면 톡 누른 것이다. 육지를 눌렀으면 그 자리에서
+          // 가장 가까운 시도를 고른다. 시도별 영역 데이터가 없어서 쓰는 어림이다.
+          const native = event.nativeEvent;
+          const point = toMapPoint({ x: native.locationX, y: native.locationY });
+          if (!isOnLand(point.x, point.y)) return;
+          const region = nearestRegion(point.x, point.y, regionPins);
+          if (region) onSelect(region);
+        },
+        onPanResponderTerminate: () => {
+          gesture.current = { kind: "none" };
+          setPinching(false);
+        },
       }),
-    [mapScale, zoom],
+    [],
   );
   const webWheel =
     Platform.OS === "web"
       ? {
+          // 휠도 손가락처럼 이어지게 굴린다. 트랙패드로 벌리면 브라우저가
+          // ctrl 을 얹은 휠로 보내므로 같은 길로 흘려보낸다.
           onWheel: (event: {
             preventDefault?: () => void;
+            ctrlKey?: boolean;
             nativeEvent?: {
               deltaY?: number;
+              ctrlKey?: boolean;
               locationX?: number;
               locationY?: number;
             };
             deltaY?: number;
           }) => {
             event.preventDefault?.();
-            const now = Date.now();
-            if (now - lastWheel.current < 120) return;
-            lastWheel.current = now;
             const native = event.nativeEvent;
-            changeZoom((native?.deltaY ?? event.deltaY ?? 0) < 0 ? 0.5 : -0.5, {
+            const delta = native?.deltaY ?? event.deltaY ?? 0;
+            if (!delta) return;
+            const pinch = native?.ctrlKey ?? event.ctrlKey ?? false;
+            const focus = {
               x: native?.locationX ?? size.width / 2,
               y: native?.locationY ?? size.height / 2,
-            });
+            };
+            // 배율은 곱으로 움직여야 어느 배율에서든 같은 속도로 느껴진다.
+            const step = Math.exp(-delta * (pinch ? 0.01 : 0.0022));
+            zoomAround(zoomRef.current * step, focus, toMapPoint(focus));
           },
         }
       : {};
+  // 시군구 경로는 668개라 두 손가락으로 벌리는 동안에는 내려둔다.
+  const detailed = zoom >= 2 && !pinching;
   const cityPath: string | null =
-    zoom >= 2 ? require("./koreaCityPath").koreaCityPath : null;
+    detailed ? require("./koreaCityPath").koreaCityPath : null;
   return (
     <View
       {...(webWheel as any)}
@@ -1537,7 +1649,7 @@ function KoreaTripMap({
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        {zoom >= 2 && (
+        {detailed && (
           <Path
             d={cityPath!}
             fill="none"
