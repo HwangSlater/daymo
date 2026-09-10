@@ -88,7 +88,7 @@ const s = StyleSheet.create({
     alignSelf: "center",
     width: 134,
     height: 5,
-    borderRadius: 3,
+    borderRadius: 2,
     backgroundColor: "rgba(20,22,26,.32)",
   },
 });
