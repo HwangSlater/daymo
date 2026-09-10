@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
+  Animated,
   Alert,
   Modal,
   Image,
@@ -501,7 +503,6 @@ function NotebookHome({
   relationship: "연인" | "친구";
   since: string;
 }) {
-  const paper = paperCard(theme.dark);
   const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
   return (
     <ScrollView
@@ -527,158 +528,9 @@ function NotebookHome({
           </Text>
         </View>
       </View>
+      {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} open={open} />}
       {trip ? (
         <>
-      <View style={s.paperTripStack}>
-        <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />
-        <View style={[s.paperTripBack, s.paperTripBackRight, { backgroundColor: paper.backRight }]} />
-        <View
-          style={[
-            s.paperTrip,
-            { backgroundColor: paper.surface, borderColor: paper.border },
-          ]}
-        >
-        <View pointerEvents="none" style={s.paperTripTexture}>
-          {[63, 113, 163].map((top) => (
-            <View key={top} style={[s.paperTripSoftLine, { top, backgroundColor: paper.softLine }]} />
-          ))}
-          <View
-            style={[
-              s.paperTripMargin,
-              { backgroundColor: `${theme.primary}24` },
-            ]}
-          />
-        </View>
-        <View style={[s.paperTape, { backgroundColor: paper.tape }]} />
-        <View pointerEvents="none" style={s.paperTripRoute}>
-          <Svg width="100%" height="100%" viewBox="0 0 112 42">
-            <Path
-              // 점선 끝을 종이비행기 꼬리 홈(90,20) 앞에 맞춘다.
-              // 원래는 (84,17)에서 끝나 위쪽 모서리를 비스듬히 가로질렀다.
-              d="M4 29C28 8 60 34 88 22"
-              fill="none"
-              stroke={theme.primary}
-              strokeWidth={1.4}
-              strokeDasharray="3 5"
-              strokeLinecap="round"
-            />
-            <Path
-              d="m82 17 18-7-7 18-3-8-8-3Z"
-              fill="none"
-              stroke={theme.primary}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>
-        <Pressable
-          onPress={() => open("overview", trip)}
-          style={({ pressed }) => [
-            s.paperTripMain,
-            pressed && s.pressed,
-          ]}
-        >
-        <View style={s.paperTripHead}>
-          <View style={s.paperTripCopy}>
-            <Text style={[s.paperKicker, { color: theme.primary }]}>
-              {trip.start <= todayKey && trip.end >= todayKey
-                ? "지금 여행 중"
-                : "다음 여행"}
-            </Text>
-            <Text style={[s.paperTitle, { color: paper.title }]}>
-              {trip.name}
-            </Text>
-            <Text style={[s.paperDate, { color: paper.muted }]}>
-              {trip.date}
-            </Text>
-          </View>
-          <View
-            style={[
-              s.paperTripStamp,
-              {
-                backgroundColor: "transparent",
-                borderColor: paper.stampBorder,
-              },
-            ]}
-          >
-            <Text style={[s.paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
-            <Text style={[s.paperTripStampDay, { color: paper.title }]}>{trip.start.slice(-2)}</Text>
-            <View style={[s.paperTripStampRule, { backgroundColor: theme.primary }]} />
-          </View>
-        </View>
-        <View style={[s.paperRule, { borderColor: paper.rule }]} />
-        <View
-          style={[
-            s.paperStayBoard,
-            {
-              backgroundColor: "transparent",
-              borderColor: "transparent",
-            },
-          ]}
-        >
-          <View style={s.paperStay}>
-            <View
-              style={[
-                s.paperStayIcon,
-                {
-                  backgroundColor: "transparent",
-                  borderColor: paper.iconBorder,
-                },
-              ]}
-            >
-              <Svg width={22} height={22} viewBox="0 0 22 22">
-                <Path
-                  d="M4 19V7.5L11 3l7 4.5V19M7.5 19v-5h7v5M8 9h1M13 9h1"
-                  fill="none"
-                  stroke={domain("stay", theme.dark).solid}
-                  strokeWidth={1.7}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.paperStayLabel, { color: domain("stay", theme.dark).solid }]}>숙소</Text>
-              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>달빛한옥</Text>
-            </View>
-            <View
-              style={[
-                s.paperStayTime,
-                {
-                  backgroundColor: "transparent",
-                  borderColor: paper.iconBorder,
-                },
-              ]}
-            >
-              <Text style={[s.paperStayTimeLabel, { color: paper.muted }]}>체크인</Text>
-              <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
-            </View>
-          </View>
-        </View>
-        </Pressable>
-        <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
-          {[
-            { label: "여행 일정", meta: "3개", color: theme.primary, destination: "overview" as TripDetailDestination },
-            { label: "저장 장소", meta: "8곳", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
-            { label: "준비물", meta: "2 / 6", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
-          ].map((item, index) => (
-            <Pressable
-              key={item.label}
-              onPress={() => open(item.destination, trip)}
-              style={({ pressed }) => [
-                s.paperTripAction,
-                index > 0 && [s.paperTripActionBorder, { borderLeftColor: paper.divider }],
-                pressed && s.pressed,
-              ]}
-            >
-              <Text style={[s.paperTripActionLabel, { color: item.color }]}>{item.label}</Text>
-              <Text style={[s.paperTripActionMeta, { color: paper.muted }]}>{item.meta}</Text>
-              <View style={[s.paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
-            </Pressable>
-          ))}
-        </View>
-        </View>
-      </View>
       <View style={s.scrapTitleRow}>
         <View>
           <Text style={[s.noteTitleSmall, { color: theme.primary }]}>우리의 체크리스트</Text>
@@ -778,6 +630,238 @@ function NotebookHome({
         </View>
       )}
     </ScrollView>
+  );
+}
+
+function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
+  trips: Trip[];
+  initialTrip: Trip | null;
+  theme: AppTheme;
+  todayKey: string;
+  open: (destination?: TripDetailDestination, trip?: Trip) => void;
+}) {
+  const ordered = useMemo(() => [...trips].sort((a, b) => b.start.localeCompare(a.start)), [trips]);
+  const initialIndex = initialTrip ? Math.max(0, ordered.indexOf(initialTrip)) : 0;
+  const [index, setIndex] = useState(initialIndex);
+  const [width, setWidth] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const scroll = useRef<ScrollView>(null);
+  const [offset] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (mounted) setReduceMotion(value); });
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => { mounted = false; subscription.remove(); };
+  }, []);
+  const move = (next: number) => {
+    if (next < 0 || next >= ordered.length) return;
+    scroll.current?.scrollTo({ x: next * width, animated: !reduceMotion });
+    setIndex(next);
+  };
+  return (
+    <View onLayout={event => setWidth(event.nativeEvent.layout.width)}>
+      {width > 0 && <Animated.ScrollView
+        key={width}
+        ref={scroll}
+        horizontal
+        pagingEnabled
+        directionalLockEnabled
+        showsHorizontalScrollIndicator={false}
+        contentOffset={{ x: index * width, y: 0 }}
+        onContentSizeChange={() => {
+          scroll.current?.scrollTo({ x: index * width, animated: false });
+          offset.setValue(index * width);
+        }}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: offset } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={event => setIndex(Math.max(0, Math.min(ordered.length - 1, Math.round(event.nativeEvent.contentOffset.x / width))))}
+      >
+        {ordered.map((trip, position) => {
+          const inputRange = [(position - 1) * width, position * width, (position + 1) * width];
+          return <View key={`${trip.name}-${trip.start}`} style={{ width, paddingHorizontal: 6, paddingTop: 8 }}>
+            <Animated.View style={reduceMotion ? undefined : {
+              opacity: offset.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: "clamp" }),
+              transform: [
+                { scale: offset.interpolate({ inputRange, outputRange: [0.94, 1, 0.94], extrapolate: "clamp" }) },
+                { rotate: offset.interpolate({ inputRange, outputRange: ["-2deg", "0deg", "2deg"], extrapolate: "clamp" }) },
+              ],
+            }}>
+              <HomeTripCard trip={trip} theme={theme} todayKey={todayKey} open={open} />
+            </Animated.View>
+          </View>;
+        })}
+      </Animated.ScrollView>}
+      {ordered.length > 1 && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="이전 여행 보기" disabled={index === ordered.length - 1} onPress={() => move(index + 1)} style={{ padding: 12, opacity: index === ordered.length - 1 ? 0.3 : 1 }}>
+          <Text style={{ color: theme.primary, fontSize: 13 }}>‹ 이전 여행</Text>
+        </Pressable>
+        <Text accessibilityLiveRegion="polite" style={{ color: theme.muted, fontSize: 12 }}>{index + 1} / {ordered.length}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="다음 여행 보기" disabled={index === 0} onPress={() => move(index - 1)} style={{ padding: 12, opacity: index === 0 ? 0.3 : 1 }}>
+          <Text style={{ color: theme.primary, fontSize: 13 }}>다음 여행 ›</Text>
+        </Pressable>
+      </View>}
+    </View>
+  );
+}
+
+function HomeTripCard({ trip, theme, todayKey, open }: {
+  trip: Trip;
+  theme: AppTheme;
+  todayKey: string;
+  open: (destination?: TripDetailDestination, trip?: Trip) => void;
+}) {
+  const paper = paperCard(theme.dark);
+  return (
+      <View style={s.paperTripStack}>
+        <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />
+        <View style={[s.paperTripBack, s.paperTripBackRight, { backgroundColor: paper.backRight }]} />
+        <View
+          style={[
+            s.paperTrip,
+            { backgroundColor: paper.surface, borderColor: paper.border },
+          ]}
+        >
+        <View pointerEvents="none" style={s.paperTripTexture}>
+          {[63, 113, 163].map((top) => (
+            <View key={top} style={[s.paperTripSoftLine, { top, backgroundColor: paper.softLine }]} />
+          ))}
+          <View
+            style={[
+              s.paperTripMargin,
+              { backgroundColor: `${theme.primary}24` },
+            ]}
+          />
+        </View>
+        <View style={[s.paperTape, { backgroundColor: paper.tape }]} />
+        <View pointerEvents="none" style={s.paperTripRoute}>
+          <Svg width="100%" height="100%" viewBox="0 0 112 42">
+            <Path
+              // 점선 끝을 종이비행기 꼬리 홈(90,20) 앞에 맞춘다.
+              // 원래는 (84,17)에서 끝나 위쪽 모서리를 비스듬히 가로질렀다.
+              d="M4 29C28 8 60 34 88 22"
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={1.4}
+              strokeDasharray="3 5"
+              strokeLinecap="round"
+            />
+            <Path
+              d="m82 17 18-7-7 18-3-8-8-3Z"
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={1.5}
+              strokeLinejoin="round"
+            />
+          </Svg>
+        </View>
+        <Pressable
+          onPress={() => open("overview", trip)}
+          style={({ pressed }) => [
+            s.paperTripMain,
+            pressed && s.pressed,
+          ]}
+        >
+        <View style={s.paperTripHead}>
+          <View style={s.paperTripCopy}>
+            <Text style={[s.paperKicker, { color: theme.primary }]}>
+              {trip.start <= todayKey && trip.end >= todayKey
+                ? "지금 여행 중"
+                : trip.end < todayKey ? "지난 여행" : "다음 여행"}
+            </Text>
+            <Text style={[s.paperTitle, { color: paper.title }]}>
+              {trip.name}
+            </Text>
+            <Text style={[s.paperDate, { color: paper.muted }]}>
+              {trip.date}
+            </Text>
+          </View>
+          <View
+            style={[
+              s.paperTripStamp,
+              {
+                backgroundColor: "transparent",
+                borderColor: paper.stampBorder,
+              },
+            ]}
+          >
+            <Text style={[s.paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
+            <Text style={[s.paperTripStampDay, { color: paper.title }]}>{trip.start.slice(-2)}</Text>
+            <View style={[s.paperTripStampRule, { backgroundColor: theme.primary }]} />
+          </View>
+        </View>
+        <View style={[s.paperRule, { borderColor: paper.rule }]} />
+        <View
+          style={[
+            s.paperStayBoard,
+            {
+              backgroundColor: "transparent",
+              borderColor: "transparent",
+            },
+          ]}
+        >
+          <View style={s.paperStay}>
+            <View
+              style={[
+                s.paperStayIcon,
+                {
+                  backgroundColor: "transparent",
+                  borderColor: paper.iconBorder,
+                },
+              ]}
+            >
+              <Svg width={22} height={22} viewBox="0 0 22 22">
+                <Path
+                  d="M4 19V7.5L11 3l7 4.5V19M7.5 19v-5h7v5M8 9h1M13 9h1"
+                  fill="none"
+                  stroke={domain("stay", theme.dark).solid}
+                  strokeWidth={1.7}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.paperStayLabel, { color: domain("stay", theme.dark).solid }]}>숙소</Text>
+              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>달빛한옥</Text>
+            </View>
+            <View
+              style={[
+                s.paperStayTime,
+                {
+                  backgroundColor: "transparent",
+                  borderColor: paper.iconBorder,
+                },
+              ]}
+            >
+              <Text style={[s.paperStayTimeLabel, { color: paper.muted }]}>체크인</Text>
+              <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
+            </View>
+          </View>
+        </View>
+        </Pressable>
+        <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
+          {[
+            { label: "여행 일정", meta: "3개", color: theme.primary, destination: "overview" as TripDetailDestination },
+            { label: "저장 장소", meta: "8곳", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
+            { label: "준비물", meta: "2 / 6", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
+          ].map((item, index) => (
+            <Pressable
+              key={item.label}
+              onPress={() => open(item.destination, trip)}
+              style={({ pressed }) => [
+                s.paperTripAction,
+                index > 0 && [s.paperTripActionBorder, { borderLeftColor: paper.divider }],
+                pressed && s.pressed,
+              ]}
+            >
+              <Text style={[s.paperTripActionLabel, { color: item.color }]}>{item.label}</Text>
+              <Text style={[s.paperTripActionMeta, { color: paper.muted }]}>{item.meta}</Text>
+              <View style={[s.paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
+            </Pressable>
+          ))}
+        </View>
+        </View>
+      </View>
   );
 }
 
