@@ -607,7 +607,7 @@ function NotebookHome({
         </Pressable>
         <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
           {[
-            { label: "일정 추가", meta: "3개", color: theme.primary, destination: "schedule-add" as TripDetailDestination },
+            { label: "여행 일정", meta: "3개", color: theme.primary, destination: "overview" as TripDetailDestination },
             { label: "저장 장소", meta: "8곳", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
             { label: "준비물", meta: "2 / 6", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
           ].map((item, index) => (
@@ -645,7 +645,7 @@ function NotebookHome({
           <Text style={[s.noteTitle, { color: theme.text }]}>출발 전, 이것만</Text>
         </View>
         <Pressable onPress={() => open("overview", trip)}>
-          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>여행 보기</Text>
+          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>전체 확인</Text>
         </Pressable>
       </View>
       <View
@@ -852,8 +852,8 @@ function HomeQuick({
           <Svg width={18} height={18} viewBox="0 0 22 22">
             <Path
               d={
-                label === "일정 추가"
-                  ? "M11 4v14M4 11h14"
+                label === "여행 일정"
+                  ? "M7 4v3M15 4v3M4.5 9.5h13M6 6.5h10A1.5 1.5 0 0 1 17.5 8v9a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 17V8A1.5 1.5 0 0 1 6 6.5Z"
                   : label === "저장 장소"
                     ? "M11 19s6-5.3 6-10A6 6 0 0 0 5 9c0 4.7 6 10 6 10Zm0-7.6a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z"
                     : "m5 11 3.7 3.7L17 6.5"
@@ -2054,8 +2054,8 @@ function Search({
       title: "소나기식당",
       type: "장소",
       trip: "전주 한옥마을",
-      detail: "8.22 토요일 저녁 예약",
-      tags: ["스시", "저녁", "예약"],
+      detail: "9월 23일 수요일 저녁 예약",
+      tags: ["초밥", "디너", "예약"],
     },
     {
       title: "버섯전골",
@@ -2082,7 +2082,7 @@ function Search({
       title: "여수 밤바다 불꽃",
       type: "일정",
       trip: "여수",
-      detail: "7.25 토요일 · 돌산",
+      detail: "7월 28일 화요일 · 돌산",
       tags: ["야경", "행사"],
     },
     {
@@ -2275,11 +2275,9 @@ function Search({
         ))}
       </ScrollView>
       <View style={s.searchResultHead}>
+        {/* 개수는 바로 위 분류 칩이 항상 보여준다. 여기서 또 세면 같은 말이 두 번이다. */}
         <Text style={[s.searchResultTitle, { color: theme.text }]}>
           {query || category !== "전체" ? "검색 결과" : "여행 기록"}
-        </Text>
-        <Text style={[s.searchResultCount, { color: theme.muted }]}>
-          {results.length}개
         </Text>
       </View>
       {results.length > 0 && (
@@ -2342,7 +2340,7 @@ function Search({
               <View style={s.searchResultMetaRow}>
                 <Text numberOfLines={1} style={[s.searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
                 {item.tags.slice(0, 2).map((tag) => (
-                  <Text key={tag} style={[s.searchResultTag, { color: tone }]}>#{tag}</Text>
+                  <Text key={tag} style={[s.searchResultTag, { color: tone }]}># {tag}</Text>
                 ))}
               </View>
             </View>
@@ -2684,7 +2682,7 @@ function Together({
               style={[s.historySummaryItem, index > 0 && { borderLeftColor: theme.border, borderLeftWidth: 1 }]}
             >
               <Text style={[s.historySummaryValue, { color: stat.color }]}>
-                {stat.value}<Text style={[s.historyUnit, { color: theme.muted }]}> {stat.unit}</Text>
+                {stat.value}<Text style={[s.historyUnit, { color: theme.muted }]}>{stat.unit}</Text>
               </Text>
               <Text style={[s.historySummaryLabel, { color: theme.muted }]}>{stat.label}</Text>
             </View>
@@ -4233,7 +4231,6 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   searchResultTitle: { color: "#17233D", fontSize: 16, fontFamily: typo.title.family },
-  searchResultCount: { color: "#8C939B", fontSize: 14, fontFamily: typo.data.family },
   searchResultLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   searchResultName: { color: "#273143", fontSize: 14, fontFamily: typo.title.family },
   searchResultType: { fontSize: 12, fontFamily: typo.label.family },

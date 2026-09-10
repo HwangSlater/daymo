@@ -89,7 +89,9 @@ const buildTripDates = (start?: string, end?: string) => {
 };
 
 const dayLabel = (date: Date) =>
-  `${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]} · ${date.getDate()}`;
+  `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
+/** "24일(목)" 형태의 날짜 옵션에서 요일만 꺼낸다. */
+const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
 const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
 
 type PackingItem = {
@@ -346,7 +348,7 @@ export function WarmTripDetail({
 }: Props) {
   const memo = memoPaper(Boolean(appTheme?.dark));
   const tripDates = buildTripDates(tripStart, tripEnd);
-  const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["금 · 21", "토 · 22", "일 · 23"];
+  const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
   const tripDateOptions = tripDates.length ? tripDates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
   const firstTripDate = tripDateOptions[0];
   const lastTripDate = tripDateOptions[tripDateOptions.length - 1];
@@ -362,7 +364,7 @@ export function WarmTripDetail({
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [tripNotes, setTripNotes] = useState([
     { id: "memo-meal", author: "여울 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
-    { id: "memo-booking", author: "하늘 · 어제 22:15", body: "소나기식당 일요일 13:30 예약 확인" },
+    { id: "memo-booking", author: "하늘 · 어제 22:15", body: "소나기식당 수요일 19:00 예약 확인" },
   ]);
   const [hasKitchen, setHasKitchen] = useState(true);
   const [feedback, setFeedback] = useState("");
@@ -377,21 +379,21 @@ export function WarmTripDetail({
   });
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
     {
-      time: `${tripDayOptions[0].slice(0, 1)} · 12:30`,
+      time: `${weekdayOf(tripDayOptions[0])} · 12:30`,
       date: tripDayOptions[0],
       title: "온기식탁에서 점심",
       note: "완산점",
       mapUrl: "https://map.naver.com/p/search/온기식탁",
     },
     {
-      time: `${tripDayOptions[0].slice(0, 1)} · 15:00`,
+      time: `${weekdayOf(tripDayOptions[0])} · 15:00`,
       date: tripDayOptions[0],
       title: "달빛한옥 체크인",
-      note: "체크아웃은 일요일 12시",
+      note: "체크아웃은 목요일 12시",
       mapUrl: "https://map.naver.com/p/search/달빛한옥",
     },
     {
-      time: `${tripDayOptions[0].slice(0, 1)} · 19:30`,
+      time: `${weekdayOf(tripDayOptions[0])} · 19:30`,
       date: tripDayOptions[0],
       title: "함께 저녁 만들기",
       note: "버섯전골과 김밥",
@@ -854,7 +856,7 @@ function TripOverview({
   const [transportArrivalTime, setTransportArrivalTime] = useState("");
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
-  const [reservation, setReservation] = useState({ name: "소나기식당", date: "토요일 디너", people: "2명", status: "예약 확정", place: "전주 한옥마을" });
+  const [reservation, setReservation] = useState({ name: "소나기식당", date: "9월 23일 수요일 19:00", people: "2명", status: "예약 확정", place: "전주 한옥마을" });
   const [reservationDraft, setReservationDraft] = useState(reservation);
   const [hasReservation, setHasReservation] = useState(true);
   const [stay, setStay] = useState(registeredStay);
@@ -901,7 +903,7 @@ function TripOverview({
     if (!newPlanTitle.trim()) return;
     const wasEditing = editingScheduleIndex !== null;
     const next = {
-        time: `${planDay.slice(0, 1)} · ${planTime || "시간 미정"}`,
+        time: `${weekdayOf(planDay)} · ${planTime || "시간 미정"}`,
         date: planDay,
         title: newPlanTitle.trim(),
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
@@ -930,7 +932,7 @@ function TripOverview({
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
     setEditingScheduleIndex(index);
-    setPlanDay(item.date ?? dayOptions.find((value) => value.startsWith(day)) ?? defaultPlanDay);
+    setPlanDay(item.date ?? dayOptions.find((value) => weekdayOf(value) === day) ?? defaultPlanDay);
     setPlanTime(time);
     setPlanType(["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? savedType : "장소");
     setNewPlanTitle(item.title);
@@ -979,7 +981,7 @@ function TripOverview({
     setSchedule((current) => [
       ...current,
       {
-        time: `${transportDate.slice(0, 1)} · ${next.departureTime}`,
+        time: `${weekdayOf(transportDate)} · ${next.departureTime}`,
         date: transportDate,
         title: `${next.method} ${next.departure} 출발`,
         note: `${next.arrival} ${next.arrivalTime} 도착 · ${next.owner}`,
@@ -1130,14 +1132,15 @@ function TripOverview({
               theme && { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>전체 일정 보기 · {schedule.length}개</Text>
+            <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>전체 일정 보기</Text>
             <Text style={[styles.fullScheduleArrow, theme && { color: theme.primary }]}>→</Text>
           </Pressable>
         )}
       </View>
 
       <SectionLabel
-        label={`교통편 · ${transportations.length}편`}
+        label="교통편"
+        count={`${transportations.length}편`}
         action="교통편 추가"
         onPress={openTransportCreate}
       />
@@ -1159,7 +1162,7 @@ function TripOverview({
         })}
       </View>
 
-      <SectionLabel label={`여행 정보 · ${Number(hasReservation) + Number(hasStay) + Number(hasKitchen)}개`} />
+      <SectionLabel label="여행 정보" count={`${Number(hasReservation) + Number(hasStay) + Number(hasKitchen)}개`} />
       <View style={styles.travelInfoList}>
         {hasReservation && (
           <TravelInfoRow
@@ -1234,7 +1237,7 @@ function TripOverview({
       >
         <View style={styles.planPreview}>
           <View style={[styles.previewDate, theme && { backgroundColor: theme.primary }]}>
-            <Text style={styles.previewDay}>{planDay.slice(0, 1)}</Text>
+            <Text style={styles.previewDay}>{weekdayOf(planDay)}</Text>
             <Text style={styles.previewDateNo}>{planDay.slice(-2)}</Text>
           </View>
           <View style={styles.previewBody}>
@@ -1400,7 +1403,7 @@ function TripOverview({
       >
         <Text style={[styles.formGuideText, theme && { color: theme.muted }]}>예약 정보는 여행 정보에 보관돼요. 시간 흐름에도 보여야 한다면 일정에서 종류를 ‘예약’으로 추가해 주세요.</Text>
         <DetailField label="예약 이름 · 필수" value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 소나기식당" />
-        <DetailField label="예약 일시 · 선택 사항" value={reservationDraft.date} onChangeText={(date) => setReservationDraft((current) => ({ ...current, date }))} placeholder="예: 토요일 18:30" />
+        <DetailField label="예약 일시 · 선택 사항" value={reservationDraft.date} onChangeText={(date) => setReservationDraft((current) => ({ ...current, date }))} placeholder="예: 9월 23일 18:30" />
         <DetailField label="인원 · 선택 사항" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
         <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status }))} />
         <DetailField label="장소 · 선택 사항" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
@@ -1705,7 +1708,7 @@ function Places({
   const confirmPlan = () => {
     if (!planningPlace) return;
     addToSchedule({
-      time: `${planningDay.slice(0, 1)} · ${planningTime || "시간 미정"}`,
+      time: `${weekdayOf(planningDay)} · ${planningTime || "시간 미정"}`,
       date: planningDay,
       title: planningPlace.name,
       note: `${planningPlace.category} · ${planningPlace.area}`,
@@ -1836,9 +1839,12 @@ function Places({
           placeholderTextColor={theme?.muted ?? "#9AA1AE"}
           style={[styles.placeSearchInput, theme && { color: theme.text }]}
         />
-        <View style={[styles.resultCount, theme && { backgroundColor: theme.primarySoft }]}>
-          <Text style={[styles.resultCountText, theme && { color: theme.primary }]}>{visible.length}</Text>
-        </View>
+        {/* 걸러진 상태에서만 센다. 전체일 때는 위 머리글의 개수와 같은 말이 된다. */}
+        {visible.length !== places.length && (
+          <View style={[styles.resultCount, theme && { backgroundColor: theme.primarySoft }]}>
+            <Text style={[styles.resultCountText, theme && { color: theme.primary }]}>{visible.length}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.placeTagControlRow}>
         <Text numberOfLines={1} style={[styles.placeControlLabel, theme && { color: theme.muted }]}>태그</Text>
@@ -2639,7 +2645,7 @@ function Preparation({
           </View>
           {packingTags(item).slice(1).length > 0 && (
             <Text numberOfLines={1} style={[styles.packingV2SubTags, theme && { color: theme.muted }]}>
-              {packingTags(item).slice(1).map((tag) => `#${tag}`).join("  ")}
+              {packingTags(item).slice(1).map((tag) => `# ${tag}`).join("  ")}
             </Text>
           )}
         </View>
@@ -2757,7 +2763,7 @@ function Preparation({
             style={[styles.packingV2TagButton, theme && { borderColor: theme.border }]}
           >
             <Text style={[styles.packingV2TagButtonText, theme && { color: theme.primary }]}>
-              {tagFilter === "전체 태그" ? `태그 ${availableTags.length}` : `#${tagFilter}`}
+              {tagFilter === "전체 태그" ? `태그 ${availableTags.length}` : `# ${tagFilter}`}
             </Text>
             <Glyph name="chevronDown" size={14} color={theme?.muted ?? "#646C7A"} />
           </Pressable>
@@ -2917,7 +2923,7 @@ function Preparation({
                       theme && { color: active ? theme.primary : theme.muted },
                     ]}
                   >
-                    {tag === "전체 태그" ? "모든 태그" : `#${tag}`}
+                    {tag === "전체 태그" ? "모든 태그" : `# ${tag}`}
                   </Text>
                 </Pressable>
               );
@@ -3023,7 +3029,7 @@ function Preparation({
                 <View>
                   <View style={styles.packingV2GroupTitleRow}>
                     <View style={[styles.packingV2GroupSticker, { backgroundColor: `${groupAccent}20` }]}>
-                      <Text style={[styles.packingV2GroupStickerText, { color: groupAccent }]}>PACK {String(groupIndex + 1).padStart(2, "0")}</Text>
+                      <Text style={[styles.packingV2GroupStickerText, { color: groupAccent }]}>{String(groupIndex + 1).padStart(2, "0")}</Text>
                     </View>
                     <Text style={[styles.packingV2GroupTitle, theme && { color: theme.text }]}>{sourceTag}</Text>
                   </View>
@@ -3275,7 +3281,7 @@ function Preparation({
                                 >
                                   {packingTags(item)
                                     .slice(1)
-                                    .map((tag) => `#${tag}`)
+                                    .map((tag) => `# ${tag}`)
                                     .join("  ") || "태그 없음"}
                                 </Text>
                                 <Pressable
@@ -4064,11 +4070,6 @@ function Cooking({
     ? Math.round((readyIngredientCount / ingredients.length) * 100)
     : 0;
   const groups = Array.from(new Set(ingredients.map((item) => item.group)));
-  const myCookingIngredients = recipes.flatMap((recipe) =>
-    recipe.ingredients
-      .filter((item) => item.owner === "하늘")
-      .map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
-  );
   const allCookingIngredients = recipes.flatMap((recipe) =>
     recipe.ingredients.map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
   );
@@ -4399,15 +4400,14 @@ function Cooking({
           <View style={styles.recipeSelectorHead}>
             <Text style={[styles.recipeSelectorTitle, theme && { color: theme.muted }]}>메뉴를 선택하세요</Text>
             <View style={styles.recipeSelectorActions}>
-              {recipes.length > 4 ? (
+              {/* 개수는 바로 위 탭 머리글이 이미 보여준다. 넘칠 때만 더 보기를 낸다. */}
+              {recipes.length > 4 && (
                 <Pressable onPress={() => setShowAllRecipes(true)}>
                   <View style={styles.inlineMore}>
-                  <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개</Text>
-                  <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#5D5FC7"} />
-                </View>
+                    <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개</Text>
+                    <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#5D5FC7"} />
+                  </View>
                 </Pressable>
-              ) : (
-                <Text style={[styles.recipeSelectorCount, theme && { color: theme.muted }]}>{recipes.length}개</Text>
               )}
             </View>
           </View>
@@ -4435,7 +4435,7 @@ function Cooking({
                   ]}
                 >
                   <View style={styles.cookV2MenuTop}>
-                    <Text style={[styles.cookV2MenuNumber, theme && { color: selected ? theme.primary : theme.muted }]}>MENU {String(index + 1).padStart(2, "0")}</Text>
+                    <Text style={[styles.cookV2MenuNumber, theme && { color: selected ? theme.primary : theme.muted }]}>{String(index + 1).padStart(2, "0")}</Text>
                     <Text style={[styles.cookV2MenuCount, theme && { color: selected ? theme.primary : theme.muted }]}>{recipe.ingredients.length}개</Text>
                   </View>
                   <Text numberOfLines={1} style={[styles.cookV2MenuName, theme && { color: theme.text }]}>{recipe.name}</Text>
@@ -4479,7 +4479,7 @@ function Cooking({
             <View style={styles.myCookingCopy}>
               <Text style={[styles.cookV2MyEyebrow, theme && { color: theme.primary }]}>통합 장보기</Text>
               <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>전체 재료 {allCookingIngredients.length}개</Text>
-              <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>내 준비 {myCookingIngredients.length}개 · 구매 {allCookingIngredients.filter((item) => item.owner === "구매").length}개</Text>
+              <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>현지 구매 {allCookingIngredients.filter((item) => item.owner === "구매").length}개 · 집에서 {allCookingIngredients.filter((item) => item.owner !== "구매").length}개</Text>
             </View>
             <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
           </Pressable>
@@ -4564,7 +4564,7 @@ function Cooking({
           </View>
           <View style={styles.cookingToolbar}>
             <Text style={[styles.cookingTip, theme && { color: theme.muted }]}>
-              이 요리에 필요한 재료예요.
+              필요한 재료
             </Text>
             <Pressable
               onPress={() => setAddingIngredient(true)}
@@ -4617,7 +4617,7 @@ function Cooking({
               >
                 <View style={styles.cookV2SectionTitleRow}>
                   <View style={[styles.cookV2SectionLabel, { backgroundColor: `${groupAccent}20` }]}>
-                    <Text style={[styles.cookV2SectionLabelText, { color: groupAccent }]}>COOK {String(groupIndex + 1).padStart(2, "0")}</Text>
+                    <Text style={[styles.cookV2SectionLabelText, { color: groupAccent }]}>{String(groupIndex + 1).padStart(2, "0")}</Text>
                   </View>
                   <Text style={[styles.cookingSectionTitle, styles.cookV2SectionTitle, theme && { color: theme.text }]}>{section}</Text>
                 </View>
@@ -5171,7 +5171,7 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
     <View>
       <TabActionHeader
         label="여행 기록"
-        count={`사진 ${photos.length} · 일기 ${diaries.length}`}
+        count={`${photos.length + diaries.length}개`}
         action="사진 추가"
         onPress={openPhotoCreate}
       />
@@ -5263,7 +5263,7 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
           onPress={() => setShowAllDiaries((value) => !value)}
         />
       )}
-      <SectionLabel label={`여행 사진 · ${photos.length}장`} />
+      <SectionLabel label="여행 사진" count={`${photos.length}장`} />
       <View style={styles.memoryGrid}>
         {(showAllPhotos ? photos : photos.slice(0, 6)).map((photo, index) => (
           <Pressable
@@ -5378,19 +5378,28 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
 
 function SectionLabel({
   label,
+  count,
   action,
   onPress,
 }: {
   label: string;
+  count?: string;
   action?: string;
   onPress?: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.sectionLabel}>
-      <Text style={[styles.sectionTitle, theme && { color: theme.text }]}>
-        {label}
-      </Text>
+      <View style={styles.tabActionTitleRow}>
+        <Text style={[styles.sectionTitle, theme && { color: theme.text }]}>
+          {label}
+        </Text>
+        {count && (
+          <Text style={[styles.tabActionCount, theme && { color: theme.muted }]}>
+            {count}
+          </Text>
+        )}
+      </View>
       {action && (
         <Pressable
           onPress={onPress}
@@ -7435,7 +7444,6 @@ const styles = StyleSheet.create({
   },
   recipeSelectorTitle: { color: "#777F8C", fontSize: 14, fontFamily: typo.title.family },
   recipeSelectorActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  recipeSelectorCount: { color: "#92909A", fontSize: 14, fontFamily: typo.data.family },
   recipeSelectorMore: { color: "#D9685F", fontSize: 14, fontFamily: typo.label.family },
   cookV2MenuList: { gap: 8, paddingRight: 12 },
   cookV2MenuCard: {
