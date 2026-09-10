@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -640,63 +640,124 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   todayKey: string;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
-  const ordered = useMemo(() => [...trips].sort((a, b) => b.start.localeCompare(a.start)), [trips]);
-  const initialIndex = initialTrip ? Math.max(0, ordered.indexOf(initialTrip)) : 0;
+  const ordered = useMemo(() => [...trips].sort((a, b) => a.start.localeCompare(b.start)), [trips]);
+  const initialIndex = initialTrip ? Math.max(0, ordered.indexOf(initialTrip)) : ordered.length - 1;
   const [index, setIndex] = useState(initialIndex);
-  const [width, setWidth] = useState(0);
+  const [width, setWidth] = useState(1);
+  const [direction, setDirection] = useState(1);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const scroll = useRef<ScrollView>(null);
-  const [offset] = useState(() => new Animated.Value(0));
+  const [turn] = useState(() => new Animated.Value(0));
+  const busy = useRef(false);
+  const dragging = useRef(false);
+  const dragDirection = useRef(1);
   useEffect(() => {
     let mounted = true;
     void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (mounted) setReduceMotion(value); });
     const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    return () => { mounted = false; subscription.remove(); };
-  }, []);
-  const move = (next: number) => {
-    if (next < 0 || next >= ordered.length) return;
-    scroll.current?.scrollTo({ x: next * width, animated: !reduceMotion });
-    setIndex(next);
+    return () => { mounted = false; subscription.remove(); turn.stopAnimation(); };
+  }, [turn]);
+  useLayoutEffect(() => {
+    turn.setValue(0);
+    busy.current = false;
+    dragging.current = false;
+  }, [index, turn]);
+  const canMove = useCallback((step: number) => index + step >= 0 && index + step < ordered.length, [index, ordered.length]);
+  const settle = useCallback((step: number, complete: boolean) => {
+    busy.current = true;
+    Animated.spring(turn, {
+      toValue: complete ? 1 : 0,
+      stiffness: 170,
+      damping: 25,
+      mass: 0.85,
+      overshootClamping: true,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && complete) setIndex(current => current + step);
+      else { busy.current = false; dragging.current = false; }
+    });
+  }, [turn]);
+  const move = (step: number) => {
+    if (busy.current || dragging.current || !canMove(step)) return;
+    setDirection(step);
+    if (reduceMotion) setIndex(current => current + step);
+    else settle(step, true);
   };
+  const pan = useMemo(() => {
+    // PanResponder registers these callbacks; refs are read only during touch events.
+    // eslint-disable-next-line react-hooks/refs
+    return PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
+    onPanResponderGrant: () => { dragging.current = true; },
+    onPanResponderMove: (_, gesture) => {
+      const step = gesture.dx < 0 ? 1 : -1;
+      dragDirection.current = step;
+      setDirection(step);
+      // At either end the paper lifts only a little, then settles back.
+      const progress = Math.min(Math.abs(gesture.dx) / (width * 0.8), canMove(step) ? 0.98 : 0.08);
+      turn.setValue(reduceMotion ? 0 : progress);
+    },
+    onPanResponderRelease: (_, gesture) => {
+      const step = dragDirection.current;
+      const forwardVelocity = step === 1 ? -gesture.vx : gesture.vx;
+      const complete = canMove(step) && (Math.abs(gesture.dx) > width * 0.24 || forwardVelocity > 0.55);
+      if (reduceMotion) {
+        if (complete) setIndex(current => current + step);
+        dragging.current = false;
+      } else settle(step, complete);
+    },
+    onPanResponderTerminate: () => settle(dragDirection.current, false),
+    onPanResponderTerminationRequest: () => false,
+    });
+  }, [canMove, reduceMotion, settle, turn, width]);
+  const next = ordered[index + direction];
+  const paper = paperCard(theme.dark);
+  const hinge = direction === 1 ? -width / 2 : width / 2;
   return (
-    <View onLayout={event => setWidth(event.nativeEvent.layout.width)}>
-      {width > 0 && <Animated.ScrollView
-        key={width}
-        ref={scroll}
-        horizontal
-        pagingEnabled
-        directionalLockEnabled
-        showsHorizontalScrollIndicator={false}
-        contentOffset={{ x: index * width, y: 0 }}
-        onContentSizeChange={() => {
-          scroll.current?.scrollTo({ x: index * width, animated: false });
-          offset.setValue(index * width);
-        }}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: offset } } }], { useNativeDriver: true })}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={event => setIndex(Math.max(0, Math.min(ordered.length - 1, Math.round(event.nativeEvent.contentOffset.x / width))))}
+    <View>
+      <View
+        {...pan.panHandlers}
+        onLayout={event => setWidth(Math.max(1, event.nativeEvent.layout.width))}
+        style={{ marginTop: 8, marginBottom: 16 }}
       >
-        {ordered.map((trip, position) => {
-          const inputRange = [(position - 1) * width, position * width, (position + 1) * width];
-          return <View key={`${trip.name}-${trip.start}`} style={{ width, paddingHorizontal: 6, paddingTop: 8 }}>
-            <Animated.View style={reduceMotion ? undefined : {
-              opacity: offset.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: "clamp" }),
-              transform: [
-                { scale: offset.interpolate({ inputRange, outputRange: [0.94, 1, 0.94], extrapolate: "clamp" }) },
-                { rotate: offset.interpolate({ inputRange, outputRange: ["-2deg", "0deg", "2deg"], extrapolate: "clamp" }) },
-              ],
-            }}>
-              <HomeTripCard trip={trip} theme={theme} todayKey={todayKey} open={open} />
-            </Animated.View>
-          </View>;
-        })}
-      </Animated.ScrollView>}
+        {next && <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+          <HomeTripCard trip={next} theme={theme} todayKey={todayKey} open={open} />
+          <Animated.View style={[StyleSheet.absoluteFill, {
+            backgroundColor: "#30271C", borderRadius: 4,
+            opacity: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.18, 0.09, 0] }),
+          }]} />
+        </View>}
+        <Animated.View style={{
+          backfaceVisibility: "hidden",
+          transform: reduceMotion ? [] : [
+            { perspective: 1100 },
+            { translateX: hinge },
+            { rotateY: turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", direction === 1 ? "-100deg" : "100deg"] }) },
+            { translateX: -hinge },
+            { rotateZ: turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", direction === 1 ? "-3deg" : "3deg"] }) },
+          ],
+        }}>
+          <HomeTripCard trip={ordered[index]} theme={theme} todayKey={todayKey} open={(destination, trip) => {
+            if (!dragging.current && !busy.current) open(destination, trip);
+          }} />
+          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
+            backgroundColor: paper.backLeft, borderRadius: 4,
+            opacity: turn.interpolate({ inputRange: [0, 0.3, 0.8, 1], outputRange: [0, 0.08, 0.45, 0.65] }),
+          }]} />
+          <Animated.View pointerEvents="none" style={{
+            position: "absolute", top: 2, bottom: 0,
+            ...(direction === 1 ? { right: 0 } : { left: 0 }),
+            width: 7, borderRadius: 3, backgroundColor: paper.surface,
+            borderColor: paper.border, borderWidth: 1,
+            opacity: turn.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.8, 1] }),
+          }} />
+        </Animated.View>
+      </View>
       {ordered.length > 1 && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="이전 여행 보기" disabled={index === ordered.length - 1} onPress={() => move(index + 1)} style={{ padding: 12, opacity: index === ordered.length - 1 ? 0.3 : 1 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="이전 여행 보기" disabled={index === 0} onPress={() => move(-1)} style={{ padding: 12, opacity: index === 0 ? 0.3 : 1 }}>
           <Text style={{ color: theme.primary, fontSize: 13 }}>‹ 이전 여행</Text>
         </Pressable>
         <Text accessibilityLiveRegion="polite" style={{ color: theme.muted, fontSize: 12 }}>{index + 1} / {ordered.length}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="다음 여행 보기" disabled={index === 0} onPress={() => move(index - 1)} style={{ padding: 12, opacity: index === 0 ? 0.3 : 1 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="다음 여행 보기" disabled={index === ordered.length - 1} onPress={() => move(1)} style={{ padding: 12, opacity: index === ordered.length - 1 ? 0.3 : 1 }}>
           <Text style={{ color: theme.primary, fontSize: 13 }}>다음 여행 ›</Text>
         </Pressable>
       </View>}
