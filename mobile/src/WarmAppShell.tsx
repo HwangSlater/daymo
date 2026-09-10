@@ -83,7 +83,7 @@ const trips: Trip[] = [
     note: "숙소에서 수다와 버섯전골",
     tone: 0,
     mark: upcomingSampleStart.slice(5, 7),
-    region: "서울",
+    region: "전북",
     start: upcomingSampleStart,
     end: upcomingSampleEnd,
   },
@@ -93,17 +93,17 @@ const trips: Trip[] = [
     note: "보드게임과 야식 장보기",
     tone: 5,
     mark: recentSampleStart.slice(5, 7),
-    region: "경기",
+    region: "강원",
     start: recentSampleStart,
     end: recentSampleEnd,
   },
   {
-    name: "부산",
+    name: "여수",
     date: sampleDateRange(archiveSampleStart, archiveSampleEnd),
     note: "바다 산책과 단체 사진",
     tone: 3,
     mark: archiveSampleStart.slice(5, 7),
-    region: "부산",
+    region: "전남",
     start: archiveSampleStart,
     end: archiveSampleEnd,
   },
@@ -113,12 +113,12 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {
   friends: trips,
   family: [
     {
-      name: "경주",
+      name: "속초",
       date: "10월 3일 — 4일",
       note: "가족과 천천히 걷는 가을 여행",
       tone: 1,
       mark: "10",
-      region: "경북",
+      region: "강원",
       start: "2026-10-03",
       end: "2026-10-04",
     },
@@ -2047,7 +2047,7 @@ function Search({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("전체");
-  const [recentQueries, setRecentQueries] = useState(["소나기식당", "충전기", "부산", "버섯전골"]);
+  const [recentQueries, setRecentQueries] = useState(["소나기식당", "충전기", "여수", "버섯전골"]);
   const [savedTitles, setSavedTitles] = useState(() => new Set(["소나기식당"]));
   const allResults = [
     {
@@ -2068,20 +2068,20 @@ function Search({
       title: "구름국수",
       type: "장소",
       trip: "강릉 안목",
-      detail: "돈테키덮밥 · 11시 영업",
+      detail: "멸치국수 · 11시 영업",
       tags: ["식당", "점심"],
     },
     {
       title: "충전기",
       type: "준비",
-      trip: "진주",
+      trip: "여수",
       detail: "아침에 챙길 것",
       tags: ["전자기기"],
     },
     {
       title: "여수 밤바다 불꽃",
       type: "일정",
-      trip: "부산",
+      trip: "여수",
       detail: "7.25 토요일 · 돌산",
       tags: ["야경", "행사"],
     },

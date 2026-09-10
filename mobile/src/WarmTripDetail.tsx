@@ -373,28 +373,28 @@ export function WarmTripDetail({
     name: "달빛한옥",
     checkin: `${firstTripDate} 15:00`,
     checkout: `${lastTripDate} 11:00`,
-    address: "전주 한옥마을 은행로 12 달빛한옥",
+    address: "전주 완산구 은행로 12 달빛한옥",
   });
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
     {
       time: `${tripDayOptions[0].slice(0, 1)} · 12:30`,
       date: tripDayOptions[0],
       title: "온기식탁에서 점심",
-      note: "가산 퍼블릭점",
-      mapUrl: "https://map.naver.com/p/search/장소",
+      note: "완산점",
+      mapUrl: "https://map.naver.com/p/search/온기식탁",
     },
     {
       time: `${tripDayOptions[0].slice(0, 1)} · 15:00`,
       date: tripDayOptions[0],
       title: "달빛한옥 체크인",
       note: "체크아웃은 일요일 12시",
-      mapUrl: "https://map.naver.com/p/search/장소",
+      mapUrl: "https://map.naver.com/p/search/달빛한옥",
     },
     {
       time: `${tripDayOptions[0].slice(0, 1)} · 19:30`,
       date: tripDayOptions[0],
       title: "함께 저녁 만들기",
-      note: "버섯전골와 주먹밥",
+      note: "버섯전골과 김밥",
       mapUrl: "",
     },
   ]);
@@ -838,10 +838,10 @@ function TripOverview({
   const [planPlace, setPlanPlace] = useState("");
   const [planMapUrl, setPlanMapUrl] = useState("");
   const [transportations, setTransportations] = useState<Transportation[]>([
-    { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: firstDay, departure: "부산", departureTime: "08:10", arrival: "서울", arrivalTime: "10:48", status: "예매 완료" },
-    { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: lastDay, departure: "서울", departureTime: "20:15", arrival: "부산", arrivalTime: "22:52", status: "예매 완료" },
-    { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", date: firstDay, departure: "진주", departureTime: "07:50", arrival: "전주", arrivalTime: "11:25", status: "예매 완료" },
-    { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", date: lastDay, departure: "전주", departureTime: "21:30", arrival: "진주", arrivalTime: "01:05", status: "예매 완료" },
+    { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: firstDay, departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료" },
+    { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: lastDay, departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료" },
+    { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", date: firstDay, departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료" },
+    { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", date: lastDay, departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료" },
   ]);
   const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
   const [transportOwner, setTransportOwner] = useState<Transportation["owner"]>("하늘");
@@ -1253,7 +1253,7 @@ function TripOverview({
           label="일정 이름 · 필수"
           value={newPlanTitle}
           onChangeText={setNewPlanTitle}
-          placeholder="예: 돌산 드론쇼"
+          placeholder="예: 한옥마을 야행"
         />
         <OptionField
           label="날짜"
@@ -1277,7 +1277,7 @@ function TripOverview({
           label="장소 · 선택 사항"
           value={planPlace}
           onChangeText={setPlanPlace}
-          placeholder="예: 돌산 해수욕장"
+          placeholder="예: 한옥마을 정문"
         />
         <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
           <View style={styles.naverHead}>
@@ -1513,36 +1513,36 @@ function Places({
       id: "place-js-hotel",
       name: "달빛한옥",
       area: "전주 한옥마을",
-      address: "전주 한옥마을 은행로 12 달빛한옥",
+      address: "전주 완산구 은행로 12 달빛한옥",
       category: "숙소",
-      mapUrl: "https://map.naver.com/p/search/장소",
+      mapUrl: "https://map.naver.com/p/search/달빛한옥",
       tags: ["숙소", "예약"],
       status: "후보",
     },
     {
       id: "place-eunhaengol",
       name: "소나기식당",
-      area: "구로",
+      area: "완산",
       category: "식당",
-      mapUrl: "https://map.naver.com/p/search/장소",
+      mapUrl: "https://map.naver.com/p/search/소나기식당",
       tags: ["초밥", "디너", "예약"],
       status: "일정",
     },
     {
       id: "place-usagi",
       name: "구름국수",
-      area: "가산",
+      area: "덕진",
       category: "식당",
-      mapUrl: "https://map.naver.com/p/search/장소",
+      mapUrl: "https://map.naver.com/p/search/구름국수",
       tags: ["늦은 점심", "웨이팅"],
       status: "후보",
     },
     {
       id: "place-gocheok",
       name: "노을전망대",
-      area: "구로",
+      area: "완산",
       category: "구경",
-      mapUrl: "https://map.naver.com/p/search/장소",
+      mapUrl: "https://map.naver.com/p/search/노을전망대",
       tags: ["숙소 근처", "비 오는 날"],
       status: "후보",
     },
@@ -1556,7 +1556,7 @@ function Places({
   const [planningDay, setPlanningDay] = useState(dayOptions[Math.min(1, dayOptions.length - 1)]);
   const [planningTime, setPlanningTime] = useState("11:00");
   const [name, setName] = useState("");
-  const [area, setArea] = useState("구로");
+  const [area, setArea] = useState("완산");
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("식당");
   const [mapUrl, setMapUrl] = useState("");
@@ -1620,7 +1620,7 @@ function Places({
   };
   const resetForm = () => {
     setName("");
-    setArea("구로");
+    setArea("완산");
     setAddress("");
     setCategory("식당");
     setMapUrl("");
@@ -2142,7 +2142,7 @@ function Places({
               label="지역"
               value={area}
               onChangeText={setArea}
-              placeholder="구로"
+              placeholder="완산"
             />
           </View>
         </View>
