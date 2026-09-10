@@ -358,11 +358,11 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 ```json
 {
   "name": "달빛한옥",
-  "area": "전주 한옥마을",
-  "address": "전주 한옥마을 은행로 12",
+  "area": "전주 완산구",
+  "address": "전주 완산구 은행로 12",
   "category": "lodging",
   "tags": ["숙소 근처", "예약"],
-  "externalLinks": [{ "provider": "naver_map", "url": "https://map.naver.com/p/search/장소" }]
+  "externalLinks": [{ "provider": "naver_map", "url": "https://map.naver.com/p/search/달빛한옥" }]
 }
 ```
 
@@ -371,7 +371,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 장소·준비물·재료 쓰기 요청의 `tags` 문자열은 서버가 공간과 scope 안에서 정규화해 기존 태그를 연결하거나 새 태그를 upsert한다. 명시적 태그 API는 이름·색 관리용이며 일반 추가 화면에서 태그 생성을 위해 별도 선행 호출하지 않는다.
 
 ```json
-{ "provider": "naver_map", "url": "https://map.naver.com/p/search/장소" }
+{ "provider": "naver_map", "url": "https://map.naver.com/p/search/달빛한옥" }
 ```
 
 ```json
@@ -380,7 +380,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
     "provider": "naver_map",
     "resolvedUrl": "https://map.naver.com/...",
     "name": "달빛한옥",
-    "address": "전주 한옥마을 은행로 12 달빛한옥",
+    "address": "전주 완산구 은행로 12 달빛한옥",
     "suggestedCategory": "lodging",
     "confidence": 0.96
   }
@@ -530,7 +530,7 @@ HEIC·HEIF 등 지원하는 기기 원본은 원래 byte와 MIME으로 private s
   "id": "uuid",
   "tripId": "uuid",
   "title": "소나기식당",
-  "subtitle": "전주 한옥마을 · 식당",
+  "subtitle": "전주 완산구 · 식당",
   "matchedText": "소나기식당 일요일 예약",
   "destination": "places"
 }

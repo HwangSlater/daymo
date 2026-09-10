@@ -1,35 +1,49 @@
-# 실제 사용 데이터 원문
+# 마이그레이션용 원문 샘플
 
-아래 내용은 현재 카카오톡 공지에서 실제로 사용하고 있는 여행 기록이다.
+카카오톡 공지에 쌓인 여행 기록을 앱으로 옮길 때 파서가 마주칠 서식을 모아둔 샘플이다.
 
-내용을 삭제하거나 요약하지 말고, 향후 앱의 데이터 구조와 마이그레이션 테스트를 위한 원본 데이터로 취급한다.
+내용은 전부 가상이다. 원래 이 문서에는 실제로 다녀온 여행이 그대로 들어 있었는데,
+상호와 주소, 네이버 단축 링크, 숙소 예약 링크, 도시 쌍이 남아 있어 누구의 기록인지
+특정됐다. `docs/product-rules/01-daymo-development-rules.md` 2장이 앱 UI와 더미 데이터,
+문서와 로그에 실명과 비밀값을 넣지 말라고 정하고 있어 가상 데이터로 교체했다.
+
+서식은 원문 그대로 유지했다. 파서가 다뤄야 할 패턴은 다음과 같다.
+
+- `# 제목: <기간> <지역>` 으로 시작하는 여행 단위
+- 공지 댓글 사이의 `,` 한 줄 구분자
+- `——————` 로 감싼 구획 제목
+- `[대괄호]` 로 붙는 상태 표시와 분류
+- 링크가 `[주소](주소)` 형태로 두 번 적히는 경우
+- 수량이 단위 없이 붙는 재료 줄 (`소고기 250`)
+- 번호 목록으로 이어지는 조리 순서
+- 이모지가 섞인 제목 줄
 
 ---
 
-# 제목: 8월 21일 ~ 8월 23일 전주 한옥마을
+# 제목: 9월 22일 ~ 9월 24일 전주 한옥마을
 
 댓글
 —————— 먹고 싶은 것 리스트 ——————
 
 소나기식당 본점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
+[https://map.naver.com/p/search/소나기식당](https://map.naver.com/p/search/소나기식당)
 
 [담에 가용]
-바다초밥 가산점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
+구름국수 덕진점
+[https://map.naver.com/p/search/구름국수](https://map.naver.com/p/search/구름국수)
 
-[8.22 토 디너 예약]
-소나기식당
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
+[9.23 토 디너 예약]
+소나기식당 별관
+[https://map.naver.com/p/search/소나기식당 별관](https://map.naver.com/p/search/소나기식당 별관)
 
 온기식탁 완산점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
+[https://map.naver.com/p/search/온기식탁](https://map.naver.com/p/search/온기식탁)
 ,
 —————— 해먹을 거! ——————
 
 버섯전골
 
-참치 주먹밥, 스팸계란 주먹밥
+참치 김밥, 스팸계란 김밥
 ,
 ❤️ 버섯전골 준비물
 
@@ -73,11 +87,11 @@
 ,
 ————————— 숙소 정보 —————————
 
-[https://example.com/booking/0000000000](https://example.com/booking/0000000000)
+[https://example.com/stay/000000](https://example.com/stay/000000)
 
 달빛한옥
-전주 한옥마을 은행로 12 달빛한옥
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
+전주 완산구 은행로 12 달빛한옥
+[https://map.naver.com/p/search/달빛한옥](https://map.naver.com/p/search/달빛한옥)
 ,
 ————————— 예약 정보 —————————
 
@@ -89,7 +103,7 @@
 [금요일]
 
 - 점심 : 온기식탁
-- 늦은 저녁 : 집에서 해먹기
+- 늦은 저녁 : 숙소에서 해먹기
 
 [토요일]
 메뉴
@@ -132,289 +146,42 @@
 
 ---
 
-# 제목: 8월 1일 ~ 8월 2일 강릉 안목
+# 제목: 8월 18일 ~ 8월 19일 강릉 안목
 
 댓글
-숙소!
+—————— 먹고 싶은 것 리스트 ——————
 
-평촌 26HOTEL
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-[https://example.com/booking/0000000000](https://example.com/booking/0000000000)
-
-체크인 20:00
-체크아웃 12:00
+[웨이팅 김]
+구름국수 안목점
+[https://map.naver.com/p/search/구름국수 안목점](https://map.naver.com/p/search/구름국수 안목점)
 ,
-먹을 거!
+—————— 챙길 것 ——————
 
-[토요일]
-생새우 파티
+[하늘]
+보조배터리 1개
+지갑과 신분증
+카메라 1대, 여분 배터리 2개
 
-[토요일 저녁]
-치킨 포장
+[여울]
+멀미약
+우산 2개
 
-- 파닭 or 쉑쉑 치킨
-  어거스트치킨 평촌센트럴파크점
-  [https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-[토요일/일요일 점심]
-돈테키덮밥 - 11시 영업 시작, 웨이팅
-구름국수
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-[일요일 저녁]
-노을초밥
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
+[공용]
+돗자리
+블루투스 스피커
 ,
-생새우 소스
+————————— 교통편 —————————
 
-- 간장 와사비
-- 초장
-- 불닭마요
-- 기름장
+가는 편
+- 하늘 : KTX 대전 08:10 → 전주 09:36 (예매 완료)
+- 여울 : 버스 청주 07:50 → 전주 10:05 (예매 완료)
 
-생새우 곁들임
-
-- 김치 물에 씻어서 참기름 깨
-- 김
-  ,
-  새우머리 버터구이
-- 버터 다진마늘 새우 머리
-- 새우 머리 꽁지 손질
-
----
-
-# 제목: 7월 10일 ~ 7월 12일 안양
-
-댓글
-체크인 15:00
-호텔온 의왕점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-구름국수
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-데이도트
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-라화방마라탕
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-노을초밥
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
---- 닭갈비 ---
-유가네닭갈비 범계역점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-한가네숯불닭갈비 안양평촌점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-신림춘천집 평촌점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-춘천명동닭갈비 명가 - 숙소 근처
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
+오는 편
+- 하늘 : KTX 전주 20:15 → 대전 21:41
+- 여울 : 버스 전주 21:30 → 청주 23:45
 ,
-10일 07:50 출발
-12일 21:30 출발
+————————— 기록 —————————
 
----
+느리게 걸어서 더 좋았던 날
 
-# 제목: 7월24일 ~ 7월26일 부산
-
-댓글
-■ 기차 예매 (동행)
-
-[가는 편]
-승차일자: 2026년 7월 24일(금)
-KTX 177
-영등포 19:59 출발 → 부산 23:09 도착
-
-[오는 편]
-승차일자: 2026년 7월 26일(일)
-KTX 068
-부산 21:28 출발 → 광명 23:52 도착
-
-──────────────────
-
-■ 버스 예매 (나)
-
-[가는 편]
-7월 24일(금) 20:20
-진주 → 부산서부
-
-[오는 편]
-7월 26일(일) 22:00
-부산역 → 진주
-
-부산역 버스 정류소
-
-- 한국교원공제회관 지하주차장 앞
-  [https://m.blog.naver.com/lsy7221/222518129830](https://m.blog.naver.com/lsy7221/222518129830)
-
-──────────────────
-
-■ 숙소
-
-초량머뭄
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-──────────────────
-
-■ 일정
-
-7월 25일(토)
-돌산 해수욕장
-
-- 오후 8시 여수 밤바다 불꽃
-- 오후 10시 여수 밤바다 불꽃
-  ,
-  ■ 먹거리
-
-──────────────────
-
-[전포]
-스나쿠 전포점 - 연어레어카츠
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-한점 - 회, 생새우
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-[전포 근처 서면역 위]
-춘하추동밀면 서면본점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-──────────────────
-
-[초량전통시장]
-호연만두
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-초량봄동떡집 - 딸기/망고 찹쌀떡
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-──────────────────
-
-[남포역, 숙소에서 초량전통시장 방향]
-이재모피자 본점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-──────────────────
-
-[돌산 근처]
-톤쇼우 광안점 - 토요일 아침 웨이팅 도전
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-달조리법 광안점 - 크레페
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-올선데이 광안점 - 베이글
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-까페젤라떼리아 - 젤라또
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-,
-숙소 가는 길
-[https://litt.ly/choryangmeomum](https://litt.ly/choryangmeomum)
-,
-동행
-연어불닭쌈 : 후추 소분, 불닭 소스, 다시마
-불닭오믈렛 : 모짜렐라 치즈, 소세지, 마요네즈, (스리라차), 체다치즈
-,
-탑마트 초량점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-연어불닭쌈
-연어, 불닭 봉지라면, 다시마, 양파✅, 무순
-
-불닭 오믈렛
-계란 3알 기준 불닭 반만
-,
-K-핸드메이드페어 부산 2026
-벡스코 11:00-18:00
-
-행운의 거북이
-봄도자기작업실 - 도자기잔 키링
-에스트레야베 - 천 어쩌구 지갑
-이낭룽 비즈발 - 고양이 오무라이스
-아도 - 북커버
-
-페찌 - 비즈 팔찌
-비마인드포에버 - 은 악세사리
-보라공방 - 수면사 뜨개 키링
-실로그린 스튜디오 - 위빙 템
-실로 - 위빙템
-
-밍글맹글
-
----
-
-# 제목: 6.19-6.21 진주
-
-댓글
-전주 -> 진주
-06.19 16:40~ 20:25
-
-진주 -> 전주
-06.21 17:40~ 21:25
-,
-키 프론트에서 수령
-부재 중일시 O1O-66O3-O77O 전화
-
-주소: 경상남도 진주시 진양호로 564번길 18-2 남강모텔
-
-[카카오맵]
-[https://kko.to/jng2XNBp-L](https://kko.to/jng2XNBp-L)
-
-[구글맵]
-[https://maps.app.goo.gl/kbnTbGVr936jS4aN8](https://maps.app.goo.gl/kbnTbGVr936jS4aN8)
-
-호스트(재욱)이 추천하는 진주 숨어있는 맛집 !
-
-▼ 재슐랭 가이드 ▼
-https://docs.google.com/document/d/1GxIUuM496cur6Gl-_AfLcogeH0aJLQaSPV9_iFPENUs/edit?usp=sharing
-,
-카페/디저트
-
-무티
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-헤야
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-,
-식사
-
-카츠카키 진주본성동점
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-천황식당
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-진주은성게장
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-지관이네냉면
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-
-제일식당
-[https://map.naver.com/p/search/장소](https://map.naver.com/p/search/장소)
-,
-6월 20일(토) 카츠카키 18:30분 예약
-,
-누나 잠옷, 잠옷, 폼클렌징, 선크림, 토너, 로션, 크림, 아이크림, 레티날, 면도기, 치약칫솔, 우산, 티셔츠 하나, 충전기
-,
-노트북 100% 충전 만땅
-에어팟 충전기, 핸드폰 충전기
-에어팟 이어폰
-클렌징 오일
-렌즈용품 렌즈통 안경
-치약 칫솔
-양산
-갈아입을 옷 속옷
-양말 여분
-베개 수건
-지갑
-,
-아침에 챙길거
-충전기, 안경, 갈아입을 옷
+계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.
