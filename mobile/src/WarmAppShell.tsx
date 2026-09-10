@@ -32,7 +32,7 @@ import {
 import { Text, TextInput } from "./AppText";
 import { Dot, Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { domain, kindColor, paperCard, paperCorner, tripTone } from "./theme/colors";
+import { domain, kindColor, paperCard, tripTone } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -488,7 +488,7 @@ function NotebookHome({
           ]}
         >
         <View pointerEvents="none" style={s.paperTripTexture}>
-          {[63, 113, 163, 213].map((top) => (
+          {[63, 113, 163].map((top) => (
             <View key={top} style={[s.paperTripSoftLine, { top, backgroundColor: paper.softLine }]} />
           ))}
           <View
@@ -626,17 +626,6 @@ function NotebookHome({
             </Pressable>
           ))}
         </View>
-        <View pointerEvents="none" style={s.paperTripCornerShadow} />
-        <View
-          pointerEvents="none"
-          style={[
-            s.paperTripCorner,
-            {
-              backgroundColor: paperCorner(theme.dark).fill,
-              borderColor: paperCorner(theme.dark).edge,
-            },
-          ]}
-        />
         </View>
       </View>
       <View style={s.scrapTitleRow}>
@@ -3655,6 +3644,9 @@ const s = StyleSheet.create({
   paperTripActions: {
     flexDirection: "row",
     marginTop: 12,
+    overflow: "hidden",
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
     // paperTrip의 paddingHorizontal과 크기가 같아야 카드 끝까지 닿는다.
     marginHorizontal: -20,
     borderTopWidth: 1,
@@ -3670,28 +3662,7 @@ const s = StyleSheet.create({
   paperTripActionBorder: { borderLeftWidth: 1, borderLeftColor: "rgba(118, 107, 83, .18)" },
   paperTripActionLabel: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 0 },
   paperTripActionMeta: { color: "#756F63", fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
-  paperTripActionUnderline: { position: "absolute", width: 42, height: 5, bottom: 8, borderRadius: 2, transform: [{ rotate: "-1deg" }] },
-  paperTripCornerShadow: {
-    position: "absolute",
-    right: -1,
-    bottom: -1,
-    width: 17,
-    height: 17,
-    backgroundColor: "rgba(91, 78, 52, .11)",
-    borderTopLeftRadius: 15,
-  },
-  paperTripCorner: {
-    position: "absolute",
-    right: -1,
-    bottom: -1,
-    width: 12,
-    height: 12,
-    backgroundColor: "#E7E7E2",
-    borderTopLeftRadius: 11,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(115, 100, 69, .22)",
-  },
+  paperTripActionUnderline: { position: "absolute", width: 34, height: 8, bottom: 11, borderRadius: 2, transform: [{ rotate: "-1deg" }] },
   scrapTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",

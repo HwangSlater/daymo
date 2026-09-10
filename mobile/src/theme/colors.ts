@@ -49,13 +49,6 @@ export function memoPaper(dark: boolean) {
       };
 }
 
-/** 홈의 종이 카드에서 접힌 모서리. 카드 뒤 배경과 같은 톤이어야 한다. */
-export function paperCorner(dark: boolean) {
-  return dark
-    ? { fill: "#20242C", edge: "rgba(210, 198, 170, .20)" }
-    : { fill: "#E7E7E2", edge: "rgba(115, 100, 69, .22)" };
-}
-
 // ---------------------------------------------------------------------------
 // 도메인 색
 //

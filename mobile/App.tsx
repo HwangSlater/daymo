@@ -1,6 +1,12 @@
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { Platform, StyleSheet, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  useColorScheme,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import {
   initialWindowMetrics,
   SafeAreaFrameContext,
@@ -12,22 +18,40 @@ import { fontAssets } from "./src/theme/typography";
 
 const isWeb = Platform.OS === "web";
 
+// 손가락으로 쓰는 화면인지 본다. 휴대폰 브라우저에서 열면 프레임을 씌우면 안 된다.
+// 안 그러면 이미 작은 화면 안에 또 작은 화면이 생긴다.
+const isTouchScreen =
+  isWeb &&
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(pointer: coarse)").matches;
+
 // 웹 미리보기는 실제 기기처럼 보이도록 휴대폰 프레임 안에 넣는다.
 // 웹의 SafeAreaProvider는 DOM을 측정해 initialMetrics를 덮어쓰므로,
 // 기기와 같은 여백을 얻으려면 컨텍스트에 직접 값을 넣어야 한다.
 const PHONE = { width: 390, height: 844 };
 const phoneFrame = { x: 0, y: 0, ...PHONE };
 const phoneInsets = { top: 44, left: 0, right: 0, bottom: 34 };
+// 프레임과 그 둘레 여백까지 들어가고도 남는 너비. 이보다 좁으면 프레임이
+// 화면만 잡아먹으므로 그냥 꽉 채워 그린다.
+const FRAME_MIN_WIDTH = 700;
 
 export default function App() {
   const [fontsReady] = useFonts(fontAssets);
+  const { width } = useWindowDimensions();
+  const dark = useColorScheme() === "dark";
+  const showPhoneFrame = isWeb && !isTouchScreen && width >= FRAME_MIN_WIDTH;
 
   // 서체가 준비되기 전에 그리면 OS 기본 폰트로 한 번 그렸다가 바뀌어 글자가 튄다.
-  if (!fontsReady) return <View style={s.blank} />;
+  // 이때 색은 무대가 아니라 앱 배경이어야 화면이 두 번 바뀌지 않는다.
+  if (!fontsReady) {
+    return <View style={[s.blank, { backgroundColor: dark ? "#0D111A" : "#F7F5F0" }]} />;
+  }
 
-  if (!isWeb) {
+  if (!showPhoneFrame) {
+    // 실제 기기와 휴대폰 브라우저. 안전 영역은 OS나 env(safe-area-inset-*)에서 온다.
     return (
-      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <SafeAreaProvider initialMetrics={isWeb ? undefined : initialWindowMetrics}>
         <StatusBar style="auto" />
         <WarmAppShell />
       </SafeAreaProvider>
@@ -50,7 +74,7 @@ export default function App() {
 }
 
 const s = StyleSheet.create({
-  blank: { flex: 1, backgroundColor: "#D8D5CE" },
+  blank: { flex: 1 },
   stage: {
     flex: 1,
     backgroundColor: "#D8D5CE",
