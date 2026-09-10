@@ -1424,6 +1424,16 @@ function KoreaTripMap({
     | { kind: "pinch"; span: number; zoom: number; at: { x: number; y: number }; on: { x: number; y: number } }
   >({ kind: "none" });
   const movedFar = useRef(false);
+  // 한 번이라도 두 손가락이 닿았으면 그 동작 전체를 확대로 본다.
+  const multiTouch = useRef(false);
+  // 손가락이 이름표나 SVG 위에 닿으면 locationX 가 그 자식 기준이 되어
+  // 좌표가 어긋난다. 화면 기준 좌표에서 지도 칸의 원점을 빼서 쓴다.
+  const host = useRef<View>(null);
+  const origin = useRef({ x: 0, y: 0 });
+  const inMap = (page: { pageX: number; pageY: number }) => ({
+    x: page.pageX - origin.current.x,
+    y: page.pageY - origin.current.y,
+  });
   const boxWidth = 300 / zoom;
   const boxHeight = 420 / zoom;
   const boxX = center.x - boxWidth / 2;
@@ -1503,18 +1513,15 @@ function KoreaTripMap({
     setCenter({ x: 150, y: 210 });
   };
   /** 닿아 있는 두 손가락 사이의 거리와 중점. */
-  const spanOf = (touches: ReadonlyArray<{ locationX: number; locationY: number }>) => {
-    const dx = touches[0].locationX - touches[1].locationX;
-    const dy = touches[0].locationY - touches[1].locationY;
+  const spanOf = (touches: ReadonlyArray<{ pageX: number; pageY: number }>) => {
+    const first = inMap(touches[0]);
+    const second = inMap(touches[1]);
     return {
-      distance: Math.max(1, Math.hypot(dx, dy)),
-      at: {
-        x: (touches[0].locationX + touches[1].locationX) / 2,
-        y: (touches[0].locationY + touches[1].locationY) / 2,
-      },
+      distance: Math.max(1, Math.hypot(first.x - second.x, first.y - second.y)),
+      at: { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 },
     };
   };
-  const beginPinch = (touches: ReadonlyArray<{ locationX: number; locationY: number }>) => {
+  const beginPinch = (touches: ReadonlyArray<{ pageX: number; pageY: number }>) => {
     const { distance, at } = spanOf(touches);
     gesture.current = { kind: "pinch", span: distance, zoom: zoomRef.current, at, on: toMapPoint(at) };
     setPinching(true);
@@ -1522,12 +1529,20 @@ function KoreaTripMap({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        // 톡 누르는 것도 받아야 지역을 고를 수 있다.
+        // 손가락이 둘이 되는 순간 자식에게서 응답권을 빼앗는다. 이름표 위에
+        // 손가락이 얹혀 있어도 확대로 넘어가고, 이름표의 누름은 취소된다.
+        onStartShouldSetPanResponderCapture: (event) =>
+          event.nativeEvent.touches.length >= 2,
+        onMoveShouldSetPanResponderCapture: (event) =>
+          event.nativeEvent.touches.length >= 2,
+        // 이름표가 아닌 빈 곳을 톡 누르면 여기로 온다.
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: (event) => {
           movedFar.current = false;
+          multiTouch.current = false;
           const touches = event.nativeEvent.touches;
+          if (touches.length >= 2) multiTouch.current = true;
           if (touches.length >= 2) beginPinch(touches);
           else gesture.current = { kind: "pan", from: centerRef.current };
         },
@@ -1536,6 +1551,7 @@ function KoreaTripMap({
           if (Math.abs(state.dx) + Math.abs(state.dy) > 6) movedFar.current = true;
 
           if (touches.length >= 2) {
+            multiTouch.current = true;
             if (gesture.current.kind !== "pinch") beginPinch(touches);
             const active = gesture.current;
             if (active.kind !== "pinch") return;
@@ -1566,14 +1582,12 @@ function KoreaTripMap({
           setCenter(at);
         },
         onPanResponderRelease: (event) => {
-          const wasPinching = gesture.current.kind === "pinch";
           gesture.current = { kind: "none" };
           setPinching(false);
-          if (wasPinching || movedFar.current) return;
+          if (multiTouch.current || movedFar.current) return;
           // 움직이지 않았으면 톡 누른 것이다. 육지를 눌렀으면 그 자리에서
           // 가장 가까운 시도를 고른다. 시도별 영역 데이터가 없어서 쓰는 어림이다.
-          const native = event.nativeEvent;
-          const point = toMapPoint({ x: native.locationX, y: native.locationY });
+          const point = toMapPoint(inMap(event.nativeEvent));
           if (!isOnLand(point.x, point.y)) return;
           const region = nearestRegion(point.x, point.y, regionPins);
           if (region) onSelect(region);
@@ -1596,8 +1610,8 @@ function KoreaTripMap({
             nativeEvent?: {
               deltaY?: number;
               ctrlKey?: boolean;
-              locationX?: number;
-              locationY?: number;
+              pageX?: number;
+              pageY?: number;
             };
             deltaY?: number;
           }) => {
@@ -1606,10 +1620,10 @@ function KoreaTripMap({
             const delta = native?.deltaY ?? event.deltaY ?? 0;
             if (!delta) return;
             const pinch = native?.ctrlKey ?? event.ctrlKey ?? false;
-            const focus = {
-              x: native?.locationX ?? size.width / 2,
-              y: native?.locationY ?? size.height / 2,
-            };
+            const focus =
+              native?.pageX !== undefined && native?.pageY !== undefined
+                ? inMap(native as { pageX: number; pageY: number })
+                : { x: size.width / 2, y: size.height / 2 };
             // 배율은 곱으로 움직여야 어느 배율에서든 같은 속도로 느껴진다.
             const step = Math.exp(-delta * (pinch ? 0.01 : 0.0022));
             zoomAround(zoomRef.current * step, focus, toMapPoint(focus));
@@ -1623,8 +1637,15 @@ function KoreaTripMap({
   return (
     <View
       {...(webWheel as any)}
+      {...panResponder.panHandlers}
+      ref={host}
       style={s.mapOnly}
-      onLayout={(event) => setSize(event.nativeEvent.layout)}
+      onLayout={(event) => {
+        setSize(event.nativeEvent.layout);
+        host.current?.measureInWindow((x, y) => {
+          origin.current = { x, y };
+        });
+      }}
     >
       <Svg
         width="100%"
@@ -1660,7 +1681,6 @@ function KoreaTripMap({
           />
         )}
       </Svg>
-      <View {...panResponder.panHandlers} style={s.mapDragLayer} />
       {regionPins.map((pin) => {
         const count = trips.filter((trip) => trip.region === pin.name).length;
         const active = selected === pin.name;
@@ -4136,7 +4156,6 @@ const s = StyleSheet.create({
   viewChoiceText: { color: "#858783", fontSize: 14, fontFamily: typo.label.family },
   viewChoiceTextActive: { color: "#FFFFFF" },
   mapOnly: { flex: 1, width: "100%", position: "relative", overflow: "hidden" },
-  mapDragLayer: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
   mapTray: {
     position: "absolute",
     left: 0,
