@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
+import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { memoPaper, status as statusColor } from "./theme/colors";
 
@@ -442,9 +443,7 @@ export function WarmTripDetail({
             accessibilityRole="button"
             accessibilityLabel="여행 목록으로 돌아가기"
           >
-            <Text style={[styles.close, appTheme && { color: appTheme.text }]}>
-              ‹
-            </Text>
+            <Glyph name="chevronLeft" size={22} color={appTheme?.text ?? "#17233D"} />
           </Pressable>
           <Text
             style={[styles.headerName, appTheme && { color: appTheme.text }]}
@@ -499,7 +498,7 @@ export function WarmTripDetail({
               </Text>
               <View style={styles.tripMemoBottom}>
                 <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
-                <Text style={[styles.tripMemoArrow, { color: memo.label }]}>›</Text>
+                <Glyph name="chevronRight" size={14} color={memo.label} />
               </View>
               <View style={[styles.tripMemoFold, { backgroundColor: memo.fold }]} />
             </Pressable>
@@ -1304,7 +1303,7 @@ function TripOverview({
           {planMapUrl.length > 0 && (
             <Text style={styles.linkState}>
               {planMapUrl.includes("naver.")
-                ? "✓ 네이버 지도 링크가 연결돼요"
+                ? "네이버 지도 링크가 연결돼요"
                 : "네이버 지도 공유 링크인지 확인해 주세요"}
             </Text>
           )}
@@ -1337,7 +1336,7 @@ function TripOverview({
           <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod} · {transportDepartureTime || "시간 미정"}</Text>
           <View style={styles.transportSwitchHint}>
             <Text style={[styles.transportSwitchHintText, { color: transportDirectionColor }]}>탭해서 {transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 전환</Text>
-            <Text style={[styles.transportSwitchHintArrow, { color: transportDirectionColor }]}>⇄</Text>
+            <Glyph name="swap" size={16} color={transportDirectionColor} weight={1.8} />
           </View>
         </Pressable>
         <OptionField label="이용자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
@@ -2239,7 +2238,7 @@ function Places({
           {mapUrl.length > 0 && (
             <Text style={styles.linkState}>
               {mapUrl.includes("naver.")
-                ? "✓ 장소 링크가 연결돼요"
+                ? "장소 링크가 연결돼요"
                 : "네이버 지도 링크인지 확인해 주세요"}
             </Text>
           )}
@@ -2616,7 +2615,7 @@ function Preparation({
           ]}
         >
           {completed ? (
-            <Text style={styles.completionTick}>✓</Text>
+            <Glyph name="check" size={14} color="#FFFFFF" weight={2.6} />
           ) : (
             <View style={[styles.completionDash, theme && { backgroundColor: theme.border }]} />
           )}
@@ -2760,7 +2759,7 @@ function Preparation({
             <Text style={[styles.packingV2TagButtonText, theme && { color: theme.primary }]}>
               {tagFilter === "전체 태그" ? `태그 ${availableTags.length}` : `#${tagFilter}`}
             </Text>
-            <Text style={[styles.packingV2TagChevron, theme && { color: theme.muted }]}>⌄</Text>
+            <Glyph name="chevronDown" size={14} color={theme?.muted ?? "#646C7A"} />
           </Pressable>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingV2Owners}>
@@ -3038,9 +3037,12 @@ function Preparation({
                       {taggedItems.length}개 남음
                     </Text>
                   </View>
-                  <Text style={[styles.packingV2GroupToggle, theme && { color: theme.muted }]}>
-                    {collapsed ? "＋" : "−"}
-                  </Text>
+                  <Glyph
+                    name={collapsed ? "plus" : "minus"}
+                    size={16}
+                    color={theme?.muted ?? "#646C7A"}
+                    weight={2.2}
+                  />
                 </View>
               </Pressable>
               {!collapsed && taggedItems.map(renderPackingRow)}
@@ -3157,11 +3159,12 @@ function Preparation({
                     {ownerDone} / {ownerItems.length} 완료
                   </Text>
                 </View>
-                <Text
-                  style={[styles.packingCollapseIcon, { color: ownerColor }]}
-                >
-                  {collapsed ? "＋" : "−"}
-                </Text>
+                <Glyph
+                  name={collapsed ? "plus" : "minus"}
+                  size={16}
+                  color={ownerColor}
+                  weight={2.2}
+                />
               </Pressable>
               {!collapsed &&
                 sectionTags.map((sourceTag) => {
@@ -3231,7 +3234,7 @@ function Preparation({
                               ]}
                             >
                               {completed ? (
-                                <Text style={styles.completionTick}>✓</Text>
+                                <Glyph name="check" size={14} color="#FFFFFF" weight={2.6} />
                               ) : (
                                 <View
                                   style={[
@@ -3799,7 +3802,7 @@ function Preparation({
                     ]}
                   >
                     {selected && (
-                      <Text style={styles.cookingImportCheckText}>✓</Text>
+                      <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />
                     )}
                   </View>
                   <View style={styles.cookingImportItemCopy}>
@@ -4398,7 +4401,10 @@ function Cooking({
             <View style={styles.recipeSelectorActions}>
               {recipes.length > 4 ? (
                 <Pressable onPress={() => setShowAllRecipes(true)}>
-                  <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개 ›</Text>
+                  <View style={styles.inlineMore}>
+                  <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개</Text>
+                  <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#5D5FC7"} />
+                </View>
                 </Pressable>
               ) : (
                 <Text style={[styles.recipeSelectorCount, theme && { color: theme.muted }]}>{recipes.length}개</Text>
@@ -4475,7 +4481,7 @@ function Cooking({
               <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>전체 재료 {allCookingIngredients.length}개</Text>
               <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>내 준비 {myCookingIngredients.length}개 · 구매 {allCookingIngredients.filter((item) => item.owner === "구매").length}개</Text>
             </View>
-            <Text style={[styles.recipeListArrow, theme && { color: theme.primary }]}>›</Text>
+            <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
           </Pressable>
         </View>
       )}
@@ -4617,7 +4623,7 @@ function Cooking({
                 </View>
                 <View style={styles.cookV2SectionActions}>
                   <Text style={[styles.cookV2SectionCount, theme && { color: theme.muted }]}>{sectionItems.length}개</Text>
-                  <Text style={[styles.cookV2SectionToggle, theme && { color: theme.muted }]}>{collapsed ? "＋" : "−"}</Text>
+                  <Glyph name={collapsed ? "plus" : "minus"} size={16} color={theme?.muted ?? "#646C7A"} weight={2.2} />
                 </View>
               </Pressable>
               {!collapsed && sectionItems.map((item) => (
@@ -4653,7 +4659,7 @@ function Cooking({
                       ]}
                     >
                       {readyIngredientIds.includes(item.id) && (
-                        <Text style={styles.cookV2IngredientTick}>✓</Text>
+                        <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />
                       )}
                     </Pressable>
                     <View style={styles.ingredientBody}>
@@ -4814,7 +4820,10 @@ function Cooking({
                 style={styles.myIngredientGroupHead}
               >
                 <Text numberOfLines={1} style={[styles.myIngredientGroupTitle, theme && { color: theme.text }]}>{recipe.name}</Text>
-                <Text style={[styles.myIngredientGroupCount, theme && { color: theme.primary }]}>{matching.length}개 ›</Text>
+                <View style={styles.inlineMore}>
+                  <Text style={[styles.myIngredientGroupCount, theme && { color: theme.primary }]}>{matching.length}개</Text>
+                  <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#5D5FC7"} />
+                </View>
               </Pressable>
               {matching.map((item) => (
                 <View key={item.id} style={[styles.myIngredientRow, theme && { borderTopColor: theme.border }]}>
@@ -5210,7 +5219,7 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
           <Text style={[styles.keepsakeTitle, theme && { color: theme.text }]}>{cardTitle}</Text>
           <Text numberOfLines={2} style={[styles.keepsakeCaption, theme && { color: theme.muted }]}>{cardCaption}</Text>
         </View>
-        <Text style={[styles.keepsakeArrow, theme && { color: theme.primary }]}>›</Text>
+        <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
       </Pressable>
       <SectionLabel
         label="여행 일기"
@@ -5531,7 +5540,7 @@ function TravelInfoRow({
         <Text style={[styles.travelInfoMeta, theme && { color: theme.muted }]}>{meta}</Text>
       </View>
       <View style={[styles.travelInfoArrowBox, { backgroundColor: `${color}18` }]}>
-        <Text style={[styles.travelInfoArrow, { color }]}>›</Text>
+        <Glyph name="chevronRight" size={16} color={color} />
       </View>
     </Pressable>
   );
@@ -5576,7 +5585,7 @@ function TransportCard({
         <View style={styles.transportRouteLine}>
           <View style={[styles.transportRouteDot, { backgroundColor: color }]} />
           <View style={[styles.transportRouteRule, theme && { backgroundColor: theme.border }]} />
-          <Text style={[styles.transportRouteArrow, { color }]}>›</Text>
+          <Glyph name="chevronRight" size={14} color={color} />
         </View>
         <View style={[styles.transportStop, styles.transportStopEnd]}>
           <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{primary.arrival}</Text>
@@ -5629,7 +5638,7 @@ function TravelMiniCard({
       <Text numberOfLines={1} style={[styles.travelMiniTitle, theme && { color: theme.text }]}>{title}</Text>
       <View style={styles.travelMiniBottom}>
         <Text numberOfLines={1} style={[styles.travelMiniMeta, theme && { color: theme.muted }]}>{meta}</Text>
-        <Text style={[styles.travelMiniArrow, { color }]}>›</Text>
+        <Glyph name="chevronRight" size={16} color={color} />
       </View>
     </Pressable>
   );
@@ -7019,6 +7028,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginRight: 12,
   },
+  inlineMore: { flexDirection: "row", alignItems: "center", gap: 3 },
   completionTick: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
   completionDash: { width: 7, height: 1.5, borderRadius: 2 },
   packingBody: { flex: 1 },

@@ -30,6 +30,7 @@ import {
   themeOptions,
 } from "./theme";
 import { Text, TextInput } from "./AppText";
+import { Dot, Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, paperCard, paperCorner, tripTone } from "./theme/colors";
 
@@ -366,7 +367,7 @@ function AuthScreen({
                 style={[s.authConsentRow, s.authConsentAll, { borderBottomColor: theme.border }]}
               >
                 <View style={[s.authConsentCheck, { borderColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.surface }]}>
-                  {termsAgreed && privacyAgreed && marketingAgreed && <Text style={s.authConsentTick}>✓</Text>}
+                  {termsAgreed && privacyAgreed && marketingAgreed && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
                 </View>
                 <Text style={[s.authConsentAllText, { color: theme.text }]}>모두 동의</Text>
               </Pressable>
@@ -383,7 +384,7 @@ function AuthScreen({
                   style={s.authConsentRow}
                 >
                   <View style={[s.authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
-                    {consent.checked && <Text style={s.authConsentTick}>✓</Text>}
+                    {consent.checked && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
                   </View>
                   <Text style={[s.authConsentText, { color: theme.text }]}>{consent.label}</Text>
                 </Pressable>
@@ -410,7 +411,7 @@ function AuthScreen({
               { id: "kakao", label: "카카오", mark: "K", color: "#FEE500", text: "#241F10" },
               { id: "naver", label: "네이버", mark: "N", color: "#03C75A", text: "#FFFFFF" },
               { id: "google", label: "Google", mark: "G", color: "#FFFFFF", text: "#4285F4" },
-              { id: "apple", label: "Apple", mark: "●", color: theme.dark ? "#FFFFFF" : "#111111", text: theme.dark ? "#111111" : "#FFFFFF" },
+              { id: "apple", label: "Apple", mark: "A", color: theme.dark ? "#FFFFFF" : "#111111", text: theme.dark ? "#111111" : "#FFFFFF" },
             ].map((provider) => (
               <Pressable
                 key={provider.id}
@@ -699,7 +700,10 @@ function NotebookHome({
                   <Text style={[s.homeArchiveDate, { color: tripTone(item.tone, theme.dark).ink }]}>{item.date}</Text>
                   <Text numberOfLines={1} style={[s.homeArchivePlace, { color: theme.text }]}>{item.name}</Text>
                   <Text numberOfLines={2} style={[s.homeArchiveNote, { color: theme.muted }]}>{item.note}</Text>
-                  <Text style={[s.homeArchiveAction, { color: tripTone(item.tone, theme.dark).ink }]}>기록 보기  ›</Text>
+                  <View style={s.homeArchiveAction}>
+                    <Text style={[s.homeArchiveActionText, { color: tripTone(item.tone, theme.dark).ink }]}>기록 보기</Text>
+                    <Glyph name="chevronRight" size={14} color={tripTone(item.tone, theme.dark).ink} />
+                  </View>
                 </Pressable>
               ))}
           </View>
@@ -776,7 +780,7 @@ function MemoRow({
           {meta}
         </Text>
       </View>
-      <Text style={{ color: theme.muted }}>›</Text>
+      <Glyph name="chevronRight" size={16} color={theme.muted} />
     </Pressable>
   );
 }
@@ -1330,7 +1334,7 @@ function TripRows({
               { backgroundColor: theme.primarySoft },
             ]}
           >
-            <Text style={[s.tripRowArrowText, { color: theme.primary }]}>›</Text>
+            <Glyph name="chevronRight" size={16} color={theme.primary} />
           </View>
         </Pressable>
       ))}
@@ -1620,7 +1624,7 @@ function KoreaTripMap({
                       {trip.date}
                     </Text>
                   </View>
-                  <Text style={[s.mapTrayArrow, { color: theme.secondary }]}>›</Text>
+                  <Glyph name="chevronRight" size={18} color={theme.secondary} />
                 </Pressable>
               ))}
             </ScrollView>
@@ -1649,7 +1653,7 @@ function KoreaTripMap({
             zoom <= 1 && s.zoomButtonDisabled,
           ]}
         >
-          <Text style={[s.zoomText, { color: theme.text }]}>−</Text>
+          <Glyph name="minus" size={18} color={theme.text} weight={2.4} />
         </Pressable>
         <View style={[s.zoomDivider, { backgroundColor: theme.border }]} />
         <Pressable
@@ -1745,10 +1749,10 @@ function TripCalendar({
             <Text style={s.calendarTodayText}>오늘</Text>
           </Pressable>
           <Pressable onPress={() => move(-1)} style={s.monthArrow}>
-            <Text style={s.monthArrowText}>‹</Text>
+            <Glyph name="chevronLeft" size={20} color={theme.text} />
           </Pressable>
           <Pressable onPress={() => move(1)} style={s.monthArrow}>
-            <Text style={s.monthArrowText}>›</Text>
+            <Glyph name="chevronRight" size={20} color={theme.text} />
           </Pressable>
         </View>
       </View>
@@ -1950,9 +1954,7 @@ function TripDateRangePicker({
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[s.rangeMonthArrow, { color: theme.text }]}>
-              ‹
-            </Text>
+            <Glyph name="chevronLeft" size={20} color={theme.text} />
           </Pressable>
           <Text style={[s.rangeMonthTitle, { color: theme.text }]}>
             {calendarMonth.year}. {String(calendarMonth.value).padStart(2, "0")}
@@ -1964,9 +1966,7 @@ function TripDateRangePicker({
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[s.rangeMonthArrow, { color: theme.text }]}>
-              ›
-            </Text>
+            <Glyph name="chevronRight" size={20} color={theme.text} />
           </Pressable>
         </View>
         <View style={s.rangeWeek}>
@@ -2344,7 +2344,7 @@ function Search({
                 ))}
               </View>
             </View>
-            <Text style={[s.searchResultArrow, { color: theme.muted }]}>›</Text>
+            <Glyph name="chevronRight" size={18} color={theme.muted} />
           </Pressable>
           {item.type === "장소" && (
             <View
@@ -2592,7 +2592,11 @@ function Together({
             </Pressable>
           ))}
           <Pressable onPress={() => setPanel("groups")} style={s.groupTabMore}>
-            <Text style={[s.groupTabMoreText, { color: theme.muted }]}>•••</Text>
+            <View style={s.groupTabMoreDots}>
+              {[0, 1, 2].map((i) => (
+                <Dot key={i} size={3} color={theme.muted} />
+              ))}
+            </View>
           </Pressable>
         </View>
         <View style={s.memberSectionHead}>
@@ -2627,13 +2631,13 @@ function Together({
         <View style={s.togetherQuickRow}>
           {[
             {
-              icon: "＋",
+              icon: "plus" as const,
               label: "멤버 초대",
               onPress: () => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" }),
             },
-            { icon: "⇧", label: "여행 목록 공유", onPress: exportData },
+            { icon: "share" as const, label: "여행 목록 공유", onPress: exportData },
             {
-              icon: notifications ? "●" : "○",
+              icon: notifications ? ("bellOn" as const) : ("bellOff" as const),
               label: notifications ? "알림 켜짐" : "알림 꺼짐",
               onPress: () => setNotifications((value) => !value),
             },
@@ -2649,7 +2653,7 @@ function Together({
               ]}
             >
               <View style={[s.togetherQuickIcon, { backgroundColor: theme.primarySoft }]}>
-                <Text style={[s.togetherQuickIconText, { color: theme.primary }]}>{action.icon}</Text>
+                <Glyph name={action.icon} size={16} color={theme.primary} weight={2.2} />
               </View>
               <Text numberOfLines={1} style={[s.togetherQuickLabel, { color: theme.text }]}>{action.label}</Text>
             </Pressable>
@@ -2782,7 +2786,9 @@ function Together({
                   <Text style={[s.groupChoiceName, { color: theme.text }]}>{group.name}</Text>
                   <Text numberOfLines={1} style={[s.groupChoiceMeta, { color: theme.muted }]}>{[user.name, ...group.members].join(" · ")}</Text>
                 </View>
-                <Text style={[s.groupChoiceCheck, { color: theme.primary }]}>{activeGroupId === group.id ? "✓" : ""}</Text>
+                <View style={s.groupChoiceCheck}>
+                  {activeGroupId === group.id && <Glyph name="check" size={14} color={theme.primary} weight={2.4} />}
+                </View>
               </Pressable>
             ))}
           </>
@@ -2883,7 +2889,9 @@ function Together({
                     <Text numberOfLines={1} style={[s.memberManagerName, { color: theme.text }]}>{member}{slot === 0 ? " (나)" : ""}</Text>
                     <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === slot ? theme.primary : theme.muted }]}>{memberRoles[slot]}</Text>
                   </View>
-                  <Text style={[{ color: theme.primary, fontWeight: "900" }, selectedMember !== slot && { opacity: 0 }]}>{"✓"}</Text>
+                  <View style={selectedMember !== slot && { opacity: 0 }}>
+                    <Glyph name="check" size={16} color={theme.primary} weight={2.4} />
+                  </View>
                 </Pressable>
               ))}
             </View>
@@ -2999,11 +3007,9 @@ function Together({
                 >
                   {option.name}
                 </Text>
-                <Text
-                  style={[s.themeOptionCheck, { color: theme.text }]}
-                >
-                  {themeId === option.id ? "✓" : ""}
-                </Text>
+                <View style={s.themeOptionCheck}>
+                  {themeId === option.id && <Glyph name="check" size={12} color={theme.text} weight={2.4} />}
+                </View>
               </Pressable>
             ))}
           </View>
@@ -3195,7 +3201,7 @@ function Setting({
             {value}
           </Text>
         )}
-        <Text style={[s.arrow, theme && { color: theme.muted }]}>›</Text>
+        <Glyph name="chevronRight" size={18} color={theme?.muted ?? "#646C7A"} />
       </View>
     </Pressable>
   );
@@ -3476,9 +3482,9 @@ function Choice({
       >
         {label}
       </Text>
-      <Text style={[s.choiceMark, theme && { color: theme.primary }]}>
-        {selected ? "✓" : ""}
-      </Text>
+      <View style={s.choiceMark}>
+        {selected && <Glyph name="check" size={16} color={theme?.primary ?? "#5D5FC7"} weight={2.4} />}
+      </View>
     </Pressable>
   );
 }
@@ -3762,7 +3768,8 @@ const s = StyleSheet.create({
   homeArchiveDate: { fontSize: 11, fontFamily: typo.caption.family },
   homeArchivePlace: { fontSize: 16, fontFamily: typo.label.family, marginTop: 4 },
   homeArchiveNote: { fontSize: 14, lineHeight: 19, marginTop: 4 },
-  homeArchiveAction: { fontSize: 14, fontFamily: typo.label.family, marginTop: "auto", paddingTop: 8 },
+  homeArchiveAction: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: "auto", paddingTop: 8 },
+  homeArchiveActionText: { fontSize: 14, fontFamily: typo.label.family },
   homeEmptyTrip: {
     minHeight: 250,
     borderRadius: 8,
@@ -3931,7 +3938,7 @@ const s = StyleSheet.create({
   choiceSelected: { borderColor: "#8B7CF6", backgroundColor: "#E9E5FF" },
   choiceText: { color: "#576173", fontSize: 14, fontFamily: typo.label.family },
   choiceTextSelected: { color: "#5546C8" },
-  choiceMark: { color: "#6556D8", fontSize: 16, fontFamily: typo.label.family },
+  choiceMark: { width: 16, alignItems: "center", justifyContent: "center" },
   tripExplorerPage: {
     paddingHorizontal: 20,
     paddingTop: 8,
@@ -4376,9 +4383,6 @@ const s = StyleSheet.create({
     position: "absolute",
     right: 11,
     bottom: 10,
-    color: "#17233D",
-    fontSize: 12,
-    fontFamily: typo.label.family,
   },
   screenHead: {
     flexDirection: "row",
@@ -4966,7 +4970,7 @@ const s = StyleSheet.create({
   groupChoiceCopy: { flex: 1, marginLeft: 12 },
   groupChoiceName: { fontSize: 14, fontFamily: typo.title.family },
   groupChoiceMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 4 },
-  groupChoiceCheck: { width: 18, fontSize: 14, fontFamily: typo.label.family, textAlign: "center" },
+  groupChoiceCheck: { width: 18, alignItems: "center", justifyContent: "center" },
   togetherAccountButton: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   togetherAccountInitial: { fontSize: 14, fontFamily: typo.label.family },
   workspaceCard: {
@@ -5006,6 +5010,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  groupTabMoreDots: { flexDirection: "row", alignItems: "center", gap: 3 },
   groupTabMoreText: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 1 },
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   memberSectionTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 2 },
