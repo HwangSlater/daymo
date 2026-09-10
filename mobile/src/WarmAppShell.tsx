@@ -3573,7 +3573,7 @@ const s = StyleSheet.create({
     overflow: "visible",
   },
   paperTripMain: { borderRadius: 2 },
-  paperTripTexture: { ...StyleSheet.absoluteFillObject, overflow: "hidden", borderRadius: 4 },
+  paperTripTexture: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 4 },
   paperTripSoftLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(104, 139, 160, .10)" },
   paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .14)" },
   paperTripRoute: {
@@ -3942,7 +3942,7 @@ const s = StyleSheet.create({
   viewChoiceText: { color: "#858783", fontSize: 14, fontFamily: typo.label.family },
   viewChoiceTextActive: { color: "#FFFFFF" },
   mapOnly: { flex: 1, width: "100%", position: "relative", overflow: "hidden" },
-  mapDragLayer: { ...StyleSheet.absoluteFillObject },
+  mapDragLayer: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
   mapTray: {
     position: "absolute",
     left: 0,
