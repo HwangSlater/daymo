@@ -1,5 +1,7 @@
 import { useFonts } from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import {
   Platform,
   StyleSheet,
@@ -17,6 +19,10 @@ import { WarmAppShell } from "./src/WarmAppShell";
 import { fontAssets } from "./src/theme/typography";
 
 const isWeb = Platform.OS === "web";
+
+// 서체를 다 불러올 때까지 실행 화면을 띄워 둔다. 그러지 않으면 OS 기본 폰트로
+// 한 번 그렸다가 바뀌면서 글자가 튄다. 웹에는 실행 화면이 없어 조용히 넘어간다.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // 손가락으로 쓰는 화면인지 본다. 휴대폰 브라우저에서 열면 프레임을 씌우면 안 된다.
 // 안 그러면 이미 작은 화면 안에 또 작은 화면이 생긴다.
@@ -42,8 +48,12 @@ export default function App() {
   const dark = useColorScheme() === "dark";
   const showPhoneFrame = isWeb && !isTouchScreen && width >= FRAME_MIN_WIDTH;
 
-  // 서체가 준비되기 전에 그리면 OS 기본 폰트로 한 번 그렸다가 바뀌어 글자가 튄다.
-  // 이때 색은 무대가 아니라 앱 배경이어야 화면이 두 번 바뀌지 않는다.
+  useEffect(() => {
+    if (fontsReady) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsReady]);
+
+  // 기기에서는 위의 실행 화면이 아직 덮고 있다. 이 빈 화면은 실행 화면이 없는
+  // 웹을 위한 것이고, 색은 무대가 아니라 앱 배경이어야 화면이 두 번 바뀌지 않는다.
   if (!fontsReady) {
     return <View style={[s.blank, { backgroundColor: dark ? "#0D111A" : "#F7F5F0" }]} />;
   }

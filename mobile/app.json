@@ -7,6 +7,16 @@
     "icon": "./assets/daymo-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/daymo-splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F5F0",
+      "dark": {
+        "image": "./assets/daymo-splash-dark.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#0D111A"
+      }
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -26,7 +36,20 @@
     "plugins": [
       "expo-web-browser",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/daymo-splash.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F5F0",
+          "dark": {
+            "image": "./assets/daymo-splash-dark.png",
+            "backgroundColor": "#0D111A"
+          }
+        }
+      ]
     ]
   }
 }

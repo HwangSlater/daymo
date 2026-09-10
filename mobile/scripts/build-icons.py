@@ -13,6 +13,12 @@
                                        바깥 3분의 1은 기기에 따라 잘리므로
                                        그림을 가운데 안전 영역 안으로 줄인다.
   assets/daymo-icon-login.png     512  로그인 화면에 얹는 작은 아이콘.
+  assets/daymo-splash.png        1024  실행 화면. 배경 없이 그림만, 잉크 남색.
+  assets/daymo-splash-dark.png   1024  같은 그림, 어두운 모드용 흰색.
+
+실행 화면은 배경을 app.json 이 깔고 그림만 얹는다. 배경을 앱 배경색과 같게
+두면 실행 화면에서 앱으로 넘어갈 때 색이 튀지 않는다. 그래서 그림 색이
+모드마다 달라야 하고 파일이 두 장이다.
 """
 
 from pathlib import Path
@@ -28,6 +34,12 @@ SCALE = 4  # 4배로 그린 뒤 줄인다.
 
 BACKGROUND = (46, 52, 87)  # #2E3457 잉크 남색
 MARK = (255, 255, 255)
+
+# 실행 화면은 앱 배경 위에 그림만 얹는다. 색은 모드별 본문 색을 따른다.
+SPLASH_INK_LIGHT = (46, 52, 87)
+SPLASH_INK_DARK = (255, 255, 255)
+# 그림이 화면 폭에서 차지할 비율. 아이콘보다 여유를 준다.
+SPLASH_FIT = 0.86
 
 # 안드로이드 적응형 아이콘에서 반드시 보이는 영역은 가운데 3분의 2다.
 ADAPTIVE_SAFE = 0.66
@@ -159,7 +171,27 @@ def main():
         OUT / "daymo-icon-login.png"
     )
 
-    for name in ("daymo-icon.png", "daymo-icon-adaptive.png", "daymo-icon-login.png"):
+    # 실행 화면. 테두리 상자를 재서 한가운데로 맞추는 것은 적응형과 같다.
+    splash_fit = SIZE * SPLASH_FIT / max(right - left, bottom - top)
+    splash_offset = (
+        SIZE / 2 - (left + right) / 2 * splash_fit,
+        SIZE / 2 - (top + bottom) / 2 * splash_fit,
+    )
+    for ink, name in (
+        (SPLASH_INK_LIGHT, "daymo-splash.png"),
+        (SPLASH_INK_DARK, "daymo-splash-dark.png"),
+    ):
+        render(
+            BACKGROUND, ink, offset=splash_offset, scale=splash_fit, transparent=True
+        ).save(OUT / name)
+
+    for name in (
+        "daymo-icon.png",
+        "daymo-icon-adaptive.png",
+        "daymo-icon-login.png",
+        "daymo-splash.png",
+        "daymo-splash-dark.png",
+    ):
         image = Image.open(OUT / name)
         print(f"{name}  {image.size[0]}x{image.size[1]}  {image.mode}")
 
