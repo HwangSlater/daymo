@@ -18,9 +18,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import { PaperPeel } from "./PaperPeel";
 import { TripDetailDestination, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
@@ -688,7 +689,8 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     // PanResponder registers these callbacks; refs are read only during touch events.
     // eslint-disable-next-line react-hooks/refs
     return PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
+    onMoveShouldSetPanResponder: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75,
     onPanResponderGrant: () => { dragging.current = true; },
     onPanResponderMove: (_, gesture) => {
       const step = gesture.dx < 0 ? 1 : -1;
@@ -698,13 +700,13 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
         setDirection(step);
       }
       // At either end the paper lifts only a little, then settles back.
-      const progress = Math.min(Math.abs(gesture.dx) / (width * 0.8), canMove(step) ? 0.98 : 0.08);
+      const progress = Math.min((Math.abs(gesture.dx) + Math.max(0, -gesture.dy) * 0.45) / (width * 0.8), canMove(step) ? 0.98 : 0.08);
       turn.setValue(reduceMotion ? 0 : progress);
     },
     onPanResponderRelease: (_, gesture) => {
       const step = dragDirection.current;
       const forwardVelocity = step === 1 ? -gesture.vx : gesture.vx;
-      const complete = canMove(step) && (Math.abs(gesture.dx) > width * 0.24 || forwardVelocity > 0.55);
+      const complete = canMove(step) && (Math.abs(gesture.dx) + Math.max(0, -gesture.dy) * 0.45 > width * 0.24 || forwardVelocity > 0.55);
       if (reduceMotion) {
         if (complete) setIndex(current => current + step);
         dragging.current = false;
@@ -716,40 +718,23 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   }, [canMove, reduceMotion, settle, turn, width]);
   const next = ordered[index + direction];
   const paper = paperCard(theme.dark);
-  // A single cached card surface and a lightweight curled edge replace the
-  // 32 complete card trees. Transform/opacity animations run on the native driver.
-  const motion = useMemo(() => {
-    const progressStops = [0, 0.2, 0.55, 0.85, 1];
-    const angles = [0, 12, 55, 86, 100];
-    const samples = Array.from({ length: 41 }, (_, sample) => sample / 40);
-    const edge = samples.map(progress => {
-      const end = Math.max(1, progressStops.findIndex(stop => stop >= progress));
-      const fraction = (progress - progressStops[end - 1]) / (progressStops[end] - progressStops[end - 1]);
-      const angle = (angles[end - 1] + fraction * (angles[end] - angles[end - 1])) * Math.PI / 180;
-      const scale = 1200 / (1200 - height * Math.sin(angle));
-      return { y: height / 2 + (height * Math.cos(angle) - height / 2) * scale - 17, scale };
-    });
-    return {
-    lift: turn.interpolate({ inputRange: [0, 0.2, 0.55, 0.85, 1], outputRange: ["0deg", "12deg", "55deg", "86deg", "100deg"] }),
-    front: turn.interpolate({ inputRange: [0, 0.8, 0.96, 1], outputRange: [1, 1, 0, 0] }),
-    curlY: turn.interpolate({ inputRange: samples, outputRange: edge.map(point => point.y) }),
-    curlWidth: turn.interpolate({ inputRange: samples, outputRange: edge.map(point => point.scale) }),
-    curlScale: turn.interpolate({ inputRange: [0, 0.15, 0.45, 0.8, 1], outputRange: [0.04, 0.65, 1, 0.8, 0.1] }),
-    curlOpacity: turn.interpolate({ inputRange: [0, 0.08, 0.8, 1], outputRange: [0, 1, 1, 0] }),
+  const motion = useMemo(() => ({
     shadowOpacity: turn.interpolate({ inputRange: [0, 0.2, 0.6, 1], outputRange: [0, 0.24, 0.12, 0] }),
     shadowY: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [4, -height * 0.22, -height * 0.5] }),
     shadowScale: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.6, 0.05] }),
     underShade: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.14, 0.06, 0] }),
-  };
-  }, [turn, height]);
+  }), [turn, height]);
   return (
     <View>
       <View
         {...pan.panHandlers}
-        onLayout={event => setWidth(Math.max(1, event.nativeEvent.layout.width))}
-        style={{ marginTop: 8, marginBottom: 16 }}
+        onLayout={event => {
+          setWidth(Math.max(1, event.nativeEvent.layout.width));
+          setHeight(event.nativeEvent.layout.height);
+        }}
+        style={{ marginTop: 8, marginBottom: 16, ...(Platform.OS === "web" ? { userSelect: "none" as const } : {}) }}
       >
-        {next && <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+        {next && <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { paddingVertical: 12 }]}>
           <HomeTripCard trip={next} theme={theme} todayKey={todayKey} open={open} />
           <Animated.View style={[StyleSheet.absoluteFill, {
             backgroundColor: "#30271C", borderRadius: 4, opacity: motion.underShade,
@@ -768,42 +753,14 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
             <Rect width="100%" height="100%" fill="url(#liftShadow)" />
           </Svg>
         </Animated.View>
-        <Animated.View
-          renderToHardwareTextureAndroid
-          shouldRasterizeIOS
-          onLayout={event => setHeight(event.nativeEvent.layout.height)}
-          style={{
-            opacity: motion.front,
-            backfaceVisibility: "hidden",
-            transform: [
-              { perspective: 1200 },
-              { translateY: -height / 2 },
-              { rotateX: motion.lift },
-              { translateY: height / 2 },
-            ],
-          }}
+        <PaperPeel
+          key={`${index}-${width}-${height}-${theme.dark}-${theme.primary}-${reduceMotion}`}
+          progress={turn} direction={direction} backColor={paper.backLeft} reduceMotion={reduceMotion}
         >
           <HomeTripCard trip={ordered[index]} theme={theme} todayKey={todayKey} open={(destination, trip) => {
             if (!dragging.current && !busy.current) open(destination, trip);
           }} />
-        </Animated.View>
-        <Animated.View pointerEvents="none" renderToHardwareTextureAndroid accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{
-          position: "absolute", top: 0, left: -2, right: -2, height: 34,
-          borderRadius: 7, overflow: "hidden", opacity: motion.curlOpacity,
-          transform: [{ translateY: motion.curlY }, { scaleX: motion.curlWidth }, { scaleY: motion.curlScale }],
-        }}>
-          <Svg width="100%" height="100%">
-            <Defs><LinearGradient id="paperCurl" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={paper.border} />
-              <Stop offset="0.18" stopColor={paper.backRight} />
-              <Stop offset="0.48" stopColor={paper.surface} />
-              <Stop offset="0.76" stopColor={paper.backLeft} />
-              <Stop offset="1" stopColor={paper.border} />
-            </LinearGradient></Defs>
-            <Rect width="100%" height="100%" rx="7" fill="url(#paperCurl)" />
-          </Svg>
-          <View style={{ position: "absolute", left: 14, top: 0, bottom: 0, width: 1, backgroundColor: `${theme.primary}16` }} />
-        </Animated.View>
+        </PaperPeel>
 
       </View>
       {ordered.length > 1 && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
