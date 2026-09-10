@@ -468,9 +468,11 @@ function NotebookHome({
             우리의 여행 수첩
           </Text>
         </View>
-        <Text style={[s.tinyDayText, { color: theme.muted }]}>
-          {relationship === "연인" ? "둘만의 여행" : "함께한 여행"}
-        </Text>
+        <View style={[s.tinyDay, { backgroundColor: theme.primarySoft }]}>
+          <Text style={[s.tinyDayText, { color: theme.primary }]}>
+            {relationship === "연인" ? "둘만의 여행" : "함께한 여행"}
+          </Text>
+        </View>
       </View>
       {trip ? (
         <>
@@ -3509,7 +3511,13 @@ const s = StyleSheet.create({
     marginBottom: 28,
   },
   notebookHello: { fontSize: 14, marginTop: 2, fontFamily: typo.body.family },
-  tinyDayText: { fontSize: 12, fontFamily: typo.label.family },
+  tinyDay: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    transform: [{ rotate: "1.5deg" }],
+  },
+  tinyDayText: { fontSize: 14, fontFamily: typo.data.family },
   paperTripStack: {
     position: "relative",
     marginBottom: 2,
