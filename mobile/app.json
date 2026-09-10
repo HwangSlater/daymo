@@ -20,7 +20,7 @@
       "icon": "./assets/daymo-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/daymo-icon-adaptive.png",
-        "backgroundColor": "#5865F2"
+        "backgroundColor": "#2E3457"
       }
     },
     "plugins": [
