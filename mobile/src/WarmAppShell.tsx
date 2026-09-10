@@ -439,23 +439,36 @@ function AuthScreen({
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
           </View>
           <View style={s.oauthGrid}>
+            {/*
+              심볼 자리는 비워 두었다. 예전에는 동그라미 안에 K·N·G·A 한 글자를
+              직접 그려 넣었는데, 그건 각 사의 상표를 흉내 낸 것이다. 특히
+              구글은 "직접 아이콘을 만들거나 로고의 크기·색을 바꾸는 것"을
+              명시적으로 금지한다. 카카오는 반대로 심볼 없는 버튼을 금지하므로,
+              출시 전에 각 사 콘솔에서 공식 버튼 에셋을 받아 넣어야 한다.
+              docs/development/08-privacy-and-release-compliance.md 12장 참고.
+
+              색과 문구는 각 사가 문서로 정해 둔 값을 그대로 쓴다.
+            */}
             {[
-              { id: "kakao", label: "카카오", mark: "K", color: "#FEE500", text: "#241F10" },
-              { id: "naver", label: "네이버", mark: "N", color: "#03C75A", text: "#FFFFFF" },
-              { id: "google", label: "Google", mark: "G", color: "#FFFFFF", text: "#4285F4" },
-              { id: "apple", label: "Apple", mark: "A", color: theme.dark ? "#FFFFFF" : "#111111", text: theme.dark ? "#111111" : "#FFFFFF" },
+              { id: "kakao", label: "카카오 로그인", color: "#FEE500", text: "#191919", border: "#FEE500" },
+              { id: "naver", label: "네이버 로그인", color: "#03C75A", text: "#FFFFFF", border: "#03C75A" },
+              theme.dark
+                ? { id: "google", label: "Google 계정으로 로그인", color: "#131314", text: "#E3E3E3", border: "#8E918F" }
+                : { id: "google", label: "Google 계정으로 로그인", color: "#FFFFFF", text: "#1F1F1F", border: "#747775" },
+              { id: "apple", label: "Apple로 로그인", color: theme.dark ? "#FFFFFF" : "#000000", text: theme.dark ? "#000000" : "#FFFFFF", border: theme.dark ? "#FFFFFF" : "#000000" },
             ].map((provider) => (
               <Pressable
                 key={provider.id}
                 disabled={oauthLoading !== null}
                 onPress={() => startOAuth(provider.id as "google" | "apple" | "kakao" | "naver")}
                 accessibilityRole="button"
-                accessibilityLabel={`${provider.label} 계정으로 로그인`}
+                accessibilityLabel={provider.label}
                 accessibilityState={{ disabled: oauthLoading !== null }}
-                style={[s.oauthButton, { backgroundColor: provider.color, borderColor: provider.id === "google" ? theme.border : provider.color }]}
+                style={[s.oauthButton, { backgroundColor: provider.color, borderColor: provider.border }]}
               >
-                <Text style={[s.oauthMark, { color: provider.text }]}>{provider.mark}</Text>
-                <Text style={[s.oauthLabel, { color: provider.text }]}>{oauthLoading === provider.id ? "연결 중" : provider.label}</Text>
+                <Text numberOfLines={1} style={[s.oauthLabel, { color: provider.text }]}>
+                  {oauthLoading === provider.id ? "연결 중" : provider.label}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -2583,6 +2596,8 @@ function Search({
  * 앞으로 고지할 저작물이 늘어나면 이 배열에 항목만 더한다.
  */
 type OpenSourceNotice = {
+  /** 링크 버튼에 적을 말. 가는 곳이 라이선스 전문이 아닐 수도 있다. */
+  linkLabel: string;
   id: string;
   /** 저작물 이름. */
   name: string;
@@ -2596,12 +2611,22 @@ type OpenSourceNotice = {
 
 const openSourceNotices: OpenSourceNotice[] = [
   {
+    id: "sgis",
+    name: "대한민국 행정구역 경계",
+    holder: "출처: 국가데이터처 통계지리정보서비스(SGIS)",
+    usage:
+      "여행 지도의 해안선과 시도·시군구 경계는 SGIS가 공개한 2018년 행정구역 경계를 앱 화면에 맞게 옮겨 그린 것이에요.",
+    licenseUrl: "https://sgis.kostat.go.kr/view/pss/dataProvdIntrcn",
+    linkLabel: "자료 제공 안내 보기",
+  },
+  {
     id: "cookierun",
     name: "쿠키런 서체",
     holder: "쿠키런 글꼴의 지식 재산권은 데브시스터즈(주)에 있습니다.",
     usage:
       "Daymo는 제목과 본문에 쿠키런 Regular와 Bold를 씁니다. 배포된 글꼴 파일을 그대로 담았고 수정하거나 개작하지 않았어요.",
     licenseUrl: "https://www.cookierunfont.com/static/download/License_ko_en.pdf",
+    linkLabel: "라이선스 전문 보기",
   },
 ];
 
@@ -3250,7 +3275,7 @@ function Together({
                     Linking.openURL(notice.licenseUrl);
                   }}
                   accessibilityRole="link"
-                  accessibilityLabel={`${notice.name} 라이선스 전문 열기`}
+                  accessibilityLabel={`${notice.name} ${notice.linkLabel}`}
                   style={({ pressed }) => [
                     s.noticeLink,
                     { backgroundColor: theme.primarySoft },
@@ -3258,7 +3283,7 @@ function Together({
                   ]}
                 >
                   <Text style={[s.noticeLinkText, { color: theme.primary }]}>
-                    라이선스 전문 보기
+                    {notice.linkLabel}
                   </Text>
                   <Glyph name="arrowRight" size={16} color={theme.primary} />
                 </Pressable>
@@ -5096,7 +5121,11 @@ const s = StyleSheet.create({
   authDescription: { fontSize: 14, lineHeight: 22, marginTop: 6, marginBottom: 20 },
   oauthGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   oauthButton: {
-    width: "48.7%",
+    // 48.7%씩 둘에 간격 8을 더하면 100%를 넘어 한 줄에 하나씩 떨어졌다.
+    // 남은 폭을 둘이 나눠 갖게 해서 간격을 세고도 두 개가 들어간다.
+    flexGrow: 1,
+    flexBasis: "40%",
+    minWidth: 0,
     height: 44,
     borderRadius: 8,
     borderWidth: 1,
@@ -5104,7 +5133,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  oauthMark: { fontSize: 12, fontFamily: typo.label.family, marginRight: 6 },
   oauthLabel: { fontSize: 12, fontFamily: typo.label.family },
   authDivider: { flexDirection: "row", alignItems: "center", marginVertical: 16 },
   authDividerLine: { flex: 1, height: 1 },
