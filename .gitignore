@@ -4,6 +4,9 @@ dist/
 .DS_Store
 *.log
 
+# 폰트 원본 내려받기 작업 폴더
+mobile/.fontsrc/
+
 mobile/ios/Pods/
 mobile/ios/build/
 mobile/ios/DerivedData/
