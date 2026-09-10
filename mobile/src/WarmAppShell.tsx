@@ -502,7 +502,9 @@ function NotebookHome({
         <View pointerEvents="none" style={s.paperTripRoute}>
           <Svg width="100%" height="100%" viewBox="0 0 112 42">
             <Path
-              d="M4 29C28 7 54 39 84 17"
+              // 점선 끝을 종이비행기 꼬리 홈(90,20) 앞에 맞춘다.
+              // 원래는 (84,17)에서 끝나 위쪽 모서리를 비스듬히 가로질렀다.
+              d="M4 29C28 8 60 34 88 22"
               fill="none"
               stroke={theme.primary}
               strokeWidth={1.4}
