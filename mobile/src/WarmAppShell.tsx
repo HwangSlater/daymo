@@ -668,8 +668,8 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     busy.current = true;
     Animated.spring(turn, {
       toValue: complete ? 1 : 0,
-      stiffness: 105,
-      damping: 23,
+      stiffness: 65,
+      damping: 18,
       mass: 1.05,
       overshootClamping: true,
       useNativeDriver: true,
