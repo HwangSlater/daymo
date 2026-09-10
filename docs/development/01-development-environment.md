@@ -23,7 +23,7 @@
 | Java | 설치되지 않음 | 백엔드 생성 전에 JDK 21 설치 필수 |
 | iOS bundle ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
 | Android package | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
-| 테스트/lint | npm script 없음 | 기반 공사에서 typecheck·lint·unit test script 추가 |
+| 테스트/lint | `typecheck`·`lint`·`export` script 추가 완료, 단위·E2E 테스트 없음 | 테스트 프레임워크 도입 시 `test`·`test:e2e` script 추가 |
 | 의존성 감사 | high 11, moderate 9 | `audit fix --force` 금지, Expo SDK 업그레이드 검증 작업으로 분리 |
 
 현재 Node 26에서 UI는 실행되지만 프로젝트 기준은 Node 24 LTS다. SDK 검증 전에 `nvm use`로 실제 shell을 전환하고 `npm ci`와 네이티브 빌드를 다시 확인한다. npm audit의 자동 제안은 Expo/React Native의 호환 조합을 깨뜨릴 수 있으므로 그대로 적용하지 않는다.
@@ -36,12 +36,53 @@ npm ci
 npm run ios
 npm run android
 npm run web
-npx tsc --noEmit
+npm run typecheck
+npm run lint
+npm run export
 ```
 
-첫 기반 커밋에서 루트 `.nvmrc`, `mobile/.env.example`, `mobile/package.json` engines와 `typecheck`, `lint`, `test`, `test:e2e`, `export` npm script를 추가한다.
+### npm script 현황
+
+| script | 명령 | 상태 |
+| --- | --- | --- |
+| `start` | `expo start` | 있음 |
+| `android` | `expo run:android` | 있음 |
+| `ios` | `expo run:ios` | 있음 |
+| `web` | `expo start --web` | 있음 |
+| `typecheck` | `tsc --noEmit` | 있음 |
+| `lint` | `expo lint` | 있음 |
+| `export` | `expo export -p web` | 있음, `mobile/vercel.json`의 `buildCommand`와 같은 명령 |
+| `test` | 미정 | 없음. 테스트 프레임워크와 테스트 파일이 아직 없다 |
+| `test:e2e` | 미정 | 없음. E2E 도구가 아직 없다 |
+
+루트 `.nvmrc`(Node 24)와 `mobile/package.json`의 `engines`는 이미 반영되어 있다. `mobile/.env.example`은 아직 없으며 서버 연동 환경변수를 확정할 때 추가한다. `test`와 `test:e2e`는 도구를 실제로 도입하기 전에는 script만 먼저 만들지 않는다.
+
+### 정적 검사 도구
+
+lint는 Expo가 제공하는 방식을 그대로 쓴다. `npx expo lint`가 없는 설정을 자동으로 만들어 주며, 그 결과가 `mobile/eslint.config.js`(flat config, `eslint-config-expo/flat`)와 devDependencies의 `eslint`, `eslint-config-expo`다. 별도 규칙 세트를 직접 정의하지 않는다.
+
+```bash
+cd mobile
+npm run lint          # 검사
+npx eslint . --fix    # 자동 수정 가능한 항목만 정리
+```
+
+현재 `WarmAppShell.tsx`와 `WarmTripDetail.tsx`에 `react-hooks/refs`, `react-hooks/set-state-in-effect`, `react-hooks/purity` error가 남아 있다. 규칙을 끄지 않고 해당 화면 코드를 정리하는 방향으로 해결하며, 그전까지 CI에서 lint는 차단하지 않는 단계로 둔다.
 
 네이티브 의존성을 추가할 때는 Expo 호환 버전을 위해 `npm install`보다 `npx expo install <package>`를 우선한다.
+
+### 네이티브 폴더와 iOS·Android 빌드
+
+`mobile/ios/`와 `mobile/android/` 네이티브 폴더는 저장소에 두지 않고 `.gitignore`로 제외한다. 네이티브 빌드가 필요한 시점에 app config와 플러그인에서 다시 만든다.
+
+```bash
+cd mobile
+npx expo prebuild
+```
+
+iOS는 CocoaPods가 필요해서 macOS 또는 EAS Build에서만 완전히 만들 수 있다. 현재 개발 PC는 윈도우이므로 이 PC에서는 iOS 네이티브 빌드를 끝까지 만들 수 없다.
+
+커스텀 네이티브 코드를 직접 넣게 되면 그때는 네이티브 폴더를 저장소에 커밋하는 방식으로 바꿔야 한다.
 
 ## 2. 도입할 개발 도구
 
@@ -166,8 +207,8 @@ mobile/
     theme/                   # 색상 토큰
     types/                   # 생성된 API 타입
   assets/
-  ios/
-  android/
+  ios/                       # prebuild 산출물, 커밋하지 않음
+  android/                   # prebuild 산출물, 커밋하지 않음
   package.json
 server/
   src/main/java/...          # Spring Boot domain/application/infra/api
@@ -203,12 +244,14 @@ PR CI는 client `typecheck`·`lint`·unit test와 server Gradle test·Testcontai
 CI 최소 작업에서 client job의 working directory는 `mobile`, server job은 `server`로 고정한다.
 
 1. `cd mobile && npm ci`
-2. `cd mobile && npx tsc --noEmit`
+2. `cd mobile && npm run typecheck`
 3. lint/format 검사
 4. 단위 테스트
 5. Gradle 테스트와 Flyway migration 검증
 6. Docker image build
 7. Expo export 검증
+
+현재 구현된 워크플로는 `.github/workflows/ci.yml` 하나이며 위 목록의 1~3만 담당한다. `main` push와 모든 pull request에서 실행하고, Node 버전은 루트 `.nvmrc`를 `actions/setup-node`의 `node-version-file`로 읽으며 `mobile/package-lock.json` 기준으로 npm 캐시를 쓴다. `typecheck`는 실패 시 job을 실패시키고, `lint`는 기존 화면 코드의 error가 정리될 때까지 `continue-on-error`로 두어 결과만 보고한다. 4~7은 서버와 테스트 도구가 생긴 뒤에 같은 파일이나 별도 워크플로로 추가한다.
 
 ## 8. VPS 자원 예산
 

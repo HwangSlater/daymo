@@ -1526,7 +1526,7 @@ function KoreaTripMap({
     setCenter({ x: 150, y: 210 });
   };
   /** 닿아 있는 두 손가락 사이의 거리와 중점. */
-  const spanOf = (touches: ReadonlyArray<{ pageX: number; pageY: number }>) => {
+  const spanOf = (touches: readonly { pageX: number; pageY: number }[]) => {
     const first = inMap(touches[0]);
     const second = inMap(touches[1]);
     return {
@@ -1534,7 +1534,7 @@ function KoreaTripMap({
       at: { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 },
     };
   };
-  const beginPinch = (touches: ReadonlyArray<{ pageX: number; pageY: number }>) => {
+  const beginPinch = (touches: readonly { pageX: number; pageY: number }[]) => {
     const { distance, at } = spanOf(touches);
     gesture.current = { kind: "pinch", span: distance, zoom: zoomRef.current, at, on: toMapPoint(at) };
     setPinching(true);
@@ -2669,8 +2669,8 @@ function Together({
   const [memberC, setMemberC] = useState("가람");
   const [memberD, setMemberD] = useState("새봄");
   const [selectedMember, setSelectedMember] = useState(0);
-  const [memberRoles, setMemberRoles] = useState<Array<"관리자" | "편집 가능" | "보기만">>(["관리자", "편집 가능", "편집 가능", "보기만"]);
-  const groups: Array<{ id: GroupId; name: string; members: string[]; relationship: "연인" | "친구" }> = [
+  const [memberRoles, setMemberRoles] = useState<("관리자" | "편집 가능" | "보기만")[]>(["관리자", "편집 가능", "편집 가능", "보기만"]);
+  const groups: { id: GroupId; name: string; members: string[]; relationship: "연인" | "친구" }[] = [
     { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" as const },
     { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" as const },
     { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" as const },

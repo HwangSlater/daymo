@@ -1,0 +1,47 @@
+name: CI
+
+# main push와 모든 pull request에서 클라이언트 정적 검사를 실행한다.
+# feature branch는 pull request에서 검사되므로 push trigger는 main으로 제한해 중복 실행을 피한다.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    name: client typecheck & lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Node 기준은 루트 .nvmrc(24)이며 mobile/package.json engines(">=24 <25")와 같다.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # 현재 기존 화면 코드에 react-hooks 계열 error가 남아 있어 lint는 아직 차단 조건이 아니다.
+      # 해당 error를 정리한 뒤 continue-on-error를 제거해 필수 검사로 승격한다.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true

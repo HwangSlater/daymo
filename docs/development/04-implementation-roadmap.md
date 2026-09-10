@@ -16,8 +16,9 @@
 - Java 21, Spring Boot, PostgreSQL 버전 확정
 - 확정된 VPS private 사진 volume과 Google Drive 암호화 백업 경로 검증
 - 앱 bundle identifier와 Android package name 확정
-- 개인정보 처리방침/이용약관 초안 위치 결정
+- 개인정보 처리방침/이용약관 초안 위치 결정. 앱 로그인 화면 아래 문구가 아직 아무 문서로도 연결되지 않는다
 - 개인정보 처리자/보호책임자 연락처와 사업자 표시 정보 확정
+- 저장소 라이선스와 공개 여부 결정([`10-implementation-readiness.md`](./10-implementation-readiness.md) D-004A)
 - ConoHa, Google Drive, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인
 - local과 VPS beta→production 전환 환경, 서로 다른 secret과 설정 관리 방식 생성
 - 공개 가입에 필요한 이메일 소유 확인, 가입·로그인 rate limit, 자동 가입 방어와 문의 경로 설계

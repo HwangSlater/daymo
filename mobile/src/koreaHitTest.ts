@@ -73,7 +73,7 @@ export function isOnLand(x: number, y: number): boolean {
 export function nearestRegion(
   x: number,
   y: number,
-  pins: ReadonlyArray<{ name: string; x: number; y: number }>,
+  pins: readonly { name: string; x: number; y: number }[],
   limit = 90,
 ): string | null {
   let best: string | null = null;

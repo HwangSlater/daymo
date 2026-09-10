@@ -215,6 +215,8 @@
 | beta/production release candidate | EAS Build로 iOS·Android native binary 생성, 두 플랫폼 smoke test |
 | 매주 dependency schedule | client/server 생태계별 묶음 update PR 생성, 자동 merge 금지 |
 
+위 표는 목표 기준이다. 현재 구현된 CI는 `.github/workflows/ci.yml` 하나이며 `mobile`에서 `npm ci` → `npm run typecheck` → `npm run lint`까지만 실행한다. `typecheck`만 job을 실패시키고 `lint`는 기존 화면 코드의 `react-hooks` error가 정리될 때까지 `continue-on-error`로 결과만 보고한다. 단위 테스트, E2E, server Gradle test, migration 검증과 image build는 해당 도구와 server 코드가 생긴 뒤에 추가한다. `test`·`test:e2e` npm script도 아직 없다. 로컬 커밋 게이트에서도 같은 이유로 지금 실제로 돌릴 수 있는 검사는 `npm run typecheck`와 `npm run lint`뿐이다.
+
 의존성 PR도 일반 PR과 같은 CI를 통과해야 하며 release note·Expo/Spring 호환성·보안 영향 확인 후 직접 squash merge한다. EAS build를 모든 PR에서 실행하지 않는다.
 
 베타는 공개 가입과 실사용 데이터 유지를 선택했으므로 staging 표기가 있어도 production 개인정보·보안 기준을 적용한다. production 전환 전에 DB·사진 전체 snapshot과 실제 복원 검증을 완료하며 데이터 초기화는 하지 않는다.
