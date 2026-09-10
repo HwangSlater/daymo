@@ -42,7 +42,7 @@ export function PaperPeel({ children, progress, direction, backColor, reduceMoti
     };
   }, [size.width, size.height, reduceMotion]);
 
-  const mesh = useMemo(() => {
+  const geometry = useMemo(() => {
     const count = 28;
     const side = Math.ceil(Math.hypot(size.width, size.height)) + 24;
     const band = side / count;
@@ -65,17 +65,23 @@ export function PaperPeel({ children, progress, direction, backColor, reduceMoti
       }
       return points;
     });
-    return { side, band, bands: Array.from({ length: count }, (_, row) => {
-      const interpolate = (values: number[]) => progress.interpolate({ inputRange: inputs, outputRange: values, extrapolate: "clamp" });
+    return { side, band, inputs, bands: Array.from({ length: count }, (_, row) => {
       return {
-        y: interpolate(frames.map(points => (points[row].y + points[row + 1].y) / 2 - (row + 0.5) * band)),
-        scaleX: interpolate(frames.map(points => (points[row].scale + points[row + 1].scale) / 2)),
-        scaleY: interpolate(frames.map(points => (points[row + 1].y - points[row].y) / band)),
-        back: interpolate(frames.map(points => points[row + 1].y < points[row].y ? 1 : 0)),
-        shade: interpolate(frames.map(points => Math.min(0.22, Math.abs(1 - (points[row + 1].y - points[row].y) / band) * 0.14))),
+        y: frames.map(points => (points[row].y + points[row + 1].y) / 2 - (row + 0.5) * band),
+        scaleX: frames.map(points => (points[row].scale + points[row + 1].scale) / 2),
+        scaleY: frames.map(points => (points[row + 1].y - points[row].y) / band),
+        back: frames.map(points => points[row + 1].y < points[row].y ? 1 : 0),
+        shade: frames.map(points => Math.min(0.22, Math.abs(1 - (points[row + 1].y - points[row].y) / band) * 0.14)),
       };
     }) };
-  }, [size.width, size.height, progress]);
+  }, [size.width, size.height]);
+  const mesh = useMemo(() => {
+    const interpolate = (outputRange: number[]) => progress.interpolate({ inputRange: geometry.inputs, outputRange, extrapolate: "clamp" });
+    return { ...geometry, bands: geometry.bands.map(band => ({
+      y: interpolate(band.y), scaleX: interpolate(band.scaleX), scaleY: interpolate(band.scaleY),
+      back: interpolate(band.back), shade: interpolate(band.shade),
+    })) };
+  }, [geometry, progress]);
   const opacity = useMemo(() => ({
     live: progress.interpolate({ inputRange: [0, 0.002, 1], outputRange: [1, 0, 0] }),
     bitmap: progress.interpolate({ inputRange: [0, 0.002, 0.92, 1], outputRange: [0, 1, 1, 0] }),

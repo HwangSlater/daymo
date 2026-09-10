@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   AccessibilityInfo,
   Animated,
+  Easing,
   Alert,
   Modal,
   Image,
@@ -22,6 +23,7 @@ import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { PaperPeel } from "./PaperPeel";
+import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
 import { TripDetailDestination, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
@@ -649,14 +651,17 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   const [direction, setDirection] = useState(1);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [turn] = useState(() => new Animated.Value(0));
+  const [idlePage] = useState(() => new Animated.Value(0));
+  const dragFrame = useRef({ value: 0, time: 0 });
   const busy = useRef(false);
   const dragging = useRef(false);
   const dragDirection = useRef(1);
+  const pageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     let mounted = true;
     void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (mounted) setReduceMotion(value); });
     const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    return () => { mounted = false; subscription.remove(); turn.stopAnimation(); };
+    return () => { mounted = false; subscription.remove(); turn.stopAnimation(); if (pageTimer.current) clearTimeout(pageTimer.current); };
   }, [turn]);
   useLayoutEffect(() => {
     turn.setValue(0);
@@ -666,17 +671,22 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   const canMove = useCallback((step: number) => index + step >= 0 && index + step < ordered.length, [index, ordered.length]);
   const settle = useCallback((step: number, complete: boolean) => {
     busy.current = true;
-    Animated.spring(turn, {
+    Animated.timing(turn, {
       toValue: complete ? 1 : 0,
-      stiffness: 65,
-      damping: 18,
-      mass: 1.05,
-      overshootClamping: true,
+      duration: complete ? PEEL_FINISH_MS : PEEL_CANCEL_MS,
+      easing: Easing.inOut(Easing.quad),
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (finished && complete) setIndex(current => current + step);
-      else { busy.current = false; dragging.current = false; }
+      if (finished && !complete) { busy.current = false; dragging.current = false; }
     });
+    if (complete) {
+      // Swap while the last curl is still settling. The adjacent page is kept
+      // mounted, so this removes the visible pause between pages.
+      pageTimer.current = setTimeout(() => {
+        pageTimer.current = null;
+        setIndex(current => current + step);
+      }, Math.round(PEEL_FINISH_MS * 0.68));
+    }
   }, [turn]);
   const move = (step: number) => {
     if (busy.current || dragging.current || !canMove(step)) return;
@@ -691,22 +701,28 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     return PanResponder.create({
     onMoveShouldSetPanResponder: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75,
     onMoveShouldSetPanResponderCapture: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75,
-    onPanResponderGrant: () => { dragging.current = true; },
-    onPanResponderMove: (_, gesture) => {
+    onPanResponderGrant: (event) => {
+      dragging.current = true;
+      dragFrame.current = { value: 0, time: event.nativeEvent.timestamp };
+    },
+    onPanResponderMove: (event, gesture) => {
       const step = gesture.dx < 0 ? 1 : -1;
       // Update React only when the drag crosses to the other side.
       if (dragDirection.current !== step) {
         dragDirection.current = step;
+        dragFrame.current.value = 0;
         setDirection(step);
       }
-      // At either end the paper lifts only a little, then settles back.
-      const progress = Math.min((Math.abs(gesture.dx) + Math.max(0, -gesture.dy) * 0.45) / (width * 0.8), canMove(step) ? 0.98 : 0.08);
+      const time = event.nativeEvent.timestamp;
+      const progress = peelDragProgress(peelDistance(gesture.dx, gesture.dy), width,
+        dragFrame.current.value, time - dragFrame.current.time, canMove(step));
+      dragFrame.current = { value: progress, time };
       turn.setValue(reduceMotion ? 0 : progress);
     },
     onPanResponderRelease: (_, gesture) => {
       const step = dragDirection.current;
       const forwardVelocity = step === 1 ? -gesture.vx : gesture.vx;
-      const complete = canMove(step) && (Math.abs(gesture.dx) + Math.max(0, -gesture.dy) * 0.45 > width * 0.24 || forwardVelocity > 0.55);
+      const complete = canMove(step) && shouldCompletePeel(gesture.dx, gesture.dy, forwardVelocity, width);
       if (reduceMotion) {
         if (complete) setIndex(current => current + step);
         dragging.current = false;
@@ -716,7 +732,6 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     onPanResponderTerminationRequest: () => false,
     });
   }, [canMove, reduceMotion, settle, turn, width]);
-  const next = ordered[index + direction];
   const paper = paperCard(theme.dark);
   const motion = useMemo(() => ({
     shadowOpacity: turn.interpolate({ inputRange: [0, 0.2, 0.6, 1], outputRange: [0, 0.24, 0.12, 0] }),
@@ -734,14 +749,8 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
         }}
         style={{ marginTop: 8, marginBottom: 16, ...(Platform.OS === "web" ? { userSelect: "none" as const } : {}) }}
       >
-        {next && <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { paddingVertical: 12 }]}>
-          <HomeTripCard trip={next} theme={theme} todayKey={todayKey} open={open} />
-          <Animated.View style={[StyleSheet.absoluteFill, {
-            backgroundColor: "#30271C", borderRadius: 4, opacity: motion.underShade,
-          }]} />
-        </View>}
         <Animated.View pointerEvents="none" renderToHardwareTextureAndroid style={[StyleSheet.absoluteFill, {
-          opacity: motion.shadowOpacity,
+          zIndex: 1, opacity: motion.shadowOpacity,
           transform: [{ translateY: motion.shadowY }, { scaleY: motion.shadowScale }],
         }]}>
           <Svg width="100%" height="100%">
@@ -753,14 +762,27 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
             <Rect width="100%" height="100%" fill="url(#liftShadow)" />
           </Svg>
         </Animated.View>
-        <PaperPeel
-          key={`${index}-${width}-${height}-${theme.dark}-${theme.primary}-${reduceMotion}`}
-          progress={turn} direction={direction} backColor={paper.backLeft} reduceMotion={reduceMotion}
-        >
-          <HomeTripCard trip={ordered[index]} theme={theme} todayKey={todayKey} open={(destination, trip) => {
-            if (!dragging.current && !busy.current) open(destination, trip);
-          }} />
-        </PaperPeel>
+        {ordered.slice(Math.max(0, index - 1), index + 2).map(item => {
+          const position = ordered.indexOf(item);
+          const active = position === index;
+          const underneath = position === index + direction;
+          return <View
+            key={`${position}-${width}-${theme.dark}-${theme.primary}-${reduceMotion}`}
+            pointerEvents={active ? "auto" : "none"}
+            accessibilityElementsHidden={!active}
+            importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+            style={active ? { zIndex: 2 } : [StyleSheet.absoluteFill, { zIndex: 0, opacity: underneath ? 1 : 0 }]}
+          >
+            <PaperPeel progress={active ? turn : idlePage} direction={direction} backColor={paper.backLeft} reduceMotion={reduceMotion}>
+              <HomeTripCard trip={item} theme={theme} todayKey={todayKey} open={(destination, trip) => {
+                if (active && !dragging.current && !busy.current) open(destination, trip);
+              }} />
+            </PaperPeel>
+            {!active && <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
+              backgroundColor: "#30271C", borderRadius: 4, opacity: motion.underShade,
+            }]} />}
+          </View>;
+        })}
 
       </View>
       {ordered.length > 1 && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
