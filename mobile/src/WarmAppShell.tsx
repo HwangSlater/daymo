@@ -468,13 +468,9 @@ function NotebookHome({
             우리의 여행 수첩
           </Text>
         </View>
-        <View
-          style={[s.tinyDay, { backgroundColor: theme.primarySoft }]}
-        >
-          <Text style={[s.tinyDayText, { color: theme.primary }]}>
-            {relationship === "연인" ? "둘만의 여행" : "함께한 여행"}
-          </Text>
-        </View>
+        <Text style={[s.tinyDayText, { color: theme.muted }]}>
+          {relationship === "연인" ? "둘만의 여행" : "함께한 여행"}
+        </Text>
       </View>
       {trip ? (
         <>
@@ -714,7 +710,7 @@ function NotebookHome({
               { backgroundColor: theme.primarySoft },
             ]}
           >
-            <Text style={[s.homeEmptyTripMarkText, { color: theme.primary }]}>＋</Text>
+            <Glyph name="plus" size={20} color={theme.primary} weight={2.2} />
           </View>
           <Text style={[s.homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어볼까요?</Text>
           <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요.</Text>
@@ -1054,9 +1050,7 @@ function TripsExplorer({
           {explorerHead}
           {display === "목록" && (
             <>
-              <View
-                style={[s.tripFilters, { backgroundColor: theme.surfaceAlt }]}
-              >
+              <View style={s.tripFilters}>
                 {(["전체", "예정", "추억"] as const).map((item) => (
                   <Pressable
                     key={item}
@@ -1064,16 +1058,15 @@ function TripsExplorer({
                     accessibilityRole="button"
                     accessibilityLabel={`${item} 여행만 보기`}
                     accessibilityState={{ selected: filter === item }}
+                    style={[
+                      s.filter,
+                      filter === item && { backgroundColor: theme.primarySoft },
+                    ]}
                   >
                     <Text
                       style={[
-                        s.filter,
-                        { color: theme.muted },
-                        filter === item && s.filterActive,
-                        filter === item && {
-                          backgroundColor: theme.surface,
-                          color: theme.text,
-                        },
+                        s.filterText,
+                        { color: filter === item ? theme.primary : theme.muted },
                       ]}
                     >
                       {item}
@@ -1667,7 +1660,7 @@ function KoreaTripMap({
             zoom >= MAP_MAX_ZOOM && s.zoomButtonDisabled,
           ]}
         >
-          <Text style={[s.zoomText, { color: theme.text }]}>＋</Text>
+          <Glyph name="plus" size={16} color={theme.text} weight={2.2} />
         </Pressable>
       </View>
     </View>
@@ -2604,7 +2597,7 @@ function Together({
             </Pressable>
           ))}
           <Pressable onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={s.memberStripItem}>
-            <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Text style={[s.memberInvitePlus, { color: theme.primary }]}>＋</Text></View>
+            <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Glyph name="plus" size={16} color={theme.primary} weight={2.2} /></View>
             <Text style={[s.memberStripName, { color: theme.muted }]}>초대</Text>
             <Text style={[s.memberStripRole, { color: theme.muted }]}>링크 공유</Text>
           </Pressable>
@@ -3146,7 +3139,9 @@ function TripArt({
     >
       <View style={s.artMoon} />
       <View style={s.artDate}>
-        <Text style={[s.artText, { color: tone.ink }]}>{date}</Text>
+        <Text style={[s.artText, { color: tone.ink }]}>
+          {Number(date)}<Text style={[s.artUnit, { color: tone.ink }]}>월</Text>
+        </Text>
         <View style={[s.artLine, { backgroundColor: tone.ink }]} />
       </View>
     </View>
@@ -3343,7 +3338,7 @@ function FormSheet({
             ]}
           >
             <Text style={s.sheetSubmitText}>{submit}</Text>
-            <View style={s.sheetSubmitArrow}><Text style={s.sheetSubmitArrowText}>→</Text></View>
+            <View style={s.sheetSubmitArrow}><Glyph name="arrowRight" size={15} color="#FFFFFF" /></View>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -3492,9 +3487,9 @@ const s = StyleSheet.create({
   },
   artDate: { position: "absolute", left: 11, bottom: 11 },
   artText: { color: "#623C38", fontSize: 14, fontFamily: typo.label.family },
+  artUnit: { fontSize: 11, fontFamily: typo.label.family },
   artLine: { width: 25, height: 2, backgroundColor: "#623C38", marginTop: 4 },
   newTripText: { color: "#FFF9F4", fontSize: 12, fontFamily: typo.label.family },
-  filterActive: { backgroundColor: "#FFF9F4", color: "#694038" },
   arrow: { color: "#A0665B", fontSize: 24, fontWeight: "300" },
   setting: {
     minHeight: 55,
@@ -3514,13 +3509,7 @@ const s = StyleSheet.create({
     marginBottom: 28,
   },
   notebookHello: { fontSize: 14, marginTop: 2, fontFamily: typo.body.family },
-  tinyDay: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    transform: [{ rotate: "1.5deg" }],
-  },
-  tinyDayText: { fontSize: 14, fontFamily: typo.data.family },
+  tinyDayText: { fontSize: 12, fontFamily: typo.label.family },
   paperTripStack: {
     position: "relative",
     marginBottom: 2,
@@ -3755,7 +3744,6 @@ const s = StyleSheet.create({
     marginBottom: 16,
     transform: [{ rotate: "-2deg" }],
   },
-  homeEmptyTripMarkText: { fontSize: 24, fontFamily: typo.label.family },
   homeEmptyTripTitle: { fontSize: 18, fontFamily: typo.title.family, textAlign: "center" },
   homeEmptyTripCopy: {
     maxWidth: 270,
@@ -3892,7 +3880,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sheetSubmitArrowText: { color: "#FFFFFF", fontSize: 18, fontFamily: typo.label.family },
   sheetCopy: {
     color: "#556071",
     fontSize: 14,
@@ -4046,7 +4033,6 @@ const s = StyleSheet.create({
   zoomControlsRaised: { bottom: 146 },
   zoomButton: { height: 44, alignItems: "center", justifyContent: "center" },
   zoomButtonDisabled: { opacity: 0.28 },
-  zoomText: { color: "#17233D", fontSize: 20, fontFamily: typo.title.family },
   zoomResetText: { fontSize: 12, fontFamily: typo.label.family },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 6 },
   dayRangeCell: {
@@ -4397,12 +4383,11 @@ const s = StyleSheet.create({
   tripFilters: {
     flexDirection: "row",
     alignSelf: "flex-start",
-    padding: 2,
-    borderRadius: 12,
-    gap: 2,
+    gap: 4,
     marginBottom: 8,
   },
-  filter: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  filter: { minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, justifyContent: "center" },
+  filterText: { fontSize: 12, fontFamily: typo.label.family },
   tripRow: {
     minHeight: 72,
     flexDirection: "row",
@@ -4992,7 +4977,6 @@ const s = StyleSheet.create({
     marginTop: 2,
   },
   memberInviteAvatar: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
-  memberInvitePlus: { fontSize: 18, fontFamily: typo.label.family },
   managementLabel: { fontSize: 12, fontFamily: typo.label.family, marginTop: 16, marginBottom: -2 },
   historySummary: { minHeight: 73, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center" },
   historySummaryItem: { flex: 1, alignItems: "center", justifyContent: "center" },

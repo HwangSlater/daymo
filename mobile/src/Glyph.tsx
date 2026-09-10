@@ -26,9 +26,21 @@ const paths = {
   bellOn: "M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 19a2 2 0 0 0 4 0",
   /** 알림 꺼짐. 원래 ○ */
   bellOff: "M6 9a6 6 0 0 1 9.5-4.9M18 11v-2M6 9c0 5-2 6-2 6h13M10 19a2 2 0 0 0 4 0M4 4l16 16",
+  /** 더 보기. 원래 ··· 둥근 끝을 가진 길이 0 선분이라 점으로 찍힌다. */
+  more: "M6 12h.01M12 12h.01M18 12h.01",
+  /** 찾기. 원래 ⌕ */
+  search: "M15.5 15.5 20 20M10 17a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z",
+  /** 이어지는 곳으로. 원래 → */
+  arrowRight: "M4 12h15m0 0l-5.5-5.5M19 12l-5.5 5.5",
 } as const;
 
-export type GlyphName = keyof typeof paths;
+/** 선이 아니라 면으로 그리는 기호. */
+const filledPaths = {
+  /** 재생. 원래 ▶ */
+  play: "M8.5 5.2 19 12 8.5 18.8z",
+} as const;
+
+export type GlyphName = keyof typeof paths | keyof typeof filledPaths;
 
 export function Glyph({
   name,
@@ -41,10 +53,17 @@ export function Glyph({
   color: string;
   weight?: number;
 }) {
+  if (name in filledPaths) {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        <Path d={filledPaths[name as keyof typeof filledPaths]} fill={color} />
+      </Svg>
+    );
+  }
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
-        d={paths[name]}
+        d={paths[name as keyof typeof paths]}
         fill="none"
         stroke={color}
         strokeWidth={weight}

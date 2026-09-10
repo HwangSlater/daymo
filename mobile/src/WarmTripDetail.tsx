@@ -461,11 +461,7 @@ export function WarmTripDetail({
             accessibilityRole="button"
             accessibilityLabel="여행 정보 수정"
           >
-            <Text
-              style={[styles.headerMore, appTheme && { color: appTheme.text }]}
-            >
-              ···
-            </Text>
+            <Glyph name="more" size={20} color={appTheme?.text ?? "#17233D"} weight={2.6} />
           </Pressable>
         </View>
         <ScrollView
@@ -1133,7 +1129,7 @@ function TripOverview({
             ]}
           >
             <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>전체 일정 보기</Text>
-            <Text style={[styles.fullScheduleArrow, theme && { color: theme.primary }]}>→</Text>
+            <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
           </Pressable>
         )}
       </View>
@@ -1222,7 +1218,7 @@ function TripOverview({
             준비물 3개가 남아 있어요.
           </Text>
         </View>
-        <Text style={[styles.cardArrow, theme && { color: theme.primary }]}>→</Text>
+        <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
       </Pressable>
       <DetailSheet
         visible={sheet === "schedule"}
@@ -1827,9 +1823,7 @@ function Places({
           },
         ]}
       >
-        <Text style={[styles.placeSearchIcon, theme && { color: theme.text }]}>
-          ⌕
-        </Text>
+        <Glyph name="search" size={18} color={theme?.muted ?? "#646C7A"} weight={1.8} />
         <TextInput
           accessibilityLabel="저장한 장소 검색"
           value={query}
@@ -1894,7 +1888,17 @@ function Places({
       </View>
       </View>
       <View style={styles.placeList}>
-        {displayedPlaces.map((place, index) => (
+        {displayedPlaces.map((place, index) => {
+          // 색은 순서가 아니라 상태를 뜻해야 한다. 예전에는 index % 3으로 돌려서
+          // 아무 뜻 없이 카드마다 색이 달라졌다.
+          const isStay = place.name === registeredStayName;
+          const inPlan = place.status === "일정";
+          const statusTone = (isStay ? theme?.secondary : inPlan ? theme?.accent : theme?.primary) ?? "#5D5FC7";
+          const statusLabel = isStay ? "대표 숙소" : inPlan ? "일정에 담김" : "저장";
+          // 이미 그 상태면 오른쪽 위 배지가 말해준다. 같은 말을 하는 비활성
+          // 버튼은 내지 않는다.
+          const settled = place.category === "숙소" ? isStay : inPlan;
+          return (
           <View
             key={place.id}
             style={[
@@ -1902,16 +1906,16 @@ function Places({
               { backgroundColor: theme?.surface ?? "#FFFFFF", borderColor: theme?.border ?? "#E5E3DD" },
             ]}
           >
-            <View style={[styles.placeMiniTape, { backgroundColor: `${[theme?.primary, theme?.secondary, theme?.accent][index % 3] ?? "#8B7CF6"}38` }]} />
+            <View style={[styles.placeMiniTape, { backgroundColor: `${statusTone}38` }]} />
             <View style={styles.placeMiniTop}>
-              <View style={[styles.placeMiniStamp, { backgroundColor: [theme?.primarySoft, `${theme?.secondary}1C`, `${theme?.accent}1C`][index % 3] }]}>
-                <Text style={[styles.placeMiniNumber, { color: [theme?.primary, theme?.secondary, theme?.accent][index % 3] }]}>{String(index + 1).padStart(2, "0")}</Text>
+              <View style={[styles.placeMiniStamp, { backgroundColor: theme?.surfaceAlt ?? "#EFEEE9" }]}>
+                <Text style={[styles.placeMiniNumber, { color: theme?.muted ?? "#646C7A" }]}>{String(index + 1).padStart(2, "0")}</Text>
               </View>
               <View style={styles.placeMiniInfo}>
                 <View style={styles.placeMiniTitleRow}>
                   <Text numberOfLines={1} style={[styles.placeMiniName, { color: theme?.text ?? "#17233D" }]}>{place.name}</Text>
-                  <View style={[styles.placeMiniStatus, { backgroundColor: place.name === registeredStayName ? `${theme?.secondary}1E` : place.status === "일정" ? `${theme?.accent}1E` : `${theme?.primary}16` }]}>
-                    <Text style={[styles.placeMiniStatusText, { color: place.name === registeredStayName ? theme?.secondary : place.status === "일정" ? theme?.accent : theme?.primary }]}>{place.name === registeredStayName ? "대표 숙소" : place.status === "일정" ? "일정에 담김" : "저장"}</Text>
+                  <View style={[styles.placeMiniStatus, { backgroundColor: `${statusTone}1E` }]}>
+                    <Text style={[styles.placeMiniStatusText, { color: statusTone }]}>{statusLabel}</Text>
                   </View>
                 </View>
                 <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.address ? `${place.category} · ${place.address}` : `${place.area} · ${place.category}`}</Text>
@@ -1932,38 +1936,29 @@ function Places({
               <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
                 <Text style={[styles.placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
               </Pressable>
-              {place.category === "숙소" ? (
+              {settled ? null : place.category === "숙소" ? (
                 <Pressable
-                  disabled={registeredStayName === place.name}
                   onPress={() => onRegisterStay(place)}
                   accessibilityRole="button"
                   accessibilityLabel={`${place.name}을 이번 여행 숙소로 등록`}
-                  accessibilityState={{ disabled: registeredStayName === place.name }}
-                  style={[
-                    styles.placeMiniPlanButton,
-                    { backgroundColor: registeredStayName === place.name ? theme?.surfaceAlt : theme?.secondary },
-                  ]}
+                  style={[styles.placeMiniPlanButton, { backgroundColor: theme?.secondary }]}
                 >
-                  <Text style={[styles.placeMiniPlanText, registeredStayName === place.name && { color: theme?.muted }]}>{registeredStayName === place.name ? "대표 숙소" : "대표 숙소로 등록"}</Text>
+                  <Text style={styles.placeMiniPlanText}>대표 숙소로 등록</Text>
                 </Pressable>
               ) : (
                 <Pressable
-                  disabled={place.status === "일정"}
                   onPress={() => choose(index)}
                   accessibilityRole="button"
                   accessibilityLabel={`${place.name} 일정에 담기`}
-                  accessibilityState={{ disabled: place.status === "일정" }}
-                  style={[
-                    styles.placeMiniPlanButton,
-                    { backgroundColor: place.status === "일정" ? theme?.surfaceAlt : theme?.primary },
-                  ]}
+                  style={[styles.placeMiniPlanButton, { backgroundColor: theme?.primary }]}
                 >
-                  <Text style={[styles.placeMiniPlanText, place.status === "일정" && { color: theme?.muted }]}>{place.status === "일정" ? "일정에 담김" : "일정에 담기"}</Text>
+                  <Text style={styles.placeMiniPlanText}>일정에 담기</Text>
                 </Pressable>
               )}
             </View>
           </View>
-        ))}
+          );
+        })}
         {visible.length === 0 && (
           <EmptyState
             title="조건에 맞는 장소가 없어요"
@@ -2612,10 +2607,8 @@ function Preparation({
             },
           ]}
         >
-          {completed ? (
+          {completed && (
             <Glyph name="check" size={14} color="#FFFFFF" weight={2.6} />
-          ) : (
-            <View style={[styles.completionDash, theme && { backgroundColor: theme.border }]} />
           )}
         </View>
         <View style={styles.packingV2Body}>
@@ -2704,19 +2697,6 @@ function Preparation({
           <View style={styles.packingJourneyProgressRow}>
             <View style={[styles.packingJourneyTrack, theme && { backgroundColor: theme.primarySoft }]}>
               <View style={[styles.packingJourneyFill, { width: `${percentage}%` }, theme && { backgroundColor: theme.primary }]} />
-              {[0, 50, 100].map((point) => (
-                <View
-                  key={point}
-                  style={[
-                    styles.packingJourneyPoint,
-                    { left: `${point}%` },
-                    theme && {
-                      backgroundColor: percentage >= point ? theme.primary : theme.surface,
-                      borderColor: percentage >= point ? theme.primary : theme.border,
-                    },
-                  ]}
-                />
-              ))}
             </View>
             <Text style={[styles.packingJourneyPercent, theme && { color: theme.primary }]}>{percentage}%</Text>
           </View>
@@ -3036,7 +3016,7 @@ function Preparation({
                     </Text>
                   </View>
                   <Glyph
-                    name={collapsed ? "plus" : "minus"}
+                    name={collapsed ? "chevronRight" : "chevronDown"}
                     size={16}
                     color={theme?.muted ?? "#646C7A"}
                     weight={2.2}
@@ -3158,7 +3138,7 @@ function Preparation({
                   </Text>
                 </View>
                 <Glyph
-                  name={collapsed ? "plus" : "minus"}
+                  name={collapsed ? "chevronRight" : "chevronDown"}
                   size={16}
                   color={ownerColor}
                   weight={2.2}
@@ -3231,15 +3211,8 @@ function Preparation({
                                 },
                               ]}
                             >
-                              {completed ? (
+                              {completed && (
                                 <Glyph name="check" size={14} color="#FFFFFF" weight={2.6} />
-                              ) : (
-                                <View
-                                  style={[
-                                    styles.completionDash,
-                                    theme && { backgroundColor: theme.border },
-                                  ]}
-                                />
                               )}
                             </View>
                             <View style={styles.packingBody}>
@@ -4531,7 +4504,7 @@ function Cooking({
                   accessibilityRole="link"
                   style={styles.recipeLink}
                 >
-                  <Text style={[styles.recipeLinkIcon, theme && { color: theme.primary }]}>▶</Text>
+                  <Glyph name="play" size={13} color={theme?.primary ?? "#5D5FC7"} />
                   <Text style={[styles.recipeLinkText, theme && { color: theme.primary }]}>레시피 영상 보기</Text>
                 </Pressable>
               ) : null}
@@ -4546,7 +4519,7 @@ function Cooking({
                   theme && { backgroundColor: theme.surface },
                 ]}
               >
-                <Text style={[styles.cookingMoreText, theme && { color: theme.muted }]}>···</Text>
+                <Glyph name="more" size={18} color={theme?.muted ?? "#646C7A"} weight={2.6} />
               </Pressable>
               <View style={[styles.cookV2ProgressBadge, theme && { backgroundColor: theme.primarySoft }]}>
                 <Text style={[styles.cookV2ProgressBadgeValue, theme && { color: theme.primary }]}>{ingredientProgress}%</Text>
@@ -4615,7 +4588,7 @@ function Cooking({
                 </View>
                 <View style={styles.cookV2SectionActions}>
                   <Text style={[styles.cookV2SectionCount, theme && { color: theme.muted }]}>{sectionItems.length}개</Text>
-                  <Glyph name={collapsed ? "plus" : "minus"} size={16} color={theme?.muted ?? "#646C7A"} weight={2.2} />
+                  <Glyph name={collapsed ? "chevronRight" : "chevronDown"} size={16} color={theme?.muted ?? "#646C7A"} weight={2.2} />
                 </View>
               </Pressable>
               {!collapsed && sectionItems.map((item) => (
@@ -5399,11 +5372,14 @@ function SectionLabel({
           accessibilityRole="button"
           accessibilityLabel={action}
         >
-          <Text
-            style={[styles.sectionAction, theme && { color: theme.primary }]}
-          >
-            {action} →
-          </Text>
+          <View style={styles.sectionActionRow}>
+            <Text
+              style={[styles.sectionAction, theme && { color: theme.primary }]}
+            >
+              {action}
+            </Text>
+            <Glyph name="arrowRight" size={14} color={theme?.primary ?? "#5D5FC7"} />
+          </View>
         </Pressable>
       )}
     </View>
@@ -5577,7 +5553,7 @@ function TransportCard({
         <Text style={[styles.transportOwner, { color }]}>{owner}</Text>
         <Text style={[styles.transportStatus, theme && { color: theme.muted }]}>{primary.status}</Text>
       </View>
-      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{primary.method}</Text>
+      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{primary.direction} · {primary.method}</Text>
       <View style={styles.transportRoute}>
         <View style={styles.transportStop}>
           <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{primary.departure}</Text>
@@ -5765,7 +5741,7 @@ function PairedDetailField({
           accessibilityLabel={onSwap ? "출발지와 도착지 바꾸기" : undefined}
           style={[styles.pairedFieldArrow, { backgroundColor: accentSoft ?? theme?.primarySoft ?? "#FFF0ED" }]}
         >
-          <Text style={[styles.pairedFieldArrowText, { color: accentColor ?? theme?.primary ?? "#FF6B63" }]}>→</Text>
+          <Glyph name="arrowRight" size={15} color={accentColor ?? theme?.primary ?? "#FF6B63"} />
         </Pressable>
         <TextInput
           accessibilityLabel={`${label} ${rightPlaceholder}`}
@@ -6004,7 +5980,7 @@ function DetailSheet({
           >
             <Text style={styles.sheetSubmitText}>{submit}</Text>
             <View style={styles.sheetSubmitArrow}>
-              <Text style={styles.sheetSubmitArrowText}>→</Text>
+              <Glyph name="arrowRight" size={15} color="#FFFFFF" />
             </View>
           </Pressable>
           {destructiveLabel && (
@@ -6438,7 +6414,6 @@ const styles = StyleSheet.create({
   momentContent: { flex: 1, paddingLeft: 6 },
   momentTitle: { color: "#5A3531", fontSize: 14, fontFamily: typo.title.family },
   momentNote: { color: "#A18980", fontSize: 14, marginTop: 4 },
-  cardArrow: { color: "#8B5147", fontSize: 20 },
   readyText: {
     color: "#FFF8F3",
     fontSize: 14,
@@ -6682,7 +6657,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sheetSubmitArrowText: { color: "#FFFFFF", fontSize: 18, fontFamily: typo.label.family },
   infoLine: {
     minHeight: 58,
     borderBottomWidth: 1,
@@ -6842,7 +6816,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: typo.label.family,
   },
-  placeSearchIcon: { color: "#8B7CF6", fontSize: 20, marginRight: 6 },
   placeSearchInput: { flex: 1, color: "#17233D", fontSize: 12 },
   resultCount: {
     minWidth: 25,
@@ -6904,7 +6877,6 @@ const styles = StyleSheet.create({
   },
   deletePlaceText: { color: "#D6534A", fontSize: 12, fontFamily: typo.label.family },
   fullScheduleText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
-  fullScheduleArrow: { color: "#6556D8", fontSize: 16 },
   fullScheduleList: { maxHeight: 520 },
   planPlaceSummary: {
     borderRadius: 20,
@@ -7031,7 +7003,6 @@ const styles = StyleSheet.create({
   },
   inlineMore: { flexDirection: "row", alignItems: "center", gap: 3 },
   completionTick: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
-  completionDash: { width: 7, height: 1.5, borderRadius: 2 },
   packingBody: { flex: 1 },
   packingTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   packingMetaRow: {
@@ -7132,15 +7103,6 @@ const styles = StyleSheet.create({
   },
   packingJourneyProgressRow: { flexDirection: "row", alignItems: "center" },
   packingJourneyFill: { height: 6, borderRadius: 999 },
-  packingJourneyPoint: {
-    position: "absolute",
-    top: -3,
-    width: 12,
-    height: 12,
-    marginLeft: -6,
-    borderRadius: 999,
-    borderWidth: 2,
-  },
   packingV2Controls: {
     borderWidth: 1,
     borderRadius: 12,
@@ -7600,7 +7562,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 4,
   },
-  recipeLinkIcon: { color: "#D9685F", fontSize: 14, fontFamily: typo.label.family },
   recipeLinkText: { color: "#D9685F", fontSize: 14, fontFamily: typo.label.family },
   emptyCooking: {
     backgroundColor: "#FFFFFF",
@@ -7637,7 +7598,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cookingMoreText: { color: "#8C8580", fontSize: 14, fontFamily: typo.label.family, lineHeight: 16 },
   cookingTitle: {
     color: "#5C4030",
     fontSize: 24,
@@ -7738,7 +7698,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontFamily: typo.title.family,
   },
-  headerMore: { color: "#17233D", fontSize: 16, letterSpacing: 1 },
   modeText: { color: "#7C8492", fontSize: 14, fontFamily: typo.label.family },
   modeTextCurrent: { color: "#FFFFFF" },
   sectionAction: { color: "#6556D8", fontSize: 14, fontFamily: typo.label.family },
@@ -7781,6 +7740,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
+  sectionActionRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   sectionLabel: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -7856,6 +7816,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
     paddingHorizontal: 12,
     marginBottom: 6,
   },
