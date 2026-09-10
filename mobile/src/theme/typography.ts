@@ -18,6 +18,16 @@ export const fonts = {
   text: "GowunDodum-Regular",
 } as const;
 
+/**
+ * 크기 스케일. 스타일시트의 모든 fontSize가 이 아홉 단계 중 하나다.
+ * 역할마다 쓰는 단계가 다르다. 같은 제목이라도 화면 제목과 목록 행의 제목은
+ * 단계가 달라야 하므로 역할 하나에 크기 하나를 강제하지 않는다.
+ */
+export const sizes = [11, 12, 14, 16, 18, 20, 24, 28, 34] as const;
+
+/** 자간. 한글은 자모가 이미 네모 틀에 차 있어 많이 조이면 글자가 붙어 보인다. */
+export const tracking = { tight: -0.5, normal: 0, wide: 0.5, wider: 1 } as const;
+
 export const typo = {
   /** 워드마크. */
   hero: { size: 30, family: fonts.display, weight: "400", line: 38 },
