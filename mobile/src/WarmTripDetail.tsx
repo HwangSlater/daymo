@@ -1790,7 +1790,6 @@ function Places({
       />
       <View style={[styles.placeControlPanel, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.placeToolbar}>
-        <Text numberOfLines={1} style={[styles.placeControlLabel, theme && { color: theme.muted }]}>상태</Text>
         <View style={styles.placeFilters}>
           {(["전체", "후보", "일정", "숙소"] as const).map((item) => (
             <Pressable
@@ -1846,13 +1845,7 @@ function Places({
           </View>
         )}
       </View>
-      <View style={styles.placeTagControlRow}>
-        <Text numberOfLines={1} style={[styles.placeControlLabel, theme && { color: theme.muted }]}>태그</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagFilterRow}
-        >
+      <View style={styles.tagFilterRow}>
         <Pressable
           onPress={() => setTagFilter(null)}
           accessibilityRole="button"
@@ -1898,7 +1891,6 @@ function Places({
             </Text>
           </Pressable>
         ))}
-        </ScrollView>
       </View>
       </View>
       <View style={styles.placeList}>
@@ -7843,14 +7835,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   // 옆의 가로 스크롤이 자리를 다 가져가지 않도록 줄어들지 않게 둔다.
-  placeControlLabel: { width: 34, flexShrink: 0, fontSize: 12, fontFamily: typo.label.family },
   placeToolbar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
     marginBottom: 6,
   },
-  placeFilters: { flexDirection: "row", gap: 4 },
+  placeFilters: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   placeFilter: {
     minHeight: 30,
     borderRadius: 999,
@@ -7868,8 +7859,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginBottom: 6,
   },
-  placeTagControlRow: { flexDirection: "row", alignItems: "center" },
-  tagFilterRow: { gap: 4, paddingRight: 8, paddingBottom: 0 },
+  tagFilterRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   tagFilterChip: {
     height: 30,
     borderRadius: 999,

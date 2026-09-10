@@ -2204,14 +2204,7 @@ function Search({
               <Text style={[s.searchRecentEmpty, { color: theme.muted }]}>검색하면 최근 검색어가 여기에 남아요</Text>
             )}
       </ScrollView>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[
-          s.searchCategories,
-        ]}
-        contentContainerStyle={s.searchCategoriesContent}
-      >
+      <View style={[s.searchCategories, s.searchCategoriesContent]}>
         {searchFilters.map((item) => (
           <Pressable
             key={item.label}
@@ -2262,7 +2255,7 @@ function Search({
             </View>
           </Pressable>
         ))}
-      </ScrollView>
+      </View>
       <View style={s.searchResultHead}>
         {/* 개수는 바로 위 분류 칩이 항상 보여준다. 여기서 또 세면 같은 말이 두 번이다. */}
         <Text style={[s.searchResultTitle, { color: theme.text }]}>
@@ -4599,10 +4592,10 @@ const s = StyleSheet.create({
   },
   searchCategoriesContent: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 6,
     paddingVertical: 4,
-    paddingHorizontal: 2,
   },
   searchCategoryActive: {
     shadowColor: "#17233D",
@@ -4986,8 +4979,8 @@ const s = StyleSheet.create({
   memberSectionTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 2 },
   memberManageText: { fontSize: 12, fontFamily: typo.label.family, paddingVertical: 4 },
   memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1 },
-  memberStripContent: { minWidth: "100%", paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 8 },
-  memberStripItem: { width: 58, alignItems: "center" },
+  memberStripContent: { minWidth: "100%", paddingHorizontal: 10, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 6 },
+  memberStripItem: { width: 54, alignItems: "center" },
   memberStripAvatar: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   memberStripInitial: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
   memberStripName: { width: "100%", textAlign: "center", fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
