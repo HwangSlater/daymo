@@ -69,6 +69,32 @@ const sampleDateRange = (start: string, end: string) => {
     : `${startMonth}월 ${startDay}일 — ${endMonth}월 ${endDay}일`;
 };
 
+/**
+ * 함께한 시작일부터 오늘까지의 일수.
+ *
+ * 시작한 날을 1일째로 센다. 한국어 "사귄 지 N일째"가 그렇게 읽히고, 그래야
+ * 시작한 날 화면에 0이 뜨지 않는다. 두 날짜 모두 정오 기준으로 맞춰
+ * 서머타임이나 시간대 차이로 하루가 어긋나지 않게 한다.
+ *
+ * 입력은 "2023. 10. 20"이나 "2023-10-20" 어느 쪽이든 받는다.
+ * 날짜로 읽을 수 없으면 null을 준다.
+ */
+const daysSince = (from: string, todayKey: string): number | null => {
+  const digits = from.match(/\d+/g);
+  if (!digits || digits.length < 3) return null;
+  const [year, month, day] = digits.map(Number);
+  const start = new Date(year, month - 1, day, 12, 0, 0, 0);
+  if (Number.isNaN(start.getTime()) || start.getMonth() !== month - 1) return null;
+  const today = new Date(
+    Number(todayKey.slice(0, 4)),
+    Number(todayKey.slice(5, 7)) - 1,
+    Number(todayKey.slice(8, 10)),
+    12, 0, 0, 0,
+  );
+  const days = Math.round((today.getTime() - start.getTime()) / 86400000) + 1;
+  return days > 0 ? days : null;
+};
+
 const upcomingSampleStart = sampleDate(12);
 const upcomingSampleEnd = sampleDate(14);
 const recentSampleStart = sampleDate(-23);
@@ -144,6 +170,8 @@ export function WarmAppShell() {
     }));
   const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
   const [themeId, setThemeId] = useState<ThemeId>("indigo");
+  // 함께한 시작일. 우리 탭의 공간 프로필에서 고치고 홈 머리글이 같은 값을 읽는다.
+  const [since, setSince] = useState("2023. 10. 20");
   const [appearance, setAppearance] = useState<AppearanceMode>("system");
   const [user, setUser] = useState<DaymoUser | null>({
     name: "하늘",
@@ -205,6 +233,7 @@ export function WarmAppShell() {
             trips={tripItems}
             todayKey={todayKey}
             relationship={activeGroupId === "ours" ? "연인" : "친구"}
+            since={since}
           />
         )}
         {view === "여행" && (
@@ -227,6 +256,8 @@ export function WarmAppShell() {
             setAppearance={setAppearance}
             trips={tripItems}
             activeGroupId={activeGroupId}
+            since={since}
+            setSince={setSince}
             setActiveGroupId={setActiveGroupId}
             user={user}
             setUser={setUser}
@@ -445,6 +476,7 @@ function NotebookHome({
   trips,
   todayKey,
   relationship,
+  since,
 }: {
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
   goTrips: () => void;
@@ -453,8 +485,10 @@ function NotebookHome({
   trips: Trip[];
   todayKey: string;
   relationship: "연인" | "친구";
+  since: string;
 }) {
   const paper = paperCard(theme.dark);
+  const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
   return (
     <ScrollView
       style={{ backgroundColor: "transparent" }}
@@ -468,9 +502,14 @@ function NotebookHome({
             우리의 여행 수첩
           </Text>
         </View>
-        <View style={[s.tinyDay, { backgroundColor: theme.primarySoft }]}>
+        <View
+          style={[s.tinyDay, { backgroundColor: theme.primarySoft }]}
+          accessibilityLabel={
+            togetherDays === null ? "함께한 여행" : `함께한 지 ${togetherDays}일째`
+          }
+        >
           <Text style={[s.tinyDayText, { color: theme.primary }]}>
-            {relationship === "연인" ? "둘만의 여행" : "함께한 여행"}
+            {togetherDays === null ? "함께한 여행" : `+${togetherDays}`}
           </Text>
         </View>
       </View>
@@ -2411,6 +2450,8 @@ function Together({
   trips,
   activeGroupId,
   setActiveGroupId,
+  since,
+  setSince,
   user,
   setUser,
   openTrip,
@@ -2424,6 +2465,8 @@ function Together({
   trips: Trip[];
   activeGroupId: GroupId;
   setActiveGroupId: (group: GroupId) => void;
+  since: string;
+  setSince: (value: string) => void;
   user: DaymoUser;
   setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
   openTrip: (trip: Trip) => void;
@@ -2438,7 +2481,6 @@ function Together({
   const [memberD, setMemberD] = useState("새봄");
   const [selectedMember, setSelectedMember] = useState(0);
   const [memberRoles, setMemberRoles] = useState<Array<"관리자" | "편집 가능" | "보기만">>(["관리자", "편집 가능", "편집 가능", "보기만"]);
-  const [since, setSince] = useState("2023. 10. 20");
   const groups: Array<{ id: GroupId; name: string; members: string[]; relationship: "연인" | "친구" }> = [
     { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" as const },
     { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" as const },
