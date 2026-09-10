@@ -679,6 +679,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   }, [turn]);
   const move = (step: number) => {
     if (busy.current || dragging.current || !canMove(step)) return;
+    dragDirection.current = step;
     setDirection(step);
     if (reduceMotion) setIndex(current => current + step);
     else settle(step, true);
@@ -691,8 +692,11 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     onPanResponderGrant: () => { dragging.current = true; },
     onPanResponderMove: (_, gesture) => {
       const step = gesture.dx < 0 ? 1 : -1;
-      dragDirection.current = step;
-      setDirection(step);
+      // Update React only when the drag crosses to the other side.
+      if (dragDirection.current !== step) {
+        dragDirection.current = step;
+        setDirection(step);
+      }
       // At either end the paper lifts only a little, then settles back.
       const progress = Math.min(Math.abs(gesture.dx) / (width * 0.8), canMove(step) ? 0.98 : 0.08);
       turn.setValue(reduceMotion ? 0 : progress);
@@ -712,41 +716,32 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   }, [canMove, reduceMotion, settle, turn, width]);
   const next = ordered[index + direction];
   const paper = paperCard(theme.dark);
-  const strips = useMemo(() => {
-    // Integrate a flexible sheet from its attached top edge. Each strip follows
-    // the same projected curve, so the bottom curls before the body lifts.
-    const count = 32;
-    const samples = 41;
-    const stripHeight = height / count;
-    const frames = Array.from({ length: samples }, (_, frame) => {
-      const progress = frame / (samples - 1);
-      let y = 0;
-      let z = 0;
-      const points = [{ x: 0, y: 0, scale: 1 }];
-      for (let segment = 0; segment < count; segment++) {
-        for (let sub = 0; sub < 8; sub++) {
-          const along = (segment + (sub + 0.5) / 8) / count;
-          const bodyLift = Math.pow(progress, 1.65) * Math.PI * 0.96;
-          const curl = Math.sin(progress * Math.PI) * Math.pow(along, 1.6) * 1.65;
-          const angle = bodyLift + curl;
-          y += Math.cos(angle) * stripHeight / 8;
-          z += Math.sin(angle) * stripHeight / 8;
-        }
-        const scale = 1000 / (1000 - z);
-        points.push({ x: -direction * z * 0.12 * Math.sin(progress * Math.PI), y: y * scale, scale });
-      }
-      return points;
+  // A single cached card surface and a lightweight curled edge replace the
+  // 32 complete card trees. Transform/opacity animations run on the native driver.
+  const motion = useMemo(() => {
+    const progressStops = [0, 0.2, 0.55, 0.85, 1];
+    const angles = [0, 12, 55, 86, 100];
+    const samples = Array.from({ length: 41 }, (_, sample) => sample / 40);
+    const edge = samples.map(progress => {
+      const end = Math.max(1, progressStops.findIndex(stop => stop >= progress));
+      const fraction = (progress - progressStops[end - 1]) / (progressStops[end] - progressStops[end - 1]);
+      const angle = (angles[end - 1] + fraction * (angles[end] - angles[end - 1])) * Math.PI / 180;
+      const scale = 1200 / (1200 - height * Math.sin(angle));
+      return { y: height / 2 + (height * Math.cos(angle) - height / 2) * scale - 17, scale };
     });
-    return Array.from({ length: count }, (_, strip) => ({
-      inputRange: Array.from({ length: samples }, (_, frame) => frame / (samples - 1)),
-      y: frames.map(points => (points[strip].y + points[strip + 1].y) / 2 - (strip + 0.5) * stripHeight),
-      x: frames.map(points => (points[strip].x + points[strip + 1].x) / 2),
-      scaleX: frames.map(points => (points[strip].scale + points[strip + 1].scale) / 2),
-      scaleY: frames.map(points => Math.max(0.002, Math.abs(points[strip + 1].y - points[strip].y) / Math.max(1, stripHeight))),
-      back: frames.map(points => points[strip + 1].y < points[strip].y ? 1 : 0),
-      shade: frames.map(points => Math.min(0.25, Math.abs(1 - (points[strip + 1].y - points[strip].y) / Math.max(1, stripHeight)) * 0.16)),
-    }));
-  }, [height, direction]);
+    return {
+    lift: turn.interpolate({ inputRange: [0, 0.2, 0.55, 0.85, 1], outputRange: ["0deg", "12deg", "55deg", "86deg", "100deg"] }),
+    front: turn.interpolate({ inputRange: [0, 0.8, 0.96, 1], outputRange: [1, 1, 0, 0] }),
+    curlY: turn.interpolate({ inputRange: samples, outputRange: edge.map(point => point.y) }),
+    curlWidth: turn.interpolate({ inputRange: samples, outputRange: edge.map(point => point.scale) }),
+    curlScale: turn.interpolate({ inputRange: [0, 0.15, 0.45, 0.8, 1], outputRange: [0.04, 0.65, 1, 0.8, 0.1] }),
+    curlOpacity: turn.interpolate({ inputRange: [0, 0.08, 0.8, 1], outputRange: [0, 1, 1, 0] }),
+    shadowOpacity: turn.interpolate({ inputRange: [0, 0.2, 0.6, 1], outputRange: [0, 0.24, 0.12, 0] }),
+    shadowY: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [4, -height * 0.22, -height * 0.5] }),
+    shadowScale: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.6, 0.05] }),
+    underShade: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.14, 0.06, 0] }),
+  };
+  }, [turn, height]);
   return (
     <View>
       <View
@@ -757,18 +752,12 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
         {next && <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
           <HomeTripCard trip={next} theme={theme} todayKey={todayKey} open={open} />
           <Animated.View style={[StyleSheet.absoluteFill, {
-            backgroundColor: "#30271C", borderRadius: 4,
-            opacity: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.18, 0.09, 0] }),
+            backgroundColor: "#30271C", borderRadius: 4, opacity: motion.underShade,
           }]} />
         </View>}
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
-          borderRadius: 12,
-          opacity: turn.interpolate({ inputRange: [0, 0.15, 0.5, 0.85, 1], outputRange: [0, 0.2, 0.14, 0.03, 0] }),
-          transform: [
-            { translateY: turn.interpolate({ inputRange: [0, 0.4, 1], outputRange: [2, 24, -height * 0.6] }) },
-            { scaleX: turn.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0.98, 1.07, 0.95] }) },
-            { scaleY: turn.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0.98, 0.7, 0.05] }) },
-          ],
+        <Animated.View pointerEvents="none" renderToHardwareTextureAndroid style={[StyleSheet.absoluteFill, {
+          opacity: motion.shadowOpacity,
+          transform: [{ translateY: motion.shadowY }, { scaleY: motion.shadowScale }],
         }]}>
           <Svg width="100%" height="100%">
             <Defs><RadialGradient id="liftShadow" cx="50%" cy="50%" rx="50%" ry="50%">
@@ -780,54 +769,41 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
           </Svg>
         </Animated.View>
         <Animated.View
+          renderToHardwareTextureAndroid
+          shouldRasterizeIOS
           onLayout={event => setHeight(event.nativeEvent.layout.height)}
-          style={{ opacity: turn.interpolate({ inputRange: [0, 0.001, 1], outputRange: [1, 0, 0] }) }}
+          style={{
+            opacity: motion.front,
+            backfaceVisibility: "hidden",
+            transform: [
+              { perspective: 1200 },
+              { translateY: -height / 2 },
+              { rotateX: motion.lift },
+              { translateY: height / 2 },
+            ],
+          }}
         >
           <HomeTripCard trip={ordered[index]} theme={theme} todayKey={todayKey} open={(destination, trip) => {
             if (!dragging.current && !busy.current) open(destination, trip);
           }} />
         </Animated.View>
-        {height > 0 && <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, {
-          overflow: "hidden", left: -18, right: -18,
-          opacity: turn.interpolate({ inputRange: [0, 0.001, 1], outputRange: [0, 1, 1] }),
-        }]}>
-          {strips.map((strip, part) => {
-            const sliceHeight = height / strips.length;
-            const interpolate = (outputRange: number[]) => turn.interpolate({ inputRange: strip.inputRange, outputRange, extrapolate: "clamp" });
-            return <Animated.View key={part} style={{
-              position: "absolute", left: 18, right: 18, top: part * sliceHeight,
-              height: sliceHeight + 1, overflow: "hidden",
-              // Draw the curled free edge above the still-attached part.
-              zIndex: part,
-              transform: [
-                { translateX: interpolate(strip.x) },
-                { translateY: interpolate(strip.y) },
-                { scaleX: interpolate(strip.scaleX) },
-                { scaleY: interpolate(strip.scaleY) },
-              ],
-            }}>
-              <View style={{ position: "absolute", top: -part * sliceHeight, left: 0, right: 0, height }}>
-                <HomeTripCard trip={ordered[index]} theme={theme} todayKey={todayKey} open={open} flat />
-              </View>
-              <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: "#392B1B", opacity: interpolate(strip.shade) }]} />
-              <Animated.View style={[StyleSheet.absoluteFill, {
-                backgroundColor: paper.backLeft, opacity: interpolate(strip.back),
-                borderLeftWidth: 1, borderRightWidth: 1, borderColor: paper.border,
-              }]}>
-                <Svg width="100%" height={height} style={{ position: "absolute", top: -part * sliceHeight }}>
-                  <Defs><LinearGradient id="paperBack" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={paper.surface} />
-                    <Stop offset="0.5" stopColor={paper.backLeft} />
-                    <Stop offset="1" stopColor={paper.backRight} />
-                  </LinearGradient></Defs>
-                  <Rect width="100%" height="100%" fill="url(#paperBack)" />
-                </Svg>
-                <View style={{ position: "absolute", left: 13, top: 0, bottom: 0, width: 1, backgroundColor: `${theme.primary}12` }} />
-                {part === strips.length - 1 && <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, backgroundColor: paper.border }} />}
-              </Animated.View>
-            </Animated.View>;
-          })}
-        </Animated.View>}
+        <Animated.View pointerEvents="none" renderToHardwareTextureAndroid accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{
+          position: "absolute", top: 0, left: -2, right: -2, height: 34,
+          borderRadius: 7, overflow: "hidden", opacity: motion.curlOpacity,
+          transform: [{ translateY: motion.curlY }, { scaleX: motion.curlWidth }, { scaleY: motion.curlScale }],
+        }}>
+          <Svg width="100%" height="100%">
+            <Defs><LinearGradient id="paperCurl" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={paper.border} />
+              <Stop offset="0.18" stopColor={paper.backRight} />
+              <Stop offset="0.48" stopColor={paper.surface} />
+              <Stop offset="0.76" stopColor={paper.backLeft} />
+              <Stop offset="1" stopColor={paper.border} />
+            </LinearGradient></Defs>
+            <Rect width="100%" height="100%" rx="7" fill="url(#paperCurl)" />
+          </Svg>
+          <View style={{ position: "absolute", left: 14, top: 0, bottom: 0, width: 1, backgroundColor: `${theme.primary}16` }} />
+        </Animated.View>
 
       </View>
       {ordered.length > 1 && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -843,8 +819,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   );
 }
 
-function HomeTripCard({ trip, theme, todayKey, open, flat = false }: {
-  flat?: boolean;
+function HomeTripCard({ trip, theme, todayKey, open }: {
   trip: Trip;
   theme: AppTheme;
   todayKey: string;
@@ -853,12 +828,11 @@ function HomeTripCard({ trip, theme, todayKey, open, flat = false }: {
   const paper = paperCard(theme.dark);
   return (
       <View style={s.paperTripStack}>
-        {!flat && <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />}
-        {!flat && <View style={[s.paperTripBack, s.paperTripBackRight, { backgroundColor: paper.backRight }]} />}
+        <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />
+        <View style={[s.paperTripBack, s.paperTripBackRight, { backgroundColor: paper.backRight }]} />
         <View
           style={[
             s.paperTrip,
-            flat && { transform: [], shadowOpacity: 0, elevation: 0 },
             { backgroundColor: paper.surface, borderColor: paper.border },
           ]}
         >
