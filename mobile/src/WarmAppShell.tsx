@@ -31,7 +31,7 @@ import {
 } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { typo } from "./theme/typography";
-import { domain, kindColor, paperCard, paperCorner } from "./theme/colors";
+import { domain, kindColor, paperCard, paperCorner, tripTone } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -42,7 +42,8 @@ type Trip = {
   name: string;
   date: string;
   note: string;
-  color: string;
+  /** tripTone 팔레트의 자리. 색값이 아니라 자리를 저장한다. */
+  tone: number;
   mark: string;
   region: string;
   start: string;
@@ -79,7 +80,7 @@ const trips: Trip[] = [
     name: "전주 한옥마을",
     date: sampleDateRange(upcomingSampleStart, upcomingSampleEnd),
     note: "숙소에서 수다와 버섯전골",
-    color: "#FF6B5F",
+    tone: 0,
     mark: upcomingSampleStart.slice(5, 7),
     region: "서울",
     start: upcomingSampleStart,
@@ -89,7 +90,7 @@ const trips: Trip[] = [
     name: "강릉 안목",
     date: sampleDateRange(recentSampleStart, recentSampleEnd),
     note: "보드게임과 야식 장보기",
-    color: "#8B7CF6",
+    tone: 5,
     mark: recentSampleStart.slice(5, 7),
     region: "경기",
     start: recentSampleStart,
@@ -99,7 +100,7 @@ const trips: Trip[] = [
     name: "부산",
     date: sampleDateRange(archiveSampleStart, archiveSampleEnd),
     note: "바다 산책과 단체 사진",
-    color: "#19B6A3",
+    tone: 3,
     mark: archiveSampleStart.slice(5, 7),
     region: "부산",
     start: archiveSampleStart,
@@ -114,7 +115,7 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {
       name: "경주",
       date: "10월 3일 — 4일",
       note: "가족과 천천히 걷는 가을 여행",
-      color: "#F0A351",
+      tone: 1,
       mark: "10",
       region: "경북",
       start: "2026-10-03",
@@ -694,11 +695,11 @@ function NotebookHome({
                     pressed && s.pressed,
                   ]}
                 >
-                  <View style={[s.homeArchiveTape, { backgroundColor: `${item.color}32` }]} />
-                  <Text style={[s.homeArchiveDate, { color: item.color }]}>{item.date}</Text>
+                  <View style={[s.homeArchiveTape, { backgroundColor: tripTone(item.tone, theme.dark).soft }]} />
+                  <Text style={[s.homeArchiveDate, { color: tripTone(item.tone, theme.dark).ink }]}>{item.date}</Text>
                   <Text numberOfLines={1} style={[s.homeArchivePlace, { color: theme.text }]}>{item.name}</Text>
                   <Text numberOfLines={2} style={[s.homeArchiveNote, { color: theme.muted }]}>{item.note}</Text>
-                  <Text style={[s.homeArchiveAction, { color: item.color }]}>기록 보기  ›</Text>
+                  <Text style={[s.homeArchiveAction, { color: tripTone(item.tone, theme.dark).ink }]}>기록 보기  ›</Text>
                 </Pressable>
               ))}
           </View>
@@ -951,7 +952,8 @@ function TripsExplorer({
       name: place.trim(),
       date: range,
       note,
-      color: theme.secondary,
+      // 새 여행은 팔레트를 순서대로 돌아가며 받는다.
+      tone: items.length % 6,
       mark: tripStart.slice(5, 7),
       region: newRegion,
       start: tripStart,
@@ -1309,9 +1311,9 @@ function TripRows({
             pressed && s.pressed,
           ]}
         >
-          <View style={[s.tripRowAccent, { backgroundColor: trip.color }]} />
+          <View style={[s.tripRowAccent, { backgroundColor: tripTone(trip.tone, theme.dark).ink }]} />
           <View style={s.tripThumb}>
-            <TripArt color={trip.color} date={trip.mark} small />
+            <TripArt tone={tripTone(trip.tone, theme.dark)} date={trip.mark} small />
           </View>
           <View style={s.tripInfo}>
             <Text numberOfLines={1} style={[s.tripName, { color: theme.text }]}>{trip.name}</Text>
@@ -1605,7 +1607,7 @@ function KoreaTripMap({
                   <View
                     style={[
                       s.mapTrayMark,
-                      { backgroundColor: trip.color },
+                      { backgroundColor: tripTone(trip.tone, theme.dark).ink },
                     ]}
                   >
                     <Text style={s.mapTrayMarkText}>{trip.mark}</Text>
@@ -1757,7 +1759,7 @@ function TripCalendar({
               <View
                 style={[
                   s.calendarLegendLine,
-                  { backgroundColor: trip.color },
+                  { backgroundColor: tripTone(trip.tone, theme.dark).ink },
                 ]}
               />
               <Text style={s.calendarLegendText}>{trip.name}</Text>
@@ -1807,7 +1809,7 @@ function TripCalendar({
               style={[
                 s.dayCell,
                 trip && {
-                  backgroundColor: `${trip.color}${theme.dark ? "38" : "1C"}`,
+                  backgroundColor: tripTone(trip.tone, theme.dark).soft,
                 },
                 trip && s.dayRangeCell,
                 trip && !continuesFromPrevious && s.dayRangeStart,
@@ -1829,7 +1831,7 @@ function TripCalendar({
                     s.dayNumber,
                     index % 7 === 0 && s.dayNumberSunday,
                     index % 7 === 6 && s.dayNumberSaturday,
-                    trip && [s.dayNumberTrip, { color: trip.color }],
+                    trip && [s.dayNumberTrip, { color: tripTone(trip.tone, theme.dark).ink }],
                     isToday && s.dayNumberTodayText,
                     selected && s.dayNumberSelected,
                   ]}
@@ -1839,7 +1841,7 @@ function TripCalendar({
               </View>
               {trip && (
                 <View
-                  style={[s.dayTripDot, { backgroundColor: trip.color }]}
+                  style={[s.dayTripDot, { backgroundColor: tripTone(trip.tone, theme.dark).ink }]}
                 />
               )}
             </Pressable>
@@ -2689,7 +2691,7 @@ function Together({
             accessibilityLabel={`최근 여행 ${trips[0].name} 열기`}
             style={[s.historyLatest, { borderColor: theme.border }]}
           >
-            <View style={[s.historyLatestDot, { backgroundColor: trips[0].color }]} />
+            <View style={[s.historyLatestDot, { backgroundColor: tripTone(trips[0].tone, theme.dark).ink }]} />
             <Text style={[s.historyLatestLabel, { color: theme.muted }]}>최근 여행</Text>
             <Text numberOfLines={1} style={[s.historyLatestName, { color: theme.text }]}>{trips[0].name}</Text>
             <Text style={[s.historyLatestDate, { color: theme.muted }]}>{trips[0].date}</Text>
@@ -3142,22 +3144,22 @@ function BottomBar({
 }
 
 function TripArt({
-  color,
+  tone,
   date,
   small,
 }: {
-  color: string;
+  tone: { fill: string; ink: string };
   date: string;
   small?: boolean;
 }) {
   return (
     <View
-      style={[s.tripArt, small && s.tripArtSmall, { backgroundColor: color }]}
+      style={[s.tripArt, small && s.tripArtSmall, { backgroundColor: tone.fill }]}
     >
       <View style={s.artMoon} />
       <View style={s.artDate}>
-        <Text style={s.artText}>{date}</Text>
-        <View style={s.artLine} />
+        <Text style={[s.artText, { color: tone.ink }]}>{date}</Text>
+        <View style={[s.artLine, { backgroundColor: tone.ink }]} />
       </View>
     </View>
   );

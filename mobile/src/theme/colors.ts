@@ -150,3 +150,29 @@ export function kindColor(kind: string, dark: boolean, primary: string) {
   const id = map[kind];
   return id ? domain(id, dark).solid : primary;
 }
+
+// ---------------------------------------------------------------------------
+// 여행 고유 색
+//
+// 여행마다 한 색을 갖는다. 원래는 색 하나만 저장하고 그 위에 흰 글자를 얹는 곳과
+// 어두운 글자를 얹는 곳이 같이 있었다. 중간 밝기 하나로는 양쪽 대비를 낼 수 없다.
+// 배경으로 쓰는 fill과 글자로 쓰는 ink를 나눈다.
+//
+//   fill  배지와 막대의 배경. 위에 ink를 얹는다.
+//   ink   글자, 점, 얇은 선. 배경들과 fill 위에서 AA를 넘고 흰 글자도 받는다.
+//   soft  달력 셀처럼 아주 옅게 깔 때.
+// ---------------------------------------------------------------------------
+
+const tripTones = [
+  { light: { fill: "#FDAD9E", ink: "#893026", soft: "#FFEBE6" }, dark: { fill: "#643C36", ink: "#FA9E8D", soft: "#643C36" } },
+  { light: { fill: "#E3BA84", ink: "#6B4600", soft: "#FDEFDE" }, dark: { fill: "#574328", ink: "#DCAE6E", soft: "#574328" } },
+  { light: { fill: "#91CFA0", ink: "#005B26", soft: "#E3F5E6" }, dark: { fill: "#2F4D36", ink: "#7DC68F", soft: "#2F4D36" } },
+  { light: { fill: "#59D1E2", ink: "#00566C", soft: "#D9F6FB" }, dark: { fill: "#064E57", ink: "#00C6D9", soft: "#064E57" } },
+  { light: { fill: "#BABCFB", ink: "#394891", soft: "#F0EFFF" }, dark: { fill: "#434463", ink: "#ADB0FA", soft: "#434463" } },
+  { light: { fill: "#D9B3ED", ink: "#663B81", soft: "#F9EDFE" }, dark: { fill: "#53405D", ink: "#D2A5EA", soft: "#53405D" } },
+] as const;
+
+export function tripTone(index: number, dark: boolean) {
+  const tone = tripTones[((index % tripTones.length) + tripTones.length) % tripTones.length];
+  return dark ? tone.dark : tone.light;
+}
