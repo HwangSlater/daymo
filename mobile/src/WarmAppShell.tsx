@@ -190,7 +190,6 @@ export function WarmAppShell() {
     );
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <PaperBackdrop theme={theme} />
       <View style={[s.body, { backgroundColor: "transparent" }]}>
         {view === "홈" && (
           <NotebookHome
@@ -326,7 +325,6 @@ function AuthScreen({
   };
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <PaperBackdrop theme={theme} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={s.authPage}
@@ -434,40 +432,6 @@ function AuthScreen({
         <Text style={[s.authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function PaperBackdrop({ theme }: { theme: AppTheme }) {
-  return (
-    <View pointerEvents="none" style={s.paperBackdrop}>
-      {[92, 178, 264, 350, 436, 522, 608, 694, 780].map((top) => (
-        <View
-          key={top}
-          style={[
-            s.paperLine,
-            { top, backgroundColor: theme.dark ? "#202A3B" : "#EDE9E1" },
-          ]}
-        />
-      ))}
-      <View
-        style={[
-          s.paperMargin,
-          { backgroundColor: `${theme.primary}18` },
-        ]}
-      />
-      <View
-        style={[
-          s.paperSpeck,
-          { top: 115, right: 24, backgroundColor: `${theme.secondary}35` },
-        ]}
-      />
-      <View
-        style={[
-          s.paperSpeck,
-          { top: 545, left: 18, backgroundColor: `${theme.accent}30` },
-        ]}
-      />
-    </View>
   );
 }
 
@@ -3553,16 +3517,6 @@ const s = StyleSheet.create({
   settingName: { color: "#6A4941", fontSize: 14, fontFamily: typo.title.family },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   settingValue: { color: "#B46F60", fontSize: 11, fontFamily: typo.data.family },
-  paperBackdrop: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
-  paperLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.55,
-  },
-  paperMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1 },
-  paperSpeck: { position: "absolute", width: 5, height: 5, borderRadius: 2 },
   notebookHead: {
     flexDirection: "row",
     alignItems: "center",

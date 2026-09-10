@@ -467,7 +467,6 @@ export function WarmTripDetail({
             </Text>
           </Pressable>
         </View>
-        <DetailPaperBackdrop theme={appTheme} />
         <ScrollView
           style={{ backgroundColor: "transparent" }}
           contentContainerStyle={styles.page}
@@ -799,29 +798,6 @@ export function WarmTripDetail({
       </SafeAreaView>
       </DetailFeedbackContext.Provider>
     </DetailThemeContext.Provider>
-  );
-}
-
-function DetailPaperBackdrop({ theme }: { theme?: AppTheme }) {
-  if (!theme) return null;
-  return (
-    <View pointerEvents="none" style={styles.detailPaperBackdrop}>
-      {[80, 166, 252, 338, 424, 510, 596, 682, 768].map((top) => (
-        <View
-          key={top}
-          style={[
-            styles.detailPaperLine,
-            { top, backgroundColor: theme.dark ? "#202A3B" : "#EDE9E1" },
-          ]}
-        />
-      ))}
-      <View
-        style={[
-          styles.detailPaperMargin,
-          { backgroundColor: `${theme.primary}16` },
-        ]}
-      />
-    </View>
   );
 }
 
@@ -1812,7 +1788,7 @@ function Places({
       />
       <View style={[styles.placeControlPanel, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.placeToolbar}>
-        <Text style={[styles.placeControlLabel, theme && { color: theme.muted }]}>상태</Text>
+        <Text numberOfLines={1} style={[styles.placeControlLabel, theme && { color: theme.muted }]}>상태</Text>
         <View style={styles.placeFilters}>
           {(["전체", "후보", "일정", "숙소"] as const).map((item) => (
             <Pressable
@@ -1866,7 +1842,7 @@ function Places({
         </View>
       </View>
       <View style={styles.placeTagControlRow}>
-        <Text style={[styles.placeControlLabel, theme && { color: theme.muted }]}>태그</Text>
+        <Text numberOfLines={1} style={[styles.placeControlLabel, theme && { color: theme.muted }]}>태그</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -5724,7 +5700,7 @@ function Moment({
             <View style={styles.mapLinkIcon}>
               <Text style={styles.mapLinkIconText}>N</Text>
             </View>
-            <Text style={styles.mapLinkText}>{compact ? "N 지도" : "네이버 지도"}</Text>
+            <Text style={styles.mapLinkText}>{compact ? "지도" : "네이버 지도"}</Text>
             {!compact && <Text style={styles.mapLinkArrow}>↗</Text>}
           </Pressable>
         ) : null}
@@ -7768,21 +7744,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontFamily: typo.label.family,
   },
-  detailPaperBackdrop: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
-  detailPaperLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.55,
-  },
-  detailPaperMargin: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 13,
-    width: 1,
-  },
   page: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 88 },
   date: { fontSize: 11, fontFamily: typo.caption.family, letterSpacing: 0, marginBottom: 6 },
   title: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
@@ -7862,7 +7823,8 @@ const styles = StyleSheet.create({
     padding: 8,
     marginBottom: 12,
   },
-  placeControlLabel: { width: 30, fontSize: 11, fontFamily: typo.label.family },
+  // 옆의 가로 스크롤이 자리를 다 가져가지 않도록 줄어들지 않게 둔다.
+  placeControlLabel: { width: 34, flexShrink: 0, fontSize: 11, fontFamily: typo.label.family },
   placeToolbar: {
     flexDirection: "row",
     alignItems: "center",
