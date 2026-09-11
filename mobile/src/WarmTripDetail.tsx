@@ -476,40 +476,34 @@ export function WarmTripDetail({
           <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
             {tripDate}
           </Text>
-          <View style={styles.detailTitleRow}>
-            <Text
-              style={[
-                styles.title,
-                styles.detailTripTitle,
-                appTheme && { color: appTheme.text },
-              ]}
-            >
-              {title}
-            </Text>
-            <Pressable
-              onPress={() => setMemoPanel(true)}
-              style={[
-                styles.tripMemoButton,
-                { backgroundColor: memo.surface, borderColor: memo.border },
-              ]}
-            >
-              <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
-              <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
-              <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
-                {tripNotes[0]?.body || "메모를 남겨보세요"}
-              </Text>
-              <View style={styles.tripMemoBottom}>
-                <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
-                <Glyph name="chevronRight" size={14} color={memo.label} />
-              </View>
-              <View style={[styles.tripMemoFold, { backgroundColor: memo.fold }]} />
-            </Pressable>
-          </View>
+          <Text style={[styles.title, appTheme && { color: appTheme.text }]}>
+            {title}
+          </Text>
           <Text
             style={[styles.subtitle, appTheme && { color: appTheme.muted }]}
           >
             함께 떠나는 2박 3일 여행
           </Text>
+          {/* 쪽지는 제목 오른쪽에 떠 있었다. 여행 이름이 쓸 수 있는 폭을 늘 3할
+              넘게 가져가고 탭을 바꿔도 사라지지 않았다. 제목 아래 한 줄로 내려
+              폭을 다 쓰게 하고, 높이는 72 에서 44 로 줄인다. */}
+          <Pressable
+            onPress={() => setMemoPanel(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`확인할 것, 메모 ${tripNotes.length}개`}
+            style={[
+              styles.tripMemoButton,
+              { backgroundColor: memo.surface, borderColor: memo.border },
+            ]}
+          >
+            <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
+            <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
+            <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
+              {tripNotes[0]?.body || "메모를 남겨보세요"}
+            </Text>
+            <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>{tripNotes.length}</Text>
+            <Glyph name="chevronRight" size={14} color={memo.label} />
+          </Pressable>
 
           <View
             style={[
@@ -1124,7 +1118,9 @@ function TripOverview({
             onPress={openScheduleCreate}
           />
         )}
-        {schedule.length > 0 && (
+        {/* 카드가 앞의 세 개를 이미 보여준다. 그 이하면 '전체'가 지금 보는
+            것과 같은 말이라, 눌러야 하나 하고 한 번 멈추게 된다. */}
+        {schedule.length > 3 && (
           <Pressable
             onPress={() => setFullSchedule(true)}
             style={[
@@ -1132,7 +1128,7 @@ function TripOverview({
               theme && { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>전체 일정 보기</Text>
+            <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>일정 {schedule.length}개 모두 보기</Text>
             <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
           </Pressable>
         )}
@@ -1818,6 +1814,10 @@ function Places({
           ))}
         </View>
       </View>
+      {/* 다섯 곳 이하면 목록이 한눈에 들어온다. 찾을 게 없는데 검색창이
+          먼저 나오면 목록이 그만큼 밀린다. 찾는 중이면 남긴다. */}
+      {(places.length > 5 || query.length > 0 || tagFilter !== null) && (
+      <>
       <View
         style={[
           styles.placeSearch,
@@ -1890,6 +1890,8 @@ function Places({
           </Pressable>
         ))}
       </View>
+      </>
+      )}
       </View>
       <View style={styles.placeList}>
         {displayedPlaces.map((place, index) => {
@@ -1903,11 +1905,17 @@ function Places({
           // 버튼은 내지 않는다.
           const settled = place.category === "숙소" ? isStay : inPlan;
           return (
-          <View
+          // 준비물 카드처럼 카드를 누르면 열린다. 카드마다 '수정' 버튼을
+          // 따로 두면 같은 일을 하는 단추가 장소 수만큼 늘어난다.
+          <Pressable
             key={place.id}
-            style={[
+            onPress={() => openEdit(place)}
+            accessibilityRole="button"
+            accessibilityLabel={`${place.name} 수정`}
+            style={({ pressed }) => [
               styles.placeMiniCard,
               { backgroundColor: theme?.surface ?? "#FFFFFF", borderColor: theme?.border ?? "#E5E3DD" },
+              pressed && styles.packingCardPressed,
             ]}
           >
             <View style={[styles.placeMiniTape, { backgroundColor: `${statusTone}38` }]} />
@@ -1927,22 +1935,19 @@ function Places({
             </View>
             <View style={styles.placeMiniTags}>
               {place.tags.slice(0, 3).map((tag) => (
-                <Pressable key={tag} onPress={() => setTagFilter(tag)} style={[styles.placeMiniTag, { backgroundColor: theme?.primarySoft ?? "#F0EDFF" }]}>
+                <Pressable key={tag} onPress={(event) => { event.stopPropagation(); setTagFilter(tag); }} style={[styles.placeMiniTag, { backgroundColor: theme?.primarySoft ?? "#F0EDFF" }]}>
                   <Text style={[styles.placeMiniTagText, { color: theme?.primary ?? "#6556D8" }]}># {tag}</Text>
                 </Pressable>
               ))}
               {place.tags.length > 3 && <Text style={[styles.placeMiniMore, { color: theme?.muted }]}>+{place.tags.length - 3}</Text>}
             </View>
             <View style={[styles.placeMiniActions, { borderTopColor: theme?.border ?? "#E5E3DD" }]}>
-              <Pressable onPress={() => openEdit(place)} style={[styles.placeMiniIconButton, { backgroundColor: theme?.surfaceAlt ?? "#F4F1EB" }]}>
-                <Text style={[styles.placeMiniEditText, { color: theme?.muted ?? "#727C8D" }]}>수정</Text>
-              </Pressable>
-              <Pressable onPress={() => place.mapUrl ? Linking.openURL(place.mapUrl) : openEdit(place)} style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
+              <Pressable onPress={(event) => { event.stopPropagation(); if (place.mapUrl) void Linking.openURL(place.mapUrl); else openEdit(place); }} style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
                 <Text style={[styles.placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
               </Pressable>
               {settled ? null : place.category === "숙소" ? (
                 <Pressable
-                  onPress={() => onRegisterStay(place)}
+                  onPress={(event) => { event.stopPropagation(); onRegisterStay(place); }}
                   accessibilityRole="button"
                   accessibilityLabel={`${place.name}을 이번 여행 숙소로 등록`}
                   style={[styles.placeMiniPlanButton, { backgroundColor: theme?.secondary }]}
@@ -1960,7 +1965,7 @@ function Places({
                 </Pressable>
               )}
             </View>
-          </View>
+          </Pressable>
           );
         })}
         {visible.length === 0 && (
@@ -2706,6 +2711,9 @@ function Preparation({
           </View>
         </View>
       </View>
+      {/* 다섯 개 이하면 한눈에 다 보인다. 거르는 도구가 목록보다 커지지
+          않도록 접어 둔다. 이미 거르고 있으면 끄는 길이 필요하니 남긴다. */}
+      {(items.length > 5 || filter !== "전체" || ownerFilter !== "전체" || tagFilter !== "전체 태그") && (
       <View
         style={[
           styles.packingV2Controls,
@@ -2769,6 +2777,7 @@ function Preparation({
           })}
         </ScrollView>
       </View>
+      )}
       <View style={[styles.packingManageHead, styles.packingV2Hidden]}>
         <View>
           <Text
@@ -4155,6 +4164,9 @@ function Cooking({
     setAddingRecipe(false);
     notify("요리를 추가했어요");
   };
+  // 요리 카드의 ... 도 여기로 온다. 전에는 경고창을 띄워 수정과 삭제를 고르게
+  // 했는데, 경고창은 되돌릴 수 없는 일에 쓰는 것이라 수정하러 갈 때마다 한 번씩
+  // 긴장하게 됐다. 다른 탭처럼 바로 수정 창을 열고 삭제는 그 창 아래에 둔다.
   const openRecipeEdit = () => {
     if (!activeRecipe) return;
     setRecipeName(activeRecipe.name);
@@ -4251,19 +4263,12 @@ function Cooking({
             );
             setRecipes(remaining);
             setActiveId(remaining[0]?.id || "");
+            closeRecipeSheet();
             notify("요리와 재료 목록을 삭제했어요");
           },
         },
       ],
     );
-  };
-  const openRecipeActions = () => {
-    if (!activeRecipe) return;
-    Alert.alert(activeRecipe.name, "요리 정보를 관리하세요.", [
-      { text: "요리 수정", onPress: openRecipeEdit },
-      { text: "요리 삭제", style: "destructive", onPress: deleteRecipe },
-      { text: "취소", style: "cancel" },
-    ]);
   };
   const openRecipeLink = () => {
     if (!activeRecipe?.url) return;
@@ -4367,7 +4372,7 @@ function Cooking({
       {recipes.length > 0 && (
         <View style={styles.recipeSelector}>
           <View style={styles.recipeSelectorHead}>
-            <Text style={[styles.recipeSelectorTitle, theme && { color: theme.muted }]}>메뉴를 선택하세요</Text>
+            <Text style={[styles.recipeSelectorTitle, theme && { color: theme.muted }]}>메뉴</Text>
             <View style={styles.recipeSelectorActions}>
               {/* 개수는 바로 위 탭 머리글이 이미 보여준다. 넘칠 때만 더 보기를 낸다. */}
               {recipes.length > 4 && (
@@ -4515,9 +4520,9 @@ function Cooking({
             </View>
             <View style={styles.cookingHeroActions}>
               <Pressable
-                onPress={openRecipeActions}
+                onPress={openRecipeEdit}
                 accessibilityRole="button"
-                accessibilityLabel="요리 관리"
+                accessibilityLabel={activeRecipe ? `${activeRecipe.name} 수정` : "요리 수정"}
                 style={[
                   styles.cookingMoreButton,
                   theme && { backgroundColor: theme.surface },
@@ -4723,7 +4728,7 @@ function Cooking({
       <DetailSheet
         visible={showAllRecipes}
         title="전체 요리 메뉴"
-        subtitle={`${recipes.length}개 요리 중 확인할 메뉴를 선택하세요`}
+        subtitle={`${recipes.length}개 요리 중 확인할 메뉴를 고르면 돼요`}
         submit="닫기"
         onClose={() => setShowAllRecipes(false)}
         onSubmit={() => setShowAllRecipes(false)}
@@ -4901,8 +4906,10 @@ function Cooking({
               ? "레시피 링크를 확인해 주세요"
               : "요리 이름을 입력해 주세요"}
         submitDisabled={!recipeFormValid}
+        destructiveLabel={editingRecipe ? "요리 삭제" : undefined}
         onClose={closeRecipeSheet}
         onSubmit={addRecipe}
+        onDestructive={deleteRecipe}
       >
         {!editingRecipe && <View
           style={[
@@ -5555,7 +5562,12 @@ function TransportCard({
       <View style={[styles.transportCardRail, { backgroundColor: color }]} />
       <View style={styles.transportCardHead}>
         <Text style={[styles.transportOwner, { color }]}>{owner}</Text>
-        <Text style={[styles.transportStatus, theme && { color: theme.muted }]}>{primary.status}</Text>
+        {/* 다 예매했으면 할 일이 없다. 아직인 것만 눈에 띄게 남긴다. */}
+        {primary.status === "예매 전" && (
+          <Text style={[styles.transportStatus, { color: theme?.accent ?? "#B4453C" }]}>
+            {primary.status}
+          </Text>
+        )}
       </View>
       <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{primary.direction} · {primary.method}</Text>
       <View style={styles.transportRoute}>
@@ -6161,28 +6173,24 @@ const styles = StyleSheet.create({
   feedbackToastMark: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FF6B63", marginRight: 8 },
   feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
   controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
-  detailTitleRow: {
-    position: "relative",
-  },
-  detailTripTitle: { maxWidth: "68%" },
+
+  // 제목 아래 가로로 눕힌 쪽지 한 줄. 테이프는 왼쪽 위에 붙는다.
   tripMemoButton: {
-    width: 102,
-    // 고정 높이는 글자 크기가 커지면 안쪽 줄을 자른다. 내용에 맞춰 늘어나게 둔다.
-    minHeight: 72,
+    marginTop: 12,
+    minHeight: 44,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: "#E6D38C",
     backgroundColor: "#FFF3B8",
-    paddingHorizontal: 8,
-    paddingTop: 12,
-    paddingBottom: 8,
-    justifyContent: "space-between",
-    position: "absolute",
-    right: 0,
-    bottom: -12,
-    transform: [{ rotate: "-1.5deg" }],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingLeft: 12,
+    paddingRight: 10,
+    paddingVertical: 10,
+    transform: [{ rotate: "-0.4deg" }],
     shadowColor: "#6E5B32",
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.12,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
@@ -6191,7 +6199,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 8,
     top: -5,
-    left: 34,
+    left: 22,
     backgroundColor: "rgba(238, 178, 160, .58)",
     transform: [{ rotate: "2deg" }],
   },
@@ -6202,19 +6210,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   tripMemoPreview: {
+    flex: 1,
     color: "#5F4B23",
     fontSize: 11,
     fontFamily: typo.caption.family,
-    marginTop: 2,
   },
-  tripMemoBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(154, 121, 48, .2)",
-    paddingTop: 4,
-  },
+
   tripMemoButtonText: {
     color: "#806727",
     fontSize: 14,
@@ -6226,15 +6227,7 @@ const styles = StyleSheet.create({
     fontFamily: typo.label.family,
     lineHeight: 14,
   },
-  tripMemoFold: {
-    position: "absolute",
-    right: -1,
-    bottom: -1,
-    width: 10,
-    height: 10,
-    backgroundColor: "#E8D681",
-    borderTopLeftRadius: 8,
-  },
+
   tripMemoList: {
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
