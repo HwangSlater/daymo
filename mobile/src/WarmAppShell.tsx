@@ -24,6 +24,8 @@ import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { useSheetDrag } from "./sheetDrag";
 import { PaperPeel } from "./PaperPeel";
+import { TripRegionPicker } from "./TripRegionPicker";
+import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
 import { TripDetailDestination, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
@@ -245,7 +247,14 @@ export function WarmAppShell({
         tripDate={selectedTrip.date}
         tripStart={selectedTrip.start}
         tripEnd={selectedTrip.end}
+        tripRegion={selectedTrip.region}
+        tripNote={selectedTrip.note}
         appTheme={theme}
+        onUpdateTrip={(changes) => {
+          const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
+          setTripItems((current) => current.map((trip) => trip === selectedTrip ? updated : trip));
+          setSelectedTrip(updated);
+        }}
         onClose={() => setTripOpen(false)}
       />
     );
@@ -1483,56 +1492,13 @@ function TripsExplorer({
           onChangeText={setPlace}
           placeholder="예: 제주 애월"
         />
-        <Text style={[s.fieldLabel, { color: theme.muted }]}>
-          지역
-        </Text>
-        <View style={s.regionChoices}>
-          {regionPins
-            .filter(
-              (pin) =>
-                showAllRegions ||
-                ["서울", "경기", "인천", "강원", "부산", "제주"].includes(
-                  pin.name,
-                ) ||
-                pin.name === newRegion,
-            )
-            .map((pin) => (
-              <Pressable
-                key={pin.name}
-                onPress={() => setNewRegion(pin.name)}
-                style={[
-                  s.regionChoice,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                  newRegion === pin.name && s.regionChoiceActive,
-                  newRegion === pin.name && {
-                    backgroundColor: theme.primarySoft,
-                    borderColor: theme.primary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    s.regionChoiceText,
-                    { color: theme.muted },
-                    newRegion === pin.name && s.regionChoiceTextActive,
-                    newRegion === pin.name && { color: theme.primary },
-                  ]}
-                >
-                  {pin.name}
-                </Text>
-              </Pressable>
-            ))}
-          <Pressable
-            onPress={() => setShowAllRegions((current) => !current)}
-            style={[
-              s.regionChoice,
-              s.regionMoreChoice,
-              { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[s.regionChoiceText, { color: theme.primary }]}>{showAllRegions ? "간단히 보기" : "전체 지역 +"}</Text>
-          </Pressable>
-        </View>
+        <TripRegionPicker
+          theme={theme}
+          value={newRegion}
+          onChange={setNewRegion}
+          expanded={showAllRegions}
+          setExpanded={setShowAllRegions}
+        />
         <TripDateRangePicker
           theme={theme}
           start={tripStart}
@@ -1640,26 +1606,6 @@ function TripRows({
     </>
   );
 }
-
-const regionPins = [
-  { name: "서울", x: 99.9, y: 92.4, minZoom: 1 },
-  { name: "인천", x: 88.3, y: 96.3, minZoom: 1.5 },
-  { name: "경기", x: 112, y: 113, minZoom: 1 },
-  { name: "강원", x: 148.4, y: 80.3, minZoom: 1 },
-  { name: "충북", x: 131.1, y: 148.8, minZoom: 1 },
-  { name: "충남", x: 94.9, y: 163.2, minZoom: 1 },
-  { name: "대전", x: 114.9, y: 176.4, minZoom: 1.5 },
-  { name: "세종", x: 109.8, y: 161.1, minZoom: 2 },
-  { name: "전북", x: 105.6, y: 219.7, minZoom: 1 },
-  { name: "전남", x: 98.6, y: 273.5, minZoom: 1 },
-  { name: "광주", x: 94.1, y: 258.5, minZoom: 1.5 },
-  { name: "경북", x: 164.8, y: 176.2, minZoom: 1 },
-  { name: "대구", x: 158.3, y: 211.8, minZoom: 1.5 },
-  { name: "경남", x: 146.8, y: 243.7, minZoom: 1 },
-  { name: "울산", x: 183.3, y: 230.9, minZoom: 1.5 },
-  { name: "부산", x: 177, y: 254.8, minZoom: 1 },
-  { name: "제주", x: 83.7, y: 381.4, minZoom: 1 },
-];
 
 const MAP_MAX_ZOOM = 5;
 
@@ -1869,7 +1815,7 @@ function KoreaTripMap({
           // 가장 가까운 시도를 고른다. 시도별 영역 데이터가 없어서 쓰는 어림이다.
           const point = toMapPoint(inMap(event.nativeEvent));
           if (!isOnLand(point.x, point.y)) return;
-          const region = nearestRegion(point.x, point.y, regionPins);
+          const region = nearestRegion(point.x, point.y, tripRegions);
           if (region) onSelect(region);
         },
         onPanResponderTerminate: () => {
@@ -1962,7 +1908,7 @@ function KoreaTripMap({
           />
         )}
       </Svg>
-      {regionPins.map((pin) => {
+      {tripRegions.map((pin) => {
         const count = trips.filter((trip) => trip.region === pin.name).length;
         const active = selected === pin.name;
         const left = mapOffsetX + (pin.x - boxX) * mapScale;

@@ -1,5 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSheetDrag } from "./sheetDrag";
+import { TripDateRangePicker } from "./TripDateRangePicker";
+import { TripRegionPicker } from "./TripRegionPicker";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_PAYERS,
@@ -85,6 +87,16 @@ type Props = {
   tripDate?: string;
   tripStart?: string;
   tripEnd?: string;
+  tripRegion?: string;
+  tripNote?: string;
+  onUpdateTrip?: (trip: {
+    name: string;
+    date: string;
+    start: string;
+    end: string;
+    region: string;
+    note: string;
+  }) => void;
 };
 
 const parseTripDate = (value?: string) => {
@@ -130,6 +142,19 @@ const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? 
 // 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
 const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
 const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
+
+const validDateKey = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = parseTripDate(value);
+  return Boolean(date && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` === value);
+};
+
+const formatTripPeriod = (start: string, end: string) => {
+  const first = parseTripDate(start);
+  const last = parseTripDate(end);
+  if (!first || !last) return "기간을 확인해 주세요";
+  return `${dateLabel(first)} — ${dateLabel(last)}`;
+};
 
 type PackingItem = {
   id: string;
@@ -382,19 +407,38 @@ export function WarmTripDetail({
   tripDate = "8월 21일 — 23일",
   tripStart,
   tripEnd,
+  tripRegion = "전북",
+  tripNote = "함께 천천히 걷는 여행",
+  onUpdateTrip,
 }: Props) {
   const memo = memoPaper(Boolean(appTheme?.dark));
-  const tripDates = buildTripDates(tripStart, tripEnd);
+  const [currentStart, setCurrentStart] = useState(tripStart ?? "");
+  const [currentEnd, setCurrentEnd] = useState(tripEnd ?? "");
+  const [region, setRegion] = useState(tripRegion);
+  const [note, setNote] = useState(tripNote);
+  const tripDates = buildTripDates(currentStart, currentEnd);
   const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
   const tripDateOptions = tripDates.length ? tripDates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
   const todayTripDay = todayAmong(tripDates);
   const firstTripDate = tripDateOptions[0];
   const lastTripDate = tripDateOptions[tripDateOptions.length - 1];
+  const currentTripDate = tripDates.length ? formatTripPeriod(currentStart, currentEnd) : tripDate;
+  const tripNights = Math.max(0, tripDates.length - 1);
+  const tripDuration = tripDates.length
+    ? tripNights
+      ? `${tripNights}박 ${tripDates.length}일`
+      : "당일 여행"
+    : "여행 기간";
   const [mode, setMode] = useState<ViewMode>(() =>
     destinationMode(initialDestination),
   );
   const [title, setTitle] = useState(tripName);
   const [draftTitle, setDraftTitle] = useState(title);
+  const [draftStart, setDraftStart] = useState(currentStart);
+  const [draftEnd, setDraftEnd] = useState(currentEnd);
+  const [draftRegion, setDraftRegion] = useState(region);
+  const [draftNote, setDraftNote] = useState(note);
+  const [showAllEditRegions, setShowAllEditRegions] = useState(false);
   const [editingTrip, setEditingTrip] = useState(false);
   const [memoPanel, setMemoPanel] = useState(false);
   const [memoDraft, setMemoDraft] = useState("");
@@ -459,6 +503,15 @@ export function WarmTripDetail({
     return () => clearTimeout(timer);
   }, [feedback]);
 
+  const tripDraftValid = Boolean(
+    draftTitle.trim()
+    && draftRegion.trim()
+    && validDateKey(draftStart)
+    && validDateKey(draftEnd)
+    && draftStart <= draftEnd,
+  );
+  const draftDates = buildTripDates(draftStart, draftEnd);
+
   return (
     <DetailThemeContext.Provider value={appTheme}>
       <DetailFeedbackContext.Provider value={setFeedback}>
@@ -493,6 +546,11 @@ export function WarmTripDetail({
           <Pressable
             onPress={() => {
               setDraftTitle(title);
+              setDraftStart(currentStart);
+              setDraftEnd(currentEnd);
+              setDraftRegion(region);
+              setDraftNote(note);
+              setShowAllEditRegions(false);
               setEditingTrip(true);
             }}
             hitSlop={12}
@@ -508,7 +566,7 @@ export function WarmTripDetail({
           showsVerticalScrollIndicator={false}
         >
           <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
-            {tripDate}
+            {currentTripDate}
           </Text>
           <View style={styles.detailTitleRow}>
             <Text
@@ -542,7 +600,7 @@ export function WarmTripDetail({
           <Text
             style={[styles.subtitle, appTheme && { color: appTheme.muted }]}
           >
-            함께 떠나는 2박 3일 여행
+            {region ? `${region} · ` : ""}{tripDuration}{note ? ` · ${note}` : ""}
           </Text>
 
           <View
@@ -653,7 +711,7 @@ export function WarmTripDetail({
           {mode === "비용" && (
             <Money tripName={title} dayOptions={tripDayOptions} todayDay={todayTripDay} />
           )}
-          {mode === "기록" && <Memories tripName={title} tripDate={tripDate} />}
+          {mode === "기록" && <Memories tripName={title} tripDate={currentTripDate} />}
         </ScrollView>
         <DetailSheet
           visible={memoPanel}
@@ -790,25 +848,85 @@ export function WarmTripDetail({
         <DetailSheet
           visible={editingTrip}
           title="여행 수정"
-          submit={draftTitle.trim() ? "변경 저장" : "여행 제목을 입력해 주세요"}
-          submitDisabled={!draftTitle.trim()}
+          subtitle="여행의 기본 정보와 사용할 기능을 관리해요"
+          submit={tripDraftValid ? "변경 저장" : "제목·여행지·기간을 확인해 주세요"}
+          submitDisabled={!tripDraftValid}
           onClose={() => setEditingTrip(false)}
           onSubmit={() => {
-            if (draftTitle.trim()) setTitle(draftTitle.trim());
+            if (!tripDraftValid) return;
+            const nextTitle = draftTitle.trim();
+            const nextRegion = draftRegion.trim();
+            const nextNote = draftNote.trim();
+            const oldDays = tripDayOptions;
+            const nextDates = buildTripDates(draftStart, draftEnd);
+            const nextDays = nextDates.map(dayLabel);
+            setSchedule((current) => current.map((item) => {
+              const oldIndex = item.date ? oldDays.indexOf(item.date) : -1;
+              if (oldIndex < 0 || !nextDays.length) return item;
+              const date = nextDays[Math.min(oldIndex, nextDays.length - 1)];
+              return { ...item, date, time: `${weekdayOf(date)}${item.time.includes(" · ") ? ` · ${item.time.split(" · ").slice(1).join(" · ")}` : ""}` };
+            }));
+            setTitle(nextTitle);
+            setCurrentStart(draftStart);
+            setCurrentEnd(draftEnd);
+            setRegion(nextRegion);
+            setNote(nextNote);
+            setRegisteredStay((current) => ({
+              ...current,
+              checkin: current.checkin ? `${dateLabel(nextDates[0])} ${current.checkin.split(" ").at(-1)}` : "",
+              checkout: current.checkout ? `${dateLabel(nextDates[nextDates.length - 1])} ${current.checkout.split(" ").at(-1)}` : "",
+            }));
+            onUpdateTrip?.({
+              name: nextTitle,
+              date: formatTripPeriod(draftStart, draftEnd),
+              start: draftStart,
+              end: draftEnd,
+              region: nextRegion,
+              note: nextNote,
+            });
             if (!hasKitchen && mode === "요리") setMode("여행");
             setEditingTrip(false);
             setFeedback("여행 정보를 저장했어요");
           }}
         >
           <DetailField
-            label="여행 제목 · 필수"
+            label="여행지 · 필수"
             value={draftTitle}
             onChangeText={setDraftTitle}
+            placeholder="예: 전주 한옥마을"
           />
-          <View style={styles.tripMetaBox}>
-            <Text style={styles.tripMetaLabel}>기간</Text>
-            <Text style={styles.tripMetaValue}>{tripDate}</Text>
+          {appTheme && (
+            <TripRegionPicker
+              theme={appTheme}
+              value={draftRegion}
+              onChange={setDraftRegion}
+              expanded={showAllEditRegions}
+              setExpanded={setShowAllEditRegions}
+            />
+          )}
+          <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
+            <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>언제 떠나나요?</Text>
+            <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>시작일을 고른 다음 마지막 날을 선택해 주세요.</Text>
+            {appTheme && (
+              <TripDateRangePicker
+                key={`${editingTrip}-${currentStart}-${currentEnd}`}
+                theme={appTheme}
+                start={draftStart}
+                end={draftEnd}
+                setStart={setDraftStart}
+                setEnd={setDraftEnd}
+              />
+            )}
           </View>
+          <DetailField
+            label="한 줄 메모 · 선택 사항"
+            value={draftNote}
+            onChangeText={setDraftNote}
+            placeholder="예: 골목을 천천히 걷는 여행"
+          />
+          <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
+            <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>여행 기능</Text>
+            <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>숙소 환경에 맞춰 필요한 탭만 보여줘요.</Text>
           <OptionField
             label="숙소에 주방이 있나요?"
             options={["있어요", "없어요"]}
@@ -819,6 +937,7 @@ export function WarmTripDetail({
             주방이 있을 때만 요리 탭을 표시해요. 언제든 다시 켜거나 숨길 수
             있어요.
           </Text>
+          </View>
         </DetailSheet>
         {!!feedback && (
           <View
@@ -5544,6 +5663,21 @@ function Money({
   const [lastPayer, setLastPayer] = useState<ExpensePayer>("하늘");
   const [draftDay, setDraftDay] = useState(dayOptions[0] ?? "");
   const [draftMemo, setDraftMemo] = useState("");
+  const previousDays = useRef(dayOptions);
+  const dayOptionsKey = dayOptions.join("|");
+
+  useEffect(() => {
+    const before = previousDays.current;
+    if (before.join("|") === dayOptionsKey) return;
+    setExpenses((current) => current.map((item) => {
+      const index = before.indexOf(item.day);
+      if (index < 0 || !dayOptions.length) return item;
+      return { ...item, day: dayOptions[Math.min(index, dayOptions.length - 1)] };
+    }));
+    setDayFilter("전체");
+    setDraftDay(dayOptions[0] ?? "");
+    previousDays.current = dayOptions;
+  }, [dayOptions, dayOptionsKey]);
 
   // 목록은 늘 여행 날짜 차례로 본다. 넣은 차례로 두면 나중에 끼워 넣은 지출이
   // 엉뚱한 자리에 남는다.
@@ -7306,6 +7440,14 @@ const styles = StyleSheet.create({
     fontFamily: typo.data.family,
     marginTop: 6,
   },
+  tripEditSection: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#E2E0DA",
+    paddingTop: 16,
+    marginTop: 2,
+  },
+  tripEditSectionTitle: { fontSize: 16, fontFamily: typo.title.family },
+  tripEditSectionHint: { fontSize: 11, lineHeight: 16, fontFamily: typo.caption.family, marginTop: 3, marginBottom: 14 },
   optionField: { marginBottom: 16 },
   optionRow: { gap: 8, paddingRight: 6 },
   optionChipActive: { backgroundColor: "#17233D", borderColor: "#17233D" },
