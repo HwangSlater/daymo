@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSheetDrag } from "./sheetDrag";
 import {
   Alert,
@@ -476,34 +476,40 @@ export function WarmTripDetail({
           <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
             {tripDate}
           </Text>
-          <Text style={[styles.title, appTheme && { color: appTheme.text }]}>
-            {title}
-          </Text>
+          <View style={styles.detailTitleRow}>
+            <Text
+              style={[
+                styles.title,
+                styles.detailTripTitle,
+                appTheme && { color: appTheme.text },
+              ]}
+            >
+              {title}
+            </Text>
+            <Pressable
+              onPress={() => setMemoPanel(true)}
+              style={[
+                styles.tripMemoButton,
+                { backgroundColor: memo.surface, borderColor: memo.border },
+              ]}
+            >
+              <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
+              <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
+              <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
+                {tripNotes[0]?.body || "메모를 남겨보세요"}
+              </Text>
+              <View style={styles.tripMemoBottom}>
+                <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
+                <Glyph name="chevronRight" size={14} color={memo.label} />
+              </View>
+              <View style={[styles.tripMemoFold, { backgroundColor: memo.fold }]} />
+            </Pressable>
+          </View>
           <Text
             style={[styles.subtitle, appTheme && { color: appTheme.muted }]}
           >
             함께 떠나는 2박 3일 여행
           </Text>
-          {/* 쪽지는 제목 오른쪽에 떠 있었다. 여행 이름이 쓸 수 있는 폭을 늘 3할
-              넘게 가져가고 탭을 바꿔도 사라지지 않았다. 제목 아래 한 줄로 내려
-              폭을 다 쓰게 하고, 높이는 72 에서 44 로 줄인다. */}
-          <Pressable
-            onPress={() => setMemoPanel(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`확인할 것, 메모 ${tripNotes.length}개`}
-            style={[
-              styles.tripMemoButton,
-              { backgroundColor: memo.surface, borderColor: memo.border },
-            ]}
-          >
-            <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
-            <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
-            <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
-              {tripNotes[0]?.body || "메모를 남겨보세요"}
-            </Text>
-            <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>{tripNotes.length}</Text>
-            <Glyph name="chevronRight" size={14} color={memo.label} />
-          </Pressable>
 
           <View
             style={[
@@ -3863,6 +3869,50 @@ type Recipe = {
   ingredients: CookingItem[];
 };
 
+/**
+ * GPT 가 돌려준 줄을 요리와 재료로 읽는다.
+ *
+ * "요리 | 이름 | 메모 | 링크" 와 "재료 | 이름 | 양 | 묶음 | 담당" 두 가지만 읽고
+ * 나머지 줄은 버린다. 넣기 전에 몇 개가 읽혔는지 미리 세어 보여주려고 컴포넌트
+ * 밖으로 꺼냈다. 같은 함수가 미리 읽기와 실제 추가에 함께 쓰인다.
+ */
+function parseAiRecipes(text: string, stamp: number): Recipe[] {
+  const parsed: Recipe[] = [];
+  let currentRecipe: Recipe | null = null;
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line, index) => {
+      const [type, ...values] = line.split("|").map((value) => value.trim());
+      if (type === "요리" && values[0]) {
+        currentRecipe = {
+          id: `ai-recipe-${stamp}-${index}`,
+          name: values[0],
+          note: values[1] || "메모 없음",
+          url: values[2] || "",
+          ingredients: [],
+        };
+        parsed.push(currentRecipe);
+        return;
+      }
+      if (type === "재료" && values[0] && currentRecipe) {
+        currentRecipe.ingredients.push({
+          id: `ai-ingredient-${stamp}-${index}`,
+          name: values[0],
+          quantity: values[1] || "미정",
+          group: values[2] || "기본",
+          owner: (["하늘", "여울", "구매", "미정"] as const).includes(
+            values[3] as "하늘" | "여울" | "구매" | "미정",
+          )
+            ? (values[3] as "하늘" | "여울" | "구매" | "미정")
+            : "미정",
+        });
+      }
+    });
+  return parsed;
+}
+
 const initialRecipes: Recipe[] = [
     {
       id: "mille",
@@ -4182,49 +4232,38 @@ function Cooking({
     setRecipeNote("");
     setRecipeUrl("");
   };
+  // 넣기 전에 몇 개가 읽혔는지 센다. 붙여넣고 나서 무엇이 들어갈지 모른 채
+  // 버튼을 누르던 것이 이 흐름에서 가장 불안한 대목이었다.
+  const aiParsed: Recipe[] = useMemo(() => parseAiRecipes(aiResult, 0), [aiResult]);
+  const aiIngredientCount = aiParsed.reduce((sum, recipe) => sum + recipe.ingredients.length, 0);
   const copyCookingPrompt = async () => {
     await Clipboard.setStringAsync(cookingPrompt);
-    notify("GPT용 프롬프트를 복사했어요");
+    notify("프롬프트를 복사했어요");
+  };
+  // 복사한 뒤 브라우저까지 열어 준다. 앱을 나갔다 오는 건 그대로지만 사용자가
+  // 직접 찾아 들어가는 한 단계가 줄고, 무엇을 하러 나가는지도 분명해진다.
+  const copyPromptAndOpenGpt = async () => {
+    await Clipboard.setStringAsync(cookingPrompt);
+    const opened = await Linking.openURL("https://chatgpt.com/").then(
+      () => true,
+      () => false,
+    );
+    notify(opened ? "프롬프트를 복사했어요. 붙여넣고 결과를 다시 가져오세요" : "프롬프트를 복사했어요");
   };
   const pasteAiResult = async () => {
-    setAiResult(await Clipboard.getStringAsync());
+    const text = await Clipboard.getStringAsync();
+    if (!text.trim()) {
+      notify("복사한 내용이 없어요");
+      return;
+    }
+    setAiResult(text);
   };
   const importAiRecipes = () => {
-    const stamp = Date.now();
-    const parsed: Recipe[] = [];
-    let currentRecipe: Recipe | null = null;
-    aiResult
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .forEach((line, index) => {
-        const [type, ...values] = line
-          .split("|")
-          .map((value) => value.trim());
-        if (type === "요리" && values[0]) {
-          currentRecipe = {
-            id: `ai-recipe-${stamp}-${index}`,
-            name: values[0],
-            note: values[1] || "메모 없음",
-            url: values[2] || "",
-            ingredients: [],
-          };
-          parsed.push(currentRecipe);
-          return;
-        }
-        if (type === "재료" && values[0] && currentRecipe) {
-          currentRecipe.ingredients.push({
-            id: `ai-ingredient-${stamp}-${index}`,
-            name: values[0],
-            quantity: values[1] || "미정",
-            group: values[2] || "기본",
-            owner: ["하늘", "여울", "구매", "미정"].includes(values[3])
-              ? values[3]
-              : "미정",
-          });
-        }
-      });
-    if (!parsed.length) return;
+    const parsed = parseAiRecipes(aiResult, Date.now());
+    if (!parsed.length) {
+      notify("요리 줄을 못 찾았어요. 형식이 맞는지 봐 주세요");
+      return;
+    }
     const existingRecipeNames = new Set(recipes.map((recipe) => recipe.name.trim().toLowerCase()));
     const uniqueParsed = parsed
       .filter((recipe, index, values) =>
@@ -4956,9 +4995,15 @@ function Cooking({
       <DetailSheet
         visible={aiImporting}
         title="GPT로 여러 요리 추가"
-        subtitle="프롬프트를 복사해 GPT에 요청하고 결과를 붙여넣으세요"
-        submit={aiResult.trim() ? "요리 목록 추가" : "GPT 결과를 붙여넣어 주세요"}
-        submitDisabled={!aiResult.trim()}
+        subtitle="프롬프트를 복사해 GPT에 요청하고 돌아와 결과를 붙여넣으면 돼요"
+        submit={
+          aiParsed.length
+            ? `요리 ${aiParsed.length}개 추가`
+            : aiResult.trim()
+              ? "읽을 수 있는 줄이 없어요"
+              : "GPT 결과를 붙여넣어 주세요"
+        }
+        submitDisabled={!aiParsed.length}
         onClose={() => setAiImporting(false)}
         onSubmit={importAiRecipes}
       >
@@ -4973,19 +5018,32 @@ function Cooking({
         >
           <View style={styles.aiPromptHead}>
             <View style={styles.aiRecipeCopy}>
-              <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>1. 형식 프롬프트 복사</Text>
-              <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>요리 이름과 재료 메모를 프롬프트 아래에 적으세요.</Text>
+              <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>1. 프롬프트 복사하고 GPT 열기</Text>
+              <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT 에 붙여넣고 그 아래에 요리와 재료 메모를 적으세요.</Text>
             </View>
-            <Pressable onPress={copyCookingPrompt} style={styles.aiPromptCopyButton}>
-              <Text style={styles.aiPromptCopyText}>복사</Text>
+            <Pressable
+              onPress={copyPromptAndOpenGpt}
+              accessibilityRole="button"
+              accessibilityLabel="프롬프트를 복사하고 GPT 열기"
+              style={styles.aiPromptCopyButton}
+            >
+              <Text style={styles.aiPromptCopyText}>복사하고 열기</Text>
             </Pressable>
           </View>
           <Text numberOfLines={4} style={[styles.aiPromptPreview, theme && { color: theme.muted }]}>{cookingPrompt}</Text>
+          {/* 브라우저가 안 열리는 기기도 있다. 복사만 하는 길을 남긴다. */}
+          <Pressable
+            onPress={copyCookingPrompt}
+            accessibilityRole="button"
+            style={styles.aiPromptCopyOnly}
+          >
+            <Text style={[styles.aiRecipeText, theme && { color: theme.primary }]}>복사만 하기</Text>
+          </Pressable>
         </View>
         <View style={styles.aiPasteRow}>
           <View>
-            <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>2. GPT 결과 가져오기</Text>
-            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>복사한 결과를 입력란에 바로 넣어요.</Text>
+            <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>2. 돌아와서 결과 붙여넣기</Text>
+            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT 답을 복사해 두고 이 단추를 누르세요.</Text>
           </View>
           <Pressable
             onPress={pasteAiResult}
@@ -5001,7 +5059,14 @@ function Cooking({
           multiline
           placeholder={"요리 | 김치볶음밥 | 둘째 날 아침 | https://youtu.be/...\n재료 | 김치 | 1컵 | 기본 | 구매"}
         />
-        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>여러 요리와 각 재료가 한 번에 추가됩니다.</Text>
+        {/* 읽힌 결과를 넣기 전에 보여준다. 형식이 어긋나면 여기서 바로 안다. */}
+        <Text style={[styles.settingHint, theme && { color: aiResult.trim() && !aiParsed.length ? theme.accent : theme.muted }]}>
+          {!aiResult.trim()
+            ? "여러 요리와 각 재료가 한 번에 추가돼요."
+            : aiParsed.length
+              ? `요리 ${aiParsed.length}개와 재료 ${aiIngredientCount}개를 읽었어요. ${aiParsed.map((recipe) => recipe.name).join(", ")}`
+              : "요리 줄을 못 찾았어요. 각 줄이 '요리 |' 나 '재료 |' 로 시작하는지 봐 주세요."}
+        </Text>
       </DetailSheet>
       <DetailSheet
         visible={importing}
@@ -6174,23 +6239,28 @@ const styles = StyleSheet.create({
   feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
   controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
 
-  // 제목 아래 가로로 눕힌 쪽지 한 줄. 테이프는 왼쪽 위에 붙는다.
+  detailTitleRow: {
+    position: "relative",
+  },
+  detailTripTitle: { maxWidth: "68%" },
   tripMemoButton: {
-    marginTop: 12,
-    minHeight: 44,
+    width: 102,
+    // 고정 높이는 글자 크기가 커지면 안쪽 줄을 자른다. 내용에 맞춰 늘어나게 둔다.
+    minHeight: 72,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: "#E6D38C",
     backgroundColor: "#FFF3B8",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingLeft: 12,
-    paddingRight: 10,
-    paddingVertical: 10,
-    transform: [{ rotate: "-0.4deg" }],
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
+    justifyContent: "space-between",
+    position: "absolute",
+    right: 0,
+    bottom: -12,
+    transform: [{ rotate: "-1.5deg" }],
     shadowColor: "#6E5B32",
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.14,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
@@ -6199,7 +6269,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 8,
     top: -5,
-    left: 22,
+    left: 34,
     backgroundColor: "rgba(238, 178, 160, .58)",
     transform: [{ rotate: "2deg" }],
   },
@@ -6210,12 +6280,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   tripMemoPreview: {
-    flex: 1,
     color: "#5F4B23",
     fontSize: 11,
     fontFamily: typo.caption.family,
+    marginTop: 2,
   },
-
+  tripMemoBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(154, 121, 48, .2)",
+    paddingTop: 4,
+  },
   tripMemoButtonText: {
     color: "#806727",
     fontSize: 14,
@@ -6227,6 +6304,16 @@ const styles = StyleSheet.create({
     fontFamily: typo.label.family,
     lineHeight: 14,
   },
+  tripMemoFold: {
+    position: "absolute",
+    right: -1,
+    bottom: -1,
+    width: 10,
+    height: 10,
+    backgroundColor: "#E8D681",
+    borderTopLeftRadius: 8,
+  },
+
 
   tripMemoList: {
     borderRadius: 12,
@@ -7547,6 +7634,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  aiPromptCopyOnly: { alignSelf: "flex-start", marginTop: 8, paddingVertical: 4 },
   aiPromptCopyText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.body.family },
   aiPromptPreview: {
     color: "#777F8C",
