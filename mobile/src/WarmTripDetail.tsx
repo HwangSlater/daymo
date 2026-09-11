@@ -5858,7 +5858,7 @@ function DetailSheet({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
-  const drag = useSheetDrag(onClose);
+  const drag = useSheetDrag(onClose, visible);
   const sheetKind = title.includes("일정")
     ? "일정"
     : title.includes("장소")
@@ -6018,7 +6018,7 @@ function InfoPanel({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
-  const drag = useSheetDrag(onClose);
+  const drag = useSheetDrag(onClose, visible);
   return (
     <Modal
       visible={visible}

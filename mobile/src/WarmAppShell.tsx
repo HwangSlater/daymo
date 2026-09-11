@@ -3787,7 +3787,7 @@ function FormSheet({
   onSubmit: () => void;
   children: React.ReactNode;
 }) {
-  const drag = useSheetDrag(onClose);
+  const drag = useSheetDrag(onClose, visible);
   const sheetKind = title.includes("여행")
     ? "여행"
     : title.includes("공간")
@@ -3907,7 +3907,7 @@ function InfoSheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  const drag = useSheetDrag(onClose);
+  const drag = useSheetDrag(onClose, visible);
   return (
     <Modal
       visible={visible}

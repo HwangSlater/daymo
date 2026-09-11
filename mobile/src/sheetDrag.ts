@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { Animated, LayoutChangeEvent, PanResponder } from "react-native";
 
 /**
@@ -23,10 +23,19 @@ export const SHEET_DISMISS_SPEED = 0.9;
 /** 튕기기로 닫힐 때도 이만큼은 끌었어야 한다. 짧은 떨림은 닫지 않는다. */
 export const SHEET_FLICK_MIN = 40;
 
-export function useSheetDrag(onClose: () => void) {
+export function useSheetDrag(onClose: () => void, visible: boolean) {
   const offset = useMemo(() => new Animated.Value(0), []);
   const height = useRef(0);
   const closing = useRef(false);
+  // 끌어내려 닫은 뒤 창은 화면 밖에 그대로 둔다. Modal 이 닫히는 애니메이션을
+  // 도는 동안 제자리로 돌리면 창이 도로 올라왔다가 다시 내려간다. 다음에 열릴
+  // 때, 그리기 전에 되돌린다.
+  useLayoutEffect(() => {
+    if (visible) {
+      offset.setValue(0);
+      closing.current = false;
+    }
+  }, [visible, offset]);
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     height.current = event.nativeEvent.layout.height;
   }, []);
@@ -43,6 +52,10 @@ export function useSheetDrag(onClose: () => void) {
     // PanResponder 가 이 콜백들을 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
     // eslint-disable-next-line react-hooks/refs
     return PanResponder.create({
+      // 손잡이 영역에 손가락이 닿는 순간 받는다. 닫기 버튼처럼 더 안쪽의
+      // 누를 수 있는 것이 먼저 물어보고 가져가므로 버튼은 그대로 눌린다.
+      // 움직임이 생긴 뒤에야 물어보면 안드로이드에서 한 번씩 놓쳤다.
+      onStartShouldSetPanResponder: () => !closing.current,
       onMoveShouldSetPanResponder: wantsDrag,
       onMoveShouldSetPanResponderCapture: wantsDrag,
       onPanResponderMove: (_, gesture) => {
@@ -60,11 +73,8 @@ export function useSheetDrag(onClose: () => void) {
           toValue: Math.max(height.current, 600),
           duration: 180,
           useNativeDriver: true,
-        }).start(() => {
-          onClose();
-          // 다음에 열릴 때를 위해 제자리로. Modal 이 닫힌 뒤라 보이지 않는다.
-          offset.setValue(0);
-          closing.current = false;
+        }).start(({ finished }) => {
+          if (finished) onClose();
         });
       },
       onPanResponderTerminate: settleBack,
