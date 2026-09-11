@@ -5527,6 +5527,10 @@ function Money({
   const notify = useContext(DetailFeedbackContext);
   const [expenses, setExpenses] = useState<Expense[]>(() => sampleExpenses(dayOptions));
   const [dayFilter, setDayFilter] = useState("전체");
+  const [categoryFilter, setCategoryFilter] = useState<"전체" | ExpenseCategory>("전체");
+  const [budget, setBudget] = useState(500000);
+  const [budgetSheetOpen, setBudgetSheetOpen] = useState(false);
+  const [draftBudget, setDraftBudget] = useState("500,000");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
@@ -5552,11 +5556,21 @@ function Money({
   }, [expenses, dayOptions]);
   const settlement = useMemo(() => settle(expenses), [expenses]);
   const byCategory = useMemo(() => totalsByCategory(expenses), [expenses]);
+  const byDay = useMemo(() => totalsByDay(expenses, dayOptions), [expenses, dayOptions]);
+  const averagePerSpendingDay = byDay.length ? Math.round(settlement.total / byDay.length) : 0;
+  const topDay = byDay.reduce<{ day: string; amount: number } | null>(
+    (top, row) => (!top || row.amount > top.amount ? row : top),
+    null,
+  );
   const usedDays = useMemo(
     () => dayOptions.filter((day) => expenses.some((item) => item.day === day)),
     [dayOptions, expenses],
   );
-  const visible = dayFilter === "전체" ? sorted : sorted.filter((item) => item.day === dayFilter);
+  const visible = sorted.filter(
+    (item) =>
+      (dayFilter === "전체" || item.day === dayFilter)
+      && (categoryFilter === "전체" || item.category === categoryFilter),
+  );
   // 날짜로 묶고 소제목에 그날 합계를 단다. 여행 중에 가장 자주 하는 질문이
   // "어제 얼마 썼지" 인데, 한 줄로 늘어놓으면 그걸 셀 수가 없다.
   const grouped = useMemo(
@@ -5569,12 +5583,25 @@ function Money({
     [visible, dayOptions],
   );
   const amountNumber = parseAmount(draftAmount);
+  const budgetNumber = parseAmount(draftBudget);
   const formValid = Boolean(draftTitle.trim()) && amountNumber > 0;
+  const budgetRemaining = budget - settlement.total;
+  const budgetProgress = budget > 0 ? settlement.total / budget : 0;
   // 치는 동안 세 자리마다 끊는다. 32,000 과 320,000 은 자릿수가 안 끊기면
   // 눈으로 구별이 안 되고, 돈에서 제일 흔한 실수가 여기서 난다.
   const changeAmount = (text: string) => {
     const amount = parseAmount(text);
     setDraftAmount(amount ? won(amount) : "");
+  };
+  const openBudget = () => {
+    setDraftBudget(budget ? won(budget) : "");
+    setBudgetSheetOpen(true);
+  };
+  const saveBudget = () => {
+    if (!budgetNumber) return;
+    setBudget(budgetNumber);
+    setBudgetSheetOpen(false);
+    notify("여행 예산을 저장했어요");
   };
 
   const openCreate = () => {
@@ -5672,6 +5699,27 @@ function Money({
           {won(settlement.total)}
           <Text style={[styles.moneyTotalUnit, theme && { color: theme.muted }]}>원</Text>
         </Text>
+        <View style={styles.moneyBudgetHead}>
+          <Text style={[styles.moneyBudgetLabel, theme && { color: theme.muted }]}>예산 {won(budget)}원</Text>
+          <Pressable onPress={openBudget} hitSlop={10} accessibilityRole="button" accessibilityLabel="여행 예산 수정">
+            <Text style={[styles.moneyBudgetAction, theme && { color: theme.primary }]}>예산 수정</Text>
+          </Pressable>
+        </View>
+        <View style={[styles.moneyBudgetTrack, theme && { backgroundColor: theme.surfaceAlt }]}>
+          <View
+            style={[
+              styles.moneyBudgetFill,
+              { width: `${Math.min(100, budgetProgress * 100)}%` },
+              theme && { backgroundColor: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.primary },
+            ]}
+          />
+        </View>
+        <View style={styles.moneyBudgetFoot}>
+          <Text style={[styles.moneyBudgetStatus, theme && { color: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.muted }]}>
+            {budgetRemaining < 0 ? `${won(Math.abs(budgetRemaining))}원 초과` : `${won(budgetRemaining)}원 남음`}
+          </Text>
+          <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
+        </View>
         <View style={styles.moneyPaidRow}>
           {EXPENSE_PAYERS.map((person, index) => (
             <View
@@ -5701,12 +5749,51 @@ function Money({
           )}
         </View>
       </View>
+      {expenses.length > 0 && (
+        <View style={[styles.moneyInsightCard, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+          <View style={styles.moneyInsightHeading}>
+            <View>
+              <Text style={[styles.moneyInsightEyebrow, theme && { color: theme.primary }]}>여행 비용 분석</Text>
+              <Text style={[styles.moneyInsightTitle, theme && { color: theme.text }]}>이번 여행의 소비 흐름</Text>
+            </View>
+            <Text style={[styles.moneyInsightCount, theme && { color: theme.muted }]}>{byDay.length}일 기록</Text>
+          </View>
+          <View style={styles.moneyInsightGrid}>
+            <View style={styles.moneyInsightItem}>
+              <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>쓴 날 하루 평균</Text>
+              <Text style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{won(averagePerSpendingDay)}원</Text>
+            </View>
+            <View style={[styles.moneyInsightItem, styles.moneyInsightDivider, theme && { borderLeftColor: theme.border }]}>
+              <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>가장 많이 쓴 날</Text>
+              <Text numberOfLines={1} style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{topDay?.day ?? "-"}</Text>
+              <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{topDay ? `${won(topDay.amount)}원` : ""}</Text>
+            </View>
+            <View style={[styles.moneyInsightItem, styles.moneyInsightDivider, theme && { borderLeftColor: theme.border }]}>
+              <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>가장 큰 지출</Text>
+              <Text numberOfLines={1} style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{byCategory[0]?.category ?? "-"}</Text>
+              <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{byCategory[0] ? `${won(byCategory[0].amount)}원` : ""}</Text>
+            </View>
+          </View>
+        </View>
+      )}
       {byCategory.length > 0 && (
         <>
           <SectionLabel label="어디에 썼나" count={`${byCategory.length}가지`} />
           <View style={[styles.moneyCategoryCard, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {byCategory.map((row) => (
-              <View key={row.category} style={styles.moneyCategoryRow}>
+            {byCategory.map((row) => {
+              const active = categoryFilter === row.category;
+              return (
+              <Pressable
+                key={row.category}
+                onPress={() => setCategoryFilter(active ? "전체" : row.category)}
+                accessibilityRole="button"
+                accessibilityLabel={`${row.category} 지출 ${won(row.amount)}원 내역 보기`}
+                accessibilityState={{ selected: active }}
+                style={[
+                  styles.moneyCategoryRow,
+                  active && theme && { backgroundColor: theme.primarySoft },
+                ]}
+              >
                 <Text style={[styles.moneyCategoryName, theme && { color: theme.text }]}>{row.category}</Text>
                 {/* 막대는 전체 대비다. 1등 대비로 그리면 가장 많이 쓴 분류가
                     늘 꽉 차서 전부 쓴 것처럼 보인다. */}
@@ -5723,12 +5810,18 @@ function Money({
                 <Text style={[styles.moneyCategoryPercent, theme && { color: theme.muted }]}>
                   {settlement.total ? Math.round((row.amount / settlement.total) * 100) : 0}%
                 </Text>
-              </View>
-            ))}
+              </Pressable>
+            );})}
+            <Text style={[styles.moneyCategoryHint, theme && { color: theme.muted }]}>분류를 누르면 해당 내역만 볼 수 있어요</Text>
           </View>
         </>
       )}
-      <SectionLabel label="지출 내역" count={dayFilter === "전체" ? `${sorted.length}건` : `${visible.length}건`} />
+      <SectionLabel
+        label={categoryFilter === "전체" ? "지출 내역" : `${categoryFilter} 지출`}
+        count={dayFilter === "전체" && categoryFilter === "전체" ? `${sorted.length}건` : `${visible.length}건`}
+        action={categoryFilter === "전체" ? undefined : "전체 보기"}
+        onPress={categoryFilter === "전체" ? undefined : () => setCategoryFilter("전체")}
+      />
       {/* 며칠 치가 쌓였을 때만 날짜로 거른다. 몇 건 안 되면 칩이 목록보다 크다. */}
       {expenses.length > 5 && usedDays.length > 1 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moneyDayRow}>
@@ -5792,7 +5885,10 @@ function Money({
               : "다른 날을 보거나 전체로 돌아가 보세요."
           }
           action={expenses.length === 0 ? "지출 추가" : "전체 보기"}
-          onPress={() => (expenses.length === 0 ? openCreate() : setDayFilter("전체"))}
+          onPress={() => {
+            if (expenses.length === 0) openCreate();
+            else { setDayFilter("전체"); setCategoryFilter("전체"); }
+          }}
         />
       )}
       {expenses.length > 0 && (
@@ -5867,6 +5963,26 @@ function Money({
           value={draftMemo}
           onChangeText={setDraftMemo}
           placeholder="예: 둘 다 학생 할인"
+        />
+      </DetailSheet>
+      <DetailSheet
+        visible={budgetSheetOpen}
+        title="여행 예산"
+        subtitle="예산 대비 얼마나 썼는지 비용 탭에서 바로 확인해요"
+        submit={budgetNumber ? "예산 저장" : "예산을 입력해 주세요"}
+        submitDisabled={!budgetNumber}
+        onClose={() => setBudgetSheetOpen(false)}
+        onSubmit={saveBudget}
+      >
+        <DetailField
+          label="전체 예산 · 필수"
+          value={draftBudget}
+          onChangeText={(text) => {
+            const amount = parseAmount(text);
+            setDraftBudget(amount ? won(amount) : "");
+          }}
+          placeholder="예: 500,000"
+          keyboardType="numeric"
         />
       </DetailSheet>
     </View>
@@ -7388,6 +7504,14 @@ const styles = StyleSheet.create({
   moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   moneyTotalUnit: { fontSize: 16, fontFamily: typo.body.family },
+  moneyBudgetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
+  moneyBudgetLabel: { fontSize: 11, fontFamily: typo.label.family },
+  moneyBudgetAction: { fontSize: 11, fontFamily: typo.label.family },
+  moneyBudgetTrack: { height: 7, borderRadius: 4, overflow: "hidden", marginTop: 7 },
+  moneyBudgetFill: { height: 7, borderRadius: 4 },
+  moneyBudgetFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  moneyBudgetStatus: { fontSize: 11, fontFamily: typo.caption.family },
+  moneyBudgetPercent: { fontSize: 11, fontFamily: typo.data.family },
   moneyPaidRow: { flexDirection: "row", marginTop: 14 },
   moneyPaidItem: { flex: 1, paddingHorizontal: 12 },
   moneyPaidName: { fontSize: 11, fontFamily: typo.caption.family },
@@ -7396,13 +7520,25 @@ const styles = StyleSheet.create({
   moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 14 },
   moneySettleText: { fontSize: 13, fontFamily: typo.label.family },
   moneySettleAmount: { fontSize: 16, fontFamily: typo.data.family },
+  moneyInsightCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },
+  moneyInsightHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 },
+  moneyInsightEyebrow: { fontSize: 11, fontFamily: typo.label.family, marginBottom: 3 },
+  moneyInsightTitle: { fontSize: 16, fontFamily: typo.title.family },
+  moneyInsightCount: { fontSize: 11, fontFamily: typo.caption.family },
+  moneyInsightGrid: { flexDirection: "row" },
+  moneyInsightItem: { flex: 1, minWidth: 0, paddingRight: 8 },
+  moneyInsightDivider: { borderLeftWidth: 1, paddingLeft: 10, paddingRight: 4 },
+  moneyInsightLabel: { fontSize: 11, fontFamily: typo.caption.family },
+  moneyInsightValue: { fontSize: 15, marginTop: 4, fontFamily: typo.data.family },
+  moneyInsightMeta: { fontSize: 10, marginTop: 1, fontFamily: typo.caption.family },
   moneyCategoryCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8 },
-  moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 7 },
+  moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 6, paddingVertical: 8, borderRadius: 8 },
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
   moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
   moneyBarFill: { height: 6, borderRadius: 3 },
   moneyCategoryAmount: { minWidth: 58, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
   moneyCategoryPercent: { minWidth: 30, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
+  moneyCategoryHint: { fontSize: 10, fontFamily: typo.caption.family, paddingHorizontal: 6, paddingTop: 4, paddingBottom: 7 },
   moneyDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4 },
   moneyDayChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
