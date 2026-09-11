@@ -1,6 +1,21 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSheetDrag } from "./sheetDrag";
 import {
+  EXPENSE_CATEGORIES,
+  EXPENSE_PAYERS,
+  EXPENSE_SHARES,
+  type Expense,
+  type ExpenseCategory,
+  type ExpensePayer,
+  type ExpenseShare,
+  expensesToCsv,
+  parseAmount,
+  settle,
+  shareExpenseCsv,
+  totalsByCategory,
+  won,
+} from "./tripExpenses";
+import {
   Alert,
   Animated,
   BackHandler,
@@ -24,7 +39,7 @@ import { memoPaper, status as statusColor } from "./theme/colors";
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
 
-type ViewMode = "여행" | "장소" | "준비" | "요리" | "기록";
+type ViewMode = "여행" | "장소" | "준비" | "요리" | "비용" | "기록";
 export type TripDetailDestination =
   "overview" | "schedule-add" | "places" | "preparation" | "cooking" | "memories";
 const destinationMode = (destination: TripDetailDestination): ViewMode =>
@@ -523,6 +538,7 @@ export function WarmTripDetail({
                 "장소",
                 "준비",
                 ...(hasKitchen ? ["요리" as ViewMode] : []),
+                "비용",
                 "기록",
               ] as ViewMode[]
             ).map((item) => (
@@ -615,6 +631,7 @@ export function WarmTripDetail({
               }}
             />
           )}
+          {mode === "비용" && <Money tripName={title} dayOptions={tripDayOptions} />}
           {mode === "기록" && <Memories tripName={title} tripDate={tripDate} />}
         </ScrollView>
         <DetailSheet
@@ -5462,6 +5479,347 @@ function SectionLabel({
   );
 }
 
+/** 첫날부터 차례로 채운 예시 지출. 날짜는 이 여행의 날짜 선택지를 따른다. */
+function sampleExpenses(days: string[]): Expense[] {
+  const day = (index: number) => days[Math.min(index, days.length - 1)] ?? "";
+  return [
+    { id: "e1", day: day(0), title: "옹기식탁 점심", amount: 32000, category: "식비", payer: "하늘", share: "함께", memo: "" },
+    { id: "e2", day: day(0), title: "한옥마을 입장료", amount: 6000, category: "입장료", payer: "여울", share: "함께", memo: "둘 다 학생 할인" },
+    { id: "e3", day: day(0), title: "달빛한옥 2박", amount: 180000, category: "숙박", payer: "하늘", share: "함께", memo: "" },
+    { id: "e4", day: day(1), title: "KTX 왕복", amount: 47200, category: "교통", payer: "하늘", share: "하늘", memo: "" },
+    { id: "e5", day: day(1), title: "한지 공예 기념품", amount: 18000, category: "쇼핑", payer: "여울", share: "여울", memo: "" },
+    { id: "e6", day: day(1), title: "저녁 장보기", amount: 41500, category: "식비", payer: "여울", share: "함께", memo: "버섯전골 재료" },
+  ];
+}
+
+function Money({ tripName, dayOptions }: { tripName: string; dayOptions: string[] }) {
+  const theme = useContext(DetailThemeContext);
+  const notify = useContext(DetailFeedbackContext);
+  const [expenses, setExpenses] = useState<Expense[]>(() => sampleExpenses(dayOptions));
+  const [dayFilter, setDayFilter] = useState("전체");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftAmount, setDraftAmount] = useState("");
+  const [draftCategory, setDraftCategory] = useState<ExpenseCategory>("식비");
+  const [draftPayer, setDraftPayer] = useState<ExpensePayer>("하늘");
+  const [draftShare, setDraftShare] = useState<ExpenseShare>("함께");
+  const [draftDay, setDraftDay] = useState(dayOptions[0] ?? "");
+  const [draftMemo, setDraftMemo] = useState("");
+
+  // 목록은 늘 여행 날짜 차례로 본다. 넣은 차례로 두면 나중에 끼워 넣은 지출이
+  // 엉뚱한 자리에 남는다.
+  const sorted = useMemo(() => {
+    const order = (day: string) => {
+      const index = dayOptions.indexOf(day);
+      return index === -1 ? dayOptions.length : index;
+    };
+    return [...expenses].sort((a, b) => order(a.day) - order(b.day));
+  }, [expenses, dayOptions]);
+  const settlement = useMemo(() => settle(expenses), [expenses]);
+  const byCategory = useMemo(() => totalsByCategory(expenses), [expenses]);
+  const biggest = byCategory[0]?.amount ?? 0;
+  const usedDays = useMemo(
+    () => dayOptions.filter((day) => expenses.some((item) => item.day === day)),
+    [dayOptions, expenses],
+  );
+  const visible = dayFilter === "전체" ? sorted : sorted.filter((item) => item.day === dayFilter);
+  const amountNumber = parseAmount(draftAmount);
+  const formValid = Boolean(draftTitle.trim()) && amountNumber > 0;
+
+  const openCreate = () => {
+    setEditingId(null);
+    setDraftTitle("");
+    setDraftAmount("");
+    setDraftCategory("식비");
+    setDraftPayer("하늘");
+    setDraftShare("함께");
+    setDraftDay(dayFilter === "전체" ? dayOptions[0] ?? "" : dayFilter);
+    setDraftMemo("");
+    setSheetOpen(true);
+  };
+  const openEdit = (item: Expense) => {
+    setEditingId(item.id);
+    setDraftTitle(item.title);
+    setDraftAmount(won(item.amount));
+    setDraftCategory(item.category);
+    setDraftPayer(item.payer);
+    setDraftShare(item.share);
+    setDraftDay(item.day);
+    setDraftMemo(item.memo);
+    setSheetOpen(true);
+  };
+  const saveExpense = () => {
+    if (!formValid) return;
+    setExpenses((current) => {
+      // 새 번호는 값을 바꾸는 이 안에서 만든다. 그려지는 중에 시계를 읽으면
+      // 같은 그림이 두 번 그려질 때 번호가 달라진다.
+      const next: Expense = {
+        id: editingId ?? `expense-${Date.now()}`,
+        day: draftDay,
+        title: draftTitle.trim(),
+        amount: amountNumber,
+        category: draftCategory,
+        payer: draftPayer,
+        share: draftShare,
+        memo: draftMemo.trim(),
+      };
+      return editingId
+        ? current.map((item) => (item.id === editingId ? next : item))
+        : [...current, next];
+    });
+    setSheetOpen(false);
+    notify(editingId ? "지출을 수정했어요" : "지출을 추가했어요");
+  };
+  const deleteExpense = () => {
+    const target = expenses.find((item) => item.id === editingId);
+    if (!target) return;
+    Alert.alert("지출을 삭제할까요?", `${target.title} · ${won(target.amount)}원`, [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        style: "destructive",
+        onPress: () => {
+          setExpenses((current) => current.filter((item) => item.id !== target.id));
+          setSheetOpen(false);
+          notify("지출을 삭제했어요");
+        },
+      },
+    ]);
+  };
+  const exportCsv = async () => {
+    if (!expenses.length) {
+      notify("내보낼 지출이 없어요");
+      return;
+    }
+    const csv = expensesToCsv(tripName, sorted);
+    try {
+      // 공유를 못 하는 곳에서는 표를 클립보드에 담는다. 스프레드시트에 그대로
+      // 붙여넣으면 같은 표가 된다.
+      if ((await shareExpenseCsv(`${tripName} 비용`, csv)) === "unavailable") {
+        await Clipboard.setStringAsync(csv);
+        notify("표를 복사했어요. 스프레드시트에 붙여넣으세요");
+      }
+    } catch {
+      notify("내보내기를 마치지 못했어요");
+    }
+  };
+
+  return (
+    <View>
+      <TabActionHeader
+        label="지출"
+        count={`${expenses.length}건`}
+        action="지출 추가"
+        onPress={openCreate}
+      />
+      <View style={[styles.moneySummary, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[styles.moneySummaryLabel, theme && { color: theme.muted }]}>이번 여행에서 쓴 돈</Text>
+        <Text style={[styles.moneyTotal, theme && { color: theme.text }]}>
+          {won(settlement.total)}
+          <Text style={[styles.moneyTotalUnit, theme && { color: theme.muted }]}>원</Text>
+        </Text>
+        <View style={styles.moneyPaidRow}>
+          {EXPENSE_PAYERS.map((person, index) => (
+            <View
+              key={person}
+              style={[styles.moneyPaidItem, index > 0 && theme && { borderLeftWidth: 1, borderLeftColor: theme.border }]}
+            >
+              <Text style={[styles.moneyPaidName, theme && { color: theme.muted }]}>{person}이 낸 돈</Text>
+              <Text style={[styles.moneyPaidAmount, theme && { color: theme.text }]}>{won(settlement.paid[person])}원</Text>
+            </View>
+          ))}
+        </View>
+        {/* 정산 한 줄. 둘이 쓰는 수첩이라 결국 이 줄을 보려고 들어온다. */}
+        <View style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}>
+          {settlement.from ? (
+            <>
+              <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>
+                {settlement.from}이 {settlement.to}에게
+              </Text>
+              <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{won(settlement.amount)}원</Text>
+            </>
+          ) : (
+            <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>정산할 게 없어요</Text>
+          )}
+        </View>
+      </View>
+      {byCategory.length > 0 && (
+        <>
+          <SectionLabel label="어디에 썼나" count={`${byCategory.length}가지`} />
+          <View style={[styles.moneyCategoryCard, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {byCategory.map((row) => (
+              <View key={row.category} style={styles.moneyCategoryRow}>
+                <Text style={[styles.moneyCategoryName, theme && { color: theme.text }]}>{row.category}</Text>
+                <View style={[styles.moneyBarTrack, theme && { backgroundColor: theme.surfaceAlt }]}>
+                  <View
+                    style={[
+                      styles.moneyBarFill,
+                      { width: `${biggest ? Math.max(6, (row.amount / biggest) * 100) : 0}%` },
+                      theme && { backgroundColor: theme.primary },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.moneyCategoryAmount, theme && { color: theme.muted }]}>{won(row.amount)}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+      <SectionLabel label="지출 내역" count={dayFilter === "전체" ? `${sorted.length}건` : `${visible.length}건`} />
+      {/* 며칠 치가 쌓였을 때만 날짜로 거른다. 몇 건 안 되면 칩이 목록보다 크다. */}
+      {expenses.length > 5 && usedDays.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moneyDayRow}>
+          {["전체", ...usedDays].map((day) => {
+            const active = dayFilter === day;
+            return (
+              <Pressable
+                key={day}
+                onPress={() => setDayFilter(day)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                style={[
+                  styles.moneyDayChip,
+                  theme && { borderColor: active ? theme.primary : theme.border },
+                  active && theme && { backgroundColor: theme.primarySoft },
+                ]}
+              >
+                <Text style={[styles.moneyDayChipText, theme && { color: active ? theme.primary : theme.muted }]}>{day}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+      <View style={styles.moneyList}>
+        {visible.map((item) => (
+          <Pressable
+            key={item.id}
+            onPress={() => openEdit(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title} ${won(item.amount)}원 수정`}
+            style={({ pressed }) => [
+              styles.moneyRow,
+              theme && { backgroundColor: theme.surface, borderColor: theme.border },
+              pressed && styles.packingCardPressed,
+            ]}
+          >
+            <View style={[styles.moneyRowStamp, theme && { backgroundColor: theme.surfaceAlt }]}>
+              <Text style={[styles.moneyRowStampText, theme && { color: theme.muted }]}>{dayNumberOf(item.day)}</Text>
+            </View>
+            <View style={styles.moneyRowBody}>
+              <Text numberOfLines={1} style={[styles.moneyRowTitle, theme && { color: theme.text }]}>{item.title}</Text>
+              <Text numberOfLines={1} style={[styles.moneyRowMeta, theme && { color: theme.muted }]}>
+                {item.category} · {item.payer}이 냄{item.share === "함께" ? "" : ` · ${item.share} 몫`}
+              </Text>
+            </View>
+            <Text style={[styles.moneyRowAmount, theme && { color: theme.text }]}>{won(item.amount)}원</Text>
+          </Pressable>
+        ))}
+      </View>
+      {visible.length === 0 && (
+        <EmptyState
+          title={expenses.length === 0 ? "아직 적은 지출이 없어요" : "이 날은 쓴 게 없어요"}
+          description={
+            expenses.length === 0
+              ? "쓴 돈을 적어 두면 여행이 끝나고 한 번에 정산할 수 있어요."
+              : "다른 날을 보거나 전체로 돌아가 보세요."
+          }
+          action={expenses.length === 0 ? "지출 추가" : "전체 보기"}
+          onPress={() => (expenses.length === 0 ? openCreate() : setDayFilter("전체"))}
+        />
+      )}
+      {expenses.length > 0 && (
+        <Pressable
+          onPress={exportCsv}
+          accessibilityRole="button"
+          accessibilityLabel="지출 내역을 엑셀 파일로 내보내기"
+          style={[styles.moneyExport, theme && { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <View>
+            <Text style={[styles.moneyExportTitle, theme && { color: theme.text }]}>엑셀로 내보내기</Text>
+            <Text style={[styles.moneyExportHint, theme && { color: theme.muted }]}>
+              지출 {expenses.length}건과 정산을 표로 만들어 보내요
+            </Text>
+          </View>
+          <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
+        </Pressable>
+      )}
+      <DetailSheet
+        visible={sheetOpen}
+        title={editingId ? "지출 수정" : "지출 추가"}
+        subtitle="항목과 금액만 적어도 저장돼요"
+        submit={
+          formValid
+            ? editingId
+              ? "변경 저장"
+              : "지출 추가"
+            : !draftTitle.trim()
+              ? "항목 이름을 입력해 주세요"
+              : "금액을 입력해 주세요"
+        }
+        submitDisabled={!formValid}
+        destructiveLabel={editingId ? "지출 삭제" : undefined}
+        onClose={() => setSheetOpen(false)}
+        onSubmit={saveExpense}
+        onDestructive={deleteExpense}
+      >
+        <View style={[styles.moneyPreview, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[styles.moneyPreviewLabel, theme && { color: theme.primary }]}>
+            {draftDay || "날짜 미정"} · {draftCategory}
+          </Text>
+          <Text numberOfLines={1} style={[styles.moneyPreviewTitle, theme && { color: theme.text }]}>
+            {draftTitle.trim() || "무엇에 썼나요?"}
+          </Text>
+          <Text style={[styles.moneyPreviewAmount, theme && { color: theme.text }]}>
+            {amountNumber ? `${won(amountNumber)}원` : "금액을 입력하세요"}
+          </Text>
+          <Text style={[styles.moneyPreviewShare, theme && { color: theme.muted }]}>
+            {draftPayer}이 내고 {draftShare === "함께" ? "반씩 나눠요" : `${draftShare} 몫이에요`}
+          </Text>
+        </View>
+        <DetailField
+          label="항목 · 필수"
+          value={draftTitle}
+          onChangeText={setDraftTitle}
+          placeholder="예: 옹기식탁 점심"
+        />
+        <DetailField
+          label="금액 · 필수"
+          value={draftAmount}
+          onChangeText={setDraftAmount}
+          placeholder="예: 32,000"
+          keyboardType="numeric"
+        />
+        <OptionField
+          label="분류"
+          options={EXPENSE_CATEGORIES}
+          value={draftCategory}
+          onChange={(value) => setDraftCategory(value as ExpenseCategory)}
+        />
+        <OptionField
+          label="낸 사람"
+          options={EXPENSE_PAYERS}
+          value={draftPayer}
+          onChange={(value) => setDraftPayer(value as ExpensePayer)}
+        />
+        <OptionField
+          label="누구 몫"
+          options={EXPENSE_SHARES}
+          value={draftShare}
+          onChange={(value) => setDraftShare(value as ExpenseShare)}
+        />
+        <OptionField label="날짜" options={dayOptions} value={draftDay} onChange={setDraftDay} />
+        <DetailField
+          label="메모 · 선택 사항"
+          value={draftMemo}
+          onChangeText={setDraftMemo}
+          placeholder="예: 둘 다 학생 할인"
+        />
+      </DetailSheet>
+    </View>
+  );
+}
+
 function TabActionHeader({
   label,
   count,
@@ -5847,6 +6205,7 @@ function DetailField({
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  keyboardType?: "default" | "numeric";
 }) {
   const theme = useContext(DetailThemeContext);
   return (
@@ -6972,6 +7331,42 @@ const styles = StyleSheet.create({
   },
   deletePlaceText: { color: "#D6534A", fontSize: 12, fontFamily: typo.label.family },
   fullScheduleText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
+  moneySummary: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 8 },
+  moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
+  moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
+  moneyTotalUnit: { fontSize: 16, fontFamily: typo.body.family },
+  moneyPaidRow: { flexDirection: "row", marginTop: 14 },
+  moneyPaidItem: { flex: 1, paddingHorizontal: 12 },
+  moneyPaidName: { fontSize: 11, fontFamily: typo.caption.family },
+  moneyPaidAmount: { fontSize: 15, marginTop: 2, fontFamily: typo.data.family },
+  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 14 },
+  moneySettleText: { fontSize: 13, fontFamily: typo.label.family },
+  moneySettleAmount: { fontSize: 16, fontFamily: typo.data.family },
+  moneyCategoryCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8 },
+  moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 7 },
+  moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
+  moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
+  moneyBarFill: { height: 6, borderRadius: 3 },
+  moneyCategoryAmount: { minWidth: 62, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
+  moneyDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4 },
+  moneyDayChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
+  moneyList: { gap: 8, marginTop: 8 },
+  moneyRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  moneyRowStamp: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  moneyRowStampText: { fontSize: 13, fontFamily: typo.data.family },
+  moneyRowBody: { flex: 1, minWidth: 0 },
+  moneyRowTitle: { fontSize: 14, fontFamily: typo.title.family },
+  moneyRowMeta: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
+  moneyRowAmount: { fontSize: 14, fontFamily: typo.data.family },
+  moneyExport: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 12 },
+  moneyExportTitle: { fontSize: 13, fontFamily: typo.title.family },
+  moneyExportHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
+  moneyPreview: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 20 },
+  moneyPreviewLabel: { fontSize: 11, fontFamily: typo.label.family, letterSpacing: 0.5 },
+  moneyPreviewTitle: { fontSize: 17, marginTop: 4, fontFamily: typo.title.family },
+  moneyPreviewAmount: { fontSize: 22, marginTop: 6, fontFamily: typo.data.family },
+  moneyPreviewShare: { fontSize: 11, marginTop: 6, fontFamily: typo.caption.family },
   fullScheduleList: { maxHeight: 520 },
   planPlaceSummary: {
     borderRadius: 20,
