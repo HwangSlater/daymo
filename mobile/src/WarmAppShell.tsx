@@ -30,6 +30,12 @@ import {
   ThemeId,
   themeOptions,
 } from "./theme";
+import {
+  defaultDeviceSettings,
+  DeviceSettings,
+  GroupId,
+  useSaveSettings,
+} from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
 import { Dot, Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
@@ -51,7 +57,6 @@ type Trip = {
   start: string;
   end: string;
 };
-type GroupId = "ours" | "friends" | "family";
 
 const sampleDate = (daysFromToday: number) => {
   const date = new Date();
@@ -152,7 +157,21 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {
   ],
 };
 
-export function WarmAppShell() {
+// 저장된 설정은 App이 실행 화면 뒤에서 미리 읽어 넘겨준다. 여기서 읽으면 기본값으로
+// 한 번 그린 뒤 바뀌어 화면이 튄다.
+// 여행 공간 목록. 마지막에 연 공간을 기기에서 읽어 처음 화면을 그릴 때도 필요해서
+// 컴포넌트 밖에 둔다. 서버가 붙으면 이 자리를 받아온 목록이 대신한다.
+const spaceGroups: { id: GroupId; name: string; members: string[]; relationship: "연인" | "친구" }[] = [
+  { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" },
+  { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" },
+  { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" },
+];
+
+export function WarmAppShell({
+  settings = defaultDeviceSettings,
+}: {
+  settings?: DeviceSettings;
+}) {
   const systemScheme = useColorScheme();
   const [view, setView] = useState<MainView>("홈");
   const [isTripOpen, setTripOpen] = useState(false);
@@ -160,7 +179,9 @@ export function WarmAppShell() {
   const [tripDestination, setTripDestination] =
     useState<TripDetailDestination>("overview");
   const [done, setDone] = useState<string[]>(["charger", "toiletries"]);
-  const [activeGroupId, setActiveGroupId] = useState<GroupId>("friends");
+  const [activeGroupId, setActiveGroupId] = useState<GroupId>(
+    settings.activeGroupId,
+  );
   const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
   const tripItems = tripsByGroup[activeGroupId];
   const setTripItems: React.Dispatch<React.SetStateAction<Trip[]>> = (update) =>
@@ -170,10 +191,13 @@ export function WarmAppShell() {
         typeof update === "function" ? update(current[activeGroupId]) : update,
     }));
   const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
-  const [themeId, setThemeId] = useState<ThemeId>("indigo");
+  const [themeId, setThemeId] = useState<ThemeId>(settings.themeId);
   // 함께한 시작일. 우리 탭의 공간 프로필에서 고치고 홈 머리글이 같은 값을 읽는다.
-  const [since, setSince] = useState("2023. 10. 20");
-  const [appearance, setAppearance] = useState<AppearanceMode>("system");
+  const [since, setSince] = useState(settings.since);
+  const [appearance, setAppearance] = useState<AppearanceMode>(
+    settings.appearance,
+  );
+  useSaveSettings({ themeId, appearance, activeGroupId, since });
   const [user, setUser] = useState<DaymoUser | null>({
     name: "하늘",
     email: "sky@daymo.app",
@@ -1424,12 +1448,12 @@ function KoreaTripMap({
   // 두 손가락이 닿아 있는 동안은 시군구 층을 내린다. 668개 경로를 매 프레임
   // 다시 그리면 확대가 끊긴다.
   const [pinching, setPinching] = useState(false);
+  // 제스처 처리기는 한 번만 만들고 다시 만들지 않는다. 그래서 최신 값을 ref 로
+  // 읽어야 하는데, 렌더 중에 ref 에 쓰면 리액트 규칙에 어긋난다. 값을 바꾸는
+  // 자리에서 상태와 ref 를 함께 옮긴다.
   const centerRef = useRef(center);
-  centerRef.current = center;
   const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
   const sizeRef = useRef(size);
-  sizeRef.current = size;
   // 손가락 하나가 움직이는 중인지, 두 개가 벌어지는 중인지, 그냥 톡 누른 건지.
   const gesture = useRef<
     | { kind: "none" }
@@ -1462,6 +1486,13 @@ function KoreaTripMap({
       x: Math.max(halfWidth, Math.min(300 - halfWidth, point.x)),
       y: Math.max(halfHeight, Math.min(420 - halfHeight, point.y)),
     };
+  };
+  /** 지도를 옮긴다. 상태와 ref 가 항상 같은 값을 갖게 한다. */
+  const applyView = (at: { x: number; y: number }, level = zoomRef.current) => {
+    centerRef.current = at;
+    zoomRef.current = level;
+    setCenter(at);
+    setZoom(level);
   };
   /** 배율 level 에서의 보이는 상자와 화면 배율. */
   const viewAt = (level: number, at: { x: number; y: number }) => {
@@ -1504,10 +1535,7 @@ function KoreaTripMap({
       },
       next,
     );
-    centerRef.current = at;
-    zoomRef.current = next;
-    setCenter(at);
-    setZoom(next);
+    applyView(at, next);
   };
   /** 확대·축소 버튼. 버튼은 눌린 만큼 딱 떨어지는 게 낫다. */
   const changeZoom = (
@@ -1522,8 +1550,7 @@ function KoreaTripMap({
     zoomAround(next, focus, toMapPoint(focus));
   };
   const resetMap = () => {
-    setZoom(1.5);
-    setCenter({ x: 150, y: 210 });
+    applyView({ x: 150, y: 210 }, 1.5);
   };
   /** 닿아 있는 두 손가락 사이의 거리와 중점. */
   const spanOf = (touches: readonly { pageX: number; pageY: number }[]) => {
@@ -1539,8 +1566,13 @@ function KoreaTripMap({
     gesture.current = { kind: "pinch", span: distance, zoom: zoomRef.current, at, on: toMapPoint(at) };
     setPinching(true);
   };
+  // 이 규칙은 useMemo 안에서 만든 닫힘이 ref 를 읽는 것을 렌더 중 접근으로 본다.
+  // 여기서는 그 닫힘이 손가락이 닿을 때만 불리고 렌더 중에는 실행되지 않는다.
+  // 제스처 처리기를 매 렌더 다시 만들면 진행 중이던 동작이 끊기므로 한 번만
+  // 만들어야 하고, 그러려면 최신 값을 ref 로 읽는 수밖에 없다.
   const panResponder = useMemo(
     () =>
+      // eslint-disable-next-line react-hooks/refs
       PanResponder.create({
         // 손가락이 둘이 되는 순간 자식에게서 응답권을 빼앗는다. 이름표 위에
         // 손가락이 얹혀 있어도 확대로 넘어가고, 이름표의 누름은 취소된다.
@@ -1591,8 +1623,7 @@ function KoreaTripMap({
             },
             zoomRef.current,
           );
-          centerRef.current = at;
-          setCenter(at);
+          applyView(at);
         },
         onPanResponderRelease: (event) => {
           gesture.current = { kind: "none" };
@@ -1654,6 +1685,7 @@ function KoreaTripMap({
       ref={host}
       style={s.mapOnly}
       onLayout={(event) => {
+        sizeRef.current = event.nativeEvent.layout;
         setSize(event.nativeEvent.layout);
         host.current?.measureInWindow((x, y) => {
           origin.current = { x, y };
@@ -1710,7 +1742,7 @@ function KoreaTripMap({
             key={pin.name}
             onPress={() => {
               if (zoom > 1)
-                setCenter(clampCenter({ x: pin.x, y: pin.y }, zoom));
+                applyView(clampCenter({ x: pin.x, y: pin.y }, zoom));
               onSelect(pin.name);
             }}
             accessibilityRole="button"
@@ -2661,21 +2693,22 @@ function Together({
   openTrip: (trip: Trip) => void;
   onLogout: () => void;
 }) {
+  // 이름과 멤버는 마지막에 열어 둔 공간에서 시작한다. 공간만 기억하고 이름은 기본값으로
+  // 두면 다시 열었을 때 머리글과 목록이 서로 다른 공간을 가리킨다.
+  const activeGroup =
+    spaceGroups.find((group) => group.id === activeGroupId) ?? spaceGroups[0];
   const [notifications, setNotifications] = useState(true);
-  const [relationship, setRelationship] = useState<"연인" | "친구">("친구");
-  const [spaceName, setSpaceName] = useState("주말 여행 메이트");
+  const [relationship, setRelationship] = useState<"연인" | "친구">(
+    activeGroup.relationship,
+  );
+  const [spaceName, setSpaceName] = useState(activeGroup.name);
   const [memberA, setMemberA] = useState(user.name);
-  const [memberB, setMemberB] = useState("여울");
-  const [memberC, setMemberC] = useState("가람");
-  const [memberD, setMemberD] = useState("새봄");
+  const [memberB, setMemberB] = useState(activeGroup.members[0] ?? "");
+  const [memberC, setMemberC] = useState(activeGroup.members[1] ?? "");
+  const [memberD, setMemberD] = useState(activeGroup.members[2] ?? "");
   const [selectedMember, setSelectedMember] = useState(0);
   const [memberRoles, setMemberRoles] = useState<("관리자" | "편집 가능" | "보기만")[]>(["관리자", "편집 가능", "편집 가능", "보기만"]);
-  const groups: { id: GroupId; name: string; members: string[]; relationship: "연인" | "친구" }[] = [
-    { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" as const },
-    { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" as const },
-    { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" as const },
-  ];
-  const selectGroup = (group: (typeof groups)[number]) => {
+  const selectGroup = (group: (typeof spaceGroups)[number]) => {
     setActiveGroupId(group.id);
     setSpaceName(group.name);
     setMemberB(group.members[0] || "");
@@ -2776,7 +2809,7 @@ function Together({
           </View>
         </Pressable>
         <View style={s.groupTabs}>
-          {groups.map((group) => (
+          {spaceGroups.map((group) => (
             <Pressable
               key={group.id}
               onPress={() => selectGroup(group)}
@@ -2984,7 +3017,7 @@ function Together({
         {panel === "groups" && (
           <>
             <Text style={[s.sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 선택하세요.</Text>
-            {groups.map((group) => (
+            {spaceGroups.map((group) => (
               <Pressable
                 key={group.id}
                 onPress={() => {

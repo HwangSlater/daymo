@@ -16,12 +16,14 @@ import {
   SafeAreaProvider,
 } from "react-native-safe-area-context";
 import { WarmAppShell } from "./src/WarmAppShell";
+import { useStoredSettings } from "./src/deviceSettings";
 import { fontAssets } from "./src/theme/typography";
 
 const isWeb = Platform.OS === "web";
 
-// 서체를 다 불러올 때까지 실행 화면을 띄워 둔다. 그러지 않으면 OS 기본 폰트로
-// 한 번 그렸다가 바뀌면서 글자가 튄다. 웹에는 실행 화면이 없어 조용히 넘어간다.
+// 서체와 기기에 저장된 설정을 다 불러올 때까지 실행 화면을 띄워 둔다. 그러지 않으면
+// OS 기본 폰트와 기본 테마로 한 번 그렸다가 바뀌면서 글자와 색이 튄다.
+// 둘은 함께 시작해 기다리는 시간이 늘지 않는다. 웹에는 실행 화면이 없어 조용히 넘어간다.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // 손가락으로 쓰는 화면인지 본다. 휴대폰 브라우저에서 열면 프레임을 씌우면 안 된다.
@@ -44,17 +46,19 @@ const FRAME_MIN_WIDTH = 700;
 
 export default function App() {
   const [fontsReady] = useFonts(fontAssets);
+  const settings = useStoredSettings();
   const { width } = useWindowDimensions();
   const dark = useColorScheme() === "dark";
   const showPhoneFrame = isWeb && !isTouchScreen && width >= FRAME_MIN_WIDTH;
+  const ready = fontsReady && settings !== null;
 
   useEffect(() => {
-    if (fontsReady) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsReady]);
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
 
   // 기기에서는 위의 실행 화면이 아직 덮고 있다. 이 빈 화면은 실행 화면이 없는
   // 웹을 위한 것이고, 색은 무대가 아니라 앱 배경이어야 화면이 두 번 바뀌지 않는다.
-  if (!fontsReady) {
+  if (!fontsReady || settings === null) {
     return <View style={[s.blank, { backgroundColor: dark ? "#0D111A" : "#F7F5F0" }]} />;
   }
 
@@ -63,7 +67,7 @@ export default function App() {
     return (
       <SafeAreaProvider initialMetrics={isWeb ? undefined : initialWindowMetrics}>
         <StatusBar style="auto" />
-        <WarmAppShell />
+        <WarmAppShell settings={settings} />
       </SafeAreaProvider>
     );
   }
@@ -73,7 +77,7 @@ export default function App() {
         <SafeAreaFrameContext.Provider value={phoneFrame}>
           <SafeAreaInsetsContext.Provider value={phoneInsets}>
             <StatusBar style="auto" />
-            <WarmAppShell />
+            <WarmAppShell settings={settings} />
           </SafeAreaInsetsContext.Provider>
         </SafeAreaFrameContext.Provider>
         <View pointerEvents="none" style={s.island} />
