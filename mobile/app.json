@@ -33,6 +33,9 @@
         "backgroundColor": "#2E3457"
       }
     },
+    "web": {
+      "favicon": "./assets/daymo-favicon.png"
+    },
     "plugins": [
       "expo-web-browser",
       "expo-font",

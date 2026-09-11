@@ -15,6 +15,7 @@
   assets/daymo-icon-login.png     512  로그인 화면에 얹는 작은 아이콘.
   assets/daymo-splash.png        1024  실행 화면. 배경 없이 그림만, 잉크 남색.
   assets/daymo-splash-dark.png   1024  같은 그림, 어두운 모드용 흰색.
+  assets/daymo-favicon.png         64  브라우저 탭. 종이비행기만 크게 넣는다.
 
 실행 화면은 배경을 app.json 이 깔고 그림만 얹는다. 배경을 앱 배경색과 같게
 두면 실행 화면에서 앱으로 넘어갈 때 색이 튀지 않는다. 그래서 그림 색이
@@ -43,6 +44,12 @@ SPLASH_FIT = 0.86
 
 # 안드로이드 적응형 아이콘에서 반드시 보이는 영역은 가운데 3분의 2다.
 ADAPTIVE_SAFE = 0.66
+
+# 파비콘. 탭에서는 16px 남짓으로 그려지므로 워드마크와 점선 궤적을 빼고
+# 종이비행기만 남긴다. 셋을 다 넣으면 글자가 뭉개지고 비행기도 몇 픽셀로
+# 줄어든다. 64는 탭의 16과 2배 화면의 32를 정수로 반씩 나눠 담는 크기다.
+FAVICON_SIZE = 64
+FAVICON_FIT = 0.76
 
 WORDMARK = "Daymo"
 WORDMARK_SIZE = 190
@@ -88,19 +95,22 @@ def plane_polygon(points):
     ]
 
 
-def draw_mark(draw, font, ink, offset=(0.0, 0.0), scale=1.0):
-    """그림과 이름을 그린다. 좌표는 1024 격자, 단위는 이미 SCALE 이 곱해져 있다."""
+def draw_mark(draw, font, ink, offset=(0.0, 0.0), scale=1.0, trail=True, wordmark=True):
+    """그림과 이름을 그린다. 좌표는 1024 격자, 단위는 이미 SCALE 이 곱해져 있다.
+
+    작게 쓰는 파비콘은 궤적과 이름을 빼고 비행기만 그린다."""
 
     def at(x, y):
         return ((x * scale + offset[0]) * SCALE, (y * scale + offset[1]) * SCALE)
 
-    for x, y, r in trail_points():
-        cx, cy = at(x, y)
-        rr = r * scale * SCALE
-        draw.ellipse(
-            [cx - rr, cy - rr, cx + rr, cy + rr],
-            fill=rgba(ink, TRAIL_ALPHA),
-        )
+    if trail:
+        for x, y, r in trail_points():
+            cx, cy = at(x, y)
+            rr = r * scale * SCALE
+            draw.ellipse(
+                [cx - rr, cy - rr, cx + rr, cy + rr],
+                fill=rgba(ink, TRAIL_ALPHA),
+            )
     draw.polygon(
         [at(x, y) for x, y in plane_polygon(PLANE_UPPER)],
         fill=rgba(ink, PLANE_UPPER_ALPHA),
@@ -109,21 +119,33 @@ def draw_mark(draw, font, ink, offset=(0.0, 0.0), scale=1.0):
         [at(x, y) for x, y in plane_polygon(PLANE_LOWER)],
         fill=rgba(ink, PLANE_LOWER_ALPHA),
     )
-    draw.text(at(512, WORDMARK_BASELINE), WORDMARK, font=font, fill=rgba(ink, 1.0), anchor="ms")
+    if wordmark:
+        draw.text(
+            at(512, WORDMARK_BASELINE), WORDMARK, font=font, fill=rgba(ink, 1.0), anchor="ms"
+        )
 
 
 def font_at(scale):
     return ImageFont.truetype(str(FONT), round(WORDMARK_SIZE * scale * SCALE))
 
 
-def render(background, ink, offset=(0.0, 0.0), scale=1.0, transparent=False):
+def render(
+    background,
+    ink,
+    offset=(0.0, 0.0),
+    scale=1.0,
+    transparent=False,
+    trail=True,
+    wordmark=True,
+):
     """그림은 늘 투명한 층에 알파 그대로 칠하고, 필요할 때만 배경 위에 얹는다.
 
     반투명 색을 배경색과 미리 섞어버리면 적응형 아이콘의 투명한 앞면에서
     점이 회색 덩어리가 된다."""
     canvas = SIZE * SCALE
     layer = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
-    draw_mark(ImageDraw.Draw(layer), font_at(scale), ink, offset, scale)
+    font = font_at(scale) if wordmark else None
+    draw_mark(ImageDraw.Draw(layer), font, ink, offset, scale, trail, wordmark)
     if not transparent:
         base = Image.new("RGBA", (canvas, canvas), background + (255,))
         base.alpha_composite(layer)
@@ -131,21 +153,34 @@ def render(background, ink, offset=(0.0, 0.0), scale=1.0, transparent=False):
     return layer.resize((SIZE, SIZE), Image.LANCZOS)
 
 
-def mark_bounds():
+def mark_bounds(trail=True, wordmark=True):
     """그림과 이름을 합친 테두리 상자를 1024 격자에서 잰다."""
     xs, ys = [], []
-    for x, y, r in trail_points():
-        xs += [x - r, x + r]
-        ys += [y - r, y + r]
+    if trail:
+        for x, y, r in trail_points():
+            xs += [x - r, x + r]
+            ys += [y - r, y + r]
     for points in (PLANE_UPPER, PLANE_LOWER):
         for x, y in plane_polygon(points):
             xs.append(x)
             ys.append(y)
-    font = ImageFont.truetype(str(FONT), WORDMARK_SIZE)
-    left, top, right, bottom = font.getbbox(WORDMARK, anchor="ms")
-    xs += [512 + left, 512 + right]
-    ys += [WORDMARK_BASELINE + top, WORDMARK_BASELINE + bottom]
+    if wordmark:
+        font = ImageFont.truetype(str(FONT), WORDMARK_SIZE)
+        left, top, right, bottom = font.getbbox(WORDMARK, anchor="ms")
+        xs += [512 + left, 512 + right]
+        ys += [WORDMARK_BASELINE + top, WORDMARK_BASELINE + bottom]
     return min(xs), min(ys), max(xs), max(ys)
+
+
+def fit_center(bounds, ratio):
+    """테두리 상자를 정사각형의 ratio 만큼으로 줄이고 한가운데로 옮긴다."""
+    left, top, right, bottom = bounds
+    scale = SIZE * ratio / max(right - left, bottom - top)
+    offset = (
+        SIZE / 2 - (left + right) / 2 * scale,
+        SIZE / 2 - (top + bottom) / 2 * scale,
+    )
+    return offset, scale
 
 
 def main():
@@ -154,15 +189,13 @@ def main():
     render(BACKGROUND, MARK).convert("RGB").save(OUT / "daymo-icon.png")
 
     # 적응형 앞면은 안전 영역 안으로 줄이고 한가운데로 옮긴다.
-    left, top, right, bottom = mark_bounds()
-    fit = SIZE * ADAPTIVE_SAFE / max(right - left, bottom - top)
-    center_x = (left + right) / 2 * fit
-    center_y = (top + bottom) / 2 * fit
+    bounds = mark_bounds()
+    adaptive_offset, adaptive_fit = fit_center(bounds, ADAPTIVE_SAFE)
     adaptive = render(
         BACKGROUND,
         MARK,
-        offset=(SIZE / 2 - center_x, SIZE / 2 - center_y),
-        scale=fit,
+        offset=adaptive_offset,
+        scale=adaptive_fit,
         transparent=True,
     )
     adaptive.save(OUT / "daymo-icon-adaptive.png")
@@ -172,11 +205,7 @@ def main():
     )
 
     # 실행 화면. 테두리 상자를 재서 한가운데로 맞추는 것은 적응형과 같다.
-    splash_fit = SIZE * SPLASH_FIT / max(right - left, bottom - top)
-    splash_offset = (
-        SIZE / 2 - (left + right) / 2 * splash_fit,
-        SIZE / 2 - (top + bottom) / 2 * splash_fit,
-    )
+    splash_offset, splash_fit = fit_center(bounds, SPLASH_FIT)
     for ink, name in (
         (SPLASH_INK_LIGHT, "daymo-splash.png"),
         (SPLASH_INK_DARK, "daymo-splash-dark.png"),
@@ -185,12 +214,29 @@ def main():
             BACKGROUND, ink, offset=splash_offset, scale=splash_fit, transparent=True
         ).save(OUT / name)
 
+    # 파비콘. 비행기만 재서 키우고, 1024로 그린 뒤 마지막에 줄인다.
+    # 탭 배경이 밝을지 어두울지 알 수 없으니 아이콘처럼 배경까지 채운다.
+    favicon_offset, favicon_fit = fit_center(
+        mark_bounds(trail=False, wordmark=False), FAVICON_FIT
+    )
+    render(
+        BACKGROUND,
+        MARK,
+        offset=favicon_offset,
+        scale=favicon_fit,
+        trail=False,
+        wordmark=False,
+    ).resize((FAVICON_SIZE, FAVICON_SIZE), Image.LANCZOS).convert("RGB").save(
+        OUT / "daymo-favicon.png"
+    )
+
     for name in (
         "daymo-icon.png",
         "daymo-icon-adaptive.png",
         "daymo-icon-login.png",
         "daymo-splash.png",
         "daymo-splash-dark.png",
+        "daymo-favicon.png",
     ):
         image = Image.open(OUT / name)
         print(f"{name}  {image.size[0]}x{image.size[1]}  {image.mode}")

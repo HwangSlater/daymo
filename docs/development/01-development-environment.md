@@ -55,7 +55,7 @@ npm run export
 | `test` | 미정 | 없음. 테스트 프레임워크와 테스트 파일이 아직 없다 |
 | `test:e2e` | 미정 | 없음. E2E 도구가 아직 없다 |
 
-루트 `.nvmrc`(Node 24)와 `mobile/package.json`의 `engines`는 이미 반영되어 있다. `mobile/.env.example`은 아직 없으며 서버 연동 환경변수를 확정할 때 추가한다. `test`와 `test:e2e`는 도구를 실제로 도입하기 전에는 script만 먼저 만들지 않는다.
+루트 `.nvmrc`(Node 24)와 `mobile/package.json`의 `engines`는 이미 반영되어 있다. `mobile/.env.example`도 추가했으며, 지금 앱 코드가 실제로 읽는 `EXPO_PUBLIC_DAYMO_AUTH_URL` 하나만 빈 값으로 두고 나머지는 서버 연동 환경변수를 확정할 때 채운다. `test`와 `test:e2e`는 도구를 실제로 도입하기 전에는 script만 먼저 만들지 않는다.
 
 ### 정적 검사 도구
 
@@ -143,7 +143,7 @@ docker compose up -d postgres
 
 ## 4. 환경 변수
 
-저장소에는 `.env.example`만 커밋하고 실제 값은 커밋하지 않는다.
+저장소에는 `.env.example`만 커밋하고 실제 값은 커밋하지 않는다. 아래는 서버까지 연결했을 때의 목표 목록이고, 현재 `mobile/.env.example`에는 앱 코드가 실제로 읽는 `EXPO_PUBLIC_DAYMO_AUTH_URL`만 들어 있다.
 
 ```dotenv
 EXPO_PUBLIC_APP_ENV=local
