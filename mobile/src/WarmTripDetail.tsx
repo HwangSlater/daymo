@@ -13,6 +13,7 @@ import {
   settle,
   shareExpenseCsv,
   totalsByCategory,
+  totalsByDay,
   won,
 } from "./tripExpenses";
 import {
@@ -5551,12 +5552,22 @@ function Money({
   }, [expenses, dayOptions]);
   const settlement = useMemo(() => settle(expenses), [expenses]);
   const byCategory = useMemo(() => totalsByCategory(expenses), [expenses]);
-  const biggest = byCategory[0]?.amount ?? 0;
   const usedDays = useMemo(
     () => dayOptions.filter((day) => expenses.some((item) => item.day === day)),
     [dayOptions, expenses],
   );
   const visible = dayFilter === "전체" ? sorted : sorted.filter((item) => item.day === dayFilter);
+  // 날짜로 묶고 소제목에 그날 합계를 단다. 여행 중에 가장 자주 하는 질문이
+  // "어제 얼마 썼지" 인데, 한 줄로 늘어놓으면 그걸 셀 수가 없다.
+  const grouped = useMemo(
+    () =>
+      totalsByDay(visible, dayOptions).map(({ day, amount }) => ({
+        day,
+        amount,
+        items: visible.filter((item) => item.day === day),
+      })),
+    [visible, dayOptions],
+  );
   const amountNumber = parseAmount(draftAmount);
   const formValid = Boolean(draftTitle.trim()) && amountNumber > 0;
   // 치는 동안 세 자리마다 끊는다. 32,000 과 320,000 은 자릿수가 안 끊기면
@@ -5669,6 +5680,10 @@ function Money({
             >
               <Text style={[styles.moneyPaidName, theme && { color: theme.muted }]}>{person}이 낸 돈</Text>
               <Text style={[styles.moneyPaidAmount, theme && { color: theme.text }]}>{won(settlement.paid[person])}원</Text>
+              {/* 몫이 있어야 아래 정산 금액이 어디서 나왔는지 셈이 보인다. */}
+              <Text style={[styles.moneyPaidShare, theme && { color: theme.muted }]}>
+                몫 {won(settlement.owed[person])}원
+              </Text>
             </View>
           ))}
         </View>
@@ -5693,16 +5708,21 @@ function Money({
             {byCategory.map((row) => (
               <View key={row.category} style={styles.moneyCategoryRow}>
                 <Text style={[styles.moneyCategoryName, theme && { color: theme.text }]}>{row.category}</Text>
+                {/* 막대는 전체 대비다. 1등 대비로 그리면 가장 많이 쓴 분류가
+                    늘 꽉 차서 전부 쓴 것처럼 보인다. */}
                 <View style={[styles.moneyBarTrack, theme && { backgroundColor: theme.surfaceAlt }]}>
                   <View
                     style={[
                       styles.moneyBarFill,
-                      { width: `${biggest ? Math.max(6, (row.amount / biggest) * 100) : 0}%` },
+                      { width: `${settlement.total ? Math.max(2, (row.amount / settlement.total) * 100) : 0}%` },
                       theme && { backgroundColor: theme.primary },
                     ]}
                   />
                 </View>
                 <Text style={[styles.moneyCategoryAmount, theme && { color: theme.muted }]}>{won(row.amount)}</Text>
+                <Text style={[styles.moneyCategoryPercent, theme && { color: theme.muted }]}>
+                  {settlement.total ? Math.round((row.amount / settlement.total) * 100) : 0}%
+                </Text>
               </View>
             ))}
           </View>
@@ -5733,29 +5753,34 @@ function Money({
         </ScrollView>
       )}
       <View style={styles.moneyList}>
-        {visible.map((item) => (
-          <Pressable
-            key={item.id}
-            onPress={() => openEdit(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.title} ${won(item.amount)}원 수정`}
-            style={({ pressed }) => [
-              styles.moneyRow,
-              theme && { backgroundColor: theme.surface, borderColor: theme.border },
-              pressed && styles.packingCardPressed,
-            ]}
-          >
-            <View style={[styles.moneyRowStamp, theme && { backgroundColor: theme.surfaceAlt }]}>
-              <Text style={[styles.moneyRowStampText, theme && { color: theme.muted }]}>{dayNumberOf(item.day)}</Text>
+        {grouped.map((group) => (
+          <View key={group.day} style={styles.moneyGroup}>
+            <View style={styles.moneyGroupHead}>
+              <Text style={[styles.moneyGroupDay, theme && { color: theme.text }]}>{group.day}</Text>
+              <Text style={[styles.moneyGroupTotal, theme && { color: theme.muted }]}>{won(group.amount)}원</Text>
             </View>
-            <View style={styles.moneyRowBody}>
-              <Text numberOfLines={1} style={[styles.moneyRowTitle, theme && { color: theme.text }]}>{item.title}</Text>
-              <Text numberOfLines={1} style={[styles.moneyRowMeta, theme && { color: theme.muted }]}>
-                {item.category} · {item.payer}이 냄{item.share === "함께" ? "" : ` · ${item.share} 몫`}
-              </Text>
-            </View>
-            <Text style={[styles.moneyRowAmount, theme && { color: theme.text }]}>{won(item.amount)}원</Text>
-          </Pressable>
+            {group.items.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => openEdit(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`${group.day} ${item.title} ${won(item.amount)}원 수정`}
+                style={({ pressed }) => [
+                  styles.moneyRow,
+                  theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                  pressed && styles.packingCardPressed,
+                ]}
+              >
+                <View style={styles.moneyRowBody}>
+                  <Text numberOfLines={1} style={[styles.moneyRowTitle, theme && { color: theme.text }]}>{item.title}</Text>
+                  <Text numberOfLines={1} style={[styles.moneyRowMeta, theme && { color: theme.muted }]}>
+                    {item.category} · {item.payer}이 냄{item.share === "함께" ? "" : ` · ${item.share} 몫`}
+                  </Text>
+                </View>
+                <Text style={[styles.moneyRowAmount, theme && { color: theme.text }]}>{won(item.amount)}원</Text>
+              </Pressable>
+            ))}
+          </View>
         ))}
       </View>
       {visible.length === 0 && (
@@ -7367,6 +7392,7 @@ const styles = StyleSheet.create({
   moneyPaidItem: { flex: 1, paddingHorizontal: 12 },
   moneyPaidName: { fontSize: 11, fontFamily: typo.caption.family },
   moneyPaidAmount: { fontSize: 15, marginTop: 2, fontFamily: typo.data.family },
+  moneyPaidShare: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
   moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 14 },
   moneySettleText: { fontSize: 13, fontFamily: typo.label.family },
   moneySettleAmount: { fontSize: 16, fontFamily: typo.data.family },
@@ -7375,14 +7401,17 @@ const styles = StyleSheet.create({
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
   moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
   moneyBarFill: { height: 6, borderRadius: 3 },
-  moneyCategoryAmount: { minWidth: 62, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
+  moneyCategoryAmount: { minWidth: 58, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
+  moneyCategoryPercent: { minWidth: 30, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
   moneyDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4 },
   moneyDayChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
-  moneyList: { gap: 8, marginTop: 8 },
+  moneyList: { gap: 14, marginTop: 8 },
+  moneyGroup: { gap: 6 },
+  moneyGroupHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingHorizontal: 2 },
+  moneyGroupDay: { fontSize: 13, fontFamily: typo.title.family },
+  moneyGroupTotal: { fontSize: 12, fontFamily: typo.data.family },
   moneyRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
-  moneyRowStamp: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  moneyRowStampText: { fontSize: 13, fontFamily: typo.data.family },
   moneyRowBody: { flex: 1, minWidth: 0 },
   moneyRowTitle: { fontSize: 14, fontFamily: typo.title.family },
   moneyRowMeta: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
