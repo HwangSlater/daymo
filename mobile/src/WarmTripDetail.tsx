@@ -107,6 +107,23 @@ const buildTripDates = (start?: string, end?: string) => {
 
 const dayLabel = (date: Date) =>
   `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
+
+/**
+ * 여행 날짜 가운데 오늘이 있으면 그 날을 준다. 없으면 빈 문자열이다.
+ *
+ * 여행 중에 적는 지출은 거의 오늘 것이다. 늘 첫날로 시작하면 둘째 날부터는
+ * 매번 날짜를 고쳐야 한다.
+ */
+const todayAmong = (dates: Date[]): string => {
+  const now = new Date();
+  const match = dates.find(
+    (date) =>
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate(),
+  );
+  return match ? dayLabel(match) : "";
+};
 /** "24일(목)" 형태의 날짜 옵션에서 요일만 꺼낸다. */
 const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
 // 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
@@ -369,6 +386,7 @@ export function WarmTripDetail({
   const tripDates = buildTripDates(tripStart, tripEnd);
   const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
   const tripDateOptions = tripDates.length ? tripDates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
+  const todayTripDay = todayAmong(tripDates);
   const firstTripDate = tripDateOptions[0];
   const lastTripDate = tripDateOptions[tripDateOptions.length - 1];
   const [mode, setMode] = useState<ViewMode>(() =>
@@ -631,7 +649,9 @@ export function WarmTripDetail({
               }}
             />
           )}
-          {mode === "비용" && <Money tripName={title} dayOptions={tripDayOptions} />}
+          {mode === "비용" && (
+            <Money tripName={title} dayOptions={tripDayOptions} todayDay={todayTripDay} />
+          )}
           {mode === "기록" && <Memories tripName={title} tripDate={tripDate} />}
         </ScrollView>
         <DetailSheet
@@ -5492,7 +5512,16 @@ function sampleExpenses(days: string[]): Expense[] {
   ];
 }
 
-function Money({ tripName, dayOptions }: { tripName: string; dayOptions: string[] }) {
+function Money({
+  tripName,
+  dayOptions,
+  todayDay,
+}: {
+  tripName: string;
+  dayOptions: string[];
+  /** 여행 날짜 가운데 오늘. 여행 기간이 아니면 빈 문자열. */
+  todayDay: string;
+}) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const [expenses, setExpenses] = useState<Expense[]>(() => sampleExpenses(dayOptions));
@@ -5504,6 +5533,10 @@ function Money({ tripName, dayOptions }: { tripName: string; dayOptions: string[
   const [draftCategory, setDraftCategory] = useState<ExpenseCategory>("식비");
   const [draftPayer, setDraftPayer] = useState<ExpensePayer>("하늘");
   const [draftShare, setDraftShare] = useState<ExpenseShare>("함께");
+  // 마지막에 적은 분류와 낸 사람. 여행 중에는 같은 사람이 같은 종류를 이어서
+  // 적는 일이 많아서, 매번 처음 값으로 돌아가면 지출마다 두 번씩 고치게 된다.
+  const [lastCategory, setLastCategory] = useState<ExpenseCategory>("식비");
+  const [lastPayer, setLastPayer] = useState<ExpensePayer>("하늘");
   const [draftDay, setDraftDay] = useState(dayOptions[0] ?? "");
   const [draftMemo, setDraftMemo] = useState("");
 
@@ -5526,15 +5559,22 @@ function Money({ tripName, dayOptions }: { tripName: string; dayOptions: string[
   const visible = dayFilter === "전체" ? sorted : sorted.filter((item) => item.day === dayFilter);
   const amountNumber = parseAmount(draftAmount);
   const formValid = Boolean(draftTitle.trim()) && amountNumber > 0;
+  // 치는 동안 세 자리마다 끊는다. 32,000 과 320,000 은 자릿수가 안 끊기면
+  // 눈으로 구별이 안 되고, 돈에서 제일 흔한 실수가 여기서 난다.
+  const changeAmount = (text: string) => {
+    const amount = parseAmount(text);
+    setDraftAmount(amount ? won(amount) : "");
+  };
 
   const openCreate = () => {
     setEditingId(null);
     setDraftTitle("");
     setDraftAmount("");
-    setDraftCategory("식비");
-    setDraftPayer("하늘");
+    setDraftCategory(lastCategory);
+    setDraftPayer(lastPayer);
     setDraftShare("함께");
-    setDraftDay(dayFilter === "전체" ? dayOptions[0] ?? "" : dayFilter);
+    // 날짜를 거르고 있으면 그 날, 아니면 오늘, 여행 기간이 아니면 첫날이다.
+    setDraftDay(dayFilter === "전체" ? todayDay || dayOptions[0] || "" : dayFilter);
     setDraftMemo("");
     setSheetOpen(true);
   };
@@ -5568,6 +5608,8 @@ function Money({ tripName, dayOptions }: { tripName: string; dayOptions: string[
         ? current.map((item) => (item.id === editingId ? next : item))
         : [...current, next];
     });
+    setLastCategory(draftCategory);
+    setLastPayer(draftPayer);
     setSheetOpen(false);
     notify(editingId ? "지출을 수정했어요" : "지출을 추가했어요");
   };
@@ -5772,7 +5814,7 @@ function Money({ tripName, dayOptions }: { tripName: string; dayOptions: string[
         <DetailField
           label="금액 · 필수"
           value={draftAmount}
-          onChangeText={setDraftAmount}
+          onChangeText={changeAmount}
           placeholder="예: 32,000"
           keyboardType="numeric"
         />
