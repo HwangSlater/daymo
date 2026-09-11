@@ -30,7 +30,7 @@
       "icon": "./assets/daymo-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/daymo-icon-adaptive.png",
-        "backgroundColor": "#2E3457"
+        "backgroundColor": "#3F4C8F"
       }
     },
     "web": {
@@ -44,7 +44,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/daymo-splash.png",
-          "imageWidth": 220,
+          "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#F7F5F0",
           "dark": {

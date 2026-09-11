@@ -2,12 +2,17 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Platform, StyleSheet, View } from "react-native";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
+/** 접힌 안쪽에 지는 그림자. */
+const SHADE_COLOR = "#34281B";
+
 /** Capture once per mounted page; all animated bands share that one bitmap. */
-export function PaperPeel({ children, progress, direction, backColor, reduceMotion }: {
+export function PaperPeel({ children, progress, direction, backColor, pageColor, reduceMotion }: {
   children: ReactNode;
   progress: Animated.Value;
   direction: number;
   backColor: string;
+  /** 캡처 바탕색. 종이 뒷면과 그림자를 색 뷰로 그리려면 비트맵이 불투명해야 한다. */
+  pageColor: string;
   reduceMotion: boolean;
 }) {
   const source = useRef<View>(null);
@@ -15,10 +20,11 @@ export function PaperPeel({ children, progress, direction, backColor, reduceMoti
   const [uri, setUri] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const loaded = useRef(0);
+  // 지금까지 찍은 임시 파일. 화면에 걸려 있는 동안에는 지우지 않는다.
+  const shots = useRef<string[]>([]);
   useEffect(() => {
     if (!size.width || !size.height || reduceMotion) return;
     let disposed = false;
-    let captured: string | undefined;
     let timer: ReturnType<typeof setTimeout>;
     const capture = async (attempt: number) => {
       try {
@@ -26,7 +32,7 @@ export function PaperPeel({ children, progress, direction, backColor, reduceMoti
           format: "png", result: Platform.OS === "web" ? "data-uri" : "tmpfile",
         });
         if (disposed) { releaseCapture(result); return; }
-        captured = result;
+        shots.current.push(result);
         setUri(result);
       } catch {
         // A not-yet-mounted Android surface can fail on its first frame.
@@ -35,12 +41,20 @@ export function PaperPeel({ children, progress, direction, backColor, reduceMoti
       }
     };
     timer = setTimeout(() => void capture(0), 80);
+    // 크기가 바뀌어 다시 찍을 때 이전 파일을 여기서 지우면 안 된다. 그 경로를
+    // 가리키는 Image 가 아직 화면에 걸려 있어서, 지우는 순간 그 줄들이 무너졌다가
+    // 새 파일이 붙으면서 되돌아온다. 기기에서만 나는 증상이다. 웹의 data-uri 는
+    // 지울 파일이 없어 이 문제가 없다.
     return () => {
       disposed = true;
       clearTimeout(timer);
-      if (captured) releaseCapture(captured);
     };
   }, [size.width, size.height, reduceMotion]);
+  // 임시 파일은 이 장이 화면에서 빠질 때 한꺼번에 지운다.
+  useEffect(() => () => {
+    shots.current.forEach(releaseCapture);
+    shots.current = [];
+  }, []);
 
   const geometry = useMemo(() => {
     const count = 28;
@@ -94,7 +108,7 @@ export function PaperPeel({ children, progress, direction, backColor, reduceMoti
     setSize(current => current.width === width && current.height === height ? current : { width, height });
   }}>
     <Animated.View style={{ opacity: ready && !reduceMotion ? opacity.live : opacity.fallback }}>
-      <View ref={source} collapsable={false} style={{ paddingVertical: 12 }}>{children}</View>
+      <View ref={source} collapsable={false} style={{ paddingVertical: 12, backgroundColor: pageColor }}>{children}</View>
     </Animated.View>
     {bitmap && <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, {
       opacity: ready ? opacity.bitmap : 0, overflow: "hidden", left: -18, right: -18, top: -12, bottom: -12,
@@ -118,14 +132,13 @@ export function PaperPeel({ children, progress, direction, backColor, reduceMoti
           }}>
             <Image source={bitmap} resizeMode="stretch" fadeDuration={0} style={imageStyle} onLoad={() => {
               loaded.current += 1;
-              if (loaded.current === mesh.bands.length) setReady(true);
+              if (loaded.current >= mesh.bands.length) setReady(true);
             }} />
-            <Animated.Image source={bitmap} resizeMode="stretch" fadeDuration={0} style={[imageStyle, {
-              tintColor: backColor, opacity: band.back,
-            }]} />
-            <Animated.Image source={bitmap} resizeMode="stretch" fadeDuration={0} style={[imageStyle, {
-              tintColor: "#34281B", opacity: band.shade,
-            }]} />
+            {/* 뒷면과 접힘 그림자는 같은 비트맵에 tintColor 를 씌운 사본이었다.
+                캡처가 불투명하니 결과는 단색 사각형과 같고, 색 뷰로 그리면
+                줄마다 이미지 셋 대신 하나만 있으면 된다. */}
+            <Animated.View style={[imageStyle, { backgroundColor: backColor, opacity: band.back }]} />
+            <Animated.View style={[imageStyle, { backgroundColor: SHADE_COLOR, opacity: band.shade }]} />
           </Animated.View>;
         })}
       </View>

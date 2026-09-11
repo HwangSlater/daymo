@@ -35,7 +35,9 @@ type Palette = {
 // 배경, 표면, 보조 표면, soft 칩 네 가지 배경 모두에서 WCAG AA 4.5:1을 넘긴다.
 // docs/development/05-quality-and-operations.md 3장.
 const palettes: Record<ThemeId, Palette> = {
-  indigo: { name: 'Daymo', primary: '#5D5FC7', primaryDark: '#9E97EA', soft: '#F5F1FF', softDark: '#37344D', secondary: '#6360B8', accent: '#9A5285', navigation: '#312F5F' },
+  // 종이에 쓴 만년필 잉크. 강조색은 수첩의 붉은 여백선과 같은 계열이다.
+  // id 는 기기에 저장돼 있어 바꾸지 않는다.
+  indigo: { name: 'Daymo', primary: '#3F4C8F', primaryDark: '#A3AEEA', soft: '#EEF0FA', softDark: '#2C3352', secondary: '#3F4C8F', accent: '#B4453C', navigation: '#232B52' },
   rose: { name: '로즈베리', primary: '#BC3966', primaryDark: '#ED7E9C', soft: '#FFEBF2', softDark: '#4F2D35', secondary: '#B73E66', accent: '#A1563D', navigation: '#5F1D32' },
   daymo: { name: '소프트 퍼플', primary: '#835C93', primaryDark: '#BC91CC', soft: '#FFEEFF', softDark: '#423148', secondary: '#835C93', accent: '#A54D6E', navigation: '#472855' },
   sky: { name: '클리어 스카이', primary: '#006BC6', primaryDark: '#72A1F2', soft: '#EBF3FF', softDark: '#2B3750', secondary: '#126BC1', accent: '#875997', navigation: '#073564' },

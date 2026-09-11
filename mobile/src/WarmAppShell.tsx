@@ -674,46 +674,58 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   const [height, setHeight] = useState(0);
   const [direction, setDirection] = useState(1);
   const [reduceMotion, setReduceMotion] = useState(false);
+  // 장마다 자기 값을 하나씩 갖고, 화면에 있는 동안 다른 값으로 바꿔 매지 않는다.
+  // 값을 바꿔 매면 RN 이 이전 값에 묶였던 속성을 기본값으로 되돌리는 마이크로
+  // 태스크를 돌린다. 그 한 프레임에 방금 넘긴 장이 불투명도 1 로 돌아와, 기기에서
+  // 이전 글자가 번쩍였다. 숨길 장은 값을 1 에 둔다. 1 에서는 종이가 다 넘어간
+  // 뒤라 스스로 보이지 않는다.
+  const [pages] = useState(() => new Map<number, Animated.Value>());
+  // 그림자와 밑장의 그늘은 장과 상관없는 이 값 하나에 묶는다.
   const [turn] = useState(() => new Animated.Value(0));
-  const [idlePage] = useState(() => new Animated.Value(0));
   const dragFrame = useRef({ value: 0, time: 0 });
   const busy = useRef(false);
   const dragging = useRef(false);
   const dragDirection = useRef(1);
-  const pageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     let mounted = true;
     void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (mounted) setReduceMotion(value); });
     const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    return () => { mounted = false; subscription.remove(); turn.stopAnimation(); if (pageTimer.current) clearTimeout(pageTimer.current); };
-  }, [turn]);
-  useLayoutEffect(() => {
-    turn.setValue(0);
-    busy.current = false;
-    dragging.current = false;
-  }, [index, turn]);
+    return () => {
+      mounted = false;
+      subscription.remove();
+      turn.stopAnimation();
+      pages.forEach(value => value.stopAnimation());
+    };
+  }, [pages, turn]);
   const canMove = useCallback((step: number) => index + step >= 0 && index + step < ordered.length, [index, ordered.length]);
   const settle = useCallback((step: number, complete: boolean) => {
     busy.current = true;
-    Animated.timing(turn, {
+    const page = pages.get(index);
+    const timing = (value: Animated.Value) => Animated.timing(value, {
       toValue: complete ? 1 : 0,
       duration: complete ? PEEL_FINISH_MS : PEEL_CANCEL_MS,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished && !complete) { busy.current = false; dragging.current = false; }
     });
-    if (complete) {
-      // Swap while the last curl is still settling. The adjacent page is kept
-      // mounted, so this removes the visible pause between pages.
-      pageTimer.current = setTimeout(() => {
-        pageTimer.current = null;
+    Animated.parallel(page ? [timing(turn), timing(page)] : [timing(turn)]).start(({ finished }) => {
+      if (!finished) return;
+      // 끝까지 넘긴 다음에 바꾼다. 예전에는 68% 지점에서 미리 바꿨는데, 그때
+      // 이 카드가 활성에서 빠지면서 진행값이 0으로 되돌아가 남은 곡선과
+      // 마지막 8%의 사라짐이 아예 그려지지 않았다. 글자가 툭 바뀌어 보인 이유다.
+      if (complete) {
+        // 넘긴 장의 값은 1 에 그대로 둔다. 그래서 스스로 안 보이고, 위에 새 장이
+        // 얹히는 순간 어떤 속성도 바뀌지 않는다. 그림자 값은 0 으로 돌려도 양
+        // 끝이 다 안 보이는 값이라 언제 반영되든 상관없다.
         setIndex(current => current + step);
-      }, Math.round(PEEL_FINISH_MS * 0.68));
-    }
-  }, [turn]);
+        turn.setValue(0);
+      }
+      busy.current = false;
+      dragging.current = false;
+    });
+  }, [index, pages, turn]);
   const move = (step: number) => {
-    if (busy.current || dragging.current || !canMove(step)) return;
+    // 지금 보고 있는 점을 다시 누르면 제자리 넘김이 돈다.
+    if (step === 0 || busy.current || dragging.current || !canMove(step)) return;
     dragDirection.current = step;
     setDirection(step);
     if (reduceMotion) setIndex(current => current + step);
@@ -742,6 +754,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
         dragFrame.current.value, time - dragFrame.current.time, canMove(step));
       dragFrame.current = { value: progress, time };
       turn.setValue(reduceMotion ? 0 : progress);
+      pages.get(index)?.setValue(reduceMotion ? 0 : progress);
     },
     onPanResponderRelease: (_, gesture) => {
       const step = dragDirection.current;
@@ -755,13 +768,41 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     onPanResponderTerminate: () => settle(dragDirection.current, false),
     onPanResponderTerminationRequest: () => false,
     });
-  }, [canMove, reduceMotion, settle, turn, width]);
+  }, [canMove, index, pages, reduceMotion, settle, turn, width]);
+  const visible = useMemo(() => {
+    // 옆 장은 손가락을 어느 쪽으로 밀든 바로 받쳐야 해서 미리 올려 둔다.
+    // 점을 눌러 두 장 이상 건너뛸 때는 그 목적지도 함께 올린다. 그러지 않으면
+    // 넘어가는 동안 뒤가 비어 배경만 보인다.
+    const slots = new Set<number>();
+    for (const slot of [index - 1, index, index + 1, index + direction]) {
+      if (slot >= 0 && slot < ordered.length) slots.add(slot);
+    }
+    return [...slots].sort((a, b) => a - b);
+  }, [index, direction, ordered.length]);
+  const pageValue = (position: number, hidden: boolean) => {
+    let value = pages.get(position);
+    if (!value) {
+      value = new Animated.Value(hidden ? 1 : 0);
+      pages.set(position, value);
+    }
+    return value;
+  };
+  useLayoutEffect(() => {
+    // 위 장이 아닌 장은 밑장이면 0, 아니면 1 에 둔다. 이 값이 바뀌는 때는 미는
+    // 방향이 바뀔 때뿐이고, 그때는 위 장이 평평하게 덮고 있어 아무것도 안 보인다.
+    // 위 장의 값은 손가락이 쥐고 있으니 건드리지 않는다.
+    for (const [position, value] of pages) {
+      if (!visible.includes(position)) pages.delete(position);
+      else if (position !== index) value.setValue(position === index + direction ? 0 : 1);
+    }
+  }, [pages, visible, index, direction]);
   const paper = paperCard(theme.dark);
   const motion = useMemo(() => ({
     shadowOpacity: turn.interpolate({ inputRange: [0, 0.2, 0.6, 1], outputRange: [0, 0.24, 0.12, 0] }),
     shadowY: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [4, -height * 0.22, -height * 0.5] }),
     shadowScale: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.6, 0.05] }),
-    underShade: turn.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.14, 0.06, 0] }),
+    // 양 끝이 0 이라 값을 0 으로 되돌리는 순간에도 보이는 게 바뀌지 않는다.
+    underShade: turn.interpolate({ inputRange: [0, 0.02, 0.5, 1], outputRange: [0, 0.14, 0.06, 0] }),
   }), [turn, height]);
   return (
     <View>
@@ -771,7 +812,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
           setWidth(Math.max(1, event.nativeEvent.layout.width));
           setHeight(event.nativeEvent.layout.height);
         }}
-        style={{ marginTop: 8, marginBottom: 16, ...(Platform.OS === "web" ? { userSelect: "none" as const } : {}) }}
+        style={{ marginTop: 8, ...(Platform.OS === "web" ? { userSelect: "none" as const } : {}) }}
       >
         <Animated.View pointerEvents="none" renderToHardwareTextureAndroid style={[StyleSheet.absoluteFill, {
           zIndex: 1, opacity: motion.shadowOpacity,
@@ -786,8 +827,8 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
             <Rect width="100%" height="100%" fill="url(#liftShadow)" />
           </Svg>
         </Animated.View>
-        {ordered.slice(Math.max(0, index - 1), index + 2).map(item => {
-          const position = ordered.indexOf(item);
+        {visible.map(position => {
+          const item = ordered[position];
           const active = position === index;
           const underneath = position === index + direction;
           return <View
@@ -797,7 +838,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
             importantForAccessibility={active ? "auto" : "no-hide-descendants"}
             style={active ? { zIndex: 2 } : [StyleSheet.absoluteFill, { zIndex: 0, opacity: underneath ? 1 : 0 }]}
           >
-            <PaperPeel progress={active ? turn : idlePage} direction={direction} backColor={paper.backLeft} reduceMotion={reduceMotion}>
+            <PaperPeel progress={pageValue(position, !active && !underneath)} direction={Math.sign(direction) || 1} backColor={paper.backLeft} pageColor={theme.background} reduceMotion={reduceMotion}>
               <HomeTripCard trip={item} theme={theme} todayKey={todayKey} open={(destination, trip) => {
                 if (active && !dragging.current && !busy.current) open(destination, trip);
               }} />
@@ -809,14 +850,30 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
         })}
 
       </View>
-      {ordered.length > 1 && <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="이전 여행 보기" disabled={index === 0} onPress={() => move(-1)} style={{ padding: 12, opacity: index === 0 ? 0.3 : 1 }}>
-          <Text style={{ color: theme.primary, fontSize: 13 }}>‹ 이전 여행</Text>
-        </Pressable>
-        <Text accessibilityLiveRegion="polite" style={{ color: theme.muted, fontSize: 12 }}>{index + 1} / {ordered.length}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="다음 여행 보기" disabled={index === ordered.length - 1} onPress={() => move(1)} style={{ padding: 12, opacity: index === ordered.length - 1 ? 0.3 : 1 }}>
-          <Text style={{ color: theme.primary, fontSize: 13 }}>다음 여행 ›</Text>
-        </Pressable>
+      {/* 글자 두 덩어리가 카드 폭만큼 벌어져 있어 눈이 한 번 더 멈췄다. 몇 장 중
+          몇 번째인지만 점으로 남긴다. 점 자체를 누를 수 있게 해서, 손가락으로
+          넘기지 못하는 경우에도 카드를 옮길 수 있는 길은 남겨 둔다. */}
+      {ordered.length > 1 && <View
+        accessibilityRole="tablist"
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 9 }}
+      >
+        {ordered.map((item, slot) => {
+          const here = slot === index;
+          return <Pressable
+            key={`${item.name}-${slot}`}
+            onPress={() => move(slot - index)}
+            accessibilityRole="tab"
+            accessibilityLabel={`${item.name}, ${ordered.length}개 중 ${slot + 1}번째`}
+            accessibilityState={{ selected: here }}
+            hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
+            style={{
+              width: here ? 16 : 6,
+              height: 6,
+              borderRadius: 999,
+              backgroundColor: here ? theme.primary : theme.border,
+            }}
+          />;
+        })}
       </View>}
     </View>
   );
@@ -3946,7 +4003,7 @@ function Choice({
         {label}
       </Text>
       <View style={s.choiceMark}>
-        {selected && <Glyph name="check" size={16} color={theme?.primary ?? "#5D5FC7"} weight={2.4} />}
+        {selected && <Glyph name="check" size={16} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />}
       </View>
     </Pressable>
   );
@@ -4141,7 +4198,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    marginTop: 24,
+    marginTop: 20,
     marginBottom: 8,
   },
   noteTitleSmall: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 4 },

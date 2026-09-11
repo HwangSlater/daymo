@@ -1129,7 +1129,7 @@ function TripOverview({
             ]}
           >
             <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>전체 일정 보기</Text>
-            <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
+            <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
           </Pressable>
         )}
       </View>
@@ -1218,7 +1218,7 @@ function TripOverview({
             준비물 3개가 남아 있어요.
           </Text>
         </View>
-        <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
+        <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
       </Pressable>
       <DetailSheet
         visible={sheet === "schedule"}
@@ -1893,7 +1893,7 @@ function Places({
           // 아무 뜻 없이 카드마다 색이 달라졌다.
           const isStay = place.name === registeredStayName;
           const inPlan = place.status === "일정";
-          const statusTone = (isStay ? theme?.secondary : inPlan ? theme?.accent : theme?.primary) ?? "#5D5FC7";
+          const statusTone = (isStay ? theme?.secondary : inPlan ? theme?.accent : theme?.primary) ?? "#3F4C8F";
           const statusLabel = isStay ? "대표 숙소" : inPlan ? "일정에 담김" : "저장";
           // 이미 그 상태면 오른쪽 위 배지가 말해준다. 같은 말을 하는 비활성
           // 버튼은 내지 않는다.
@@ -4370,7 +4370,7 @@ function Cooking({
                 <Pressable onPress={() => setShowAllRecipes(true)}>
                   <View style={styles.inlineMore}>
                     <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개</Text>
-                    <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#5D5FC7"} />
+                    <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#3F4C8F"} />
                   </View>
                 </Pressable>
               )}
@@ -4446,7 +4446,7 @@ function Cooking({
               <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>전체 재료 {allCookingIngredients.length}개</Text>
               <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>현지 구매 {allCookingIngredients.filter((item) => item.owner === "구매").length}개 · 집에서 {allCookingIngredients.filter((item) => item.owner !== "구매").length}개</Text>
             </View>
-            <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
+            <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
           </Pressable>
         </View>
       )}
@@ -4504,7 +4504,7 @@ function Cooking({
                   accessibilityRole="link"
                   style={styles.recipeLink}
                 >
-                  <Glyph name="play" size={13} color={theme?.primary ?? "#5D5FC7"} />
+                  <Glyph name="play" size={13} color={theme?.primary ?? "#3F4C8F"} />
                   <Text style={[styles.recipeLinkText, theme && { color: theme.primary }]}>레시피 영상 보기</Text>
                 </Pressable>
               ) : null}
@@ -4787,7 +4787,7 @@ function Cooking({
                 <Text numberOfLines={1} style={[styles.myIngredientGroupTitle, theme && { color: theme.text }]}>{recipe.name}</Text>
                 <View style={styles.inlineMore}>
                   <Text style={[styles.myIngredientGroupCount, theme && { color: theme.primary }]}>{matching.length}개</Text>
-                  <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#5D5FC7"} />
+                  <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#3F4C8F"} />
                 </View>
               </Pressable>
               {matching.map((item) => (
@@ -5184,7 +5184,7 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
           <Text style={[styles.keepsakeTitle, theme && { color: theme.text }]}>{cardTitle}</Text>
           <Text numberOfLines={2} style={[styles.keepsakeCaption, theme && { color: theme.muted }]}>{cardCaption}</Text>
         </View>
-        <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#5D5FC7"} />
+        <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
       </Pressable>
       <SectionLabel
         label="여행 일기"
@@ -5378,7 +5378,7 @@ function SectionLabel({
             >
               {action}
             </Text>
-            <Glyph name="arrowRight" size={14} color={theme?.primary ?? "#5D5FC7"} />
+            <Glyph name="arrowRight" size={14} color={theme?.primary ?? "#3F4C8F"} />
           </View>
         </Pressable>
       )}
