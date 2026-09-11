@@ -5763,20 +5763,6 @@ function Money({ tripName, dayOptions }: { tripName: string; dayOptions: string[
         onSubmit={saveExpense}
         onDestructive={deleteExpense}
       >
-        <View style={[styles.moneyPreview, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.moneyPreviewLabel, theme && { color: theme.primary }]}>
-            {draftDay || "날짜 미정"} · {draftCategory}
-          </Text>
-          <Text numberOfLines={1} style={[styles.moneyPreviewTitle, theme && { color: theme.text }]}>
-            {draftTitle.trim() || "무엇에 썼나요?"}
-          </Text>
-          <Text style={[styles.moneyPreviewAmount, theme && { color: theme.text }]}>
-            {amountNumber ? `${won(amountNumber)}원` : "금액을 입력하세요"}
-          </Text>
-          <Text style={[styles.moneyPreviewShare, theme && { color: theme.muted }]}>
-            {draftPayer}이 내고 {draftShare === "함께" ? "반씩 나눠요" : `${draftShare} 몫이에요`}
-          </Text>
-        </View>
         <DetailField
           label="항목 · 필수"
           value={draftTitle}
@@ -7362,11 +7348,6 @@ const styles = StyleSheet.create({
   moneyExport: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 12 },
   moneyExportTitle: { fontSize: 13, fontFamily: typo.title.family },
   moneyExportHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
-  moneyPreview: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 20 },
-  moneyPreviewLabel: { fontSize: 11, fontFamily: typo.label.family, letterSpacing: 0.5 },
-  moneyPreviewTitle: { fontSize: 17, marginTop: 4, fontFamily: typo.title.family },
-  moneyPreviewAmount: { fontSize: 22, marginTop: 6, fontFamily: typo.data.family },
-  moneyPreviewShare: { fontSize: 11, marginTop: 6, fontFamily: typo.caption.family },
   fullScheduleList: { maxHeight: 520 },
   planPlaceSummary: {
     borderRadius: 20,
