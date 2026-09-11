@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useSheetDrag } from "./sheetDrag";
 import {
   Alert,
+  Animated,
   BackHandler,
   KeyboardAvoidingView,
   Linking,
@@ -1231,19 +1233,19 @@ function TripOverview({
         onSubmit={addSchedule}
         onDestructive={deleteSchedule}
       >
-        <View style={styles.planPreview}>
+        <View style={[styles.planPreview, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={[styles.previewDate, theme && { backgroundColor: theme.primary }]}>
             <Text style={styles.previewDay}>{weekdayOf(planDay)}</Text>
             <Text style={styles.previewDateNo}>{planDay.slice(-2)}</Text>
           </View>
           <View style={styles.previewBody}>
-            <Text style={styles.previewType}>
-              {planType.toUpperCase()} · {planTime || "시간 미정"}
+            <Text style={[styles.previewType, theme && { color: theme.primary }]}>
+              {planType} · {planTime || "시간 미정"}
             </Text>
-            <Text numberOfLines={1} style={styles.previewTitle}>
+            <Text numberOfLines={1} style={[styles.previewTitle, theme && { color: theme.text }]}>
               {newPlanTitle || "어떤 일정인가요?"}
             </Text>
-            <Text numberOfLines={1} style={styles.previewPlace}>
+            <Text numberOfLines={1} style={[styles.previewPlace, theme && { color: theme.muted }]}>
               {planPlace || "장소를 입력하세요"}
             </Text>
           </View>
@@ -5854,6 +5856,7 @@ function DetailSheet({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
+  const drag = useSheetDrag(onClose);
   const sheetKind = title.includes("일정")
     ? "일정"
     : title.includes("장소")
@@ -5900,9 +5903,11 @@ function DetailSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable style={styles.modalDismiss} onPress={onClose} />
-        <View
-          style={[styles.sheet, theme && { backgroundColor: theme.background }]}
+        <Animated.View
+          onLayout={drag.onLayout}
+          style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
         >
+          <View {...drag.panHandlers}>
           <View style={styles.sheetHandle} />
           <View
             style={[
@@ -5954,6 +5959,7 @@ function DetailSheet({
               </Text>
             </Pressable>
           </View>
+          </View>
           <ScrollView
             style={styles.sheetScroll}
             showsVerticalScrollIndicator={false}
@@ -5993,7 +5999,7 @@ function DetailSheet({
               <Text style={styles.deletePlaceText}>{destructiveLabel}</Text>
             </Pressable>
           )}
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -6010,6 +6016,7 @@ function InfoPanel({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
+  const drag = useSheetDrag(onClose);
   return (
     <Modal
       visible={visible}
@@ -6019,9 +6026,11 @@ function InfoPanel({
     >
       <View style={styles.modalBack}>
         <Pressable style={styles.modalDismiss} onPress={onClose} />
-        <View
-          style={[styles.sheet, theme && { backgroundColor: theme.background }]}
+        <Animated.View
+          onLayout={drag.onLayout}
+          style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
         >
+          <View {...drag.panHandlers}>
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHead}>
             <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
@@ -6041,8 +6050,9 @@ function InfoPanel({
               </Text>
             </Pressable>
           </View>
+          </View>
           {children}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -6693,26 +6703,29 @@ const styles = StyleSheet.create({
   optionTextActive: { color: "#FFFFFF" },
   inlineFields: { flexDirection: "row", gap: 8 },
   titleField: { flex: 1 },
+  // 시트 머리와 같은 종이 카드. 머리(16)와 모서리 반지름을 맞춰 위아래가 한
+  // 덩어리로 읽힌다. 전에는 남색 바탕에 반지름 20 이라 머리 밑에 목처럼 걸렸다.
   planPreview: {
-    minHeight: 92,
-    borderRadius: 20,
-    backgroundColor: "#17233D",
+    minHeight: 86,
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E5E3DD",
     padding: 12,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
-    overflow: "hidden",
   },
   previewDate: {
     width: 58,
     height: 62,
-    borderRadius: 16,
-    backgroundColor: "#19B6A3",
+    borderRadius: 12,
+    backgroundColor: "#3F4C8F",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  previewDay: { color: "#DFFFFA", fontSize: 14, fontFamily: typo.data.family },
+  previewDay: { color: "#E6E9F7", fontSize: 14, fontFamily: typo.data.family },
   previewDateNo: {
     color: "#FFFFFF",
     fontSize: 24,
@@ -6721,18 +6734,18 @@ const styles = StyleSheet.create({
   },
   previewBody: { flex: 1 },
   previewType: {
-    color: "#65D8CA",
+    color: "#3F4C8F",
     fontSize: 12,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     fontFamily: typo.label.family,
   },
   previewTitle: {
-    color: "#FFFFFF",
+    color: "#17233D",
     fontSize: 16,
     fontFamily: typo.title.family,
     marginTop: 6,
   },
-  previewPlace: { color: "#9EABC0", fontSize: 12, marginTop: 4 },
+  previewPlace: { color: "#646C7A", fontSize: 12, marginTop: 4 },
   naverField: {
     backgroundColor: "#E6F5ED",
     borderRadius: 20,

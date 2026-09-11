@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import { useSheetDrag } from "./sheetDrag";
 import { PaperPeel } from "./PaperPeel";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
 import { TripDetailDestination, WarmTripDetail } from "./WarmTripDetail";
@@ -3786,6 +3787,7 @@ function FormSheet({
   onSubmit: () => void;
   children: React.ReactNode;
 }) {
+  const drag = useSheetDrag(onClose);
   const sheetKind = title.includes("여행")
     ? "여행"
     : title.includes("공간")
@@ -3804,12 +3806,15 @@ function FormSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable style={s.modalDismiss} onPress={onClose} />
-        <View
+        <Animated.View
+          onLayout={drag.onLayout}
           style={[
             s.sheet,
             theme && { backgroundColor: theme.background },
+            drag.sheetStyle,
           ]}
         >
+          <View {...drag.panHandlers}>
           <View style={s.sheetHandle} />
           <View
             style={[
@@ -3856,6 +3861,7 @@ function FormSheet({
               </Text>
             </Pressable>
           </View>
+          </View>
           <ScrollView
             style={s.sheetScroll}
             showsVerticalScrollIndicator={false}
@@ -3883,7 +3889,7 @@ function FormSheet({
             <Text style={s.sheetSubmitText}>{submit}</Text>
             <View style={s.sheetSubmitArrow}><Glyph name="arrowRight" size={15} color="#FFFFFF" /></View>
           </Pressable>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -3901,6 +3907,7 @@ function InfoSheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const drag = useSheetDrag(onClose);
   return (
     <Modal
       visible={visible}
@@ -3910,12 +3917,15 @@ function InfoSheet({
     >
       <View style={s.modalBack}>
         <Pressable style={s.modalDismiss} onPress={onClose} />
-        <View
+        <Animated.View
+          onLayout={drag.onLayout}
           style={[
             s.sheet,
             theme && { backgroundColor: theme.background },
+            drag.sheetStyle,
           ]}
         >
+          <View {...drag.panHandlers}>
           <View style={s.sheetHandle} />
           <View style={[s.sheetHead, s.infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
             <View style={s.sheetHeadCopy}>
@@ -3949,6 +3959,7 @@ function InfoSheet({
               </Text>
             </Pressable>
           </View>
+          </View>
           <ScrollView
             style={s.sheetScroll}
             showsVerticalScrollIndicator={false}
@@ -3959,7 +3970,7 @@ function InfoSheet({
           >
             {children}
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
