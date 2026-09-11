@@ -94,6 +94,8 @@ const dayLabel = (date: Date) =>
   `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
 /** "24일(목)" 형태의 날짜 옵션에서 요일만 꺼낸다. */
 const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
+// 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
+const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
 const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
 
 type PackingItem = {
@@ -1236,7 +1238,7 @@ function TripOverview({
         <View style={[styles.planPreview, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={[styles.previewDate, theme && { backgroundColor: theme.primary }]}>
             <Text style={styles.previewDay}>{weekdayOf(planDay)}</Text>
-            <Text style={styles.previewDateNo}>{planDay.slice(-2)}</Text>
+            <Text style={styles.previewDateNo}>{dayNumberOf(planDay)}</Text>
           </View>
           <View style={styles.previewBody}>
             <Text style={[styles.previewType, theme && { color: theme.primary }]}>
