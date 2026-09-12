@@ -1083,6 +1083,7 @@ function TripOverview({
   const [newPlanTitle, setNewPlanTitle] = useState("");
   const [planPlace, setPlanPlace] = useState("");
   const [planMapUrl, setPlanMapUrl] = useState("");
+  const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(false);
   const [transportations, setTransportations] = useState<Transportation[]>([
     { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: firstDay, departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료" },
     { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: lastDay, departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료" },
@@ -1203,6 +1204,7 @@ function TripOverview({
     setPlanDay(defaultPlanDay);
     setPlanType("장소");
     setPlanTime("11:00");
+    setScheduleDetailsOpen(false);
     setSheet("schedule");
   };
   const openScheduleEdit = (item: ScheduleItem, index: number) => {
@@ -1226,6 +1228,7 @@ function TripOverview({
     setNewPlanTitle(item.title);
     setPlanPlace(nextPlace);
     setPlanMapUrl(item.mapUrl);
+    setScheduleDetailsOpen(Boolean(nextPlace || item.mapUrl));
     setSheet("schedule");
   };
   const deleteSchedule = () => {
@@ -1627,7 +1630,7 @@ function TripOverview({
               {newPlanTitle || "어떤 일정인가요?"}
             </Text>
             <Text numberOfLines={1} style={[styles.previewPlace, theme && { color: theme.muted }]}>
-              {planPlace || "장소를 입력하세요"}
+              {planPlace || "장소 미정"}
             </Text>
           </View>
         </View>
@@ -1656,41 +1659,48 @@ function TripOverview({
           fallback="11:00"
           optional
         />
-        <DetailField
-          label="장소 · 선택 사항"
-          value={planPlace}
-          onChangeText={setPlanPlace}
-          placeholder="예: 한옥마을 정문"
-        />
-        <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
-          <View style={styles.naverHead}>
-            <View style={styles.naverLogo}>
-              <Text style={styles.naverLogoText}>N</Text>
-            </View>
-            <View>
-              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 선택</Text>
-              <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
-                네이버 지도에서 공유한 링크를 붙여넣으세요
-              </Text>
-            </View>
-          </View>
-          <TextInput
-            value={planMapUrl}
-            onChangeText={setPlanMapUrl}
-            autoCapitalize="none"
-            keyboardType="url"
-            placeholder="https://naver.me/..."
-            placeholderTextColor={theme?.dark ? theme.muted : "#91A19B"}
-            style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
+        <OptionalFormSection
+          label="장소와 지도"
+          summary={planPlace || planMapUrl ? "입력한 세부 정보가 있어요" : "필요할 때만 추가하세요"}
+          open={scheduleDetailsOpen}
+          onToggle={() => setScheduleDetailsOpen((current) => !current)}
+        >
+          <DetailField
+            label="장소 · 선택 사항"
+            value={planPlace}
+            onChangeText={setPlanPlace}
+            placeholder="예: 한옥마을 정문"
           />
-          {planMapUrl.length > 0 && (
-            <Text style={styles.linkState}>
-              {planMapUrl.includes("naver.")
-                ? "네이버 지도 링크가 연결돼요"
-                : "네이버 지도 공유 링크인지 확인해 주세요"}
-            </Text>
-          )}
-        </View>
+          <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
+            <View style={styles.naverHead}>
+              <View style={styles.naverLogo}>
+                <Text style={styles.naverLogoText}>N</Text>
+              </View>
+              <View>
+                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 선택</Text>
+                <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
+                  네이버 지도에서 공유한 링크를 붙여넣으세요
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              value={planMapUrl}
+              onChangeText={setPlanMapUrl}
+              autoCapitalize="none"
+              keyboardType="url"
+              placeholder="https://naver.me/..."
+              placeholderTextColor={theme?.dark ? theme.muted : "#91A19B"}
+              style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
+            />
+            {planMapUrl.length > 0 && (
+              <Text style={styles.linkState}>
+                {planMapUrl.includes("naver.")
+                  ? "네이버 지도 링크가 연결돼요"
+                  : "네이버 지도 공유 링크인지 확인해 주세요"}
+              </Text>
+            )}
+          </View>
+        </OptionalFormSection>
       </DetailSheet>
       <DetailSheet
         visible={sheet === "transport"}
@@ -1891,6 +1901,7 @@ function Places({
   const [category, setCategory] = useState("식당");
   const [mapUrl, setMapUrl] = useState("");
   const [tagText, setTagText] = useState("");
+  const [placeDetailsOpen, setPlaceDetailsOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
@@ -1958,6 +1969,7 @@ function Places({
     setName(parsed.name);
     setAddress(parsed.address);
     setMapUrl(parsed.url);
+    setPlaceDetailsOpen(true);
     notify(`${parsed.name} 정보를 채웠어요`);
     return true;
   };
@@ -1976,6 +1988,7 @@ function Places({
     setCategory("식당");
     setMapUrl("");
     setTagText("");
+    setPlaceDetailsOpen(false);
     setEditingId(null);
   };
   const openCreate = () => {
@@ -1997,6 +2010,7 @@ function Places({
     setCategory(place.category);
     setMapUrl(place.mapUrl);
     setTagText(place.tags.join(", "));
+    setPlaceDetailsOpen(Boolean(place.address || place.mapUrl || place.tags.length));
     setAdding(true);
   };
   const savePlace = () => {
@@ -2494,30 +2508,24 @@ function Places({
         onSubmit={savePlace}
       >
         {!editingId && (
-          <View
+          <Pressable
+            onPress={pasteNaverShare}
+            accessibilityRole="button"
+            accessibilityLabel="복사한 네이버 지도 장소 정보 붙여넣기"
             style={[
               styles.naverAutoFill,
               theme && { backgroundColor: theme.dark ? "#16352C" : "#EAF7F0", borderColor: theme.dark ? "#245544" : "#BFE8D1" },
             ]}
           >
-            <View style={styles.naverAutoFillHead}>
-              <View style={styles.naverLogo}>
-                <Text style={styles.naverLogoText}>N</Text>
-              </View>
-              <View style={styles.naverAutoFillCopy}>
-                <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>복사한 장소 자동 입력</Text>
-                <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>네이버 지도 공유 내용을 한 번에 채워요</Text>
-              </View>
+            <View style={styles.naverLogo}>
+              <Text style={styles.naverLogoText}>N</Text>
             </View>
-            <Pressable
-              onPress={pasteNaverShare}
-              accessibilityRole="button"
-              accessibilityLabel="복사한 장소 정보 붙여넣기"
-              style={styles.naverAutoFillButton}
-            >
-              <Text style={styles.naverAutoFillButtonText}>장소 정보 붙여넣기</Text>
-            </Pressable>
-          </View>
+            <View style={styles.naverAutoFillCopy}>
+              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>네이버 지도에서 복사했나요?</Text>
+              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>탭하면 장소 정보를 한 번에 채워요</Text>
+            </View>
+            <Glyph name="chevronRight" size={16} color={theme?.dark ? "#96B7A8" : "#16844E"} />
+          </Pressable>
         )}
         <View style={styles.placeFormIntro}>
           <View style={[styles.placeRequiredBadge, theme && { backgroundColor: theme.primarySoft }]}>
@@ -2531,103 +2539,114 @@ function Places({
           onChangeText={setName}
           placeholder="예: 소나기식당"
         />
-        <DetailField
-          label="주소 · 선택 사항"
-          value={address}
-          onChangeText={setAddress}
-          placeholder="네이버 지도 공유 텍스트로 자동 입력할 수 있어요"
-        />
         <OptionField
           label="종류"
           options={["식당", "카페", "구경", "쇼핑", "숙소"]}
           value={category}
           onChange={setCategory}
         />
-        <View style={styles.tagEditor}>
-          <Text style={[styles.detailFieldLabel, styles.selectorLabel]}>태그</Text>
-          <Text style={[styles.placeRecommendLabel, theme && { color: theme.muted }]}>추천 태그</Text>
-          <View style={styles.tagSuggestions}>
-            {["숙소 근처", "웨이팅", "예약", "가성비", "비 오는 날"].map(
-              (tag) => (
-                <Pressable
-                  key={tag}
-                  onPress={() => addTag(tag)}
-                  style={[
-                    styles.tagSuggestion,
-                    draftTags.includes(tag) && styles.tagSuggestionActive,
-                    draftTags.includes(tag) &&
-                      theme && {
-                        backgroundColor: theme.primarySoft,
-                        borderColor: theme.primary,
-                      },
-                  ]}
-                >
-                  <Text
+        <OptionalFormSection
+          label="주소·태그·지도"
+          summary={
+            [address && "주소", draftTags.length && `태그 ${draftTags.length}개`, mapUrl && "지도"]
+              .filter(Boolean)
+              .join(" · ") || "필요할 때만 추가하세요"
+          }
+          open={placeDetailsOpen}
+          onToggle={() => setPlaceDetailsOpen((current) => !current)}
+        >
+          <DetailField
+            label="주소 · 선택 사항"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="네이버 지도 공유 텍스트로 자동 입력할 수 있어요"
+          />
+          <View style={styles.tagEditor}>
+            <Text style={[styles.detailFieldLabel, styles.selectorLabel]}>태그</Text>
+            <Text style={[styles.placeRecommendLabel, theme && { color: theme.muted }]}>추천 태그</Text>
+            <View style={styles.tagSuggestions}>
+              {["숙소 근처", "웨이팅", "예약", "가성비", "비 오는 날"].map(
+                (tag) => (
+                  <Pressable
+                    key={tag}
+                    onPress={() => addTag(tag)}
                     style={[
-                      styles.tagSuggestionText,
-                      draftTags.includes(tag) && styles.tagSuggestionTextActive,
+                      styles.tagSuggestion,
+                      draftTags.includes(tag) && styles.tagSuggestionActive,
                       draftTags.includes(tag) &&
-                        theme && { color: theme.primary },
+                        theme && {
+                          backgroundColor: theme.primarySoft,
+                          borderColor: theme.primary,
+                        },
                     ]}
                   >
-                    # {tag}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.tagSuggestionText,
+                        draftTags.includes(tag) && styles.tagSuggestionTextActive,
+                        draftTags.includes(tag) &&
+                          theme && { color: theme.primary },
+                      ]}
+                    >
+                      # {tag}
+                    </Text>
+                  </Pressable>
+                ),
+              )}
+            </View>
+            <TextInput
+              value={tagText}
+              onChangeText={setTagText}
+              placeholder="쉼표로 구분 · 예: 초밥, 디너, 조용한 곳"
+              placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+              style={[styles.tagInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+            />
+            <View style={styles.draftTags}>
+              {draftTags.map((tag) => (
+                <Pressable
+                  key={tag}
+                  onPress={() =>
+                    setTagText(
+                      draftTags.filter((item) => item !== tag).join(", "),
+                    )
+                  }
+                  style={[styles.draftTag, theme && { backgroundColor: theme.primarySoft }]}
+                >
+                  <Text style={[styles.draftTagText, theme && { color: theme.primary }]}># {tag} ×</Text>
                 </Pressable>
-              ),
+              ))}
+            </View>
+          </View>
+          <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
+            <View style={styles.naverHead}>
+              <View style={styles.naverLogo}>
+                <Text style={styles.naverLogoText}>N</Text>
+              </View>
+              <View style={styles.naverCopy}>
+                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 공유 · 선택 사항</Text>
+                <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
+                  링크를 직접 입력하거나 위에서 자동으로 채울 수 있어요
+                </Text>
+              </View>
+            </View>
+            <TextInput
+              value={mapUrl}
+              onChangeText={applyNaverShare}
+              autoCapitalize="none"
+              keyboardType="url"
+              placeholder="https://naver.me/..."
+              placeholderTextColor="#91A19B"
+              style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
+            />
+            {mapUrl.length > 0 && (
+              <Text style={styles.linkState}>
+                {mapUrl.includes("naver.")
+                  ? "장소 링크가 연결돼요"
+                  : "네이버 지도 링크인지 확인해 주세요"}
+              </Text>
             )}
           </View>
-          <TextInput
-            value={tagText}
-            onChangeText={setTagText}
-            placeholder="쉼표로 구분 · 예: 초밥, 디너, 조용한 곳"
-            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-            style={[styles.tagInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
-          />
-          <View style={styles.draftTags}>
-            {draftTags.map((tag) => (
-              <Pressable
-                key={tag}
-                onPress={() =>
-                  setTagText(
-                    draftTags.filter((item) => item !== tag).join(", "),
-                  )
-                }
-                style={[styles.draftTag, theme && { backgroundColor: theme.primarySoft }]}
-              >
-                <Text style={[styles.draftTagText, theme && { color: theme.primary }]}># {tag} ×</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
-          <View style={styles.naverHead}>
-            <View style={styles.naverLogo}>
-              <Text style={styles.naverLogoText}>N</Text>
-            </View>
-            <View style={styles.naverCopy}>
-              <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 공유 · 선택 사항</Text>
-              <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
-                링크를 직접 입력하거나 위에서 자동으로 채울 수 있어요
-              </Text>
-            </View>
-          </View>
-          <TextInput
-            value={mapUrl}
-            onChangeText={applyNaverShare}
-            autoCapitalize="none"
-            keyboardType="url"
-            placeholder="https://naver.me/..."
-            placeholderTextColor="#91A19B"
-            style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
-          />
-          {mapUrl.length > 0 && (
-            <Text style={styles.linkState}>
-              {mapUrl.includes("naver.")
-                ? "장소 링크가 연결돼요"
-                : "네이버 지도 링크인지 확인해 주세요"}
-            </Text>
-          )}
-        </View>
+        </OptionalFormSection>
       </DetailSheet>
       <DetailSheet
         visible={importing}
@@ -6763,6 +6782,54 @@ function DetailField({
   );
 }
 
+function OptionalFormSection({
+  label,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  summary: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View
+      style={[
+        styles.optionalSection,
+        theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border },
+      ]}
+    >
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${label} ${open ? "접기" : "펼치기"}`}
+        style={({ pressed }) => [
+          styles.optionalSectionHead,
+          pressed && styles.controlPressed,
+        ]}
+      >
+        <View style={styles.optionalSectionCopy}>
+          <Text style={[styles.optionalSectionLabel, theme && { color: theme.text }]}>{label}</Text>
+          <Text numberOfLines={1} style={[styles.optionalSectionSummary, theme && { color: theme.muted }]}>{summary}</Text>
+        </View>
+        <View style={[styles.optionalSectionAction, theme && { backgroundColor: theme.surface }]}>
+          <Glyph name={open ? "minus" : "plus"} size={16} color={theme?.primary ?? "#6556D8"} />
+        </View>
+      </Pressable>
+      {open && (
+        <View style={[styles.optionalSectionBody, theme && { borderTopColor: theme.border }]}>
+          {children}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const timeAsDate = (value: string, fallback: string) => {
   const [hours, minutes] = (value || fallback).split(":").map(Number);
   const date = new Date(2000, 0, 1, Number.isFinite(hours) ? hours : 12, Number.isFinite(minutes) ? minutes : 0);
@@ -7769,6 +7836,37 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     textAlignVertical: "top",
   },
+  optionalSection: {
+    borderWidth: 1,
+    borderRadius: 16,
+    backgroundColor: "#F6F4F0",
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  optionalSectionHead: {
+    minHeight: 62,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  optionalSectionCopy: { flex: 1, minWidth: 0 },
+  optionalSectionLabel: { fontSize: 14, fontFamily: typo.label.family },
+  optionalSectionSummary: { fontSize: 11, lineHeight: 15, fontFamily: typo.caption.family, marginTop: 3 },
+  optionalSectionAction: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionalSectionBody: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#DDD9D1",
+    paddingHorizontal: 12,
+    paddingTop: 14,
+  },
   timePickerButton: {
     minHeight: 58,
     borderWidth: 1,
@@ -7928,18 +8026,17 @@ const styles = StyleSheet.create({
   naverHead: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   naverCopy: { flex: 1, minWidth: 0 },
   naverAutoFill: {
-    minHeight: 102,
+    minHeight: 62,
     borderRadius: 16,
     borderWidth: 1,
-    padding: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
   },
-  naverAutoFillHead: { flexDirection: "row", alignItems: "center" },
   naverAutoFillCopy: { flex: 1, minWidth: 0 },
   naverAutoFillTitle: { fontSize: 14, fontFamily: typo.title.family },
   naverAutoFillText: { fontSize: 12, lineHeight: 16, marginTop: 2 },
-  naverAutoFillButton: { height: 38, borderRadius: 12, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", marginTop: 12 },
-  naverAutoFillButtonText: { color: "#16844E", fontSize: 14, fontFamily: typo.label.family },
   naverLogo: {
     width: 30,
     height: 30,
