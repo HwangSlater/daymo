@@ -1019,6 +1019,27 @@ function TripOverview({
   const [stay, setStay] = useState(registeredStay);
   const [stayDraft, setStayDraft] = useState(stay);
   const [hasStay, setHasStay] = useState(Boolean(registeredStay.name));
+  const scheduleDraftKey = (
+    day: string,
+    type: string,
+    time: string,
+    title: string,
+    place: string,
+    mapUrl: string,
+  ) => JSON.stringify([day, type, time, title, place, mapUrl]);
+  const [scheduleDraftBaseline, setScheduleDraftBaseline] = useState(
+    scheduleDraftKey(defaultPlanDay, "장소", "11:00", "", "", ""),
+  );
+  const [stayDraftBaseline, setStayDraftBaseline] = useState(JSON.stringify(stay));
+  const scheduleDraftChanged = scheduleDraftKey(
+    planDay,
+    planType,
+    planTime,
+    newPlanTitle,
+    planPlace,
+    planMapUrl,
+  ) !== scheduleDraftBaseline;
+  const stayDraftChanged = JSON.stringify(stayDraft) !== stayDraftBaseline;
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportRouteValid = Boolean(
     transportDeparture.trim() &&
@@ -1077,23 +1098,43 @@ function TripOverview({
     notify(wasEditing ? "일정을 수정했어요" : "일정을 추가했어요");
   };
   const openScheduleCreate = () => {
+    setScheduleDraftBaseline(scheduleDraftKey(
+      defaultPlanDay,
+      "장소",
+      "11:00",
+      "",
+      "",
+      "",
+    ));
     setEditingScheduleIndex(null);
     setNewPlanTitle("");
     setPlanPlace("");
     setPlanMapUrl("");
     setPlanDay(defaultPlanDay);
+    setPlanType("장소");
     setPlanTime("11:00");
     setSheet("schedule");
   };
   const openScheduleEdit = (item: ScheduleItem, index: number) => {
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
+    const nextDay = item.date ?? dayOptions.find((value) => weekdayOf(value) === day) ?? defaultPlanDay;
+    const nextType = ["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? savedType : "장소";
+    const nextPlace = savedPlace.length ? savedPlace.join(" · ") : (["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? "" : item.note);
+    setScheduleDraftBaseline(scheduleDraftKey(
+      nextDay,
+      nextType,
+      time,
+      item.title,
+      nextPlace,
+      item.mapUrl,
+    ));
     setEditingScheduleIndex(index);
-    setPlanDay(item.date ?? dayOptions.find((value) => weekdayOf(value) === day) ?? defaultPlanDay);
+    setPlanDay(nextDay);
     setPlanTime(time);
-    setPlanType(["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? savedType : "장소");
+    setPlanType(nextType);
     setNewPlanTitle(item.title);
-    setPlanPlace(savedPlace.length ? savedPlace.join(" · ") : (["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? "" : item.note));
+    setPlanPlace(nextPlace);
     setPlanMapUrl(item.mapUrl);
     setSheet("schedule");
   };
@@ -1226,7 +1267,11 @@ function TripOverview({
     setSheet("reservation");
   };
   const openStay = (create = false) => {
-    setStayDraft(create ? { name: "", checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00`, address: "" } : stay);
+    const nextDraft = create
+      ? { name: "", checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00`, address: "" }
+      : stay;
+    setStayDraftBaseline(JSON.stringify(nextDraft));
+    setStayDraft(nextDraft);
     setSheet("stay");
   };
   const updateStayDateTime = (
@@ -1390,6 +1435,7 @@ function TripOverview({
         submit={scheduleFormValid ? (editingScheduleIndex === null ? "일정 추가" : "변경 저장") : "일정 이름을 입력해 주세요"}
         destructiveLabel={editingScheduleIndex === null ? undefined : "일정 삭제"}
         submitDisabled={!scheduleFormValid}
+        hasUnsavedChanges={scheduleDraftChanged}
         onClose={() => setSheet(null)}
         onSubmit={addSchedule}
         onDestructive={deleteSchedule}
@@ -1574,6 +1620,7 @@ function TripOverview({
         submit={stayFormValid ? "숙소 정보 저장" : !stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : "체크아웃 시간을 다시 확인해 주세요"}
         submitDisabled={!stayFormValid}
         destructiveLabel={hasStay ? "숙소 정보 삭제" : undefined}
+        hasUnsavedChanges={stayDraftChanged}
         onClose={() => setSheet(null)}
         onSubmit={() => { setStay(stayDraft); setHasStay(true); setSheet(null); notify("숙소 정보를 저장했어요"); }}
         onDestructive={() => Alert.alert("숙소 정보를 삭제할까요?", stay.name, [
@@ -1727,6 +1774,32 @@ function Places({
   const [importText, setImportText] = useState("");
   const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
   const [showAllPlaces, setShowAllPlaces] = useState(false);
+  const placeDraftKey = (
+    draftName: string,
+    draftArea: string,
+    draftAddress: string,
+    draftCategory: string,
+    draftMapUrl: string,
+    draftTagText: string,
+  ) => JSON.stringify([
+    draftName,
+    draftArea,
+    draftAddress,
+    draftCategory,
+    draftMapUrl,
+    draftTagText,
+  ]);
+  const [placeDraftBaseline, setPlaceDraftBaseline] = useState(
+    placeDraftKey("", "완산", "", "식당", "", ""),
+  );
+  const placeDraftChanged = placeDraftKey(
+    name,
+    area,
+    address,
+    category,
+    mapUrl,
+    tagText,
+  ) !== placeDraftBaseline;
   const allTags = Array.from(new Set(places.flatMap((place) => place.tags)));
   useEffect(() => {
     if (tagFilter && !allTags.includes(tagFilter)) setTagFilter(null);
@@ -1790,10 +1863,19 @@ function Places({
     setEditingId(null);
   };
   const openCreate = () => {
+    setPlaceDraftBaseline(placeDraftKey("", "완산", "", "식당", "", ""));
     resetForm();
     setAdding(true);
   };
   const openEdit = (place: PlaceItem) => {
+    setPlaceDraftBaseline(placeDraftKey(
+      place.name,
+      place.area,
+      place.address ?? "",
+      place.category,
+      place.mapUrl,
+      place.tags.join(", "),
+    ));
     setEditingId(place.id);
     setName(place.name);
     setArea(place.area);
@@ -2259,6 +2341,7 @@ function Places({
         }
         destructiveLabel={editingId ? "장소 삭제" : undefined}
         submitDisabled={!placeFormValid}
+        hasUnsavedChanges={placeDraftChanged}
         onDestructive={deletePlace}
         onClose={() => setAdding(false)}
         onSubmit={savePlace}
@@ -6580,6 +6663,7 @@ function DetailSheet({
   submit,
   destructiveLabel,
   submitDisabled = false,
+  hasUnsavedChanges = false,
   onClose,
   onSubmit,
   onDestructive,
@@ -6591,13 +6675,28 @@ function DetailSheet({
   submit: string;
   destructiveLabel?: string;
   submitDisabled?: boolean;
+  hasUnsavedChanges?: boolean;
   onClose: () => void;
   onSubmit: () => void;
   onDestructive?: () => void;
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
-  const drag = useSheetDrag(onClose, visible);
+  const requestClose = () => {
+    if (!hasUnsavedChanges) {
+      onClose();
+      return;
+    }
+    Alert.alert(
+      "저장하지 않고 닫을까요?",
+      "변경한 내용은 저장되지 않아요.",
+      [
+        { text: "취소", style: "cancel" },
+        { text: "저장 안 함", style: "destructive", onPress: onClose },
+      ],
+    );
+  };
+  const drag = useSheetDrag(requestClose, visible, hasUnsavedChanges);
   const sheetKind = title.includes("일정")
     ? "일정"
     : title.includes("장소")
@@ -6637,13 +6736,13 @@ function DetailSheet({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={requestClose}
     >
       <KeyboardAvoidingView
         style={styles.modalBack}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={styles.modalDismiss} onPress={onClose} />
+        <Pressable style={styles.modalDismiss} onPress={requestClose} />
         <Animated.View
           onLayout={drag.onLayout}
           style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
@@ -6685,7 +6784,7 @@ function DetailSheet({
               </View>
             </View>
             <Pressable
-              onPress={onClose}
+              onPress={requestClose}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}

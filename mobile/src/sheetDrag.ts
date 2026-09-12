@@ -23,7 +23,11 @@ export const SHEET_DISMISS_SPEED = 0.75;
 /** 튕기기로 닫힐 때도 이만큼은 끌었어야 한다. 짧은 떨림은 닫지 않는다. */
 export const SHEET_FLICK_MIN = 28;
 
-export function useSheetDrag(onClose: () => void, visible: boolean) {
+export function useSheetDrag(
+  onClose: () => void,
+  visible: boolean,
+  confirmBeforeClose = false,
+) {
   const offset = useMemo(() => new Animated.Value(0), []);
   const height = useRef(0);
   const closing = useRef(false);
@@ -68,6 +72,13 @@ export function useSheetDrag(onClose: () => void, visible: boolean) {
           settleBack();
           return;
         }
+        // 작성 중인 값이 있으면 창을 먼저 화면 밖으로 보내지 않는다. 제자리로
+        // 돌린 뒤 확인을 띄워서, "계속 작성"을 골라도 빈 화면이 남지 않게 한다.
+        if (confirmBeforeClose) {
+          settleBack();
+          onClose();
+          return;
+        }
         closing.current = true;
         Animated.timing(offset, {
           toValue: Math.max(height.current, 600),
@@ -80,7 +91,7 @@ export function useSheetDrag(onClose: () => void, visible: boolean) {
       onPanResponderTerminate: settleBack,
       onPanResponderTerminationRequest: () => false,
     });
-  }, [offset, onClose, settleBack]);
+  }, [confirmBeforeClose, offset, onClose, settleBack]);
   return {
     panHandlers: pan.panHandlers,
     sheetStyle: { transform: [{ translateY: offset }] },
