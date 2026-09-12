@@ -6812,7 +6812,7 @@ function TimePickerControl({
     DateTimePickerAndroid.open({
       value: timeAsDate(value, fallback),
       mode: "time",
-      display: "clock",
+      display: "spinner",
       is24Hour: true,
       title: accessibilityLabel,
       positiveButton: { label: "확인" },
@@ -6845,7 +6845,7 @@ function TimePickerControl({
       onPress={openPicker}
       accessibilityRole="button"
       accessibilityLabel={`${accessibilityLabel}, ${value || "시간 미정"}`}
-      accessibilityHint="시계 다이얼에서 시와 분을 선택합니다"
+      accessibilityHint="시와 분 숫자를 위아래로 돌려 선택합니다"
       style={({ pressed }) => [
         styles.timePickerButton,
         theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -6859,7 +6859,7 @@ function TimePickerControl({
         <Text style={[styles.timePickerValue, theme && { color: value ? theme.text : theme.muted }]}>
           {value || "시간 미정"}
         </Text>
-        <Text style={[styles.timePickerHint, theme && { color: theme.muted }]}>탭해서 시·분 선택</Text>
+        <Text style={[styles.timePickerHint, theme && { color: theme.muted }]}>시·분 숫자를 돌려서 선택</Text>
       </View>
       <Glyph name="chevronRight" size={16} color={theme?.muted ?? "#9AA1AE"} />
     </Pressable>
