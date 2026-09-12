@@ -81,6 +81,9 @@ export type TripPlanningData = {
   places: PlaceItem[];
 };
 
+const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
+  address.trim().split(/\s+/).filter(Boolean).slice(0, 2).join(" ") || fallback;
+
 const initialPlaces: PlaceItem[] = [
   {
     id: "place-js-hotel",
@@ -1408,9 +1411,7 @@ function TripOverview({
                 ...place,
                 name: stayDraft.name,
                 address: stayDraft.address,
-                area: stayDraft.address
-                  ? stayDraft.address.split(/\s+/).slice(0, 2).join(" ")
-                  : place.area,
+                area: placeAreaFromAddress(stayDraft.address, place.area),
               }
             : place,
         );
@@ -1420,9 +1421,7 @@ function TripOverview({
         {
           id: `place-stay-${stayDraft.name}-${stayDraft.checkin}`,
           name: stayDraft.name,
-          area: stayDraft.address
-            ? stayDraft.address.split(/\s+/).slice(0, 2).join(" ")
-            : "지역 미정",
+          area: placeAreaFromAddress(stayDraft.address),
           address: stayDraft.address,
           category: "숙소",
           mapUrl: "",
@@ -1853,9 +1852,7 @@ const parseNaverPlaceShare = (text: string) => {
   if (!url || !details[0]) return null;
   const name = details[0];
   const address = details[1] ?? "";
-  const addressParts = address.split(/\s+/).filter(Boolean);
-  const area = addressParts.slice(0, 2).join(" ") || "지역 미정";
-  return { name, address, area, url };
+  return { name, address, url };
 };
 
 function Places({
@@ -1890,7 +1887,6 @@ function Places({
   const [planningDay, setPlanningDay] = useState(dayOptions[Math.min(1, dayOptions.length - 1)]);
   const [planningTime, setPlanningTime] = useState("11:00");
   const [name, setName] = useState("");
-  const [area, setArea] = useState("완산");
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("식당");
   const [mapUrl, setMapUrl] = useState("");
@@ -1901,25 +1897,22 @@ function Places({
   const [showAllPlaces, setShowAllPlaces] = useState(false);
   const placeDraftKey = (
     draftName: string,
-    draftArea: string,
     draftAddress: string,
     draftCategory: string,
     draftMapUrl: string,
     draftTagText: string,
   ) => JSON.stringify([
     draftName,
-    draftArea,
     draftAddress,
     draftCategory,
     draftMapUrl,
     draftTagText,
   ]);
   const [placeDraftBaseline, setPlaceDraftBaseline] = useState(
-    placeDraftKey("", "완산", "", "식당", "", ""),
+    placeDraftKey("", "", "식당", "", ""),
   );
   const placeDraftChanged = placeDraftKey(
     name,
-    area,
     address,
     category,
     mapUrl,
@@ -1963,7 +1956,6 @@ function Places({
       return false;
     }
     setName(parsed.name);
-    setArea(parsed.area);
     setAddress(parsed.address);
     setMapUrl(parsed.url);
     notify(`${parsed.name} 정보를 채웠어요`);
@@ -1980,7 +1972,6 @@ function Places({
   };
   const resetForm = () => {
     setName("");
-    setArea("완산");
     setAddress("");
     setCategory("식당");
     setMapUrl("");
@@ -1988,14 +1979,13 @@ function Places({
     setEditingId(null);
   };
   const openCreate = () => {
-    setPlaceDraftBaseline(placeDraftKey("", "완산", "", "식당", "", ""));
+    setPlaceDraftBaseline(placeDraftKey("", "", "식당", "", ""));
     resetForm();
     setAdding(true);
   };
   const openEdit = (place: PlaceItem) => {
     setPlaceDraftBaseline(placeDraftKey(
       place.name,
-      place.area,
       place.address ?? "",
       place.category,
       place.mapUrl,
@@ -2003,7 +1993,6 @@ function Places({
     ));
     setEditingId(place.id);
     setName(place.name);
-    setArea(place.area);
     setAddress(place.address ?? "");
     setCategory(place.category);
     setMapUrl(place.mapUrl);
@@ -2017,7 +2006,7 @@ function Places({
     const next = {
       id: editingId ?? `place-${Date.now()}`,
       name: name.trim(),
-      area: area.trim() || "지역 미정",
+      area: placeAreaFromAddress(address, previousPlace?.area),
       address: address.trim(),
       category,
       mapUrl: mapUrl.trim(),
@@ -2542,16 +2531,6 @@ function Places({
           onChangeText={setName}
           placeholder="예: 소나기식당"
         />
-        <View style={styles.inlineFields}>
-          <View style={styles.titleField}>
-            <DetailField
-              label="지역"
-              value={area}
-              onChangeText={setArea}
-              placeholder="완산"
-            />
-          </View>
-        </View>
         <DetailField
           label="주소 · 선택 사항"
           value={address}
