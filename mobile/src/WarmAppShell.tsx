@@ -1360,8 +1360,9 @@ function TripsExplorer({
             results={mapTrips}
             selected={selectedRegion}
             onSelect={(region) =>
-              setSelectedRegion(selectedRegion === region ? null : region)
+              setSelectedRegion((current) => current === region ? null : region)
             }
+            onClear={() => setSelectedRegion(null)}
             open={open}
           />
         </View>
@@ -1615,6 +1616,7 @@ function KoreaTripMap({
   results,
   selected,
   onSelect,
+  onClear,
   open,
 }: {
   theme: AppTheme;
@@ -1622,6 +1624,7 @@ function KoreaTripMap({
   results: Trip[];
   selected: string | null;
   onSelect: (region: string) => void;
+  onClear: () => void;
   open: (trip: Trip) => void;
 }) {
   const [size, setSize] = useState({ width: 300, height: 420 });
@@ -1814,9 +1817,13 @@ function KoreaTripMap({
           // 움직이지 않았으면 톡 누른 것이다. 육지를 눌렀으면 그 자리에서
           // 가장 가까운 시도를 고른다. 시도별 영역 데이터가 없어서 쓰는 어림이다.
           const point = toMapPoint(inMap(event.nativeEvent));
-          if (!isOnLand(point.x, point.y)) return;
+          if (!isOnLand(point.x, point.y)) {
+            onClear();
+            return;
+          }
           const region = nearestRegion(point.x, point.y, tripRegions);
           if (region) onSelect(region);
+          else onClear();
         },
         onPanResponderTerminate: () => {
           gesture.current = { kind: "none" };
@@ -1861,19 +1868,20 @@ function KoreaTripMap({
   const cityPath: string | null =
     detailed ? require("./koreaCityPath").koreaCityPath : null;
   return (
-    <View
-      {...(webWheel as any)}
-      {...panResponder.panHandlers}
-      ref={host}
-      style={s.mapOnly}
-      onLayout={(event) => {
-        sizeRef.current = event.nativeEvent.layout;
-        setSize(event.nativeEvent.layout);
-        host.current?.measureInWindow((x, y) => {
-          origin.current = { x, y };
-        });
-      }}
-    >
+    <View style={s.mapOnly}>
+      <View
+        {...(webWheel as any)}
+        {...panResponder.panHandlers}
+        ref={host}
+        style={s.mapGestureLayer}
+        onLayout={(event) => {
+          sizeRef.current = event.nativeEvent.layout;
+          setSize(event.nativeEvent.layout);
+          host.current?.measureInWindow((x, y) => {
+            origin.current = { x, y };
+          });
+        }}
+      >
       <Svg
         width="100%"
         height="100%"
@@ -1956,6 +1964,7 @@ function KoreaTripMap({
           </Pressable>
         ) : null;
       })}
+      </View>
       {selected && (
         <View
           style={[
@@ -1974,7 +1983,10 @@ function KoreaTripMap({
               </Text>
             </View>
             <Pressable
-              onPress={() => onSelect(selected)}
+              onPress={onClear}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`${selected} 여행 창 닫기`}
               style={[s.mapTrayClose, { backgroundColor: theme.surfaceAlt }]}
             >
               <Text style={[s.mapTrayCloseText, { color: theme.muted }]}>×</Text>
@@ -2106,37 +2118,50 @@ function TripCalendar({
     setMonth({ year: today.getFullYear(), value: today.getMonth() + 1 });
     setSelectedDate(todayKey);
   };
+  const calendarPaper = theme.dark ? "#E8E7E2" : "#FFFEFC";
+  const calendarInk = theme.dark ? "#343B49" : "#283046";
+  const calendarMuted = theme.dark ? "#686D76" : "#7B7A76";
+  const calendarLine = theme.dark ? "#C7C8C5" : "#DFE1E2";
   return (
     <View
       style={[
         s.calendarCard,
         {
-          backgroundColor: theme.dark ? "#FCFCFA" : "#FFFEFC",
-          borderColor: theme.dark ? "#BBC0C8" : "#D9D9D5",
+          backgroundColor: calendarPaper,
+          borderColor: theme.dark ? "#A8ADB5" : "#D9D9D5",
         },
       ]}
     >
-      <View pointerEvents="none" style={s.calendarPageBack} />
+      <View
+        pointerEvents="none"
+        style={[
+          s.calendarPageBack,
+          theme.dark && { backgroundColor: "#B9C1BF" },
+        ]}
+      />
       <View style={s.calendarHead}>
         <View style={s.calendarTitleBlock}>
-          <Text style={[s.calendarMonth, { color: "#283046" }]}>
+          <Text style={[s.calendarMonth, { color: calendarInk }]}>
             {month.year}. {String(month.value).padStart(2, "0")}
           </Text>
-          <Text style={s.calendarSub}>
+          <Text style={[s.calendarSub, { color: calendarMuted }]}>
             {monthTrips.length
               ? `${monthTrips.length}개의 여행이 적혀 있어요`
               : "아직 적힌 여행이 없어요"}
           </Text>
         </View>
         <View style={s.calendarControls}>
-          <Pressable onPress={moveToToday} style={s.calendarTodayButton}>
-            <Text style={s.calendarTodayText}>오늘</Text>
+          <Pressable
+            onPress={moveToToday}
+            style={[s.calendarTodayButton, { borderColor: theme.dark ? "#B5B5B0" : "#D8D4CA" }]}
+          >
+            <Text style={[s.calendarTodayText, { color: calendarMuted }]}>오늘</Text>
           </Pressable>
           <Pressable onPress={() => move(-1)} style={s.monthArrow}>
-            <Glyph name="chevronLeft" size={20} color={theme.text} />
+            <Glyph name="chevronLeft" size={20} color={calendarInk} />
           </Pressable>
           <Pressable onPress={() => move(1)} style={s.monthArrow}>
-            <Glyph name="chevronRight" size={20} color={theme.text} />
+            <Glyph name="chevronRight" size={20} color={calendarInk} />
           </Pressable>
         </View>
       </View>
@@ -2150,17 +2175,18 @@ function TripCalendar({
                   { backgroundColor: tripTone(trip.tone, theme.dark).ink },
                 ]}
               />
-              <Text style={s.calendarLegendText}>{trip.name}</Text>
+              <Text style={[s.calendarLegendText, { color: calendarMuted }]}>{trip.name}</Text>
             </View>
           ))}
         </View>
       )}
-      <View style={s.weekRow}>
+      <View style={[s.weekRow, { borderBottomColor: calendarLine }]}>
         {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => (
           <Text
             key={day}
             style={[
               s.weekName,
+              theme.dark && { color: "#71767E" },
               index === 0 && s.weekNameSunday,
               index === 6 && s.weekNameSaturday,
             ]}
@@ -2217,6 +2243,7 @@ function TripCalendar({
                 <Text
                   style={[
                     s.dayNumber,
+                    theme.dark && { color: "#4B5260" },
                     index % 7 === 0 && s.dayNumberSunday,
                     index % 7 === 6 && s.dayNumberSaturday,
                     trip && [s.dayNumberTrip, { color: tripTone(trip.tone, theme.dark).ink }],
@@ -4406,6 +4433,13 @@ const s = StyleSheet.create({
   viewChoiceText: { color: "#858783", fontSize: 14, fontFamily: typo.label.family },
   viewChoiceTextActive: { color: "#FFFFFF" },
   mapOnly: { flex: 1, width: "100%", position: "relative", overflow: "hidden" },
+  mapGestureLayer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   mapTray: {
     position: "absolute",
     left: 0,
