@@ -63,8 +63,19 @@ export type ScheduleItem = {
   note: string;
   mapUrl: string;
   placeId?: string;
+  reservationId?: string;
 };
 export type StayInfo = { name: string; checkin: string; checkout: string; address: string };
+export type ReservationInfo = {
+  id: string;
+  name: string;
+  date: string;
+  time: string;
+  people: string;
+  status: "예약 확정" | "확인 필요" | "취소";
+  place: string;
+  showInSchedule: boolean;
+};
 export type PlaceItem = {
   id: string;
   name: string;
@@ -79,6 +90,7 @@ export type TripPlanningData = {
   schedule: ScheduleItem[];
   stay: StayInfo;
   places: PlaceItem[];
+  reservation?: ReservationInfo | null;
 };
 
 const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
@@ -528,6 +540,21 @@ export function WarmTripDetail({
   const [places, setPlaces] = useState<PlaceItem[]>(() =>
     initialPlanning?.places ?? initialPlaces,
   );
+  const defaultReservation: ReservationInfo = {
+    id: "reservation-primary",
+    name: "소나기식당",
+    date: tripDayOptions[Math.min(1, tripDayOptions.length - 1)],
+    time: "19:00",
+    people: "2명",
+    status: "예약 확정",
+    place: "전주 한옥마을",
+    showInSchedule: true,
+  };
+  const [reservation, setReservation] = useState<ReservationInfo | null>(() =>
+    initialPlanning?.reservation === undefined
+      ? defaultReservation
+      : initialPlanning.reservation,
+  );
   const [schedule, setSchedule] = useState<ScheduleItem[]>(() =>
     initialPlanning?.schedule ?? [
       {
@@ -553,12 +580,20 @@ export function WarmTripDetail({
         note: "버섯전골과 김밥",
         mapUrl: "",
       },
+      {
+        time: `${weekdayOf(defaultReservation.date)} · ${defaultReservation.time}`,
+        date: defaultReservation.date,
+        title: defaultReservation.name,
+        note: `예약 · ${defaultReservation.status} · ${defaultReservation.place} · ${defaultReservation.people}`,
+        mapUrl: "",
+        reservationId: defaultReservation.id,
+      },
     ],
   );
   const closeDetail = useCallback(() => {
-    onSavePlanning?.({ schedule, stay: registeredStay, places });
+    onSavePlanning?.({ schedule, stay: registeredStay, places, reservation });
     onClose();
-  }, [onClose, onSavePlanning, places, registeredStay, schedule]);
+  }, [onClose, onSavePlanning, places, registeredStay, reservation, schedule]);
 
   useEffect(
     () => setMode(destinationMode(initialDestination)),
@@ -738,6 +773,8 @@ export function WarmTripDetail({
               hasKitchen={hasKitchen}
               registeredStay={registeredStay}
               setRegisteredStay={setRegisteredStay}
+              reservation={reservation}
+              setReservation={setReservation}
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
               openScheduleOnMount={initialDestination === "schedule-add"}
@@ -947,6 +984,12 @@ export function WarmTripDetail({
               const date = nextDays[Math.min(oldIndex, nextDays.length - 1)];
               return { ...item, date, time: `${weekdayOf(date)}${item.time.includes(" · ") ? ` · ${item.time.split(" · ").slice(1).join(" · ")}` : ""}` };
             }));
+            setReservation((current) => {
+              if (!current || !nextDays.length) return current;
+              const oldIndex = oldDays.indexOf(current.date);
+              if (oldIndex < 0) return current;
+              return { ...current, date: nextDays[Math.min(oldIndex, nextDays.length - 1)] };
+            });
             setTitle(nextTitle);
             setCurrentStart(draftStart);
             setCurrentEnd(draftEnd);
@@ -1049,6 +1092,8 @@ function TripOverview({
   hasKitchen,
   registeredStay,
   setRegisteredStay,
+  reservation,
+  setReservation,
   dayOptions,
   dateOptions,
   openScheduleOnMount,
@@ -1061,6 +1106,8 @@ function TripOverview({
   hasKitchen: boolean;
   registeredStay: StayInfo;
   setRegisteredStay: React.Dispatch<React.SetStateAction<StayInfo>>;
+  reservation: ReservationInfo | null;
+  setReservation: React.Dispatch<React.SetStateAction<ReservationInfo | null>>;
   dayOptions: string[];
   dateOptions: string[];
   openScheduleOnMount?: boolean;
@@ -1101,9 +1148,23 @@ function TripOverview({
   const [transportArrivalTime, setTransportArrivalTime] = useState("");
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
-  const [reservation, setReservation] = useState({ name: "소나기식당", date: "9월 23일 수요일 19:00", people: "2명", status: "예약 확정", place: "전주 한옥마을" });
-  const [reservationDraft, setReservationDraft] = useState(reservation);
-  const [hasReservation, setHasReservation] = useState(true);
+  const blankReservation = (): ReservationInfo => ({
+    id: reservation?.id ?? "reservation-primary",
+    name: "",
+    date: defaultPlanDay,
+    time: "19:00",
+    people: "2명",
+    status: "예약 확정",
+    place: "",
+    showInSchedule: true,
+  });
+  const [reservationDraft, setReservationDraft] = useState<ReservationInfo>(() =>
+    reservation ?? blankReservation(),
+  );
+  const [reservationDraftBaseline, setReservationDraftBaseline] = useState(() =>
+    JSON.stringify(reservation ?? blankReservation()),
+  );
+  const hasReservation = reservation !== null;
   const [stayDraft, setStayDraft] = useState(registeredStay);
   const hasStay = Boolean(registeredStay.name);
   const scheduleDraftKey = (
@@ -1127,6 +1188,7 @@ function TripOverview({
     planMapUrl,
   ) !== scheduleDraftBaseline;
   const stayDraftChanged = JSON.stringify(stayDraft) !== stayDraftBaseline;
+  const reservationDraftChanged = JSON.stringify(reservationDraft) !== reservationDraftBaseline;
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportRouteValid = Boolean(
     transportDeparture.trim() &&
@@ -1170,6 +1232,9 @@ function TripOverview({
     const linkedPlaceId = editingScheduleIndex === null
       ? undefined
       : schedule[editingScheduleIndex]?.placeId;
+    const linkedReservationId = editingScheduleIndex === null
+      ? undefined
+      : schedule[editingScheduleIndex]?.reservationId;
     const next = {
         time: `${weekdayOf(planDay)} · ${planTime || "시간 미정"}`,
         date: planDay,
@@ -1177,6 +1242,7 @@ function TripOverview({
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
         mapUrl: planMapUrl.trim(),
         placeId: linkedPlaceId,
+        reservationId: linkedReservationId,
       };
     setSchedule((current) => editingScheduleIndex === null
       ? [...current, next]
@@ -1208,6 +1274,10 @@ function TripOverview({
     setSheet("schedule");
   };
   const openScheduleEdit = (item: ScheduleItem, index: number) => {
+    if (item.reservationId && item.reservationId === reservation?.id) {
+      openReservation();
+      return;
+    }
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
     const nextDay = item.date ?? dayOptions.find((value) => weekdayOf(value) === day) ?? defaultPlanDay;
@@ -1234,6 +1304,7 @@ function TripOverview({
   const deleteSchedule = () => {
     if (editingScheduleIndex === null) return;
     const target = schedule[editingScheduleIndex];
+    const linkedReservationId = target?.reservationId;
     Alert.alert("일정을 삭제할까요?", newPlanTitle, [
       { text: "취소", style: "cancel" },
       { text: "삭제", style: "destructive", onPress: () => {
@@ -1242,6 +1313,13 @@ function TripOverview({
           setPlaces((current) => current.map((place) =>
             place.id === target.placeId ? { ...place, status: "후보" } : place,
           ));
+        }
+        if (linkedReservationId) {
+          setReservation((current) =>
+            current?.id === linkedReservationId
+              ? { ...current, showInSchedule: false }
+              : current,
+          );
         }
         setEditingScheduleIndex(null);
         setSheet(null);
@@ -1362,8 +1440,48 @@ function TripOverview({
     ]);
   };
   const openReservation = (create = false) => {
-    setReservationDraft(create ? { name: "", date: "", people: "2명", status: "예약 확정", place: "" } : reservation);
+    const nextDraft = create || !reservation ? blankReservation() : reservation;
+    setReservationDraft(nextDraft);
+    setReservationDraftBaseline(JSON.stringify(nextDraft));
     setSheet("reservation");
+  };
+  const saveReservation = () => {
+    if (!reservationDraft.name.trim()) return;
+    const next = { ...reservationDraft, name: reservationDraft.name.trim() };
+    setReservation(next);
+    setSchedule((current) => {
+      const withoutLinked = current.filter((item) => item.reservationId !== next.id);
+      if (!next.showInSchedule) return withoutLinked;
+      const linked: ScheduleItem = {
+        time: `${weekdayOf(next.date)} · ${next.time || "시간 미정"}`,
+        date: next.date,
+        title: next.name,
+        note: ["예약", next.status, next.place.trim(), next.people.trim()].filter(Boolean).join(" · "),
+        mapUrl: "",
+        reservationId: next.id,
+      };
+      const previousIndex = current.findIndex((item) => item.reservationId === next.id);
+      if (previousIndex < 0) return [...current, linked];
+      return current.map((item, index) => index === previousIndex ? linked : item);
+    });
+    setSheet(null);
+    notify(next.showInSchedule ? "예약을 저장하고 일정에 반영했어요" : "예약 정보를 저장했어요");
+  };
+  const deleteReservation = () => {
+    if (!reservation) return;
+    Alert.alert("예약 정보를 삭제할까요?", "연결된 일정에서도 함께 삭제돼요.", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        style: "destructive",
+        onPress: () => {
+          setSchedule((current) => current.filter((item) => item.reservationId !== reservation.id));
+          setReservation(null);
+          setSheet(null);
+          notify("예약 정보를 삭제했어요");
+        },
+      },
+    ]);
   };
   const openStay = (create = false) => {
     const nextDraft = create
@@ -1545,12 +1663,12 @@ function TripOverview({
 
       <SectionLabel label="여행 정보" count={`${Number(hasReservation) + Number(hasStay) + Number(hasKitchen)}개`} />
       <View style={styles.travelInfoList}>
-        {hasReservation && (
+        {reservation && (
           <TravelInfoRow
             label="예약"
-            mark="22"
+            mark={dayNumberOf(reservation.date)}
             title={reservation.name}
-            meta={`${reservation.date} · ${reservation.people}`}
+            meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people} · ${reservation.status}`}
             color={theme?.primary ?? "#FF6B63"}
             onPress={() => openReservation()}
           />
@@ -1782,19 +1900,23 @@ function TripOverview({
         submit={reservationDraft.name.trim() ? "예약 정보 저장" : "예약 이름을 입력해 주세요"}
         submitDisabled={!reservationDraft.name.trim()}
         destructiveLabel={hasReservation ? "예약 정보 삭제" : undefined}
+        hasUnsavedChanges={reservationDraftChanged}
         onClose={() => setSheet(null)}
-        onSubmit={() => { setReservation(reservationDraft); setHasReservation(true); setSheet(null); notify("예약 정보를 저장했어요"); }}
-        onDestructive={() => Alert.alert("예약 정보를 삭제할까요?", reservation.name, [
-          { text: "취소", style: "cancel" },
-          { text: "삭제", style: "destructive", onPress: () => { setHasReservation(false); setSheet(null); notify("예약 정보를 삭제했어요"); } },
-        ])}
+        onSubmit={saveReservation}
+        onDestructive={deleteReservation}
       >
-        <Text style={[styles.formGuideText, theme && { color: theme.muted }]}>예약 정보는 여행 정보에 보관돼요. 시간 흐름에도 보여야 한다면 일정에서 종류를 ‘예약’으로 추가해 주세요.</Text>
         <DetailField label="예약 이름 · 필수" value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 소나기식당" />
-        <DetailField label="예약 일시 · 선택 사항" value={reservationDraft.date} onChangeText={(date) => setReservationDraft((current) => ({ ...current, date }))} placeholder="예: 9월 23일 18:30" />
+        <OptionField label="예약 날짜" options={dayOptions} value={reservationDraft.date} onChange={(date) => setReservationDraft((current) => ({ ...current, date }))} />
+        <TimePickerField label="예약 시간 · 선택 사항" value={reservationDraft.time} onChange={(time) => setReservationDraft((current) => ({ ...current, time }))} fallback="19:00" optional />
         <DetailField label="인원 · 선택 사항" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
-        <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status }))} />
+        <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))} />
         <DetailField label="장소 · 선택 사항" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
+        <OptionField
+          label="여행 일정 표시"
+          options={["일정에도 표시", "예약 정보만 저장"]}
+          value={reservationDraft.showInSchedule ? "일정에도 표시" : "예약 정보만 저장"}
+          onChange={(value) => setReservationDraft((current) => ({ ...current, showInSchedule: value === "일정에도 표시" }))}
+        />
       </DetailSheet>
       <DetailSheet
         visible={sheet === "stay"}
