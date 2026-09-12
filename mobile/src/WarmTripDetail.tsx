@@ -6648,8 +6648,9 @@ function DetailSheet({
           onLayout={drag.onLayout}
           style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
         >
-          <View {...drag.panHandlers}>
-          <View style={styles.sheetHandle} />
+          <View {...drag.panHandlers} style={styles.sheetDragHandleArea}>
+            <View style={styles.sheetHandle} />
+          </View>
           <View
             style={[
               styles.sheetHead,
@@ -6657,7 +6658,7 @@ function DetailSheet({
               { backgroundColor: `${sheetAccent}0B`, borderColor: `${sheetAccent}30` },
             ]}
           >
-            <View style={styles.sheetHeadMain}>
+            <View {...drag.panHandlers} style={styles.sheetHeadMain}>
               <View style={styles.sheetHeadCopy}>
                 <View style={styles.sheetKindRow}>
                   <View style={[styles.sheetKindDot, { backgroundColor: sheetAccent }]} />
@@ -6699,7 +6700,6 @@ function DetailSheet({
                 ×
               </Text>
             </Pressable>
-          </View>
           </View>
           <ScrollView
             style={styles.sheetScroll}
@@ -6771,12 +6771,15 @@ function InfoPanel({
           onLayout={drag.onLayout}
           style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
         >
-          <View {...drag.panHandlers}>
-          <View style={styles.sheetHandle} />
+          <View {...drag.panHandlers} style={styles.sheetDragHandleArea}>
+            <View style={styles.sheetHandle} />
+          </View>
           <View style={styles.sheetHead}>
-            <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
-              {title}
-            </Text>
+            <View {...drag.panHandlers} style={styles.sheetHeadCopy}>
+              <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
+                {title}
+              </Text>
+            </View>
             <Pressable
               onPress={onClose}
               hitSlop={10}
@@ -6790,7 +6793,6 @@ function InfoPanel({
                 완료
               </Text>
             </Pressable>
-          </View>
           </View>
           {children}
         </Animated.View>
@@ -7288,12 +7290,17 @@ const styles = StyleSheet.create({
   },
   modalDismiss: { flex: 1 },
   sheetHandle: {
-    width: 42,
-    height: 4,
-    borderRadius: 2,
+    width: 54,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: "#C7C7C3",
-    alignSelf: "center",
-    marginBottom: 20,
+  },
+  sheetDragHandleArea: {
+    height: 40,
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sheetHead: {
     flexDirection: "row",

@@ -3787,8 +3787,9 @@ function FormSheet({
             drag.sheetStyle,
           ]}
         >
-          <View {...drag.panHandlers}>
-          <View style={s.sheetHandle} />
+          <View {...drag.panHandlers} style={s.sheetDragHandleArea}>
+            <View style={s.sheetHandle} />
+          </View>
           <View
             style={[
               s.sheetHead,
@@ -3796,7 +3797,7 @@ function FormSheet({
               { backgroundColor: `${sheetAccent}0B`, borderColor: `${sheetAccent}30` },
             ]}
           >
-            <View style={s.sheetHeadMain}>
+            <View {...drag.panHandlers} style={s.sheetHeadMain}>
               <View style={s.sheetHeadCopy}>
                 <View style={s.sheetKindRow}>
                   <View style={[s.sheetKindDot, { backgroundColor: sheetAccent }]} />
@@ -3833,7 +3834,6 @@ function FormSheet({
                 ×
               </Text>
             </Pressable>
-          </View>
           </View>
           <ScrollView
             style={s.sheetScroll}
@@ -3898,10 +3898,11 @@ function InfoSheet({
             drag.sheetStyle,
           ]}
         >
-          <View {...drag.panHandlers}>
-          <View style={s.sheetHandle} />
+          <View {...drag.panHandlers} style={s.sheetDragHandleArea}>
+            <View style={s.sheetHandle} />
+          </View>
           <View style={[s.sheetHead, s.infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
-            <View style={s.sheetHeadCopy}>
+            <View {...drag.panHandlers} style={s.sheetHeadCopy}>
               <View style={s.sheetKindRow}>
                 <View style={[s.sheetKindDot, theme && { backgroundColor: theme.primary }]} />
                 <Text style={[s.sheetKindText, theme && { color: theme.primary }]}>우리 설정</Text>
@@ -3931,7 +3932,6 @@ function InfoSheet({
                 완료
               </Text>
             </Pressable>
-          </View>
           </View>
           <ScrollView
             style={s.sheetScroll}
@@ -4319,12 +4319,17 @@ const s = StyleSheet.create({
   },
   modalDismiss: { flex: 1 },
   sheetHandle: {
-    width: 42,
-    height: 4,
-    borderRadius: 2,
+    width: 54,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: "#C7C7C3",
-    alignSelf: "center",
-    marginBottom: 20,
+  },
+  sheetDragHandleArea: {
+    height: 40,
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sheetHead: {
     flexDirection: "row",

@@ -17,11 +17,11 @@ import { Animated, LayoutChangeEvent, PanResponder } from "react-native";
  *     본문
  *   </Animated.View>
  */
-export const SHEET_DISMISS_DISTANCE = 120;
-/** ms 당 픽셀. 0.9 는 손가락으로 튕기는 정도다. */
-export const SHEET_DISMISS_SPEED = 0.9;
+export const SHEET_DISMISS_DISTANCE = 96;
+/** ms 당 픽셀. 짧고 분명하게 아래로 튕긴 동작을 받는다. */
+export const SHEET_DISMISS_SPEED = 0.75;
 /** 튕기기로 닫힐 때도 이만큼은 끌었어야 한다. 짧은 떨림은 닫지 않는다. */
-export const SHEET_FLICK_MIN = 40;
+export const SHEET_FLICK_MIN = 28;
 
 export function useSheetDrag(onClose: () => void, visible: boolean) {
   const offset = useMemo(() => new Animated.Value(0), []);
@@ -43,11 +43,11 @@ export function useSheetDrag(onClose: () => void, visible: boolean) {
     Animated.spring(offset, { toValue: 0, bounciness: 4, useNativeDriver: true }).start();
   }, [offset]);
   const pan = useMemo(() => {
-    // 아래로 4px 넘게, 가로보다 세로로 더 움직였을 때만 끌기로 본다. 그냥
+    // 아래로 3px 넘게, 대체로 세로로 움직였을 때만 끌기로 본다. 그냥
     // 누르는 건 받지 않아서 제목 줄의 닫기 버튼은 그대로 눌린다.
     const wantsDrag = (_: unknown, gesture: { dx: number; dy: number }) => {
       if (closing.current) return false;
-      return gesture.dy > 4 && gesture.dy > Math.abs(gesture.dx);
+      return gesture.dy > 3 && gesture.dy > Math.abs(gesture.dx) * 0.8;
     };
     // PanResponder 가 이 콜백들을 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
     // eslint-disable-next-line react-hooks/refs
