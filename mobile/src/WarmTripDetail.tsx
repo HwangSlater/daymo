@@ -33,6 +33,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
@@ -1649,11 +1650,12 @@ function TripOverview({
           value={planType}
           onChange={setPlanType}
         />
-        <DetailField
+        <TimePickerField
           label="시간 · 선택 사항"
           value={planTime}
-          onChangeText={setPlanTime}
-          placeholder="시간 미정도 가능해요"
+          onChange={setPlanTime}
+          fallback="11:00"
+          optional
         />
         <DetailField
           label="장소 · 선택 사항"
@@ -1736,14 +1738,12 @@ function TripOverview({
           accentColor={transportDirectionColor}
           accentSoft={transportDirectionSoft}
         />
-        <PairedDetailField
+        <PairedTimePickerField
           label="출발·도착 시간 · 선택 사항"
           leftValue={transportDepartureTime}
           rightValue={transportArrivalTime}
           onChangeLeft={setTransportDepartureTime}
           onChangeRight={setTransportArrivalTime}
-          leftPlaceholder="19:59"
-          rightPlaceholder="23:09"
         />
         <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
       </DetailSheet>
@@ -1804,7 +1804,6 @@ function TripOverview({
           label="체크인"
           value={stayDraft.checkin}
           dates={dateOptions}
-          times={["14:00", "15:00", "16:00", "18:00"]}
           onDateChange={(value) => updateStayDateTime("checkin", "date", value)}
           onTimeChange={(value) => updateStayDateTime("checkin", "time", value)}
         />
@@ -1812,7 +1811,6 @@ function TripOverview({
           label="체크아웃"
           value={stayDraft.checkout}
           dates={dateOptions}
-          times={["10:00", "11:00", "12:00", "13:00"]}
           onDateChange={(value) => updateStayDateTime("checkout", "date", value)}
           onTimeChange={(value) => updateStayDateTime("checkout", "time", value)}
         />
@@ -2478,11 +2476,12 @@ function Places({
           value={planningDay}
           onChange={setPlanningDay}
         />
-        <DetailField
+        <TimePickerField
           label="시간 · 선택 사항"
           value={planningTime}
-          onChangeText={setPlanningTime}
-          placeholder="시간 미정 가능"
+          onChange={setPlanningTime}
+          fallback="11:00"
+          optional
         />
       </DetailSheet>
       <DetailSheet
@@ -6785,23 +6784,169 @@ function DetailField({
   );
 }
 
+const timeAsDate = (value: string, fallback: string) => {
+  const [hours, minutes] = (value || fallback).split(":").map(Number);
+  const date = new Date(2000, 0, 1, Number.isFinite(hours) ? hours : 12, Number.isFinite(minutes) ? minutes : 0);
+  return date;
+};
+
+const formatClockTime = (date: Date) =>
+  `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+function TimePickerControl({
+  value,
+  onChange,
+  fallback,
+  optional = false,
+  accessibilityLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  fallback: string;
+  optional?: boolean;
+  accessibilityLabel: string;
+}) {
+  const theme = useContext(DetailThemeContext);
+  const openPicker = () => {
+    if (Platform.OS !== "android") return;
+    DateTimePickerAndroid.open({
+      value: timeAsDate(value, fallback),
+      mode: "time",
+      display: "clock",
+      is24Hour: true,
+      title: accessibilityLabel,
+      positiveButton: { label: "확인" },
+      negativeButton: { label: "취소" },
+      neutralButton: optional ? { label: "시간 미정" } : undefined,
+      onValueChange: (_, date) => onChange(formatClockTime(date)),
+      onNeutralButtonPress: optional ? () => onChange("") : undefined,
+    });
+  };
+
+  if (Platform.OS !== "android") {
+    return (
+      <TextInput
+        accessibilityLabel={accessibilityLabel}
+        value={value}
+        onChangeText={onChange}
+        placeholder={optional ? "시간 미정" : fallback}
+        placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+        keyboardType="numeric"
+        style={[
+          styles.timePickerFallback,
+          theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
+        ]}
+      />
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={openPicker}
+      accessibilityRole="button"
+      accessibilityLabel={`${accessibilityLabel}, ${value || "시간 미정"}`}
+      accessibilityHint="시계 다이얼에서 시와 분을 선택합니다"
+      style={({ pressed }) => [
+        styles.timePickerButton,
+        theme && { backgroundColor: theme.surface, borderColor: theme.border },
+        pressed && styles.controlPressed,
+      ]}
+    >
+      <View style={[styles.timePickerIcon, theme && { backgroundColor: theme.primarySoft }]}>
+        <Glyph name="clock" size={18} color={theme?.primary ?? "#6556D8"} />
+      </View>
+      <View style={styles.timePickerCopy}>
+        <Text style={[styles.timePickerValue, theme && { color: value ? theme.text : theme.muted }]}>
+          {value || "시간 미정"}
+        </Text>
+        <Text style={[styles.timePickerHint, theme && { color: theme.muted }]}>탭해서 시·분 선택</Text>
+      </View>
+      <Glyph name="chevronRight" size={16} color={theme?.muted ?? "#9AA1AE"} />
+    </Pressable>
+  );
+}
+
+function TimePickerField({
+  label,
+  value,
+  onChange,
+  fallback = "12:00",
+  optional = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  fallback?: string;
+  optional?: boolean;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={styles.detailField}>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
+      </View>
+      <TimePickerControl
+        value={value}
+        onChange={onChange}
+        fallback={fallback}
+        optional={optional}
+        accessibilityLabel={label}
+      />
+    </View>
+  );
+}
+
+function PairedTimePickerField({
+  label,
+  leftValue,
+  rightValue,
+  onChangeLeft,
+  onChangeRight,
+}: {
+  label: string;
+  leftValue: string;
+  rightValue: string;
+  onChangeLeft: (value: string) => void;
+  onChangeRight: (value: string) => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={styles.detailField}>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
+      </View>
+      <View style={styles.pairedTimeRow}>
+        <View style={styles.pairedTimeItem}>
+          <Text style={[styles.pairedTimeLabel, theme && { color: theme.muted }]}>출발</Text>
+          <TimePickerControl value={leftValue} onChange={onChangeLeft} fallback="09:00" optional accessibilityLabel="출발 시간" />
+        </View>
+        <Glyph name="arrowRight" size={17} color={theme?.primary ?? "#6556D8"} />
+        <View style={styles.pairedTimeItem}>
+          <Text style={[styles.pairedTimeLabel, theme && { color: theme.muted }]}>도착</Text>
+          <TimePickerControl value={rightValue} onChange={onChangeRight} fallback="10:00" optional accessibilityLabel="도착 시간" />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function StayDateTimePicker({
   label,
   value,
   dates,
-  times,
   onDateChange,
   onTimeChange,
 }: {
   label: string;
   value: string;
   dates: string[];
-  times: string[];
   onDateChange: (value: string) => void;
   onTimeChange: (value: string) => void;
 }) {
   const theme = useContext(DetailThemeContext);
-  const time = value.match(/\d{1,2}:\d{2}$/)?.[0] ?? times[0];
+  const time = value.match(/\d{1,2}:\d{2}$/)?.[0] ?? "12:00";
   const date = value.replace(/\s*\d{1,2}:\d{2}$/, "").trim() || dates[0];
   return (
     <View style={[styles.stayPicker, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
@@ -6810,7 +6955,7 @@ function StayDateTimePicker({
         <Text style={[styles.stayPickerValue, theme && { color: theme.primary }]}>{value}</Text>
       </View>
       <OptionField label="날짜" options={dates} value={date} onChange={onDateChange} />
-      <OptionField label="시간" options={times} value={time} onChange={onTimeChange} />
+      <TimePickerField label="시간" value={time} onChange={onTimeChange} fallback={time} />
     </View>
   );
 }
@@ -6990,7 +7135,8 @@ function DetailSheet({
           </Pressable>
           {destructiveLabel && (
             <Pressable
-              onPress={onDestructive}
+              onPressIn={onDestructive}
+              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={destructiveLabel}
               style={styles.deletePlace}
@@ -7644,6 +7790,35 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     textAlignVertical: "top",
   },
+  timePickerButton: {
+    minHeight: 58,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  timePickerIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timePickerCopy: { flex: 1, minWidth: 0 },
+  timePickerValue: { fontSize: 16, fontFamily: typo.data.family },
+  timePickerHint: { fontSize: 10, lineHeight: 13, fontFamily: typo.caption.family, marginTop: 1 },
+  timePickerFallback: {
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  pairedTimeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  pairedTimeItem: { flex: 1, minWidth: 0, gap: 5 },
+  pairedTimeLabel: { fontSize: 11, fontFamily: typo.label.family, paddingLeft: 2 },
   stayPicker: {
     borderWidth: 1,
     borderRadius: 16,
