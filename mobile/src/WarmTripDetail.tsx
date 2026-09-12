@@ -1852,16 +1852,18 @@ function TripOverview({
 }
 
 const parseNaverPlaceShare = (text: string) => {
+  const url = text.match(
+    /https?:\/\/(?:m\.)?(?:naver\.me|map\.naver\.com)\/[^\s]+/i,
+  )?.[0];
+  if (!url) return null;
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((line) => !/^\[?네이버\s*지도\]?$/i.test(line));
-  const url = lines.find((line) => /^https?:\/\/(?:m\.)?(?:naver\.me|map\.naver\.com)/i.test(line));
-  const details = lines.filter((line) => line !== url);
-  if (!url || !details[0]) return null;
-  const name = details[0];
-  const address = details[1] ?? "";
+    .filter((line) => !/^\[?네이버\s*지도\]?$/i.test(line))
+    .filter((line) => !line.includes(url));
+  const name = lines[0] ?? "";
+  const address = lines[1] ?? "";
   return { name, address, url };
 };
 
@@ -1962,15 +1964,12 @@ function Places({
   };
   const applyNaverShare = (text: string) => {
     const parsed = parseNaverPlaceShare(text);
-    if (!parsed) {
-      setMapUrl(text.trim());
-      return false;
-    }
-    setName(parsed.name);
-    setAddress(parsed.address);
+    if (!parsed) return false;
+    if (parsed.name) setName(parsed.name);
+    if (parsed.address) setAddress(parsed.address);
     setMapUrl(parsed.url);
     setPlaceDetailsOpen(true);
-    notify(`${parsed.name} 정보를 채웠어요`);
+    notify(parsed.name ? `${parsed.name} 정보를 채웠어요` : "네이버 지도 링크를 연결했어요");
     return true;
   };
   const pasteNaverShare = async () => {
@@ -2507,7 +2506,7 @@ function Places({
         onClose={() => setAdding(false)}
         onSubmit={savePlace}
       >
-        {!editingId && (
+        {!editingId && !mapUrl && (
           <Pressable
             onPress={pasteNaverShare}
             accessibilityRole="button"
@@ -2521,8 +2520,8 @@ function Places({
               <Text style={styles.naverLogoText}>N</Text>
             </View>
             <View style={styles.naverAutoFillCopy}>
-              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>네이버 지도에서 복사했나요?</Text>
-              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>탭하면 장소 정보를 한 번에 채워요</Text>
+              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>네이버 지도 링크 붙여넣기</Text>
+              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>공유 링크를 복사했다면 여기만 탭하세요</Text>
             </View>
             <Glyph name="chevronRight" size={16} color={theme?.dark ? "#96B7A8" : "#16844E"} />
           </Pressable>
@@ -2555,11 +2554,59 @@ function Places({
           open={placeDetailsOpen}
           onToggle={() => setPlaceDetailsOpen((current) => !current)}
         >
+          <View
+            style={[
+              styles.naverLinkGuide,
+              theme && {
+                backgroundColor: theme.dark ? "#16352C" : "#EAF7F0",
+                borderColor: theme.dark ? "#245544" : "#BFE8D1",
+              },
+            ]}
+          >
+            <View style={styles.naverHead}>
+              <View style={styles.naverLogo}>
+                <Text style={styles.naverLogoText}>N</Text>
+              </View>
+              <View style={styles.naverCopy}>
+                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도로 장소 연결</Text>
+                <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>지도에서 공유 링크를 복사한 다음 붙여넣으세요</Text>
+              </View>
+            </View>
+            <View style={styles.naverLinkActions}>
+              <Pressable
+                onPress={() => void Linking.openURL("https://map.naver.com/")}
+                accessibilityRole="link"
+                accessibilityLabel="네이버 지도 열기"
+                style={[styles.naverLinkButton, theme && { backgroundColor: theme.surface }]}
+              >
+                <Text style={[styles.naverLinkButtonText, theme?.dark && { color: "#7ED9A7" }]}>지도 열기</Text>
+              </Pressable>
+              <Pressable
+                onPress={pasteNaverShare}
+                accessibilityRole="button"
+                accessibilityLabel="복사한 네이버 지도 링크 붙여넣기"
+                style={[styles.naverLinkButton, styles.naverLinkButtonPrimary]}
+              >
+                <Text style={[styles.naverLinkButtonText, styles.naverLinkButtonPrimaryText]}>링크 붙여넣기</Text>
+              </Pressable>
+            </View>
+            {mapUrl && (
+              <View style={[styles.naverConnected, theme && { backgroundColor: theme.surface }]}>
+                <View style={styles.naverConnectedCopy}>
+                  <Glyph name="check" size={15} color="#16844E" />
+                  <Text style={[styles.naverConnectedText, theme?.dark && { color: "#7ED9A7" }]}>네이버 지도 연결됨</Text>
+                </View>
+                <Pressable onPress={() => setMapUrl("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="네이버 지도 연결 해제">
+                  <Text style={[styles.naverDisconnectText, theme && { color: theme.muted }]}>연결 해제</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
           <DetailField
-            label="주소 · 선택 사항"
+            label="주소 직접 입력 · 선택 사항"
             value={address}
             onChangeText={setAddress}
-            placeholder="네이버 지도 공유 텍스트로 자동 입력할 수 있어요"
+            placeholder="링크에 주소가 없을 때만 입력하세요"
           />
           <View style={styles.tagEditor}>
             <Text style={[styles.detailFieldLabel, styles.selectorLabel]}>태그</Text>
@@ -2616,35 +2663,6 @@ function Places({
                 </Pressable>
               ))}
             </View>
-          </View>
-          <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
-            <View style={styles.naverHead}>
-              <View style={styles.naverLogo}>
-                <Text style={styles.naverLogoText}>N</Text>
-              </View>
-              <View style={styles.naverCopy}>
-                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 공유 · 선택 사항</Text>
-                <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
-                  링크를 직접 입력하거나 위에서 자동으로 채울 수 있어요
-                </Text>
-              </View>
-            </View>
-            <TextInput
-              value={mapUrl}
-              onChangeText={applyNaverShare}
-              autoCapitalize="none"
-              keyboardType="url"
-              placeholder="https://naver.me/..."
-              placeholderTextColor="#91A19B"
-              style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
-            />
-            {mapUrl.length > 0 && (
-              <Text style={styles.linkState}>
-                {mapUrl.includes("naver.")
-                  ? "장소 링크가 연결돼요"
-                  : "네이버 지도 링크인지 확인해 주세요"}
-              </Text>
-            )}
           </View>
         </OptionalFormSection>
       </DetailSheet>
@@ -8037,6 +8055,38 @@ const styles = StyleSheet.create({
   naverAutoFillCopy: { flex: 1, minWidth: 0 },
   naverAutoFillTitle: { fontSize: 14, fontFamily: typo.title.family },
   naverAutoFillText: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  naverLinkGuide: {
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: "#EAF7F0",
+    padding: 12,
+    marginBottom: 14,
+  },
+  naverLinkActions: { flexDirection: "row", gap: 8 },
+  naverLinkButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: 11,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  naverLinkButtonPrimary: { backgroundColor: "#03C75A" },
+  naverLinkButtonText: { color: "#16844E", fontSize: 13, fontFamily: typo.label.family },
+  naverLinkButtonPrimaryText: { color: "#FFFFFF" },
+  naverConnected: {
+    minHeight: 38,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  naverConnectedCopy: { flexDirection: "row", alignItems: "center", gap: 6 },
+  naverConnectedText: { color: "#16844E", fontSize: 12, fontFamily: typo.label.family },
+  naverDisconnectText: { color: "#7C8390", fontSize: 11, fontFamily: typo.caption.family },
   naverLogo: {
     width: 30,
     height: 30,
