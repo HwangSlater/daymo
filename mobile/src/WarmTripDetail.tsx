@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSheetDrag } from "./sheetDrag";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
@@ -55,14 +55,70 @@ const destinationMode = (destination: TripDetailDestination): ViewMode =>
         : destination === "memories"
           ? "기록"
       : "여행";
-type ScheduleItem = {
+export type ScheduleItem = {
   time: string;
   date?: string;
   title: string;
   note: string;
   mapUrl: string;
+  placeId?: string;
 };
-type StayInfo = { name: string; checkin: string; checkout: string; address: string };
+export type StayInfo = { name: string; checkin: string; checkout: string; address: string };
+export type PlaceItem = {
+  id: string;
+  name: string;
+  area: string;
+  address?: string;
+  category: string;
+  mapUrl: string;
+  tags: string[];
+  status: "후보" | "일정";
+};
+export type TripPlanningData = {
+  schedule: ScheduleItem[];
+  stay: StayInfo;
+  places: PlaceItem[];
+};
+
+const initialPlaces: PlaceItem[] = [
+  {
+    id: "place-js-hotel",
+    name: "달빛한옥",
+    area: "전주 한옥마을",
+    address: "전주 완산구 은행로 12 달빛한옥",
+    category: "숙소",
+    mapUrl: "https://map.naver.com/p/search/달빛한옥",
+    tags: ["숙소", "예약"],
+    status: "후보",
+  },
+  {
+    id: "place-eunhaengol",
+    name: "소나기식당",
+    area: "완산",
+    category: "식당",
+    mapUrl: "https://map.naver.com/p/search/소나기식당",
+    tags: ["초밥", "디너", "예약"],
+    status: "일정",
+  },
+  {
+    id: "place-usagi",
+    name: "구름국수",
+    area: "덕진",
+    category: "식당",
+    mapUrl: "https://map.naver.com/p/search/구름국수",
+    tags: ["늦은 점심", "웨이팅"],
+    status: "후보",
+  },
+  {
+    id: "place-gocheok",
+    name: "노을전망대",
+    area: "완산",
+    category: "구경",
+    mapUrl: "https://map.naver.com/p/search/노을전망대",
+    tags: ["숙소 근처", "비 오는 날"],
+    status: "후보",
+  },
+];
 
 type Transportation = {
   id: string;
@@ -97,6 +153,8 @@ type Props = {
     region: string;
     note: string;
   }) => void;
+  initialPlanning?: TripPlanningData;
+  onSavePlanning?: (planning: TripPlanningData) => void;
 };
 
 const parseTripDate = (value?: string) => {
@@ -410,6 +468,8 @@ export function WarmTripDetail({
   tripRegion = "전북",
   tripNote = "함께 천천히 걷는 여행",
   onUpdateTrip,
+  initialPlanning,
+  onSavePlanning,
 }: Props) {
   const memo = memoPaper(Boolean(appTheme?.dark));
   const [currentStart, setCurrentStart] = useState(tripStart ?? "");
@@ -453,35 +513,48 @@ export function WarmTripDetail({
   const [packingItems, setPackingItems] = useState(packing);
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
-  const [registeredStay, setRegisteredStay] = useState<StayInfo>({
-    name: "달빛한옥",
-    checkin: `${firstTripDate} 15:00`,
-    checkout: `${lastTripDate} 11:00`,
-    address: "전주 완산구 은행로 12 달빛한옥",
-  });
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([
-    {
-      time: `${weekdayOf(tripDayOptions[0])} · 12:30`,
-      date: tripDayOptions[0],
-      title: "온기식탁에서 점심",
-      note: "완산점",
-      mapUrl: "https://map.naver.com/p/search/온기식탁",
+  const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
+    initialPlanning?.stay ?? {
+      name: "달빛한옥",
+      checkin: `${firstTripDate} 15:00`,
+      checkout: `${lastTripDate} 11:00`,
+      address: "전주 완산구 은행로 12 달빛한옥",
     },
-    {
-      time: `${weekdayOf(tripDayOptions[0])} · 15:00`,
-      date: tripDayOptions[0],
-      title: "달빛한옥 체크인",
-      note: "체크아웃은 목요일 12시",
-      mapUrl: "https://map.naver.com/p/search/달빛한옥",
-    },
-    {
-      time: `${weekdayOf(tripDayOptions[0])} · 19:30`,
-      date: tripDayOptions[0],
-      title: "함께 저녁 만들기",
-      note: "버섯전골과 김밥",
-      mapUrl: "",
-    },
-  ]);
+  );
+  const [places, setPlaces] = useState<PlaceItem[]>(() =>
+    initialPlanning?.places ?? initialPlaces,
+  );
+  const [schedule, setSchedule] = useState<ScheduleItem[]>(() =>
+    initialPlanning?.schedule ?? [
+      {
+        time: `${weekdayOf(tripDayOptions[0])} · 12:30`,
+        date: tripDayOptions[0],
+        title: "소나기식당에서 점심",
+        note: "식사 · 완산",
+        mapUrl: "https://map.naver.com/p/search/소나기식당",
+        placeId: "place-eunhaengol",
+      },
+      {
+        time: `${weekdayOf(tripDayOptions[0])} · 15:00`,
+        date: tripDayOptions[0],
+        title: "달빛한옥 체크인",
+        note: `${lastTripDate} 11:00 체크아웃`,
+        mapUrl: "https://map.naver.com/p/search/달빛한옥",
+        placeId: "place-js-hotel",
+      },
+      {
+        time: `${weekdayOf(tripDayOptions[0])} · 19:30`,
+        date: tripDayOptions[0],
+        title: "함께 저녁 만들기",
+        note: "버섯전골과 김밥",
+        mapUrl: "",
+      },
+    ],
+  );
+  const closeDetail = useCallback(() => {
+    onSavePlanning?.({ schedule, stay: registeredStay, places });
+    onClose();
+  }, [onClose, onSavePlanning, places, registeredStay, schedule]);
 
   useEffect(
     () => setMode(destinationMode(initialDestination)),
@@ -491,11 +564,11 @@ export function WarmTripDetail({
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      onClose();
+      closeDetail();
       return true;
     });
     return () => subscription.remove();
-  }, [onClose]);
+  }, [closeDetail]);
 
   useEffect(() => {
     if (!feedback) return;
@@ -531,7 +604,7 @@ export function WarmTripDetail({
           ]}
         >
           <Pressable
-            onPress={onClose}
+            onPress={closeDetail}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel="여행 목록으로 돌아가기"
@@ -656,8 +729,11 @@ export function WarmTripDetail({
               setMode={setMode}
               schedule={schedule}
               setSchedule={setSchedule}
+              places={places}
+              setPlaces={setPlaces}
               hasKitchen={hasKitchen}
               registeredStay={registeredStay}
+              setRegisteredStay={setRegisteredStay}
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
               openScheduleOnMount={initialDestination === "schedule-add"}
@@ -665,6 +741,10 @@ export function WarmTripDetail({
           )}
           {mode === "장소" && (
             <Places
+              schedule={schedule}
+              setSchedule={setSchedule}
+              places={places}
+              setPlaces={setPlaces}
               registeredStayName={registeredStay.name}
               dayOptions={tripDayOptions}
               onRegisterStay={(place) => {
@@ -682,9 +762,6 @@ export function WarmTripDetail({
                 address: place.address || place.area,
               }))}
               onRemoveRegisteredStay={() => setRegisteredStay({ name: "", checkin: "", checkout: "", address: "" })}
-              addToSchedule={(item) =>
-                setSchedule((current) => [...current, item])
-              }
             />
           )}
           {mode === "준비" && (
@@ -963,8 +1040,11 @@ function TripOverview({
   setMode,
   schedule,
   setSchedule,
+  places,
+  setPlaces,
   hasKitchen,
   registeredStay,
+  setRegisteredStay,
   dayOptions,
   dateOptions,
   openScheduleOnMount,
@@ -972,8 +1052,11 @@ function TripOverview({
   setMode: (mode: ViewMode) => void;
   schedule: ScheduleItem[];
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
+  places: PlaceItem[];
+  setPlaces: React.Dispatch<React.SetStateAction<PlaceItem[]>>;
   hasKitchen: boolean;
   registeredStay: StayInfo;
+  setRegisteredStay: React.Dispatch<React.SetStateAction<StayInfo>>;
   dayOptions: string[];
   dateOptions: string[];
   openScheduleOnMount?: boolean;
@@ -1016,9 +1099,8 @@ function TripOverview({
   const [reservation, setReservation] = useState({ name: "소나기식당", date: "9월 23일 수요일 19:00", people: "2명", status: "예약 확정", place: "전주 한옥마을" });
   const [reservationDraft, setReservationDraft] = useState(reservation);
   const [hasReservation, setHasReservation] = useState(true);
-  const [stay, setStay] = useState(registeredStay);
-  const [stayDraft, setStayDraft] = useState(stay);
-  const [hasStay, setHasStay] = useState(Boolean(registeredStay.name));
+  const [stayDraft, setStayDraft] = useState(registeredStay);
+  const hasStay = Boolean(registeredStay.name);
   const scheduleDraftKey = (
     day: string,
     type: string,
@@ -1030,7 +1112,7 @@ function TripOverview({
   const [scheduleDraftBaseline, setScheduleDraftBaseline] = useState(
     scheduleDraftKey(defaultPlanDay, "장소", "11:00", "", "", ""),
   );
-  const [stayDraftBaseline, setStayDraftBaseline] = useState(JSON.stringify(stay));
+  const [stayDraftBaseline, setStayDraftBaseline] = useState(JSON.stringify(registeredStay));
   const scheduleDraftChanged = scheduleDraftKey(
     planDay,
     planType,
@@ -1080,12 +1162,16 @@ function TripOverview({
   const addSchedule = () => {
     if (!newPlanTitle.trim()) return;
     const wasEditing = editingScheduleIndex !== null;
+    const linkedPlaceId = editingScheduleIndex === null
+      ? undefined
+      : schedule[editingScheduleIndex]?.placeId;
     const next = {
         time: `${weekdayOf(planDay)} · ${planTime || "시간 미정"}`,
         date: planDay,
         title: newPlanTitle.trim(),
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
         mapUrl: planMapUrl.trim(),
+        placeId: linkedPlaceId,
       };
     setSchedule((current) => editingScheduleIndex === null
       ? [...current, next]
@@ -1140,10 +1226,16 @@ function TripOverview({
   };
   const deleteSchedule = () => {
     if (editingScheduleIndex === null) return;
+    const target = schedule[editingScheduleIndex];
     Alert.alert("일정을 삭제할까요?", newPlanTitle, [
       { text: "취소", style: "cancel" },
       { text: "삭제", style: "destructive", onPress: () => {
         setSchedule((current) => current.filter((_, index) => index !== editingScheduleIndex));
+        if (target?.placeId) {
+          setPlaces((current) => current.map((place) =>
+            place.id === target.placeId ? { ...place, status: "후보" } : place,
+          ));
+        }
         setEditingScheduleIndex(null);
         setSheet(null);
         notify("일정을 삭제했어요");
@@ -1269,7 +1361,7 @@ function TripOverview({
   const openStay = (create = false) => {
     const nextDraft = create
       ? { name: "", checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00`, address: "" }
-      : stay;
+      : registeredStay;
     setStayDraftBaseline(JSON.stringify(nextDraft));
     setStayDraft(nextDraft);
     setSheet("stay");
@@ -1289,6 +1381,88 @@ function TripOverview({
       const nextTime = part === "time" ? value : savedTime || fallbackTime;
       return { ...current, [field]: `${nextDate} ${nextTime}` };
     });
+  };
+  const saveStay = () => {
+    const previousName = registeredStay.name;
+    const linkedPlace = places.find(
+      (place) =>
+        place.category === "숙소" &&
+        (place.name === previousName || place.name === stayDraft.name),
+    );
+    const checkinDateIndex = dateOptions.findIndex((date) =>
+      stayDraft.checkin.startsWith(date),
+    );
+    const checkinDay = dayOptions[Math.max(0, checkinDateIndex)];
+    setRegisteredStay(stayDraft);
+    setPlaces((current) => {
+      const match = current.find(
+        (place) =>
+          place.category === "숙소" &&
+          (place.name === previousName || place.name === stayDraft.name),
+      );
+      if (match) {
+        return current.map((place) =>
+          place.id === match.id
+            ? {
+                ...place,
+                name: stayDraft.name,
+                address: stayDraft.address,
+                area: stayDraft.address
+                  ? stayDraft.address.split(/\s+/).slice(0, 2).join(" ")
+                  : place.area,
+              }
+            : place,
+        );
+      }
+      return [
+        ...current,
+        {
+          id: `place-stay-${stayDraft.name}-${stayDraft.checkin}`,
+          name: stayDraft.name,
+          area: stayDraft.address
+            ? stayDraft.address.split(/\s+/).slice(0, 2).join(" ")
+            : "지역 미정",
+          address: stayDraft.address,
+          category: "숙소",
+          mapUrl: "",
+          tags: ["숙소"],
+          status: "후보",
+        },
+      ];
+    });
+    if (linkedPlace) {
+      setSchedule((current) => current.map((item) =>
+        item.placeId === linkedPlace.id && item.title === `${previousName} 체크인`
+          ? {
+              ...item,
+              time: `${weekdayOf(checkinDay)} · ${stayDraft.checkin.match(/\d{1,2}:\d{2}$/)?.[0] ?? "시간 미정"}`,
+              date: checkinDay,
+              title: `${stayDraft.name} 체크인`,
+              note: `${stayDraft.checkout} 체크아웃`,
+            }
+          : item,
+      ));
+    }
+    setSheet(null);
+    notify("숙소 정보를 저장했어요");
+  };
+  const deleteStay = () => {
+    Alert.alert(
+      "대표 숙소에서 해제할까요?",
+      "저장한 장소에는 그대로 남아요.",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "대표 숙소 해제",
+          style: "destructive",
+          onPress: () => {
+            setRegisteredStay({ name: "", checkin: "", checkout: "", address: "" });
+            setSheet(null);
+            notify("대표 숙소에서 해제했어요");
+          },
+        },
+      ],
+    );
   };
   return (
     <View>
@@ -1383,8 +1557,8 @@ function TripOverview({
             <TravelMiniCard
               label="대표 숙소"
               mark="15"
-              title={stay.name}
-              meta={`${stay.checkin} 체크인`}
+              title={registeredStay.name}
+              meta={`${registeredStay.checkin} 체크인`}
               color={theme?.secondary ?? "#55BFB4"}
               onPress={() => openStay()}
               large
@@ -1619,14 +1793,11 @@ function TripOverview({
         subtitle="이번 여행에서 머무를 대표 숙소와 이용 시간을 기록하세요"
         submit={stayFormValid ? "숙소 정보 저장" : !stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : "체크아웃 시간을 다시 확인해 주세요"}
         submitDisabled={!stayFormValid}
-        destructiveLabel={hasStay ? "숙소 정보 삭제" : undefined}
+        destructiveLabel={hasStay ? "대표 숙소 해제" : undefined}
         hasUnsavedChanges={stayDraftChanged}
         onClose={() => setSheet(null)}
-        onSubmit={() => { setStay(stayDraft); setHasStay(true); setSheet(null); notify("숙소 정보를 저장했어요"); }}
-        onDestructive={() => Alert.alert("숙소 정보를 삭제할까요?", stay.name, [
-          { text: "취소", style: "cancel" },
-          { text: "삭제", style: "destructive", onPress: () => { setHasStay(false); setSheet(null); notify("숙소 정보를 삭제했어요"); } },
-        ])}
+        onSubmit={saveStay}
+        onDestructive={deleteStay}
       >
         <DetailField label="숙소 이름 · 필수" value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: 달빛한옥" />
         <StayDateTimePicker
@@ -1673,17 +1844,6 @@ function TripOverview({
   );
 }
 
-type PlaceItem = {
-  id: string;
-  name: string;
-  area: string;
-  address?: string;
-  category: string;
-  mapUrl: string;
-  tags: string[];
-  status: "후보" | "일정";
-};
-
 const parseNaverPlaceShare = (text: string) => {
   const lines = text
     .split(/\r?\n/)
@@ -1701,14 +1861,20 @@ const parseNaverPlaceShare = (text: string) => {
 };
 
 function Places({
-  addToSchedule,
+  schedule,
+  setSchedule,
+  places,
+  setPlaces,
   registeredStayName,
   onRegisterStay,
   onUpdateRegisteredStay,
   onRemoveRegisteredStay,
   dayOptions,
 }: {
-  addToSchedule: (item: ScheduleItem) => void;
+  schedule: ScheduleItem[];
+  setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
+  places: PlaceItem[];
+  setPlaces: React.Dispatch<React.SetStateAction<PlaceItem[]>>;
   registeredStayName: string;
   onRegisterStay: (place: PlaceItem) => void;
   onUpdateRegisteredStay: (place: PlaceItem) => void;
@@ -1717,45 +1883,6 @@ function Places({
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
-  const [places, setPlaces] = useState<PlaceItem[]>([
-    {
-      id: "place-js-hotel",
-      name: "달빛한옥",
-      area: "전주 한옥마을",
-      address: "전주 완산구 은행로 12 달빛한옥",
-      category: "숙소",
-      mapUrl: "https://map.naver.com/p/search/달빛한옥",
-      tags: ["숙소", "예약"],
-      status: "후보",
-    },
-    {
-      id: "place-eunhaengol",
-      name: "소나기식당",
-      area: "완산",
-      category: "식당",
-      mapUrl: "https://map.naver.com/p/search/소나기식당",
-      tags: ["초밥", "디너", "예약"],
-      status: "일정",
-    },
-    {
-      id: "place-usagi",
-      name: "구름국수",
-      area: "덕진",
-      category: "식당",
-      mapUrl: "https://map.naver.com/p/search/구름국수",
-      tags: ["늦은 점심", "웨이팅"],
-      status: "후보",
-    },
-    {
-      id: "place-gocheok",
-      name: "노을전망대",
-      area: "완산",
-      category: "구경",
-      mapUrl: "https://map.naver.com/p/search/노을전망대",
-      tags: ["숙소 근처", "비 오는 날"],
-      status: "후보",
-    },
-  ]);
   const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "숙소">("전체");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -1888,6 +2015,7 @@ function Places({
   const savePlace = () => {
     if (!name.trim()) return;
     const wasEditing = Boolean(editingId);
+    const previousPlace = places.find((place) => place.id === editingId);
     const next = {
       id: editingId ?? `place-${Date.now()}`,
       name: name.trim(),
@@ -1905,7 +2033,23 @@ function Places({
         ? current.map((place) => (place.id === editingId ? next : place))
         : [...current, next],
     );
-    const editedRepresentative = places.find((place) => place.id === editingId)?.name === registeredStayName;
+    if (editingId) {
+      setSchedule((current) => current.map((item) =>
+        item.placeId === editingId
+          ? {
+              ...item,
+              title: previousPlace && item.title === `${previousPlace.name} 체크인`
+                ? `${next.name} 체크인`
+                : next.name,
+              note: previousPlace && item.title === `${previousPlace.name} 체크인`
+                ? item.note
+                : `${next.category} · ${next.area}`,
+              mapUrl: next.mapUrl,
+            }
+          : item,
+      ));
+    }
+    const editedRepresentative = previousPlace?.name === registeredStayName;
     if (editedRepresentative) {
       if (next.category === "숙소") onUpdateRegisteredStay(next);
       else onRemoveRegisteredStay();
@@ -1918,11 +2062,20 @@ function Places({
     if (!editingId) return;
     const target = places.find((place) => place.id === editingId);
     if (!target) return;
+    const linkedScheduleCount = schedule.filter(
+      (item) => item.placeId === target.id,
+    ).length;
+    const consequences = [
+      target.name === registeredStayName ? "대표 숙소에서 해제돼요." : "",
+      linkedScheduleCount
+        ? `연결된 일정 ${linkedScheduleCount}개도 함께 삭제돼요.`
+        : "",
+    ].filter(Boolean);
     Alert.alert(
       "장소를 삭제할까요?",
-      target.name === registeredStayName
-        ? "대표 숙소 정보에서도 함께 사라집니다."
-        : `${target.name}을(를) 저장한 장소에서 삭제합니다.`,
+      consequences.length
+        ? consequences.join("\n")
+        : `${target.name}을(를) 저장한 장소에서 삭제해요.`,
       [
         { text: "취소", style: "cancel" },
         {
@@ -1932,6 +2085,11 @@ function Places({
             setPlaces((current) =>
               current.filter((place) => place.id !== editingId),
             );
+            if (linkedScheduleCount) {
+              setSchedule((current) =>
+                current.filter((item) => item.placeId !== target.id),
+              );
+            }
             if (target.name === registeredStayName) onRemoveRegisteredStay();
             setAdding(false);
             resetForm();
@@ -1948,13 +2106,14 @@ function Places({
   };
   const confirmPlan = () => {
     if (!planningPlace) return;
-    addToSchedule({
+    setSchedule((current) => [...current, {
       time: `${weekdayOf(planningDay)} · ${planningTime || "시간 미정"}`,
       date: planningDay,
       title: planningPlace.name,
       note: `${planningPlace.category} · ${planningPlace.area}`,
       mapUrl: planningPlace.mapUrl,
-    });
+      placeId: planningPlace.id,
+    }]);
     setPlaces((current) =>
       current.map((place) =>
         place.id === planningPlace.id

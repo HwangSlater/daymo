@@ -27,7 +27,7 @@ import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
-import { TripDetailDestination, WarmTripDetail } from "./WarmTripDetail";
+import { type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
 import { isOnLand, nearestRegion } from "./koreaHitTest";
@@ -64,6 +64,7 @@ type Trip = {
   region: string;
   start: string;
   end: string;
+  planning?: TripPlanningData;
 };
 
 const sampleDate = (daysFromToday: number) => {
@@ -249,9 +250,15 @@ export function WarmAppShell({
         tripEnd={selectedTrip.end}
         tripRegion={selectedTrip.region}
         tripNote={selectedTrip.note}
+        initialPlanning={selectedTrip.planning}
         appTheme={theme}
         onUpdateTrip={(changes) => {
           const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
+          setTripItems((current) => current.map((trip) => trip === selectedTrip ? updated : trip));
+          setSelectedTrip(updated);
+        }}
+        onSavePlanning={(planning) => {
+          const updated = { ...selectedTrip, planning };
           setTripItems((current) => current.map((trip) => trip === selectedTrip ? updated : trip));
           setSelectedTrip(updated);
         }}
