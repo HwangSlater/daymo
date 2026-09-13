@@ -2302,6 +2302,7 @@ function Places({
   const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "숙소">("전체");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [placeFiltersOpen, setPlaceFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [planningPlace, setPlanningPlace] = useState<PlaceItem | null>(null);
@@ -2610,10 +2611,22 @@ function Places({
             </Pressable>
           ))}
         </View>
+        {(places.length > 5 || allTags.length > 0) && (
+          <Pressable
+            onPress={() => setPlaceFiltersOpen((value) => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: placeFiltersOpen }}
+            accessibilityLabel="장소 검색과 태그 필터"
+            style={[styles.placeFilterMoreButton, theme && { backgroundColor: theme.surfaceAlt }]}
+          >
+            <Glyph name={placeFiltersOpen ? "chevronDown" : "search"} size={15} color={theme?.primary ?? "#3F4C8F"} weight={2.2} />
+            <Text style={[styles.placeFilterMoreText, theme && { color: theme.primary }]}>찾기</Text>
+          </Pressable>
+        )}
       </View>
       {/* 다섯 곳 이하면 목록이 한눈에 들어온다. 찾을 게 없는데 검색창이
           먼저 나오면 목록이 그만큼 밀린다. 찾는 중이면 남긴다. */}
-      {(places.length > 5 || query.length > 0 || tagFilter !== null) && (
+      {(placeFiltersOpen || query.length > 0 || tagFilter !== null) && (
       <>
       <View
         style={[
@@ -2715,11 +2728,7 @@ function Places({
               pressed && styles.packingCardPressed,
             ]}
           >
-            <View style={[styles.placeMiniTape, { backgroundColor: `${statusTone}38` }]} />
             <View style={styles.placeMiniTop}>
-              <View style={[styles.placeMiniStamp, { backgroundColor: theme?.surfaceAlt ?? "#EFEEE9" }]}>
-                <Text style={[styles.placeMiniNumber, { color: theme?.muted ?? "#646C7A" }]}>{String(index + 1).padStart(2, "0")}</Text>
-              </View>
               <View style={styles.placeMiniInfo}>
                 <View style={styles.placeMiniTitleRow}>
                   <Text numberOfLines={1} style={[styles.placeMiniName, { color: theme?.text ?? "#17233D" }]}>{place.name}</Text>
@@ -2727,18 +2736,10 @@ function Places({
                     <Text style={[styles.placeMiniStatusText, { color: statusTone }]}>{statusLabel}</Text>
                   </View>
                 </View>
-                <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.address ? `${place.category} · ${place.address}` : `${place.area} · ${place.category}`}</Text>
+                <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.category} · {place.area}</Text>
               </View>
             </View>
-            <View style={styles.placeMiniTags}>
-              {place.tags.slice(0, 3).map((tag) => (
-                <Pressable key={tag} onPress={(event) => { event.stopPropagation(); setTagFilter(tag); }} style={[styles.placeMiniTag, { backgroundColor: theme?.primarySoft ?? "#F0EDFF" }]}>
-                  <Text style={[styles.placeMiniTagText, { color: theme?.primary ?? "#6556D8" }]}># {tag}</Text>
-                </Pressable>
-              ))}
-              {place.tags.length > 3 && <Text style={[styles.placeMiniMore, { color: theme?.muted }]}>+{place.tags.length - 3}</Text>}
-            </View>
-            <View style={[styles.placeMiniActions, { borderTopColor: theme?.border ?? "#E5E3DD" }]}>
+            <View style={styles.placeMiniActions}>
               <Pressable onPress={(event) => { event.stopPropagation(); if (place.mapUrl) void Linking.openURL(place.mapUrl); else openEdit(place); }} style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
                 <Text style={[styles.placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
               </Pressable>
@@ -9659,10 +9660,11 @@ const styles = StyleSheet.create({
   placeToolbar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
+    gap: 6,
     marginBottom: 6,
   },
-  placeFilters: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
+  placeFilters: { flex: 1, flexDirection: "row", gap: 4 },
   placeFilter: {
     minHeight: 30,
     borderRadius: 999,
@@ -9670,6 +9672,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  placeFilterMoreButton: {
+    minHeight: 30,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  placeFilterMoreText: { fontSize: 12, fontFamily: typo.label.family },
   placeAdd: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   placeSearch: {
     height: 39,
@@ -9789,7 +9800,7 @@ const styles = StyleSheet.create({
   placeMiniTop: { flexDirection: "row", alignItems: "center" },
   placeMiniStamp: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-2deg" }] },
   placeMiniNumber: { fontSize: 14, fontFamily: typo.data.family },
-  placeMiniInfo: { flex: 1, minWidth: 0, marginLeft: 8 },
+  placeMiniInfo: { flex: 1, minWidth: 0 },
   placeMiniTitleRow: { flexDirection: "row", alignItems: "center" },
   placeMiniName: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typo.title.family },
   placeMiniStatus: { height: 21, borderRadius: 8, paddingHorizontal: 6, alignItems: "center", justifyContent: "center", marginLeft: 6 },
@@ -9799,7 +9810,7 @@ const styles = StyleSheet.create({
   placeMiniTag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
   placeMiniTagText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMore: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 2 },
-  placeMiniActions: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 6, marginTop: 4 },
+  placeMiniActions: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
   placeMiniIconButton: { minWidth: 47, height: 36, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniEditText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMapButton: { minWidth: 63, height: 36, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
