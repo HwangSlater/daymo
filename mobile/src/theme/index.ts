@@ -52,8 +52,11 @@ export function resolveTheme(id: ThemeId, dark: boolean): AppTheme {
   const palette = palettes[id];
   return dark ? {
     id, name: palette.name, dark: true,
-    background: '#0D111A', surface: '#171D29', surfaceAlt: '#202838', text: '#F5F7FB', muted: '#9DA8BA', border: '#2B3546',
-    primary: palette.primaryDark, primarySoft: palette.softDark, secondary: palette.secondary, accent: palette.accent, navigation: '#090D14',
+    // 화면의 층을 색만으로도 구분할 수 있게 각 표면 사이 명도 간격을 넓힌다.
+    // 기존 #0D111A / #171D29 / #202838 조합은 작은 안드로이드 화면에서
+    // 카드 경계가 거의 사라져 모든 정보가 한 덩어리처럼 보였다.
+    background: '#080B12', surface: '#151C28', surfaceAlt: '#252F40', text: '#F7F5F1', muted: '#AEB8C8', border: '#3A475B',
+    primary: palette.primaryDark, primarySoft: palette.softDark, secondary: '#71D4C7', accent: '#F08A82', navigation: '#0C111B',
   } : {
     id, name: palette.name, dark: false,
     // muted는 세 배경(background/surface/surfaceAlt) 모두에서 WCAG AA 4.5:1을 넘겨야 한다.

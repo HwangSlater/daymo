@@ -536,6 +536,11 @@ export function WarmTripDetail({
   const [mode, setMode] = useState<ViewMode>(() =>
     destinationMode(initialDestination),
   );
+  const detailScrollRef = useRef<ScrollView>(null);
+  const showMode = (nextMode: ViewMode) => {
+    setMode(nextMode);
+    detailScrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
   const [title, setTitle] = useState(tripName);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftStart, setDraftStart] = useState(currentStart);
@@ -765,6 +770,7 @@ export function WarmTripDetail({
           </Pressable>
         </View>
         <ScrollView
+          ref={detailScrollRef}
           style={{ backgroundColor: "transparent" }}
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}
@@ -784,21 +790,16 @@ export function WarmTripDetail({
             </Text>
             <Pressable
               onPress={() => setMemoPanel(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`여행 메모 ${tripNotes.length}개 보기`}
               style={[
                 styles.tripMemoButton,
                 { backgroundColor: memo.surface, borderColor: memo.border },
               ]}
             >
-              <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
-              <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
-              <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
-                {tripNotes[0]?.body || "메모를 남겨보세요"}
-              </Text>
-              <View style={styles.tripMemoBottom}>
-                <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
-                <Glyph name="chevronRight" size={14} color={memo.label} />
-              </View>
-              <View style={[styles.tripMemoFold, { backgroundColor: memo.fold }]} />
+              <View style={[styles.tripMemoDot, { backgroundColor: memo.label }]} />
+              <Text style={[styles.tripMemoButtonText, { color: memo.text }]}>메모 {tripNotes.length}</Text>
+              <Glyph name="chevronRight" size={14} color={memo.label} />
             </Pressable>
           </View>
           <Text
@@ -810,7 +811,7 @@ export function WarmTripDetail({
           <View
             style={[
               styles.modeSwitch,
-              appTheme && { backgroundColor: appTheme.surfaceAlt },
+              appTheme && { backgroundColor: appTheme.surface, borderColor: appTheme.border },
             ]}
           >
             {(
@@ -825,7 +826,7 @@ export function WarmTripDetail({
             ).map((item) => (
               <Pressable
                 key={item}
-                onPress={() => setMode(item)}
+                onPress={() => showMode(item)}
                 accessibilityRole="tab"
                 accessibilityLabel={`${item} 탭`}
                 accessibilityState={{ selected: mode === item }}
@@ -857,7 +858,7 @@ export function WarmTripDetail({
           {mode === "여행" && (
             <TripOverview
               key={initialDestination}
-              setMode={setMode}
+              setMode={showMode}
               schedule={schedule}
               setSchedule={setSchedule}
               places={places}
@@ -918,7 +919,7 @@ export function WarmTripDetail({
               setRecipes={setRecipes}
               openPreparationImport={() => {
                 setOpenCookingPicker(true);
-                setMode("준비");
+                showMode("준비");
               }}
             />
           )}
@@ -1110,7 +1111,7 @@ export function WarmTripDetail({
               region: nextRegion,
               note: nextNote,
             });
-            if (!hasKitchen && mode === "요리") setMode("여행");
+            if (!hasKitchen && mode === "요리") showMode("여행");
             setEditingTrip(false);
             setFeedback("여행 정보를 저장했어요");
           }}
@@ -3111,7 +3112,11 @@ function Preparation({
   const [cookingPicker, setCookingPicker] = useState(Boolean(openCookingPickerOnMount));
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [collapsedPackingTags, setCollapsedPackingTags] = useState<string[]>([]);
+  // 처음에는 분류와 남은 개수만 보여준다. 30개 항목을 한꺼번에 펼치면 사용자가
+  // 무엇부터 봐야 하는지 알기 어렵고 다른 분류가 화면 아래로 밀린다.
+  const [collapsedPackingTags, setCollapsedPackingTags] = useState<string[]>(() =>
+    Array.from(new Set(items.map((item) => packingTags(item)[0] || "태그 없음"))),
+  );
   useEffect(() => {
     if (openCookingPickerOnMount) {
       setCookingPicker(true);
@@ -6193,7 +6198,7 @@ function SectionLabel({
           {label}
         </Text>
         {count && (
-          <Text style={[styles.tabActionCount, theme && { color: theme.muted }]}>
+          <Text style={[styles.tabActionCount, theme && { color: theme.muted, backgroundColor: theme.surfaceAlt }]}>
             {count}
           </Text>
         )}
@@ -6731,7 +6736,7 @@ function TabActionHeader({
     <View style={styles.tabActionHeader}>
       <View style={styles.tabActionTitleRow}>
         <Text style={[styles.tabActionTitle, theme && { color: theme.text }]}>{label}</Text>
-        <Text style={[styles.tabActionCount, theme && { color: theme.muted }]}>{count}</Text>
+        <Text style={[styles.tabActionCount, theme && { color: theme.muted, backgroundColor: theme.surfaceAlt }]}>{count}</Text>
       </View>
       <Pressable
         onPress={onPress}
@@ -7751,80 +7756,36 @@ const styles = StyleSheet.create({
 
   detailTitleRow: {
     position: "relative",
+    minHeight: 40,
+    justifyContent: "center",
   },
-  detailTripTitle: { maxWidth: "68%" },
+  detailTripTitle: { maxWidth: "72%" },
   tripMemoButton: {
-    width: 102,
-    // 고정 높이는 글자 크기가 커지면 안쪽 줄을 자른다. 내용에 맞춰 늘어나게 둔다.
-    minHeight: 72,
-    borderRadius: 4,
+    minWidth: 82,
+    minHeight: 38,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E6D38C",
     backgroundColor: "#FFF3B8",
-    paddingHorizontal: 8,
-    paddingTop: 12,
-    paddingBottom: 8,
-    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
     position: "absolute",
     right: 0,
-    bottom: -12,
-    transform: [{ rotate: "-1.5deg" }],
+    top: 1,
     shadowColor: "#6E5B32",
     shadowOpacity: 0.14,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  tripMemoTape: {
-    position: "absolute",
-    width: 34,
-    height: 8,
-    top: -5,
-    left: 34,
-    backgroundColor: "rgba(238, 178, 160, .58)",
-    transform: [{ rotate: "2deg" }],
-  },
-  tripMemoLabel: {
-    color: "#A17F32",
-    fontSize: 12,
-    fontFamily: typo.label.family,
-    letterSpacing: 0.5,
-  },
-  tripMemoPreview: {
-    color: "#5F4B23",
-    fontSize: 11,
-    fontFamily: typo.caption.family,
-    marginTop: 2,
-  },
-  tripMemoBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(154, 121, 48, .2)",
-    paddingTop: 4,
-  },
+  tripMemoDot: { width: 6, height: 6, borderRadius: 999 },
   tripMemoButtonText: {
     color: "#806727",
     fontSize: 14,
     fontFamily: typo.label.family,
   },
-  tripMemoArrow: {
-    color: "#9A7930",
-    fontSize: 14,
-    fontFamily: typo.label.family,
-    lineHeight: 14,
-  },
-  tripMemoFold: {
-    position: "absolute",
-    right: -1,
-    bottom: -1,
-    width: 10,
-    height: 10,
-    backgroundColor: "#E8D681",
-    borderTopLeftRadius: 8,
-  },
-
-
   tripMemoList: {
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
@@ -7859,7 +7820,7 @@ const styles = StyleSheet.create({
   memoEmpty: { alignItems: "center", paddingVertical: 20 },
   memoEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
   memoEmptyHint: { fontSize: 11, marginTop: 4 },
-  travelTimelineCard: { padding: 12, marginBottom: 16, position: "relative" },
+  travelTimelineCard: { padding: 12, marginBottom: 22, position: "relative" },
   travelTimelineTape: {
     position: "absolute",
     top: -5,
@@ -7877,9 +7838,9 @@ const styles = StyleSheet.create({
   travelMapLinkCompact: { height: 23, marginTop: 4, paddingHorizontal: 6 },
   travelInfoList: {
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 18,
   },
-  transportGrid: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  transportGrid: { flexDirection: "row", gap: 8, marginBottom: 20 },
   transportCard: { flex: 1, minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
   transportCardRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
   transportCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -9540,23 +9501,23 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 11, marginTop: 6 },
   modeSwitch: {
     flexDirection: "row",
-    marginTop: 16,
-    marginBottom: 8,
-    padding: 0,
-    borderRadius: 0,
-    borderBottomWidth: 1,
+    marginTop: 18,
+    marginBottom: 12,
+    padding: 3,
+    borderRadius: 12,
+    borderWidth: 1,
     borderColor: "#DEDCD5",
   },
   mode: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 0,
+    minHeight: 40,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
   modeCurrent: {
-    borderRadius: 0,
-    borderBottomWidth: 2,
+    borderRadius: 9,
+    borderWidth: 1,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -9565,7 +9526,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 12,
     marginBottom: 8,
   },
   tabActionHeader: {
@@ -9578,7 +9539,14 @@ const styles = StyleSheet.create({
   },
   tabActionTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   tabActionTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
-  tabActionCount: { fontSize: 14, fontFamily: typo.data.family },
+  tabActionCount: {
+    fontSize: 12,
+    fontFamily: typo.data.family,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
   tabActionButton: {
     minHeight: 38,
     borderRadius: 8,
