@@ -98,6 +98,20 @@ export type TripPlanningData = {
 const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
   address.trim().split(/\s+/).filter(Boolean).slice(0, 2).join(" ") || fallback;
 
+const orderedScheduleItems = (items: ScheduleItem[], dayOptions: string[]) =>
+  [...items].sort((left, right) => {
+    const leftDay = left.date ? dayOptions.indexOf(left.date) : -1;
+    const rightDay = right.date ? dayOptions.indexOf(right.date) : -1;
+    const normalizedLeftDay = leftDay < 0 ? dayOptions.length : leftDay;
+    const normalizedRightDay = rightDay < 0 ? dayOptions.length : rightDay;
+    if (normalizedLeftDay !== normalizedRightDay) return normalizedLeftDay - normalizedRightDay;
+    const clockMinutes = (value: string) => {
+      const match = value.match(/(\d{1,2}):(\d{2})/);
+      return match ? Number(match[1]) * 60 + Number(match[2]) : 24 * 60;
+    };
+    return clockMinutes(left.time) - clockMinutes(right.time);
+  });
+
 const initialPlaces: PlaceItem[] = [
   {
     id: "place-js-hotel",
@@ -1223,6 +1237,20 @@ function TripOverview({
   const stayDraftChanged = JSON.stringify(stayDraft) !== stayDraftBaseline;
   const reservationDraftChanged = JSON.stringify(reservationDraft) !== reservationDraftBaseline;
   const transportDraftChanged = JSON.stringify(transportDraft) !== transportDraftBaseline;
+  const orderedSchedule = useMemo(
+    () => orderedScheduleItems(schedule, dayOptions),
+    [dayOptions, schedule],
+  );
+  const scheduleGroups = useMemo(() => {
+    const groups: { date: string; items: ScheduleItem[] }[] = [];
+    orderedSchedule.forEach((item) => {
+      const date = item.date ?? "날짜 미정";
+      const current = groups.at(-1);
+      if (current?.date === date) current.items.push(item);
+      else groups.push({ date, items: [item] });
+    });
+    return groups;
+  }, [orderedSchedule]);
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportRouteValid = Boolean(
     transportDeparture.trim() &&
@@ -1721,13 +1749,13 @@ function TripOverview({
         ]}
       >
         <View style={[styles.travelTimelineTape, theme && { backgroundColor: theme.primary }]} />
-        {schedule.slice(0, 3).map((item, index) => (
+        {orderedSchedule.slice(0, 3).map((item, index) => (
           <Moment
             key={`${item.time}-${index}`}
             {...item}
             last={index === Math.min(schedule.length, 3) - 1}
             compact
-            onPress={() => openScheduleEdit(item, index)}
+            onPress={() => openScheduleEdit(item, schedule.indexOf(item))}
           />
         ))}
         {schedule.length === 0 && (
@@ -2081,16 +2109,24 @@ function TripOverview({
           style={styles.fullScheduleList}
           showsVerticalScrollIndicator={false}
         >
-          {schedule.map((item, index) => (
-            <Moment
-              key={`full-${item.time}-${index}`}
-              {...item}
-              last={index === schedule.length - 1}
-              onPress={() => {
-                setFullSchedule(false);
-                openScheduleEdit(item, index);
-              }}
-            />
+          {scheduleGroups.map((group) => (
+            <View key={group.date} style={styles.scheduleDayGroup}>
+              <View style={[styles.scheduleDayHead, theme && { borderBottomColor: theme.border }]}>
+                <Text style={[styles.scheduleDayTitle, theme && { color: theme.text }]}>{group.date}</Text>
+                <Text style={[styles.scheduleDayCount, theme && { color: theme.muted }]}>{group.items.length}개 일정</Text>
+              </View>
+              {group.items.map((item, index) => (
+                <Moment
+                  key={`full-${item.time}-${schedule.indexOf(item)}`}
+                  {...item}
+                  last={index === group.items.length - 1}
+                  onPress={() => {
+                    setFullSchedule(false);
+                    openScheduleEdit(item, schedule.indexOf(item));
+                  }}
+                />
+              ))}
+            </View>
           ))}
         </ScrollView>
       </InfoPanel>
@@ -8511,6 +8547,18 @@ const styles = StyleSheet.create({
   moneyExportTitle: { fontSize: 13, fontFamily: typo.title.family },
   moneyExportHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
   fullScheduleList: { maxHeight: 520 },
+  scheduleDayGroup: { marginBottom: 18 },
+  scheduleDayHead: {
+    minHeight: 38,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E2E0DA",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  scheduleDayTitle: { fontSize: 14, fontFamily: typo.title.family },
+  scheduleDayCount: { fontSize: 11, fontFamily: typo.caption.family },
   planPlaceSummary: {
     borderRadius: 20,
     backgroundColor: "#E9E5FF",
