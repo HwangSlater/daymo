@@ -347,6 +347,7 @@ export function WarmAppShell({
             trip={homeTrip}
             trips={tripItems}
             todayKey={todayKey}
+            doneCount={done.length}
             relationship={activeGroupId === "ours" ? "연인" : "친구"}
             since={since}
           />
@@ -603,6 +604,7 @@ function NotebookHome({
   trip,
   trips,
   todayKey,
+  doneCount,
   relationship,
   since,
 }: {
@@ -612,10 +614,15 @@ function NotebookHome({
   trip: Trip | null;
   trips: Trip[];
   todayKey: string;
+  doneCount: number;
   relationship: "연인" | "친구";
   since: string;
 }) {
   const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
+  const homeStay = trip?.planning?.stay;
+  const homePlaces = trip?.planning?.places;
+  const restaurantCount = homePlaces?.filter((place) => place.category === "식당").length ?? 2;
+  const cafeCount = homePlaces?.filter((place) => place.category === "카페").length ?? 0;
   return (
     <ScrollView
       style={{ backgroundColor: "transparent" }}
@@ -640,7 +647,7 @@ function NotebookHome({
           </Text>
         </View>
       </View>
-      {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} open={open} />}
+      {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} doneCount={doneCount} open={open} />}
       {trip ? (
         <>
       <View style={s.scrapTitleRow}>
@@ -662,9 +669,9 @@ function NotebookHome({
         ]}
       >
         <View pointerEvents="none" style={[s.memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
-        <MemoRow theme={theme} color={theme.primary} text="숙소 예약 정보 확인" meta="오늘 · 공용" onPress={() => open("overview", trip)} />
-        <MemoRow theme={theme} color={theme.accent} text="아직 안 챙긴 준비물 2개" meta="하늘 1 · 여울 1" onPress={() => open("preparation", trip)} />
-        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta="식당 5 · 카페 3" onPress={() => open("places", trip)} last />
+        <MemoRow theme={theme} color={theme.primary} text="대표 숙소 확인" meta={homeStay?.name || "아직 등록하지 않았어요"} onPress={() => open("overview", trip)} />
+        <MemoRow theme={theme} color={theme.accent} text={`완료한 준비물 ${doneCount}개`} meta="목록 계속 확인하기" onPress={() => open("preparation", trip)} />
+        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta={`식당 ${restaurantCount} · 카페 ${cafeCount}`} onPress={() => open("places", trip)} last />
       </View>
       {trips.some((item) => item.end < todayKey) && (
         <View style={s.homeArchiveSection}>
@@ -745,11 +752,12 @@ function NotebookHome({
   );
 }
 
-function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
+function HomeTripCarousel({ trips, initialTrip, theme, todayKey, doneCount, open }: {
   trips: Trip[];
   initialTrip: Trip | null;
   theme: AppTheme;
   todayKey: string;
+  doneCount: number;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
   const ordered = useMemo(() => [...trips].sort((a, b) => a.start.localeCompare(b.start)), [trips]);
@@ -924,7 +932,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
             style={active ? { zIndex: 2 } : [StyleSheet.absoluteFill, { zIndex: 0, opacity: underneath ? 1 : 0 }]}
           >
             <PaperPeel progress={pageValue(position, !active && !underneath)} direction={Math.sign(direction) || 1} backColor={paper.backLeft} pageColor={theme.background} reduceMotion={reduceMotion}>
-              <HomeTripCard trip={item} theme={theme} todayKey={todayKey} open={(destination, trip) => {
+              <HomeTripCard trip={item} theme={theme} todayKey={todayKey} doneCount={doneCount} open={(destination, trip) => {
                 if (active && !dragging.current && !busy.current) open(destination, trip);
               }} />
             </PaperPeel>
@@ -964,13 +972,17 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   );
 }
 
-function HomeTripCard({ trip, theme, todayKey, open }: {
+function HomeTripCard({ trip, theme, todayKey, doneCount, open }: {
   trip: Trip;
   theme: AppTheme;
   todayKey: string;
+  doneCount: number;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
   const paper = paperCard(theme.dark);
+  const stay = trip.planning?.stay;
+  const scheduleCount = trip.planning?.schedule.length ?? 4;
+  const placeCount = trip.planning?.places.length ?? 4;
   return (
       <View style={s.paperTripStack}>
         <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />
@@ -1082,7 +1094,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[s.paperStayLabel, { color: domain("stay", theme.dark).solid }]}>숙소</Text>
-              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>달빛한옥</Text>
+              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>{stay?.name || "숙소 미등록"}</Text>
             </View>
             <View
               style={[
@@ -1094,16 +1106,16 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
               ]}
             >
               <Text style={[s.paperStayTimeLabel, { color: paper.muted }]}>체크인</Text>
-              <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>15:00</Text>
+              <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>{stay?.checkin || "미정"}</Text>
             </View>
           </View>
         </View>
         </Pressable>
         <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
           {[
-            { label: "여행 일정", meta: "3개", color: theme.primary, destination: "overview" as TripDetailDestination },
-            { label: "저장 장소", meta: "8곳", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
-            { label: "준비물", meta: "2 / 6", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
+            { label: "여행 일정", meta: `${scheduleCount}개`, color: theme.primary, destination: "overview" as TripDetailDestination },
+            { label: "저장 장소", meta: `${placeCount}곳`, color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
+            { label: "준비물", meta: `${doneCount}개 완료`, color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
           ].map((item, index) => (
             <Pressable
               key={item.label}
