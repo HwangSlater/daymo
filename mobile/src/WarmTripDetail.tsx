@@ -636,6 +636,9 @@ export function WarmTripDetail({
     ],
   );
   useEffect(() => {
+    // 대표 숙소는 별도 편집 화면과 장소 탭에서도 바뀐다. 연결 일정은 이 한곳에서
+    // 맞춰야 두 화면의 갱신 순서와 무관하게 같은 결과가 된다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSchedule((current) => {
       const linkedIndex = current.findIndex((item) =>
         item.stayId === "primary-stay" || (
@@ -7385,12 +7388,13 @@ function DetailSheet({
 }) {
   const theme = useContext(DetailThemeContext);
   const [confirmingDestructive, setConfirmingDestructive] = useState(false);
-  useEffect(() => {
-    if (!visible) setConfirmingDestructive(false);
-  }, [visible]);
+  const closeAndReset = () => {
+    setConfirmingDestructive(false);
+    onClose();
+  };
   const requestClose = () => {
     if (!hasUnsavedChanges) {
-      onClose();
+      closeAndReset();
       return;
     }
     Alert.alert(
@@ -7398,7 +7402,7 @@ function DetailSheet({
       "변경한 내용은 저장되지 않아요.",
       [
         { text: "취소", style: "cancel" },
-        { text: "저장 안 함", style: "destructive", onPress: onClose },
+        { text: "저장 안 함", style: "destructive", onPress: closeAndReset },
       ],
     );
   };
@@ -7518,7 +7522,10 @@ function DetailSheet({
             </View>
           </ScrollView>
           <Pressable
-            onPress={onSubmit}
+            onPress={() => {
+              setConfirmingDestructive(false);
+              onSubmit();
+            }}
             disabled={submitDisabled}
             accessibilityRole="button"
             accessibilityLabel={submit}
