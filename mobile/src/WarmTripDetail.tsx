@@ -797,9 +797,16 @@ export function WarmTripDetail({
                 { backgroundColor: memo.surface, borderColor: memo.border },
               ]}
             >
-              <View style={[styles.tripMemoDot, { backgroundColor: memo.label }]} />
-              <Text style={[styles.tripMemoButtonText, { color: memo.text }]}>메모 {tripNotes.length}</Text>
-              <Glyph name="chevronRight" size={14} color={memo.label} />
+              <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
+              <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
+              <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
+                {tripNotes[0]?.body || "메모를 남겨보세요"}
+              </Text>
+              <View style={styles.tripMemoBottom}>
+                <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
+                <Glyph name="chevronRight" size={14} color={memo.label} />
+              </View>
+              <View style={[styles.tripMemoFold, { backgroundColor: memo.fold }]} />
             </Pressable>
           </View>
           <Text
@@ -7756,35 +7763,70 @@ const styles = StyleSheet.create({
 
   detailTitleRow: {
     position: "relative",
-    minHeight: 40,
-    justifyContent: "center",
   },
-  detailTripTitle: { maxWidth: "72%" },
+  detailTripTitle: { maxWidth: "68%" },
   tripMemoButton: {
-    minWidth: 82,
-    minHeight: 38,
-    borderRadius: 10,
+    width: 102,
+    minHeight: 72,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: "#E6D38C",
     backgroundColor: "#FFF3B8",
-    paddingHorizontal: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
+    justifyContent: "space-between",
     position: "absolute",
     right: 0,
-    top: 1,
+    bottom: -12,
+    transform: [{ rotate: "-1.5deg" }],
     shadowColor: "#6E5B32",
     shadowOpacity: 0.14,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  tripMemoDot: { width: 6, height: 6, borderRadius: 999 },
+  tripMemoTape: {
+    position: "absolute",
+    width: 34,
+    height: 8,
+    top: -5,
+    left: 34,
+    backgroundColor: "rgba(238, 178, 160, .58)",
+    transform: [{ rotate: "2deg" }],
+  },
+  tripMemoLabel: {
+    color: "#A17F32",
+    fontSize: 12,
+    fontFamily: typo.label.family,
+    letterSpacing: 0.5,
+  },
+  tripMemoPreview: {
+    color: "#5F4B23",
+    fontSize: 11,
+    fontFamily: typo.caption.family,
+    marginTop: 2,
+  },
+  tripMemoBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(154, 121, 48, .2)",
+    paddingTop: 4,
+  },
   tripMemoButtonText: {
     color: "#806727",
     fontSize: 14,
     fontFamily: typo.label.family,
+  },
+  tripMemoFold: {
+    position: "absolute",
+    right: -1,
+    bottom: -1,
+    width: 10,
+    height: 10,
+    backgroundColor: "#E8D681",
+    borderTopLeftRadius: 8,
   },
   tripMemoList: {
     borderRadius: 12,
