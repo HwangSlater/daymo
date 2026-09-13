@@ -289,12 +289,6 @@ export function WarmAppShell({
     themeId,
     appearance === "system" ? systemScheme === "dark" : appearance === "dark",
   );
-  const toggle = (item: string) =>
-    setDone((items) =>
-      items.includes(item)
-        ? items.filter((value) => value !== item)
-        : [...items, item],
-    );
   const openTrip = (
     destination: TripDetailDestination = "overview",
     trip: Trip = tripItems[0] ?? trips[0],
@@ -311,7 +305,6 @@ export function WarmAppShell({
       <WarmTripDetail
         key={tripDestination}
         done={done}
-        toggle={toggle}
         initialDestination={tripDestination}
         tripName={selectedTrip.name}
         tripDate={selectedTrip.date}
@@ -1184,103 +1177,6 @@ function MemoRow({
   );
 }
 
-function HomeMetric({
-  value,
-  label,
-  color,
-}: {
-  value: string;
-  label: string;
-  color: string;
-}) {
-  return (
-    <View style={s.homeMetric}>
-      <Text style={[s.homeMetricValue, { color }]}>{value}</Text>
-      <Text style={s.homeMetricLabel}>{label}</Text>
-    </View>
-  );
-}
-function HomeQuick({
-  icon,
-  label,
-  tint,
-  color,
-  onPress,
-  theme,
-  embedded = false,
-  layout,
-}: {
-  icon: string;
-  label: string;
-  tint: string;
-  color: string;
-  onPress: () => void;
-  theme: AppTheme;
-  embedded?: boolean;
-  layout?: "large" | "small" | "rail";
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={[
-        s.homeQuick,
-        embedded && s.homeQuickEmbedded,
-        layout === "large" && s.homeQuickLarge,
-        layout === "small" && s.homeQuickSmall,
-        layout === "rail" && s.homeQuickRail,
-        {
-          backgroundColor: embedded ? tint : theme.surface,
-          borderColor: embedded ? `${color}${theme.dark ? "65" : "3D"}` : theme.border,
-        },
-      ]}
-    >
-      <View
-        style={[
-          s.homeQuickIcon,
-          { backgroundColor: tint, borderColor: embedded ? color : "transparent" },
-          embedded && s.homeQuickIconEmbedded,
-          layout === "large" && s.homeQuickIconLarge,
-          layout === "rail" && s.homeQuickIconRail,
-        ]}
-      >
-        {embedded ? (
-          <Svg width={18} height={18} viewBox="0 0 22 22">
-            <Path
-              d={
-                label === "여행 일정"
-                  ? "M7 4v3M15 4v3M4.5 9.5h13M6 6.5h10A1.5 1.5 0 0 1 17.5 8v9a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 17V8A1.5 1.5 0 0 1 6 6.5Z"
-                  : label === "저장 장소"
-                    ? "M11 19s6-5.3 6-10A6 6 0 0 0 5 9c0 4.7 6 10 6 10Zm0-7.6a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z"
-                    : "m5 11 3.7 3.7L17 6.5"
-              }
-              fill="none"
-              stroke={color}
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        ) : (
-          <Text style={[s.homeQuickIconText, { color }]}>{icon}</Text>
-        )}
-      </View>
-      <Text
-        style={[
-          s.homeQuickLabel,
-          embedded && s.homeQuickLabelEmbedded,
-          layout === "large" && s.homeQuickLabelLarge,
-          layout === "rail" && s.homeQuickLabelRail,
-          { color: theme.text },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 type TripView = "목록" | "지도" | "캘린더";
 
 function TripsExplorer({
@@ -1338,9 +1234,6 @@ function TripsExplorer({
       : filter === "추억"
         ? items.filter((trip) => trip.end < initialDateKey)
         : items;
-  const visibleTrips = selectedRegion
-    ? filtered.filter((trip) => trip.region === selectedRegion)
-    : filtered;
   const mapTrips = selectedRegion
     ? items.filter((trip) => trip.region === selectedRegion)
     : items;
@@ -1915,6 +1808,8 @@ function KoreaTripMap({
           setPinching(false);
         },
       }),
+    // 제스처 도중 핸들러가 교체되면 현재 드래그가 끊기므로 마운트 동안 유지한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
   const webWheel =
@@ -1951,6 +1846,8 @@ function KoreaTripMap({
   // 시군구 경로는 668개라 두 손가락으로 벌리는 동안에는 내려둔다.
   const detailed = zoom >= 2 && !pinching;
   const cityPath: string | null =
+    // 확대 전에는 큰 시군구 경로를 번들 평가 대상에서 늦춘다.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     detailed ? require("./koreaCityPath").koreaCityPath : null;
   return (
     <View style={s.mapOnly}>
@@ -2587,16 +2484,12 @@ function Search({
       tags: ["요리", "메모"],
     },
   ];
-  const searchableResults = useMemo(
-    () =>
-      allResults.filter(
-        (item) =>
-          trips.some((trip) => trip.name === item.trip) &&
-          `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`
-            .toLocaleLowerCase("ko-KR")
-            .includes(query.trim().toLocaleLowerCase("ko-KR")),
-      ),
-    [query, trips],
+  const searchableResults = allResults.filter(
+    (item) =>
+      trips.some((trip) => trip.name === item.trip) &&
+      `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`
+        .toLocaleLowerCase("ko-KR")
+        .includes(query.trim().toLocaleLowerCase("ko-KR")),
   );
   const results = searchableResults.filter(
     (item) => category === "전체" || item.type === category,

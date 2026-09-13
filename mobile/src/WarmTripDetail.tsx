@@ -24,6 +24,7 @@ import {
   BackHandler,
   KeyboardAvoidingView,
   Keyboard,
+  Image,
   Linking,
   Modal,
   Platform,
@@ -34,6 +35,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system/legacy";
+import * as ImagePicker from "expo-image-picker";
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
@@ -106,10 +109,19 @@ export type TripPlanningData = {
   reservation?: ReservationInfo | null;
   transportations?: Transportation[];
   memories?: TripMemoryData;
+  packingItems?: PackingItem[];
+  packingDone?: string[];
+  recipes?: Recipe[];
+  cookingReadyIngredientIds?: string[];
+  expenses?: Expense[];
+  budget?: number;
+  tripNotes?: TripNote[];
+  hasKitchen?: boolean;
 };
 
-export type MemoryPhoto = { id: string; color: string; date: string; caption: string };
+export type MemoryPhoto = { id: string; color: string; date: string; caption: string; uri?: string };
 export type TravelDiary = { id: string; title: string; body: string; date: string };
+export type TripNote = { id: string; author: string; body: string };
 export type TripMemoryData = {
   photos: MemoryPhoto[];
   diaries: TravelDiary[];
@@ -211,7 +223,6 @@ export type Transportation = {
 
 type Props = {
   done: string[];
-  toggle: (item: string) => void;
   onClose: () => void;
   initialDestination?: TripDetailDestination;
   appTheme?: AppTheme;
@@ -533,7 +544,6 @@ const packing: PackingItem[] = [
 
 export function WarmTripDetail({
   done,
-  toggle,
   onClose,
   initialDestination = "overview",
   appTheme,
@@ -585,14 +595,24 @@ export function WarmTripDetail({
   const [memoDraft, setMemoDraft] = useState("");
   const [memoEditorOpen, setMemoEditorOpen] = useState(false);
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
-  const [tripNotes, setTripNotes] = useState([
+  const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? [
     { id: "memo-meal", author: "여울 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
     { id: "memo-booking", author: "하늘 · 어제 22:15", body: "소나기식당 수요일 19:00 예약 확인" },
   ]);
-  const [hasKitchen, setHasKitchen] = useState(true);
+  const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
-  const [packingItems, setPackingItems] = useState(packing);
-  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
+  const [packingItems, setPackingItems] = useState<PackingItem[]>(initialPlanning?.packingItems ?? packing);
+  const [packingDone, setPackingDone] = useState<string[]>(initialPlanning?.packingDone ?? done);
+  const togglePacking = (item: string) =>
+    setPackingDone((items) => items.includes(item) ? items.filter((value) => value !== item) : [...items, item]);
+  const [recipes, setRecipes] = useState<Recipe[]>(initialPlanning?.recipes ?? initialRecipes);
+  const [cookingReadyIngredientIds, setCookingReadyIngredientIds] = useState<string[]>(
+    initialPlanning?.cookingReadyIngredientIds ?? [],
+  );
+  const [expenses, setExpenses] = useState<Expense[]>(
+    initialPlanning?.expenses ?? sampleExpenses(tripDayOptions),
+  );
+  const [budget, setBudget] = useState(initialPlanning?.budget ?? 500000);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
     initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate),
   );
@@ -708,6 +728,8 @@ export function WarmTripDetail({
       if (JSON.stringify(saved) === JSON.stringify(linked)) return current;
       return current.map((item, index) => index === linkedIndex ? linked : item);
     });
+  // 날짜 배열은 현재 여행 기간에서 함께 파생되며 문자열 키가 실제 변경을 대표한다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, registeredStay, tripDateOptions.join("|"), tripDayOptions.join("|")]);
   const onSavePlanningRef = useRef(onSavePlanning);
   useEffect(() => {
@@ -721,12 +743,35 @@ export function WarmTripDetail({
       reservations,
       transportations,
       memories,
+      packingItems,
+      packingDone,
+      recipes,
+      cookingReadyIngredientIds,
+      expenses,
+      budget,
+      tripNotes,
+      hasKitchen,
     });
-  }, [memories, places, registeredStay, reservations, schedule, transportations]);
+  }, [budget, cookingReadyIngredientIds, expenses, hasKitchen, memories, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
-    onSavePlanning?.({ schedule, stay: registeredStay, places, reservations, transportations, memories });
+    onSavePlanning?.({
+      schedule,
+      stay: registeredStay,
+      places,
+      reservations,
+      transportations,
+      memories,
+      packingItems,
+      packingDone,
+      recipes,
+      cookingReadyIngredientIds,
+      expenses,
+      budget,
+      tripNotes,
+      hasKitchen,
+    });
     onClose();
-  }, [memories, onClose, onSavePlanning, places, registeredStay, reservations, schedule, transportations]);
+  }, [budget, cookingReadyIngredientIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -756,8 +801,6 @@ export function WarmTripDetail({
     && validDateKey(draftEnd)
     && draftStart <= draftEnd,
   );
-  const draftDates = buildTripDates(draftStart, draftEnd);
-
   return (
     <DetailThemeContext.Provider value={appTheme}>
       <DetailFeedbackContext.Provider value={setFeedback}>
@@ -948,8 +991,8 @@ export function WarmTripDetail({
           )}
           {mode === "준비" && (
             <Preparation
-              done={done}
-              toggle={toggle}
+              done={packingDone}
+              toggle={togglePacking}
               items={packingItems}
               setItems={setPackingItems}
               recipes={recipes}
@@ -961,6 +1004,8 @@ export function WarmTripDetail({
             <Cooking
               recipes={recipes}
               setRecipes={setRecipes}
+              readyIngredientIds={cookingReadyIngredientIds}
+              setReadyIngredientIds={setCookingReadyIngredientIds}
               openPreparationImport={() => {
                 setOpenCookingPicker(true);
                 showMode("준비");
@@ -968,7 +1013,15 @@ export function WarmTripDetail({
             />
           )}
           {mode === "비용" && (
-            <Money tripName={title} dayOptions={tripDayOptions} todayDay={todayTripDay} />
+            <Money
+              tripName={title}
+              dayOptions={tripDayOptions}
+              todayDay={todayTripDay}
+              expenses={expenses}
+              setExpenses={setExpenses}
+              budget={budget}
+              setBudget={setBudget}
+            />
           )}
           {mode === "기록" && (
             <Memories
@@ -2404,12 +2457,15 @@ function Places({
     mapUrl,
     tagText,
   ) !== placeDraftBaseline;
-  const allTags = Array.from(new Set(places.flatMap((place) => place.tags)));
+  const allTags = useMemo(
+    () => Array.from(new Set(places.flatMap((place) => place.tags))),
+    [places],
+  );
   useEffect(() => {
     // 목록 교체로 사라진 태그가 필터에 남지 않게 한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tagFilter && !allTags.includes(tagFilter)) setTagFilter(null);
-  }, [places, tagFilter]);
+  }, [allTags, tagFilter]);
   const statusPlaces = filter === "전체"
     ? places
     : filter === "숙소"
@@ -3208,7 +3264,7 @@ function Preparation({
       setCookingPicker(true);
       onCookingPickerOpened?.();
     }
-  }, [openCookingPickerOnMount]);
+  }, [onCookingPickerOpened, openCookingPickerOnMount]);
   const completedCount = items.filter((item) => done.includes(item.id)).length;
   const selectedCookingUniqueCount = new Set(
     recipes.flatMap((recipe) => recipe.ingredients)
@@ -3229,17 +3285,20 @@ function Preparation({
     return matchesFilter && matchesOwner && matchesTag;
   });
   const ownerSections: PackingItem["owner"][] = ["나", "동행", "함께", "미정"];
-  const managementTags = [
-    "전체 태그",
-    ...Array.from(new Set(items.flatMap((item) => packingTags(item)))),
-  ];
+  const managementTags = useMemo(
+    () => [
+      "전체 태그",
+      ...Array.from(new Set(items.flatMap((item) => packingTags(item)))),
+    ],
+    [items],
+  );
   useEffect(() => {
     if (tagFilter !== "전체 태그" && !managementTags.includes(tagFilter)) {
       // 목록 교체로 사라진 태그를 계속 선택한 상태로 두지 않는다.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTagFilter("전체 태그");
     }
-  }, [items, tagFilter]);
+  }, [managementTags, tagFilter]);
   const draftPackingTags = tagText
     .split(/[,#\n]/)
     .map((tag) => tag.trim())
@@ -4943,10 +5002,14 @@ const initialRecipes: Recipe[] = [
 function Cooking({
   recipes,
   setRecipes,
+  readyIngredientIds,
+  setReadyIngredientIds,
   openPreparationImport,
 }: {
   recipes: Recipe[];
   setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
+  readyIngredientIds: string[];
+  setReadyIngredientIds: React.Dispatch<React.SetStateAction<string[]>>;
   openPreparationImport: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -4971,7 +5034,6 @@ function Cooking({
   const [recipeName, setRecipeName] = useState("");
   const [recipeNote, setRecipeNote] = useState("");
   const [recipeUrl, setRecipeUrl] = useState("");
-  const [readyIngredientIds, setReadyIngredientIds] = useState<string[]>([]);
   const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>(() =>
     Array.from(new Set((recipes.find((recipe) => recipe.id === "mille") ?? recipes[0])?.ingredients.map((item) => item.group) ?? [])),
   );
@@ -6010,6 +6072,7 @@ function Memories({
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoSelected, setPhotoSelected] = useState(false);
   const [photoColor, setPhotoColor] = useState("#E7B4A6");
+  const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [photoDate, setPhotoDate] = useState("1일차");
   const [photoCaption, setPhotoCaption] = useState("");
   const [diaryWriting, setDiaryWriting] = useState(false);
@@ -6024,6 +6087,7 @@ function Memories({
     setEditingPhotoId(null);
     setPhotoSelected(false);
     setPhotoColor(photoPalette[photos.length % photoPalette.length]);
+    setPhotoUri(undefined);
     setPhotoDate("1일차");
     setPhotoCaption("");
     setPhotoEditing(true);
@@ -6032,16 +6096,66 @@ function Memories({
     setEditingPhotoId(photo.id);
     setPhotoSelected(true);
     setPhotoColor(photo.color);
+    setPhotoUri(photo.uri);
     setPhotoDate(photo.date);
     setPhotoCaption(photo.caption);
     setPhotoEditing(true);
   };
-  const savePhoto = () => {
+  const choosePhoto = async () => {
+    if (Platform.OS !== "web") {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        notify("사진을 추가하려면 사진 접근을 허용해 주세요");
+        return;
+      }
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.85,
+        base64: Platform.OS === "web",
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const uri = Platform.OS === "web" && asset.base64
+        ? `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`
+        : asset.uri;
+      setPhotoUri(uri);
+      setPhotoSelected(true);
+    } catch {
+      notify("사진을 불러오지 못했어요");
+    }
+  };
+  const copyPhotoIntoApp = async (uri: string) => {
+    if (Platform.OS === "web" || uri.startsWith("data:") || uri.startsWith(FileSystem.documentDirectory ?? "__none__")) return uri;
+    if (!FileSystem.documentDirectory) return uri;
+    const directory = `${FileSystem.documentDirectory}trip-photos/`;
+    await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+    const rawExtension = uri.split("?")[0].match(/\.([a-zA-Z0-9]+)$/)?.[1]?.toLowerCase();
+    const extension = rawExtension && rawExtension.length <= 5 ? rawExtension : "jpg";
+    const target = `${directory}photo-${Date.now()}.${extension}`;
+    await FileSystem.copyAsync({ from: uri, to: target });
+    return target;
+  };
+  const removeStoredPhoto = (uri?: string) => {
+    if (!uri || !FileSystem.documentDirectory || !uri.startsWith(FileSystem.documentDirectory)) return;
+    FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+  };
+  const savePhoto = async () => {
     if (!photoSelected) return;
-    const next = { id: editingPhotoId ?? `photo-${Date.now()}`, color: photoColor, date: photoDate.trim() || "날짜 미정", caption: photoCaption.trim() };
+    const previous = photos.find((photo) => photo.id === editingPhotoId);
+    let savedUri = photoUri;
+    try {
+      if (photoUri && photoUri !== previous?.uri) savedUri = await copyPhotoIntoApp(photoUri);
+    } catch {
+      notify("사진을 저장하지 못했어요. 다시 선택해 주세요");
+      return;
+    }
+    const next = { id: editingPhotoId ?? `photo-${Date.now()}`, color: photoColor, date: photoDate.trim() || "날짜 미정", caption: photoCaption.trim(), uri: savedUri };
     setPhotos((current) => editingPhotoId
       ? current.map((photo) => photo.id === editingPhotoId ? next : photo)
       : [next, ...current]);
+    if (previous?.uri && previous.uri !== savedUri) removeStoredPhoto(previous.uri);
     setPhotoEditing(false);
     notify(editingPhotoId ? "사진 정보를 수정했어요" : "사진을 기록에 추가했어요");
   };
@@ -6049,6 +6163,7 @@ function Memories({
     const target = photos.find((photo) => photo.id === editingPhotoId);
     if (!target) return;
     setPhotos((current) => current.filter((photo) => photo.id !== target.id));
+    removeStoredPhoto(target.uri);
     setPhotoEditing(false);
     notify("사진을 삭제했어요");
   };
@@ -6105,6 +6220,7 @@ function Memories({
             style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
           >
             <View style={[styles.memoryTilePhoto, { backgroundColor: photo.color }]}>
+              {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
               <View style={styles.memoryTileGlow} />
             </View>
             <View style={styles.memoryTileCaption}>
@@ -6167,7 +6283,9 @@ function Memories({
       >
         <View style={styles.keepsakeStrip}>
           {photos.slice(0, 3).map((photo) => (
-            <View key={`${photo.id}-strip`} style={[styles.keepsakeThumb, { backgroundColor: photo.color }]} />
+            <View key={`${photo.id}-strip`} style={[styles.keepsakeThumb, { backgroundColor: photo.color }]}>
+              {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+            </View>
           ))}
         </View>
         <View style={styles.keepsakeCopy}>
@@ -6196,7 +6314,9 @@ function Memories({
         />
         <View style={styles.cardMiniPreview}>
           {photos.slice(0, 3).map((photo) => (
-            <View key={`${photo.id}-preview`} style={[styles.cardMiniPhoto, { backgroundColor: photo.color }]} />
+            <View key={`${photo.id}-preview`} style={[styles.cardMiniPhoto, { backgroundColor: photo.color }]}>
+              {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+            </View>
           ))}
         </View>
         <DetailField label="카드 제목 · 선택 사항" value={cardTitle} onChangeText={setCardTitle} placeholder="예: 우리의 서울 주말" />
@@ -6217,15 +6337,12 @@ function Memories({
         onSubmit={savePhoto}
       >
         <Pressable
-          onPress={() => {
-            const nextIndex = (photoPalette.indexOf(photoColor) + 1) % photoPalette.length;
-            setPhotoColor(photoPalette[nextIndex]);
-            setPhotoSelected(true);
-          }}
+          onPress={choosePhoto}
           accessibilityRole="button"
           accessibilityLabel={photoSelected ? "사진 다시 선택" : "기기에서 사진 선택"}
           style={[styles.photoPickerPreview, { backgroundColor: photoSelected ? photoColor : theme?.surfaceAlt ?? "#F2EFEA", borderColor: theme?.border ?? "#E5E1DC" }]}
         >
+          {photoUri && <Image source={{ uri: photoUri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
           <View style={[styles.photoPickerMark, theme && { backgroundColor: theme.surface }]}>
             <Text style={[styles.photoPickerMarkText, theme && { color: theme.primary }]}>{photoSelected ? "사진 다시 선택" : "기기에서 사진 선택"}</Text>
           </View>
@@ -6319,18 +6436,24 @@ function Money({
   tripName,
   dayOptions,
   todayDay,
+  expenses,
+  setExpenses,
+  budget,
+  setBudget,
 }: {
   tripName: string;
   dayOptions: string[];
   /** 여행 날짜 가운데 오늘. 여행 기간이 아니면 빈 문자열. */
   todayDay: string;
+  expenses: Expense[];
+  setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
+  budget: number;
+  setBudget: React.Dispatch<React.SetStateAction<number>>;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
-  const [expenses, setExpenses] = useState<Expense[]>(() => sampleExpenses(dayOptions));
   const [dayFilter, setDayFilter] = useState("전체");
   const [categoryFilter, setCategoryFilter] = useState<"전체" | ExpenseCategory>("전체");
-  const [budget, setBudget] = useState(500000);
   const [budgetSheetOpen, setBudgetSheetOpen] = useState(false);
   const [draftBudget, setDraftBudget] = useState("500,000");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -6360,7 +6483,7 @@ function Money({
     setDayFilter("전체");
     setDraftDay(dayOptions[0] ?? "");
     previousDays.current = dayOptions;
-  }, [dayOptions, dayOptionsKey]);
+  }, [dayOptions, dayOptionsKey, setExpenses]);
 
   // 목록은 늘 여행 날짜 차례로 본다. 넣은 차례로 두면 나중에 끼워 넣은 지출이
   // 엉뚱한 자리에 남는다.
@@ -8151,7 +8274,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   keepsakeStrip: { width: 82, height: 52, flexDirection: "row", gap: 2, marginRight: 10 },
-  keepsakeThumb: { flex: 1, borderRadius: 5 },
+  keepsakeThumb: { flex: 1, borderRadius: 5, overflow: "hidden" },
   keepsakeCompactTitle: { fontSize: 13, fontFamily: typo.title.family, marginTop: 2 },
   keepsakeCompactAction: { fontSize: 11, fontFamily: typo.label.family, marginTop: 3 },
   diaryCard: {
@@ -8193,9 +8316,10 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 16,
   },
-  cardMiniPhoto: { flex: 1, borderRadius: 8 },
+  cardMiniPhoto: { flex: 1, borderRadius: 8, overflow: "hidden" },
   memoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   memoryTilePhoto: { flex: 1, borderRadius: 4, overflow: "hidden" },
+  memoryPhotoImage: { position: "absolute", inset: 0, width: "100%", height: "100%" },
   memoryTileGlow: {
     width: "70%",
     height: "120%",
@@ -9830,6 +9954,7 @@ const styles = StyleSheet.create({
   photoPickerPreview: {
     height: 176,
     borderRadius: 16,
+    overflow: "hidden",
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",

@@ -7,16 +7,6 @@
     "icon": "./assets/daymo-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/daymo-splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F7F5F0",
-      "dark": {
-        "image": "./assets/daymo-splash-dark.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#0D111A"
-      }
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -55,6 +45,12 @@
         }
       ],
       "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "여행 사진을 기록에 추가하려면 사진 접근 권한이 필요합니다."
+        }
+      ],
       "@react-native-community/datetimepicker"
     ]
   }
