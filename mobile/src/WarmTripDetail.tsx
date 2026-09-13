@@ -1180,6 +1180,7 @@ function TripOverview({
   const [newPlanTitle, setNewPlanTitle] = useState("");
   const [planPlace, setPlanPlace] = useState("");
   const [planMapUrl, setPlanMapUrl] = useState("");
+  const [selectedPlanPlaceId, setSelectedPlanPlaceId] = useState<string | null>(null);
   const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
   const [transportOwner, setTransportOwner] = useState<Transportation["owner"]>("하늘");
@@ -1234,9 +1235,10 @@ function TripOverview({
     title: string,
     place: string,
     mapUrl: string,
-  ) => JSON.stringify([day, type, time, title, place, mapUrl]);
+    placeId: string | null,
+  ) => JSON.stringify([day, type, time, title, place, mapUrl, placeId]);
   const [scheduleDraftBaseline, setScheduleDraftBaseline] = useState(
-    scheduleDraftKey(defaultPlanDay, "장소", "11:00", "", "", ""),
+    scheduleDraftKey(defaultPlanDay, "장소", "11:00", "", "", "", null),
   );
   const [stayDraftBaseline, setStayDraftBaseline] = useState(JSON.stringify(registeredStay));
   const scheduleDraftChanged = scheduleDraftKey(
@@ -1246,6 +1248,7 @@ function TripOverview({
     newPlanTitle,
     planPlace,
     planMapUrl,
+    selectedPlanPlaceId,
   ) !== scheduleDraftBaseline;
   const stayDraftChanged = JSON.stringify(stayDraft) !== stayDraftBaseline;
   const reservationDraftChanged = JSON.stringify(reservationDraft) !== reservationDraftBaseline;
@@ -1304,27 +1307,30 @@ function TripOverview({
   const addSchedule = () => {
     if (!newPlanTitle.trim()) return;
     const wasEditing = editingScheduleIndex !== null;
-    const linkedPlaceId = editingScheduleIndex === null
-      ? undefined
-      : schedule[editingScheduleIndex]?.placeId;
     const linkedReservationId = editingScheduleIndex === null
       ? undefined
       : schedule[editingScheduleIndex]?.reservationId;
-    const next = {
+    const next: ScheduleItem = {
         time: `${weekdayOf(planDay)} · ${planTime || "시간 미정"}`,
         date: planDay,
         title: newPlanTitle.trim(),
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
         mapUrl: planMapUrl.trim(),
-        placeId: linkedPlaceId,
+        placeId: selectedPlanPlaceId ?? undefined,
         reservationId: linkedReservationId,
       };
-    setSchedule((current) => editingScheduleIndex === null
-      ? [...current, next]
-      : current.map((item, index) => index === editingScheduleIndex ? next : item));
+    const nextSchedule = editingScheduleIndex === null
+      ? [...schedule, next]
+      : schedule.map((item, index) => index === editingScheduleIndex ? next : item);
+    setSchedule(nextSchedule);
+    setPlaces((current) => current.map((place) => ({
+      ...place,
+      status: nextSchedule.some((item) => item.placeId === place.id) ? "일정" : place.status,
+    })));
     setNewPlanTitle("");
     setPlanPlace("");
     setPlanMapUrl("");
+    setSelectedPlanPlaceId(null);
     setEditingScheduleIndex(null);
     setSheet(null);
     notify(wasEditing ? "일정을 수정했어요" : "일정을 추가했어요");
@@ -1337,11 +1343,13 @@ function TripOverview({
       "",
       "",
       "",
+      null,
     ));
     setEditingScheduleIndex(null);
     setNewPlanTitle("");
     setPlanPlace("");
     setPlanMapUrl("");
+    setSelectedPlanPlaceId(null);
     setPlanDay(defaultPlanDay);
     setPlanType("장소");
     setPlanTime("11:00");
@@ -1374,6 +1382,7 @@ function TripOverview({
       item.title,
       nextPlace,
       item.mapUrl,
+      item.placeId ?? null,
     ));
     setEditingScheduleIndex(index);
     setPlanDay(nextDay);
@@ -1382,8 +1391,17 @@ function TripOverview({
     setNewPlanTitle(item.title);
     setPlanPlace(nextPlace);
     setPlanMapUrl(item.mapUrl);
+    setSelectedPlanPlaceId(item.placeId ?? null);
     setScheduleDetailsOpen(Boolean(nextPlace || item.mapUrl));
     setSheet("schedule");
+  };
+  const chooseSavedPlace = (place: PlaceItem) => {
+    setSelectedPlanPlaceId(place.id);
+    setNewPlanTitle(place.name);
+    setPlanPlace(place.address || place.area);
+    setPlanMapUrl(place.mapUrl);
+    setPlanType(place.category === "식당" || place.category === "카페" ? "식사" : "장소");
+    setScheduleDetailsOpen(Boolean(place.address || place.area || place.mapUrl));
   };
   const deleteSchedule = () => {
     if (editingScheduleIndex === null) return;
@@ -1910,6 +1928,48 @@ function TripOverview({
             </Text>
           </View>
         </View>
+        {places.length > 0 && (
+          <View style={styles.savedPlacePicker}>
+            <View style={styles.savedPlacePickerHead}>
+              <View>
+                <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>저장한 장소에서 선택</Text>
+                <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>고르면 이름과 위치를 바로 채워드려요</Text>
+              </View>
+              {selectedPlanPlaceId && (
+                <Pressable
+                  onPress={() => setSelectedPlanPlaceId(null)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="저장한 장소 선택 해제"
+                >
+                  <Text style={[styles.savedPlaceClear, theme && { color: theme.primary }]}>선택 해제</Text>
+                </Pressable>
+              )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedPlacePickerRow}>
+              {places.map((place) => {
+                const selected = selectedPlanPlaceId === place.id;
+                return (
+                  <Pressable
+                    key={place.id}
+                    onPress={() => chooseSavedPlace(place)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`${place.name}, ${place.category}`}
+                    style={[
+                      styles.savedPlaceChoice,
+                      theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                      selected && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                    ]}
+                  >
+                    <Text numberOfLines={1} style={[styles.savedPlaceChoiceName, theme && { color: theme.text }, selected && theme && { color: theme.primary }]}>{place.name}</Text>
+                    <Text numberOfLines={1} style={[styles.savedPlaceChoiceMeta, theme && { color: theme.muted }]}>{place.category} · {place.area}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
         <DetailField
           label="일정 이름 · 필수"
           value={newPlanTitle}
@@ -8329,6 +8389,27 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   previewPlace: { color: "#646C7A", fontSize: 12, marginTop: 4 },
+  savedPlacePicker: { marginBottom: 18 },
+  savedPlacePickerHead: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginBottom: 9,
+  },
+  savedPlacePickerHint: { fontSize: 11, lineHeight: 15, marginTop: 3 },
+  savedPlaceClear: { fontSize: 12, fontFamily: typo.label.family },
+  savedPlacePickerRow: { gap: 8, paddingRight: 10 },
+  savedPlaceChoice: {
+    width: 152,
+    minHeight: 58,
+    borderRadius: 13,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: "center",
+  },
+  savedPlaceChoiceName: { fontSize: 13, fontFamily: typo.label.family },
+  savedPlaceChoiceMeta: { fontSize: 10, marginTop: 4 },
   naverField: {
     backgroundColor: "#E6F5ED",
     borderRadius: 20,
