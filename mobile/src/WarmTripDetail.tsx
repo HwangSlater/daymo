@@ -99,6 +99,8 @@ export type TripPlanningData = {
   schedule: ScheduleItem[];
   stay: StayInfo;
   places: PlaceItem[];
+  reservations?: ReservationInfo[];
+  /** 이전 저장 데이터에서 reservations로 옮기기 위한 호환 필드 */
   reservation?: ReservationInfo | null;
   transportations?: Transportation[];
 };
@@ -579,10 +581,14 @@ export function WarmTripDetail({
     place: "전주 한옥마을",
     showInSchedule: true,
   };
-  const [reservation, setReservation] = useState<ReservationInfo | null>(() =>
-    initialPlanning?.reservation === undefined
-      ? defaultReservation
-      : initialPlanning.reservation,
+  const [reservations, setReservations] = useState<ReservationInfo[]>(() =>
+    initialPlanning?.reservations ?? (
+      initialPlanning?.reservation === undefined
+        ? [defaultReservation]
+        : initialPlanning.reservation
+          ? [initialPlanning.reservation]
+          : []
+    ),
   );
   const [transportations, setTransportations] = useState<Transportation[]>(() =>
     initialPlanning?.transportations ?? [
@@ -668,14 +674,14 @@ export function WarmTripDetail({
       schedule,
       stay: registeredStay,
       places,
-      reservation,
+      reservations,
       transportations,
     });
-  }, [places, registeredStay, reservation, schedule, transportations]);
+  }, [places, registeredStay, reservations, schedule, transportations]);
   const closeDetail = useCallback(() => {
-    onSavePlanning?.({ schedule, stay: registeredStay, places, reservation, transportations });
+    onSavePlanning?.({ schedule, stay: registeredStay, places, reservations, transportations });
     onClose();
-  }, [onClose, onSavePlanning, places, registeredStay, reservation, schedule, transportations]);
+  }, [onClose, onSavePlanning, places, registeredStay, reservations, schedule, transportations]);
 
   useEffect(
     () => setMode(destinationMode(initialDestination)),
@@ -855,8 +861,8 @@ export function WarmTripDetail({
               hasKitchen={hasKitchen}
               registeredStay={registeredStay}
               setRegisteredStay={setRegisteredStay}
-              reservation={reservation}
-              setReservation={setReservation}
+              reservations={reservations}
+              setReservations={setReservations}
               transportations={transportations}
               setTransportations={setTransportations}
               dayOptions={tripDayOptions}
@@ -1070,12 +1076,12 @@ export function WarmTripDetail({
               const date = nextDays[Math.min(oldIndex, nextDays.length - 1)];
               return { ...item, date, time: `${weekdayOf(date)}${item.time.includes(" · ") ? ` · ${item.time.split(" · ").slice(1).join(" · ")}` : ""}` };
             }));
-            setReservation((current) => {
-              if (!current || !nextDays.length) return current;
-              const oldIndex = oldDays.indexOf(current.date);
-              if (oldIndex < 0) return current;
-              return { ...current, date: nextDays[Math.min(oldIndex, nextDays.length - 1)] };
-            });
+            setReservations((current) => current.map((reservation) => {
+              if (!nextDays.length) return reservation;
+              const oldIndex = oldDays.indexOf(reservation.date);
+              if (oldIndex < 0) return reservation;
+              return { ...reservation, date: nextDays[Math.min(oldIndex, nextDays.length - 1)] };
+            }));
             setTransportations((current) => current.map((item) => {
               if (!nextDays.length) return item;
               const oldIndex = oldDays.indexOf(item.date);
@@ -1184,8 +1190,8 @@ function TripOverview({
   hasKitchen,
   registeredStay,
   setRegisteredStay,
-  reservation,
-  setReservation,
+  reservations,
+  setReservations,
   transportations,
   setTransportations,
   dayOptions,
@@ -1200,8 +1206,8 @@ function TripOverview({
   hasKitchen: boolean;
   registeredStay: StayInfo;
   setRegisteredStay: React.Dispatch<React.SetStateAction<StayInfo>>;
-  reservation: ReservationInfo | null;
-  setReservation: React.Dispatch<React.SetStateAction<ReservationInfo | null>>;
+  reservations: ReservationInfo[];
+  setReservations: React.Dispatch<React.SetStateAction<ReservationInfo[]>>;
   transportations: Transportation[];
   setTransportations: React.Dispatch<React.SetStateAction<Transportation[]>>;
   dayOptions: string[];
@@ -1255,8 +1261,8 @@ function TripOverview({
   const [transportDraftBaseline, setTransportDraftBaseline] = useState(() =>
     JSON.stringify(transportDraft),
   );
-  const blankReservation = (): ReservationInfo => ({
-    id: reservation?.id ?? "reservation-primary",
+  const blankReservation = (id = `reservation-${Date.now()}`): ReservationInfo => ({
+    id,
     name: "",
     date: defaultPlanDay,
     time: "19:00",
@@ -1266,12 +1272,13 @@ function TripOverview({
     showInSchedule: true,
   });
   const [reservationDraft, setReservationDraft] = useState<ReservationInfo>(() =>
-    reservation ?? blankReservation(),
+    reservations[0] ?? blankReservation("reservation-draft"),
   );
   const [reservationDraftBaseline, setReservationDraftBaseline] = useState(() =>
-    JSON.stringify(reservation ?? blankReservation()),
+    JSON.stringify(reservations[0] ?? blankReservation("reservation-draft")),
   );
-  const hasReservation = reservation !== null;
+  const [editingReservationId, setEditingReservationId] = useState<string | null>(null);
+  const editingReservation = editingReservationId !== null;
   const [stayDraft, setStayDraft] = useState(registeredStay);
   const hasStay = Boolean(registeredStay.name);
   const scheduleDraftKey = (
@@ -1412,9 +1419,12 @@ function TripOverview({
         return;
       }
     }
-    if (item.reservationId && item.reservationId === reservation?.id) {
-      openReservation();
-      return;
+    if (item.reservationId) {
+      const linkedReservation = reservations.find((reservation) => reservation.id === item.reservationId);
+      if (linkedReservation) {
+        openReservation(linkedReservation);
+        return;
+      }
     }
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
@@ -1462,11 +1472,11 @@ function TripOverview({
       ));
     }
     if (linkedReservationId) {
-      setReservation((current) =>
-        current?.id === linkedReservationId
-          ? { ...current, showInSchedule: false }
-          : current,
-      );
+      setReservations((current) => current.map((reservation) =>
+        reservation.id === linkedReservationId
+          ? { ...reservation, showInSchedule: false }
+          : reservation,
+      ));
     }
     if (linkedTransportationId) {
       setTransportations((current) => current.map((item) =>
@@ -1649,8 +1659,9 @@ function TripOverview({
     setSheet(null);
     notify("교통편을 삭제했어요");
   };
-  const openReservation = (create = false) => {
-    const nextDraft = create || !reservation ? blankReservation() : reservation;
+  const openReservation = (reservation?: ReservationInfo) => {
+    const nextDraft = reservation ?? blankReservation();
+    setEditingReservationId(reservation?.id ?? null);
     setReservationDraft(nextDraft);
     setReservationDraftBaseline(JSON.stringify(nextDraft));
     setSheet("reservation");
@@ -1658,7 +1669,9 @@ function TripOverview({
   const saveReservation = () => {
     if (!reservationDraft.name.trim()) return;
     const next = { ...reservationDraft, name: reservationDraft.name.trim() };
-    setReservation(next);
+    setReservations((current) => editingReservationId
+      ? current.map((reservation) => reservation.id === editingReservationId ? next : reservation)
+      : [...current, next]);
     setSchedule((current) => {
       const withoutLinked = current.filter((item) => item.reservationId !== next.id);
       if (!next.showInSchedule) return withoutLinked;
@@ -1674,13 +1687,15 @@ function TripOverview({
       if (previousIndex < 0) return [...current, linked];
       return current.map((item, index) => index === previousIndex ? linked : item);
     });
+    setEditingReservationId(null);
     setSheet(null);
     notify(next.showInSchedule ? "예약을 저장하고 일정에 반영했어요" : "예약 정보를 저장했어요");
   };
   const deleteReservation = () => {
-    if (!reservation) return;
-    setSchedule((current) => current.filter((item) => item.reservationId !== reservation.id));
-    setReservation(null);
+    if (!editingReservationId) return;
+    setSchedule((current) => current.filter((item) => item.reservationId !== editingReservationId));
+    setReservations((current) => current.filter((reservation) => reservation.id !== editingReservationId));
+    setEditingReservationId(null);
     setSheet(null);
     notify("예약 정보를 삭제했어요");
   };
@@ -1833,18 +1848,24 @@ function TripOverview({
         })}
       </View>
 
-      <SectionLabel label="여행 정보" count={`${Number(hasReservation) + Number(hasStay) + Number(hasKitchen)}개`} />
+      <SectionLabel
+        label="여행 정보"
+        count={`${reservations.length + Number(hasStay) + Number(hasKitchen)}개`}
+        action="예약 추가"
+        onPress={() => openReservation()}
+      />
       <View style={styles.travelInfoList}>
-        {reservation && (
+        {reservations.map((reservation) => (
           <TravelInfoRow
+            key={reservation.id}
             label="예약"
             mark={dayNumberOf(reservation.date)}
             title={reservation.name}
             meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people} · ${reservation.status}`}
             color={theme?.primary ?? "#FF6B63"}
-            onPress={() => openReservation()}
+            onPress={() => openReservation(reservation)}
           />
-        )}
+        ))}
         <View style={styles.travelInfoPair}>
           {hasStay && (
             <TravelMiniCard
@@ -1869,8 +1890,8 @@ function TripOverview({
             />
           )}
         </View>
-        {!hasReservation && (
-          <EmptyState title="예약 정보가 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={() => openReservation(true)} />
+        {reservations.length === 0 && (
+          <EmptyState title="예약 정보가 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={() => openReservation()} />
         )}
         {!hasStay && (
           <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 추가" onPress={() => openStay(true)} />
@@ -2119,11 +2140,11 @@ function TripOverview({
       </InfoPanel>
       <DetailSheet
         visible={sheet === "reservation"}
-        title={hasReservation ? "예약 정보 수정" : "예약 정보 추가"}
+        title={editingReservation ? "예약 정보 수정" : "예약 정보 추가"}
         subtitle="예약 이름만 입력해도 저장할 수 있어요"
         submit={reservationDraft.name.trim() ? "예약 정보 저장" : "예약 이름을 입력해 주세요"}
         submitDisabled={!reservationDraft.name.trim()}
-        destructiveLabel={hasReservation ? "예약 정보 삭제" : undefined}
+        destructiveLabel={editingReservation ? "예약 정보 삭제" : undefined}
         destructiveMessage="연결된 일정에서도 함께 삭제돼요."
         hasUnsavedChanges={reservationDraftChanged}
         onClose={() => setSheet(null)}
