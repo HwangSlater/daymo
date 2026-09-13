@@ -3123,12 +3123,13 @@ function Preparation({
   const [quantity, setQuantity] = useState("");
   const [owner, setOwner] = useState<PackingItem["owner"]>("미정");
   const [tagText, setTagText] = useState("");
-  const [filter, setFilter] = useState<"전체" | "남은 준비" | "완료">("전체");
+  const [filter, setFilter] = useState<"전체" | "남은 준비" | "완료">("남은 준비");
   const [ownerFilter, setOwnerFilter] = useState<"전체" | PackingItem["owner"]>(
     "전체",
   );
   const [tagFilter, setTagFilter] = useState("전체 태그");
   const [tagPicker, setTagPicker] = useState(false);
+  const [packingFiltersOpen, setPackingFiltersOpen] = useState(false);
   const [collapsedOwners, setCollapsedOwners] = useState<
     PackingItem["owner"][]
   >(["동행", "함께", "미정"]);
@@ -3557,17 +3558,20 @@ function Preparation({
             })}
           </View>
           <Pressable
-            onPress={() => setTagPicker(true)}
+            onPress={() => setPackingFiltersOpen((value) => !value)}
             accessibilityRole="button"
-            accessibilityLabel="준비물 태그 선택"
+            accessibilityState={{ expanded: packingFiltersOpen }}
+            accessibilityLabel="담당과 태그 필터"
             style={[styles.packingV2TagButton, theme && { borderColor: theme.border }]}
           >
             <Text style={[styles.packingV2TagButtonText, theme && { color: theme.primary }]}>
-              {tagFilter === "전체 태그" ? `태그 ${availableTags.length}` : `# ${tagFilter}`}
+              {ownerFilter === "전체" && tagFilter === "전체 태그" ? "필터" : "필터 적용 중"}
             </Text>
-            <Glyph name="chevronDown" size={14} color={theme?.muted ?? "#646C7A"} />
+            <Glyph name={packingFiltersOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
           </Pressable>
         </View>
+        {packingFiltersOpen && (
+        <>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingV2Owners}>
           {(["전체", ...ownerSections] as const).map((ownerName) => {
             const active = ownerFilter === ownerName;
@@ -3592,6 +3596,20 @@ function Preparation({
             );
           })}
         </ScrollView>
+        <Pressable
+          onPress={() => setTagPicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel="준비물 태그 선택"
+          style={[styles.packingV2TagChoice, theme && { backgroundColor: theme.surfaceAlt }]}
+        >
+          <Text style={[styles.packingV2TagChoiceLabel, theme && { color: theme.muted }]}>태그</Text>
+          <Text style={[styles.packingV2TagChoiceValue, theme && { color: theme.text }]}>
+            {tagFilter === "전체 태그" ? `전체 ${availableTags.length}개` : `# ${tagFilter}`}
+          </Text>
+          <Glyph name="chevronRight" size={14} color={theme?.muted ?? "#646C7A"} />
+        </Pressable>
+        </>
+        )}
       </View>
       )}
       <View style={[styles.packingManageHead, styles.packingV2Hidden]}>
@@ -8991,6 +9009,15 @@ const styles = StyleSheet.create({
   packingV2TagButtonText: { fontSize: 14, fontFamily: typo.label.family },
   packingV2TagChevron: { fontSize: 12, fontFamily: typo.label.family, marginTop: -2 },
   packingV2Owners: { flexDirection: "row", gap: 6 },
+  packingV2TagChoice: {
+    minHeight: 40,
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  packingV2TagChoiceLabel: { width: 42, fontSize: 11, fontFamily: typo.caption.family },
+  packingV2TagChoiceValue: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
   packingV2OwnerChip: {
     minWidth: 57,
     borderWidth: 1,
