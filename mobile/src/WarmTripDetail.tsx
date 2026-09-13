@@ -39,6 +39,7 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { memoPaper, status as statusColor } from "./theme/colors";
+import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
@@ -2245,22 +2246,6 @@ function TripOverview({
   );
 }
 
-const parseNaverPlaceShare = (text: string) => {
-  const url = text.match(
-    /https?:\/\/(?:m\.)?(?:naver\.me|map\.naver\.com)\/[^\s]+/i,
-  )?.[0];
-  if (!url) return null;
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !/^\[?네이버\s*지도\]?$/i.test(line))
-    .filter((line) => !line.includes(url));
-  const name = lines[0] ?? "";
-  const address = lines[1] ?? "";
-  return { name, address, url };
-};
-
 function Places({
   schedule,
   setSchedule,
@@ -2296,6 +2281,7 @@ function Places({
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("식당");
   const [mapUrl, setMapUrl] = useState("");
+  const [resolvingNaver, setResolvingNaver] = useState(false);
   const [tagText, setTagText] = useState("");
   const [placeDetailsOpen, setPlaceDetailsOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -2356,24 +2342,32 @@ function Places({
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
   };
-  const applyNaverShare = (text: string) => {
-    const parsed = parseNaverPlaceShare(text);
-    if (!parsed) return false;
-    if (parsed.name) setName(parsed.name);
-    if (parsed.address) setAddress(parsed.address);
-    setMapUrl(parsed.url);
-    setPlaceDetailsOpen(true);
-    notify(parsed.name ? `${parsed.name} 정보를 채웠어요` : "네이버 지도 링크를 연결했어요");
-    return true;
-  };
   const pasteNaverShare = async () => {
     const clipboard = await Clipboard.getStringAsync();
     if (!clipboard.trim()) {
       notify("복사한 네이버 지도 정보가 없어요");
       return;
     }
-    if (!applyNaverShare(clipboard))
+    const parsed = parseNaverPlaceShare(clipboard);
+    if (!parsed) {
       notify("네이버 지도 공유 텍스트나 링크를 확인해 주세요");
+      return;
+    }
+    if (parsed.name) setName(parsed.name);
+    if (parsed.address) setAddress(parsed.address);
+    setMapUrl(parsed.url);
+    setPlaceDetailsOpen(true);
+    setResolvingNaver(true);
+    const resolved = await resolveNaverPlaceShare(clipboard);
+    setResolvingNaver(false);
+    if (!resolved) return;
+    if (resolved.name) setName(resolved.name);
+    if (resolved.address) setAddress(resolved.address);
+    if (resolved.category && ["식당", "카페", "구경", "쇼핑", "숙소"].includes(resolved.category)) {
+      setCategory(resolved.category);
+    }
+    setMapUrl(resolved.url);
+    notify(resolved.name || resolved.address ? "장소 정보를 자동으로 채웠어요" : "네이버 지도 링크를 연결했어요");
   };
   const resetForm = () => {
     setName("");
@@ -2879,6 +2873,7 @@ function Places({
         {!editingId && !mapUrl && (
           <Pressable
             onPress={pasteNaverShare}
+            disabled={resolvingNaver}
             accessibilityRole="button"
             accessibilityLabel="복사한 네이버 지도 장소 정보 붙여넣기"
             style={[
@@ -2890,8 +2885,8 @@ function Places({
               <Text style={styles.naverLogoText}>N</Text>
             </View>
             <View style={styles.naverAutoFillCopy}>
-              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>네이버 지도 링크 붙여넣기</Text>
-              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>공유 링크를 복사했다면 여기만 탭하세요</Text>
+              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>{resolvingNaver ? "장소 정보 가져오는 중…" : "네이버 지도 링크 붙여넣기"}</Text>
+              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "공유 링크를 복사했다면 여기만 탭하세요"}</Text>
             </View>
             <Glyph name="chevronRight" size={16} color={theme?.dark ? "#96B7A8" : "#16844E"} />
           </Pressable>
@@ -2953,11 +2948,12 @@ function Places({
               </Pressable>
               <Pressable
                 onPress={pasteNaverShare}
+                disabled={resolvingNaver}
                 accessibilityRole="button"
                 accessibilityLabel="복사한 네이버 지도 링크 붙여넣기"
                 style={[styles.naverLinkButton, styles.naverLinkButtonPrimary]}
               >
-                <Text style={[styles.naverLinkButtonText, styles.naverLinkButtonPrimaryText]}>링크 붙여넣기</Text>
+                <Text style={[styles.naverLinkButtonText, styles.naverLinkButtonPrimaryText]}>{resolvingNaver ? "가져오는 중…" : "링크 붙여넣기"}</Text>
               </Pressable>
             </View>
             {mapUrl && (

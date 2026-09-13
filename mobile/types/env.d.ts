@@ -4,6 +4,7 @@
 declare namespace NodeJS {
   interface ProcessEnv {
     EXPO_PUBLIC_DAYMO_AUTH_URL?: string;
+    EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL?: string;
   }
 }
 declare const process: { env: NodeJS.ProcessEnv };
