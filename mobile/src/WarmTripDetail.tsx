@@ -942,6 +942,7 @@ export function WarmTripDetail({
           subtitle="함께 확인할 짧은 내용을 남겨두세요"
           submit={memoEditorOpen ? (editingMemoId ? "변경 저장" : "메모 추가") : "닫기"}
           submitDisabled={memoEditorOpen && !memoDraft.trim()}
+          disabledHint={memoEditorOpen && !memoDraft.trim() ? "메모 내용을 입력해 주세요" : undefined}
           onClose={() => {
             setMemoPanel(false);
             setMemoEditorOpen(false);
@@ -1072,7 +1073,8 @@ export function WarmTripDetail({
           visible={editingTrip}
           title="여행 수정"
           subtitle="여행의 기본 정보와 사용할 기능을 관리해요"
-          submit={tripDraftValid ? "변경 저장" : "제목·여행지·기간을 확인해 주세요"}
+          submit="변경 저장"
+          disabledHint={!tripDraftValid ? "제목·여행지·기간을 확인해 주세요" : undefined}
           submitDisabled={!tripDraftValid}
           onClose={() => setEditingTrip(false)}
           onSubmit={() => {
@@ -1342,8 +1344,9 @@ function TripOverview({
   );
   const transportTimesValid = Boolean(transportDepartureTime.trim()) === Boolean(transportArrivalTime.trim());
   const transportFormValid = transportRouteValid && transportTimesValid;
-  const transportSubmitLabel = transportFormValid
-    ? (editingTransportId ? "변경 저장" : "교통편 추가")
+  const transportSubmitLabel = editingTransportId ? "변경 저장" : "교통편 추가";
+  const transportDisabledHint = transportFormValid
+    ? undefined
     : !transportDeparture.trim() || !transportArrival.trim()
       ? "출발지와 도착지를 입력해 주세요"
       : transportDeparture.trim() === transportArrival.trim()
@@ -1400,6 +1403,7 @@ function TripOverview({
     setSelectedPlanPlaceId(null);
     setEditingScheduleIndex(null);
     setSheet(null);
+    if (!wasEditing) setFullSchedule(true);
     notify(wasEditing ? "일정을 수정했어요" : "일정을 추가했어요");
   };
   const openScheduleCreate = () => {
@@ -2089,6 +2093,7 @@ function TripOverview({
         title={editingTransportId ? "교통편 수정" : "교통편 추가"}
         subtitle="가는 편과 오는 편을 나누어 저장하고 한곳에서 확인하세요"
         submit={transportSubmitLabel}
+        disabledHint={transportDisabledHint}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
         destructiveMessage="연결된 일정에서도 함께 삭제돼요."
         submitDisabled={!transportFormValid}
@@ -2178,7 +2183,8 @@ function TripOverview({
         visible={sheet === "reservation"}
         title={editingReservation ? "예약 정보 수정" : "예약 정보 추가"}
         subtitle="예약 이름만 입력해도 저장할 수 있어요"
-        submit={reservationDraft.name.trim() ? "예약 정보 저장" : "예약 이름을 입력해 주세요"}
+        submit="예약 정보 저장"
+        disabledHint={!reservationDraft.name.trim() ? "예약 이름을 입력해 주세요" : undefined}
         submitDisabled={!reservationDraft.name.trim()}
         destructiveLabel={editingReservation ? "예약 정보 삭제" : undefined}
         destructiveMessage="연결된 일정에서도 함께 삭제돼요."
@@ -3074,11 +3080,8 @@ function Places({
         visible={importing}
         title="장소 목록 붙여넣기"
         subtitle="복사한 내용을 메모에서 고친 뒤 한 번에 반영하세요"
-        submit={
-          importText.trim()
-            ? `${importMode}하기`
-            : "장소 목록을 입력해 주세요"
-        }
+        submit={`${importMode}하기`}
+        disabledHint={!importText.trim() ? "장소 목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
         onSubmit={importPlaces}
@@ -4559,8 +4562,9 @@ function Preparation({
         submit={
           selectedCookingUniqueCount
             ? `${selectedCookingUniqueCount}개 준비물에 추가`
-            : "재료를 선택해 주세요"
+            : "준비물에 추가"
         }
+        disabledHint={!selectedCookingUniqueCount ? "재료를 선택해 주세요" : undefined}
         submitDisabled={!selectedCookingUniqueCount}
         onClose={() => {
           setCookingPicker(false);
@@ -4659,9 +4663,8 @@ function Preparation({
         visible={importing}
         title="준비물 목록 붙여넣기"
         subtitle="메모에서 여러 줄을 고쳐 한 번에 반영하세요"
-        submit={
-          importText.trim() ? `${importMode}하기` : "목록을 입력해 주세요"
-        }
+        submit={`${importMode}하기`}
+        disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
         onSubmit={importPacking}
@@ -5673,7 +5676,8 @@ function Cooking({
         visible={addingIngredient}
         title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
         subtitle="분류와 준비 방법은 저장한 뒤에도 바꿀 수 있어요"
-        submit={ingredientFormValid ? (editingIngredient ? "변경 저장" : "재료 추가") : duplicateIngredient ? "이 요리에 이미 있는 재료예요" : "재료 이름을 입력해 주세요"}
+        submit={editingIngredient ? "변경 저장" : "재료 추가"}
+        disabledHint={!ingredientFormValid ? (duplicateIngredient ? "이 요리에 이미 있는 재료예요" : "재료 이름을 입력해 주세요") : undefined}
         submitDisabled={!ingredientFormValid}
         onClose={closeIngredientSheet}
         onSubmit={addIngredient}
@@ -5758,13 +5762,14 @@ function Cooking({
         visible={addingRecipe}
         title={editingRecipe ? "요리 수정" : "요리 추가"}
         subtitle="이름만 먼저 저장하고 재료는 메뉴 안에서 추가할 수 있어요"
-        submit={recipeFormValid
-          ? (editingRecipe ? "변경 저장" : "요리 추가")
-          : duplicateRecipe
+        submit={editingRecipe ? "변경 저장" : "요리 추가"}
+        disabledHint={!recipeFormValid
+          ? duplicateRecipe
             ? "이미 등록한 요리예요"
             : !recipeUrlValid
               ? "레시피 링크를 확인해 주세요"
-              : "요리 이름을 입력해 주세요"}
+              : "요리 이름을 입력해 주세요"
+          : undefined}
         submitDisabled={!recipeFormValid}
         destructiveLabel={editingRecipe ? "요리 삭제" : undefined}
         destructiveMessage={editingRecipe ? `${recipeName || "이 요리"}와 재료 목록을 함께 삭제해요.` : undefined}
@@ -5821,10 +5826,9 @@ function Cooking({
         submit={
           aiParsed.length
             ? `요리 ${aiParsed.length}개 추가`
-            : aiResult.trim()
-              ? "읽을 수 있는 줄이 없어요"
-              : "GPT 결과를 붙여넣어 주세요"
+            : "요리 추가"
         }
+        disabledHint={!aiParsed.length ? (aiResult.trim() ? "읽을 수 있는 줄이 없어요" : "GPT 결과를 붙여넣어 주세요") : undefined}
         submitDisabled={!aiParsed.length}
         onClose={() => setAiImporting(false)}
         onSubmit={importAiRecipes}
@@ -5894,9 +5898,8 @@ function Cooking({
         visible={importing}
         title="요리 목록 붙여넣기"
         subtitle="메모에서 수정한 재료를 한 번에 반영하세요"
-        submit={
-          importText.trim() ? `${importMode}하기` : "목록을 입력해 주세요"
-        }
+        submit={`${importMode}하기`}
+        disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
         onSubmit={importCooking}
@@ -6184,7 +6187,8 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
         visible={photoEditing}
         title={editingPhotoId ? "사진 기록 수정" : "사진 추가"}
         subtitle="사진을 고르고 날짜와 짧은 설명을 함께 남겨보세요"
-        submit={photoSelected ? (editingPhotoId ? "변경 저장" : "사진 추가") : "사진을 선택해 주세요"}
+        submit={editingPhotoId ? "변경 저장" : "사진 추가"}
+        disabledHint={!photoSelected ? "사진을 선택해 주세요" : undefined}
         submitDisabled={!photoSelected}
         destructiveLabel={editingPhotoId ? "사진 삭제" : undefined}
         destructiveMessage="사진을 여행 기록에서 삭제해요."
@@ -6213,7 +6217,8 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
         visible={diaryWriting}
         title={editingDiaryId ? "여행 일기 수정" : "여행 일기 쓰기"}
         subtitle="그날의 기분과 오래 기억하고 싶은 이야기를 남겨보세요"
-        submit={diaryBody.trim() ? (editingDiaryId ? "변경 저장" : "일기 저장") : "내용을 입력해 주세요"}
+        submit={editingDiaryId ? "변경 저장" : "일기 저장"}
+        disabledHint={!diaryBody.trim() ? "내용을 입력해 주세요" : undefined}
         submitDisabled={!diaryBody.trim()}
         destructiveLabel={editingDiaryId ? "일기 삭제" : undefined}
         destructiveMessage={editingDiaryId ? `${diaryTitle || "이 일기"}를 여행 기록에서 삭제해요.` : undefined}
@@ -6693,15 +6698,8 @@ function Money({
         visible={sheetOpen}
         title={editingId ? "지출 수정" : "지출 추가"}
         subtitle="항목과 금액만 적어도 저장돼요"
-        submit={
-          formValid
-            ? editingId
-              ? "변경 저장"
-              : "지출 추가"
-            : !draftTitle.trim()
-              ? "항목 이름을 입력해 주세요"
-              : "금액을 입력해 주세요"
-        }
+        submit={editingId ? "변경 저장" : "지출 추가"}
+        disabledHint={!formValid ? (!draftTitle.trim() ? "항목 이름을 입력해 주세요" : "금액을 입력해 주세요") : undefined}
         submitDisabled={!formValid}
         destructiveLabel={editingId ? "지출 삭제" : undefined}
         destructiveMessage={editingId ? `${draftTitle || "이 지출"} 내역을 삭제해요.` : undefined}
@@ -6752,7 +6750,8 @@ function Money({
         visible={budgetSheetOpen}
         title="여행 예산"
         subtitle="예산 대비 얼마나 썼는지 비용 탭에서 바로 확인해요"
-        submit={budgetNumber ? "예산 저장" : "예산을 입력해 주세요"}
+        submit="예산 저장"
+        disabledHint={!budgetNumber ? "예산을 입력해 주세요" : undefined}
         submitDisabled={!budgetNumber}
         onClose={() => setBudgetSheetOpen(false)}
         onSubmit={saveBudget}
