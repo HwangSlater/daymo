@@ -105,7 +105,38 @@ export type TripPlanningData = {
   /** 이전 저장 데이터에서 reservations로 옮기기 위한 호환 필드 */
   reservation?: ReservationInfo | null;
   transportations?: Transportation[];
+  memories?: TripMemoryData;
 };
+
+export type MemoryPhoto = { id: string; color: string; date: string; caption: string };
+export type TravelDiary = { id: string; title: string; body: string; date: string };
+export type TripMemoryData = {
+  photos: MemoryPhoto[];
+  diaries: TravelDiary[];
+  cardStyle: string;
+  cardTitle: string;
+  cardCaption: string;
+};
+
+const initialMemoryData = (tripName: string, tripDate = "여행 기간"): TripMemoryData => ({
+  photos: [
+    { id: "photo-1", color: "#E7B4A6", date: "1일차", caption: "도착한 날" },
+    { id: "photo-2", color: "#DFC98A", date: "1일차", caption: "느린 점심" },
+    { id: "photo-3", color: "#AFC9C3", date: "2일차", caption: "함께 걷기" },
+    { id: "photo-4", color: "#D4BDD4", date: "2일차", caption: "저녁 준비" },
+    { id: "photo-5", color: "#C7D493", date: "3일차", caption: "마지막 아침" },
+    { id: "photo-6", color: "#9CBBC6", date: "3일차", caption: "돌아오는 길" },
+  ],
+  diaries: [{
+    id: "diary-1",
+    title: "느리게 걸어서 더 좋았던 날",
+    body: "계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.",
+    date: tripDate,
+  }],
+  cardStyle: "필름",
+  cardTitle: `우리의 ${tripName} 여행`,
+  cardCaption: "함께 남긴 여행의 순간",
+});
 
 const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
   address.trim().split(/\s+/).filter(Boolean).slice(0, 2).join(" ") || fallback;
@@ -562,6 +593,9 @@ export function WarmTripDetail({
   const [feedback, setFeedback] = useState("");
   const [packingItems, setPackingItems] = useState(packing);
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
+  const [memories, setMemories] = useState<TripMemoryData>(() =>
+    initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate),
+  );
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
     initialPlanning?.stay
@@ -686,12 +720,13 @@ export function WarmTripDetail({
       places,
       reservations,
       transportations,
+      memories,
     });
-  }, [places, registeredStay, reservations, schedule, transportations]);
+  }, [memories, places, registeredStay, reservations, schedule, transportations]);
   const closeDetail = useCallback(() => {
-    onSavePlanning?.({ schedule, stay: registeredStay, places, reservations, transportations });
+    onSavePlanning?.({ schedule, stay: registeredStay, places, reservations, transportations, memories });
     onClose();
-  }, [onClose, onSavePlanning, places, registeredStay, reservations, schedule, transportations]);
+  }, [memories, onClose, onSavePlanning, places, registeredStay, reservations, schedule, transportations]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -935,7 +970,13 @@ export function WarmTripDetail({
           {mode === "비용" && (
             <Money tripName={title} dayOptions={tripDayOptions} todayDay={todayTripDay} />
           )}
-          {mode === "기록" && <Memories tripName={title} tripDate={currentTripDate} />}
+          {mode === "기록" && (
+            <Memories
+              tripDate={currentTripDate}
+              memories={memories}
+              setMemories={setMemories}
+            />
+          )}
         </ScrollView>
         <DetailSheet
           visible={memoPanel}
@@ -5940,20 +5981,31 @@ function Cooking({
   );
 }
 
-type MemoryPhoto = { id: string; color: string; date: string; caption: string };
-type TravelDiary = { id: string; title: string; body: string; date: string };
-
-function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }) {
+function Memories({
+  tripDate,
+  memories,
+  setMemories,
+}: {
+  tripDate: string;
+  memories: TripMemoryData;
+  setMemories: React.Dispatch<React.SetStateAction<TripMemoryData>>;
+}) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
-  const [photos, setPhotos] = useState<MemoryPhoto[]>([
-    { id: "photo-1", color: "#E7B4A6", date: "1일차", caption: "도착한 날" },
-    { id: "photo-2", color: "#DFC98A", date: "1일차", caption: "느린 점심" },
-    { id: "photo-3", color: "#AFC9C3", date: "2일차", caption: "함께 걷기" },
-    { id: "photo-4", color: "#D4BDD4", date: "2일차", caption: "저녁 준비" },
-    { id: "photo-5", color: "#C7D493", date: "3일차", caption: "마지막 아침" },
-    { id: "photo-6", color: "#9CBBC6", date: "3일차", caption: "돌아오는 길" },
-  ]);
+  const { photos, diaries, cardStyle, cardTitle, cardCaption } = memories;
+  const setPhotos: React.Dispatch<React.SetStateAction<MemoryPhoto[]>> = (update) =>
+    setMemories((current) => ({
+      ...current,
+      photos: typeof update === "function" ? update(current.photos) : update,
+    }));
+  const setDiaries: React.Dispatch<React.SetStateAction<TravelDiary[]>> = (update) =>
+    setMemories((current) => ({
+      ...current,
+      diaries: typeof update === "function" ? update(current.diaries) : update,
+    }));
+  const setCardStyle = (value: string) => setMemories((current) => ({ ...current, cardStyle: value }));
+  const setCardTitle = (value: string) => setMemories((current) => ({ ...current, cardTitle: value }));
+  const setCardCaption = (value: string) => setMemories((current) => ({ ...current, cardCaption: value }));
   const [photoEditing, setPhotoEditing] = useState(false);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoSelected, setPhotoSelected] = useState(false);
@@ -5964,20 +6016,9 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
   const [diaryTitle, setDiaryTitle] = useState("");
   const [diaryBody, setDiaryBody] = useState("");
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
-  const [diaries, setDiaries] = useState<TravelDiary[]>([
-    {
-      id: "diary-1",
-      title: "느리게 걸어서 더 좋았던 날",
-      body: "계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.",
-      date: tripDate,
-    },
-  ]);
   const [makingCard, setMakingCard] = useState(false);
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showAllDiaries, setShowAllDiaries] = useState(false);
-  const [cardStyle, setCardStyle] = useState("필름");
-  const [cardTitle, setCardTitle] = useState(`우리의 ${tripName} 여행`);
-  const [cardCaption, setCardCaption] = useState("함께 남긴 여행의 순간");
   const photoPalette = ["#E7B4A6", "#DFC98A", "#AFC9C3", "#D4BDD4", "#C7D493", "#9CBBC6"];
   const openPhotoCreate = () => {
     setEditingPhotoId(null);
@@ -6049,52 +6090,32 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
         action="사진 추가"
         onPress={openPhotoCreate}
       />
-      <View style={[styles.memoryStats, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        {[
-          ["사진", `${photos.length}장`],
-          ["일기", `${diaries.length}편`],
-          ["기록한 날", `${new Set(photos.map((photo) => photo.date)).size}일`],
-        ].map(([label, value], index) => (
-          <View key={label} style={[styles.memoryStat, index > 0 && styles.memoryStatBorder, index > 0 && theme && { borderLeftColor: theme.border }]}>
-            <Text style={[styles.memoryStatValue, theme && { color: theme.text }]}>{value}</Text>
-            <Text style={[styles.memoryStatLabel, theme && { color: theme.muted }]}>{label}</Text>
-          </View>
+      <View style={styles.memorySummaryLine}>
+        <Text style={[styles.memorySummaryText, theme && { color: theme.muted }]}>사진 {photos.length}장 · 일기 {diaries.length}편</Text>
+        <Text style={[styles.memorySummaryText, theme && { color: theme.primary }]}>{new Set(photos.map((photo) => photo.date)).size}일의 기록</Text>
+      </View>
+      <SectionLabel label="여행 사진" count={`${photos.length}장`} />
+      <View style={styles.memoryGrid}>
+        {(showAllPhotos ? photos : photos.slice(0, 6)).map((photo, index) => (
+          <Pressable
+            key={photo.id}
+            onPress={() => openPhotoEdit(photo)}
+            accessibilityRole="button"
+            accessibilityLabel={`${photo.caption || photo.date} 사진 수정`}
+            style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
+          >
+            <View style={[styles.memoryTilePhoto, { backgroundColor: photo.color }]}>
+              <View style={styles.memoryTileGlow} />
+            </View>
+            <View style={styles.memoryTileCaption}>
+              <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{photo.caption || `사진 ${index + 1}`}</Text>
+              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{photo.date}</Text>
+            </View>
+          </Pressable>
         ))}
       </View>
-      <SectionLabel
-        label="여행 기념 카드"
-        action="꾸미기"
-        onPress={() => setMakingCard(true)}
-      />
-      <Pressable
-        onPress={() => setMakingCard(true)}
-        style={[
-          styles.keepsakeCard,
-          theme && { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
-        <View style={[styles.keepsakeTape, theme && { backgroundColor: theme.secondary }]} />
-        <View style={styles.keepsakePhotos}>
-          {photos.slice(0, 3).map((photo, index) => (
-            <View
-              key={photo.id}
-              style={[
-                styles.keepsakePhoto,
-                { backgroundColor: photo.color },
-                index === 0 && styles.keepsakePhotoMain,
-                index === 1 && styles.keepsakePhotoTop,
-                index === 2 && styles.keepsakePhotoBottom,
-              ]}
-            />
-          ))}
-        </View>
-        <View style={styles.keepsakeCopy}>
-          <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{cardStyle} · {tripDate}</Text>
-          <Text style={[styles.keepsakeTitle, theme && { color: theme.text }]}>{cardTitle}</Text>
-          <Text numberOfLines={2} style={[styles.keepsakeCaption, theme && { color: theme.muted }]}>{cardCaption}</Text>
-        </View>
-        <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
-      </Pressable>
+      {photos.length === 0 && <EmptyState title="아직 추가한 사진이 없어요" description="여행의 첫 장면을 기록에 추가해 보세요." action="사진 추가" onPress={openPhotoCreate} />}
+      {photos.length > 6 && <ListMoreButton expanded={showAllPhotos} hiddenCount={photos.length - 6} onPress={() => setShowAllPhotos((value) => !value)} />}
       <SectionLabel
         label="여행 일기"
         action="일기 쓰기"
@@ -6137,44 +6158,25 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
           onPress={() => setShowAllDiaries((value) => !value)}
         />
       )}
-      <SectionLabel label="여행 사진" count={`${photos.length}장`} />
-      <View style={styles.memoryGrid}>
-        {(showAllPhotos ? photos : photos.slice(0, 6)).map((photo, index) => (
-          <Pressable
-            key={photo.id}
-            onPress={() => openPhotoEdit(photo)}
-            accessibilityRole="button"
-            accessibilityLabel={`${photo.caption || photo.date} 사진 수정`}
-            style={[
-              styles.memoryTile,
-              theme && { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <View style={[styles.memoryTilePhoto, { backgroundColor: photo.color }]}>
-              <View style={styles.memoryTileGlow} />
-            </View>
-            <View style={styles.memoryTileCaption}>
-              <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{photo.caption || `사진 ${index + 1}`}</Text>
-              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{photo.date}</Text>
-            </View>
-          </Pressable>
-        ))}
-      </View>
-      {photos.length === 0 && (
-        <EmptyState
-          title="아직 추가한 사진이 없어요"
-          description="여행의 첫 장면을 기록에 추가해 보세요."
-          action="사진 추가"
-          onPress={openPhotoCreate}
-        />
-      )}
-      {photos.length > 6 && (
-        <ListMoreButton
-          expanded={showAllPhotos}
-          hiddenCount={photos.length - 6}
-          onPress={() => setShowAllPhotos((value) => !value)}
-        />
-      )}
+      <SectionLabel label="여행 기념 카드" />
+      <Pressable
+        onPress={() => setMakingCard(true)}
+        accessibilityRole="button"
+        accessibilityLabel="여행 기념 카드 꾸미기"
+        style={[styles.keepsakeCompact, theme && { backgroundColor: theme.surfaceAlt }]}
+      >
+        <View style={styles.keepsakeStrip}>
+          {photos.slice(0, 3).map((photo) => (
+            <View key={`${photo.id}-strip`} style={[styles.keepsakeThumb, { backgroundColor: photo.color }]} />
+          ))}
+        </View>
+        <View style={styles.keepsakeCopy}>
+          <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{cardStyle} · {tripDate}</Text>
+          <Text numberOfLines={1} style={[styles.keepsakeCompactTitle, theme && { color: theme.text }]}>{cardTitle}</Text>
+          <Text style={[styles.keepsakeCompactAction, theme && { color: theme.primary }]}>한 장으로 꾸미기</Text>
+        </View>
+        <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
+      </Pressable>
       <DetailSheet
         visible={makingCard}
         title="여행 기념 카드 꾸미기"
@@ -6221,6 +6223,7 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
             setPhotoSelected(true);
           }}
           accessibilityRole="button"
+          accessibilityLabel={photoSelected ? "사진 다시 선택" : "기기에서 사진 선택"}
           style={[styles.photoPickerPreview, { backgroundColor: photoSelected ? photoColor : theme?.surfaceAlt ?? "#F2EFEA", borderColor: theme?.border ?? "#E5E1DC" }]}
         >
           <View style={[styles.photoPickerMark, theme && { backgroundColor: theme.surface }]}>
@@ -8137,47 +8140,20 @@ const styles = StyleSheet.create({
   },
   checkName: { color: "#593934", fontSize: 14, fontFamily: typo.title.family },
   checkNameDone: { color: "#B29B92", textDecorationLine: "line-through" },
-  keepsakeCard: {
-    minHeight: 142,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E8E2DA",
-    backgroundColor: "#FFFFFF",
-    padding: 12,
+  keepsakeCopy: { flex: 1, minWidth: 0 },
+  keepsakeStyle: { color: "#B06C5E", fontSize: 12, fontFamily: typo.label.family },
+  keepsakeCompact: {
+    minHeight: 76,
+    borderRadius: 14,
+    padding: 10,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 8,
-    position: "relative",
   },
-  keepsakeTape: {
-    position: "absolute",
-    top: -4,
-    left: 48,
-    width: 38,
-    height: 10,
-    borderRadius: 2,
-    opacity: 0.38,
-    zIndex: 4,
-    transform: [{ rotate: "-3deg" }],
-  },
-  keepsakePhotos: { width: 112, height: 112, position: "relative", marginRight: 12 },
-  keepsakePhoto: {
-    position: "absolute",
-    width: 53,
-    height: 53,
-    right: 0,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  keepsakePhotoMain: { width: 78, height: 108, left: 0, top: 2, zIndex: 2 },
-  keepsakePhotoTop: { top: 4, transform: [{ rotate: "4deg" }] },
-  keepsakePhotoBottom: { bottom: 4, transform: [{ rotate: "-3deg" }] },
-  keepsakeCopy: { flex: 1, minWidth: 0 },
-  keepsakeStyle: { color: "#B06C5E", fontSize: 12, fontFamily: typo.label.family },
-  keepsakeTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family, marginTop: 8 },
-  keepsakeCaption: { color: "#8C8580", fontSize: 11, lineHeight: 14, marginTop: 6 },
-  keepsakeArrow: { color: "#B06C5E", fontSize: 20, marginLeft: 6 },
+  keepsakeStrip: { width: 82, height: 52, flexDirection: "row", gap: 2, marginRight: 10 },
+  keepsakeThumb: { flex: 1, borderRadius: 5 },
+  keepsakeCompactTitle: { fontSize: 13, fontFamily: typo.title.family, marginTop: 2 },
+  keepsakeCompactAction: { fontSize: 11, fontFamily: typo.label.family, marginTop: 3 },
   diaryCard: {
     borderRadius: 12,
     borderWidth: 1,
@@ -8236,12 +8212,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   tileNumber: {
+    flex: 1,
+    minWidth: 0,
     color: "rgba(83, 54, 48, .65)",
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: typo.data.family,
-    letterSpacing: 0.5,
   },
-  memoryTileDate: { fontSize: 11, fontFamily: typo.caption.family },
+  memoryTileDate: { flexShrink: 0, fontSize: 9, fontFamily: typo.caption.family, marginLeft: 3 },
   modalBack: {
     flex: 1,
     backgroundColor: "rgba(10,18,35,.42)",
@@ -9840,18 +9817,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
   },
-  memoryStats: {
-    minHeight: 64,
-    borderRadius: 12,
-    borderWidth: 1,
+  memorySummaryLine: {
+    minHeight: 32,
     flexDirection: "row",
-    marginBottom: 12,
-    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+    marginTop: -4,
+    marginBottom: 4,
   },
-  memoryStat: { flex: 1, alignItems: "center", justifyContent: "center" },
-  memoryStatBorder: { borderLeftWidth: StyleSheet.hairlineWidth },
-  memoryStatValue: { fontSize: 14, fontFamily: typo.data.family },
-  memoryStatLabel: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
+  memorySummaryText: { fontSize: 11, fontFamily: typo.label.family },
   photoPickerPreview: {
     height: 176,
     borderRadius: 16,
