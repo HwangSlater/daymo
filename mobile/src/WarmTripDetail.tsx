@@ -2233,21 +2233,41 @@ function TripOverview({
           showsVerticalScrollIndicator={false}
         >
           {scheduleGroups.map((group) => (
-            <View key={group.date} style={styles.scheduleDayGroup}>
-              <View style={[styles.scheduleDayHead, theme && { borderBottomColor: theme.border }]}>
-                <Text style={[styles.scheduleDayTitle, theme && { color: theme.text }]}>{group.date}</Text>
-                <Text style={[styles.scheduleDayCount, theme && { color: theme.muted }]}>{group.items.length}개 일정</Text>
+            <View
+              key={group.date}
+              style={[
+                styles.scheduleDayGroup,
+                theme && { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: theme.primary },
+              ]}
+            >
+              <View style={[styles.scheduleDayHead, theme && { backgroundColor: theme.surfaceAlt, borderBottomColor: theme.border }]}>
+                <View style={styles.scheduleDayHeadCopy}>
+                  <Text style={[styles.scheduleDayLabel, theme && { color: theme.primary }]}>여행 날짜</Text>
+                  <Text style={[styles.scheduleDayTitle, theme && { color: theme.text }]}>{group.date}</Text>
+                </View>
+                <View style={[styles.scheduleDayCountBadge, theme && { backgroundColor: theme.primarySoft }]}>
+                  <Text style={[styles.scheduleDayCount, theme && { color: theme.primary }]}>{group.items.length}개 일정</Text>
+                </View>
               </View>
               {group.items.map((item, index) => (
-                <Moment
+                <View
                   key={`full-${item.time}-${schedule.indexOf(item)}`}
-                  {...item}
-                  last={index === group.items.length - 1}
-                  onPress={() => {
-                    setFullSchedule(false);
-                    openScheduleEdit(item, schedule.indexOf(item));
-                  }}
-                />
+                  style={[
+                    styles.scheduleDayItem,
+                    index > 0 && styles.scheduleDayItemBorder,
+                    index > 0 && theme && { borderTopColor: theme.border },
+                  ]}
+                >
+                  <Moment
+                    {...item}
+                    time={item.time.split("·").at(-1)?.trim() || item.time}
+                    last={index === group.items.length - 1}
+                    onPress={() => {
+                      setFullSchedule(false);
+                      openScheduleEdit(item, schedule.indexOf(item));
+                    }}
+                  />
+                </View>
               ))}
             </View>
           ))}
@@ -8688,18 +8708,30 @@ const styles = StyleSheet.create({
   moneyExportTitle: { fontSize: 13, fontFamily: typo.title.family },
   moneyExportHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
   fullScheduleList: { maxHeight: 520 },
-  scheduleDayGroup: { marginBottom: 18 },
+  scheduleDayGroup: {
+    marginBottom: 14,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
   scheduleDayHead: {
-    minHeight: 38,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 58,
+    borderBottomWidth: 1,
     borderBottomColor: "#E2E0DA",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  scheduleDayTitle: { fontSize: 14, fontFamily: typo.title.family },
-  scheduleDayCount: { fontSize: 11, fontFamily: typo.caption.family },
+  scheduleDayHeadCopy: { gap: 2 },
+  scheduleDayLabel: { fontSize: 10, fontFamily: typo.label.family, letterSpacing: 0.5 },
+  scheduleDayTitle: { fontSize: 16, fontFamily: typo.title.family },
+  scheduleDayCountBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
+  scheduleDayCount: { fontSize: 11, fontFamily: typo.label.family },
+  scheduleDayItem: { marginHorizontal: 12, paddingTop: 12, paddingBottom: 4 },
+  scheduleDayItemBorder: { borderTopWidth: 1 },
   planPlaceSummary: {
     borderRadius: 20,
     backgroundColor: "#E9E5FF",
