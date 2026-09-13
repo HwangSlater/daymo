@@ -615,6 +615,19 @@ export function WarmTripDetail({
       },
     ],
   );
+  const onSavePlanningRef = useRef(onSavePlanning);
+  useEffect(() => {
+    onSavePlanningRef.current = onSavePlanning;
+  }, [onSavePlanning]);
+  useEffect(() => {
+    onSavePlanningRef.current?.({
+      schedule,
+      stay: registeredStay,
+      places,
+      reservation,
+      transportations,
+    });
+  }, [places, registeredStay, reservation, schedule, transportations]);
   const closeDetail = useCallback(() => {
     onSavePlanning?.({ schedule, stay: registeredStay, places, reservation, transportations });
     onClose();

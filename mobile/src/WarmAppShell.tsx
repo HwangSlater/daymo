@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSheetDrag } from "./sheetDrag";
 import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
@@ -166,6 +167,45 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {
   ],
 };
 
+const tripStorageKey = "daymo.trip-data.v1";
+
+const isStoredTrip = (value: unknown): value is Trip => {
+  if (!value || typeof value !== "object") return false;
+  const trip = value as Partial<Trip>;
+  return typeof trip.name === "string"
+    && typeof trip.date === "string"
+    && typeof trip.note === "string"
+    && typeof trip.tone === "number"
+    && typeof trip.mark === "string"
+    && typeof trip.region === "string"
+    && typeof trip.start === "string"
+    && typeof trip.end === "string";
+};
+
+const parseStoredTripData = (raw: string | null) => {
+  if (!raw) return null;
+  try {
+    const saved = JSON.parse(raw) as {
+      tripsByGroup?: Partial<Record<GroupId, unknown>>;
+      done?: unknown;
+    };
+    if (!saved.tripsByGroup) return null;
+    const restored = { ...initialTripsByGroup };
+    (["ours", "friends", "family"] as GroupId[]).forEach((groupId) => {
+      const groupTrips = saved.tripsByGroup?.[groupId];
+      if (Array.isArray(groupTrips)) restored[groupId] = groupTrips.filter(isStoredTrip);
+    });
+    return {
+      tripsByGroup: restored,
+      done: Array.isArray(saved.done)
+        ? saved.done.filter((item): item is string => typeof item === "string")
+        : ["charger", "toiletries"],
+    };
+  } catch {
+    return null;
+  }
+};
+
 // 저장된 설정은 App이 실행 화면 뒤에서 미리 읽어 넘겨준다. 여기서 읽으면 기본값으로
 // 한 번 그린 뒤 바뀌어 화면이 튄다.
 // 여행 공간 목록. 마지막에 연 공간을 기기에서 읽어 처음 화면을 그릴 때도 필요해서
@@ -192,6 +232,7 @@ export function WarmAppShell({
     settings.activeGroupId,
   );
   const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
+  const [tripStorageReady, setTripStorageReady] = useState(false);
   const tripItems = tripsByGroup[activeGroupId];
   const setTripItems: React.Dispatch<React.SetStateAction<Trip[]>> = (update) =>
     setTripsByGroup((current) => ({
@@ -212,6 +253,33 @@ export function WarmAppShell({
     email: "sky@daymo.app",
   });
   const now = new Date();
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(tripStorageKey)
+      .then((raw) => {
+        if (!active) return;
+        const saved = parseStoredTripData(raw);
+        if (saved) {
+          setTripsByGroup(saved.tripsByGroup);
+          setDone(saved.done);
+        }
+      })
+      .finally(() => {
+        if (active) setTripStorageReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!tripStorageReady) return;
+    AsyncStorage.setItem(
+      tripStorageKey,
+      JSON.stringify({ tripsByGroup, done }),
+    ).catch(() => {});
+  }, [done, tripStorageReady, tripsByGroup]);
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const homeTrip = [...tripItems]
     .filter((trip) => trip.end >= todayKey)
