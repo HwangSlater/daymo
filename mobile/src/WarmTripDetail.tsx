@@ -1946,7 +1946,8 @@ function TripOverview({
         visible={sheet === "schedule"}
         title={editingScheduleIndex === null ? "일정 추가" : "일정 수정"}
         subtitle="일정 이름만 입력해도 추가할 수 있어요"
-        submit={scheduleFormValid ? (editingScheduleIndex === null ? "일정 추가" : "변경 저장") : "일정 이름을 입력해 주세요"}
+        submit={editingScheduleIndex === null ? "일정 추가" : "변경 저장"}
+        disabledHint={!scheduleFormValid ? "일정 이름을 입력해 주세요" : undefined}
         destructiveLabel={editingScheduleIndex === null ? undefined : "일정 삭제"}
         destructiveMessage={newPlanTitle ? `${newPlanTitle} 일정을 삭제해요.` : undefined}
         submitDisabled={!scheduleFormValid}
@@ -2202,7 +2203,8 @@ function TripOverview({
         visible={sheet === "stay"}
         title={hasStay ? "대표 숙소 수정" : "대표 숙소 추가"}
         subtitle="이번 여행에서 머무를 대표 숙소와 이용 시간을 기록하세요"
-        submit={stayFormValid ? "숙소 정보 저장" : !stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : "체크아웃 시간을 다시 확인해 주세요"}
+        submit="숙소 정보 저장"
+        disabledHint={!stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : !stayFormValid ? "체크아웃 시간을 다시 확인해 주세요" : undefined}
         submitDisabled={!stayFormValid}
         destructiveLabel={hasStay ? "대표 숙소 해제" : undefined}
         destructiveMessage="저장한 장소는 남고 체크인 일정만 함께 사라져요."
@@ -2895,15 +2897,8 @@ function Places({
         visible={adding}
         title={editingId ? "장소 수정" : "장소 추가"}
         subtitle="이름만 입력해도 저장할 수 있어요"
-        submit={
-          placeFormValid
-            ? editingId
-              ? "변경 저장"
-              : "장소 저장"
-            : duplicatePlace
-              ? "이미 저장한 장소예요"
-              : "장소 이름을 입력해 주세요"
-        }
+        submit={editingId ? "변경 저장" : "장소 저장"}
+        disabledHint={!placeFormValid ? (duplicatePlace ? "이미 저장한 장소예요" : "장소 이름을 입력해 주세요") : undefined}
         destructiveLabel={editingId ? "장소 삭제" : undefined}
         destructiveMessage={editingId ? "연결된 일정과 대표 숙소 설정도 함께 정리돼요." : undefined}
         submitDisabled={!placeFormValid}
@@ -4382,11 +4377,8 @@ function Preparation({
         visible={adding}
         title={editingId ? "준비물 수정" : "준비물 추가"}
         subtitle={editingId ? "이름, 수량, 담당과 태그를 바꿀 수 있어요" : "한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"}
-        submit={
-          newPackingCount
-            ? editingId ? "변경 저장" : `${newPackingCount}개 추가`
-            : duplicateEditedPacking ? "같은 담당자에게 이미 있는 준비물이에요" : "준비물을 입력해 주세요"
-        }
+        submit={newPackingCount && !editingId ? `${newPackingCount}개 추가` : editingId ? "변경 저장" : "준비물 추가"}
+        disabledHint={!newPackingCount ? (duplicateEditedPacking ? "같은 담당자에게 이미 있는 준비물이에요" : "준비물을 입력해 주세요") : undefined}
         submitDisabled={!newPackingCount}
         destructiveLabel={editingId ? "준비물 삭제" : undefined}
         destructiveMessage={editingId ? `${names || "이 준비물"}을 목록에서 삭제해요.` : undefined}
@@ -7428,6 +7420,7 @@ function DetailSheet({
   title,
   subtitle,
   submit,
+  disabledHint,
   destructiveLabel,
   destructiveMessage,
   submitDisabled = false,
@@ -7441,6 +7434,7 @@ function DetailSheet({
   title: string;
   subtitle?: string;
   submit: string;
+  disabledHint?: string;
   destructiveLabel?: string;
   destructiveMessage?: string;
   submitDisabled?: boolean;
@@ -7505,6 +7499,17 @@ function DetailSheet({
           ? theme.secondary
           : theme.primary
     : "#FF6B63";
+  const sheetAction = title.includes("수정")
+    ? "수정"
+    : title.includes("추가")
+      ? "추가"
+      : title.includes("선택")
+        ? "선택"
+        : title.includes("관리")
+          ? "관리"
+          : title.includes("담기")
+            ? "일정"
+            : "확인";
   return (
     <Modal
       visible={visible}
@@ -7535,9 +7540,7 @@ function DetailSheet({
               <View style={styles.sheetHeadCopy}>
                 <View style={styles.sheetKindRow}>
                   <View style={[styles.sheetKindDot, { backgroundColor: sheetAccent }]} />
-                  <Text style={[styles.sheetKindText, { color: sheetAccent }]}>{sheetKind} 작성</Text>
-                  <View style={[styles.sheetRouteLine, { backgroundColor: `${sheetAccent}40` }]} />
-                  <View style={[styles.sheetRouteDot, { borderColor: sheetAccent }]} />
+                  <Text style={[styles.sheetKindText, { color: sheetAccent }]}>{sheetKind} · {sheetAction}</Text>
                 </View>
                 <Text
                   style={[styles.sheetTitle, theme && { color: theme.text }]}
@@ -7585,6 +7588,11 @@ function DetailSheet({
               {children}
             </View>
           </ScrollView>
+          {submitDisabled && disabledHint && (
+            <Text accessibilityLiveRegion="polite" style={[styles.sheetDisabledHint, theme && { color: theme.muted }]}>
+              {disabledHint}
+            </Text>
+          )}
           <Pressable
             onPress={() => {
               setConfirmingDestructive(false);
@@ -8250,6 +8258,13 @@ const styles = StyleSheet.create({
     color: "#818A99",
     fontSize: 11,
     lineHeight: 15,
+    marginTop: 4,
+  },
+  sheetDisabledHint: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: typo.caption.family,
+    textAlign: "center",
     marginTop: 4,
   },
   sheetCloseButton: {
