@@ -4927,6 +4927,9 @@ function Cooking({
     ? Math.round((readyIngredientCount / ingredients.length) * 100)
     : 0;
   const groups = Array.from(new Set(ingredients.map((item) => item.group)));
+  useEffect(() => {
+    setCollapsedCookingGroups(groups);
+  }, [activeId]);
   const allCookingIngredients = recipes.flatMap((recipe) =>
     recipe.ingredients.map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
   );
@@ -5266,7 +5269,6 @@ function Cooking({
                     <Text style={[styles.cookV2MenuCount, theme && { color: selected ? theme.primary : theme.muted }]}>{recipe.ingredients.length}개</Text>
                   </View>
                   <Text numberOfLines={1} style={[styles.cookV2MenuName, theme && { color: theme.text }]}>{recipe.name}</Text>
-                  <Text numberOfLines={1} style={[styles.cookV2MenuNote, theme && { color: theme.muted }]}>{recipe.note}</Text>
                 </Pressable>
               );
             })}
@@ -5410,6 +5412,7 @@ function Cooking({
           )}
           {groups.map((section, groupIndex) => {
             const sectionItems = ingredients.filter((item) => item.group === section);
+            const sectionReadyCount = sectionItems.filter((item) => readyIngredientIds.includes(item.id)).length;
             const collapsed = collapsedCookingGroups.includes(section);
             const groupAccent = theme
               ? [theme.primary, theme.secondary, theme.accent][groupIndex % 3]
@@ -5449,7 +5452,7 @@ function Cooking({
                   <Text style={[styles.cookingSectionTitle, styles.cookV2SectionTitle, theme && { color: theme.text }]}>{section}</Text>
                 </View>
                 <View style={styles.cookV2SectionActions}>
-                  <Text style={[styles.cookV2SectionCount, theme && { color: theme.muted }]}>{sectionItems.length}개</Text>
+                  <Text style={[styles.cookV2SectionCount, theme && { color: theme.muted }]}>{sectionReadyCount}/{sectionItems.length} 준비</Text>
                   <Glyph name={collapsed ? "chevronRight" : "chevronDown"} size={16} color={theme?.muted ?? "#646C7A"} weight={2.2} />
                 </View>
               </Pressable>
@@ -9282,8 +9285,8 @@ const styles = StyleSheet.create({
   recipeSelectorMore: { color: "#D9685F", fontSize: 14, fontFamily: typo.label.family },
   cookV2MenuList: { gap: 8, paddingRight: 12 },
   cookV2MenuCard: {
-    width: 136,
-    minHeight: 70,
+    width: 124,
+    minHeight: 56,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 12,
@@ -9329,11 +9332,12 @@ const styles = StyleSheet.create({
   recipeListCount: { color: "#8C8580", fontSize: 14, fontFamily: typo.data.family, marginLeft: 8 },
   recipeListArrow: { color: "#8C8580", fontSize: 18, fontFamily: typo.label.family, marginLeft: 6 },
   myCookingBox: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E5DED6",
     backgroundColor: "#FFFFFF",
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     marginBottom: 12,
   },
   myCookingTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
