@@ -1805,16 +1805,27 @@ function TripOverview({
           },
         ]}
       >
-        <View style={[styles.travelTimelineTape, theme && { backgroundColor: theme.primary }]} />
-        {orderedSchedule.slice(0, 3).map((item, index) => (
+        {scheduleGroups[0] && (
+          <View style={[styles.travelTimelineHead, theme && { backgroundColor: theme.primarySoft }]}>
+            <View>
+              <Text style={[styles.travelTimelineEyebrow, theme && { color: theme.primary }]}>첫째 날</Text>
+              <Text style={[styles.travelTimelineDate, theme && { color: theme.text }]}>{scheduleGroups[0].date}</Text>
+            </View>
+            <Text style={[styles.travelTimelineCount, theme && { color: theme.primary }]}>{scheduleGroups[0].items.length}개 일정</Text>
+          </View>
+        )}
+        <View style={styles.travelTimelineItems}>
+        {scheduleGroups[0]?.items.slice(0, 3).map((item, index) => (
           <Moment
             key={`${item.time}-${index}`}
             {...item}
-            last={index === Math.min(schedule.length, 3) - 1}
+            time={item.time.split("·").at(-1)?.trim() || item.time}
+            last={index === Math.min(scheduleGroups[0].items.length, 3) - 1}
             compact
             onPress={() => openScheduleEdit(item, schedule.indexOf(item))}
           />
         ))}
+        </View>
         {schedule.length === 0 && (
           <EmptyState
             title="아직 일정이 없어요"
@@ -7903,7 +7914,19 @@ const styles = StyleSheet.create({
   memoEmpty: { alignItems: "center", paddingVertical: 20 },
   memoEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
   memoEmptyHint: { fontSize: 11, marginTop: 4 },
-  travelTimelineCard: { padding: 12, marginBottom: 22, position: "relative" },
+  travelTimelineCard: { padding: 0, marginBottom: 22, overflow: "hidden" },
+  travelTimelineHead: {
+    minHeight: 55,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  travelTimelineEyebrow: { fontSize: 10, fontFamily: typo.label.family, letterSpacing: 0.4 },
+  travelTimelineDate: { fontSize: 15, fontFamily: typo.title.family, marginTop: 1 },
+  travelTimelineCount: { fontSize: 11, fontFamily: typo.label.family },
+  travelTimelineItems: { paddingHorizontal: 12, paddingTop: 8 },
   travelTimelineTape: {
     position: "absolute",
     top: -5,
@@ -9666,6 +9689,8 @@ const styles = StyleSheet.create({
     height: 43,
     borderRadius: 8,
     marginTop: 6,
+    marginHorizontal: 12,
+    marginBottom: 12,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
