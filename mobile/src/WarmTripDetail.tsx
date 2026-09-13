@@ -1455,37 +1455,32 @@ function TripOverview({
     const linkedReservationId = target?.reservationId;
     const linkedTransportationId = target?.transportationId;
     const linkedStayId = target?.stayId;
-    Alert.alert("일정을 삭제할까요?", newPlanTitle, [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => {
-        setSchedule((current) => current.filter((_, index) => index !== editingScheduleIndex));
-        if (target?.placeId) {
-          setPlaces((current) => current.map((place) =>
-            place.id === target.placeId ? { ...place, status: "후보" } : place,
-          ));
-        }
-        if (linkedReservationId) {
-          setReservation((current) =>
-            current?.id === linkedReservationId
-              ? { ...current, showInSchedule: false }
-              : current,
-          );
-        }
-        if (linkedTransportationId) {
-          setTransportations((current) => current.map((item) =>
-            item.id === linkedTransportationId
-              ? { ...item, showInSchedule: false }
-              : item,
-          ));
-        }
-        if (linkedStayId) {
-          setRegisteredStay((current) => ({ ...current, showInSchedule: false }));
-        }
-        setEditingScheduleIndex(null);
-        setSheet(null);
-        notify("일정을 삭제했어요");
-      } },
-    ]);
+    setSchedule((current) => current.filter((_, index) => index !== editingScheduleIndex));
+    if (target?.placeId) {
+      setPlaces((current) => current.map((place) =>
+        place.id === target.placeId ? { ...place, status: "후보" } : place,
+      ));
+    }
+    if (linkedReservationId) {
+      setReservation((current) =>
+        current?.id === linkedReservationId
+          ? { ...current, showInSchedule: false }
+          : current,
+      );
+    }
+    if (linkedTransportationId) {
+      setTransportations((current) => current.map((item) =>
+        item.id === linkedTransportationId
+          ? { ...item, showInSchedule: false }
+          : item,
+      ));
+    }
+    if (linkedStayId) {
+      setRegisteredStay((current) => ({ ...current, showInSchedule: false }));
+    }
+    setEditingScheduleIndex(null);
+    setSheet(null);
+    notify("일정을 삭제했어요");
   };
   const syncTransportationSchedule = (transportation: Transportation) => {
     setSchedule((current) => {
@@ -1648,22 +1643,11 @@ function TripOverview({
   const deleteTransportation = () => {
     const target = transportations.find((item) => item.id === editingTransportId);
     if (!target) return;
-    Alert.alert(
-      "교통편을 삭제할까요?",
-      target.showInSchedule
-        ? "연결된 일정에서도 함께 삭제돼요."
-        : `${target.owner} · ${target.direction}`,
-      [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => {
-        setTransportations((current) => current.filter((item) => item.id !== target.id));
-        setSchedule((current) => current.filter((item) => item.transportationId !== target.id));
-        setEditingTransportId(null);
-        setSheet(null);
-        notify("교통편을 삭제했어요");
-      } },
-      ],
-    );
+    setTransportations((current) => current.filter((item) => item.id !== target.id));
+    setSchedule((current) => current.filter((item) => item.transportationId !== target.id));
+    setEditingTransportId(null);
+    setSheet(null);
+    notify("교통편을 삭제했어요");
   };
   const openReservation = (create = false) => {
     const nextDraft = create || !reservation ? blankReservation() : reservation;
@@ -1695,19 +1679,10 @@ function TripOverview({
   };
   const deleteReservation = () => {
     if (!reservation) return;
-    Alert.alert("예약 정보를 삭제할까요?", "연결된 일정에서도 함께 삭제돼요.", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "삭제",
-        style: "destructive",
-        onPress: () => {
-          setSchedule((current) => current.filter((item) => item.reservationId !== reservation.id));
-          setReservation(null);
-          setSheet(null);
-          notify("예약 정보를 삭제했어요");
-        },
-      },
-    ]);
+    setSchedule((current) => current.filter((item) => item.reservationId !== reservation.id));
+    setReservation(null);
+    setSheet(null);
+    notify("예약 정보를 삭제했어요");
   };
   const openStay = (create = false) => {
     const nextDraft = create
@@ -1778,22 +1753,9 @@ function TripOverview({
     notify("숙소 정보를 저장했어요");
   };
   const deleteStay = () => {
-    Alert.alert(
-      "대표 숙소에서 해제할까요?",
-      "저장한 장소에는 그대로 남아요.",
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "대표 숙소 해제",
-          style: "destructive",
-          onPress: () => {
-            setRegisteredStay({ name: "", checkin: "", checkout: "", address: "", showInSchedule: false });
-            setSheet(null);
-            notify("대표 숙소에서 해제했어요");
-          },
-        },
-      ],
-    );
+    setRegisteredStay({ name: "", checkin: "", checkout: "", address: "", showInSchedule: false });
+    setSheet(null);
+    notify("대표 숙소에서 해제했어요");
   };
   return (
     <View>
@@ -1939,6 +1901,7 @@ function TripOverview({
         subtitle="일정 이름만 입력해도 추가할 수 있어요"
         submit={scheduleFormValid ? (editingScheduleIndex === null ? "일정 추가" : "변경 저장") : "일정 이름을 입력해 주세요"}
         destructiveLabel={editingScheduleIndex === null ? undefined : "일정 삭제"}
+        destructiveMessage={newPlanTitle ? `${newPlanTitle} 일정을 삭제해요.` : undefined}
         submitDisabled={!scheduleFormValid}
         hasUnsavedChanges={scheduleDraftChanged}
         onClose={() => setSheet(null)}
@@ -2078,6 +2041,7 @@ function TripOverview({
         subtitle="가는 편과 오는 편을 나누어 저장하고 한곳에서 확인하세요"
         submit={transportSubmitLabel}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
+        destructiveMessage="연결된 일정에서도 함께 삭제돼요."
         submitDisabled={!transportFormValid}
         hasUnsavedChanges={transportDraftChanged}
         onClose={() => setSheet(null)}
@@ -2160,6 +2124,7 @@ function TripOverview({
         submit={reservationDraft.name.trim() ? "예약 정보 저장" : "예약 이름을 입력해 주세요"}
         submitDisabled={!reservationDraft.name.trim()}
         destructiveLabel={hasReservation ? "예약 정보 삭제" : undefined}
+        destructiveMessage="연결된 일정에서도 함께 삭제돼요."
         hasUnsavedChanges={reservationDraftChanged}
         onClose={() => setSheet(null)}
         onSubmit={saveReservation}
@@ -2185,6 +2150,7 @@ function TripOverview({
         submit={stayFormValid ? "숙소 정보 저장" : !stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : "체크아웃 시간을 다시 확인해 주세요"}
         submitDisabled={!stayFormValid}
         destructiveLabel={hasStay ? "대표 숙소 해제" : undefined}
+        destructiveMessage="저장한 장소는 남고 체크인 일정만 함께 사라져요."
         hasUnsavedChanges={stayDraftChanged}
         onClose={() => setSheet(null)}
         onSubmit={saveStay}
@@ -2461,39 +2427,14 @@ function Places({
     const linkedScheduleCount = schedule.filter(
       (item) => item.placeId === target.id,
     ).length;
-    const consequences = [
-      target.name === registeredStayName ? "대표 숙소에서 해제돼요." : "",
-      linkedScheduleCount
-        ? `연결된 일정 ${linkedScheduleCount}개도 함께 삭제돼요.`
-        : "",
-    ].filter(Boolean);
-    Alert.alert(
-      "장소를 삭제할까요?",
-      consequences.length
-        ? consequences.join("\n")
-        : `${target.name}을(를) 저장한 장소에서 삭제해요.`,
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "삭제",
-          style: "destructive",
-          onPress: () => {
-            setPlaces((current) =>
-              current.filter((place) => place.id !== editingId),
-            );
-            if (linkedScheduleCount) {
-              setSchedule((current) =>
-                current.filter((item) => item.placeId !== target.id),
-              );
-            }
-            if (target.name === registeredStayName) onRemoveRegisteredStay();
-            setAdding(false);
-            resetForm();
-            notify("장소를 삭제했어요");
-          },
-        },
-      ],
-    );
+    setPlaces((current) => current.filter((place) => place.id !== editingId));
+    if (linkedScheduleCount) {
+      setSchedule((current) => current.filter((item) => item.placeId !== target.id));
+    }
+    if (target.name === registeredStayName) onRemoveRegisteredStay();
+    setAdding(false);
+    resetForm();
+    notify("장소를 삭제했어요");
   };
   const choose = (index: number) => {
     const target = visible[index];
@@ -2896,6 +2837,7 @@ function Places({
               : "장소 이름을 입력해 주세요"
         }
         destructiveLabel={editingId ? "장소 삭제" : undefined}
+        destructiveMessage={editingId ? "연결된 일정과 대표 숙소 설정도 함께 정리돼요." : undefined}
         submitDisabled={!placeFormValid}
         hasUnsavedChanges={placeDraftChanged}
         onDestructive={deletePlace}
@@ -3295,14 +3237,9 @@ function Preparation({
   const deletePacking = () => {
     const target = items.find((item) => item.id === editingId);
     if (!target) return;
-    Alert.alert("준비물을 삭제할까요?", target.name, [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => {
-        setItems((current) => current.filter((item) => item.id !== target.id));
-        closePackingForm();
-        notify("준비물을 삭제했어요");
-      } },
-    ]);
+    setItems((current) => current.filter((item) => item.id !== target.id));
+    closePackingForm();
+    notify("준비물을 삭제했어요");
   };
   const copyPacking = async () => {
     await Clipboard.setStringAsync(
@@ -4360,6 +4297,7 @@ function Preparation({
         }
         submitDisabled={!newPackingCount}
         destructiveLabel={editingId ? "준비물 삭제" : undefined}
+        destructiveMessage={editingId ? `${names || "이 준비물"}을 목록에서 삭제해요.` : undefined}
         onDestructive={deletePacking}
         onClose={closePackingForm}
         onSubmit={submit}
@@ -5098,26 +5036,11 @@ function Cooking({
   };
   const deleteRecipe = () => {
     if (!activeRecipe) return;
-    Alert.alert(
-      "요리를 삭제할까요?",
-      `${activeRecipe.name}과 재료 목록이 함께 삭제돼요.`,
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "삭제",
-          style: "destructive",
-          onPress: () => {
-            const remaining = recipes.filter(
-              (recipe) => recipe.id !== activeRecipe.id,
-            );
-            setRecipes(remaining);
-            setActiveId(remaining[0]?.id || "");
-            closeRecipeSheet();
-            notify("요리와 재료 목록을 삭제했어요");
-          },
-        },
-      ],
-    );
+    const remaining = recipes.filter((recipe) => recipe.id !== activeRecipe.id);
+    setRecipes(remaining);
+    setActiveId(remaining[0]?.id || "");
+    closeRecipeSheet();
+    notify("요리와 재료 목록을 삭제했어요");
   };
   const openRecipeLink = () => {
     if (!activeRecipe?.url) return;
@@ -5756,6 +5679,7 @@ function Cooking({
               : "요리 이름을 입력해 주세요"}
         submitDisabled={!recipeFormValid}
         destructiveLabel={editingRecipe ? "요리 삭제" : undefined}
+        destructiveMessage={editingRecipe ? `${recipeName || "이 요리"}와 재료 목록을 함께 삭제해요.` : undefined}
         onClose={closeRecipeSheet}
         onSubmit={addRecipe}
         onDestructive={deleteRecipe}
@@ -5974,14 +5898,9 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
   const deletePhoto = () => {
     const target = photos.find((photo) => photo.id === editingPhotoId);
     if (!target) return;
-    Alert.alert("사진을 기록에서 삭제할까요?", target.caption || target.date, [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => {
-        setPhotos((current) => current.filter((photo) => photo.id !== target.id));
-        setPhotoEditing(false);
-        notify("사진을 삭제했어요");
-      } },
-    ]);
+    setPhotos((current) => current.filter((photo) => photo.id !== target.id));
+    setPhotoEditing(false);
+    notify("사진을 삭제했어요");
   };
   const openDiaryCreate = () => {
     setEditingDiaryId(null);
@@ -6009,14 +5928,9 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
   const deleteDiary = () => {
     const target = diaries.find((diary) => diary.id === editingDiaryId);
     if (!target) return;
-    Alert.alert("일기를 삭제할까요?", target.title, [
-      { text: "취소", style: "cancel" },
-      { text: "삭제", style: "destructive", onPress: () => {
-        setDiaries((current) => current.filter((diary) => diary.id !== target.id));
-        setDiaryWriting(false);
-        notify("여행 일기를 삭제했어요");
-      } },
-    ]);
+    setDiaries((current) => current.filter((diary) => diary.id !== target.id));
+    setDiaryWriting(false);
+    notify("여행 일기를 삭제했어요");
   };
   return (
     <View>
@@ -6185,6 +6099,7 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
         submit={photoSelected ? (editingPhotoId ? "변경 저장" : "사진 추가") : "사진을 선택해 주세요"}
         submitDisabled={!photoSelected}
         destructiveLabel={editingPhotoId ? "사진 삭제" : undefined}
+        destructiveMessage="사진을 여행 기록에서 삭제해요."
         onDestructive={deletePhoto}
         onClose={() => setPhotoEditing(false)}
         onSubmit={savePhoto}
@@ -6213,6 +6128,7 @@ function Memories({ tripName, tripDate }: { tripName: string; tripDate: string }
         submit={diaryBody.trim() ? (editingDiaryId ? "변경 저장" : "일기 저장") : "내용을 입력해 주세요"}
         submitDisabled={!diaryBody.trim()}
         destructiveLabel={editingDiaryId ? "일기 삭제" : undefined}
+        destructiveMessage={editingDiaryId ? `${diaryTitle || "이 일기"}를 여행 기록에서 삭제해요.` : undefined}
         onDestructive={deleteDiary}
         onClose={() => {
           setDiaryWriting(false);
@@ -6441,18 +6357,9 @@ function Money({
   const deleteExpense = () => {
     const target = expenses.find((item) => item.id === editingId);
     if (!target) return;
-    Alert.alert("지출을 삭제할까요?", `${target.title} · ${won(target.amount)}원`, [
-      { text: "취소", style: "cancel" },
-      {
-        text: "삭제",
-        style: "destructive",
-        onPress: () => {
-          setExpenses((current) => current.filter((item) => item.id !== target.id));
-          setSheetOpen(false);
-          notify("지출을 삭제했어요");
-        },
-      },
-    ]);
+    setExpenses((current) => current.filter((item) => item.id !== target.id));
+    setSheetOpen(false);
+    notify("지출을 삭제했어요");
   };
   const exportCsv = async () => {
     if (!expenses.length) {
@@ -6709,6 +6616,7 @@ function Money({
         }
         submitDisabled={!formValid}
         destructiveLabel={editingId ? "지출 삭제" : undefined}
+        destructiveMessage={editingId ? `${draftTitle || "이 지출"} 내역을 삭제해요.` : undefined}
         onClose={() => setSheetOpen(false)}
         onSubmit={saveExpense}
         onDestructive={deleteExpense}
@@ -7426,6 +7334,7 @@ function DetailSheet({
   subtitle,
   submit,
   destructiveLabel,
+  destructiveMessage,
   submitDisabled = false,
   hasUnsavedChanges = false,
   onClose,
@@ -7438,6 +7347,7 @@ function DetailSheet({
   subtitle?: string;
   submit: string;
   destructiveLabel?: string;
+  destructiveMessage?: string;
   submitDisabled?: boolean;
   hasUnsavedChanges?: boolean;
   onClose: () => void;
@@ -7446,6 +7356,10 @@ function DetailSheet({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
+  const [confirmingDestructive, setConfirmingDestructive] = useState(false);
+  useEffect(() => {
+    if (!visible) setConfirmingDestructive(false);
+  }, [visible]);
   const requestClose = () => {
     if (!hasUnsavedChanges) {
       onClose();
@@ -7593,9 +7507,42 @@ function DetailSheet({
               <Glyph name="arrowRight" size={15} color="#FFFFFF" />
             </View>
           </Pressable>
-          {destructiveLabel && (
+          {destructiveLabel && confirmingDestructive && (
+            <View
+              accessibilityLiveRegion="polite"
+              style={[styles.deleteConfirm, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+            >
+              <View style={styles.deleteConfirmCopy}>
+                <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>{destructiveLabel}할까요?</Text>
+                <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>
+                  {destructiveMessage ?? "삭제한 내용은 되돌릴 수 없어요."}
+                </Text>
+              </View>
+              <View style={styles.deleteConfirmActions}>
+                <Pressable
+                  onPress={() => setConfirmingDestructive(false)}
+                  accessibilityRole="button"
+                  style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}
+                >
+                  <Text style={[styles.deleteConfirmCancel, theme && { color: theme.text }]}>취소</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setConfirmingDestructive(false);
+                    onDestructive?.();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${destructiveLabel} 확인`}
+                  style={[styles.deleteConfirmButton, styles.deleteConfirmButtonDanger]}
+                >
+                  <Text style={styles.deleteConfirmDanger}>확인</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+          {destructiveLabel && !confirmingDestructive && (
             <Pressable
-              onPressIn={onDestructive}
+              onPress={() => setConfirmingDestructive(true)}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={destructiveLabel}
@@ -8624,6 +8571,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   deletePlaceText: { color: "#D6534A", fontSize: 12, fontFamily: typo.label.family },
+  deleteConfirm: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 8,
+    gap: 10,
+  },
+  deleteConfirmCopy: { paddingHorizontal: 2 },
+  deleteConfirmTitle: { fontSize: 14, fontFamily: typo.title.family },
+  deleteConfirmMessage: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+  deleteConfirmActions: { flexDirection: "row", gap: 8 },
+  deleteConfirmButton: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteConfirmButtonDanger: { backgroundColor: "#D6534A", borderColor: "#D6534A" },
+  deleteConfirmCancel: { fontSize: 12, fontFamily: typo.label.family },
+  deleteConfirmDanger: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   fullScheduleText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
   moneySummary: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 8 },
   moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
