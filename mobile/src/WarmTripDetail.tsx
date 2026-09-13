@@ -63,10 +63,18 @@ export type ScheduleItem = {
   note: string;
   mapUrl: string;
   placeId?: string;
+  stayId?: string;
   reservationId?: string;
   transportationId?: string;
 };
-export type StayInfo = { name: string; checkin: string; checkout: string; address: string };
+export type StayInfo = {
+  name: string;
+  checkin: string;
+  checkout: string;
+  address: string;
+  placeId?: string;
+  showInSchedule?: boolean;
+};
 export type ReservationInfo = {
   id: string;
   name: string;
@@ -547,11 +555,15 @@ export function WarmTripDetail({
   const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
-    initialPlanning?.stay ?? {
+    initialPlanning?.stay
+      ? { ...initialPlanning.stay, showInSchedule: initialPlanning.stay.showInSchedule ?? true }
+      : {
       name: "달빛한옥",
       checkin: `${firstTripDate} 15:00`,
       checkout: `${lastTripDate} 11:00`,
       address: "전주 완산구 은행로 12 달빛한옥",
+      placeId: "place-js-hotel",
+      showInSchedule: true,
     },
   );
   const [places, setPlaces] = useState<PlaceItem[]>(() =>
@@ -597,6 +609,7 @@ export function WarmTripDetail({
         note: `${lastTripDate} 11:00 체크아웃`,
         mapUrl: "https://map.naver.com/p/search/달빛한옥",
         placeId: "place-js-hotel",
+        stayId: "primary-stay",
       },
       {
         time: `${weekdayOf(tripDayOptions[0])} · 19:30`,
@@ -615,6 +628,37 @@ export function WarmTripDetail({
       },
     ],
   );
+  useEffect(() => {
+    setSchedule((current) => {
+      const linkedIndex = current.findIndex((item) =>
+        item.stayId === "primary-stay" || (
+          !item.stayId &&
+          Boolean(registeredStay.placeId) &&
+          item.placeId === registeredStay.placeId &&
+          item.title.endsWith(" 체크인")
+        ),
+      );
+      if (!registeredStay.name || registeredStay.showInSchedule === false) {
+        return linkedIndex < 0 ? current : current.filter((_, index) => index !== linkedIndex);
+      }
+      const checkinDateIndex = tripDateOptions.findIndex((date) => registeredStay.checkin.startsWith(date));
+      const date = tripDayOptions[Math.max(0, checkinDateIndex)];
+      const time = registeredStay.checkin.match(/\d{1,2}:\d{2}$/)?.[0] ?? "시간 미정";
+      const linked: ScheduleItem = {
+        time: `${weekdayOf(date)} · ${time}`,
+        date,
+        title: `${registeredStay.name} 체크인`,
+        note: registeredStay.checkout ? `${registeredStay.checkout} 체크아웃` : "숙소 체크인",
+        mapUrl: places.find((place) => place.id === registeredStay.placeId)?.mapUrl ?? "",
+        placeId: registeredStay.placeId,
+        stayId: "primary-stay",
+      };
+      if (linkedIndex < 0) return [...current, linked];
+      const saved = current[linkedIndex];
+      if (JSON.stringify(saved) === JSON.stringify(linked)) return current;
+      return current.map((item, index) => index === linkedIndex ? linked : item);
+    });
+  }, [places, registeredStay, tripDateOptions.join("|"), tripDayOptions.join("|")]);
   const onSavePlanningRef = useRef(onSavePlanning);
   useEffect(() => {
     onSavePlanningRef.current = onSavePlanning;
@@ -834,6 +878,8 @@ export function WarmTripDetail({
                   checkin: `${firstTripDate} 15:00`,
                   checkout: `${lastTripDate} 11:00`,
                   address: place.address || place.area,
+                  placeId: place.id,
+                  showInSchedule: true,
                 });
                 setFeedback(`${place.name}을(를) 이번 여행 숙소로 등록했어요`);
               }}
@@ -842,7 +888,7 @@ export function WarmTripDetail({
                 name: place.name,
                 address: place.address || place.area,
               }))}
-              onRemoveRegisteredStay={() => setRegisteredStay({ name: "", checkin: "", checkout: "", address: "" })}
+              onRemoveRegisteredStay={() => setRegisteredStay({ name: "", checkin: "", checkout: "", address: "", showInSchedule: false })}
             />
           )}
           {mode === "준비" && (
@@ -1408,6 +1454,7 @@ function TripOverview({
     const target = schedule[editingScheduleIndex];
     const linkedReservationId = target?.reservationId;
     const linkedTransportationId = target?.transportationId;
+    const linkedStayId = target?.stayId;
     Alert.alert("일정을 삭제할까요?", newPlanTitle, [
       { text: "취소", style: "cancel" },
       { text: "삭제", style: "destructive", onPress: () => {
@@ -1430,6 +1477,9 @@ function TripOverview({
               ? { ...item, showInSchedule: false }
               : item,
           ));
+        }
+        if (linkedStayId) {
+          setRegisteredStay((current) => ({ ...current, showInSchedule: false }));
         }
         setEditingScheduleIndex(null);
         setSheet(null);
@@ -1661,7 +1711,7 @@ function TripOverview({
   };
   const openStay = (create = false) => {
     const nextDraft = create
-      ? { name: "", checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00`, address: "" }
+      ? { name: "", checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00`, address: "", showInSchedule: true }
       : registeredStay;
     setStayDraftBaseline(JSON.stringify(nextDraft));
     setStayDraft(nextDraft);
@@ -1688,18 +1738,15 @@ function TripOverview({
     const linkedPlace = places.find(
       (place) =>
         place.category === "숙소" &&
-        (place.name === previousName || place.name === stayDraft.name),
+        (place.id === registeredStay.placeId || place.name === previousName || place.name === stayDraft.name),
     );
-    const checkinDateIndex = dateOptions.findIndex((date) =>
-      stayDraft.checkin.startsWith(date),
-    );
-    const checkinDay = dayOptions[Math.max(0, checkinDateIndex)];
-    setRegisteredStay(stayDraft);
+    const stayPlaceId = registeredStay.placeId ?? linkedPlace?.id ?? `place-stay-${Date.now()}`;
+    setRegisteredStay({ ...stayDraft, placeId: stayPlaceId, showInSchedule: stayDraft.showInSchedule ?? true });
     setPlaces((current) => {
       const match = current.find(
         (place) =>
           place.category === "숙소" &&
-          (place.name === previousName || place.name === stayDraft.name),
+          (place.id === stayPlaceId || place.name === previousName || place.name === stayDraft.name),
       );
       if (match) {
         return current.map((place) =>
@@ -1716,7 +1763,7 @@ function TripOverview({
       return [
         ...current,
         {
-          id: `place-stay-${stayDraft.name}-${stayDraft.checkin}`,
+          id: stayPlaceId,
           name: stayDraft.name,
           area: placeAreaFromAddress(stayDraft.address),
           address: stayDraft.address,
@@ -1727,19 +1774,6 @@ function TripOverview({
         },
       ];
     });
-    if (linkedPlace) {
-      setSchedule((current) => current.map((item) =>
-        item.placeId === linkedPlace.id && item.title === `${previousName} 체크인`
-          ? {
-              ...item,
-              time: `${weekdayOf(checkinDay)} · ${stayDraft.checkin.match(/\d{1,2}:\d{2}$/)?.[0] ?? "시간 미정"}`,
-              date: checkinDay,
-              title: `${stayDraft.name} 체크인`,
-              note: `${stayDraft.checkout} 체크아웃`,
-            }
-          : item,
-      ));
-    }
     setSheet(null);
     notify("숙소 정보를 저장했어요");
   };
@@ -1753,7 +1787,7 @@ function TripOverview({
           text: "대표 숙소 해제",
           style: "destructive",
           onPress: () => {
-            setRegisteredStay({ name: "", checkin: "", checkout: "", address: "" });
+            setRegisteredStay({ name: "", checkin: "", checkout: "", address: "", showInSchedule: false });
             setSheet(null);
             notify("대표 숙소에서 해제했어요");
           },
@@ -2172,6 +2206,12 @@ function TripOverview({
           onTimeChange={(value) => updateStayDateTime("checkout", "time", value)}
         />
         <DetailField label="주소 · 선택 사항" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="숙소 주소" />
+        <OptionField
+          label="여행 일정 표시"
+          options={["체크인 일정 표시", "숙소 정보만 저장"]}
+          value={stayDraft.showInSchedule === false ? "숙소 정보만 저장" : "체크인 일정 표시"}
+          onChange={(value) => setStayDraft((current) => ({ ...current, showInSchedule: value === "체크인 일정 표시" }))}
+        />
       </DetailSheet>
       <InfoPanel
         visible={fullSchedule}
