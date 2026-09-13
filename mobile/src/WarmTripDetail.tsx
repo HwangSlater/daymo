@@ -64,6 +64,7 @@ export type ScheduleItem = {
   mapUrl: string;
   placeId?: string;
   reservationId?: string;
+  transportationId?: string;
 };
 export type StayInfo = { name: string; checkin: string; checkout: string; address: string };
 export type ReservationInfo = {
@@ -91,6 +92,7 @@ export type TripPlanningData = {
   stay: StayInfo;
   places: PlaceItem[];
   reservation?: ReservationInfo | null;
+  transportations?: Transportation[];
 };
 
 const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
@@ -136,7 +138,7 @@ const initialPlaces: PlaceItem[] = [
   },
 ];
 
-type Transportation = {
+export type Transportation = {
   id: string;
   owner: "하늘" | "여울";
   direction: "가는 편" | "오는 편";
@@ -147,6 +149,7 @@ type Transportation = {
   arrival: string;
   arrivalTime: string;
   status: "예매 완료" | "예매 전";
+  showInSchedule: boolean;
 };
 
 type Props = {
@@ -555,6 +558,14 @@ export function WarmTripDetail({
       ? defaultReservation
       : initialPlanning.reservation,
   );
+  const [transportations, setTransportations] = useState<Transportation[]>(() =>
+    initialPlanning?.transportations ?? [
+      { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: tripDayOptions[0], departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료", showInSchedule: false },
+      { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료", showInSchedule: false },
+      { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", date: tripDayOptions[0], departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료", showInSchedule: false },
+      { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료", showInSchedule: false },
+    ],
+  );
   const [schedule, setSchedule] = useState<ScheduleItem[]>(() =>
     initialPlanning?.schedule ?? [
       {
@@ -591,9 +602,9 @@ export function WarmTripDetail({
     ],
   );
   const closeDetail = useCallback(() => {
-    onSavePlanning?.({ schedule, stay: registeredStay, places, reservation });
+    onSavePlanning?.({ schedule, stay: registeredStay, places, reservation, transportations });
     onClose();
-  }, [onClose, onSavePlanning, places, registeredStay, reservation, schedule]);
+  }, [onClose, onSavePlanning, places, registeredStay, reservation, schedule, transportations]);
 
   useEffect(
     () => setMode(destinationMode(initialDestination)),
@@ -775,6 +786,8 @@ export function WarmTripDetail({
               setRegisteredStay={setRegisteredStay}
               reservation={reservation}
               setReservation={setReservation}
+              transportations={transportations}
+              setTransportations={setTransportations}
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
               openScheduleOnMount={initialDestination === "schedule-add"}
@@ -990,6 +1003,12 @@ export function WarmTripDetail({
               if (oldIndex < 0) return current;
               return { ...current, date: nextDays[Math.min(oldIndex, nextDays.length - 1)] };
             });
+            setTransportations((current) => current.map((item) => {
+              if (!nextDays.length) return item;
+              const oldIndex = oldDays.indexOf(item.date);
+              if (oldIndex < 0) return item;
+              return { ...item, date: nextDays[Math.min(oldIndex, nextDays.length - 1)] };
+            }));
             setTitle(nextTitle);
             setCurrentStart(draftStart);
             setCurrentEnd(draftEnd);
@@ -1094,6 +1113,8 @@ function TripOverview({
   setRegisteredStay,
   reservation,
   setReservation,
+  transportations,
+  setTransportations,
   dayOptions,
   dateOptions,
   openScheduleOnMount,
@@ -1108,6 +1129,8 @@ function TripOverview({
   setRegisteredStay: React.Dispatch<React.SetStateAction<StayInfo>>;
   reservation: ReservationInfo | null;
   setReservation: React.Dispatch<React.SetStateAction<ReservationInfo | null>>;
+  transportations: Transportation[];
+  setTransportations: React.Dispatch<React.SetStateAction<Transportation[]>>;
   dayOptions: string[];
   dateOptions: string[];
   openScheduleOnMount?: boolean;
@@ -1131,12 +1154,6 @@ function TripOverview({
   const [planPlace, setPlanPlace] = useState("");
   const [planMapUrl, setPlanMapUrl] = useState("");
   const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(false);
-  const [transportations, setTransportations] = useState<Transportation[]>([
-    { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: firstDay, departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료" },
-    { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: lastDay, departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료" },
-    { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", date: firstDay, departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료" },
-    { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", date: lastDay, departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료" },
-  ]);
   const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
   const [transportOwner, setTransportOwner] = useState<Transportation["owner"]>("하늘");
   const [transportDirection, setTransportDirection] = useState<Transportation["direction"]>("가는 편");
@@ -1147,7 +1164,23 @@ function TripOverview({
   const [transportArrival, setTransportArrival] = useState("");
   const [transportArrivalTime, setTransportArrivalTime] = useState("");
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
+  const [transportShowInSchedule, setTransportShowInSchedule] = useState(true);
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
+  const transportDraft = {
+    owner: transportOwner,
+    direction: transportDirection,
+    method: transportMethod,
+    date: transportDate,
+    departure: transportDeparture,
+    departureTime: transportDepartureTime,
+    arrival: transportArrival,
+    arrivalTime: transportArrivalTime,
+    status: transportStatus,
+    showInSchedule: transportShowInSchedule,
+  };
+  const [transportDraftBaseline, setTransportDraftBaseline] = useState(() =>
+    JSON.stringify(transportDraft),
+  );
   const blankReservation = (): ReservationInfo => ({
     id: reservation?.id ?? "reservation-primary",
     name: "",
@@ -1189,6 +1222,7 @@ function TripOverview({
   ) !== scheduleDraftBaseline;
   const stayDraftChanged = JSON.stringify(stayDraft) !== stayDraftBaseline;
   const reservationDraftChanged = JSON.stringify(reservationDraft) !== reservationDraftBaseline;
+  const transportDraftChanged = JSON.stringify(transportDraft) !== transportDraftBaseline;
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportRouteValid = Boolean(
     transportDeparture.trim() &&
@@ -1274,6 +1308,15 @@ function TripOverview({
     setSheet("schedule");
   };
   const openScheduleEdit = (item: ScheduleItem, index: number) => {
+    if (item.transportationId) {
+      const linkedTransportation = transportations.find(
+        (transportation) => transportation.id === item.transportationId,
+      );
+      if (linkedTransportation) {
+        openTransportEdit(linkedTransportation);
+        return;
+      }
+    }
     if (item.reservationId && item.reservationId === reservation?.id) {
       openReservation();
       return;
@@ -1305,6 +1348,7 @@ function TripOverview({
     if (editingScheduleIndex === null) return;
     const target = schedule[editingScheduleIndex];
     const linkedReservationId = target?.reservationId;
+    const linkedTransportationId = target?.transportationId;
     Alert.alert("일정을 삭제할까요?", newPlanTitle, [
       { text: "취소", style: "cancel" },
       { text: "삭제", style: "destructive", onPress: () => {
@@ -1321,16 +1365,45 @@ function TripOverview({
               : current,
           );
         }
+        if (linkedTransportationId) {
+          setTransportations((current) => current.map((item) =>
+            item.id === linkedTransportationId
+              ? { ...item, showInSchedule: false }
+              : item,
+          ));
+        }
         setEditingScheduleIndex(null);
         setSheet(null);
         notify("일정을 삭제했어요");
       } },
     ]);
   };
+  const syncTransportationSchedule = (transportation: Transportation) => {
+    setSchedule((current) => {
+      const linkedIndex = current.findIndex(
+        (item) => item.transportationId === transportation.id,
+      );
+      if (!transportation.showInSchedule) {
+        return linkedIndex < 0
+          ? current
+          : current.filter((item) => item.transportationId !== transportation.id);
+      }
+      const linked: ScheduleItem = {
+        time: `${weekdayOf(transportation.date)} · ${transportation.departureTime}`,
+        date: transportation.date,
+        title: `${transportation.method} ${transportation.departure} 출발`,
+        note: `${transportation.arrival} ${transportation.arrivalTime} 도착 · ${transportation.owner} · ${transportation.direction}`,
+        mapUrl: "",
+        transportationId: transportation.id,
+      };
+      if (linkedIndex < 0) return [...current, linked];
+      return current.map((item, index) => index === linkedIndex ? linked : item);
+    });
+  };
   const addTransportation = () => {
     if (!transportFormValid) return;
     const next: Transportation = {
-      id: `transport-${Date.now()}`,
+      id: editingTransportId ?? `transport-${Date.now()}`,
       owner: transportOwner,
       direction: transportDirection,
       method: transportMethod,
@@ -1340,9 +1413,12 @@ function TripOverview({
       arrival: transportArrival.trim(),
       arrivalTime: transportArrivalTime.trim() || "시간 미정",
       status: transportStatus,
+      showInSchedule: transportShowInSchedule,
     };
+    setTransportDraftBaseline(JSON.stringify(transportDraft));
     if (editingTransportId) {
       setTransportations((current) => current.map((item) => item.id === editingTransportId ? next : item));
+      syncTransportationSchedule(next);
       setEditingTransportId(null);
       setTransportDeparture("");
       setTransportDepartureTime("");
@@ -1353,16 +1429,7 @@ function TripOverview({
       return;
     }
     setTransportations((current) => [...current, next]);
-    setSchedule((current) => [
-      ...current,
-      {
-        time: `${weekdayOf(transportDate)} · ${next.departureTime}`,
-        date: transportDate,
-        title: `${next.method} ${next.departure} 출발`,
-        note: `${next.arrival} ${next.arrivalTime} 도착 · ${next.owner}`,
-        mapUrl: "",
-      },
-    ]);
+    syncTransportationSchedule(next);
     if (transportDirection === "가는 편") {
       Alert.alert(
         "가는 편을 저장했어요",
@@ -1382,6 +1449,18 @@ function TripOverview({
           {
             text: "오는 편 등록",
             onPress: () => {
+              setTransportDraftBaseline(JSON.stringify({
+                owner: next.owner,
+                direction: "오는 편",
+                method: next.method,
+                date: lastDay,
+                departure: next.arrival,
+                departureTime: "",
+                arrival: next.departure,
+                arrivalTime: "",
+                status: next.status,
+                showInSchedule: next.showInSchedule,
+              }));
               setTransportDirection("오는 편");
               setTransportDate(lastDay);
               setTransportDeparture(next.arrival);
@@ -1403,16 +1482,46 @@ function TripOverview({
     }
   };
   const openTransportCreate = () => {
+    const nextDraft = {
+      owner: "하늘" as const,
+      direction: "가는 편" as const,
+      method: "KTX" as const,
+      date: firstDay,
+      departure: "",
+      departureTime: "",
+      arrival: "",
+      arrivalTime: "",
+      status: "예매 완료" as const,
+      showInSchedule: true,
+    };
+    setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(null);
+    setTransportOwner(nextDraft.owner);
     setTransportDirection("가는 편");
+    setTransportMethod(nextDraft.method);
     setTransportDate(firstDay);
     setTransportDeparture("");
     setTransportDepartureTime("");
     setTransportArrival("");
     setTransportArrivalTime("");
+    setTransportStatus("예매 완료");
+    setTransportShowInSchedule(true);
     setSheet("transport");
   };
   const openTransportEdit = (item: Transportation) => {
+    const nextDraft = {
+      owner: item.owner,
+      direction: item.direction,
+      method: item.method,
+      date: item.date,
+      departure: item.departure,
+      departureTime: item.departureTime === "시간 미정" ? "" : item.departureTime,
+      arrival: item.arrival,
+      arrivalTime: item.arrivalTime === "시간 미정" ? "" : item.arrivalTime,
+      status: item.status,
+      showInSchedule: item.showInSchedule,
+    };
+    setTransportDraftBaseline(JSON.stringify(nextDraft));
     setSelectedTransport(null);
     setEditingTransportId(item.id);
     setTransportOwner(item.owner);
@@ -1424,20 +1533,28 @@ function TripOverview({
     setTransportArrival(item.arrival);
     setTransportArrivalTime(item.arrivalTime === "시간 미정" ? "" : item.arrivalTime);
     setTransportStatus(item.status);
+    setTransportShowInSchedule(item.showInSchedule);
     setSheet("transport");
   };
   const deleteTransportation = () => {
     const target = transportations.find((item) => item.id === editingTransportId);
     if (!target) return;
-    Alert.alert("교통편을 삭제할까요?", `${target.owner} · ${target.direction}`, [
+    Alert.alert(
+      "교통편을 삭제할까요?",
+      target.showInSchedule
+        ? "연결된 일정에서도 함께 삭제돼요."
+        : `${target.owner} · ${target.direction}`,
+      [
       { text: "취소", style: "cancel" },
       { text: "삭제", style: "destructive", onPress: () => {
         setTransportations((current) => current.filter((item) => item.id !== target.id));
+        setSchedule((current) => current.filter((item) => item.transportationId !== target.id));
         setEditingTransportId(null);
         setSheet(null);
         notify("교통편을 삭제했어요");
       } },
-    ]);
+      ],
+    );
   };
   const openReservation = (create = false) => {
     const nextDraft = create || !reservation ? blankReservation() : reservation;
@@ -1827,6 +1944,7 @@ function TripOverview({
         submit={transportSubmitLabel}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
         submitDisabled={!transportFormValid}
+        hasUnsavedChanges={transportDraftChanged}
         onClose={() => setSheet(null)}
         onSubmit={addTransportation}
         onDestructive={deleteTransportation}
@@ -1873,6 +1991,12 @@ function TripOverview({
           onChangeRight={setTransportArrivalTime}
         />
         <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
+        <OptionField
+          label="여행 일정 표시"
+          options={["일정에도 표시", "교통 정보만 저장"]}
+          value={transportShowInSchedule ? "일정에도 표시" : "교통 정보만 저장"}
+          onChange={(value) => setTransportShowInSchedule(value === "일정에도 표시")}
+        />
       </DetailSheet>
       <InfoPanel
         visible={selectedTransport !== null}
@@ -1887,6 +2011,7 @@ function TripOverview({
               <InfoLine label="교통수단" value={item.method} />
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
+              <InfoLine label="여행 일정" value={item.showInSchedule ? "일정에 표시 중" : "교통 정보만 저장"} />
               <Pressable onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
                 <Text style={[styles.infoManageButtonText, theme && { color: theme.primary }]}>이 교통편 수정</Text>
               </Pressable>
