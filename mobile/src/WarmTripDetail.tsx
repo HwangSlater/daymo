@@ -23,6 +23,7 @@ import {
   Animated,
   BackHandler,
   KeyboardAvoidingView,
+  Keyboard,
   Linking,
   Modal,
   Platform,
@@ -7446,6 +7447,10 @@ function DetailSheet({
 }) {
   const theme = useContext(DetailThemeContext);
   const [confirmingDestructive, setConfirmingDestructive] = useState(false);
+  const submitLocked = useRef(false);
+  useEffect(() => {
+    if (visible) submitLocked.current = false;
+  }, [visible]);
   const closeAndReset = () => {
     setConfirmingDestructive(false);
     onClose();
@@ -7595,8 +7600,14 @@ function DetailSheet({
           )}
           <Pressable
             onPress={() => {
+              if (submitLocked.current) return;
+              submitLocked.current = true;
+              Keyboard.dismiss();
               setConfirmingDestructive(false);
               onSubmit();
+              setTimeout(() => {
+                submitLocked.current = false;
+              }, 800);
             }}
             disabled={submitDisabled}
             accessibilityRole="button"

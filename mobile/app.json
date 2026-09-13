@@ -27,6 +27,7 @@
     },
     "android": {
       "package": "com.hwangslater.daymo",
+      "softwareKeyboardLayoutMode": "resize",
       "icon": "./assets/daymo-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/daymo-icon-adaptive.png",
