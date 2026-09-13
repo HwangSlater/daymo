@@ -1245,6 +1245,7 @@ function TripOverview({
   const [transportArrivalTime, setTransportArrivalTime] = useState("");
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const [transportShowInSchedule, setTransportShowInSchedule] = useState(true);
+  const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
   const transportDraft = {
     owner: transportOwner,
@@ -1620,6 +1621,7 @@ function TripOverview({
     setTransportArrivalTime("");
     setTransportStatus("예매 완료");
     setTransportShowInSchedule(true);
+    setTransportDetailsOpen(false);
     setSheet("transport");
   };
   const openTransportEdit = (item: Transportation) => {
@@ -1648,6 +1650,7 @@ function TripOverview({
     setTransportArrivalTime(item.arrivalTime === "시간 미정" ? "" : item.arrivalTime);
     setTransportStatus(item.status);
     setTransportShowInSchedule(item.showInSchedule);
+    setTransportDetailsOpen(item.owner !== "하늘" || item.status !== "예매 완료" || !item.showInSchedule);
     setSheet("transport");
   };
   const deleteTransportation = () => {
@@ -2069,10 +2072,7 @@ function TripOverview({
         onSubmit={addTransportation}
         onDestructive={deleteTransportation}
       >
-        <Pressable
-          onPress={switchTransportDirection}
-          accessibilityRole="button"
-          accessibilityLabel={`${transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 바꾸기`}
+        <View
           style={[
             styles.transportFormPreview,
             { backgroundColor: transportDirectionSoft, borderColor: `${transportDirectionColor}66` },
@@ -2083,12 +2083,15 @@ function TripOverview({
             <Text style={[styles.transportFormRoute, theme && { color: theme.text }]}>{transportDeparture || "출발지"} → {transportArrival || "도착지"}</Text>
           </View>
           <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod} · {transportDepartureTime || "시간 미정"}</Text>
-          <View style={styles.transportSwitchHint}>
-            <Text style={[styles.transportSwitchHintText, { color: transportDirectionColor }]}>탭해서 {transportDirection === "가는 편" ? "오는 편" : "가는 편"}으로 전환</Text>
-            <Glyph name="swap" size={16} color={transportDirectionColor} weight={1.8} />
-          </View>
-        </Pressable>
-        <OptionField label="이용자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
+        </View>
+        <OptionField
+          label="방향"
+          options={["가는 편", "오는 편"]}
+          value={transportDirection}
+          onChange={(value) => {
+            if (value !== transportDirection) switchTransportDirection();
+          }}
+        />
         <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
         <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
         <PairedDetailField
@@ -2110,13 +2113,21 @@ function TripOverview({
           onChangeLeft={setTransportDepartureTime}
           onChangeRight={setTransportArrivalTime}
         />
-        <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
-        <OptionField
-          label="여행 일정 표시"
-          options={["일정에도 표시", "교통 정보만 저장"]}
-          value={transportShowInSchedule ? "일정에도 표시" : "교통 정보만 저장"}
-          onChange={(value) => setTransportShowInSchedule(value === "일정에도 표시")}
-        />
+        <OptionalFormSection
+          label="이용자·예매 설정"
+          summary={`${transportOwner} · ${transportStatus}${transportShowInSchedule ? " · 일정 표시" : ""}`}
+          open={transportDetailsOpen}
+          onToggle={() => setTransportDetailsOpen((current) => !current)}
+        >
+          <OptionField label="이용자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
+          <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
+          <OptionField
+            label="여행 일정 표시"
+            options={["일정에도 표시", "교통 정보만 저장"]}
+            value={transportShowInSchedule ? "일정에도 표시" : "교통 정보만 저장"}
+            onChange={(value) => setTransportShowInSchedule(value === "일정에도 표시")}
+          />
+        </OptionalFormSection>
       </DetailSheet>
       <InfoPanel
         visible={selectedTransport !== null}
