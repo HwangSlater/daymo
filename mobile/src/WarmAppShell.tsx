@@ -6,6 +6,7 @@ import {
   Alert,
   Modal,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   PanResponder,
@@ -1559,13 +1560,8 @@ function TripsExplorer({
         visible={creating}
         title="새 여행"
         subtitle="여행지와 기간을 정하고 첫 여행을 만들어 보세요"
-        submit={
-          !place.trim()
-            ? "여행지를 입력해 주세요"
-            : !tripDateValid
-              ? "종료일을 다시 확인해 주세요"
-              : "여행 만들기"
-        }
+        submit="여행 만들기"
+        disabledHint={!place.trim() ? "여행지를 입력해 주세요" : !tripDateValid ? "종료일을 다시 확인해 주세요" : undefined}
         submitDisabled={!place.trim() || !tripDateValid}
         onClose={() => {
           setCreating(false);
@@ -3832,6 +3828,7 @@ function FormSheet({
   title,
   subtitle,
   submit,
+  disabledHint,
   submitDisabled = false,
   onClose,
   onSubmit,
@@ -3842,18 +3839,24 @@ function FormSheet({
   title: string;
   subtitle?: string;
   submit: string;
+  disabledHint?: string;
   submitDisabled?: boolean;
   onClose: () => void;
   onSubmit: () => void;
   children: React.ReactNode;
 }) {
   const drag = useSheetDrag(onClose, visible);
+  const submitLocked = useRef(false);
+  useEffect(() => {
+    if (visible) submitLocked.current = false;
+  }, [visible]);
   const sheetKind = title.includes("여행")
     ? "여행"
     : title.includes("공간")
       ? "우리"
       : "Daymo";
   const sheetAccent = theme?.primary ?? "#FF6B63";
+  const sheetAction = title.includes("수정") ? "수정" : title.includes("추가") || title.includes("만들") ? "추가" : "확인";
   return (
     <Modal
       visible={visible}
@@ -3865,7 +3868,7 @@ function FormSheet({
         style={s.modalBack}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={s.modalDismiss} onPress={onClose} />
+        <Pressable style={s.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={`${title} 바깥 영역 닫기`} />
         <Animated.View
           onLayout={drag.onLayout}
           style={[
@@ -3888,9 +3891,7 @@ function FormSheet({
               <View style={s.sheetHeadCopy}>
                 <View style={s.sheetKindRow}>
                   <View style={[s.sheetKindDot, { backgroundColor: sheetAccent }]} />
-                  <Text style={[s.sheetKindText, { color: sheetAccent }]}>{sheetKind} 작성</Text>
-                  <View style={[s.sheetRouteLine, { backgroundColor: `${sheetAccent}40` }]} />
-                  <View style={[s.sheetRouteDot, { borderColor: sheetAccent }]} />
+                  <Text style={[s.sheetKindText, { color: sheetAccent }]}>{sheetKind} · {sheetAction}</Text>
                 </View>
                 <Text
                   numberOfLines={1}
@@ -3933,8 +3934,19 @@ function FormSheet({
               {children}
             </View>
           </ScrollView>
+          {submitDisabled && disabledHint && (
+            <Text accessibilityLiveRegion="polite" style={[s.sheetDisabledHint, theme && { color: theme.muted }]}>{disabledHint}</Text>
+          )}
           <Pressable
-            onPress={onSubmit}
+            onPress={() => {
+              if (submitLocked.current) return;
+              submitLocked.current = true;
+              Keyboard.dismiss();
+              onSubmit();
+              setTimeout(() => {
+                submitLocked.current = false;
+              }, 800);
+            }}
             disabled={submitDisabled}
             accessibilityRole="button"
             accessibilityLabel={submit}
@@ -3976,7 +3988,7 @@ function InfoSheet({
       onRequestClose={onClose}
     >
       <View style={s.modalBack}>
-        <Pressable style={s.modalDismiss} onPress={onClose} />
+        <Pressable style={s.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={`${title} 바깥 영역 닫기`} />
         <Animated.View
           onLayout={drag.onLayout}
           style={[
@@ -4450,6 +4462,7 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
   },
   sheetSubtitle: { fontSize: 11, marginTop: 4 },
+  sheetDisabledHint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },
   sheetCloseButton: {
     width: 34,
     height: 34,

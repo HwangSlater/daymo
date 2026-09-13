@@ -4920,7 +4920,9 @@ function Cooking({
   const [recipeNote, setRecipeNote] = useState("");
   const [recipeUrl, setRecipeUrl] = useState("");
   const [readyIngredientIds, setReadyIngredientIds] = useState<string[]>([]);
-  const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>([]);
+  const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>(() =>
+    Array.from(new Set((recipes.find((recipe) => recipe.id === "mille") ?? recipes[0])?.ingredients.map((item) => item.group) ?? [])),
+  );
   const activeRecipe =
     recipes.find((recipe) => recipe.id === activeId) || recipes[0];
   const menuRecipes = recipes.length > 4 && activeRecipe
@@ -4934,9 +4936,11 @@ function Cooking({
     ? Math.round((readyIngredientCount / ingredients.length) * 100)
     : 0;
   const groups = Array.from(new Set(ingredients.map((item) => item.group)));
-  useEffect(() => {
-    setCollapsedCookingGroups(groups);
-  }, [activeId]);
+  const selectRecipe = (id: string) => {
+    const selected = recipes.find((recipe) => recipe.id === id);
+    setCollapsedCookingGroups(Array.from(new Set(selected?.ingredients.map((item) => item.group) ?? [])));
+    setActiveId(id);
+  };
   const allCookingIngredients = recipes.flatMap((recipe) =>
     recipe.ingredients.map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
   );
@@ -5046,6 +5050,7 @@ function Cooking({
         ingredients: [],
       },
     ]);
+    setCollapsedCookingGroups([]);
     setActiveId(id);
     setRecipeName("");
     setRecipeNote("");
@@ -5120,6 +5125,7 @@ function Cooking({
       return;
     }
     setRecipes((current) => [...current, ...uniqueParsed]);
+    setCollapsedCookingGroups(Array.from(new Set(uniqueParsed[0].ingredients.map((item) => item.group))));
     setActiveId(uniqueParsed[0].id);
     setAiResult("");
     setAiImporting(false);
@@ -5129,6 +5135,7 @@ function Cooking({
     if (!activeRecipe) return;
     const remaining = recipes.filter((recipe) => recipe.id !== activeRecipe.id);
     setRecipes(remaining);
+    setCollapsedCookingGroups(Array.from(new Set(remaining[0]?.ingredients.map((item) => item.group) ?? [])));
     setActiveId(remaining[0]?.id || "");
     closeRecipeSheet();
     notify("요리와 재료 목록을 삭제했어요");
@@ -5259,7 +5266,7 @@ function Cooking({
               return (
                 <Pressable
                   key={recipe.id}
-                  onPress={() => setActiveId(recipe.id)}
+                  onPress={() => selectRecipe(recipe.id)}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                   accessibilityLabel={`${recipe.name} 메뉴, 재료 ${recipe.ingredients.length}개`}
@@ -5601,7 +5608,7 @@ function Cooking({
             <Pressable
               key={recipe.id}
               onPress={() => {
-                setActiveId(recipe.id);
+                selectRecipe(recipe.id);
                 setShowAllRecipes(false);
               }}
               accessibilityRole="button"
@@ -5651,7 +5658,7 @@ function Cooking({
             <View key={recipe.id} style={[styles.myIngredientGroup, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <Pressable
                 onPress={() => {
-                  setActiveId(recipe.id);
+                  selectRecipe(recipe.id);
                   setShowMyIngredients(false);
                 }}
                 style={styles.myIngredientGroupHead}
@@ -7525,7 +7532,12 @@ function DetailSheet({
         style={styles.modalBack}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={styles.modalDismiss} onPress={requestClose} />
+        <Pressable
+          style={styles.modalDismiss}
+          onPress={requestClose}
+          accessibilityRole="button"
+          accessibilityLabel={`${title} 바깥 영역 닫기`}
+        />
         <Animated.View
           onLayout={drag.onLayout}
           style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
@@ -7694,7 +7706,12 @@ function InfoPanel({
       onRequestClose={onClose}
     >
       <View style={styles.modalBack}>
-        <Pressable style={styles.modalDismiss} onPress={onClose} />
+        <Pressable
+          style={styles.modalDismiss}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={`${title} 바깥 영역 닫기`}
+        />
         <Animated.View
           onLayout={drag.onLayout}
           style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
