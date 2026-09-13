@@ -1317,6 +1317,8 @@ function TripsExplorer({
   const [showAllRegions, setShowAllRegions] = useState(false);
   useEffect(() => {
     if (!openCreatorOnMount) return;
+    // 홈의 빠른 추가 요청이 바뀔 때 이미 열린 여행 화면의 시트를 동기화한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCreating(true);
     onCreatorOpened?.();
   }, [openCreatorOnMount, onCreatorOpened]);
@@ -2842,7 +2844,8 @@ function Search({
                 onPress={() =>
                   setSavedTitles((current) => {
                     const next = new Set(current);
-                    next.has(item.title) ? next.delete(item.title) : next.add(item.title);
+                    if (next.has(item.title)) next.delete(item.title);
+                    else next.add(item.title);
                     return next;
                   })
                 }

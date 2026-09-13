@@ -693,10 +693,11 @@ export function WarmTripDetail({
     onClose();
   }, [onClose, onSavePlanning, places, registeredStay, reservations, schedule, transportations]);
 
-  useEffect(
-    () => setMode(destinationMode(initialDestination)),
-    [initialDestination],
-  );
+  useEffect(() => {
+    // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMode(destinationMode(initialDestination));
+  }, [initialDestination]);
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -2364,6 +2365,8 @@ function Places({
   ) !== placeDraftBaseline;
   const allTags = Array.from(new Set(places.flatMap((place) => place.tags)));
   useEffect(() => {
+    // 목록 교체로 사라진 태그가 필터에 남지 않게 한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tagFilter && !allTags.includes(tagFilter)) setTagFilter(null);
   }, [places, tagFilter]);
   const statusPlaces = filter === "전체"
@@ -2456,6 +2459,8 @@ function Places({
     const wasEditing = Boolean(editingId);
     const previousPlace = places.find((place) => place.id === editingId);
     const next = {
+      // 사용자 저장 이벤트 안에서만 만드는 로컬 식별자다.
+      // eslint-disable-next-line react-hooks/purity
       id: editingId ?? `place-${Date.now()}`,
       name: name.trim(),
       area: placeAreaFromAddress(address, previousPlace?.area),
@@ -3157,6 +3162,8 @@ function Preparation({
   );
   useEffect(() => {
     if (openCookingPickerOnMount) {
+      // 요리 탭에서 전달된 한 번성 열기 요청을 로컬 시트 상태에 반영한다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCookingPicker(true);
       onCookingPickerOpened?.();
     }
@@ -3187,6 +3194,8 @@ function Preparation({
   ];
   useEffect(() => {
     if (tagFilter !== "전체 태그" && !managementTags.includes(tagFilter)) {
+      // 목록 교체로 사라진 태그를 계속 선택한 상태로 두지 않는다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTagFilter("전체 태그");
     }
   }, [items, tagFilter]);
@@ -3253,6 +3262,8 @@ function Preparation({
   };
   const submit = () => {
     if (!newPackingCount) return;
+    // 사용자가 저장을 누른 시점에 여러 로컬 항목의 공통 식별자를 만든다.
+    // eslint-disable-next-line react-hooks/purity
     const stamp = Date.now();
     if (editingId) {
       const nextName = parsedPackingNames[0];
