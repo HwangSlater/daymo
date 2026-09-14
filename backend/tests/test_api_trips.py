@@ -82,6 +82,59 @@ async def test_로그인하지_않으면_공간을_만들_수_없다(api, db):
     assert 응답.status_code == 401
 
 
+async def test_공간_관계와_시작일을_수정하고_목록에서_다시_본다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+
+    수정 = await api.patch(
+        f"/v1/spaces/{space_id}",
+        json={"name": "둘의 여행", "relationshipType": "couple", "startedOn": "2024-05-18"},
+        headers=headers,
+    )
+    목록 = await api.get("/v1/spaces", headers=headers)
+
+    assert 수정.status_code == 200
+    assert 수정.json()["data"]["startedOn"] == "2024-05-18"
+    assert 목록.json()["data"][0]["name"] == "둘의 여행"
+    assert 목록.json()["data"][0]["relationshipType"] == "couple"
+    assert 목록.json()["data"][0]["startedOn"] == "2024-05-18"
+
+
+async def test_공간_멤버는_표시_이름과_내_여부를_돌려준다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, headers)
+
+    응답 = await api.get(f"/v1/spaces/{space_id}/members", headers=headers)
+
+    assert 응답.status_code == 200
+    assert 응답.json()["data"] == [
+        {
+            "id": 응답.json()["data"][0]["id"],
+            "displayName": "하늘",
+            "role": "owner",
+            "isMe": True,
+        }
+    ]
+
+
+async def test_viewer는_공간_정보를_수정할_수_없다(api, db):
+    owner_headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, owner_headers)
+    viewer_headers = await 로그인한_사람(api, "viewer@example.com", "새봄")
+
+    from app.models import Membership, User
+
+    user_id = await db.scalar(select(User.id).where(User.email == "viewer@example.com"))
+    db.add(Membership(space_id=space_id, user_id=user_id, role=MembershipRole.VIEWER))
+    await db.flush()
+
+    응답 = await api.patch(
+        f"/v1/spaces/{space_id}", json={"name": "마음대로"}, headers=viewer_headers
+    )
+
+    assert 응답.status_code == 403
+
+
 # ---------------------------------------------------------------------------
 # 여행 만들기
 # ---------------------------------------------------------------------------

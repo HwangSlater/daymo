@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import Field
 
-from app.models import TripStatus
+from app.models import RelationshipType, TripStatus
 from app.schemas.auth import _Camel
 
 
@@ -70,9 +70,22 @@ class TripOut(_Camel):
 
 class SpaceCreateRequest(_Camel):
     name: str = Field(min_length=1, max_length=40)
-    relationship_type: str = "other"
+    relationship_type: RelationshipType = RelationshipType.OTHER
     started_on: date | None = None
     timezone: str = Field(default="Asia/Seoul", max_length=64)
+
+
+class SpaceUpdateRequest(_Camel):
+    name: str | None = Field(default=None, min_length=1, max_length=40)
+    relationship_type: RelationshipType | None = None
+    started_on: date | None = None
+
+
+class SpaceMemberOut(_Camel):
+    id: str
+    display_name: str
+    role: str
+    is_me: bool
 
 
 class SpaceOut(_Camel):
@@ -80,5 +93,6 @@ class SpaceOut(_Camel):
     name: str
     relationship_type: str
     timezone: str
+    started_on: date | None = None
     # 내 권한. 앱이 무엇을 보여 줄지 정하는 데 쓴다.
     my_role: str

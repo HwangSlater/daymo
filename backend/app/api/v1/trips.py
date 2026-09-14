@@ -20,11 +20,14 @@ from app.models import (
     Trip,
     TripParticipant,
     TripStatus,
+    User,
 )
 from app.schemas.trip import (
     ParticipantsRequest,
     SpaceCreateRequest,
+    SpaceMemberOut,
     SpaceOut,
+    SpaceUpdateRequest,
     TripCreateRequest,
     TripOut,
     TripUpdateRequest,
@@ -32,6 +35,22 @@ from app.schemas.trip import (
 from app.services import trips as trip_service
 
 router = APIRouter(tags=["trips"])
+
+
+async def _공간_응답(db, space: Space, membership: Membership) -> dict:
+    started_on = (
+        await db.execute(
+            select(RelationshipProfile.started_on).where(RelationshipProfile.space_id == space.id)
+        )
+    ).scalar_one_or_none()
+    return SpaceOut(
+        id=str(space.id),
+        name=space.name,
+        relationship_type=space.relationship_type,
+        timezone=space.timezone,
+        started_on=started_on,
+        my_role=membership.role,
+    ).model_dump(by_alias=True)
 
 
 async def _참가자_ids(db, trip: Trip) -> list[str]:
@@ -102,15 +121,16 @@ async def create_space(body: SpaceCreateRequest, caller: CurrentCaller, db: DbSe
         db.add(RelationshipProfile(space_id=space.id, started_on=body.started_on))
     await db.flush()
 
-    return ok(
-        SpaceOut(
-            id=str(space.id),
-            name=space.name,
-            relationship_type=space.relationship_type,
-            timezone=space.timezone,
-            my_role=MembershipRole.OWNER,
-        ).model_dump(by_alias=True)
-    )
+    membership = (
+        await db.execute(
+            select(Membership).where(
+                Membership.space_id == space.id,
+                Membership.user_id == caller.user.id,
+                Membership.left_at.is_(None),
+            )
+        )
+    ).scalar_one()
+    return ok(await _공간_응답(db, space, membership))
 
 
 @router.get("/spaces")
@@ -131,16 +151,63 @@ async def list_spaces(caller: CurrentCaller, db: DbSession) -> dict:
 
     return ok(
         [
-            SpaceOut(
-                id=str(space.id),
-                name=space.name,
-                relationship_type=space.relationship_type,
-                timezone=space.timezone,
-                my_role=membership.role,
-            ).model_dump(by_alias=True)
+            await _공간_응답(db, space, membership)
             for space, membership in 줄들
         ]
     )
+
+
+@router.get("/spaces/{space_id}/members")
+async def list_space_members(
+    space_id: uuid.UUID, caller: CurrentCaller, db: DbSession
+) -> dict:
+    await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
+    줄들 = (
+        await db.execute(
+            select(Membership, User)
+            .join(User, User.id == Membership.user_id)
+            .where(Membership.space_id == space_id, Membership.left_at.is_(None))
+            .order_by(Membership.joined_at, Membership.id)
+        )
+    ).all()
+    return ok(
+        [
+            SpaceMemberOut(
+                id=str(membership.id),
+                display_name=membership.nickname or user.display_name,
+                role=membership.role,
+                is_me=membership.user_id == caller.user.id,
+            ).model_dump(by_alias=True)
+            for membership, user in 줄들
+        ]
+    )
+
+
+@router.patch("/spaces/{space_id}")
+async def update_space(
+    space_id: uuid.UUID, body: SpaceUpdateRequest, caller: CurrentCaller, db: DbSession
+) -> dict:
+    membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
+    require(membership, *OWNER_ONLY)
+    space = await db.get(Space, space_id)
+    assert space is not None
+
+    if body.name is not None:
+        space.name = body.name
+    if body.relationship_type is not None:
+        space.relationship_type = body.relationship_type
+    if "started_on" in body.model_fields_set:
+        profile = (
+            await db.execute(
+                select(RelationshipProfile).where(RelationshipProfile.space_id == space_id)
+            )
+        ).scalar_one_or_none()
+        if profile is None:
+            db.add(RelationshipProfile(space_id=space_id, started_on=body.started_on))
+        else:
+            profile.started_on = body.started_on
+    await db.flush()
+    return ok(await _공간_응답(db, space, membership))
 
 
 # ---------------------------------------------------------------------------
