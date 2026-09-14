@@ -62,8 +62,8 @@
   흐름(일회용 앱 로그인 코드 → 교환)은 만들 수 있다
 - **bot challenge.** 검증 공급자를 문서가 일부러 미뤄 뒀다(처리 국가·SDK·비용
   재승인 필요). 지금은 시도 제한이 그 자리를 막고 있다
-- **API DNS와 HTTPS.** 도메인 구매, Cloudflare 네임서버 이전, VPS 생성과 HTTP 배포는 완료했다.
-  Cloudflare에 `api` A record(proxy 끔)를 추가한 뒤 HTTPS 인증서를 발급해야 한다
+- **VPS 공개 배포.** 도메인 구매, Cloudflare 네임서버 이전, VPS 생성, `api` A record와
+  HTTPS 배포를 2026-09-14 완료했다. 출시 전 실제 데이터센터 세부 지역과 외부 백업 복원을 확인해야 한다
 
 ### 앱 쪽에 남은 것
 
