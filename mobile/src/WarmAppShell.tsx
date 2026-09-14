@@ -32,7 +32,7 @@ import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
 import { ParticipantPicker } from "./ParticipantPicker";
 import { formatTripRange, TripDateRangePicker } from "./TripDateRangePicker";
-import { sampleTripContent, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
+import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
 import { isOnLand, nearestRegion } from "./koreaHitTest";
@@ -164,89 +164,93 @@ const recentSampleEnd = sampleDate(-22);
 const archiveSampleStart = sampleDate(-45);
 const archiveSampleEnd = sampleDate(-43);
 
+/**
+ * 예시 여행 하나를 만든다.
+ *
+ * 일정·장소·준비물 같은 처음 내용을 여행에 바로 붙인다. 상세 화면이 열릴 때
+ * 채우면 홈 카드도 찾기도 이 여행에 무엇이 들어 있는지 알 수 없다.
+ * 지출은 여행마다 달라서 부르는 쪽에서 넘긴다.
+ */
+const sampleTrip = (trip: Omit<Trip, "sample" | "planning"> & { expenses: Expense[] }): Trip => {
+  const { expenses, ...rest } = trip;
+  return {
+    ...rest,
+    sample: true,
+    planning: { ...sampleTripPlanning(rest.name, rest.start, rest.end, ["하늘", "여울"]), expenses },
+  };
+};
+
 const trips: Trip[] = [
-  {
+  sampleTrip({
     name: "전주 한옥마을",
     date: sampleDateRange(upcomingSampleStart, upcomingSampleEnd),
     note: "숙소에서 수다와 버섯전골",
-    sample: true,
     tone: 0,
     mark: upcomingSampleStart.slice(5, 7),
     region: "전북",
     start: upcomingSampleStart,
     end: upcomingSampleEnd,
     // 아직 안 떠난 여행이라 미리 낸 것만 있다.
-    planning: {
-      expenses: [
-        sampleExpense("jj-1", upcomingSampleStart, 0, "KTX 왕복 예매", 47200, "교통", "하늘", { 하늘: 1 }),
-        sampleExpense("jj-2", upcomingSampleStart, 0, "달빛한옥 예약금", 90000, "숙박", "하늘"),
-      ],
-    },
-  },
-  {
+    expenses: [
+      sampleExpense("jj-1", upcomingSampleStart, 0, "KTX 왕복 예매", 47200, "교통", "하늘", { 하늘: 1 }),
+      sampleExpense("jj-2", upcomingSampleStart, 0, "달빛한옥 예약금", 90000, "숙박", "하늘"),
+    ],
+  }),
+  sampleTrip({
     name: "강릉 안목",
     date: sampleDateRange(recentSampleStart, recentSampleEnd),
     note: "보드게임과 야식 장보기",
-    sample: true,
     tone: 5,
     mark: recentSampleStart.slice(5, 7),
     region: "강원",
     start: recentSampleStart,
     end: recentSampleEnd,
-    planning: {
-      expenses: [
-        sampleExpense("gn-1", recentSampleStart, 0, "시외버스 왕복", 28000, "교통", "여울", { 여울: 1 }),
-        sampleExpense("gn-2", recentSampleStart, 0, "안목 카페 거리", 39000, "식비", "하늘"),
-        sampleExpense("gn-3", recentSampleStart, 0, "바다뷰 숙소 1박", 120000, "숙박", "여울"),
-        sampleExpense("gn-4", recentSampleStart, 1, "보드게임 카페", 24000, "기타", "하늘"),
-        sampleExpense("gn-5", recentSampleStart, 1, "야식 장보기", 31800, "식비", "여울", undefined, "치킨과 맥주"),
-      ],
-    },
-  },
-  {
+    expenses: [
+      sampleExpense("gn-1", recentSampleStart, 0, "시외버스 왕복", 28000, "교통", "여울", { 여울: 1 }),
+      sampleExpense("gn-2", recentSampleStart, 0, "안목 카페 거리", 39000, "식비", "하늘"),
+      sampleExpense("gn-3", recentSampleStart, 0, "바다뷰 숙소 1박", 120000, "숙박", "여울"),
+      sampleExpense("gn-4", recentSampleStart, 1, "보드게임 카페", 24000, "기타", "하늘"),
+      sampleExpense("gn-5", recentSampleStart, 1, "야식 장보기", 31800, "식비", "여울", undefined, "치킨과 맥주"),
+    ],
+  }),
+  sampleTrip({
     name: "여수",
     date: sampleDateRange(archiveSampleStart, archiveSampleEnd),
     note: "바다 산책과 단체 사진",
-    sample: true,
     tone: 3,
     mark: archiveSampleStart.slice(5, 7),
     region: "전남",
     start: archiveSampleStart,
     end: archiveSampleEnd,
-    planning: {
-      expenses: [
-        sampleExpense("ys-1", archiveSampleStart, 0, "KTX 왕복", 96000, "교통", "하늘"),
-        sampleExpense("ys-2", archiveSampleStart, 0, "회 정식 저녁", 58000, "식비", "여울"),
-        sampleExpense("ys-3", archiveSampleStart, 0, "게스트하우스 2박", 90000, "숙박", "하늘"),
-        sampleExpense("ys-4", archiveSampleStart, 1, "해상 케이블카", 30000, "입장료", "여울"),
-        sampleExpense("ys-5", archiveSampleStart, 1, "택시", 12000, "교통", "하늘"),
-        sampleExpense("ys-6", archiveSampleStart, 2, "기념품 수제 엽서", 15000, "쇼핑", "여울", { 여울: 1 }),
-      ],
-    },
-  },
+    expenses: [
+      sampleExpense("ys-1", archiveSampleStart, 0, "KTX 왕복", 96000, "교통", "하늘"),
+      sampleExpense("ys-2", archiveSampleStart, 0, "회 정식 저녁", 58000, "식비", "여울"),
+      sampleExpense("ys-3", archiveSampleStart, 0, "게스트하우스 2박", 90000, "숙박", "하늘"),
+      sampleExpense("ys-4", archiveSampleStart, 1, "해상 케이블카", 30000, "입장료", "여울"),
+      sampleExpense("ys-5", archiveSampleStart, 1, "택시", 12000, "교통", "하늘"),
+      sampleExpense("ys-6", archiveSampleStart, 2, "기념품 수제 엽서", 15000, "쇼핑", "여울", { 여울: 1 }),
+    ],
+  }),
 ];
 const initialTripsByGroup: Record<GroupId, Trip[]> = {
   ours: [trips[0]],
   friends: trips,
   family: [
-    {
+    sampleTrip({
       name: "속초",
       date: "10월 3일 — 4일",
       note: "가족과 천천히 걷는 가을 여행",
-    sample: true,
       tone: 1,
       mark: "10",
       region: "강원",
       start: "2026-10-03",
       end: "2026-10-04",
-      planning: {
-        expenses: [
-          sampleExpense("sc-1", "2026-10-03", 0, "설악산 입장료", 16000, "입장료", "하늘"),
-          sampleExpense("sc-2", "2026-10-03", 0, "물회 점심", 52000, "식비", "여울"),
-          sampleExpense("sc-3", "2026-10-03", 0, "펜션 1박", 150000, "숙박", "하늘"),
-        ],
-      },
-    },
+      expenses: [
+        sampleExpense("sc-1", "2026-10-03", 0, "설악산 입장료", 16000, "입장료", "하늘"),
+        sampleExpense("sc-2", "2026-10-03", 0, "물회 점심", 52000, "식비", "여울"),
+        sampleExpense("sc-3", "2026-10-03", 0, "펜션 1박", 150000, "숙박", "하늘"),
+      ],
+    }),
   ],
 };
 
@@ -429,7 +433,6 @@ export function WarmAppShell({
         tripNote={selectedTrip.note}
         initialPlanning={selectedTrip.planning}
         spaceMembers={activeSpaceMembers}
-        sampleTrip={selectedTrip.sample === true}
         appTheme={theme}
         onUpdateTrip={(changes) => {
           const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
@@ -470,7 +473,6 @@ export function WarmAppShell({
             trip={homeTrip}
             trips={tripItems}
             todayKey={todayKey}
-            doneCount={done.length}
             relationship={activeGroupId === "ours" ? "연인" : "친구"}
             since={since}
           />
@@ -741,7 +743,6 @@ function NotebookHome({
   trip,
   trips,
   todayKey,
-  doneCount,
   relationship,
   since,
 }: {
@@ -751,15 +752,12 @@ function NotebookHome({
   trip: Trip | null;
   trips: Trip[];
   todayKey: string;
-  doneCount: number;
   relationship: "연인" | "친구";
   since: string;
 }) {
   const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
   const homeStay = trip?.planning?.stay;
-  // 카드와 같은 규칙. 이 여행에 저장된 값을 쓰고, 아직 안 연 예시 여행만
-  // 상세가 처음 담아 줄 값을 미리 보여 준다.
-  const homePacked = trip?.planning?.packingDone?.length ?? (trip?.sample ? doneCount : 0);
+  const homePacked = trip?.planning?.packingDone?.length ?? 0;
   const homePlaces = trip?.planning?.places;
   // 장소를 아직 안 연 예시 여행은 셀 것이 없다. 그때는 숫자 대신 안내를 낸다.
   const placesKnown = Boolean(homePlaces);
@@ -789,7 +787,7 @@ function NotebookHome({
           </Text>
         </View>
       </View>
-      {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} doneCount={doneCount} open={open} />}
+      {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} open={open} />}
       {trip ? (
         <>
       <View style={s.scrapTitleRow}>
@@ -901,12 +899,11 @@ function NotebookHome({
   );
 }
 
-function HomeTripCarousel({ trips, initialTrip, theme, todayKey, doneCount, open }: {
+function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
   trips: Trip[];
   initialTrip: Trip | null;
   theme: AppTheme;
   todayKey: string;
-  doneCount: number;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
   const ordered = useMemo(() => [...trips].sort((a, b) => a.start.localeCompare(b.start)), [trips]);
@@ -1081,7 +1078,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, doneCount, open
             style={active ? { zIndex: 2 } : [StyleSheet.absoluteFill, { zIndex: 0, opacity: underneath ? 1 : 0 }]}
           >
             <PaperPeel progress={pageValue(position, !active && !underneath)} direction={Math.sign(direction) || 1} backColor={paper.backLeft} pageColor={theme.background} reduceMotion={reduceMotion}>
-              <HomeTripCard trip={item} theme={theme} todayKey={todayKey} doneCount={doneCount} open={(destination, trip) => {
+              <HomeTripCard trip={item} theme={theme} todayKey={todayKey} open={(destination, trip) => {
                 if (active && !dragging.current && !busy.current) open(destination, trip);
               }} />
             </PaperPeel>
@@ -1121,22 +1118,19 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, doneCount, open
   );
 }
 
-function HomeTripCard({ trip, theme, todayKey, doneCount, open }: {
+function HomeTripCard({ trip, theme, todayKey, open }: {
   trip: Trip;
   theme: AppTheme;
   todayKey: string;
-  doneCount: number;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
   const paper = paperCard(theme.dark);
   const stay = trip.planning?.stay;
   // 없으면 없다고 말한다. 그럴듯한 숫자를 채워 두면 눌러 보고 나서야 빈 줄
-  // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다. 아직 한 번도 안 연
-  // 예시 여행만, 상세가 열릴 때 채울 것과 같은 수를 미리 말한다.
-  const scheduleCount = trip.planning?.schedule?.length ?? (trip.sample ? sampleTripContent.schedule : 0);
-  const placeCount = trip.planning?.places?.length ?? (trip.sample ? sampleTripContent.places : 0);
-  // 아직 한 번도 안 연 예시 여행은 상세가 처음 담아 줄 값이 곧 이 숫자다.
-  const packedCount = trip.planning?.packingDone?.length ?? (trip.sample ? doneCount : 0);
+  // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다.
+  const scheduleCount = trip.planning?.schedule?.length ?? 0;
+  const placeCount = trip.planning?.places?.length ?? 0;
+  const packedCount = trip.planning?.packingDone?.length ?? 0;
   // 비용은 여행마다 있을 수도 없을 수도 있다. 적은 게 있을 때만 칸을 내준다.
   const spent = (trip.planning?.expenses ?? []).reduce((sum, item) => sum + item.amount, 0);
   const spentCurrency = trip.planning?.currency;
@@ -2464,62 +2458,94 @@ function Search({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("전체");
-  const [recentQueries, setRecentQueries] = useState(["소나기식당", "충전기", "여수", "버섯전골"]);
-  const [savedTitles, setSavedTitles] = useState(() => new Set(["소나기식당"]));
-  const allResults = [
-    {
-      title: "소나기식당",
-      type: "장소",
-      trip: "전주 한옥마을",
-      detail: "9월 23일 수요일 저녁 예약",
-      tags: ["초밥", "디너", "예약"],
-    },
-    {
-      title: "버섯전골",
-      type: "요리",
-      trip: "전주 한옥마을",
-      detail: "재료 6개 · 여울 준비",
-      tags: ["저녁", "주방"],
-    },
-    {
-      title: "구름국수",
-      type: "장소",
-      trip: "강릉 안목",
-      detail: "멸치국수 · 11시 영업",
-      tags: ["식당", "점심"],
-    },
-    {
-      title: "충전기",
-      type: "준비",
-      trip: "여수",
-      detail: "아침에 챙길 것",
-      tags: ["전자기기"],
-    },
-    {
-      title: "여수 밤바다 불꽃",
-      type: "일정",
-      trip: "여수",
-      detail: "7월 28일 화요일 · 돌산",
-      tags: ["야경", "행사"],
-    },
-    {
-      title: "육수 재료는 미리 준비하기",
-      type: "기록",
-      trip: "전주 한옥마을",
-      detail: "함께 확인할 여행 메모",
-      tags: ["요리", "메모"],
-    },
-  ];
-  const searchableResults = allResults.filter(
-    (item) =>
-      trips.some((trip) => trip.name === item.trip) &&
-      `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`
-        .toLocaleLowerCase("ko-KR")
-        .includes(query.trim().toLocaleLowerCase("ko-KR")),
+  // 처음에는 아무것도 검색해 보지 않은 상태다. 남이 찾은 말을 미리 넣어 두면
+  // 내 기록이 아니고, 지워야 할 것부터 생긴다.
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [savedTitles, setSavedTitles] = useState(() => new Set<string>());
+  /**
+   * 이 공간의 기록을 한 줄씩 펼친다.
+   *
+   * 예전에는 고정된 예시 여섯 개만 찾을 수 있어서, 화면이 "이 공간의 모든 기록"
+   * 이라고 말해 놓고 내가 적은 것은 어떤 말로도 안 나왔다. 한 번 안 나오면
+   * 검색을 다시 안 쓰게 된다.
+   */
+  const allResults = useMemo(() => trips.flatMap((trip) => {
+    const plan = trip.planning;
+    const rows: { id: string; title: string; type: string; trip: string; detail: string; tags: string[] }[] = [];
+    for (const place of plan?.places ?? []) {
+      rows.push({
+        id: `place-${trip.start}-${place.id}`,
+        title: place.name,
+        type: "장소",
+        trip: trip.name,
+        detail: [place.category, place.area].filter(Boolean).join(" · "),
+        tags: place.tags ?? [],
+      });
+    }
+    for (const item of plan?.schedule ?? []) {
+      rows.push({
+        id: `plan-${trip.start}-${item.date ?? ""}-${item.title}`,
+        title: item.title,
+        type: "일정",
+        trip: trip.name,
+        detail: [item.date, item.time].filter(Boolean).join(" · "),
+        tags: [],
+      });
+    }
+    for (const recipe of plan?.recipes ?? []) {
+      rows.push({
+        id: `cook-${trip.start}-${recipe.id}`,
+        title: recipe.name,
+        type: "요리",
+        trip: trip.name,
+        detail: `재료 ${recipe.ingredients.length}개${recipe.note ? ` · ${recipe.note}` : ""}`,
+        tags: recipe.ingredients.slice(0, 3).map((item) => item.name),
+      });
+    }
+    for (const item of plan?.packingItems ?? []) {
+      rows.push({
+        id: `pack-${trip.start}-${item.id}`,
+        title: item.name,
+        type: "준비",
+        trip: trip.name,
+        detail: [item.quantity, item.owner].filter(Boolean).join(" · "),
+        tags: item.tags ?? [],
+      });
+    }
+    for (const note of plan?.tripNotes ?? []) {
+      rows.push({
+        id: `note-${trip.start}-${note.id}`,
+        title: note.body,
+        type: "기록",
+        trip: trip.name,
+        detail: note.author,
+        tags: [],
+      });
+    }
+    for (const diary of plan?.memories?.diaries ?? []) {
+      rows.push({
+        id: `diary-${trip.start}-${diary.id}`,
+        title: diary.title,
+        type: "기록",
+        trip: trip.name,
+        detail: diary.date,
+        tags: [],
+      });
+    }
+    return rows;
+  }), [trips]);
+  const searchableResults = allResults.filter((item) =>
+    `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`
+      .toLocaleLowerCase("ko-KR")
+      .includes(query.trim().toLocaleLowerCase("ko-KR")),
   );
-  const results = searchableResults.filter(
+  const matched = searchableResults.filter(
     (item) => category === "전체" || item.type === category,
   );
+  // 공간에 여행이 쌓이면 기록은 수백 줄이 된다. 아무것도 안 친 상태에서 그걸
+  // 다 쏟으면 훑을 수가 없어서, 먼저 조금만 보여 주고 눌러서 펼치게 한다.
+  const [showAllResults, setShowAllResults] = useState(false);
+  const results = showAllResults ? matched : matched.slice(0, 12);
   const searchFilters = ["전체", "장소", "일정", "요리", "준비", "기록"].map(
     (label) => ({
       label,
@@ -2705,14 +2731,14 @@ function Search({
         const tone = kindColor(item.type, theme.dark, theme.primary);
         return (
         <View
-          key={item.title}
+          key={item.id}
           style={[
             s.searchResultCard,
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
             },
-            index === results.length - 1 && s.searchResultCardLast,
+            index === results.length - 1 && matched.length <= results.length && s.searchResultCardLast,
           ]}
         >
           <View
@@ -2809,6 +2835,18 @@ function Search({
         </View>
         );
       })}
+      {matched.length > results.length && (
+        <Pressable
+          onPress={() => setShowAllResults(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`기록 ${matched.length - results.length}개 더 보기`}
+          style={[s.searchMore, { borderTopColor: theme.border }]}
+        >
+          <Text style={[s.searchMoreText, { color: theme.primary }]}>
+            {matched.length - results.length}개 더 보기
+          </Text>
+        </Pressable>
+      )}
       </View>
       )}
       {!results.length && (
@@ -5136,6 +5174,8 @@ const s = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 3 },
   },
+  searchMore: { minHeight: 48, borderTopWidth: 1, alignItems: "center", justifyContent: "center" },
+  searchMoreText: { fontSize: 14, fontFamily: typo.label.family },
   searchResultCardLast: {},
   searchResultColorTab: {
     position: "absolute",

@@ -276,14 +276,6 @@ type Props = {
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
   spaceMembers?: string[];
-  /**
-   * 앱이 처음부터 들고 있는 예시 여행인가.
-   *
-   * 예시 여행에만 일정·장소·준비물 같은 처음 내용을 채워 넣는다. 사용자가
-   * 직접 만든 여행은 빈 채로 시작해야 한다. 내가 만들지 않은 일정과 준비물이
-   * 들어 있으면 그건 내 여행이 아니고, 하나씩 지우는 일부터 하게 된다.
-   */
-  sampleTrip?: boolean;
 };
 
 const parseTripDate = (value?: string) => {
@@ -657,15 +649,63 @@ const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] 
 };
 
 /**
- * 예시 여행을 열면 채워지는 것의 개수.
+ * 앱이 처음부터 들고 있는 예시 여행의 내용.
  *
- * 홈 카드는 여행을 열기 전에도 숫자를 말해야 한다. 씨앗을 고치면 이 값도 같이
- * 움직이도록 실제 길이에서 센다.
+ * 예전에는 상세 화면이 열릴 때 이 값들을 채웠다. 그러면 화면 밖에서는 이 여행에
+ * 무엇이 들어 있는지 알 수 없어서, 홈 카드는 개수를 못 세고 찾기는 아무것도
+ * 못 찾았다. 여행에 미리 붙여 두면 모든 화면이 같은 것을 본다.
+ *
+ * 사용자가 만든 여행은 이걸 받지 않는다. 내가 적지 않은 일정과 준비물이 들어
+ * 있으면 그건 내 여행이 아니다.
  */
-export const sampleTripContent = {
-  schedule: sampleSchedule(["", "", ""], "").length,
-  places: initialPlaces.length,
-};
+export function sampleTripPlanning(
+  tripName: string,
+  start: string,
+  end: string,
+  people: string[],
+): TripPlanningData {
+  const dates = buildTripDates(start, end);
+  const dayOptions = dates.length ? dates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
+  const dateOptions = dates.length ? dates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
+  const first = dateOptions[0];
+  const last = dateOptions[dateOptions.length - 1];
+  const lastDay = dayOptions[dayOptions.length - 1];
+  const [one = "하늘", two = one] = people;
+  return {
+    schedule: sampleSchedule(dayOptions, last),
+    stay: {
+      name: "달빛한옥",
+      checkin: `${first} 15:00`,
+      checkout: `${last} 11:00`,
+      address: "전주 완산구 은행로 12 달빛한옥",
+      placeId: "place-js-hotel",
+      showInSchedule: true,
+    },
+    places: initialPlaces,
+    reservations: [sampleReservation(dayOptions)],
+    transportations: [
+      { id: "sky-out", owner: one, direction: "가는 편", method: "KTX", date: dayOptions[0], departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료", showInSchedule: false },
+      { id: "sky-back", owner: one, direction: "오는 편", method: "KTX", date: lastDay, departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료", showInSchedule: false },
+      { id: "yeoul-out", owner: two, direction: "가는 편", method: "버스", date: dayOptions[0], departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료", showInSchedule: false },
+      { id: "yeoul-back", owner: two, direction: "오는 편", method: "버스", date: lastDay, departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료", showInSchedule: false },
+    ],
+    packingItems: packing.map((item) => ({ ...item, owner: normalizePackingOwner(item.owner, people) })),
+    packingDone: ["charger", "toiletries"],
+    recipes: initialRecipes.map((recipe) => ({
+      ...recipe,
+      ingredients: recipe.ingredients.map((item) => ({
+        ...item,
+        owner: item.owner === "하늘" ? one : item.owner === "여울" ? two : item.owner,
+      })),
+    })),
+    memories: initialMemoryData(tripName, `${first} — ${last}`, true),
+    tripNotes: [
+      { id: "memo-meal", author: `${two} · 오늘 10:42`, body: "육수 재료는 미리 1.5배로 준비하기" },
+      { id: "memo-booking", author: `${one} · 어제 22:15`, body: "소나기식당 수요일 19:00 예약 확인" },
+    ],
+    hasKitchen: true,
+  };
+}
 
 export function WarmTripDetail({
   done,
@@ -682,7 +722,6 @@ export function WarmTripDetail({
   initialPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
-  sampleTrip = false,
 }: Props) {
   const memo = memoPaper(Boolean(appTheme?.dark));
   const [currentStart, setCurrentStart] = useState(tripStart ?? "");
@@ -725,10 +764,7 @@ export function WarmTripDetail({
   const [memoDraft, setMemoDraft] = useState("");
   const [memoEditorOpen, setMemoEditorOpen] = useState(false);
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
-  const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? (sampleTrip ? [
-    { id: "memo-meal", author: `${spaceMembers[1] ?? spaceMembers[0]} · 오늘 10:42`, body: "육수 재료는 미리 1.5배로 준비하기" },
-    { id: "memo-booking", author: `${spaceMembers[0]} · 어제 22:15`, body: "소나기식당 수요일 19:00 예약 확인" },
-  ] : []));
+  const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? []);
   const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
   // 준비물 담당과 요리 재료 담당, 교통편 이용자, 지출의 몫이 모두 이 목록을 쓴다.
@@ -736,28 +772,19 @@ export function WarmTripDetail({
   const [participants, setParticipants] = useState<Participant[]>(
     initialPlanning?.participants ?? spaceMembers,
   );
-  // 예시 데이터에 적힌 하늘과 여울 자리. 이 여행에 실제로 가는 사람으로 바꾼다.
-  const sampleFirst = participants[0] ?? "";
-  const sampleSecond = participants[1] ?? participants[0] ?? "";
   const [packingItems, setPackingItems] = useState<PackingItem[]>(() =>
-    (initialPlanning?.packingItems ?? (sampleTrip ? packing : [])).map((item) => ({
+    (initialPlanning?.packingItems ?? []).map((item) => ({
       ...item,
       owner: normalizePackingOwner(item.owner, initialPlanning?.participants ?? spaceMembers),
     })),
   );
   const [packingDone, setPackingDone] = useState<string[]>(
-    initialPlanning?.packingDone ?? (sampleTrip ? done : []),
+    initialPlanning?.packingDone ?? [],
   );
   const togglePacking = (item: string) =>
     setPackingDone((items) => items.includes(item) ? items.filter((value) => value !== item) : [...items, item]);
   const [recipes, setRecipes] = useState<Recipe[]>(() =>
-    initialPlanning?.recipes ?? (sampleTrip ? initialRecipes : []).map((recipe) => ({
-      ...recipe,
-      ingredients: recipe.ingredients.map((item) => ({
-        ...item,
-        owner: item.owner === "하늘" ? sampleFirst : item.owner === "여울" ? sampleSecond : item.owner,
-      })),
-    })),
+    initialPlanning?.recipes ?? [],
   );
   const [cookingReadyIngredientIds, setCookingReadyIngredientIds] = useState<string[]>(
     initialPlanning?.cookingReadyIngredientIds ?? [],
@@ -771,45 +798,28 @@ export function WarmTripDetail({
   const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
   const [exchangeRate, setExchangeRate] = useState(initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
-    initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate, sampleTrip),
+    initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate),
   );
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
     initialPlanning?.stay
       ? { ...initialPlanning.stay, showInSchedule: initialPlanning.stay.showInSchedule ?? true }
-      : sampleTrip
-        ? {
-          name: "달빛한옥",
-          checkin: `${firstTripDate} 15:00`,
-          checkout: `${lastTripDate} 11:00`,
-          address: "전주 완산구 은행로 12 달빛한옥",
-          placeId: "place-js-hotel",
-          showInSchedule: true,
-        }
-        : { name: "", checkin: "", checkout: "", address: "", showInSchedule: true },
+      : { name: "", checkin: "", checkout: "", address: "", showInSchedule: true },
   );
   const [places, setPlaces] = useState<PlaceItem[]>(() =>
-    initialPlanning?.places ?? (sampleTrip ? initialPlaces : []),
+    initialPlanning?.places ?? [],
   );
-  const defaultReservation = sampleReservation(tripDayOptions);
   const [reservations, setReservations] = useState<ReservationInfo[]>(() =>
     initialPlanning?.reservations ?? (
       initialPlanning?.reservation === undefined
-        ? (sampleTrip ? [defaultReservation] : [])
+        ? []
         : initialPlanning.reservation
           ? [initialPlanning.reservation]
           : []
     ),
   );
-  // 예시 교통편은 이름을 박아 둘 수 없다. 공간마다 가는 사람이 다르니 참가자
-  // 첫째와 둘째로 만든다. 저장해 둔 여행은 적힌 이름을 그대로 쓴다.
-  const [transportations, setTransportations] = useState<Transportation[]>(() =>
-    initialPlanning?.transportations ?? (sampleTrip ? [
-      { id: "sky-out", owner: sampleFirst, direction: "가는 편", method: "KTX", date: tripDayOptions[0], departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료", showInSchedule: false },
-      { id: "sky-back", owner: sampleFirst, direction: "오는 편", method: "KTX", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료", showInSchedule: false },
-      { id: "yeoul-out", owner: sampleSecond, direction: "가는 편", method: "버스", date: tripDayOptions[0], departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료", showInSchedule: false },
-      { id: "yeoul-back", owner: sampleSecond, direction: "오는 편", method: "버스", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료", showInSchedule: false },
-    ] : []),
+  const [transportations, setTransportations] = useState<Transportation[]>(
+    initialPlanning?.transportations ?? [],
   );
   // 참가자에서 사람을 뺄 때, 그 이름으로 적어 둔 게 뭐가 있는지 한 줄로 적는다.
   // 담당은 이름으로 묶여 있어서 빼고 나면 어디에 남았는지 찾기 어렵다.
@@ -832,7 +842,7 @@ export function WarmTripDetail({
     [expenses, packingItems, recipes, transportations],
   );
   const [schedule, setSchedule] = useState<ScheduleItem[]>(() =>
-    initialPlanning?.schedule ?? (sampleTrip ? sampleSchedule(tripDayOptions, lastTripDate) : []),
+    initialPlanning?.schedule ?? [],
   );
   useEffect(() => {
     // 대표 숙소는 별도 편집 화면과 장소 탭에서도 바뀐다. 연결 일정은 이 한곳에서
