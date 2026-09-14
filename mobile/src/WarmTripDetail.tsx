@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { maskClockTime, settleClockTime } from "./clock";
 import { useSheetDrag } from "./sheetDrag";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
@@ -51,7 +52,7 @@ import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { memoPaper, onAccent, status as statusColor } from "./theme/colors";
+import { memoPaper, naverInk, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
@@ -2287,25 +2288,17 @@ function TripOverview({
         />
       )}
 
+      {/* 예전에는 예약·숙소·요리를 "여행 정보" 한 덩이로 묶어, 개수는 셋을 섞어
+          세면서 버튼은 "예약 추가" 하나뿐이었다. 숙소를 어디서 더하는지 알 수
+          없고, 둘 다 없으면 같은 모양의 빈 상태가 두 장 쌓였다. 제목과 개수와
+          버튼이 같은 것을 가리키도록 나눈다. */}
       <SectionLabel
-        label="여행 정보"
-        count={`${reservations.length + Number(hasStay) + Number(hasKitchen)}개`}
-        action="예약 추가"
-        onPress={() => openReservation()}
+        label="숙소"
+        count={hasStay ? "1곳" : "없음"}
+        action={hasStay ? "숙소 수정" : "숙소 등록"}
+        onPress={() => openStay(!hasStay)}
       />
       <View style={styles.travelInfoList}>
-        {reservations.map((reservation) => (
-          <TravelInfoRow
-            key={reservation.id}
-            label="예약"
-            mark={dayNumberOf(reservation.date)}
-            title={reservation.name}
-            meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people}`}
-            badge={reservation.status}
-            color={theme?.primary ?? "#FF6B63"}
-            onPress={() => openReservation(reservation)}
-          />
-        ))}
         <View style={styles.travelInfoPair}>
           {hasStay && (
             <TravelMiniCard
@@ -2334,11 +2327,32 @@ function TripOverview({
             />
           )}
         </View>
-        {reservations.length === 0 && (
-          <EmptyState title="예약 정보가 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={() => openReservation()} />
-        )}
         {!hasStay && (
-          <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 추가" onPress={() => openStay(true)} />
+          <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 등록" onPress={() => openStay(true)} />
+        )}
+      </View>
+
+      <SectionLabel
+        label="예약"
+        count={`${reservations.length}건`}
+        action="예약 추가"
+        onPress={() => openReservation()}
+      />
+      <View style={styles.travelInfoList}>
+        {reservations.map((reservation) => (
+          <TravelInfoRow
+            key={reservation.id}
+            label="예약"
+            mark={dayNumberOf(reservation.date)}
+            title={reservation.name}
+            meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people}`}
+            badge={reservation.status}
+            color={theme?.primary ?? "#FF6B63"}
+            onPress={() => openReservation(reservation)}
+          />
+        ))}
+        {reservations.length === 0 && (
+          <EmptyState title="예약한 곳이 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={() => openReservation()} />
         )}
       </View>
 
@@ -3910,7 +3924,7 @@ function Preparation({
           accessibilityLabel={`${item.name} 담당 및 정보 관리`}
           style={[styles.packingV2Assignee, theme && { backgroundColor: theme.primarySoft }]}
         >
-          <Text style={[styles.packingOwnerChangeText, theme && { color: theme.primary }]}>
+          <Text numberOfLines={1} style={[styles.packingOwnerChangeText, theme && { color: theme.primary }]}>
             {item.owner}
           </Text>
         </Pressable>
@@ -4534,7 +4548,7 @@ function Preparation({
                       },
                     ]}
                   >
-                    {ownerName === PACKING_UNASSIGNED ? "?" : ownerName.slice(0, 1)}
+                    {ownerName === PACKING_UNASSIGNED ? "?" : ownerName.slice(-1)}
                   </Text>
                 </View>
                 <View style={styles.assignmentCopy}>
@@ -4642,6 +4656,7 @@ function Preparation({
                 ]}
               >
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.packingAssigneeOptionText,
                     theme && {
@@ -5110,6 +5125,19 @@ const initialRecipes: Recipe[] = [
     },
 ];
 
+/**
+ * 요리를 골랐을 때 접어 둘 재료 묶음.
+ *
+ * 예전에는 늘 전부 접어서, 메뉴 카드를 누른 직후 화면에 재료가 하나도 없었다.
+ * 뭘 눌렀는지 알 수 없고 묶음이 셋이면 매번 세 번을 더 눌러야 한다.
+ * 한 화면에 들어갈 만큼 짧으면 펴 두고, 길 때만 접는다.
+ */
+const collapsedGroupsFor = (recipe?: Recipe) => {
+  const items = recipe?.ingredients ?? [];
+  const groups = Array.from(new Set(items.map((item) => item.group)));
+  return groups.length > 2 && items.length > 9 ? groups : [];
+};
+
 function Cooking({
   recipes,
   setRecipes,
@@ -5158,7 +5186,7 @@ function Cooking({
   const [recipeNote, setRecipeNote] = useState("");
   const [recipeUrl, setRecipeUrl] = useState("");
   const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>(() =>
-    Array.from(new Set((recipes.find((recipe) => recipe.id === "mille") ?? recipes[0])?.ingredients.map((item) => item.group) ?? [])),
+    collapsedGroupsFor(recipes.find((recipe) => recipe.id === "mille") ?? recipes[0]),
   );
   const activeRecipe =
     recipes.find((recipe) => recipe.id === activeId) || recipes[0];
@@ -5174,8 +5202,7 @@ function Cooking({
     : 0;
   const groups = Array.from(new Set(ingredients.map((item) => item.group)));
   const selectRecipe = (id: string) => {
-    const selected = recipes.find((recipe) => recipe.id === id);
-    setCollapsedCookingGroups(Array.from(new Set(selected?.ingredients.map((item) => item.group) ?? [])));
+    setCollapsedCookingGroups(collapsedGroupsFor(recipes.find((recipe) => recipe.id === id)));
     setActiveId(id);
   };
   const allCookingIngredients = recipes.flatMap((recipe) =>
@@ -6599,9 +6626,10 @@ function SectionLabel({
       {action && (
         <Pressable
           onPress={onPress}
-          hitSlop={10}
+          hitSlop={6}
           accessibilityRole="button"
           accessibilityLabel={action}
+          style={styles.sectionActionHit}
         >
           <View style={styles.sectionActionRow}>
             <Text
@@ -7920,8 +7948,8 @@ function Moment({
             <View style={styles.mapLinkIcon}>
               <Text style={styles.mapLinkIconText}>N</Text>
             </View>
-            <Text style={styles.mapLinkText}>{compact ? "지도" : "네이버 지도"}</Text>
-            {!compact && <Text style={styles.mapLinkArrow}>↗</Text>}
+            <Text style={[styles.mapLinkText, { color: naverInk(Boolean(theme?.dark)) }]}>{compact ? "지도" : "네이버 지도"}</Text>
+            {!compact && <Text style={[styles.mapLinkArrow, { color: naverInk(Boolean(theme?.dark)) }]}>↗</Text>}
           </Pressable>
         ) : null}
       </View>
@@ -8093,6 +8121,7 @@ const timeAsDate = (value: string, fallback: string) => {
 const formatClockTime = (date: Date) =>
   `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
+
 function TimePickerControl({
   value,
   onChange,
@@ -8128,10 +8157,12 @@ function TimePickerControl({
       <TextInput
         accessibilityLabel={accessibilityLabel}
         value={value}
-        onChangeText={onChange}
+        onChangeText={(text) => onChange(maskClockTime(text))}
+        onBlur={() => onChange(settleClockTime(value))}
         placeholder={optional ? "시간 미정" : fallback}
         placeholderTextColor={theme?.muted ?? "#9AA1AE"}
         keyboardType="numeric"
+        maxLength={5}
         style={[
           styles.timePickerFallback,
           theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
@@ -9506,8 +9537,8 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   mapLinkIconText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
-  mapLinkText: { color: "#23714B", fontSize: 14, fontFamily: typo.label.family },
-  mapLinkArrow: { color: "#23714B", fontSize: 14, marginLeft: 4 },
+  mapLinkText: { fontSize: 14, fontFamily: typo.label.family },
+  mapLinkArrow: { fontSize: 14, marginLeft: 4 },
   placeFilterText: { color: "#7C8390", fontSize: 12, fontFamily: typo.label.family },
   placeFilterTextActive: { color: "#FFFFFF" },
   placeAddText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
@@ -9877,7 +9908,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  packingOwnerChangeText: { fontSize: 12, fontFamily: typo.label.family },
+  packingOwnerChangeText: { maxWidth: 72, fontSize: 12, fontFamily: typo.label.family },
   packingV2Hidden: { display: "none" },
   packingJourney: {
     minHeight: 82,
@@ -10186,7 +10217,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: "center",
   },
-  packingAssigneeOptionText: { fontSize: 12, fontFamily: typo.label.family },
+  packingAssigneeOptionText: { maxWidth: 96, fontSize: 12, fontFamily: typo.label.family },
   cookingImportCallout: {
     borderRadius: 12,
     borderWidth: 1,
@@ -10372,8 +10403,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  myIngredientName: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  myIngredientQuantity: { color: "#8C8580", fontSize: 14, fontFamily: typo.data.family },
+  myIngredientName: { flex: 1, minWidth: 0, color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
+  myIngredientQuantity: { flexShrink: 0, marginLeft: 8, color: "#8C8580", fontSize: 14, fontFamily: typo.data.family },
   aiRecipeCallout: {
     borderRadius: 12,
     borderWidth: 1,
@@ -10611,6 +10642,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
+  sectionActionHit: { minHeight: 40, justifyContent: "center", paddingLeft: 8 },
   sectionActionRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   sectionLabel: {
     minHeight: 42,
@@ -10829,10 +10861,10 @@ const styles = StyleSheet.create({
   placeMiniTagText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMore: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 2 },
   placeMiniActions: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
-  placeMiniIconButton: { minWidth: 47, height: 36, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniIconButton: { minWidth: 47, height: 44, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniEditText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniMapButton: { minWidth: 63, height: 36, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniMapButton: { minWidth: 63, height: 44, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniPlanButton: { flex: 1, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniPlanButton: { flex: 1, height: 44, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   placeMiniPlanText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
 });

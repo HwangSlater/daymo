@@ -36,6 +36,16 @@ export const brand = {
   google: { fill: "#FFFFFF", text: "#4285F4" },
 } as const;
 
+/**
+ * 네이버 초록을 글자색으로 쓸 때.
+ *
+ * 버튼 바탕으로 쓰는 #03C75A 를 글자에 그대로 얹으면 흰 배경에서 3.1:1 이라
+ * 그 버튼만 흐려 보인다. 같은 색상각을 유지하면서 밝기만 모드별로 나눈다.
+ */
+export function naverInk(dark: boolean) {
+  return dark ? "#4ADE86" : "#0A6B39";
+}
+
 /** 여행 상세 상단의 메모지. 라이트는 노란 종이, 다크는 어두운 호박색. */
 export function memoPaper(dark: boolean) {
   return dark

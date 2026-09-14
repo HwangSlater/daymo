@@ -52,7 +52,7 @@ import {
 import { Text, TextInput } from "./AppText";
 import { Dot, Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
+import { domain, kindColor, naverInk, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -2845,7 +2845,7 @@ function Search({
                 accessibilityLabel={`${item.title} 네이버 지도에서 보기`}
                 style={s.searchResultAction}
               >
-                <Text style={[s.searchResultActionText, { color: "#03A94F" }]}>N 지도</Text>
+                <Text style={[s.searchResultActionText, { color: naverInk(theme.dark) }]}>네이버 지도</Text>
               </Pressable>
             </View>
           )}
@@ -3100,7 +3100,7 @@ function Together({
           <View style={s.workspaceCopy}>
             <Text style={[s.workspaceLabel, { color: theme.muted }]}>현재 여행 공간</Text>
             <Text style={[s.workspaceName, { color: theme.text }]}>{spaceName}</Text>
-            <Text style={[s.workspaceMeta, { color: theme.muted }]}>{visibleMembers.length}명 · {relationship} · 여행 {trips.length}개</Text>
+            <Text numberOfLines={1} style={[s.workspaceMeta, { color: theme.muted }]}>멤버 {visibleMembers.length}명 · 여행 {trips.length}개</Text>
           </View>
           <View style={[s.workspaceSwitchBadge, { backgroundColor: theme.primarySoft }]}>
             <Text style={[s.workspaceSwitchBadgeText, { color: theme.primary }]}>바꾸기</Text>
@@ -5523,7 +5523,7 @@ const s = StyleSheet.create({
   workspaceCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
   workspaceLabel: { fontSize: 12, fontFamily: typo.label.family },
   workspaceName: { fontSize: 14, fontFamily: typo.title.family, marginTop: 2 },
-  workspaceMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 4 },
+  workspaceMeta: { fontSize: 12, fontFamily: typo.caption.family, marginTop: 4 },
   workspaceSwitchBadge: { height: 29, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   workspaceSwitchBadgeText: { fontSize: 12, fontFamily: typo.label.family },
   groupTabs: {
