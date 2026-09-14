@@ -1327,6 +1327,7 @@ export function WarmTripDetail({
         >
           {!memoEditorOpen && (
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 setMemoDraft("");
                 setEditingMemoId(null);
@@ -1352,6 +1353,7 @@ export function WarmTripDetail({
                   {editingMemoId ? "메모 수정" : "새 메모"}
                 </Text>
                 <Pressable
+                  accessibilityRole="button"
                   hitSlop={8}
                   onPress={() => {
                     setMemoDraft("");
@@ -1389,14 +1391,16 @@ export function WarmTripDetail({
                 <View style={styles.tripMemoRowHead}>
                   <Text style={[styles.tripMemoAuthor, { color: memo.meta }]}>{note.author}</Text>
                   <View style={styles.tripMemoActions}>
-                    <Pressable onPress={() => {
+                    <Pressable
+                      accessibilityRole="button" onPress={() => {
                       setEditingMemoId(note.id);
                       setMemoDraft(note.body);
                       setMemoEditorOpen(true);
                     }}>
                       <Text style={[styles.tripMemoEdit, { color: memo.meta }]}>수정</Text>
                     </Pressable>
-                    <Pressable onPress={() => Alert.alert(
+                    <Pressable
+                      accessibilityRole="button" onPress={() => Alert.alert(
                       "메모를 삭제할까요?",
                       note.body,
                       [
@@ -2254,6 +2258,7 @@ function TripOverview({
             나머지 날을 여는 길이 사라지지 않는다. */}
         {schedule.length > shownScheduleCount && (
           <Pressable
+            accessibilityRole="button"
             onPress={() => setFullSchedule(true)}
             style={[
               styles.fullScheduleButton,
@@ -2369,6 +2374,7 @@ function TripOverview({
       {/* 남은 게 없으면 재촉할 것도 없다. 숫자는 실제 목록에서 센다. */}
       {packingRemaining > 0 && (
       <Pressable
+        accessibilityRole="button"
         onPress={() => setMode("준비")}
         style={[
           styles.readyNudge,
@@ -2613,7 +2619,8 @@ function TripOverview({
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
               <InfoLine label="여행 일정" value={item.showInSchedule ? "일정에 표시 중" : "교통 정보만 저장"} />
-              <Pressable onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
+              <Pressable
+                accessibilityRole="button" onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
                 <Text style={[styles.infoManageButtonText, theme && { color: theme.primary }]}>이 교통편 수정</Text>
               </Pressable>
             </View>
@@ -3207,8 +3214,13 @@ function Places({
               </View>
             </View>
             <View style={styles.placeMiniActions}>
-              <Pressable onPress={(event) => { event.stopPropagation(); if (place.mapUrl) void Linking.openURL(place.mapUrl); else openEdit(place); }} style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}>
-                <Text style={[styles.placeMiniMapText, { color: place.mapUrl ? (theme?.dark ? "#7ED9A7" : "#16844E") : theme?.muted }]}>{place.mapUrl ? "N 지도" : "＋ 링크"}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={place.mapUrl ? `${place.name} 네이버 지도에서 보기` : `${place.name} 지도 링크 넣기`}
+                onPress={(event) => { event.stopPropagation(); if (place.mapUrl) void Linking.openURL(place.mapUrl); else openEdit(place); }}
+                style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}
+              >
+                <Text style={[styles.placeMiniMapText, { color: place.mapUrl ? naverInk(Boolean(theme?.dark)) : theme?.muted }]}>{place.mapUrl ? "지도" : "＋ 링크"}</Text>
               </Pressable>
               {settled ? null : place.category === "숙소" ? (
                 <Pressable
@@ -3278,6 +3290,7 @@ function Places({
           </Text>
         </View>
         <Pressable
+          accessibilityRole="button"
           onPress={copyPlaces}
           style={[
             styles.packingToolButton,
@@ -3294,6 +3307,7 @@ function Places({
           </Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           onPress={openImport}
           style={[
             styles.packingToolButton,
@@ -3472,6 +3486,7 @@ function Places({
               {["숙소 근처", "웨이팅", "예약", "가성비", "비 오는 날"].map(
                 (tag) => (
                   <Pressable
+                    accessibilityRole="button"
                     key={tag}
                     onPress={() => addTag(tag)}
                     style={[
@@ -3508,6 +3523,7 @@ function Places({
             <View style={styles.draftTags}>
               {draftTags.map((tag) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={tag}
                   onPress={() =>
                     setTagText(
@@ -4090,6 +4106,7 @@ function Preparation({
           </Text>
         </View>
         <Pressable
+          accessibilityRole="button"
           onPress={() => setOwnerFilter("전체")}
           style={[
             styles.packingShowAll,
@@ -4138,6 +4155,7 @@ function Preparation({
                 />
               )}
               <Pressable
+                accessibilityRole="button"
                 onPress={() => setOwnerFilter(active ? "전체" : ownerName)}
                 style={[
                   styles.ownerStat,
@@ -4193,6 +4211,7 @@ function Preparation({
               const active = tagFilter === tag;
               return (
                 <Pressable
+                  accessibilityRole="button"
                   key={tag}
                   onPress={() => setTagFilter(tag)}
                   style={[
@@ -4214,6 +4233,7 @@ function Preparation({
           </ScrollView>
           {availableTags.length > 2 && (
             <Pressable
+              accessibilityRole="button"
               onPress={() => setTagPicker(true)}
               style={[
                 styles.packingFilterMore,
@@ -4248,6 +4268,7 @@ function Preparation({
               const active = filter === item;
               return (
                 <Pressable
+                  accessibilityRole="button"
                   key={item}
                   onPress={() => setFilter(item)}
                   style={[
@@ -4417,6 +4438,7 @@ function Preparation({
           </Text>
         </View>
         <Pressable
+          accessibilityRole="button"
           onPress={copyPacking}
           style={[
             styles.packingToolButton,
@@ -4433,6 +4455,7 @@ function Preparation({
           </Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           onPress={openImport}
           style={[
             styles.packingToolButton,
@@ -4467,6 +4490,7 @@ function Preparation({
                     .length;
             return (
               <Pressable
+                accessibilityRole="button"
                 key={tag}
                 onPress={() => {
                   setTagFilter(tag);
@@ -4649,6 +4673,7 @@ function Preparation({
           <View style={styles.packingAssigneeOptions}>
             {ownerSections.map((ownerName) => (
               <Pressable
+                accessibilityRole="button"
                 key={ownerName}
                 onPress={() => setOwner(ownerName)}
                 style={[
@@ -4696,6 +4721,7 @@ function Preparation({
               const selected = draftPackingTags.includes(tag);
               return (
                 <Pressable
+                  accessibilityRole="button"
                   key={tag}
                   onPress={() =>
                     setTagText(
@@ -4746,6 +4772,7 @@ function Preparation({
           <View style={styles.draftTags}>
             {draftPackingTags.map((tag) => (
               <Pressable
+                accessibilityRole="button"
                 key={tag}
                 onPress={() =>
                   setTagText(
@@ -4778,6 +4805,7 @@ function Preparation({
               <Text style={[styles.cookingImportText, theme && { color: theme.muted }]}>직접 입력하지 않고 등록된 재료를 선택할 수 있어요.</Text>
             </View>
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 setAdding(false);
                 setCookingPicker(true);
@@ -4842,6 +4870,7 @@ function Preparation({
               );
               return (
                 <Pressable
+                  accessibilityRole="button"
                   key={ingredient.id}
                   disabled={alreadyAdded}
                   onPress={() => toggleCookingItem(ingredient.id)}
@@ -5527,7 +5556,8 @@ function Cooking({
             <View style={styles.recipeSelectorActions}>
               {/* 개수는 바로 위 탭 머리글이 이미 보여준다. 넘칠 때만 더 보기를 낸다. */}
               {recipes.length > 4 && (
-                <Pressable onPress={() => setShowAllRecipes(true)}>
+                <Pressable
+                  accessibilityRole="button" onPress={() => setShowAllRecipes(true)}>
                   <View style={styles.inlineMore}>
                     <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개</Text>
                     <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#3F4C8F"} />
@@ -5630,6 +5660,7 @@ function Cooking({
             요리별로 재료와 준비 방법을 나눌 수 있어요.
           </Text>
           <Pressable
+            accessibilityRole="button"
             onPress={() => setAddingRecipe(true)}
             style={[styles.emptyCookingAction, theme && { backgroundColor: theme.primarySoft }]}
           >
@@ -5691,6 +5722,7 @@ function Cooking({
               필요한 재료
             </Text>
             <Pressable
+              accessibilityRole="button"
               onPress={() => setAddingIngredient(true)}
               style={[styles.placeAdd, theme && { backgroundColor: theme.primarySoft }]}
             >
@@ -5843,6 +5875,7 @@ function Cooking({
               </Text>
             </View>
             <Pressable
+              accessibilityRole="button"
               onPress={copyCooking}
               style={[
                 styles.packingToolButton,
@@ -5859,6 +5892,7 @@ function Cooking({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               onPress={openImport}
               style={[
                 styles.packingToolButton,
@@ -5980,6 +6014,7 @@ function Cooking({
           return (
             <View key={recipe.id} style={[styles.myIngredientGroup, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <Pressable
+                accessibilityRole="button"
                 onPress={() => {
                   selectRecipe(recipe.id);
                   setShowMyIngredients(false);
@@ -6047,6 +6082,7 @@ function Cooking({
                 const selected = group === category;
                 return (
                   <Pressable
+                    accessibilityRole="button"
                     key={category}
                     onPress={() => setGroup(category)}
                     style={[
@@ -6128,6 +6164,7 @@ function Cooking({
             <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT가 정리한 요리와 재료를 붙여넣을 수 있어요.</Text>
           </View>
           <Pressable
+            accessibilityRole="button"
             onPress={() => {
               setAddingRecipe(false);
               setAiImporting(true);
@@ -6209,6 +6246,7 @@ function Cooking({
             <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT 답을 복사해 두고 이 단추를 누르세요.</Text>
           </View>
           <Pressable
+            accessibilityRole="button"
             onPress={pasteAiResult}
             style={[styles.aiRecipeButton, theme && { backgroundColor: theme.primarySoft }]}
           >
@@ -7756,6 +7794,7 @@ function TravelInfoRow({
   const theme = useContext(DetailThemeContext);
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.travelInfoRow,
@@ -7805,6 +7844,7 @@ function TransportCard({
   if (!primary) return null;
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.transportCard,
@@ -7865,6 +7905,7 @@ function TravelMiniCard({
   const theme = useContext(DetailThemeContext);
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.travelMiniCard,

@@ -1195,6 +1195,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
           </Svg>
         </View>
         <Pressable
+          accessibilityRole="button"
           onPress={() => open("overview", trip)}
           style={({ pressed }) => [
             s.paperTripMain,
@@ -1291,6 +1292,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
               : []),
           ].map((item, index) => (
             <Pressable
+              accessibilityRole="button"
               key={item.label}
               onPress={() => open(item.destination, trip)}
               style={({ pressed }) => [
@@ -1631,7 +1633,8 @@ function TripsExplorer({
                   >
                     이날은 아직 여행이 없어요
                   </Text>
-                  <Pressable onPress={createFromDate}>
+                  <Pressable
+                    accessibilityRole="button" onPress={createFromDate}>
                     <Text
                       style={[
                         s.emptyDateAction,
@@ -1748,6 +1751,7 @@ function TripRows({
         <Text style={[s.noTripsText, { color: theme.muted }]}>다른 분류를 보거나 새로운 여행을 만들어 보세요.</Text>
         {emptyAction && (
           <Pressable
+            accessibilityRole="button"
             onPress={emptyAction}
             style={[s.emptyInlineAction, { backgroundColor: theme.primarySoft }]}
           >
@@ -1762,6 +1766,7 @@ function TripRows({
     <>
       {items.map((trip, index) => (
         <Pressable
+          accessibilityRole="button"
           key={`${trip.name}-${index}`}
           onPress={() => open(trip)}
           style={({ pressed }) => [
@@ -2197,6 +2202,7 @@ function KoreaTripMap({
             >
               {results.map((trip, index) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={`${trip.name}-${index}`}
                   onPress={() => open(trip)}
                   style={[s.mapTrayCard, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
@@ -2349,6 +2355,7 @@ function TripCalendar({
         </View>
         <View style={s.calendarControls}>
           <Pressable
+            accessibilityRole="button"
             onPress={moveToToday}
             style={[s.calendarTodayButton, { borderColor: theme.dark ? "#B5B5B0" : "#D8D4CA" }]}
           >
@@ -3152,7 +3159,8 @@ function Together({
             <Text style={[s.historyEyebrow, { color: theme.primary }]}>멤버</Text>
             <Text style={[s.memberSectionTitle, { color: theme.text }]}>함께하는 사람</Text>
           </View>
-          <Pressable onPress={() => setPanel("members")}><Text style={[s.memberManageText, { color: theme.primary }]}>관리</Text></Pressable>
+          <Pressable
+            accessibilityRole="button" onPress={() => setPanel("members")}><Text style={[s.memberManageText, { color: theme.primary }]}>관리</Text></Pressable>
         </View>
         <ScrollView
           horizontal
@@ -3161,7 +3169,8 @@ function Together({
           contentContainerStyle={s.memberStripContent}
         >
           {visibleMembers.map((member, index) => (
-            <Pressable key={`${member}-${index}`} onPress={() => setPanel("members")} style={s.memberStripItem}>
+            <Pressable
+              accessibilityRole="button" key={`${member}-${index}`} onPress={() => setPanel("members")} style={s.memberStripItem}>
               <View style={[s.memberStripAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary][index % 3] }]}>
                 <Text style={s.memberStripInitial}>{member.slice(0, 1)}</Text>
               </View>
@@ -3169,7 +3178,8 @@ function Together({
               <Text numberOfLines={1} style={[s.memberStripRole, { color: theme.muted }]}>{memberRoles[index] ?? "편집 가능"}</Text>
             </Pressable>
           ))}
-          <Pressable onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={s.memberStripItem}>
+          <Pressable
+            accessibilityRole="button" onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={s.memberStripItem}>
             <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Glyph name="plus" size={16} color={theme.primary} weight={2.2} /></View>
             <Text style={[s.memberStripName, { color: theme.muted }]}>초대</Text>
             <Text style={[s.memberStripRole, { color: theme.muted }]}>링크 공유</Text>
@@ -3385,6 +3395,7 @@ function Together({
             />
             <Text style={[s.sheetCopy, { color: theme.muted }]}>프로필 변경 내용은 바로 저장돼요.</Text>
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 Alert.alert("로그아웃할까요?", "기기에만 저장된 변경 내용이 있다면 동기화 후 로그아웃해 주세요.", [
                   { text: "취소", style: "cancel" },
@@ -3421,6 +3432,7 @@ function Together({
                 <Text style={[s.memberManagerCopy, { color: theme.muted }]}>관리할 멤버를 선택하세요.</Text>
               </View>
               <Pressable
+                accessibilityRole="button"
                 onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })}
                 style={[s.memberManagerInvite, { backgroundColor: theme.primarySoft }]}
               >
