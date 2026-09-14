@@ -40,3 +40,18 @@ export const createTrip = (
   method: "POST",
   body: JSON.stringify({ ...input, participantMembershipIds: [] }),
 });
+
+export const updateTrip = (
+  tripId: string,
+  input: {
+    version: number;
+    title: string;
+    startDate: string;
+    endDate: string;
+    regionName: string;
+    summary: string;
+  },
+) => authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`, {
+  method: "PATCH",
+  body: JSON.stringify(input),
+});

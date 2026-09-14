@@ -284,7 +284,7 @@ type Props = {
     end: string;
     region: string;
     note: string;
-  }) => void;
+  }) => void | Promise<void>;
   initialPlanning?: TripPlanningData;
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
@@ -1470,7 +1470,7 @@ export function WarmTripDetail({
           }
           submitDisabled={!tripDraftValid}
           onClose={() => setEditingTrip(false)}
-          onSubmit={() => {
+          onSubmit={async () => {
             if (!tripDraftValid) return;
             const nextTitle = draftTitle.trim();
             const nextRegion = draftRegion.trim();
@@ -1478,6 +1478,19 @@ export function WarmTripDetail({
             const oldDays = tripDayOptions;
             const nextDates = buildTripDates(draftStart, draftEnd);
             const nextDays = nextDates.map(dayLabel);
+            try {
+              await onUpdateTrip?.({
+                name: nextTitle,
+                date: formatTripPeriod(draftStart, draftEnd),
+                start: draftStart,
+                end: draftEnd,
+                region: nextRegion,
+                note: nextNote,
+              });
+            } catch {
+              setFeedback("저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요");
+              return;
+            }
             setSchedule((current) => current.map((item) => {
               const oldIndex = item.date ? oldDays.indexOf(item.date) : -1;
               if (oldIndex < 0 || !nextDays.length) return item;
@@ -1507,14 +1520,6 @@ export function WarmTripDetail({
               checkin: current.checkin ? `${dateLabel(nextDates[0])} ${current.checkin.split(" ").at(-1)}` : "",
               checkout: current.checkout ? `${dateLabel(nextDates[nextDates.length - 1])} ${current.checkout.split(" ").at(-1)}` : "",
             }));
-            onUpdateTrip?.({
-              name: nextTitle,
-              date: formatTripPeriod(draftStart, draftEnd),
-              start: draftStart,
-              end: draftEnd,
-              region: nextRegion,
-              note: nextNote,
-            });
             if (!hasKitchen && mode === "요리") showMode("여행");
             setEditingTrip(false);
             setFeedback("여행 정보를 저장했어요");
@@ -8792,7 +8797,7 @@ function DetailSheet({
   submitDisabled?: boolean;
   hasUnsavedChanges?: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   onDestructive?: () => void;
   children: React.ReactNode;
 }) {
@@ -8802,6 +8807,7 @@ function DetailSheet({
   const danger = theme?.dark ? statusColor.danger.dark : statusColor.danger.light;
   const [confirmingDestructive, setConfirmingDestructive] = useState(false);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const submitLocked = useRef(false);
   useEffect(() => {
     if (visible) submitLocked.current = false;
@@ -8960,7 +8966,7 @@ function DetailSheet({
             </Text>
           )}
           <Pressable
-            onPress={() => {
+            onPress={async () => {
               if (submitLocked.current) return;
               Keyboard.dismiss();
               setConfirmingDestructive(false);
@@ -8970,24 +8976,29 @@ function DetailSheet({
                 return;
               }
               submitLocked.current = true;
+              setSubmitting(true);
               setConfirmingSubmit(false);
-              onSubmit();
-              setTimeout(() => {
-                submitLocked.current = false;
-              }, 800);
+              try {
+                await onSubmit();
+              } finally {
+                setSubmitting(false);
+                setTimeout(() => {
+                  submitLocked.current = false;
+                }, 800);
+              }
             }}
-            disabled={submitDisabled}
+            disabled={submitDisabled || submitting}
             accessibilityRole="button"
             accessibilityLabel={submit}
-            accessibilityState={{ disabled: submitDisabled }}
+            accessibilityState={{ disabled: submitDisabled || submitting, busy: submitting }}
             style={({ pressed }) => [
               styles.sheetSubmit,
               theme && { backgroundColor: theme.primary },
-              submitDisabled && styles.sheetSubmitDisabled,
-              pressed && !submitDisabled && styles.controlPressed,
+              (submitDisabled || submitting) && styles.sheetSubmitDisabled,
+              pressed && !submitDisabled && !submitting && styles.controlPressed,
             ]}
           >
-            <Text style={[styles.sheetSubmitText, theme && { color: onAccent(theme.dark) }]}>{submit}</Text>
+            <Text style={[styles.sheetSubmitText, theme && { color: onAccent(theme.dark) }]}>{submitting ? "저장 중…" : submit}</Text>
             <View style={styles.sheetSubmitArrow}>
               <Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} />
             </View>

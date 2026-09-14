@@ -65,7 +65,7 @@ import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { DaymoApiError, login, logout, restoreSession, signUp, type AuthUser } from "./auth";
-import { createSpace, createTrip, listSpaces, listTrips, type ServerSpace, type ServerTrip } from "./serverData";
+import { createSpace, createTrip, listSpaces, listTrips, updateTrip, type ServerSpace, type ServerTrip } from "./serverData";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
@@ -599,8 +599,20 @@ export function WarmAppShell({
         spaceMembers={activeSpaceMembers}
         me={user?.name ?? activeSpaceMembers[0]}
         appTheme={theme}
-        onUpdateTrip={(changes) => {
-          const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
+        onUpdateTrip={async (changes) => {
+          const saved = selectedTrip.id && selectedTrip.version !== undefined
+            ? await updateTrip(selectedTrip.id, {
+              version: selectedTrip.version,
+              title: changes.name,
+              startDate: changes.start,
+              endDate: changes.end,
+              regionName: changes.region,
+              summary: changes.note,
+            })
+            : null;
+          const updated = saved
+            ? { ...selectedTrip, ...tripFromServer(saved), planning: selectedTrip.planning }
+            : { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
           setTripItems((current) => current.map((trip) => trip === selectedTrip ? updated : trip));
           setSelectedTrip(updated);
         }}
