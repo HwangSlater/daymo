@@ -3,6 +3,7 @@ import { useSheetDrag } from "./sheetDrag";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
+import { ParticipantPicker } from "./ParticipantPicker";
 import {
   CURRENCIES,
   DEFAULT_CURRENCY,
@@ -717,6 +718,9 @@ export function WarmTripDetail({
   const [draftNote, setDraftNote] = useState(note);
   const [showAllEditRegions, setShowAllEditRegions] = useState(false);
   const [editingTrip, setEditingTrip] = useState(false);
+  // 여행을 고칠 때도 참가자를 바꾼다. 비용 탭 안에만 두면 누가 가는지 정하는
+  // 일이 돈 얘기처럼 보이는데, 실제로는 준비물과 교통편의 담당도 여기서 갈린다.
+  const [draftTripPeople, setDraftTripPeople] = useState<Participant[]>([]);
   const [memoPanel, setMemoPanel] = useState(false);
   const [memoDraft, setMemoDraft] = useState("");
   const [memoEditorOpen, setMemoEditorOpen] = useState(false);
@@ -956,7 +960,9 @@ export function WarmTripDetail({
     && draftRegion.trim()
     && validDateKey(draftStart)
     && validDateKey(draftEnd)
-    && draftStart <= draftEnd,
+    && draftStart <= draftEnd
+    // 아무도 안 가는 여행은 없다. 참가자가 비면 몫을 나눌 기준도 사라진다.
+    && draftTripPeople.length,
   );
   return (
     <DetailThemeContext.Provider value={appTheme}>
@@ -996,6 +1002,7 @@ export function WarmTripDetail({
               setDraftEnd(currentEnd);
               setDraftRegion(region);
               setDraftNote(note);
+              setDraftTripPeople(participants);
               setShowAllEditRegions(false);
               setEditingTrip(true);
             }}
@@ -1051,6 +1058,13 @@ export function WarmTripDetail({
           >
             {region ? `${region} · ` : ""}{tripDuration}{note ? ` · ${note}` : ""}
           </Text>
+          {/* 누가 가는지는 여행의 기본 정보다. 비용 탭 안에만 두면 이 여행이
+              몇 명짜리인지 알려면 돈 얘기를 열어 봐야 한다. */}
+          {participants.length > 1 && (
+            <Text numberOfLines={1} style={[styles.subtitle, styles.tripPeopleLine, appTheme && { color: appTheme.muted }]}>
+              함께 {participants.join(" · ")}
+            </Text>
+          )}
 
           <View
             style={[
@@ -1355,7 +1369,11 @@ export function WarmTripDetail({
           title="여행 수정"
           subtitle="여행의 기본 정보와 사용할 기능을 관리해요"
           submit="변경 저장"
-          disabledHint={!tripDraftValid ? "제목·여행지·기간을 확인해 주세요" : undefined}
+          disabledHint={
+            !tripDraftValid
+              ? (draftTripPeople.length ? "제목·여행지·기간을 확인해 주세요" : "함께 가는 사람을 한 명은 골라 주세요")
+              : undefined
+          }
           submitDisabled={!tripDraftValid}
           onClose={() => setEditingTrip(false)}
           onSubmit={() => {
@@ -1385,6 +1403,7 @@ export function WarmTripDetail({
               return { ...item, date: nextDays[Math.min(oldIndex, nextDays.length - 1)] };
             }));
             setTitle(nextTitle);
+            setParticipants(draftTripPeople);
             setCurrentStart(draftStart);
             setCurrentEnd(draftEnd);
             setRegion(nextRegion);
@@ -1442,6 +1461,21 @@ export function WarmTripDetail({
             onChangeText={setDraftNote}
             placeholder="예: 골목을 천천히 걷는 여행"
           />
+          {appTheme && spaceMembers.length > 1 && (
+            <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
+              <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>누가 함께 가나요?</Text>
+              <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>
+                공간 멤버 {spaceMembers.length}명 중 이번에 같이 가는 사람만 골라요.
+              </Text>
+              <ParticipantPicker
+                theme={appTheme}
+                members={spaceMembers}
+                value={draftTripPeople}
+                onChange={setDraftTripPeople}
+                noteFor={assignedSummary}
+              />
+            </View>
+          )}
           <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
             <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>여행 기능</Text>
             <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>숙소 환경에 맞춰 필요한 탭만 보여줘요.</Text>
@@ -7409,39 +7443,16 @@ function Money({
         onClose={() => setPeopleSheetOpen(false)}
         onSubmit={savePeople}
       >
-        <View style={styles.shareRows}>
-          {spaceMembers.map((person) => {
-            const joined = draftParticipants.includes(person);
-            const assigned = assignedSummary(person);
-            return (
-              <Pressable
-                key={person}
-                onPress={() => setDraftParticipants((current) =>
-                  joined ? current.filter((name) => name !== person) : [...current, person],
-                )}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: joined }}
-                accessibilityLabel={`${person} 참가`}
-                style={({ pressed }) => [
-                  styles.participantRow,
-                  theme && { borderColor: joined ? theme.primary : theme.border, backgroundColor: joined ? theme.primarySoft : theme.surface },
-                  pressed && styles.controlPressed,
-                ]}
-              >
-                <Text style={[styles.participantName, theme && { color: joined ? theme.primary : theme.muted }]}>{person}</Text>
-                {/* 이 사람 이름으로 적어 둔 게 있으면 빼기 전에 알려 준다. 지출뿐
-                    아니라 준비물이나 교통편도 이름으로 묶여 있다. */}
-                {!joined && Boolean(assigned) && (
-                  <Text numberOfLines={1} style={[styles.participantWarn, theme && { color: theme.accent }]}>{assigned}</Text>
-                )}
-                {joined && <Glyph name="check" size={16} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-          몫을 따로 안 적은 지출은 여기 고른 사람들이 똑같이 나눠요. 사람을 바꾸면 정산도 다시 계산돼요.
-        </Text>
+        {theme && (
+          <ParticipantPicker
+            theme={theme}
+            members={spaceMembers}
+            value={draftParticipants}
+            onChange={setDraftParticipants}
+            noteFor={assignedSummary}
+            hint="몫을 따로 안 적은 지출은 여기 고른 사람들이 똑같이 나눠요. 사람을 바꾸면 정산도 다시 계산돼요."
+          />
+        )}
       </DetailSheet>
       <DetailSheet
         visible={currencySheetOpen}
@@ -9539,6 +9550,7 @@ const styles = StyleSheet.create({
   moneyBudgetFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   moneyBudgetStatus: { fontSize: 11, fontFamily: typo.caption.family },
   moneyBudgetPercent: { fontSize: 11, fontFamily: typo.data.family },
+  tripPeopleLine: { marginTop: 2 },
   moneyPaidTable: { marginTop: 16 },
   moneyPaidHead: { flexDirection: "row", alignItems: "center", paddingBottom: 6 },
   moneyPaidHeadName: { flex: 1, fontSize: 12, fontFamily: typo.caption.family },

@@ -30,6 +30,7 @@ import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
+import { ParticipantPicker } from "./ParticipantPicker";
 import { sampleTripContent, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
@@ -362,10 +363,11 @@ export function WarmAppShell({
   });
   // 이 공간에 속한 사람들. 나를 앞에 두고 초대한 멤버가 뒤따른다. 여행 상세는
   // 이 목록에서 이번 여행 참가자를 고른다.
-  const activeSpaceMembers = [
+  // 렌더마다 새 배열을 만들면 이 목록을 의존성으로 쓰는 곳이 매번 다시 돈다.
+  const activeSpaceMembers = useMemo(() => [
     user?.name ?? "나",
     ...(spaceGroups.find((group) => group.id === activeGroupId)?.members ?? []),
-  ];
+  ], [activeGroupId, user?.name]);
   const now = new Date();
 
   useEffect(() => {
@@ -478,6 +480,7 @@ export function WarmAppShell({
             theme={theme}
             items={tripItems}
             setItems={setTripItems}
+            spaceMembers={activeSpaceMembers}
             openCreatorOnMount={openTripCreator}
             onCreatorOpened={() => setOpenTripCreator(false)}
           />
@@ -1328,6 +1331,7 @@ function TripsExplorer({
   theme,
   items,
   setItems,
+  spaceMembers,
   openCreatorOnMount = false,
   onCreatorOpened,
 }: {
@@ -1335,6 +1339,8 @@ function TripsExplorer({
   theme: AppTheme;
   items: Trip[];
   setItems: React.Dispatch<React.SetStateAction<Trip[]>>;
+  /** 이 공간의 멤버 전원. 여행을 만들 때 이 중에서 참가자를 고른다. */
+  spaceMembers: string[];
   openCreatorOnMount?: boolean;
   onCreatorOpened?: () => void;
 }) {
@@ -1354,14 +1360,23 @@ function TripsExplorer({
   const [tripEnd, setTripEnd] = useState("2026-09-14");
   const [note, setNote] = useState("새 여행");
   const [newRegion, setNewRegion] = useState("서울");
+  // 여행마다 가는 사람이 다르다. 처음에는 공간 멤버 전원으로 두고, 일부만
+  // 가는 여행이면 여기서 뺀다. 지출의 몫과 준비물 담당이 이 목록을 쓴다.
+  const [newPeople, setNewPeople] = useState<string[]>(spaceMembers);
   const [showAllRegions, setShowAllRegions] = useState(false);
+  const openCreator = () => {
+    // 공간을 바꾸면 멤버도 바뀐다. 열 때마다 그 공간의 전원으로 되돌린다.
+    setNewPeople(spaceMembers);
+    setCreating(true);
+  };
   useEffect(() => {
     if (!openCreatorOnMount) return;
     // 홈의 빠른 추가 요청이 바뀔 때 이미 열린 여행 화면의 시트를 동기화한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNewPeople(spaceMembers);
     setCreating(true);
     onCreatorOpened?.();
-  }, [openCreatorOnMount, onCreatorOpened]);
+  }, [openCreatorOnMount, onCreatorOpened, spaceMembers]);
   const showDisplay = (nextDisplay: TripView) => {
     setDisplay(nextDisplay);
     if (nextDisplay === "캘린더" && !selectedDate) {
@@ -1388,7 +1403,7 @@ function TripsExplorer({
     : [];
   const tripDateValid = tripStart <= tripEnd;
   const addTrip = () => {
-    if (!place.trim() || !tripDateValid) return;
+    if (!place.trim() || !tripDateValid || !newPeople.length) return;
     const range = formatTripRange(tripStart, tripEnd);
     const nextTrip: Trip = {
       name: place.trim(),
@@ -1400,9 +1415,13 @@ function TripsExplorer({
       region: newRegion,
       start: tripStart,
       end: tripEnd,
+      // 참가자는 여행에 붙는 값이다. 공간 멤버가 아니라 이 목록을 기준으로
+      // 지출의 몫과 준비물·교통편 담당이 갈린다.
+      planning: { participants: newPeople },
     };
     setItems((current) => [nextTrip, ...current]);
     setPlace("");
+    setNewPeople(spaceMembers);
     setCreating(false);
     setShowAllRegions(false);
     setSelectedRegion(null);
@@ -1414,7 +1433,7 @@ function TripsExplorer({
       setTripStart(selectedDate);
       setTripEnd(selectedDate);
     }
-    setCreating(true);
+    openCreator();
   };
   const explorerHead = (
     <>
@@ -1424,7 +1443,7 @@ function TripsExplorer({
           <Text style={[s.screenTitle, { color: theme.text }]}>여행</Text>
         </View>
         <Pressable
-          onPress={() => setCreating(true)}
+          onPress={openCreator}
           style={({ pressed }) => [
             s.newTrip,
             { backgroundColor: theme.primary },
@@ -1600,8 +1619,16 @@ function TripsExplorer({
         title="새 여행"
         subtitle="여행지와 기간을 정하고 첫 여행을 만들어 보세요"
         submit="여행 만들기"
-        disabledHint={!place.trim() ? "여행지를 입력해 주세요" : !tripDateValid ? "종료일을 다시 확인해 주세요" : undefined}
-        submitDisabled={!place.trim() || !tripDateValid}
+        disabledHint={
+          !place.trim()
+            ? "여행지를 입력해 주세요"
+            : !tripDateValid
+              ? "종료일을 다시 확인해 주세요"
+              : !newPeople.length
+                ? "함께 가는 사람을 한 명은 골라 주세요"
+                : undefined
+        }
+        submitDisabled={!place.trim() || !tripDateValid || !newPeople.length}
         onClose={() => {
           setCreating(false);
           setShowAllRegions(false);
@@ -1635,6 +1662,16 @@ function TripsExplorer({
           value={note}
           onChangeText={setNote}
         />
+        {/* 공간에 나 말고 아무도 없으면 고를 것이 없다. */}
+        {spaceMembers.length > 1 && (
+          <ParticipantPicker
+            theme={theme}
+            members={spaceMembers}
+            value={newPeople}
+            onChange={setNewPeople}
+            hint="공간 멤버 모두가 매번 같이 가지는 않아요. 이번에 가는 사람만 골라 두면 지출의 몫과 준비물 담당이 그 사람들 기준으로 맞춰져요."
+          />
+        )}
       </FormSheet>
     </>
   );
