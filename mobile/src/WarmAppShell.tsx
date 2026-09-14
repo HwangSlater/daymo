@@ -473,6 +473,7 @@ export function WarmAppShell({
             trip={homeTrip}
             trips={tripItems}
             todayKey={todayKey}
+            spaceName={spaceGroups.find((group) => group.id === activeGroupId)?.name ?? "우리의 여행 수첩"}
             relationship={activeGroupId === "ours" ? "연인" : "친구"}
             since={since}
           />
@@ -743,6 +744,7 @@ function NotebookHome({
   trip,
   trips,
   todayKey,
+  spaceName,
   relationship,
   since,
 }: {
@@ -752,12 +754,15 @@ function NotebookHome({
   trip: Trip | null;
   trips: Trip[];
   todayKey: string;
+  /** 지금 보고 있는 공간의 이름. 홈만 보고도 어느 공간인지 알아야 한다. */
+  spaceName: string;
   relationship: "연인" | "친구";
   since: string;
 }) {
   const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
   const homeStay = trip?.planning?.stay;
-  const homePacked = trip?.planning?.packingDone?.length ?? 0;
+  const homePacking = trip?.planning?.packingItems?.length ?? 0;
+  const homeLeft = Math.max(0, homePacking - (trip?.planning?.packingDone?.length ?? 0));
   const homePlaces = trip?.planning?.places;
   // 장소를 아직 안 연 예시 여행은 셀 것이 없다. 그때는 숫자 대신 안내를 낸다.
   const placesKnown = Boolean(homePlaces);
@@ -772,8 +777,8 @@ function NotebookHome({
       <View style={s.notebookHead}>
         <View>
           <Text style={[s.logo, { color: theme.text }]}>Daymo</Text>
-          <Text style={[s.notebookHello, { color: theme.muted }]}>
-            우리의 여행 수첩
+          <Text numberOfLines={1} style={[s.notebookHello, { color: theme.muted }]}>
+            {spaceName}
           </Text>
         </View>
         <View
@@ -792,8 +797,8 @@ function NotebookHome({
         <>
       <View style={s.scrapTitleRow}>
         <View>
-          <Text style={[s.noteTitleSmall, { color: theme.primary }]}>우리의 체크리스트</Text>
-          <Text style={[s.noteTitle, { color: theme.text }]}>출발 전, 이것만</Text>
+          <Text style={[s.noteTitleSmall, { color: theme.primary }]}>바로 가기</Text>
+          <Text style={[s.noteTitle, { color: theme.text }]}>출발 전 확인할 것</Text>
         </View>
         <Pressable
           onPress={() => open("overview", trip)}
@@ -814,9 +819,21 @@ function NotebookHome({
         ]}
       >
         <View pointerEvents="none" style={[s.memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
-        <MemoRow theme={theme} color={theme.primary} text="대표 숙소 확인" meta={homeStay?.name || "아직 등록하지 않았어요"} onPress={() => open("overview", trip)} />
-        <MemoRow theme={theme} color={theme.accent} text={`완료한 준비물 ${homePacked}개`} meta="목록 계속 확인하기" onPress={() => open("preparation", trip)} />
-        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta={placesKnown ? `식당 ${restaurantCount} · 카페 ${cafeCount}` : "저장한 장소 보기"} onPress={() => open("places", trip)} last />
+        <MemoRow theme={theme} color={theme.primary} text="대표 숙소" meta={homeStay?.name || "아직 등록하지 않았어요"} onPress={() => open("overview", trip)} />
+        <MemoRow
+          theme={theme}
+          color={theme.accent}
+          text="준비물"
+          meta={
+            homePacking
+              ? homeLeft
+                ? `${homeLeft}개 남았어요`
+                : "다 챙겼어요"
+              : "아직 없어요"
+          }
+          onPress={() => open("preparation", trip)}
+        />
+        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소" meta={placesKnown ? `식당 ${restaurantCount} · 카페 ${cafeCount}` : "아직 없어요"} onPress={() => open("places", trip)} last />
       </View>
       {trips.some((item) => item.end < todayKey) && (
         <View style={s.homeArchiveSection}>
@@ -3030,9 +3047,13 @@ function Together({
               : panel === "licenses"
                 ? "오픈소스 라이선스"
                 : "공간 프로필";
+  // 설정 묶음이 화면 어디쯤인지. 머리의 버튼이 그리로 내려 보낸다.
+  const pageRef = useRef<ScrollView>(null);
+  const [settingsTop, setSettingsTop] = useState(0);
   return (
     <>
       <ScrollView
+        ref={pageRef}
         style={{ backgroundColor: "transparent" }}
         contentContainerStyle={s.page}
       >
@@ -3043,14 +3064,26 @@ function Together({
             </Text>
             <Text style={[s.screenTitle, { color: theme.text }]}>우리</Text>
           </View>
-          <Pressable
-            onPress={() => setPanel("account")}
-            accessibilityRole="button"
-            accessibilityLabel="내 프로필 열기"
-            style={[s.togetherAccountButton, { backgroundColor: theme.primarySoft }]}
-          >
-            <Text style={[s.togetherAccountInitial, { color: theme.primary }]}>{user.name.slice(0, 1)}</Text>
-          </Pressable>
+          <View style={s.togetherHeadActions}>
+            {/* 앱 색상과 화면 모드가 "우리" 라는 말 뒤에 묻혀 있었다. 탭 이름만
+                보고는 설정이 여기 있는 줄 알 수가 없다. */}
+            <Pressable
+              onPress={() => pageRef.current?.scrollTo({ y: Math.max(0, settingsTop - 12), animated: true })}
+              accessibilityRole="button"
+              accessibilityLabel="앱 설정으로 이동"
+              style={[s.togetherSettingsButton, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+            >
+              <Text style={[s.togetherSettingsText, { color: theme.muted }]}>설정</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setPanel("account")}
+              accessibilityRole="button"
+              accessibilityLabel="내 프로필 열기"
+              style={[s.togetherAccountButton, { backgroundColor: theme.primarySoft }]}
+            >
+              <Text style={[s.togetherAccountInitial, { color: theme.primary }]}>{user.name.slice(0, 1)}</Text>
+            </Pressable>
+          </View>
         </View>
         <Pressable
           onPress={() => setPanel("groups")}
@@ -3096,7 +3129,7 @@ function Together({
                   { color: activeGroupId === group.id ? theme.primary : theme.muted },
                 ]}
               >
-                {group.id === "ours" ? "우리" : group.id === "friends" ? "친구" : "가족"}
+                {group.name}
               </Text>
             </Pressable>
           ))}
@@ -3236,7 +3269,12 @@ function Together({
             onPress={() => setPanel("relationship")}
           />
         </View>
-        <Text style={[s.settingGroupLabel, { color: theme.muted }]}>앱과 계정</Text>
+        <Text
+          onLayout={(event) => setSettingsTop(event.nativeEvent.layout.y)}
+          style={[s.settingGroupLabel, { color: theme.muted }]}
+        >
+          앱과 계정
+        </Text>
         <View
           style={[
             s.settingGroup,
@@ -4816,6 +4854,9 @@ const s = StyleSheet.create({
   searchResultArrow: { color: "#9AA1A8", fontSize: 20 },
   searchEmptyTitle: { color: "#394353", fontSize: 18, fontFamily: typo.title.family },
   searchEmptyCopy: { color: "#959BA2", fontSize: 14, marginTop: 6 },
+  togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  togetherSettingsButton: { minHeight: 40, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  togetherSettingsText: { fontSize: 13, fontFamily: typo.label.family },
   togetherHead: {
     flexDirection: "row",
     justifyContent: "space-between",

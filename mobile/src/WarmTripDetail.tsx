@@ -1316,7 +1316,7 @@ export function WarmTripDetail({
                 </Pressable>
               </View>
               <DetailField
-                label="메모 내용"
+                label="메모 내용 · 필수"
                 value={memoDraft}
                 onChangeText={setMemoDraft}
                 placeholder="예: 체크인 전에 장보기"
@@ -2563,7 +2563,7 @@ function TripOverview({
         visible={sheet === "reservation"}
         title={editingReservation ? "예약 정보 수정" : "예약 정보 추가"}
         subtitle="예약 이름만 입력해도 저장할 수 있어요"
-        submit="예약 정보 저장"
+        submit={editingReservation ? "변경 저장" : "예약 추가"}
         disabledHint={!reservationDraft.name.trim() ? "예약 이름을 입력해 주세요" : undefined}
         submitDisabled={!reservationDraft.name.trim()}
         destructiveLabel={editingReservation ? "예약 정보 삭제" : undefined}
@@ -2590,7 +2590,7 @@ function TripOverview({
         visible={sheet === "stay"}
         title={hasStay ? "대표 숙소 수정" : "대표 숙소 추가"}
         subtitle="이번 여행에서 머무를 대표 숙소와 이용 시간을 기록하세요"
-        submit="숙소 정보 저장"
+        submit={hasStay ? "변경 저장" : "숙소 추가"}
         disabledHint={!stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : !stayFormValid ? "체크아웃 시간을 다시 확인해 주세요" : undefined}
         submitDisabled={!stayFormValid}
         destructiveLabel={hasStay ? "대표 숙소 해제" : undefined}
@@ -3256,7 +3256,7 @@ function Places({
         subtitle={
           planningPlace ? `${planningPlace.name}을(를) 언제 갈까요?` : undefined
         }
-        submit="이 일정으로 확정"
+        submit="일정에 담기"
         onClose={() => setPlanningPlace(null)}
         onSubmit={confirmPlan}
       >
@@ -3291,7 +3291,7 @@ function Places({
         visible={adding}
         title={editingId ? "장소 수정" : "장소 추가"}
         subtitle="이름만 입력해도 저장할 수 있어요"
-        submit={editingId ? "변경 저장" : "장소 저장"}
+        submit={editingId ? "변경 저장" : "장소 추가"}
         disabledHint={!placeFormValid ? (duplicatePlace ? "이미 저장한 장소예요" : "장소 이름을 입력해 주세요") : undefined}
         destructiveLabel={editingId ? "장소 삭제" : undefined}
         destructiveMessage={editingId ? "연결된 일정과 대표 숙소 설정도 함께 정리돼요." : undefined}
@@ -6449,7 +6449,7 @@ function Memories({
         visible={makingCard}
         title="여행 기념 카드 꾸미기"
         subtitle="사진과 문구를 골라 여행을 한 장으로 간직하세요"
-        submit="카드 저장"
+        submit="변경 저장"
         onClose={() => setMakingCard(false)}
         onSubmit={() => {
           setMakingCard(false);
@@ -6505,7 +6505,7 @@ function Memories({
         visible={diaryWriting}
         title={editingDiaryId ? "여행 일기 수정" : "여행 일기 쓰기"}
         subtitle="그날의 기분과 오래 기억하고 싶은 이야기를 남겨보세요"
-        submit={editingDiaryId ? "변경 저장" : "일기 저장"}
+        submit={editingDiaryId ? "변경 저장" : "일기 추가"}
         disabledHint={!diaryBody.trim() ? "내용을 입력해 주세요" : undefined}
         submitDisabled={!diaryBody.trim()}
         destructiveLabel={editingDiaryId ? "일기 삭제" : undefined}
@@ -7479,7 +7479,7 @@ function Money({
         visible={peopleSheetOpen}
         title="이번 여행 참가자"
         subtitle="공간 멤버 중에 이번에 같이 가는 사람만 골라요"
-        submit="참가자 저장"
+        submit="변경 저장"
         disabledHint={!draftParticipants.length ? "한 명은 있어야 해요" : undefined}
         submitDisabled={!draftParticipants.length}
         onClose={() => setPeopleSheetOpen(false)}
@@ -7500,7 +7500,7 @@ function Money({
         visible={currencySheetOpen}
         title="여행 통화"
         subtitle="현지 금액으로 적고 합계에서 원으로 환산해 봐요"
-        submit="통화 저장"
+        submit="변경 저장"
         onClose={() => setCurrencySheetOpen(false)}
         onSubmit={saveCurrency}
       >
@@ -7533,7 +7533,7 @@ function Money({
         visible={budgetSheetOpen}
         title="여행 예산"
         subtitle="예산 대비 얼마나 썼는지 비용 탭에서 바로 확인해요"
-        submit="예산 저장"
+        submit="변경 저장"
         disabledHint={!budgetNumber ? "예산을 입력해 주세요" : undefined}
         submitDisabled={!budgetNumber}
         onClose={() => setBudgetSheetOpen(false)}
@@ -7616,7 +7616,7 @@ function EmptyState({
         accessibilityLabel={action}
         style={[styles.emptyStateAction, theme && { backgroundColor: theme.primarySoft }]}
       >
-        <Text style={[styles.emptyStateActionText, theme && { color: theme.primary }]}>{action}</Text>
+        <Text style={[styles.emptyStateActionText, theme && { color: theme.primary }]}>＋ {action}</Text>
       </Pressable>
     </View>
   );
