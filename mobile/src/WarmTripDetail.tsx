@@ -6900,6 +6900,7 @@ function Money({
   );
   const [othersOpen, setOthersOpen] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
+  const [paidOpen, setPaidOpen] = useState(false);
   const [paying, setPaying] = useState<Transfer | null>(null);
   const [payAmount, setPayAmount] = useState("");
   const openPayment = (transfer: Transfer) => {
@@ -7254,8 +7255,7 @@ function Money({
         action="지출 추가"
         onPress={openCreate}
       />
-      <View style={[styles.moneySummary, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[styles.moneySummaryLabel, theme && { color: theme.muted }]}>이번 여행에서 쓴 돈</Text>
+      <MoneyBlock title="쓴 돈" action="예산 수정" onAction={openBudget}>
         <Text style={[styles.moneyTotal, theme && { color: theme.text }]}>
           {show(settlement.total)}
         </Text>
@@ -7305,30 +7305,33 @@ function Money({
             </Text>
           )}
         </View>
-        {/* 결국 이걸 보려고 들어온다. 합계 바로 다음에 두고, 예산과 사람별
-            숫자는 그 뒤로 미룬다.
+        <View style={[styles.moneyBudgetTrack, theme && { backgroundColor: theme.surfaceAlt }]}>
+          <View
+            style={[
+              styles.moneyBudgetFill,
+              { width: `${Math.min(100, budgetProgress * 100)}%` },
+              theme && { backgroundColor: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.primary },
+            ]}
+          />
+        </View>
+        <View style={styles.moneyBudgetFoot}>
+          <Text style={[styles.moneyBudgetStatus, theme && { color: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.muted }]}>
+            {budgetRemaining < 0 ? `${show(Math.abs(budgetRemaining))} 초과` : `${show(budgetRemaining)} 남음`}
+          </Text>
+          <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
+        </View>
+      </MoneyBlock>
+      {/* 결국 이걸 보려고 들어온다. 합계 바로 다음에 두고, 예산과 사람별
+          숫자는 그 뒤로 미룬다.
 
-            "나" 로 먼저 말한다. 전체 조망만 있으면 여러 줄 중 내 줄을 눈으로
-            찾아야 하고, 정작 내가 할 일이 뭔지는 맨 나중에 안다. */}
+          "나" 로 먼저 말한다. 전체 조망만 있으면 여러 줄 중 내 줄을 눈으로
+          찾아야 하고, 정작 내가 할 일이 뭔지는 맨 나중에 안다. */}
+      <MoneyBlock
+        title="정산"
+        action={settlement.transfers.length > 1 ? (simplify ? "묶어서 보기" : "그대로 보기") : undefined}
+        onAction={toggleSimplify}
+      >
         <View style={styles.moneySettleBlock}>
-          <View style={styles.moneySettleHead}>
-            <Text style={[styles.moneySettleLabel, theme && { color: theme.muted }]}>정산</Text>
-            {settlement.transfers.length > 1 && (
-              <Pressable
-                onPress={toggleSimplify}
-                hitSlop={8}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: simplify, disabled: payments.length > 0 }}
-                accessibilityLabel="주고받을 횟수 줄이기"
-                style={styles.moneySettleToggle}
-              >
-                <Text style={[styles.moneySettleToggleText, theme && { color: payments.length ? theme.muted : theme.primary }]}>
-                  {simplify ? "묶어서 보기" : "그대로 보기"}
-                </Text>
-                <Glyph name={simplify ? "check" : "swap"} size={13} color={(payments.length ? theme?.muted : theme?.primary) ?? "#3F4C8F"} weight={2.4} />
-              </Pressable>
-            )}
-          </View>
           {myTransfers.map((transfer) => {
             const iSend = transfer.from === me;
             const other = iSend ? transfer.to : transfer.from;
@@ -7457,30 +7460,22 @@ function Money({
               <Text style={[styles.moneySettleCopyText, theme && { color: theme.primary }]}>정산 내용 복사</Text>
             </Pressable>
           )}
-        </View>
-        <View style={styles.moneyBudgetHead}>
-          <Text style={[styles.moneyBudgetLabel, theme && { color: theme.muted }]}>예산 {show(budget)}</Text>
-          <Pressable onPress={openBudget} hitSlop={10} accessibilityRole="button" accessibilityLabel="여행 예산 수정">
-            <Text style={[styles.moneyBudgetAction, theme && { color: theme.primary }]}>예산 수정</Text>
+          {/* 낸 돈과 내야 할 돈. 정산이 어디서 나왔는지의 근거라 여기 둔다.
+              사람 수만큼 가로로 나누면 넷만 돼도 숫자가 잘려서 아무것도 못
+              읽는다. 세로로 쌓고 머리글을 한 번만 단다. */}
+          <Pressable
+            onPress={() => setPaidOpen((current) => !current)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: paidOpen }}
+            style={styles.moneyOthersHead}
+          >
+            <Text style={[styles.moneyOthersLabel, theme && { color: theme.muted }]}>
+              누가 얼마 냈나 {paidRows.length}명
+            </Text>
+            <Glyph name={paidOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
           </Pressable>
         </View>
-        <View style={[styles.moneyBudgetTrack, theme && { backgroundColor: theme.surfaceAlt }]}>
-          <View
-            style={[
-              styles.moneyBudgetFill,
-              { width: `${Math.min(100, budgetProgress * 100)}%` },
-              theme && { backgroundColor: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.primary },
-            ]}
-          />
-        </View>
-        <View style={styles.moneyBudgetFoot}>
-          <Text style={[styles.moneyBudgetStatus, theme && { color: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.muted }]}>
-            {budgetRemaining < 0 ? `${show(Math.abs(budgetRemaining))} 초과` : `${show(budgetRemaining)} 남음`}
-          </Text>
-          <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
-        </View>
-        {/* 낸 돈과 내야 할 돈. 사람 수만큼 가로로 나누면 넷만 돼도 숫자가
-            잘려서 아무것도 못 읽는다. 세로로 쌓고 머리글을 한 번만 단다. */}
+        {paidOpen && (
         <View style={styles.moneyPaidTable}>
           <View style={styles.moneyPaidHead}>
             <Text style={[styles.moneyPaidHeadName, theme && { color: theme.muted }]}>참가자</Text>
@@ -7505,10 +7500,10 @@ function Money({
             </View>
           ))}
         </View>
-      </View>
+        )}
+      </MoneyBlock>
       {/* 요약 바로 아래에 둔다. 탭을 열자마자 손이 닿는 자리다. */}
-      <View style={[styles.quickAdd, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[styles.quickAddTitle, theme && { color: theme.muted }]}>빠르게 적기</Text>
+      <MoneyBlock title="빠르게 적기">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickAddChips}>
           {EXPENSE_CATEGORIES.map((item) => {
             const active = quickCategory === item;
@@ -7561,16 +7556,9 @@ function Money({
         <Text style={[styles.quickAddHint, theme && { color: theme.muted }]}>
           {draftPayerHint} · 자세히 적으려면 위의 지출 추가를 누르세요
         </Text>
-      </View>
+      </MoneyBlock>
       {expenses.length > 0 && (
-        <View style={[styles.moneyInsightCard, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
-          <View style={styles.moneyInsightHeading}>
-            <View>
-              <Text style={[styles.moneyInsightEyebrow, theme && { color: theme.primary }]}>여행 비용 분석</Text>
-              <Text style={[styles.moneyInsightTitle, theme && { color: theme.text }]}>이번 여행의 소비 흐름</Text>
-            </View>
-            <Text style={[styles.moneyInsightCount, theme && { color: theme.muted }]}>{byDay.length}일 기록</Text>
-          </View>
+        <MoneyBlock title="얼마나 어디에 썼나" meta={`${byDay.length}일`}>
           <View style={styles.moneyInsightGrid}>
             <View style={styles.moneyInsightItem}>
               <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>쓴 날 하루 평균</Text>
@@ -7587,12 +7575,7 @@ function Money({
               <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{byCategory[0] ? `${show(byCategory[0].amount)}` : ""}</Text>
             </View>
           </View>
-        </View>
-      )}
-      {byCategory.length > 0 && (
-        <>
-          <SectionLabel label="어디에 썼나" count={`${byCategory.length}가지`} />
-          <View style={[styles.moneyCategoryCard, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.moneyCategoryCard}>
             {byCategory.map((row) => {
               const active = categoryFilter === row.category;
               return (
@@ -7627,7 +7610,7 @@ function Money({
             );})}
             <Text style={[styles.moneyCategoryHint, theme && { color: theme.muted }]}>분류를 누르면 해당 내역만 볼 수 있어요</Text>
           </View>
-        </>
+        </MoneyBlock>
       )}
       <SectionLabel
         label={categoryFilter === "전체" ? "지출 내역" : `${categoryFilter} 지출`}
@@ -8062,6 +8045,54 @@ function Money({
           keyboardType="numeric"
         />
       </DetailSheet>
+    </View>
+  );
+}
+
+/**
+ * 비용 탭의 한 덩이.
+ *
+ * 예전에는 총액·정산·예산·사람별 넷이 한 카드 안에 들어 있었고 제목이 전부
+ * 12px 보조 글씨라, 어디서 어디까지가 한 이야기인지 알 수 없었다. 테마색으로
+ * 칠한 것끼리도 서로 비슷해서 덩어리가 더 안 갈렸다.
+ *
+ * 제목을 본문 제목 크기로 키우고 덩이마다 판을 따로 깐다. 색은 그 덩이에서
+ * 실제로 눌러야 하는 것 하나에만 쓴다.
+ */
+function MoneyBlock({ title, meta, action, onAction, children }: {
+  title: string;
+  meta?: string;
+  action?: string;
+  onAction?: () => void;
+  children: React.ReactNode;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={styles.moneyBlock}>
+      <View style={styles.moneyBlockHead}>
+        <View style={styles.moneyBlockTitleRow}>
+          <Text style={[styles.moneyBlockTitle, theme && { color: theme.text }]}>{title}</Text>
+          {Boolean(meta) && (
+            <Text style={[styles.moneyBlockMeta, theme && { color: theme.muted, backgroundColor: theme.surfaceAlt }]}>
+              {meta}
+            </Text>
+          )}
+        </View>
+        {action && onAction && (
+          <Pressable
+            onPress={onAction}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={action}
+            style={styles.moneyBlockAction}
+          >
+            <Text style={[styles.moneyBlockActionText, theme && { color: theme.primary }]}>{action}</Text>
+          </Pressable>
+        )}
+      </View>
+      <View style={[styles.moneyBlockBody, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -10072,12 +10103,16 @@ const styles = StyleSheet.create({
   deleteConfirmCancel: { fontSize: 12, fontFamily: typo.label.family },
   deleteConfirmDanger: { fontSize: 13, fontFamily: typo.label.family },
   fullScheduleText: { fontSize: 12, fontFamily: typo.label.family },
-  moneySummary: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 8 },
-  moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
+  moneyBlock: { marginBottom: 18 },
+  moneyBlockHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 40 },
+  moneyBlockTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  moneyBlockTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  moneyBlockMeta: { fontSize: 12, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, fontFamily: typo.data.family },
+  moneyBlockAction: { minHeight: 40, justifyContent: "center", paddingLeft: 8 },
+  moneyBlockActionText: { fontSize: 13, fontFamily: typo.label.family },
+  moneyBlockBody: { borderWidth: 1, borderRadius: 16, padding: 16 },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   moneyTotalUnit: { fontSize: 16, fontFamily: typo.body.family },
-  quickAdd: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, marginBottom: 10 },
-  quickAddTitle: { fontSize: 12, fontFamily: typo.label.family },
   quickAddChips: { gap: 6, paddingVertical: 9, paddingRight: 4 },
   quickAddChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   quickAddChipText: { fontSize: 12.5, fontFamily: typo.label.family },
@@ -10109,9 +10144,9 @@ const styles = StyleSheet.create({
   shareWeight: { flexDirection: "row", alignItems: "center", gap: 10 },
   shareWeightValue: { minWidth: 18, textAlign: "center", fontSize: 14, fontFamily: typo.data.family },
   shareAmount: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
-  amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: -10, marginBottom: 18 },
-  amountStep: { borderWidth: 1, borderColor: "transparent", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  amountStepText: { fontSize: 12, fontFamily: typo.label.family },
+  amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: -4, marginBottom: 18 },
+  amountStep: { minHeight: 44, borderWidth: 1, borderColor: "transparent", borderRadius: 999, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  amountStepText: { fontSize: 14, fontFamily: typo.label.family },
   moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
   moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, borderWidth: 1, borderRadius: 999, paddingLeft: 12, paddingRight: 9 },
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
@@ -10132,9 +10167,7 @@ const styles = StyleSheet.create({
   receiptButton: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   receiptButtonText: { fontSize: 12, fontFamily: typo.label.family },
   receiptRemove: { fontSize: 12, fontFamily: typo.label.family },
-  moneyBudgetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 18 },
   moneyBudgetLabel: { fontSize: 11, fontFamily: typo.label.family },
-  moneyBudgetAction: { fontSize: 11, fontFamily: typo.label.family },
   moneyBudgetTrack: { height: 7, borderRadius: 4, overflow: "hidden", marginTop: 7 },
   moneyBudgetFill: { height: 7, borderRadius: 4 },
   moneyBudgetFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
@@ -10152,8 +10185,6 @@ const styles = StyleSheet.create({
   moneyPaidCell: { width: 104, textAlign: "right", fontSize: 14, fontFamily: typo.data.family },
   moneySettleBlock: { marginTop: 16, gap: 6 },
   moneySettleHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 24 },
-  moneySettleToggle: { flexDirection: "row", alignItems: "center", gap: 4 },
-  moneySettleToggleText: { fontSize: 13, fontFamily: typo.label.family },
   moneySettleCopy: { flex: 1, minWidth: 0 },
   moneySettleWho: { fontSize: 12, fontFamily: typo.caption.family },
   moneySettleDone: { minHeight: 36, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
@@ -10169,22 +10200,16 @@ const styles = StyleSheet.create({
   payWhy: { gap: 4, borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
   payWhyLabel: { fontSize: 12, fontFamily: typo.caption.family },
   payWhyLine: { fontSize: 13, lineHeight: 19, fontFamily: typo.label.family },
-  moneySettleLabel: { fontSize: 12, fontFamily: typo.caption.family },
   moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
   moneySettleText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
   moneySettleAmount: { fontSize: 20, fontFamily: typo.data.family },
-  moneyInsightCard: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 8 },
-  moneyInsightHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 },
-  moneyInsightEyebrow: { fontSize: 11, fontFamily: typo.label.family, marginBottom: 3 },
-  moneyInsightTitle: { fontSize: 16, fontFamily: typo.title.family },
-  moneyInsightCount: { fontSize: 11, fontFamily: typo.caption.family },
   moneyInsightGrid: { flexDirection: "row" },
   moneyInsightItem: { flex: 1, minWidth: 0, paddingRight: 8 },
   moneyInsightDivider: { borderLeftWidth: 1, paddingLeft: 10, paddingRight: 4 },
   moneyInsightLabel: { fontSize: 11, fontFamily: typo.caption.family },
   moneyInsightValue: { fontSize: 15, marginTop: 4, fontFamily: typo.data.family },
   moneyInsightMeta: { fontSize: 12, marginTop: 1, fontFamily: typo.caption.family },
-  moneyCategoryCard: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8 },
+  moneyCategoryCard: { marginTop: 12 },
   moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44, paddingHorizontal: 6, borderRadius: 8 },
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
   moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
