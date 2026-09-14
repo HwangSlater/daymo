@@ -9,8 +9,18 @@
 //   docs/development/05-quality-and-operations.md 3장
 //     라이트/다크 모두 WCAG AA 수준의 본문 대비 목표
 
-/** 강조색 위에 얹는 글자. 테마가 무엇이든 흰색을 유지한다. */
-export const onAccent = "#FFFFFF";
+/**
+ * 강조색으로 꽉 채운 바탕 위에 얹는 글자.
+ *
+ * 라이트 모드의 primary 는 짙어서 흰 글자를 받는다. 다크 모드의 primary 는
+ * 반대로 밝은 색이라, 같은 흰 글자를 얹으면 2.1:1 로 바탕에 녹는다. 한 값으로
+ * 두 모드를 맞출 수 없어서 모드를 받아 고른다.
+ *
+ * 저장 버튼처럼 화면에서 가장 중요한 것들이 이 색을 쓴다.
+ */
+export function onAccent(dark: boolean) {
+  return dark ? "#0A0E16" : "#FFFFFF";
+}
 
 /** 상태 색. 라이트/다크에서 각각 본문 대비 AA를 넘는 값을 쓴다. */
 export const status = {

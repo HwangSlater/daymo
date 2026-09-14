@@ -51,7 +51,7 @@ import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { memoPaper, status as statusColor } from "./theme/colors";
+import { memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
@@ -5668,6 +5668,7 @@ function Cooking({
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: readyIngredientIds.includes(item.id) }}
                       accessibilityLabel={`${item.name} ${readyIngredientIds.includes(item.id) ? "준비 완료 해제" : "준비 완료"}`}
+                      hitSlop={11}
                       style={[
                         styles.cookV2IngredientCheck,
                         theme && {
@@ -7540,7 +7541,7 @@ function TabActionHeader({
           pressed && styles.packingCardPressed,
         ]}
       >
-        <Text style={styles.tabActionButtonText}>＋ {action}</Text>
+        <Text style={[styles.tabActionButtonText, theme && { color: onAccent(theme.dark) }]}>＋ {action}</Text>
       </Pressable>
     </View>
   );
@@ -7808,6 +7809,9 @@ function Moment({
         {mapUrl ? (
           <Pressable
             onPress={() => Linking.openURL(mapUrl)}
+            hitSlop={10}
+            accessibilityRole="link"
+            accessibilityLabel={`${title} 네이버 지도에서 보기`}
             style={[
               styles.mapLink,
               compact && styles.travelMapLinkCompact,
@@ -7870,6 +7874,7 @@ function PairedDetailField({
           onPress={onSwap}
           accessibilityRole={onSwap ? "button" : undefined}
           accessibilityLabel={onSwap ? "출발지와 도착지 바꾸기" : undefined}
+          hitSlop={{ top: 9, bottom: 9, left: 7, right: 7 }}
           style={[styles.pairedFieldArrow, { backgroundColor: accentSoft ?? theme?.primarySoft ?? "#FFF0ED" }]}
         >
           <Glyph name="arrowRight" size={15} color={accentColor ?? theme?.primary ?? "#FF6B63"} />
@@ -8194,6 +8199,9 @@ function DetailSheet({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
+  // 되돌릴 수 없는 것을 확정하는 버튼인데 글자가 가장 흐리면 안 된다.
+  // 색값을 따로 박지 말고 라이트/다크 AA 를 맞춰 둔 토큰을 쓴다.
+  const danger = theme?.dark ? statusColor.danger.dark : statusColor.danger.light;
   const [confirmingDestructive, setConfirmingDestructive] = useState(false);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const submitLocked = useRef(false);
@@ -8381,9 +8389,9 @@ function DetailSheet({
               pressed && !submitDisabled && styles.controlPressed,
             ]}
           >
-            <Text style={styles.sheetSubmitText}>{submit}</Text>
+            <Text style={[styles.sheetSubmitText, theme && { color: onAccent(theme.dark) }]}>{submit}</Text>
             <View style={styles.sheetSubmitArrow}>
-              <Glyph name="arrowRight" size={15} color="#FFFFFF" />
+              <Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} />
             </View>
           </Pressable>
           {confirmSubmit && confirmingSubmit && (
@@ -8410,9 +8418,9 @@ function DetailSheet({
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={`${submit} 확인`}
-                  style={[styles.deleteConfirmButton, styles.deleteConfirmButtonDanger]}
+                  style={[styles.deleteConfirmButton, { backgroundColor: danger, borderColor: danger }]}
                 >
-                  <Text style={styles.deleteConfirmDanger}>확인</Text>
+                  <Text style={[styles.deleteConfirmDanger, { color: onAccent(Boolean(theme?.dark)) }]}>확인</Text>
                 </Pressable>
               </View>
             </View>
@@ -8443,9 +8451,9 @@ function DetailSheet({
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={`${destructiveLabel} 확인`}
-                  style={[styles.deleteConfirmButton, styles.deleteConfirmButtonDanger]}
+                  style={[styles.deleteConfirmButton, { backgroundColor: danger, borderColor: danger }]}
                 >
-                  <Text style={styles.deleteConfirmDanger}>확인</Text>
+                  <Text style={[styles.deleteConfirmDanger, { color: onAccent(Boolean(theme?.dark)) }]}>확인</Text>
                 </Pressable>
               </View>
             </View>
@@ -8458,7 +8466,7 @@ function DetailSheet({
               accessibilityLabel={destructiveLabel}
               style={styles.deletePlace}
             >
-              <Text style={styles.deletePlaceText}>{destructiveLabel}</Text>
+              <Text style={[styles.deletePlaceText, { color: danger }]}>{destructiveLabel}</Text>
             </Pressable>
           )}
         </Animated.View>
@@ -9470,7 +9478,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 4,
   },
-  deletePlaceText: { color: "#D6534A", fontSize: 12, fontFamily: typo.label.family },
+  deletePlaceText: { fontSize: 13, fontFamily: typo.label.family },
   deleteConfirm: {
     borderWidth: 1,
     borderRadius: 14,
@@ -9484,15 +9492,14 @@ const styles = StyleSheet.create({
   deleteConfirmActions: { flexDirection: "row", gap: 8 },
   deleteConfirmButton: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-  deleteConfirmButtonDanger: { backgroundColor: "#D6534A", borderColor: "#D6534A" },
   deleteConfirmCancel: { fontSize: 12, fontFamily: typo.label.family },
-  deleteConfirmDanger: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
+  deleteConfirmDanger: { fontSize: 13, fontFamily: typo.label.family },
   fullScheduleText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
   moneySummary: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 8 },
   moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
@@ -9514,7 +9521,7 @@ const styles = StyleSheet.create({
   shareField: { marginBottom: 20 },
   shareRows: { gap: 8, marginTop: 10 },
   shareRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  shareName: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, minWidth: 72, alignItems: "center" },
+  shareName: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, minWidth: 72, alignItems: "center", justifyContent: "center" },
   shareNameText: { fontSize: 13, fontFamily: typo.label.family },
   shareWeight: { flexDirection: "row", alignItems: "center", gap: 10 },
   shareWeightValue: { minWidth: 18, textAlign: "center", fontSize: 14, fontFamily: typo.data.family },
@@ -9523,7 +9530,7 @@ const styles = StyleSheet.create({
   amountStep: { borderWidth: 1, borderColor: "transparent", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   amountStepText: { fontSize: 12, fontFamily: typo.label.family },
   moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingLeft: 12, paddingRight: 9, paddingVertical: 7 },
+  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, borderWidth: 1, borderRadius: 999, paddingLeft: 12, paddingRight: 9 },
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
   moneyCurrencyValue: { fontSize: 12.5, fontFamily: typo.label.family },
   moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
@@ -9577,7 +9584,7 @@ const styles = StyleSheet.create({
   moneyInsightValue: { fontSize: 15, marginTop: 4, fontFamily: typo.data.family },
   moneyInsightMeta: { fontSize: 10, marginTop: 1, fontFamily: typo.caption.family },
   moneyCategoryCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8 },
-  moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 6, paddingVertical: 8, borderRadius: 8 },
+  moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44, paddingHorizontal: 6, borderRadius: 8 },
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
   moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
   moneyBarFill: { height: 6, borderRadius: 3 },
@@ -9585,7 +9592,7 @@ const styles = StyleSheet.create({
   moneyCategoryPercent: { minWidth: 30, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
   moneyCategoryHint: { fontSize: 10, fontFamily: typo.caption.family, paddingHorizontal: 6, paddingTop: 4, paddingBottom: 7 },
   moneyDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4 },
-  moneyDayChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  moneyDayChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: "center" },
   moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
   moneyList: { gap: 14, marginTop: 8 },
   moneyGroup: { gap: 6 },
@@ -10375,7 +10382,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cookV2SectionHead: {
-    minHeight: 34,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -10417,7 +10424,7 @@ const styles = StyleSheet.create({
   emptyStateCopy: { flex: 1, minWidth: 0 },
   emptyStateTitle: { fontSize: 18, fontFamily: typo.title.family },
   emptyStateDescription: { fontSize: 14, lineHeight: 20, fontFamily: typo.body.family, marginTop: 2 },
-  emptyStateAction: { minHeight: 30, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  emptyStateAction: { minHeight: 44, borderRadius: 8, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", marginLeft: 8 },
   emptyStateActionText: { fontSize: 14, fontFamily: typo.label.family },
   listMoreButton: { minHeight: 39, borderWidth: 1, borderRadius: 8, marginTop: 8, marginBottom: 4, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   listMoreText: { fontSize: 14, fontFamily: typo.label.family },
@@ -10525,7 +10532,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   tabActionButton: {
-    minHeight: 38,
+    minHeight: 44,
     borderRadius: 8,
     paddingHorizontal: 12,
     alignItems: "center",
@@ -10571,14 +10578,14 @@ const styles = StyleSheet.create({
   },
   placeFilters: { flex: 1, flexDirection: "row", gap: 4 },
   placeFilter: {
-    minHeight: 30,
+    minHeight: 38,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   placeFilterMoreButton: {
-    minHeight: 30,
+    minHeight: 38,
     borderRadius: 999,
     paddingHorizontal: 9,
     flexDirection: "row",

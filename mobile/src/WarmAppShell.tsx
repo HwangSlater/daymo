@@ -52,7 +52,7 @@ import {
 import { Text, TextInput } from "./AppText";
 import { Dot, Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { domain, kindColor, paperCard, tripTone } from "./theme/colors";
+import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -662,7 +662,15 @@ function AuthScreen({
               ))}
             </View>
           )}
-          {error ? <Text style={s.authError}>{error}</Text> : null}
+          {/* 로그인이 왜 안 됐는지 알려 주는 유일한 문장이다. 낭독도 돼야 한다. */}
+          {error ? (
+            <Text
+              accessibilityLiveRegion="assertive"
+              style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}
+            >
+              {error}
+            </Text>
+          ) : null}
           <Pressable
             onPress={submit}
             disabled={!authFormValid}
@@ -670,7 +678,7 @@ function AuthScreen({
             accessibilityState={{ disabled: !authFormValid }}
             style={[s.authSubmit, { backgroundColor: theme.primary }, !authFormValid && s.authSubmitDisabled]}
           >
-            <Text style={s.authSubmitText}>{mode === "login" ? "로그인" : "회원가입"}</Text>
+            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{mode === "login" ? "로그인" : "회원가입"}</Text>
           </Pressable>
           <View style={s.authDivider}>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
@@ -711,8 +719,13 @@ function AuthScreen({
               </Pressable>
             ))}
           </View>
-          <Pressable onPress={switchMode} style={s.authSwitch}>
-            <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontWeight: "900" }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
+          <Pressable
+            onPress={switchMode}
+            accessibilityRole="button"
+            accessibilityLabel={mode === "login" ? "회원가입으로 바꾸기" : "로그인으로 바꾸기"}
+            style={s.authSwitch}
+          >
+            <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontFamily: typo.title.family }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
           </Pressable>
         </View>
         <Text style={[s.authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
@@ -784,8 +797,13 @@ function NotebookHome({
           <Text style={[s.noteTitleSmall, { color: theme.primary }]}>우리의 체크리스트</Text>
           <Text style={[s.noteTitle, { color: theme.text }]}>출발 전, 이것만</Text>
         </View>
-        <Pressable onPress={() => open("overview", trip)}>
-          <Text style={{ color: theme.muted, fontSize: 11, fontWeight: "700" }}>전체 확인</Text>
+        <Pressable
+          onPress={() => open("overview", trip)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="여행 전체 보기"
+        >
+          <Text style={[s.homeArchiveMore, { color: theme.muted }]}>전체 보기</Text>
         </Pressable>
       </View>
       <View
@@ -871,9 +889,11 @@ function NotebookHome({
           <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요.</Text>
           <Pressable
             onPress={goTrips}
+            accessibilityRole="button"
+            accessibilityLabel="새 여행 만들기"
             style={[s.homeEmptyTripAction, { backgroundColor: theme.primary }]}
           >
-            <Text style={s.homeEmptyTripActionText}>새 여행 만들기</Text>
+            <Text style={[s.homeEmptyTripActionText, { color: onAccent(theme.dark) }]}>새 여행 만들기</Text>
           </Pressable>
         </View>
       )}
@@ -1445,13 +1465,15 @@ function TripsExplorer({
         </View>
         <Pressable
           onPress={openCreator}
+          accessibilityRole="button"
+          accessibilityLabel="새 여행 만들기"
           style={({ pressed }) => [
             s.newTrip,
             { backgroundColor: theme.primary },
             pressed && s.pressed,
           ]}
         >
-          <Text style={s.newTripText}>＋ 새 여행</Text>
+          <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>＋ 새 여행</Text>
         </Pressable>
       </View>
       <View
@@ -2321,10 +2343,10 @@ function TripCalendar({
           >
             <Text style={[s.calendarTodayText, { color: calendarMuted }]}>오늘</Text>
           </Pressable>
-          <Pressable onPress={() => move(-1)} style={s.monthArrow}>
+          <Pressable onPress={() => move(-1)} hitSlop={9} accessibilityRole="button" accessibilityLabel="이전 달" style={s.monthArrow}>
             <Glyph name="chevronLeft" size={20} color={calendarInk} />
           </Pressable>
-          <Pressable onPress={() => move(1)} style={s.monthArrow}>
+          <Pressable onPress={() => move(1)} hitSlop={9} accessibilityRole="button" accessibilityLabel="다음 달" style={s.monthArrow}>
             <Glyph name="chevronRight" size={20} color={calendarInk} />
           </Pressable>
         </View>
@@ -2550,12 +2572,13 @@ function Search({
             onPress={() => setQuery("")}
             accessibilityRole="button"
             accessibilityLabel="검색어 지우기"
+            hitSlop={10}
             style={[
               s.searchClear,
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={s.searchClearText}>×</Text>
+            <Text style={[s.searchClearText, { color: theme.muted }]}>×</Text>
           </Pressable>
         )}
       </View>
@@ -2564,7 +2587,19 @@ function Search({
             최근 검색
           </Text>
           {recentQueries.length > 0 && (
-            <Pressable onPress={() => setRecentQueries([])} accessibilityRole="button">
+            <Pressable
+              onPress={() => Alert.alert(
+                "최근 검색을 모두 지울까요?",
+                `${recentQueries.length}개를 지워요. 되돌릴 수 없어요.`,
+                [
+                  { text: "취소", style: "cancel" },
+                  { text: "지우기", style: "destructive", onPress: () => setRecentQueries([]) },
+                ],
+              )}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="최근 검색 전체 삭제"
+            >
               <Text style={[s.searchRecentClear, { color: theme.muted }]}>전체 삭제</Text>
             </Pressable>
           )}
@@ -3027,7 +3062,13 @@ function Together({
               </Text>
             </Pressable>
           ))}
-          <Pressable onPress={() => setPanel("groups")} style={s.groupTabMore}>
+          <Pressable
+            onPress={() => setPanel("groups")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="공간 모두 보기"
+            style={s.groupTabMore}
+          >
             <View style={s.groupTabMoreDots}>
               {[0, 1, 2].map((i) => (
                 <Dot key={i} size={3} color={theme.muted} />
@@ -3381,6 +3422,8 @@ function Together({
                         ],
                       );
                     }}
+                    hitSlop={6}
+                    accessibilityRole="button"
                     style={s.memberRemoveButton}
                   >
                     <Text style={s.memberRemoveText}>이 공간에서 내보내기</Text>
@@ -3858,8 +3901,8 @@ function FormSheet({
               pressed && !submitDisabled && s.controlPressed,
             ]}
           >
-            <Text style={s.sheetSubmitText}>{submit}</Text>
-            <View style={s.sheetSubmitArrow}><Glyph name="arrowRight" size={15} color="#FFFFFF" /></View>
+            <Text style={[s.sheetSubmitText, { color: onAccent(Boolean(theme?.dark)) }]}>{submit}</Text>
+            <View style={s.sheetSubmitArrow}><Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} /></View>
           </Pressable>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -4717,7 +4760,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  searchClearText: { color: "#727A82", fontSize: 18, lineHeight: 20 },
+  searchClearText: { fontSize: 18, lineHeight: 20 },
   searchCategoryText: { color: "#747A80", fontSize: 12, fontFamily: typo.label.family },
   searchCategoryTextActive: { color: "#FFFFFF" },
   searchResultHead: {
@@ -4801,8 +4844,9 @@ const s = StyleSheet.create({
   },
   newTrip: {
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: "center",
+    paddingHorizontal: 14,
     transform: [{ rotate: "0.5deg" }],
     shadowColor: "#17233D",
     shadowOpacity: 0.08,
@@ -4833,7 +4877,7 @@ const s = StyleSheet.create({
     gap: 4,
     marginBottom: 8,
   },
-  filter: { minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, justifyContent: "center" },
+  filter: { minHeight: 40, paddingHorizontal: 14, borderRadius: 999, justifyContent: "center" },
   filterText: { fontSize: 12, fontFamily: typo.label.family },
   tripRow: {
     minHeight: 72,
@@ -5007,7 +5051,7 @@ const s = StyleSheet.create({
   },
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
-    height: 36,
+    height: 40,
     minWidth: 61,
     borderRadius: 16,
     borderWidth: 1,
@@ -5304,7 +5348,7 @@ const s = StyleSheet.create({
   authDivider: { flexDirection: "row", alignItems: "center", marginVertical: 16 },
   authDividerLine: { flex: 1, height: 1 },
   authDividerText: { fontSize: 12, fontFamily: typo.label.family, marginHorizontal: 8 },
-  authError: { color: "#DF5148", fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
+  authError: { fontSize: 13, fontFamily: typo.label.family, marginTop: 2 },
   authSubmit: {
     height: 52,
     borderRadius: 12,
@@ -5408,7 +5452,7 @@ const s = StyleSheet.create({
   },
   groupTab: {
     minWidth: 58,
-    height: 32,
+    height: 40,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
