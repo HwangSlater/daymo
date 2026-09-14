@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ExternalLink, LinkTargetType, TagScope, Tagging
+from app.models import ExternalLink, LinkTargetType, PhotoLink, PhotoTargetType, TagScope, Tagging
 
 
 async def detach_all(
@@ -11,12 +11,13 @@ async def detach_all(
     *,
     tag_scope: TagScope | None = None,
     link_target: LinkTargetType | None = None,
+    photo_target: PhotoTargetType | None = None,
     target_id: uuid.UUID,
 ) -> None:
     """
     어떤 대상에 매달려 있던 태그 연결과 바깥 링크를 떼어 낸다.
 
-    `taggings.target_id` 와 `external_links.target_id` 에는 외래키가 없다.
+    `taggings`, `external_links`, `photo_links` 의 `target_id` 에는 외래키가 없다.
     가리키는 곳이 장소일 수도 준비물일 수도 재료일 수도 있어서 한 칼럼으로는
     외래키를 걸 수 없다. 그래서 **대상을 지워도 이 줄들은 그대로 남는다.**
 
@@ -37,5 +38,15 @@ async def detach_all(
             delete(ExternalLink).where(
                 ExternalLink.target_type == link_target,
                 ExternalLink.target_id == target_id,
+            )
+        )
+    if photo_target is not None:
+        # 사진 자체는 지우지 않는다. 이 대상에 붙어 있던 연결만 끊는다.
+        # 같은 사진이 다른 곳에도 붙어 있을 수 있고, 장소 하나를 뺐다고
+        # 그 사진이 여행 앨범에서 사라지면 안 된다.
+        await session.execute(
+            delete(PhotoLink).where(
+                PhotoLink.target_type == photo_target,
+                PhotoLink.target_id == target_id,
             )
         )

@@ -25,9 +25,8 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
     """
     여행 하나.
 
-    `cover_photo_id` 는 아직 없다. `photos` 테이블이 생기는 migration 에서
-    칼럼과 외래키를 함께 넣는다. 가리킬 곳 없는 UUID 칼럼을 먼저 만들어 두면
-    아무 값이나 들어가도 DB 가 막지 못한다.
+    `cover_photo_id` 는 사진이 지워져도 여행이 남도록 SET NULL 이다. 대표
+    사진 한 장이 사라진다고 여행 전체가 사라지면 안 된다.
     """
 
     __tablename__ = "trips"
@@ -80,6 +79,10 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
     # 함께 고치는 대상이라 문서가 version 을 요구한다. 수정 API 가 이 값을
     # 받고 어긋나면 409 VERSION_CONFLICT 다.
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    cover_photo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True
+    )
 
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

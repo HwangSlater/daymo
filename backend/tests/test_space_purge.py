@@ -3,6 +3,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.models import (
+    AuditLog,
     ExternalLink,
     LinkProvider,
     LinkTargetType,
@@ -12,6 +13,10 @@ from app.models import (
     Tag,
     TagScope,
     Tagging,
+    Memo,
+    Photo,
+    PhotoLink,
+    PhotoTargetType,
     ScheduleItem,
     Stay,
     Trip,
@@ -222,3 +227,42 @@ async def test_모든_종류의_링크가_지워진다(db):
         )
     )
     assert 남은 == 0
+
+
+async def test_공간을_지워도_감사_기록은_남는다(db):
+    """
+    공간 삭제로 감사 기록까지 사라지면, 공간을 지우는 것으로 흔적을 지울 수
+    있게 된다. 남은 줄은 자체 보유기간에 따라 파기한다.
+    """
+    space, membership = await 공간과_멤버_하나(db)
+    로그 = AuditLog(space_id=space.id, actor_membership_id=membership.id, action="trip.delete")
+    db.add(로그)
+    await db.flush()
+
+    await purge_space(db, space.id)
+    await db.flush()
+    await db.refresh(로그)
+
+    assert 로그.action == "trip.delete"
+    assert 로그.space_id is None
+
+
+async def test_공간을_지우면_사진과_메모도_사라진다(db):
+    space, membership = await 공간과_멤버_하나(db)
+    trip = await 여행을_넣는다(db, space)
+    photo = Photo(trip_id=trip.id, uploader_membership_id=membership.id)
+    db.add(photo)
+    db.add(Memo(trip_id=trip.id, author_membership_id=membership.id, body="쪽지"))
+    await db.flush()
+    db.add(PhotoLink(photo_id=photo.id, target_type=PhotoTargetType.TRIP, target_id=trip.id))
+    await db.flush()
+
+    await purge_space(db, space.id)
+    await db.flush()
+
+    for model, 조건 in (
+        (Photo, Photo.trip_id == trip.id),
+        (Memo, Memo.trip_id == trip.id),
+        (PhotoLink, PhotoLink.photo_id == photo.id),
+    ):
+        assert await db.scalar(select(func.count()).select_from(model).where(조건)) == 0, model.__name__

@@ -6,6 +6,8 @@ from app.models.enums import (
     LinkProvider,
     LinkTargetType,
     MembershipRole,
+    PhotoStatus,
+    PhotoTargetType,
     PlaceProvider,
     Procurement,
     RelationshipType,
@@ -22,6 +24,7 @@ from app.models.enums import (
 )
 from app.models.cooking import Checklist, ChecklistItem, Ingredient, Recipe
 from app.models.expense import Expense, ExpenseShare, Payment
+from app.models.memory import AuditLog, Diary, Memo, Photo, PhotoLink
 from app.models.place import Place, TripPlace
 from app.models.schedule import Reservation, ScheduleItem, Stay, Transport
 from app.models.space import MAX_MEMBERS_PER_SPACE, Membership, RelationshipProfile, Space
@@ -33,11 +36,13 @@ from app.models.user import User
 # 새 모델을 만들면 반드시 이 목록에 추가한다.
 __all__ = [
     "MAX_MEMBERS_PER_SPACE",
+    "AuditLog",
     "Base",
     "BookingStatus",
     "Checklist",
     "ChecklistItem",
     "ChecklistKind",
+    "Diary",
     "Expense",
     "ExpenseCategory",
     "ExpenseShare",
@@ -47,7 +52,12 @@ __all__ = [
     "LinkTargetType",
     "Membership",
     "MembershipRole",
+    "Memo",
     "Payment",
+    "Photo",
+    "PhotoLink",
+    "PhotoStatus",
+    "PhotoTargetType",
     "Place",
     "PlaceProvider",
     "Procurement",

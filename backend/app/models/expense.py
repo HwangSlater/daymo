@@ -32,8 +32,8 @@ class Expense(Base, TimestampMixin, CreatedByMixin):
     나누지만, 혼자 산 기념품처럼 둘이 어긋나는 지출이 늘 있다. 하나로 합치면
     그런 지출이 정산에서 틀어진다.
 
-    `receipt_photo_id` 는 아직 없다. `photos` 테이블이 생기는 migration 에서
-    칼럼과 외래키를 함께 넣는다.
+    `receipt_photo_id` 는 사진 업로드 절차를 그대로 쓰고 연결만 해 둔다.
+    기록 탭의 여행 사진 목록에는 넣지 않는다. 영수증은 추억이 아니다.
     """
 
     __tablename__ = "expenses"
@@ -70,6 +70,9 @@ class Expense(Base, TimestampMixin, CreatedByMixin):
     # 값이 없을 수 있다. 그때는 shares 모양에서 짐작한다.
     split_mode: Mapped[SplitMode | None] = mapped_column(enum_column(SplitMode), nullable=True)
     memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    receipt_photo_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Expense {self.id}>"

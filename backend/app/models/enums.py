@@ -207,6 +207,33 @@ class Procurement(StrEnum):
     UNDECIDED = "undecided"
 
 
+class PhotoStatus(StrEnum):
+    """
+    사진 한 장이 지금 어떤 상태인지.
+
+    `restricted` 는 다른 멤버가 올린 사진에 등장한 사람이 삭제·처리정지를
+    요청했을 때 쓴다. 일반 조회와 다운로드에서 임시로 숨기고, 검토 결과에
+    따라 7일 삭제 절차로 가거나 `ready` 로 되돌린다
+    (docs/development/02-architecture-and-data-model.md 4장).
+    """
+
+    UPLOADING = "uploading"
+    READY = "ready"
+    RESTRICTED = "restricted"
+    DELETED = "deleted"
+    FAILED = "failed"
+
+
+class PhotoTargetType(StrEnum):
+    """사진이 무엇에 붙는지."""
+
+    TRIP = "trip"
+    DAY = "day"
+    PLACE = "place"
+    SCHEDULE = "schedule"
+    STAY = "stay"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.
