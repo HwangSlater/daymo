@@ -1667,9 +1667,9 @@ function TripOverview({
   const addSchedule = () => {
     if (!newPlanTitle.trim()) return;
     const wasEditing = editingScheduleIndex !== null;
-    const linkedReservationId = editingScheduleIndex === null
-      ? undefined
-      : schedule[editingScheduleIndex]?.reservationId;
+    // 예약·교통편·숙소에서 만들어진 일정은 그 연결을 그대로 들고 가야 한다.
+    // 하나라도 떨어뜨리면 동기화가 이 줄을 남남으로 보고 원래대로 되돌린다.
+    const edited = editingScheduleIndex === null ? undefined : schedule[editingScheduleIndex];
     const next: ScheduleItem = {
         time: `${weekdayOf(planDay)} · ${planTime || "시간 미정"}`,
         date: planDay,
@@ -1677,7 +1677,9 @@ function TripOverview({
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
         mapUrl: planMapUrl.trim(),
         placeId: selectedPlanPlaceId ?? undefined,
-        reservationId: linkedReservationId,
+        reservationId: edited?.reservationId,
+        transportationId: edited?.transportationId,
+        stayId: edited?.stayId,
       };
     const nextSchedule = editingScheduleIndex === null
       ? [...schedule, next]
@@ -1733,6 +1735,12 @@ function TripOverview({
         openReservation(linkedReservation);
         return;
       }
+    }
+    // 숙소 체크인 줄은 숙소에서 만들어진다. 일정으로 고치면 저장하자마자
+    // 숙소 쪽 값으로 되돌아가니, 고칠 수 있는 자리로 보낸다.
+    if (item.stayId) {
+      openStay();
+      return;
     }
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
@@ -2655,7 +2663,8 @@ function Places({
   const [placeDetailsOpen, setPlaceDetailsOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
-  const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
+  // 교체는 저장해 둔 것을 통째로 지운다. 되돌릴 수 없으니 기본은 추가로 둔다.
+  const [importMode, setImportMode] = useState<"교체" | "추가">("추가");
   const [showAllPlaces, setShowAllPlaces] = useState(false);
   const placeDraftKey = (
     draftName: string,
@@ -3405,7 +3414,12 @@ function Places({
         visible={importing}
         title="장소 목록 붙여넣기"
         subtitle="복사한 내용을 메모에서 고친 뒤 한 번에 반영하세요"
-        submit={`${importMode}하기`}
+        submit={importMode === "교체" ? "목록 교체" : "목록에 추가"}
+        confirmSubmit={
+          importMode === "교체" && places.length
+            ? `저장한 장소 ${places.length}곳을 지우고 붙여넣은 것으로 바꿔요. 되돌릴 수 없어요.`
+            : undefined
+        }
         disabledHint={!importText.trim() ? "장소 목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
@@ -3469,7 +3483,8 @@ function Preparation({
   const [assigningItem, setAssigningItem] = useState<PackingItem | null>(null);
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
-  const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
+  // 교체는 저장해 둔 것을 통째로 지운다. 되돌릴 수 없으니 기본은 추가로 둔다.
+  const [importMode, setImportMode] = useState<"교체" | "추가">("추가");
   const [cookingPicker, setCookingPicker] = useState(Boolean(openCookingPickerOnMount));
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -4753,7 +4768,12 @@ function Preparation({
         visible={importing}
         title="준비물 목록 붙여넣기"
         subtitle="메모에서 여러 줄을 고쳐 한 번에 반영하세요"
-        submit={`${importMode}하기`}
+        submit={importMode === "교체" ? "목록 교체" : "목록에 추가"}
+        confirmSubmit={
+          importMode === "교체" && items.length
+            ? `저장한 준비물 ${items.length}개를 지우고 붙여넣은 것으로 바꿔요. 되돌릴 수 없어요.`
+            : undefined
+        }
         disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
@@ -5023,7 +5043,8 @@ function Cooking({
   const [ingredientOwnerFilter, setIngredientOwnerFilter] = useState("전체");
   const [showAllRecipes, setShowAllRecipes] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importMode, setImportMode] = useState<"교체" | "추가">("교체");
+  // 교체는 저장해 둔 것을 통째로 지운다. 되돌릴 수 없으니 기본은 추가로 둔다.
+  const [importMode, setImportMode] = useState<"교체" | "추가">("추가");
   const [importText, setImportText] = useState("");
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -6065,7 +6086,12 @@ function Cooking({
         visible={importing}
         title="요리 목록 붙여넣기"
         subtitle="메모에서 수정한 재료를 한 번에 반영하세요"
-        submit={`${importMode}하기`}
+        submit={importMode === "교체" ? "목록 교체" : "목록에 추가"}
+        confirmSubmit={
+          importMode === "교체" && recipes.length
+            ? `저장한 요리 ${recipes.length}개를 지우고 붙여넣은 것으로 바꿔요. 되돌릴 수 없어요.`
+            : undefined
+        }
         disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
         onClose={() => setImporting(false)}
@@ -6523,6 +6549,9 @@ function Money({
   const [lastCategory, setLastCategory] = useState<ExpenseCategory>("식비");
   const [lastPayer, setLastPayer] = useState<Participant>(participants[0] ?? "");
   const [peopleSheetOpen, setPeopleSheetOpen] = useState(false);
+  // 참가자도 저장을 눌러야 바뀐다. 누구였는지 확인만 하려고 체크를 껐다가
+  // 바깥을 눌러 닫으면 그 사람이 빠진 채로 정산이 다시 계산돼 버렸다.
+  const [draftParticipants, setDraftParticipants] = useState<Participant[]>(participants);
   const [draftDay, setDraftDay] = useState(dayOptions[0] ?? "");
   const [draftMemo, setDraftMemo] = useState("");
   const [draftReceipt, setDraftReceipt] = useState("");
@@ -6531,6 +6560,9 @@ function Money({
   const [payerOpen, setPayerOpen] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
+  // 시트 안에서 고른 것은 저장을 눌러야 여행에 들어간다. 고르는 즉시 바꾸면
+  // 환율을 안 적고 닫았을 때 통화만 달러로 남아 합계가 "약 24원" 이 된다.
+  const [draftCurrency, setDraftCurrency] = useState(DEFAULT_CURRENCY.code);
   const [draftRate, setDraftRate] = useState("");
   // 빠르게 적기. 금액만 치고 단추 한 번이면 한 건이 들어간다. 평소 가계부를
   // 안 쓰던 사람이 여행 중에 쓰려면 이 정도로 짧아야 한다.
@@ -6768,13 +6800,37 @@ function Money({
       notify("영수증을 불러오지 못했어요");
     }
   };
+  const openPeople = () => {
+    setDraftParticipants(participants);
+    setPeopleSheetOpen(true);
+  };
+  const savePeople = () => {
+    // 공간 멤버 순서를 지킨다. 뺐다 다시 넣었다고 목록 맨 뒤로 가면 화면마다
+    // 사람 순서가 달라진다.
+    const ordered = spaceMembers.filter((person) => draftParticipants.includes(person));
+    const extra = draftParticipants.filter((person) => !spaceMembers.includes(person));
+    const next = [...ordered, ...extra];
+    setParticipants(next);
+    setPeopleSheetOpen(false);
+    notify(`참가자 ${next.length}명으로 저장했어요`);
+  };
   const openCurrency = () => {
+    setDraftCurrency(currency);
     setDraftRate(exchangeRate === 1 ? "" : amountText(exchangeRate, 2));
     setCurrencySheetOpen(true);
   };
   const saveCurrency = () => {
     // 원으로 돌아오면 환율은 늘 1 이다. 따로 적게 하면 틀릴 자리만 는다.
-    setExchangeRate(currency === DEFAULT_CURRENCY.code ? 1 : Math.max(0.0001, parseAmount(draftRate, 2) || 1));
+    const nextRate = draftCurrency === DEFAULT_CURRENCY.code
+      ? 1
+      : Math.max(0.0001, parseAmount(draftRate, 2) || 1);
+    // 예산은 여행 통화로 적은 값이다. 통화만 바꾸고 숫자를 그대로 두면
+    // 50만 원 예산이 50만 달러가 된다. 원을 거쳐 옮긴다.
+    if (draftCurrency !== currency) {
+      setBudget((current) => Math.max(0, Math.round((current * exchangeRate) / nextRate)));
+    }
+    setCurrency(draftCurrency);
+    setExchangeRate(nextRate);
     setCurrencySheetOpen(false);
     notify("여행 통화를 저장했어요");
   };
@@ -6833,7 +6889,7 @@ function Money({
           {/* 누구끼리 나누는지가 정산의 전제다. 공간 멤버가 여럿이면 이번
               여행에 누가 갔는지부터 맞아야 아래 숫자가 뜻을 갖는다. */}
           <Pressable
-            onPress={() => setPeopleSheetOpen(true)}
+            onPress={openPeople}
             accessibilityRole="button"
             accessibilityLabel={`이번 여행 참가자 ${participants.length}명, 눌러서 바꾸기`}
             style={({ pressed }) => [
@@ -7348,22 +7404,19 @@ function Money({
         title="이번 여행 참가자"
         subtitle="공간 멤버 중에 이번에 같이 가는 사람만 골라요"
         submit="참가자 저장"
-        disabledHint={!participants.length ? "한 명은 있어야 해요" : undefined}
-        submitDisabled={!participants.length}
+        disabledHint={!draftParticipants.length ? "한 명은 있어야 해요" : undefined}
+        submitDisabled={!draftParticipants.length}
         onClose={() => setPeopleSheetOpen(false)}
-        onSubmit={() => {
-          setPeopleSheetOpen(false);
-          notify(`참가자 ${participants.length}명으로 저장했어요`);
-        }}
+        onSubmit={savePeople}
       >
         <View style={styles.shareRows}>
           {spaceMembers.map((person) => {
-            const joined = participants.includes(person);
+            const joined = draftParticipants.includes(person);
             const assigned = assignedSummary(person);
             return (
               <Pressable
                 key={person}
-                onPress={() => setParticipants((current) =>
+                onPress={() => setDraftParticipants((current) =>
                   joined ? current.filter((name) => name !== person) : [...current, person],
                 )}
                 accessibilityRole="checkbox"
@@ -7401,24 +7454,24 @@ function Money({
         <OptionField
           label="통화"
           options={CURRENCIES.map((item) => `${item.code} ${item.label}`)}
-          value={`${unit.code} ${unit.label}`}
+          value={`${draftCurrency} ${currencyOf(draftCurrency).label}`}
           onChange={(value) => {
             const picked = currencyOf(value.split(" ")[0]);
-            setCurrency(picked.code);
+            setDraftCurrency(picked.code);
             setDraftRate(picked.code === DEFAULT_CURRENCY.code ? "" : amountText(picked.rate, 2));
           }}
         />
-        {currency !== DEFAULT_CURRENCY.code && (
+        {draftCurrency !== DEFAULT_CURRENCY.code && (
           <DetailField
-            label={`1 ${currency} 는 몇 원인가요`}
+            label={`1 ${draftCurrency} 는 몇 원인가요`}
             value={draftRate}
             onChangeText={setDraftRate}
-            placeholder={`예: ${amountText(currencyOf(currency).rate, 2)}`}
+            placeholder={`예: ${amountText(currencyOf(draftCurrency).rate, 2)}`}
             keyboardType="numeric"
           />
         )}
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-          {currency === DEFAULT_CURRENCY.code
+          {draftCurrency === DEFAULT_CURRENCY.code
             ? "원으로 적으면 환산 없이 그대로 보여요."
             : "환율은 여행 때 한 번 적어 두면 돼요. 적어 둔 금액은 바뀌지 않고 환산만 다시 계산해요."}
         </Text>
@@ -8100,6 +8153,7 @@ function DetailSheet({
   disabledHint,
   destructiveLabel,
   destructiveMessage,
+  confirmSubmit,
   submitDisabled = false,
   hasUnsavedChanges = false,
   onClose,
@@ -8114,6 +8168,13 @@ function DetailSheet({
   disabledHint?: string;
   destructiveLabel?: string;
   destructiveMessage?: string;
+  /**
+   * 저장 자체가 되돌릴 수 없을 때 한 번 더 묻는 말.
+   *
+   * 지우는 버튼이 따로 있는 경우와 달리, 목록 교체처럼 저장 버튼이 곧 삭제인
+   * 자리가 있다. 그때는 저장을 눌러도 바로 하지 않고 이 문장을 보여 준다.
+   */
+  confirmSubmit?: string;
   submitDisabled?: boolean;
   hasUnsavedChanges?: boolean;
   onClose: () => void;
@@ -8123,12 +8184,14 @@ function DetailSheet({
 }) {
   const theme = useContext(DetailThemeContext);
   const [confirmingDestructive, setConfirmingDestructive] = useState(false);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const submitLocked = useRef(false);
   useEffect(() => {
     if (visible) submitLocked.current = false;
   }, [visible]);
   const closeAndReset = () => {
     setConfirmingDestructive(false);
+    setConfirmingSubmit(false);
     onClose();
   };
   const requestClose = () => {
@@ -8282,9 +8345,15 @@ function DetailSheet({
           <Pressable
             onPress={() => {
               if (submitLocked.current) return;
-              submitLocked.current = true;
               Keyboard.dismiss();
               setConfirmingDestructive(false);
+              // 저장이 곧 삭제인 자리에서는 한 번 더 묻는다.
+              if (confirmSubmit && !confirmingSubmit) {
+                setConfirmingSubmit(true);
+                return;
+              }
+              submitLocked.current = true;
+              setConfirmingSubmit(false);
               onSubmit();
               setTimeout(() => {
                 submitLocked.current = false;
@@ -8306,6 +8375,37 @@ function DetailSheet({
               <Glyph name="arrowRight" size={15} color="#FFFFFF" />
             </View>
           </Pressable>
+          {confirmSubmit && confirmingSubmit && (
+            <View
+              accessibilityLiveRegion="polite"
+              style={[styles.deleteConfirm, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+            >
+              <View style={styles.deleteConfirmCopy}>
+                <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>{submit}할까요?</Text>
+                <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>{confirmSubmit}</Text>
+              </View>
+              <View style={styles.deleteConfirmActions}>
+                <Pressable
+                  onPress={() => setConfirmingSubmit(false)}
+                  accessibilityRole="button"
+                  style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}
+                >
+                  <Text style={[styles.deleteConfirmCancel, theme && { color: theme.text }]}>취소</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setConfirmingSubmit(false);
+                    onSubmit();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${submit} 확인`}
+                  style={[styles.deleteConfirmButton, styles.deleteConfirmButtonDanger]}
+                >
+                  <Text style={styles.deleteConfirmDanger}>확인</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
           {destructiveLabel && confirmingDestructive && (
             <View
               accessibilityLiveRegion="polite"
