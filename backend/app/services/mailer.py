@@ -1,5 +1,8 @@
+import asyncio
 import logging
+import smtplib
 from dataclasses import dataclass, field
+from email.message import EmailMessage
 
 from app.core.config import get_settings
 
@@ -9,10 +12,6 @@ logger = logging.getLogger("daymo.mail")
 # 발송하면 차단되거나 스팸으로 분류된다
 # (docs/development/06-vps-deployment.md 2장).
 #
-# **아직 키가 없어서 실제로 보내지 않는다.** 지금은 보낼 내용을 모아 두기만
-# 한다. 키가 생기면 `send` 안쪽만 갈아 끼우면 되고 부르는 쪽은 그대로다.
-
-
 @dataclass
 class Letter:
     to: str
@@ -32,8 +31,9 @@ class Outbox:
 
     letters: list[Letter] = field(default_factory=list)
 
-    def send(self, letter: Letter) -> None:
-        환경 = get_settings().app_env
+    async def send(self, letter: Letter) -> None:
+        settings = get_settings()
+        환경 = settings.app_env
 
         if 환경 in ("local", "test"):
             self.letters.append(letter)
@@ -43,11 +43,27 @@ class Outbox:
             logger.info("mail(개발용): %s → %s", letter.subject, letter.link)
             return
 
-        # 운영에서는 아직 보낼 수단이 없다. 조용히 삼키면 사용자가 오지 않는
-        # 메일을 기다리게 되므로 크게 남긴다.
-        logger.error(
-            "메일 발송 수단이 아직 없다. 보내지 못했다: subject=%s", letter.subject
+        if not settings.smtp_password:
+            raise RuntimeError("운영 메일 설정이 비어 있다")
+
+        await asyncio.to_thread(self._send_smtp, letter)
+
+    @staticmethod
+    def _send_smtp(letter: Letter) -> None:
+        settings = get_settings()
+        message = EmailMessage()
+        message["From"] = settings.mail_from
+        message["To"] = letter.to
+        message["Subject"] = letter.subject
+        message.set_content(
+            f"{letter.subject}\n\n아래 링크는 30분 동안 한 번만 사용할 수 있어요.\n{letter.link}\n"
         )
+
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+            if settings.smtp_starttls:
+                smtp.starttls()
+            smtp.login(settings.smtp_username, settings.smtp_password)
+            smtp.send_message(message)
 
     def clear(self) -> None:
         self.letters.clear()

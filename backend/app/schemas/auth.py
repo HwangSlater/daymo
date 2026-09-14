@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import DevicePlatform, SensitiveAction
+from app.models import DevicePlatform, MembershipRole, RelationshipType, SensitiveAction
 
 # 요청 본문은 앱이 쓰는 camelCase 를 그대로 받는다. API 명세서가 그렇게
 # 적혀 있고, 앱은 OpenAPI 로 타입을 생성하므로 여기가 원본이다.
@@ -108,3 +108,18 @@ class ReauthRequest(_Camel):
     # OAuth 로만 가입한 계정은 provider 재로그인이 필요한데 그 경로가 아직
     # 없다. 지금은 비밀번호가 있는 계정만 증표를 받을 수 있다.
     password: str | None = None
+
+
+class MeSpaceOut(_Camel):
+    id: str
+    name: str
+    relationship_type: RelationshipType
+    role: MembershipRole
+
+
+class MeOut(_Camel):
+    id: str
+    email: EmailStr
+    display_name: str
+    avatar_url: str | None = None
+    spaces: list[MeSpaceOut] = Field(default_factory=list)

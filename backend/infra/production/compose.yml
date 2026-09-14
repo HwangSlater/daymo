@@ -45,6 +45,12 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SIGNING_KEY: ${JWT_SIGNING_KEY}
       REFRESH_TOKEN_PEPPER: ${REFRESH_TOKEN_PEPPER}
+      SMTP_HOST: ${SMTP_HOST:-smtp.resend.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-resend}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:-Daymo <support@daymo.xyz>}
     volumes:
       - /srv/daymo/uploads:/srv/daymo/uploads
     depends_on:

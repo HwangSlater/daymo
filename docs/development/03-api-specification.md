@@ -192,6 +192,7 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 {
   "data": {
     "id": "uuid",
+    "email": "sky@example.com",
     "displayName": "하늘",
     "avatarUrl": null,
     "spaces": [{ "id": "uuid", "name": "주말 여행", "relationshipType": "friends", "role": "owner" }]

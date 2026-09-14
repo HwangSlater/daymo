@@ -182,6 +182,29 @@ async def test_로그인하면_토큰_두_개가_나온다(api, db):
     assert 본문["endedDevices"] == []
 
 
+async def test_내_프로필과_참여_공간을_조회한다(api, db):
+    await 확인된_계정(api)
+    access_token = (await 로그인(api)).json()["data"]["accessToken"]
+
+    응답 = await api.get("/v1/me", headers={"Authorization": f"Bearer {access_token}"})
+
+    assert 응답.status_code == 200
+    assert 응답.json()["data"] == {
+        "id": 응답.json()["data"]["id"],
+        "email": 이메일,
+        "displayName": "하늘",
+        "avatarUrl": None,
+        "spaces": [],
+    }
+
+
+async def test_내_프로필은_로그인해야_조회할_수_있다(api, db):
+    응답 = await api.get("/v1/me")
+
+    assert 응답.status_code == 401
+    assert 응답.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
 @pytest.mark.parametrize(
     ("email", "password"),
     [

@@ -81,7 +81,7 @@ async def sign_up(
 
     기존 = await _find_by_email(session, 정규화된_이메일)
     if 기존 is not None:
-        get_outbox().send(
+        await get_outbox().send(
             Letter(
                 to=정규화된_이메일,
                 subject="누군가 이 주소로 가입을 시도했어요",
@@ -143,7 +143,7 @@ async def send_email_verification(
     )
     await session.flush()
 
-    get_outbox().send(
+    await get_outbox().send(
         Letter(
             to=user.email,
             subject="이메일을 확인해 주세요",
@@ -292,7 +292,7 @@ async def request_password_reset(
     )
     await session.flush()
 
-    get_outbox().send(
+    await get_outbox().send(
         Letter(
             to=user.email,
             subject="비밀번호를 다시 정해 주세요",

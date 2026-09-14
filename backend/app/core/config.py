@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     jwt_signing_key: str = ""
     refresh_token_pepper: str = ""
 
+    smtp_host: str = "smtp.resend.com"
+    smtp_port: int = 587
+    smtp_username: str = "resend"
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    mail_from: str = "Daymo <support@daymo.xyz>"
+
     @property
     def database_url(self) -> str:
         from urllib.parse import quote
