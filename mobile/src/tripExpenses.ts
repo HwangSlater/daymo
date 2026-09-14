@@ -163,6 +163,24 @@ export function shareLabel(item: Expense, participants: Participant[]): string {
   return named.map(([person, weight]) => `${person} ${weight}`).join(" · ");
 }
 
+/**
+ * 이름 뒤에 붙는 조사를 고른다.
+ *
+ * "여울이 하늘에게" 는 읽히는데 "지수이 하늘에게" 는 곧장 어색하다. 모음으로
+ * 끝나는 이름은 아주 흔해서, 조사를 글자에 박아 두면 앱이 대충 만든 것처럼
+ * 읽힌다. 마지막 글자의 받침 유무로 고른다.
+ *
+ * 한글 음절이 아닌 글자(영문 이름, 숫자, 이모지)는 받침을 알 방법이 없다.
+ * 그때는 모음 뒤 형태를 쓴다. 을/를 처럼 ㄹ 받침 예외가 없는 짝만 쓴다.
+ */
+export function josa(word: string, afterJong: string, afterVowel: string): string {
+  const last = word.trim().slice(-1);
+  if (!last) return afterVowel;
+  const code = last.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return afterVowel;
+  return (code - 0xac00) % 28 ? afterJong : afterVowel;
+}
+
 export type Transfer = { from: Participant; to: Participant; amount: number };
 
 export type Settlement = {
@@ -305,7 +323,7 @@ export function expensesToCsv(
   // 참가자에서 빠진 사람이 낸 지출이 있으면 그 사람도 표에 남긴다.
   const people = [...new Set([...participants, ...Object.keys(settlement.paid)])];
   for (const person of people) {
-    summary(`${person}이 낸 돈`, settlement.paid[person] ?? 0);
+    summary(`${person}${josa(person, "이", "가")} 낸 돈`, settlement.paid[person] ?? 0);
     summary(`${person} 몫`, Math.round(settlement.owed[person] ?? 0));
   }
   if (converted) rows.push([cell("환율"), cell(`1 ${currency.code} = ${amountText(rate, 2)}원`)].join(","));
@@ -315,7 +333,7 @@ export function expensesToCsv(
     for (const transfer of settlement.transfers) {
       rows.push([
         "정산",
-        cell(`${transfer.from}이 ${transfer.to}에게 ${money(transfer.amount, currency.code)}`),
+        cell(`${transfer.from}${josa(transfer.from, "이", "가")} ${transfer.to}에게 ${money(transfer.amount, currency.code)}`),
       ].join(","));
     }
   }

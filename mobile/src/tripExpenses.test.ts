@@ -7,6 +7,7 @@ import {
   amountText,
   currencyOf,
   expensesToCsv,
+  josa,
   money,
   normalizeExpense,
   parseAmount,
@@ -278,4 +279,25 @@ test("원 여행은 환산 칸 없이 그대로 간다", () => {
   const csv = expensesToCsv("전주", [지출(32000, "하늘")], 둘);
   assert.ok(csv.includes("금액(KRW)"));
   assert.ok(!csv.includes("원 환산"));
+});
+
+test("조사는 받침 있는 이름 뒤에 이, 없는 이름 뒤에 가", () => {
+  assert.equal(josa("여울", "이", "가"), "이");
+  assert.equal(josa("하늘", "이", "가"), "이");
+  assert.equal(josa("지수", "이", "가"), "가");
+  assert.equal(josa("가람", "이", "가"), "이");
+  assert.equal(josa("새봄", "이", "가"), "이");
+  assert.equal(josa("미나", "이", "가"), "가");
+});
+
+test("조사는 한글이 아닌 이름과 빈 이름도 넘긴다", () => {
+  assert.equal(josa("Alex", "이", "가"), "가");
+  assert.equal(josa("", "은", "는"), "는");
+  assert.equal(josa("  여울  ", "은", "는"), "은");
+});
+
+test("표에도 조사가 맞게 들어간다", () => {
+  const rows = expensesToCsv("여행", [지출(20000, "지수")], ["하늘", "지수"]).split("\r\n");
+  assert.ok(rows.some((row) => row.includes("지수가 낸 돈")));
+  assert.ok(rows.some((row) => row.includes("하늘이 지수에게")));
 });

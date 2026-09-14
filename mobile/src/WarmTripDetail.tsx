@@ -11,6 +11,7 @@ import {
   type ExpenseCategory,
   type Participant,
   expensesToCsv,
+  josa,
   parseAmount,
   settle,
   amountText,
@@ -6561,6 +6562,17 @@ function Money({
     return [...expenses].sort((a, b) => order(a.day) - order(b.day));
   }, [expenses, dayOptions]);
   const settlement = useMemo(() => settle(expenses, participants), [expenses, participants]);
+  // 참가자에서 뺀 사람이 낸 지출은 정산에 남는다. 그 사람이 표에 없으면 정산
+  // 줄의 이름이 어디서 왔는지 알 길이 없어서, 뒤에 붙여 같이 보여 준다.
+  const paidRows = useMemo(() => {
+    const extra = Object.keys(settlement.paid).filter((person) => !participants.includes(person));
+    return [...participants, ...extra].map((person) => ({
+      person,
+      joined: participants.includes(person),
+      paid: settlement.paid[person] ?? 0,
+      owed: settlement.owed[person] ?? 0,
+    }));
+  }, [participants, settlement]);
   const byCategory = useMemo(() => totalsByCategory(expenses), [expenses]);
   const byDay = useMemo(() => totalsByDay(expenses, dayOptions), [expenses, dayOptions]);
   const averagePerSpendingDay = byDay.length ? Math.round(settlement.total / byDay.length) : 0;
@@ -6634,21 +6646,23 @@ function Money({
     participants,
   );
   const draftShareSummary = (() => {
+    const paid = `${draftPayer}${josa(draftPayer, "이", "가")}`;
     const picked = Object.keys(draftShares);
     if (!picked.length) {
       return participants.length > 1
-        ? `${draftPayer}이 내고 ${participants.length}명이 똑같이 나눠요`
-        : `${draftPayer}이 냈어요`;
+        ? `${paid} 내고 ${participants.length}명이 똑같이 나눠요`
+        : `${paid} 냈어요`;
     }
-    if (picked.length === 1) return `${draftPayer}이 내고 ${picked[0]} 몫이에요`;
+    if (picked.length === 1) return `${paid} 내고 ${picked[0]} 몫이에요`;
     const even = picked.every((person) => draftShares[person] === draftShares[picked[0]]);
+    const last = picked[picked.length - 1];
     return even
-      ? `${draftPayer}이 내고 ${picked.join(" · ")}이 똑같이 나눠요`
-      : `${draftPayer}이 내고 ${picked.map((person) => `${person} ${draftShares[person]}`).join(" · ")}`;
+      ? `${paid} 내고 ${picked.join(" · ")}${josa(last, "이", "가")} 똑같이 나눠요`
+      : `${paid} 내고 ${picked.map((person) => `${person} ${draftShares[person]}`).join(" · ")}`;
   })();
   const draftPayerHint = participants.length > 1
-    ? `${quickPayer}이 내고 ${participants.length}명이 똑같이 나눠요`
-    : `${quickPayer}이 냈어요`;
+    ? `${quickPayer}${josa(quickPayer, "이", "가")} 내고 ${participants.length}명이 똑같이 나눠요`
+    : `${quickPayer}${josa(quickPayer, "이", "가")} 냈어요`;
   const addQuickExpense = () => {
     if (!quickNumber) return;
     setExpenses((current) => [
@@ -6841,6 +6855,30 @@ function Money({
             </Text>
           )}
         </View>
+        {/* 결국 이걸 보려고 들어온다. 합계 바로 다음에 두고, 예산과 사람별
+            숫자는 그 뒤로 미룬다. 셋 이상이면 오갈 줄이 여러 개다. */}
+        <View style={styles.moneySettleBlock}>
+          <Text style={[styles.moneySettleLabel, theme && { color: theme.muted }]}>정산</Text>
+          {settlement.transfers.length ? (
+            settlement.transfers.map((transfer) => (
+              <View
+                key={`${transfer.from}-${transfer.to}`}
+                style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}
+              >
+                <Text numberOfLines={1} style={[styles.moneySettleText, theme && { color: theme.primary }]}>
+                  {transfer.from}{josa(transfer.from, "이", "가")} {transfer.to}에게
+                </Text>
+                <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{show(transfer.amount)}</Text>
+              </View>
+            ))
+          ) : (
+            <View style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}>
+              <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>
+                {expenses.length ? "서로 줄 것도 받을 것도 없어요" : "지출을 적으면 여기서 정산해 드려요"}
+              </Text>
+            </View>
+          )}
+        </View>
         <View style={styles.moneyBudgetHead}>
           <Text style={[styles.moneyBudgetLabel, theme && { color: theme.muted }]}>예산 {show(budget)}</Text>
           <Pressable onPress={openBudget} hitSlop={10} accessibilityRole="button" accessibilityLabel="여행 예산 수정">
@@ -6862,41 +6900,32 @@ function Money({
           </Text>
           <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
         </View>
-        <View style={styles.moneyPaidRow}>
-          {participants.map((person, index) => (
+        {/* 낸 돈과 내야 할 돈. 사람 수만큼 가로로 나누면 넷만 돼도 숫자가
+            잘려서 아무것도 못 읽는다. 세로로 쌓고 머리글을 한 번만 단다. */}
+        <View style={styles.moneyPaidTable}>
+          <View style={styles.moneyPaidHead}>
+            <Text style={[styles.moneyPaidHeadName, theme && { color: theme.muted }]}>참가자</Text>
+            <Text style={[styles.moneyPaidHeadCell, theme && { color: theme.muted }]}>낸 돈</Text>
+            <Text style={[styles.moneyPaidHeadCell, theme && { color: theme.muted }]}>내야 할 돈</Text>
+          </View>
+          {paidRows.map((row) => (
             <View
-              key={person}
-              style={[styles.moneyPaidItem, index > 0 && theme && { borderLeftWidth: 1, borderLeftColor: theme.border }]}
+              key={row.person}
+              style={[styles.moneyPaidRow, theme && { borderTopColor: theme.border }]}
             >
-              <Text numberOfLines={1} style={[styles.moneyPaidName, theme && { color: theme.muted }]}>{person}</Text>
-              <Text numberOfLines={1} style={[styles.moneyPaidAmount, theme && { color: theme.text }]}>{show(settlement.paid[person] ?? 0)}</Text>
-              {/* 몫이 있어야 아래 정산 금액이 어디서 나왔는지 셈이 보인다. */}
-              <Text numberOfLines={1} style={[styles.moneyPaidShare, theme && { color: theme.muted }]}>
-                몫 {show(settlement.owed[person] ?? 0)}
-              </Text>
+              <View style={styles.moneyPaidNameBox}>
+                <Text numberOfLines={1} style={[styles.moneyPaidName, theme && { color: theme.text }]}>{row.person}</Text>
+                {/* 참가자에서 뺐는데 낸 돈이 남아 있으면 아래 정산에 이름만
+                    튀어나온다. 어디서 나온 금액인지 알아볼 수 있게 표시한다. */}
+                {!row.joined && (
+                  <Text style={[styles.moneyPaidGuest, theme && { color: theme.muted }]}>참가자 아님</Text>
+                )}
+              </View>
+              <Text numberOfLines={1} style={[styles.moneyPaidCell, theme && { color: theme.text }]}>{show(row.paid)}</Text>
+              <Text numberOfLines={1} style={[styles.moneyPaidCell, theme && { color: theme.muted }]}>{show(row.owed)}</Text>
             </View>
           ))}
         </View>
-        {/* 정산. 결국 이걸 보려고 들어온다. 셋 이상이면 오갈 줄이 여러 개다. */}
-        {settlement.transfers.length ? (
-          <View style={styles.moneySettleList}>
-            {settlement.transfers.map((transfer) => (
-              <View
-                key={`${transfer.from}-${transfer.to}`}
-                style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}
-              >
-                <Text numberOfLines={1} style={[styles.moneySettleText, theme && { color: theme.primary }]}>
-                  {transfer.from}이 {transfer.to}에게
-                </Text>
-                <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{show(transfer.amount)}</Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}>
-            <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>정산할 게 없어요</Text>
-          </View>
-        )}
       </View>
       {/* 요약 바로 아래에 둔다. 탭을 열자마자 손이 닿는 자리다. */}
       <View style={[styles.quickAdd, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -7011,7 +7040,7 @@ function Money({
                     ]}
                   />
                 </View>
-                <Text style={[styles.moneyCategoryAmount, theme && { color: theme.muted }]}>{amountText(row.amount, unit.fraction)}</Text>
+                <Text style={[styles.moneyCategoryAmount, theme && { color: theme.muted }]}>{show(row.amount)}</Text>
                 <Text style={[styles.moneyCategoryPercent, theme && { color: theme.muted }]}>
                   {settlement.total ? Math.round((row.amount / settlement.total) * 100) : 0}%
                 </Text>
@@ -7072,7 +7101,10 @@ function Money({
                 <View style={styles.moneyRowBody}>
                   <Text numberOfLines={1} style={[styles.moneyRowTitle, theme && { color: theme.text }]}>{item.title}</Text>
                   <Text numberOfLines={1} style={[styles.moneyRowMeta, theme && { color: theme.muted }]}>
-                    {item.category} · {item.payer}이 냄
+                    {/* 빠르게 적은 지출은 이름이 분류와 같다. 같은 낱말을 두 번
+                        보여 줄 이유가 없다. */}
+                    {item.title === item.category ? "" : `${item.category} · `}
+                    {item.payer}{josa(item.payer, "이", "가")} 냄
                     {item.shares ? ` · ${shareLabel(item, participants)} 몫` : ""}
                     {item.receiptUri ? " · 영수증" : ""}
                   </Text>
@@ -9376,7 +9408,6 @@ const styles = StyleSheet.create({
   shareWeight: { flexDirection: "row", alignItems: "center", gap: 10 },
   shareWeightValue: { minWidth: 18, textAlign: "center", fontSize: 14, fontFamily: typo.data.family },
   shareAmount: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
-  moneySettleList: { gap: 6, marginTop: 14 },
   amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: -10, marginBottom: 18 },
   amountStep: { borderWidth: 1, borderColor: "transparent", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   amountStepText: { fontSize: 12, fontFamily: typo.label.family },
@@ -9400,7 +9431,7 @@ const styles = StyleSheet.create({
   receiptButton: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   receiptButtonText: { fontSize: 12, fontFamily: typo.label.family },
   receiptRemove: { fontSize: 12, fontFamily: typo.label.family },
-  moneyBudgetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
+  moneyBudgetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 18 },
   moneyBudgetLabel: { fontSize: 11, fontFamily: typo.label.family },
   moneyBudgetAction: { fontSize: 11, fontFamily: typo.label.family },
   moneyBudgetTrack: { height: 7, borderRadius: 4, overflow: "hidden", marginTop: 7 },
@@ -9408,14 +9439,20 @@ const styles = StyleSheet.create({
   moneyBudgetFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   moneyBudgetStatus: { fontSize: 11, fontFamily: typo.caption.family },
   moneyBudgetPercent: { fontSize: 11, fontFamily: typo.data.family },
-  moneyPaidRow: { flexDirection: "row", marginTop: 14 },
-  moneyPaidItem: { flex: 1, paddingHorizontal: 12 },
-  moneyPaidName: { fontSize: 11, fontFamily: typo.caption.family },
-  moneyPaidAmount: { fontSize: 15, marginTop: 2, fontFamily: typo.data.family },
-  moneyPaidShare: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
-  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 14 },
-  moneySettleText: { fontSize: 13, fontFamily: typo.label.family },
-  moneySettleAmount: { fontSize: 16, fontFamily: typo.data.family },
+  moneyPaidTable: { marginTop: 16 },
+  moneyPaidHead: { flexDirection: "row", alignItems: "center", paddingBottom: 6 },
+  moneyPaidHeadName: { flex: 1, fontSize: 12, fontFamily: typo.caption.family },
+  moneyPaidHeadCell: { width: 104, textAlign: "right", fontSize: 12, fontFamily: typo.caption.family },
+  moneyPaidRow: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, paddingVertical: 9 },
+  moneyPaidNameBox: { flex: 1, paddingRight: 8 },
+  moneyPaidName: { fontSize: 14, fontFamily: typo.label.family },
+  moneyPaidGuest: { fontSize: 12, marginTop: 1, fontFamily: typo.caption.family },
+  moneyPaidCell: { width: 104, textAlign: "right", fontSize: 14, fontFamily: typo.data.family },
+  moneySettleBlock: { marginTop: 16, gap: 6 },
+  moneySettleLabel: { fontSize: 12, fontFamily: typo.caption.family },
+  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  moneySettleText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
+  moneySettleAmount: { fontSize: 19, fontFamily: typo.data.family },
   moneyInsightCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },
   moneyInsightHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 },
   moneyInsightEyebrow: { fontSize: 11, fontFamily: typo.label.family, marginBottom: 3 },
