@@ -152,21 +152,28 @@ export type TripMemoryData = {
   cardCaption: string;
 };
 
-const initialMemoryData = (tripName: string, tripDate = "여행 기간"): TripMemoryData => ({
-  photos: [
+/**
+ * 기록 탭의 처음 모습.
+ *
+ * `withSamples` 는 예시 여행에만 준다. 내가 만든 여행이 남의 사진과 일기로
+ * 차 있으면 내 기록이 아니게 된다. 카드 제목과 말투는 빈 여행에도 쓸모가
+ * 있어서 사진과 일기만 갈라 낸다.
+ */
+const initialMemoryData = (tripName: string, tripDate = "여행 기간", withSamples = false): TripMemoryData => ({
+  photos: withSamples ? [
     { id: "photo-1", color: "#E7B4A6", date: "1일차", caption: "도착한 날" },
     { id: "photo-2", color: "#DFC98A", date: "1일차", caption: "느린 점심" },
     { id: "photo-3", color: "#AFC9C3", date: "2일차", caption: "함께 걷기" },
     { id: "photo-4", color: "#D4BDD4", date: "2일차", caption: "저녁 준비" },
     { id: "photo-5", color: "#C7D493", date: "3일차", caption: "마지막 아침" },
     { id: "photo-6", color: "#9CBBC6", date: "3일차", caption: "돌아오는 길" },
-  ],
-  diaries: [{
+  ] : [],
+  diaries: withSamples ? [{
     id: "diary-1",
     title: "느리게 걸어서 더 좋았던 날",
     body: "계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.",
     date: tripDate,
-  }],
+  }] : [],
   cardStyle: "필름",
   cardTitle: `우리의 ${tripName} 여행`,
   cardCaption: "함께 남긴 여행의 순간",
@@ -267,6 +274,14 @@ type Props = {
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
   spaceMembers?: string[];
+  /**
+   * 앱이 처음부터 들고 있는 예시 여행인가.
+   *
+   * 예시 여행에만 일정·장소·준비물 같은 처음 내용을 채워 넣는다. 사용자가
+   * 직접 만든 여행은 빈 채로 시작해야 한다. 내가 만들지 않은 일정과 준비물이
+   * 들어 있으면 그건 내 여행이 아니고, 하나씩 지우는 일부터 하게 된다.
+   */
+  sampleTrip?: boolean;
 };
 
 const parseTripDate = (value?: string) => {
@@ -584,6 +599,72 @@ const packing: PackingItem[] = [
   },
 ];
 
+/**
+ * 예시 여행이 처음 들고 있는 예약과 일정.
+ *
+ * 상세 화면 안에서만 만들면 홈 카드가 개수를 미리 알 수 없어서, 여행을 열기
+ * 전과 연 뒤의 숫자가 어긋난다. 밖에 두면 카드도 같은 것을 셀 수 있다.
+ */
+const sampleReservation = (dayOptions: string[]): ReservationInfo => ({
+  id: "reservation-primary",
+  name: "소나기식당",
+  date: dayOptions[Math.min(1, dayOptions.length - 1)],
+  time: "19:00",
+  people: "2명",
+  status: "예약 확정",
+  place: "전주 한옥마을",
+  showInSchedule: true,
+});
+
+const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] => {
+  const reservation = sampleReservation(dayOptions);
+  return [
+    {
+      time: `${weekdayOf(dayOptions[0])} · 12:30`,
+      date: dayOptions[0],
+      title: "소나기식당에서 점심",
+      note: "식사 · 완산",
+      mapUrl: "https://map.naver.com/p/search/소나기식당",
+      placeId: "place-eunhaengol",
+    },
+    {
+      time: `${weekdayOf(dayOptions[0])} · 15:00`,
+      date: dayOptions[0],
+      title: "달빛한옥 체크인",
+      note: `${lastDate} 11:00 체크아웃`,
+      mapUrl: "https://map.naver.com/p/search/달빛한옥",
+      placeId: "place-js-hotel",
+      stayId: "primary-stay",
+    },
+    {
+      time: `${weekdayOf(dayOptions[0])} · 19:30`,
+      date: dayOptions[0],
+      title: "함께 저녁 만들기",
+      note: "버섯전골과 김밥",
+      mapUrl: "",
+    },
+    {
+      time: `${weekdayOf(reservation.date)} · ${reservation.time}`,
+      date: reservation.date,
+      title: reservation.name,
+      note: `예약 · ${reservation.status} · ${reservation.place} · ${reservation.people}`,
+      mapUrl: "",
+      reservationId: reservation.id,
+    },
+  ];
+};
+
+/**
+ * 예시 여행을 열면 채워지는 것의 개수.
+ *
+ * 홈 카드는 여행을 열기 전에도 숫자를 말해야 한다. 씨앗을 고치면 이 값도 같이
+ * 움직이도록 실제 길이에서 센다.
+ */
+export const sampleTripContent = {
+  schedule: sampleSchedule(["", "", ""], "").length,
+  places: initialPlaces.length,
+};
+
 export function WarmTripDetail({
   done,
   onClose,
@@ -599,6 +680,7 @@ export function WarmTripDetail({
   initialPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
+  sampleTrip = false,
 }: Props) {
   const memo = memoPaper(Boolean(appTheme?.dark));
   const [currentStart, setCurrentStart] = useState(tripStart ?? "");
@@ -638,10 +720,10 @@ export function WarmTripDetail({
   const [memoDraft, setMemoDraft] = useState("");
   const [memoEditorOpen, setMemoEditorOpen] = useState(false);
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
-  const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? [
-    { id: "memo-meal", author: "여울 · 오늘 10:42", body: "육수 재료는 미리 1.5배로 준비하기" },
-    { id: "memo-booking", author: "하늘 · 어제 22:15", body: "소나기식당 수요일 19:00 예약 확인" },
-  ]);
+  const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? (sampleTrip ? [
+    { id: "memo-meal", author: `${spaceMembers[1] ?? spaceMembers[0]} · 오늘 10:42`, body: "육수 재료는 미리 1.5배로 준비하기" },
+    { id: "memo-booking", author: `${spaceMembers[0]} · 어제 22:15`, body: "소나기식당 수요일 19:00 예약 확인" },
+  ] : []));
   const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
   // 준비물 담당과 요리 재료 담당, 교통편 이용자, 지출의 몫이 모두 이 목록을 쓴다.
@@ -653,16 +735,18 @@ export function WarmTripDetail({
   const sampleFirst = participants[0] ?? "";
   const sampleSecond = participants[1] ?? participants[0] ?? "";
   const [packingItems, setPackingItems] = useState<PackingItem[]>(() =>
-    (initialPlanning?.packingItems ?? packing).map((item) => ({
+    (initialPlanning?.packingItems ?? (sampleTrip ? packing : [])).map((item) => ({
       ...item,
       owner: normalizePackingOwner(item.owner, initialPlanning?.participants ?? spaceMembers),
     })),
   );
-  const [packingDone, setPackingDone] = useState<string[]>(initialPlanning?.packingDone ?? done);
+  const [packingDone, setPackingDone] = useState<string[]>(
+    initialPlanning?.packingDone ?? (sampleTrip ? done : []),
+  );
   const togglePacking = (item: string) =>
     setPackingDone((items) => items.includes(item) ? items.filter((value) => value !== item) : [...items, item]);
   const [recipes, setRecipes] = useState<Recipe[]>(() =>
-    initialPlanning?.recipes ?? initialRecipes.map((recipe) => ({
+    initialPlanning?.recipes ?? (sampleTrip ? initialRecipes : []).map((recipe) => ({
       ...recipe,
       ingredients: recipe.ingredients.map((item) => ({
         ...item,
@@ -682,38 +766,31 @@ export function WarmTripDetail({
   const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
   const [exchangeRate, setExchangeRate] = useState(initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
-    initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate),
+    initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate, sampleTrip),
   );
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
     initialPlanning?.stay
       ? { ...initialPlanning.stay, showInSchedule: initialPlanning.stay.showInSchedule ?? true }
-      : {
-      name: "달빛한옥",
-      checkin: `${firstTripDate} 15:00`,
-      checkout: `${lastTripDate} 11:00`,
-      address: "전주 완산구 은행로 12 달빛한옥",
-      placeId: "place-js-hotel",
-      showInSchedule: true,
-    },
+      : sampleTrip
+        ? {
+          name: "달빛한옥",
+          checkin: `${firstTripDate} 15:00`,
+          checkout: `${lastTripDate} 11:00`,
+          address: "전주 완산구 은행로 12 달빛한옥",
+          placeId: "place-js-hotel",
+          showInSchedule: true,
+        }
+        : { name: "", checkin: "", checkout: "", address: "", showInSchedule: true },
   );
   const [places, setPlaces] = useState<PlaceItem[]>(() =>
-    initialPlanning?.places ?? initialPlaces,
+    initialPlanning?.places ?? (sampleTrip ? initialPlaces : []),
   );
-  const defaultReservation: ReservationInfo = {
-    id: "reservation-primary",
-    name: "소나기식당",
-    date: tripDayOptions[Math.min(1, tripDayOptions.length - 1)],
-    time: "19:00",
-    people: "2명",
-    status: "예약 확정",
-    place: "전주 한옥마을",
-    showInSchedule: true,
-  };
+  const defaultReservation = sampleReservation(tripDayOptions);
   const [reservations, setReservations] = useState<ReservationInfo[]>(() =>
     initialPlanning?.reservations ?? (
       initialPlanning?.reservation === undefined
-        ? [defaultReservation]
+        ? (sampleTrip ? [defaultReservation] : [])
         : initialPlanning.reservation
           ? [initialPlanning.reservation]
           : []
@@ -722,12 +799,12 @@ export function WarmTripDetail({
   // 예시 교통편은 이름을 박아 둘 수 없다. 공간마다 가는 사람이 다르니 참가자
   // 첫째와 둘째로 만든다. 저장해 둔 여행은 적힌 이름을 그대로 쓴다.
   const [transportations, setTransportations] = useState<Transportation[]>(() =>
-    initialPlanning?.transportations ?? [
+    initialPlanning?.transportations ?? (sampleTrip ? [
       { id: "sky-out", owner: sampleFirst, direction: "가는 편", method: "KTX", date: tripDayOptions[0], departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료", showInSchedule: false },
       { id: "sky-back", owner: sampleFirst, direction: "오는 편", method: "KTX", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료", showInSchedule: false },
       { id: "yeoul-out", owner: sampleSecond, direction: "가는 편", method: "버스", date: tripDayOptions[0], departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료", showInSchedule: false },
       { id: "yeoul-back", owner: sampleSecond, direction: "오는 편", method: "버스", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료", showInSchedule: false },
-    ],
+    ] : []),
   );
   // 참가자에서 사람을 뺄 때, 그 이름으로 적어 둔 게 뭐가 있는지 한 줄로 적는다.
   // 담당은 이름으로 묶여 있어서 빼고 나면 어디에 남았는지 찾기 어렵다.
@@ -750,40 +827,7 @@ export function WarmTripDetail({
     [expenses, packingItems, recipes, transportations],
   );
   const [schedule, setSchedule] = useState<ScheduleItem[]>(() =>
-    initialPlanning?.schedule ?? [
-      {
-        time: `${weekdayOf(tripDayOptions[0])} · 12:30`,
-        date: tripDayOptions[0],
-        title: "소나기식당에서 점심",
-        note: "식사 · 완산",
-        mapUrl: "https://map.naver.com/p/search/소나기식당",
-        placeId: "place-eunhaengol",
-      },
-      {
-        time: `${weekdayOf(tripDayOptions[0])} · 15:00`,
-        date: tripDayOptions[0],
-        title: "달빛한옥 체크인",
-        note: `${lastTripDate} 11:00 체크아웃`,
-        mapUrl: "https://map.naver.com/p/search/달빛한옥",
-        placeId: "place-js-hotel",
-        stayId: "primary-stay",
-      },
-      {
-        time: `${weekdayOf(tripDayOptions[0])} · 19:30`,
-        date: tripDayOptions[0],
-        title: "함께 저녁 만들기",
-        note: "버섯전골과 김밥",
-        mapUrl: "",
-      },
-      {
-        time: `${weekdayOf(defaultReservation.date)} · ${defaultReservation.time}`,
-        date: defaultReservation.date,
-        title: defaultReservation.name,
-        note: `예약 · ${defaultReservation.status} · ${defaultReservation.place} · ${defaultReservation.people}`,
-        mapUrl: "",
-        reservationId: defaultReservation.id,
-      },
-    ],
+    initialPlanning?.schedule ?? (sampleTrip ? sampleSchedule(tripDayOptions, lastTripDate) : []),
   );
   useEffect(() => {
     // 대표 숙소는 별도 편집 화면과 장소 탭에서도 바뀐다. 연결 일정은 이 한곳에서
@@ -1070,6 +1114,8 @@ export function WarmTripDetail({
               transportations={transportations}
               setTransportations={setTransportations}
               participants={participants}
+              recipes={recipes}
+              packingRemaining={packingItems.filter((item) => !packingDone.includes(item.id)).length}
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
               openScheduleOnMount={initialDestination === "schedule-add"}
@@ -1444,6 +1490,8 @@ function TripOverview({
   transportations,
   setTransportations,
   participants,
+  recipes,
+  packingRemaining,
   dayOptions,
   dateOptions,
   openScheduleOnMount,
@@ -1462,6 +1510,10 @@ function TripOverview({
   setTransportations: React.Dispatch<React.SetStateAction<Transportation[]>>;
   /** 이번 여행에 가는 사람. 교통편 이용자를 여기서 고른다. */
   participants: string[];
+  /** 요리 카드가 무엇을 가리킬지는 실제 메뉴에서 가져온다. */
+  recipes: Recipe[];
+  /** 아직 안 챙긴 준비물 수. 0 이면 재촉할 것이 없다. */
+  packingRemaining: number;
   dayOptions: string[];
   dateOptions: string[];
   openScheduleOnMount?: boolean;
@@ -2128,6 +2180,14 @@ function TripOverview({
           );
         })}
       </View>
+      {transportations.length === 0 && (
+        <EmptyState
+          title="등록한 교통편이 없어요"
+          description="타고 갈 편을 적어 두면 일정에도 같이 올릴 수 있어요."
+          action="교통편 추가"
+          onPress={openTransportCreate}
+        />
+      )}
 
       <SectionLabel
         label="여행 정보"
@@ -2151,7 +2211,7 @@ function TripOverview({
           {hasStay && (
             <TravelMiniCard
               label="대표 숙소"
-              mark="15"
+              mark={registeredStay.checkin.match(/(\d+)일/)?.[1] ?? "숙소"}
               title={registeredStay.name}
               meta={`${registeredStay.checkin} 체크인`}
               color={theme?.secondary ?? "#55BFB4"}
@@ -2163,8 +2223,12 @@ function TripOverview({
             <TravelMiniCard
               label="요리"
               mark="한 끼"
-              title="버섯전골"
-              meta="재료 확인"
+              title={recipes[0]?.name ?? "메뉴 정하기"}
+              meta={
+                recipes.length
+                  ? `재료 ${recipes.reduce((sum, recipe) => sum + recipe.ingredients.length, 0)}개`
+                  : "무엇을 해 먹을까요"
+              }
               color={theme?.accent ?? "#8B7CF6"}
               onPress={() => setMode("요리")}
               large={!hasStay}
@@ -2179,6 +2243,8 @@ function TripOverview({
         )}
       </View>
 
+      {/* 남은 게 없으면 재촉할 것도 없다. 숫자는 실제 목록에서 센다. */}
+      {packingRemaining > 0 && (
       <Pressable
         onPress={() => setMode("준비")}
         style={[
@@ -2192,11 +2258,12 @@ function TripOverview({
         <View>
           <Text style={[styles.readyEyebrow, theme && { color: theme.primary }]}>출발 전 확인</Text>
           <Text style={[styles.readyText, theme && { color: theme.text }]}>
-            준비물 3개가 남아 있어요.
+            준비물 {packingRemaining}개가 남아 있어요.
           </Text>
         </View>
         <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
       </Pressable>
+      )}
       <DetailSheet
         visible={sheet === "schedule"}
         title={editingScheduleIndex === null ? "일정 추가" : "일정 수정"}

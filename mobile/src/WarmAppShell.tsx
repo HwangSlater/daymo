@@ -30,7 +30,7 @@ import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
-import { type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
+import { sampleTripContent, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
 import { isOnLand, nearestRegion } from "./koreaHitTest";
@@ -68,6 +68,13 @@ type Trip = {
   start: string;
   end: string;
   planning?: TripPlanningData;
+  /**
+   * 앱이 처음부터 들고 있는 예시 여행.
+   *
+   * 예시 여행만 일정·장소·준비물이 채워진 채로 열린다. 사용자가 만든 여행은
+   * 빈 채로 시작한다. 내가 만들지 않은 내용이 들어 있으면 그건 내 여행이 아니다.
+   */
+  sample?: boolean;
 };
 
 const sampleDate = (daysFromToday: number) => {
@@ -160,6 +167,7 @@ const trips: Trip[] = [
     name: "전주 한옥마을",
     date: sampleDateRange(upcomingSampleStart, upcomingSampleEnd),
     note: "숙소에서 수다와 버섯전골",
+    sample: true,
     tone: 0,
     mark: upcomingSampleStart.slice(5, 7),
     region: "전북",
@@ -177,6 +185,7 @@ const trips: Trip[] = [
     name: "강릉 안목",
     date: sampleDateRange(recentSampleStart, recentSampleEnd),
     note: "보드게임과 야식 장보기",
+    sample: true,
     tone: 5,
     mark: recentSampleStart.slice(5, 7),
     region: "강원",
@@ -196,6 +205,7 @@ const trips: Trip[] = [
     name: "여수",
     date: sampleDateRange(archiveSampleStart, archiveSampleEnd),
     note: "바다 산책과 단체 사진",
+    sample: true,
     tone: 3,
     mark: archiveSampleStart.slice(5, 7),
     region: "전남",
@@ -221,6 +231,7 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {
       name: "속초",
       date: "10월 3일 — 4일",
       note: "가족과 천천히 걷는 가을 여행",
+    sample: true,
       tone: 1,
       mark: "10",
       region: "강원",
@@ -415,6 +426,7 @@ export function WarmAppShell({
         tripNote={selectedTrip.note}
         initialPlanning={selectedTrip.planning}
         spaceMembers={activeSpaceMembers}
+        sampleTrip={selectedTrip.sample === true}
         appTheme={theme}
         onUpdateTrip={(changes) => {
           const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
@@ -728,8 +740,13 @@ function NotebookHome({
 }) {
   const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
   const homeStay = trip?.planning?.stay;
+  // 카드와 같은 규칙. 이 여행에 저장된 값을 쓰고, 아직 안 연 예시 여행만
+  // 상세가 처음 담아 줄 값을 미리 보여 준다.
+  const homePacked = trip?.planning?.packingDone?.length ?? (trip?.sample ? doneCount : 0);
   const homePlaces = trip?.planning?.places;
-  const restaurantCount = homePlaces?.filter((place) => place.category === "식당").length ?? 2;
+  // 장소를 아직 안 연 예시 여행은 셀 것이 없다. 그때는 숫자 대신 안내를 낸다.
+  const placesKnown = Boolean(homePlaces);
+  const restaurantCount = homePlaces?.filter((place) => place.category === "식당").length ?? 0;
   const cafeCount = homePlaces?.filter((place) => place.category === "카페").length ?? 0;
   return (
     <ScrollView
@@ -778,8 +795,8 @@ function NotebookHome({
       >
         <View pointerEvents="none" style={[s.memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
         <MemoRow theme={theme} color={theme.primary} text="대표 숙소 확인" meta={homeStay?.name || "아직 등록하지 않았어요"} onPress={() => open("overview", trip)} />
-        <MemoRow theme={theme} color={theme.accent} text={`완료한 준비물 ${doneCount}개`} meta="목록 계속 확인하기" onPress={() => open("preparation", trip)} />
-        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta={`식당 ${restaurantCount} · 카페 ${cafeCount}`} onPress={() => open("places", trip)} last />
+        <MemoRow theme={theme} color={theme.accent} text={`완료한 준비물 ${homePacked}개`} meta="목록 계속 확인하기" onPress={() => open("preparation", trip)} />
+        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소에서 일정 고르기" meta={placesKnown ? `식당 ${restaurantCount} · 카페 ${cafeCount}` : "저장한 장소 보기"} onPress={() => open("places", trip)} last />
       </View>
       {trips.some((item) => item.end < todayKey) && (
         <View style={s.homeArchiveSection}>
@@ -1089,8 +1106,13 @@ function HomeTripCard({ trip, theme, todayKey, doneCount, open }: {
 }) {
   const paper = paperCard(theme.dark);
   const stay = trip.planning?.stay;
-  const scheduleCount = trip.planning?.schedule?.length ?? 4;
-  const placeCount = trip.planning?.places?.length ?? 4;
+  // 없으면 없다고 말한다. 그럴듯한 숫자를 채워 두면 눌러 보고 나서야 빈 줄
+  // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다. 아직 한 번도 안 연
+  // 예시 여행만, 상세가 열릴 때 채울 것과 같은 수를 미리 말한다.
+  const scheduleCount = trip.planning?.schedule?.length ?? (trip.sample ? sampleTripContent.schedule : 0);
+  const placeCount = trip.planning?.places?.length ?? (trip.sample ? sampleTripContent.places : 0);
+  // 아직 한 번도 안 연 예시 여행은 상세가 처음 담아 줄 값이 곧 이 숫자다.
+  const packedCount = trip.planning?.packingDone?.length ?? (trip.sample ? doneCount : 0);
   // 비용은 여행마다 있을 수도 없을 수도 있다. 적은 게 있을 때만 칸을 내준다.
   const spent = (trip.planning?.expenses ?? []).reduce((sum, item) => sum + item.amount, 0);
   const spentCurrency = trip.planning?.currency;
@@ -1224,9 +1246,11 @@ function HomeTripCard({ trip, theme, todayKey, doneCount, open }: {
         </Pressable>
         <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
           {[
-            { label: "여행 일정", meta: `${scheduleCount}개`, color: theme.primary, destination: "overview" as TripDetailDestination },
-            { label: "저장 장소", meta: `${placeCount}곳`, color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
-            { label: "준비물", meta: `${doneCount}개 완료`, color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
+            { label: "여행 일정", meta: scheduleCount ? `${scheduleCount}개` : "아직 없음", color: theme.primary, destination: "overview" as TripDetailDestination },
+            { label: "저장 장소", meta: placeCount ? `${placeCount}곳` : "아직 없음", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
+            // 완료 개수는 여행마다 다르다. 앱 전체에 하나뿐인 done 을 쓰면 어느
+            // 카드를 넘겨도 같은 숫자가 나와서 카드가 고장 난 것처럼 보인다.
+            { label: "준비물", meta: packedCount ? `${packedCount}개 완료` : "아직 없음", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
             ...(spent > 0
               ? [{ label: "쓴 돈", meta: money(spent, spentCurrency), color: domain("cooking", theme.dark).solid, destination: "expenses" as TripDetailDestination }]
               : []),
