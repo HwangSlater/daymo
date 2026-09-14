@@ -641,7 +641,7 @@ const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] 
       time: `${weekdayOf(reservation.date)} · ${reservation.time}`,
       date: reservation.date,
       title: reservation.name,
-      note: `예약 · ${reservation.status} · ${reservation.place} · ${reservation.people}`,
+      note: `예약 · ${reservation.status}`,
       mapUrl: "",
       reservationId: reservation.id,
     },
@@ -1670,6 +1670,13 @@ function TripOverview({
     });
     return groups;
   }, [orderedSchedule]);
+  // 타임라인 카드가 실제로 그리는 개수. 첫 묶음의 앞 세 개다.
+  const shownScheduleCount = Math.min(3, scheduleGroups[0]?.items.length ?? 0);
+  // 일정이 있는 첫 묶음이 반드시 1일차는 아니다. 몇째 날인지 세어 적는다.
+  const firstScheduleDayLabel = (() => {
+    const index = scheduleGroups[0] ? dayOptions.indexOf(scheduleGroups[0].date) : -1;
+    return index < 0 ? "가장 빠른 일정" : `${["첫", "둘", "셋", "넷", "다섯"][index] ?? `${index + 1}`}째 날`;
+  })();
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportRouteValid = Boolean(
     transportDeparture.trim() &&
@@ -2054,7 +2061,7 @@ function TripOverview({
         time: `${weekdayOf(next.date)} · ${next.time || "시간 미정"}`,
         date: next.date,
         title: next.name,
-        note: ["예약", next.status, next.place.trim(), next.people.trim()].filter(Boolean).join(" · "),
+        note: ["예약", next.status].filter(Boolean).join(" · "),
         mapUrl: "",
         reservationId: next.id,
       };
@@ -2168,7 +2175,7 @@ function TripOverview({
         {scheduleGroups[0] && (
           <View style={[styles.travelTimelineHead, theme && { backgroundColor: theme.primarySoft }]}>
             <View>
-              <Text style={[styles.travelTimelineEyebrow, theme && { color: theme.primary }]}>첫째 날</Text>
+              <Text style={[styles.travelTimelineEyebrow, theme && { color: theme.primary }]}>{firstScheduleDayLabel}</Text>
               <Text style={[styles.travelTimelineDate, theme && { color: theme.text }]}>{scheduleGroups[0].date}</Text>
             </View>
             <Text style={[styles.travelTimelineCount, theme && { color: theme.primary }]}>{scheduleGroups[0].items.length}개 일정</Text>
@@ -2195,8 +2202,10 @@ function TripOverview({
           />
         )}
         {/* 카드가 앞의 세 개를 이미 보여준다. 그 이하면 '전체'가 지금 보는
-            것과 같은 말이라, 눌러야 하나 하고 한 번 멈추게 된다. */}
-        {schedule.length > 3 && (
+            것과 같은 말이라, 눌러야 하나 하고 한 번 멈추게 된다. 일정 수가 아니라
+            실제로 그린 수와 견줘야, 첫날이 비고 이튿날에만 세 개가 있을 때
+            나머지 날을 여는 길이 사라지지 않는다. */}
+        {schedule.length > shownScheduleCount && (
           <Pressable
             onPress={() => setFullSchedule(true)}
             style={[
@@ -2255,7 +2264,8 @@ function TripOverview({
             label="예약"
             mark={dayNumberOf(reservation.date)}
             title={reservation.name}
-            meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people} · ${reservation.status}`}
+            meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people}`}
+            badge={reservation.status}
             color={theme?.primary ?? "#FF6B63"}
             onPress={() => openReservation(reservation)}
           />
@@ -2618,10 +2628,7 @@ function TripOverview({
         title={`전체 일정 · ${schedule.length}`}
         onClose={() => setFullSchedule(false)}
       >
-        <ScrollView
-          style={styles.fullScheduleList}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.fullScheduleList}>
           {scheduleGroups.map((group) => (
             <View
               key={group.date}
@@ -2660,7 +2667,7 @@ function TripOverview({
               ))}
             </View>
           ))}
-        </ScrollView>
+        </View>
       </InfoPanel>
     </View>
   );
@@ -2745,7 +2752,9 @@ function Places({
   const statusPlaces = filter === "전체"
     ? places
     : filter === "숙소"
-      ? places.filter((place) => place.name === registeredStayName)
+      // 대표로 고른 한 곳만 남기면 후보 숙소를 견줄 수가 없다. 숙소를 다 보여
+      // 주고 대표인 곳은 카드에서 따로 표시한다.
+      ? places.filter((place) => place.category === "숙소" || place.name === registeredStayName)
       : places.filter((place) => place.status === filter);
   const taggedPlaces = tagFilter
     ? statusPlaces.filter((place) => place.tags.includes(tagFilter))
@@ -2988,7 +2997,7 @@ function Places({
               key={item}
               onPress={() => setFilter(item)}
               accessibilityRole="button"
-              accessibilityLabel={item === "후보" ? "저장한 후보 장소" : item === "숙소" ? "대표 숙소" : item}
+              accessibilityLabel={item === "후보" ? "저장한 후보 장소" : item}
               accessibilityState={{ selected: filter === item }}
               style={[
                 styles.placeFilter,
@@ -3004,7 +3013,7 @@ function Places({
                   filter === item && theme && { color: theme.primary },
                 ]}
               >
-                  {item === "후보" ? "저장" : item === "숙소" ? "대표 숙소" : item}
+                  {item === "후보" ? "저장" : item}
               </Text>
             </Pressable>
           ))}
@@ -3523,7 +3532,9 @@ function Preparation({
   const [ownerFilter, setOwnerFilter] = useState("전체");
   const [tagFilter, setTagFilter] = useState("전체 태그");
   const [tagPicker, setTagPicker] = useState(false);
-  const [packingFiltersOpen, setPackingFiltersOpen] = useState(false);
+  // 사람이 둘 이상이면 담당 칩을 펴 둔다. 누가 뭘 챙기는지가 이 탭의 절반인데
+  // 접힌 버튼 뒤에 있으면 그런 게 있는 줄도 모른다.
+  const [packingFiltersOpen, setPackingFiltersOpen] = useState(participants.length > 1);
   const [assigningItem, setAssigningItem] = useState<PackingItem | null>(null);
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
@@ -4204,7 +4215,9 @@ function Preparation({
           const groupAccent = theme
             ? [theme.primary, theme.secondary, theme.accent][groupIndex % 3]
             : ["#FF6B63", "#55BFB4", "#8B7CF6"][groupIndex % 3];
-          const allInGroup = items.filter(
+          // 두 숫자가 같은 기준을 봐야 한다. 하나는 전체를, 하나는 걸러진 것을
+          // 세면 "1/5 완료 · 1개 남음" 처럼 서로 안 맞는 말이 나란히 놓인다.
+          const allInGroup = visibleItems.filter(
             (item) => (packingTags(item)[0] || "태그 없음") === sourceTag,
           );
           const doneInGroup = allInGroup.filter((item) =>
@@ -4278,7 +4291,18 @@ function Preparation({
             ]}
           >
             <Pressable
-              onPress={() => setShowCompleted((value) => !value)}
+              onPress={() => {
+                // 상태를 "완료" 로 걸러 둔 동안에는 이 목록이 화면 전부다.
+                // 그때 접으라는 말은 걸러 둔 것을 푸는 뜻이어야 한다.
+                if (filter === "완료") {
+                  setFilter("전체");
+                  setShowCompleted(false);
+                  return;
+                }
+                setShowCompleted((value) => !value);
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: filter === "완료" || showCompleted }}
               style={styles.packingV2CompletedHead}
             >
               <Text style={[styles.packingV2CompletedTitle, theme && { color: theme.text }]}>
@@ -5146,7 +5170,7 @@ function Cooking({
 1. 설명, 인사, 번호, 마크다운을 절대 쓰지 않는다.
 2. 각 요리의 첫 줄은 반드시: 요리 | 이름 | 메모 | 참고 링크
 3. 이어지는 재료는 반드시: 재료 | 이름 | 수량 | 분류 | 준비
-4. 준비 값은 하늘, 여울, 구매, 미정 중 하나만 쓴다.
+4. 준비 값은 ${cookingOwnerOptions(participants).join(", ")} 중 하나만 쓴다.
 5. 참고 링크는 메모에 URL이 있을 때만 쓰고, 없으면 비워둔다.
 6. 모르는 값은 미정으로 쓰고, 구분자는 반드시 | 만 사용한다.
 7. 결과만 출력한다.
@@ -5870,7 +5894,7 @@ function Cooking({
           </Pressable>
         </View>
         <OptionField
-          label={`준비 방법 · ${filteredShoppingCount}개`}
+          label={`담당 · ${filteredShoppingCount}개`}
           options={shoppingOwnerOptions}
           value={ingredientOwnerFilter}
           onChange={setIngredientOwnerFilter}
@@ -5908,10 +5932,17 @@ function Cooking({
       <DetailSheet
         visible={addingIngredient}
         title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
-        subtitle="분류와 준비 방법은 저장한 뒤에도 바꿀 수 있어요"
+        subtitle="분류와 담당은 저장한 뒤에도 바꿀 수 있어요"
         submit={editingIngredient ? "변경 저장" : "재료 추가"}
         disabledHint={!ingredientFormValid ? (duplicateIngredient ? "이 요리에 이미 있는 재료예요" : "재료 이름을 입력해 주세요") : undefined}
         submitDisabled={!ingredientFormValid}
+        destructiveLabel={editingIngredient ? "재료 삭제" : undefined}
+        destructiveMessage="이 요리에서 재료를 빼요."
+        onDestructive={() => {
+          if (!editingIngredient) return;
+          removeIngredient(editingIngredient);
+          closeIngredientSheet();
+        }}
         onClose={closeIngredientSheet}
         onSubmit={addIngredient}
       >
@@ -5985,7 +6016,7 @@ function Cooking({
           />
         </View>
         <OptionField
-          label="준비 방법 · 선택 사항"
+          label="담당 · 선택 사항"
           options={cookingOwnerOptions(participants)}
           value={owner}
           onChange={setOwner}
@@ -7623,6 +7654,7 @@ function TravelInfoRow({
   mark,
   title,
   meta,
+  badge,
   color,
   onPress,
 }: {
@@ -7630,6 +7662,8 @@ function TravelInfoRow({
   mark: string;
   title: string;
   meta: string;
+  /** 예약 상태처럼 한눈에 봐야 하는 말. 메타 줄 끝에 묻히면 안 읽힌다. */
+  badge?: string;
   color: string;
   onPress: () => void;
 }) {
@@ -7650,8 +7684,15 @@ function TravelInfoRow({
         <Text style={[styles.travelInfoLabelText, { color }]}>{label}</Text>
       </View>
       <View style={styles.travelInfoCopy}>
-        <Text style={[styles.travelInfoTitle, theme && { color: theme.text }]}>{title}</Text>
-        <Text style={[styles.travelInfoMeta, theme && { color: theme.muted }]}>{meta}</Text>
+        <View style={styles.travelInfoTitleRow}>
+          <Text numberOfLines={1} style={[styles.travelInfoTitle, theme && { color: theme.text }]}>{title}</Text>
+          {Boolean(badge) && (
+            <View style={[styles.travelInfoBadge, { backgroundColor: `${color}1C` }]}>
+              <Text style={[styles.travelInfoBadgeText, { color }]}>{badge}</Text>
+            </View>
+          )}
+        </View>
+        <Text numberOfLines={1} style={[styles.travelInfoMeta, theme && { color: theme.muted }]}>{meta}</Text>
       </View>
       <View style={[styles.travelInfoArrowBox, { backgroundColor: `${color}18` }]}>
         <Glyph name="chevronRight" size={16} color={color} />
@@ -8538,7 +8579,11 @@ function InfoPanel({
               </Text>
             </Pressable>
           </View>
-          {children}
+          {/* 시트는 91% 높이에서 멈춘다. 감싸지 않으면 개수 제한 없이 그리는
+              패널의 아래쪽이 잘려 아예 볼 수 없다. */}
+          <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
+            {children}
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
@@ -8780,8 +8825,8 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 18,
   },
-  transportGrid: { flexDirection: "row", gap: 8, marginBottom: 20 },
-  transportCard: { flex: 1, minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
+  transportGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
+  transportCard: { flexGrow: 1, flexBasis: "46%", minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
   transportCardRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
   transportCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   transportOwner: { fontSize: 12, fontFamily: typo.label.family },
@@ -8892,7 +8937,10 @@ const styles = StyleSheet.create({
   travelInfoLabelText: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
   travelInfoCopy: { flex: 1, minWidth: 0 },
   travelInfoTitle: { fontSize: 14, fontFamily: typo.title.family },
-  travelInfoMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
+  travelInfoTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  travelInfoBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  travelInfoBadgeText: { fontSize: 12, fontFamily: typo.label.family },
+  travelInfoMeta: { fontSize: 13, fontFamily: typo.caption.family, marginTop: 2 },
   travelInfoArrowBox: {
     width: 27,
     height: 27,
@@ -9900,7 +9948,7 @@ const styles = StyleSheet.create({
   },
   packingV2TagButtonText: { fontSize: 14, fontFamily: typo.label.family },
   packingV2TagChevron: { fontSize: 12, fontFamily: typo.label.family, marginTop: -2 },
-  packingV2Owners: { flexDirection: "row", gap: 6 },
+  packingV2Owners: { flexDirection: "row", gap: 6, paddingRight: 16 },
   packingV2TagChoice: {
     minHeight: 40,
     borderRadius: 9,
