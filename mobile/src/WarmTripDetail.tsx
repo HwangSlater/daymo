@@ -7,18 +7,18 @@ import {
   CURRENCIES,
   DEFAULT_CURRENCY,
   EXPENSE_CATEGORIES,
-  EXPENSE_PAYERS,
-  EXPENSE_SHARES,
   type Expense,
   type ExpenseCategory,
-  type ExpensePayer,
-  type ExpenseShare,
+  type Participant,
   expensesToCsv,
   parseAmount,
   settle,
   amountText,
   currencyOf,
   money,
+  normalizeExpense,
+  shareLabel,
+  splitAmounts,
   toWon,
   totalsByCategory,
   totalsByDay,
@@ -126,6 +126,13 @@ export type TripPlanningData = {
   cookingReadyIngredientIds?: string[];
   expenses?: Expense[];
   budget?: number;
+  /**
+   * 이번 여행에 가는 사람들. 없으면 공간 멤버 전원으로 본다.
+   *
+   * 한 공간에 멤버가 여럿이어도 이번 여행에는 일부만 가는 일이 흔하다.
+   * 지출의 몫은 공간 멤버가 아니라 이 목록을 기준으로 나눈다.
+   */
+  participants?: string[];
   /** 여행에서 쓰는 통화 코드. 없으면 원이다. */
   currency?: string;
   /** 1 단위가 몇 원인지. 통화가 원이면 1 이다. */
@@ -257,6 +264,8 @@ type Props = {
   }) => void;
   initialPlanning?: TripPlanningData;
   onSavePlanning?: (planning: TripPlanningData) => void;
+  /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
+  spaceMembers?: string[];
 };
 
 const parseTripDate = (value?: string) => {
@@ -571,6 +580,7 @@ export function WarmTripDetail({
   onUpdateTrip,
   initialPlanning,
   onSavePlanning,
+  spaceMembers = ["하늘", "여울"],
 }: Props) {
   const memo = memoPaper(Boolean(appTheme?.dark));
   const [currentStart, setCurrentStart] = useState(tripStart ?? "");
@@ -626,9 +636,13 @@ export function WarmTripDetail({
   );
   const [expenses, setExpenses] = useState<Expense[]>(
     // 예시 지출은 여행마다 WarmAppShell 에서 심는다. 새로 만든 여행은 비어서 시작한다.
-    initialPlanning?.expenses ?? [],
+    // 옛 저장 데이터는 낸 사람과 몫이 두 사람으로 박혀 있어서 여기서 옮긴다.
+    (initialPlanning?.expenses ?? []).map(normalizeExpense),
   );
   const [budget, setBudget] = useState(initialPlanning?.budget ?? 500000);
+  const [participants, setParticipants] = useState<Participant[]>(
+    initialPlanning?.participants ?? spaceMembers,
+  );
   const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
   const [exchangeRate, setExchangeRate] = useState(initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
@@ -778,12 +792,13 @@ export function WarmTripDetail({
       cookingReadyIngredientIds,
       expenses,
       budget,
+      participants,
       currency,
       exchangeRate,
       tripNotes,
       hasKitchen,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -803,13 +818,14 @@ export function WarmTripDetail({
       cookingReadyIngredientIds,
       expenses,
       budget,
+      participants,
       currency,
       exchangeRate,
       tripNotes,
       hasKitchen,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -1054,8 +1070,7 @@ export function WarmTripDetail({
                     title,
                     amount,
                     category: "식비",
-                    payer: "하늘",
-                    share: "함께",
+                    payer: participants[0] ?? "하늘",
                     memo: "요리 재료",
                   },
                 ]);
@@ -1076,6 +1091,9 @@ export function WarmTripDetail({
               setExpenses={setExpenses}
               budget={budget}
               setBudget={setBudget}
+              participants={participants}
+              setParticipants={setParticipants}
+              spaceMembers={spaceMembers}
               currency={currency}
               setCurrency={setCurrency}
               exchangeRate={exchangeRate}
@@ -6537,6 +6555,9 @@ function Money({
   setExpenses,
   budget,
   setBudget,
+  participants,
+  setParticipants,
+  spaceMembers,
   currency,
   setCurrency,
   exchangeRate,
@@ -6550,6 +6571,11 @@ function Money({
   setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
   budget: number;
   setBudget: React.Dispatch<React.SetStateAction<number>>;
+  /** 이번 여행에 가는 사람. 몫은 이 목록을 기준으로 나눈다. */
+  participants: Participant[];
+  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  /** 공간 멤버 전원. 참가자를 고를 때의 후보다. */
+  spaceMembers: Participant[];
   currency: string;
   setCurrency: React.Dispatch<React.SetStateAction<string>>;
   exchangeRate: number;
@@ -6566,12 +6592,14 @@ function Money({
   const [draftTitle, setDraftTitle] = useState("");
   const [draftAmount, setDraftAmount] = useState("");
   const [draftCategory, setDraftCategory] = useState<ExpenseCategory>("식비");
-  const [draftPayer, setDraftPayer] = useState<ExpensePayer>("하늘");
-  const [draftShare, setDraftShare] = useState<ExpenseShare>("함께");
+  const [draftPayer, setDraftPayer] = useState<Participant>(participants[0] ?? "");
+  // 몫을 지는 사람과 비중. 비어 있으면 참가자 전원이 똑같이 나눈다.
+  const [draftShares, setDraftShares] = useState<Record<Participant, number>>({});
   // 마지막에 적은 분류와 낸 사람. 여행 중에는 같은 사람이 같은 종류를 이어서
   // 적는 일이 많아서, 매번 처음 값으로 돌아가면 지출마다 두 번씩 고치게 된다.
   const [lastCategory, setLastCategory] = useState<ExpenseCategory>("식비");
-  const [lastPayer, setLastPayer] = useState<ExpensePayer>("하늘");
+  const [lastPayer, setLastPayer] = useState<Participant>(participants[0] ?? "");
+  const [peopleSheetOpen, setPeopleSheetOpen] = useState(false);
   const [draftDay, setDraftDay] = useState(dayOptions[0] ?? "");
   const [draftMemo, setDraftMemo] = useState("");
   const [draftReceipt, setDraftReceipt] = useState("");
@@ -6610,7 +6638,7 @@ function Money({
     };
     return [...expenses].sort((a, b) => order(a.day) - order(b.day));
   }, [expenses, dayOptions]);
-  const settlement = useMemo(() => settle(expenses), [expenses]);
+  const settlement = useMemo(() => settle(expenses, participants), [expenses, participants]);
   const byCategory = useMemo(() => totalsByCategory(expenses), [expenses]);
   const byDay = useMemo(() => totalsByDay(expenses, dayOptions), [expenses, dayOptions]);
   const averagePerSpendingDay = byDay.length ? Math.round(settlement.total / byDay.length) : 0;
@@ -6676,7 +6704,29 @@ function Money({
   };
 
   const quickNumber = parseAmount(quickAmount, unit.fraction);
-  const draftPayerHint = `${lastPayer}이 내고 반씩 나눠요`;
+  const quickPayer = participants.includes(lastPayer) ? lastPayer : participants[0] ?? "";
+  // 지금 적고 있는 지출을 사람별로 미리 쪼개 본다. 비중이 숫자로만 있으면
+  // 얼마씩인지 감이 안 온다.
+  const draftSplit = splitAmounts(
+    { id: "draft", day: draftDay, title: "", amount: amountNumber, category: draftCategory, payer: draftPayer, shares: Object.keys(draftShares).length ? draftShares : undefined, memo: "" },
+    participants,
+  );
+  const draftShareSummary = (() => {
+    const picked = Object.keys(draftShares);
+    if (!picked.length) {
+      return participants.length > 1
+        ? `${draftPayer}이 내고 ${participants.length}명이 똑같이 나눠요`
+        : `${draftPayer}이 냈어요`;
+    }
+    if (picked.length === 1) return `${draftPayer}이 내고 ${picked[0]} 몫이에요`;
+    const even = picked.every((person) => draftShares[person] === draftShares[picked[0]]);
+    return even
+      ? `${draftPayer}이 내고 ${picked.join(" · ")}이 똑같이 나눠요`
+      : `${draftPayer}이 내고 ${picked.map((person) => `${person} ${draftShares[person]}`).join(" · ")}`;
+  })();
+  const draftPayerHint = participants.length > 1
+    ? `${quickPayer}이 내고 ${participants.length}명이 똑같이 나눠요`
+    : `${quickPayer}이 냈어요`;
   const addQuickExpense = () => {
     if (!quickNumber) return;
     setExpenses((current) => [
@@ -6688,8 +6738,7 @@ function Money({
         title: quickCategory,
         amount: quickNumber,
         category: quickCategory,
-        payer: lastPayer,
-        share: "함께",
+        payer: participants.includes(lastPayer) ? lastPayer : participants[0] ?? "",
         memo: "",
       },
     ]);
@@ -6702,8 +6751,8 @@ function Money({
     setDraftTitle("");
     setDraftAmount("");
     setDraftCategory(lastCategory);
-    setDraftPayer(lastPayer);
-    setDraftShare("함께");
+    setDraftPayer(participants.includes(lastPayer) ? lastPayer : participants[0] ?? "");
+    setDraftShares({});
     // 날짜를 거르고 있으면 그 날, 아니면 오늘, 여행 기간이 아니면 첫날이다.
     setDraftDay(dayFilter === "전체" ? todayDay || dayOptions[0] || "" : dayFilter);
     setDraftMemo("");
@@ -6718,12 +6767,12 @@ function Money({
     setDraftAmount(amountText(item.amount, unit.fraction));
     setDraftCategory(item.category);
     setDraftPayer(item.payer);
-    setDraftShare(item.share);
+    setDraftShares(item.shares ?? {});
     setDraftDay(item.day);
     setDraftMemo(item.memo);
     setDraftReceipt(item.receiptUri ?? "");
     // 기본값과 다른 지출을 고칠 때는 그 자리를 바로 보여준다.
-    setPayerOpen(item.share !== "함께");
+    setPayerOpen(Object.keys(item.shares ?? {}).length > 0);
     setExtrasOpen(Boolean(item.memo || item.receiptUri));
     setSheetOpen(true);
   };
@@ -6739,7 +6788,7 @@ function Money({
         amount: amountNumber,
         category: draftCategory,
         payer: draftPayer,
-        share: draftShare,
+        shares: Object.keys(draftShares).length ? draftShares : undefined,
         memo: draftMemo.trim(),
         receiptUri: draftReceipt || undefined,
       };
@@ -6798,7 +6847,7 @@ function Money({
       notify("내보낼 지출이 없어요");
       return;
     }
-    const csv = expensesToCsv(tripName, sorted, unit.code, exchangeRate);
+    const csv = expensesToCsv(tripName, sorted, participants, unit.code, exchangeRate);
     try {
       // 공유를 못 하는 곳에서는 표를 클립보드에 담는다. 스프레드시트에 그대로
       // 붙여넣으면 같은 표가 된다.
@@ -6845,6 +6894,24 @@ function Money({
             </Text>
             <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />
           </Pressable>
+          {/* 누구끼리 나누는지가 정산의 전제다. 공간 멤버가 여럿이면 이번
+              여행에 누가 갔는지부터 맞아야 아래 숫자가 뜻을 갖는다. */}
+          <Pressable
+            onPress={() => setPeopleSheetOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`이번 여행 참가자 ${participants.length}명, 눌러서 바꾸기`}
+            style={({ pressed }) => [
+              styles.moneyCurrencyChip,
+              theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft },
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <Text style={[styles.moneyCurrencyLabel, theme && { color: theme.muted }]}>참가자</Text>
+            <Text numberOfLines={1} style={[styles.moneyCurrencyValue, theme && { color: theme.primary }]}>
+              {participants.length}명
+            </Text>
+            <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />
+          </Pressable>
           {/* 원이 아닐 때만 환산을 낸다. 원이면 같은 숫자를 두 번 보여줄 뿐이다. */}
           {foreign && (
             <Text style={[styles.moneyConverted, theme && { color: theme.muted }]}>
@@ -6874,33 +6941,40 @@ function Money({
           <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
         </View>
         <View style={styles.moneyPaidRow}>
-          {EXPENSE_PAYERS.map((person, index) => (
+          {participants.map((person, index) => (
             <View
               key={person}
               style={[styles.moneyPaidItem, index > 0 && theme && { borderLeftWidth: 1, borderLeftColor: theme.border }]}
             >
-              <Text style={[styles.moneyPaidName, theme && { color: theme.muted }]}>{person}이 낸 돈</Text>
-              <Text style={[styles.moneyPaidAmount, theme && { color: theme.text }]}>{show(settlement.paid[person])}</Text>
+              <Text numberOfLines={1} style={[styles.moneyPaidName, theme && { color: theme.muted }]}>{person}</Text>
+              <Text numberOfLines={1} style={[styles.moneyPaidAmount, theme && { color: theme.text }]}>{show(settlement.paid[person] ?? 0)}</Text>
               {/* 몫이 있어야 아래 정산 금액이 어디서 나왔는지 셈이 보인다. */}
-              <Text style={[styles.moneyPaidShare, theme && { color: theme.muted }]}>
-                몫 {show(settlement.owed[person])}
+              <Text numberOfLines={1} style={[styles.moneyPaidShare, theme && { color: theme.muted }]}>
+                몫 {show(settlement.owed[person] ?? 0)}
               </Text>
             </View>
           ))}
         </View>
-        {/* 정산 한 줄. 둘이 쓰는 수첩이라 결국 이 줄을 보려고 들어온다. */}
-        <View style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}>
-          {settlement.from ? (
-            <>
-              <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>
-                {settlement.from}이 {settlement.to}에게
-              </Text>
-              <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{show(settlement.amount)}</Text>
-            </>
-          ) : (
+        {/* 정산. 결국 이걸 보려고 들어온다. 셋 이상이면 오갈 줄이 여러 개다. */}
+        {settlement.transfers.length ? (
+          <View style={styles.moneySettleList}>
+            {settlement.transfers.map((transfer) => (
+              <View
+                key={`${transfer.from}-${transfer.to}`}
+                style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}
+              >
+                <Text numberOfLines={1} style={[styles.moneySettleText, theme && { color: theme.primary }]}>
+                  {transfer.from}이 {transfer.to}에게
+                </Text>
+                <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{show(transfer.amount)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}>
             <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>정산할 게 없어요</Text>
-          )}
-        </View>
+          </View>
+        )}
       </View>
       {/* 요약 바로 아래에 둔다. 탭을 열자마자 손이 닿는 자리다. */}
       <View style={[styles.quickAdd, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -7076,7 +7150,8 @@ function Money({
                 <View style={styles.moneyRowBody}>
                   <Text numberOfLines={1} style={[styles.moneyRowTitle, theme && { color: theme.text }]}>{item.title}</Text>
                   <Text numberOfLines={1} style={[styles.moneyRowMeta, theme && { color: theme.muted }]}>
-                    {item.category} · {item.payer}이 냄{item.share === "함께" ? "" : ` · ${item.share} 몫`}
+                    {item.category} · {item.payer}이 냄
+                    {item.shares ? ` · ${shareLabel(item, participants)} 몫` : ""}
                     {item.receiptUri ? " · 영수증" : ""}
                   </Text>
                 </View>
@@ -7182,22 +7257,90 @@ function Money({
         <OptionField label="날짜" options={dayOptions} value={draftDay} onChange={setDraftDay} />
         <OptionalFormSection
           label="누가 내고 누구 몫인지"
-          summary={`${draftPayer}이 내고 ${draftShare === "함께" ? "반씩 나눠요" : `${draftShare} 몫이에요`}`}
+          summary={draftShareSummary}
           open={payerOpen}
           onToggle={() => setPayerOpen((current) => !current)}
         >
           <OptionField
             label="낸 사람"
-            options={EXPENSE_PAYERS}
+            options={participants}
             value={draftPayer}
-            onChange={(value) => setDraftPayer(value as ExpensePayer)}
+            onChange={setDraftPayer}
           />
-          <OptionField
-            label="누구 몫"
-            options={EXPENSE_SHARES}
-            value={draftShare}
-            onChange={(value) => setDraftShare(value as ExpenseShare)}
-          />
+          <View style={styles.shareField}>
+            <View style={styles.fieldLabelRow}>
+              <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+              <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>누구 몫</Text>
+            </View>
+            {/* 아무도 안 고르면 참가자 전원이 똑같이 나눈다. 가장 흔한 경우라
+                따로 고를 것을 없앴다. 한 명만 고르면 그 사람 몫이고, 여럿을
+                고른 뒤 옆의 숫자를 바꾸면 그 비중대로 갈린다. */}
+            <View style={styles.shareRows}>
+              {participants.map((person) => {
+                const picked = draftShares[person] !== undefined;
+                return (
+                  <View key={person} style={styles.shareRow}>
+                    <Pressable
+                      onPress={() => setDraftShares((current) => {
+                        const next = { ...current };
+                        if (picked) delete next[person];
+                        else next[person] = 1;
+                        return next;
+                      })}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: picked }}
+                      accessibilityLabel={`${person} 몫`}
+                      style={({ pressed }) => [
+                        styles.shareName,
+                        theme && { borderColor: picked ? theme.primary : theme.border },
+                        picked && theme && { backgroundColor: theme.primarySoft },
+                        pressed && styles.controlPressed,
+                      ]}
+                    >
+                      <Text style={[styles.shareNameText, theme && { color: picked ? theme.primary : theme.muted }]}>
+                        {person}
+                      </Text>
+                    </Pressable>
+                    {picked && (
+                      <View style={styles.shareWeight}>
+                        <Pressable
+                          onPress={() => setDraftShares((current) => ({
+                            ...current,
+                            [person]: Math.max(1, (current[person] ?? 1) - 1),
+                          }))}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${person} 비중 줄이기`}
+                        >
+                          <Glyph name="minus" size={14} color={theme?.muted ?? "#646C7A"} weight={2.4} />
+                        </Pressable>
+                        <Text style={[styles.shareWeightValue, theme && { color: theme.text }]}>
+                          {draftShares[person]}
+                        </Text>
+                        <Pressable
+                          onPress={() => setDraftShares((current) => ({
+                            ...current,
+                            [person]: Math.min(99, (current[person] ?? 1) + 1),
+                          }))}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${person} 비중 늘리기`}
+                        >
+                          <Glyph name="plus" size={14} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
+                        </Pressable>
+                      </View>
+                    )}
+                    {picked && amountNumber > 0 && (
+                      <Text style={[styles.shareAmount, theme && { color: theme.muted }]}>
+                        {show(draftSplit[person] ?? 0)}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={[styles.settingHint, theme && { color: theme.muted }]}>{draftShareSummary}</Text>
+          </View>
         </OptionalFormSection>
         <OptionalFormSection
           label="영수증과 메모"
@@ -7245,6 +7388,52 @@ function Money({
             placeholder="예: 둘 다 학생 할인"
           />
         </OptionalFormSection>
+      </DetailSheet>
+      <DetailSheet
+        visible={peopleSheetOpen}
+        title="이번 여행 참가자"
+        subtitle="공간 멤버 중에 이번에 같이 가는 사람만 골라요"
+        submit="참가자 저장"
+        disabledHint={!participants.length ? "한 명은 있어야 해요" : undefined}
+        submitDisabled={!participants.length}
+        onClose={() => setPeopleSheetOpen(false)}
+        onSubmit={() => {
+          setPeopleSheetOpen(false);
+          notify(`참가자 ${participants.length}명으로 저장했어요`);
+        }}
+      >
+        <View style={styles.shareRows}>
+          {spaceMembers.map((person) => {
+            const joined = participants.includes(person);
+            const spent = expenses.some((item) => item.payer === person);
+            return (
+              <Pressable
+                key={person}
+                onPress={() => setParticipants((current) =>
+                  joined ? current.filter((name) => name !== person) : [...current, person],
+                )}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: joined }}
+                accessibilityLabel={`${person} 참가`}
+                style={({ pressed }) => [
+                  styles.participantRow,
+                  theme && { borderColor: joined ? theme.primary : theme.border, backgroundColor: joined ? theme.primarySoft : theme.surface },
+                  pressed && styles.controlPressed,
+                ]}
+              >
+                <Text style={[styles.participantName, theme && { color: joined ? theme.primary : theme.muted }]}>{person}</Text>
+                {/* 이미 이 사람 이름으로 적은 지출이 있으면 빼기 전에 알려 준다. */}
+                {spent && !joined && (
+                  <Text style={[styles.participantWarn, theme && { color: theme.accent }]}>적은 지출 있음</Text>
+                )}
+                {joined && <Glyph name="check" size={16} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+          몫을 따로 안 적은 지출은 여기 고른 사람들이 똑같이 나눠요. 사람을 바꾸면 정산도 다시 계산돼요.
+        </Text>
       </DetailSheet>
       <DetailSheet
         visible={currencySheetOpen}
@@ -9253,6 +9442,18 @@ const styles = StyleSheet.create({
   quickAddButton: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 12, paddingLeft: 12, paddingRight: 14, paddingVertical: 11 },
   quickAddButtonText: { fontSize: 14, fontFamily: typo.label.family },
   quickAddHint: { fontSize: 11, marginTop: 8, fontFamily: typo.caption.family },
+  participantRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  participantName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
+  participantWarn: { fontSize: 11, fontFamily: typo.caption.family },
+  shareField: { marginBottom: 20 },
+  shareRows: { gap: 8, marginTop: 10 },
+  shareRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  shareName: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, minWidth: 72, alignItems: "center" },
+  shareNameText: { fontSize: 13, fontFamily: typo.label.family },
+  shareWeight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  shareWeightValue: { minWidth: 18, textAlign: "center", fontSize: 14, fontFamily: typo.data.family },
+  shareAmount: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
+  moneySettleList: { gap: 6, marginTop: 14 },
   amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: -10, marginBottom: 18 },
   amountStep: { borderWidth: 1, borderColor: "transparent", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   amountStepText: { fontSize: 12, fontFamily: typo.label.family },
@@ -9289,7 +9490,7 @@ const styles = StyleSheet.create({
   moneyPaidName: { fontSize: 11, fontFamily: typo.caption.family },
   moneyPaidAmount: { fontSize: 15, marginTop: 2, fontFamily: typo.data.family },
   moneyPaidShare: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
-  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 14 },
+  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 14 },
   moneySettleText: { fontSize: 13, fontFamily: typo.label.family },
   moneySettleAmount: { fontSize: 16, fontFamily: typo.data.family },
   moneyInsightCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },

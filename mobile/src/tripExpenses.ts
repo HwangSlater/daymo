@@ -1,14 +1,17 @@
 /**
  * 여행에서 쓴 돈.
  *
- * 낸 사람과 누구 몫인지를 따로 둔다. 둘이 함께 쓰는 수첩이라 대개는 한 사람이
- * 내고 반씩 나누지만, 혼자 산 기념품처럼 낸 사람과 몫이 다른 경우가 늘 있다.
- * 하나로 합치면 그런 지출이 정산에서 어긋난다.
+ * 낸 사람과 누구 몫인지를 따로 둔다. 대개는 한 사람이 내고 참가자끼리 나누지만,
+ * 혼자 산 기념품처럼 낸 사람과 몫이 다른 경우가 늘 있다. 하나로 합치면 그런
+ * 지출이 정산에서 어긋난다.
+ *
+ * 참가자는 여행마다 다르다. 한 공간에 멤버가 여럿이어도 이번 여행에는 일부만
+ * 가는 일이 흔해서, 몫은 공간 멤버가 아니라 이번 여행 참가자를 기준으로 나눈다.
  */
 export type ExpenseCategory = "식비" | "교통" | "숙박" | "입장료" | "쇼핑" | "기타";
-export type ExpensePayer = "하늘" | "여울";
-/** 누구 몫인가. `함께` 는 반씩 나눈다. */
-export type ExpenseShare = "함께" | "하늘" | "여울";
+
+/** 참가자 이름. 공간 멤버 가운데 이번 여행에 가는 사람이다. */
+export type Participant = string;
 
 export type Expense = {
   id: string;
@@ -18,8 +21,16 @@ export type Expense = {
   /** 여행에 정한 통화 기준 금액. 원 환산은 보여줄 때만 한다. */
   amount: number;
   category: ExpenseCategory;
-  payer: ExpensePayer;
-  share: ExpenseShare;
+  payer: Participant;
+  /**
+   * 몫을 지는 사람과 그 비중.
+   *
+   * 없으면 참가자 전원이 똑같이 나눈다. 사람이 늘고 줄어도 따로 고칠 게 없어서
+   * 가장 흔한 경우를 비워 두는 쪽으로 잡았다.
+   * `{ 하늘: 1 }` 이면 하늘 혼자, `{ 하늘: 7, 여울: 3 }` 이면 7 대 3 이다.
+   * 값은 비율이 아니라 비중이라 합이 얼마든 상관없다.
+   */
+  shares?: Record<Participant, number>;
   memo: string;
   /** 영수증 사진 자리. 없으면 안 찍었다는 뜻이다. */
   receiptUri?: string;
@@ -59,8 +70,6 @@ export function currencyOf(code: string): Currency {
 }
 
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = ["식비", "교통", "숙박", "입장료", "쇼핑", "기타"];
-export const EXPENSE_PAYERS: ExpensePayer[] = ["하늘", "여울"];
-export const EXPENSE_SHARES: ExpenseShare[] = ["함께", "하늘", "여울"];
 
 /** 1234567 → "1,234,567". 돈은 세 자리마다 끊어야 한눈에 자릿수가 읽힌다. */
 export function won(amount: number): string {
@@ -113,46 +122,124 @@ export function parseAmount(text: string, fraction: 0 | 2 = 0): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+/**
+ * 이 지출을 사람별 몫으로 쪼갠다.
+ *
+ * 비중이 없으면 참가자 전원이 똑같이 나눈다. 비중이 있어도 0 이하만 적혀 있으면
+ * 나눌 수가 없으니 전원 균등으로 돌아간다. 참가자가 아무도 없으면 빈 값이다.
+ */
+export function splitAmounts(item: Expense, participants: Participant[]): Record<Participant, number> {
+  const named = Object.entries(item.shares ?? {}).filter(([, weight]) => weight > 0);
+  const weightTotal = named.reduce((sum, [, weight]) => sum + weight, 0);
+  const result: Record<Participant, number> = {};
+  if (weightTotal > 0) {
+    for (const [person, weight] of named) result[person] = (item.amount * weight) / weightTotal;
+    return result;
+  }
+  if (!participants.length) return result;
+  for (const person of participants) result[person] = item.amount / participants.length;
+  return result;
+}
+
+/** 몫을 지는 사람들. 비중이 없으면 참가자 전원이다. */
+export function shareMembers(item: Expense, participants: Participant[]): Participant[] {
+  const named = Object.entries(item.shares ?? {}).filter(([, weight]) => weight > 0);
+  return named.length ? named.map(([person]) => person) : participants;
+}
+
+/**
+ * 누구 몫인지 읽을 수 있게 적는다.
+ *
+ * 참가자 전원이 똑같이 지면 `함께`, 한 사람이면 이름만, 나눠 졌으면 비중까지
+ * 적는다.
+ */
+export function shareLabel(item: Expense, participants: Participant[]): string {
+  const named = Object.entries(item.shares ?? {}).filter(([, weight]) => weight > 0);
+  if (!named.length) return "함께";
+  if (named.length === 1) return named[0][0];
+  const even = named.every(([, weight]) => weight === named[0][1]);
+  if (even && named.length === participants.length) return "함께";
+  if (even) return `${named.map(([person]) => person).join(" · ")} 균등`;
+  return named.map(([person, weight]) => `${person} ${weight}`).join(" · ");
+}
+
+export type Transfer = { from: Participant; to: Participant; amount: number };
+
 export type Settlement = {
   total: number;
   /** 각자 실제로 낸 돈. */
-  paid: Record<ExpensePayer, number>;
-  /** 각자 내야 했던 몫. */
-  owed: Record<ExpensePayer, number>;
-  /** 주는 사람. 정산할 게 없으면 null. */
-  from: ExpensePayer | null;
-  to: ExpensePayer | null;
-  /** 주고받을 금액. 원 단위로 반올림한다. */
-  amount: number;
+  paid: Record<Participant, number>;
+  /** 각자 내야 했던 몫. 반올림 전이라 소수가 섞일 수 있다. */
+  owed: Record<Participant, number>;
+  /** 주고받을 목록. 오갈 횟수가 적게 나오도록 묶는다. 비면 정산 끝이다. */
+  transfers: Transfer[];
 };
 
 /**
  * 낸 돈과 몫을 견줘 누가 누구에게 얼마를 줘야 하는지 낸다.
  *
- * 반씩 나눈 지출에서 홀수 원이 나오면 소수점이 생긴다. 계산은 소수로 하고
- * 마지막에 한 번만 반올림한다. 중간마다 반올림하면 건수가 쌓일수록 어긋난다.
+ * 사람이 둘이면 한 줄로 끝나지만 셋 이상이면 조합이 여러 개다. 더 받을 사람과
+ * 더 낼 사람을 큰 쪽부터 짝지어 없앤다. 이렇게 하면 오갈 횟수가 사람 수보다
+ * 늘 적고, 한 번에 큰 금액이 정리돼 사람이 따라가기 쉽다.
+ *
+ * 나눈 금액에 소수가 생기므로 계산은 소수로 끝까지 하고 주고받을 금액만
+ * 반올림한다. 중간마다 반올림하면 건수가 쌓일수록 어긋난다.
  */
-export function settle(expenses: Expense[]): Settlement {
-  const paid: Record<ExpensePayer, number> = { 하늘: 0, 여울: 0 };
-  const owed: Record<ExpensePayer, number> = { 하늘: 0, 여울: 0 };
+export function settle(expenses: Expense[], participants: Participant[]): Settlement {
+  const paid: Record<Participant, number> = {};
+  const owed: Record<Participant, number> = {};
+  for (const person of participants) {
+    paid[person] = 0;
+    owed[person] = 0;
+  }
   let total = 0;
   for (const item of expenses) {
     total += item.amount;
-    paid[item.payer] += item.amount;
-    if (item.share === "함께") {
-      owed.하늘 += item.amount / 2;
-      owed.여울 += item.amount / 2;
-    } else {
-      owed[item.share] += item.amount;
+    // 참가자에서 빠진 사람이 낸 지출도 잃어버리지 않는다.
+    paid[item.payer] = (paid[item.payer] ?? 0) + item.amount;
+    for (const [person, share] of Object.entries(splitAmounts(item, participants))) {
+      owed[person] = (owed[person] ?? 0) + share;
     }
   }
-  // 더 낸 쪽이 받는다. 0 에 가까우면 정산할 게 없다.
-  const balance = paid.하늘 - owed.하늘;
-  const amount = Math.round(Math.abs(balance));
-  if (amount === 0) return { total, paid, owed, from: null, to: null, amount: 0 };
-  return balance > 0
-    ? { total, paid, owed, from: "여울", to: "하늘", amount }
-    : { total, paid, owed, from: "하늘", to: "여울", amount };
+  // 1원 미만 차이는 주고받을 것이 없다고 본다.
+  const balances = [...new Set([...Object.keys(paid), ...Object.keys(owed)])]
+    .map((person) => ({ person, value: (paid[person] ?? 0) - (owed[person] ?? 0) }))
+    .filter((entry) => Math.abs(entry.value) >= 0.5);
+  const creditors = balances.filter((entry) => entry.value > 0).sort((a, b) => b.value - a.value);
+  const debtors = balances.filter((entry) => entry.value < 0).sort((a, b) => a.value - b.value);
+  const transfers: Transfer[] = [];
+  let creditorIndex = 0;
+  let debtorIndex = 0;
+  while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+    const creditor = creditors[creditorIndex];
+    const debtor = debtors[debtorIndex];
+    const amount = Math.min(creditor.value, -debtor.value);
+    const rounded = Math.round(amount);
+    if (rounded > 0) transfers.push({ from: debtor.person, to: creditor.person, amount: rounded });
+    creditor.value -= amount;
+    debtor.value += amount;
+    if (creditor.value < 0.5) creditorIndex += 1;
+    if (-debtor.value < 0.5) debtorIndex += 1;
+  }
+  return { total, paid, owed, transfers };
+}
+
+/**
+ * 옛 저장 데이터를 지금 모양으로 옮긴다.
+ *
+ * 예전에는 사람이 하늘과 여울 둘로 박혀 있어서 `share` 가 `함께`·`하늘`·`여울`·
+ * `직접` 이었고, 직접일 때의 비율은 `splitSky` 에 퍼센트로 들어 있었다. 그 값을
+ * 사람별 비중으로 옮긴다. 옮길 게 없으면 그대로 돌려준다.
+ */
+export function normalizeExpense(value: Expense & { share?: string; splitSky?: number }): Expense {
+  const { share, splitSky, ...rest } = value;
+  if (!share) return rest;
+  if (share === "하늘" || share === "여울") return { ...rest, shares: { [share]: 1 } };
+  if (share === "직접") {
+    const sky = Math.min(100, Math.max(0, splitSky ?? 50));
+    return { ...rest, shares: { 하늘: sky, 여울: 100 - sky } };
+  }
+  return rest;
 }
 
 /** 분류별 합계. 쓴 게 있는 분류만, 많이 쓴 차례로 낸다. */
@@ -193,10 +280,11 @@ function cell(value: string | number): string {
 export function expensesToCsv(
   tripName: string,
   expenses: Expense[],
+  participants: Participant[],
   code: string = DEFAULT_CURRENCY.code,
   rate = 1,
 ): string {
-  const settlement = settle(expenses);
+  const settlement = settle(expenses, participants);
   const currency = currencyOf(code);
   // 원이 아니면 원 환산을 한 칸 더 낸다. 원이면 같은 숫자가 두 번 나올 뿐이라 뺀다.
   const converted = currency.code !== "KRW";
@@ -204,7 +292,7 @@ export function expensesToCsv(
   if (converted) head.splice(4, 0, "원 환산");
   const rows: string[] = [head.join(",")];
   for (const item of expenses) {
-    const line: (string | number)[] = [item.day, item.title, item.category, item.amount, item.payer, item.share, item.memo];
+    const line: (string | number)[] = [item.day, item.title, item.category, item.amount, item.payer, shareLabel(item, participants), item.memo];
     if (converted) line.splice(4, 0, toWon(item.amount, rate));
     rows.push(line.map(cell).join(","));
   }
@@ -214,16 +302,22 @@ export function expensesToCsv(
     rows.push([cell(label), amount, ...(converted ? [toWon(amount, rate)] : [])].join(","));
   };
   summary(`${tripName} 총 지출`, settlement.total);
-  for (const person of EXPENSE_PAYERS) {
-    summary(`${person}이 낸 돈`, settlement.paid[person]);
-    summary(`${person} 몫`, Math.round(settlement.owed[person]));
+  // 참가자에서 빠진 사람이 낸 지출이 있으면 그 사람도 표에 남긴다.
+  const people = [...new Set([...participants, ...Object.keys(settlement.paid)])];
+  for (const person of people) {
+    summary(`${person}이 낸 돈`, settlement.paid[person] ?? 0);
+    summary(`${person} 몫`, Math.round(settlement.owed[person] ?? 0));
   }
   if (converted) rows.push([cell("환율"), cell(`1 ${currency.code} = ${amountText(rate, 2)}원`)].join(","));
-  rows.push([
-    "정산",
-    cell(settlement.from
-      ? `${settlement.from}이 ${settlement.to}에게 ${money(settlement.amount, currency.code)}`
-      : "정산할 게 없어요"),
-  ].join(","));
+  if (!settlement.transfers.length) {
+    rows.push(["정산", cell("정산할 게 없어요")].join(","));
+  } else {
+    for (const transfer of settlement.transfers) {
+      rows.push([
+        "정산",
+        cell(`${transfer.from}이 ${transfer.to}에게 ${money(transfer.amount, currency.code)}`),
+      ].join(","));
+    }
+  }
   return `\uFEFF${rows.join("\r\n")}\r\n`;
 }

@@ -133,8 +133,9 @@ const sampleExpense = (
   title: string,
   amount: number,
   category: Expense["category"],
-  payer: Expense["payer"],
-  share: Expense["share"] = "함께",
+  payer: string,
+  /** 몫을 지는 사람과 비중. 없으면 참가자 전원이 똑같이 나눈다. */
+  shares?: Record<string, number>,
   memo = "",
 ): Expense => ({
   id,
@@ -143,7 +144,7 @@ const sampleExpense = (
   amount,
   category,
   payer,
-  share,
+  shares,
   memo,
 });
 
@@ -167,7 +168,7 @@ const trips: Trip[] = [
     // 아직 안 떠난 여행이라 미리 낸 것만 있다.
     planning: {
       expenses: [
-        sampleExpense("jj-1", upcomingSampleStart, 0, "KTX 왕복 예매", 47200, "교통", "하늘", "하늘"),
+        sampleExpense("jj-1", upcomingSampleStart, 0, "KTX 왕복 예매", 47200, "교통", "하늘", { 하늘: 1 }),
         sampleExpense("jj-2", upcomingSampleStart, 0, "달빛한옥 예약금", 90000, "숙박", "하늘"),
       ],
     },
@@ -183,11 +184,11 @@ const trips: Trip[] = [
     end: recentSampleEnd,
     planning: {
       expenses: [
-        sampleExpense("gn-1", recentSampleStart, 0, "시외버스 왕복", 28000, "교통", "여울", "여울"),
+        sampleExpense("gn-1", recentSampleStart, 0, "시외버스 왕복", 28000, "교통", "여울", { 여울: 1 }),
         sampleExpense("gn-2", recentSampleStart, 0, "안목 카페 거리", 39000, "식비", "하늘"),
         sampleExpense("gn-3", recentSampleStart, 0, "바다뷰 숙소 1박", 120000, "숙박", "여울"),
         sampleExpense("gn-4", recentSampleStart, 1, "보드게임 카페", 24000, "기타", "하늘"),
-        sampleExpense("gn-5", recentSampleStart, 1, "야식 장보기", 31800, "식비", "여울", "함께", "치킨과 맥주"),
+        sampleExpense("gn-5", recentSampleStart, 1, "야식 장보기", 31800, "식비", "여울", undefined, "치킨과 맥주"),
       ],
     },
   },
@@ -207,7 +208,7 @@ const trips: Trip[] = [
         sampleExpense("ys-3", archiveSampleStart, 0, "게스트하우스 2박", 90000, "숙박", "하늘"),
         sampleExpense("ys-4", archiveSampleStart, 1, "해상 케이블카", 30000, "입장료", "여울"),
         sampleExpense("ys-5", archiveSampleStart, 1, "택시", 12000, "교통", "하늘"),
-        sampleExpense("ys-6", archiveSampleStart, 2, "기념품 수제 엽서", 15000, "쇼핑", "여울", "여울"),
+        sampleExpense("ys-6", archiveSampleStart, 2, "기념품 수제 엽서", 15000, "쇼핑", "여울", { 여울: 1 }),
       ],
     },
   },
@@ -348,6 +349,12 @@ export function WarmAppShell({
     name: "하늘",
     email: "sky@daymo.app",
   });
+  // 이 공간에 속한 사람들. 나를 앞에 두고 초대한 멤버가 뒤따른다. 여행 상세는
+  // 이 목록에서 이번 여행 참가자를 고른다.
+  const activeSpaceMembers = [
+    user?.name ?? "나",
+    ...(spaceGroups.find((group) => group.id === activeGroupId)?.members ?? []),
+  ];
   const now = new Date();
 
   useEffect(() => {
@@ -407,6 +414,7 @@ export function WarmAppShell({
         tripRegion={selectedTrip.region}
         tripNote={selectedTrip.note}
         initialPlanning={selectedTrip.planning}
+        spaceMembers={activeSpaceMembers}
         appTheme={theme}
         onUpdateTrip={(changes) => {
           const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
