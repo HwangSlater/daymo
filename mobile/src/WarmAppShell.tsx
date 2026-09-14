@@ -64,9 +64,10 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
+import { DaymoApiError, login, logout, restoreSession, signUp, type AuthUser } from "./auth";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
-type DaymoUser = { name: string; email: string };
+type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -405,8 +406,25 @@ export function WarmAppShell({
     settings.appearance,
   );
   useSaveSettings({ themeId, appearance, activeGroupId, since: activeSpace.since });
-  const [user, setUser] = useState<DaymoUser | null>(storedUser);
+  const [user, setUser] = useState<DaymoUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authOffline, setAuthOffline] = useState(false);
   useSaveMe(user);
+  useEffect(() => {
+    let active = true;
+    restoreSession()
+      .then((session) => {
+        if (!active) return;
+        setUser(session?.user ?? null);
+        setAuthOffline(session?.offline ?? false);
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   /**
    * 이 기기에 남은 것을 전부 지운다.
    *
@@ -414,6 +432,7 @@ export function WarmAppShell({
    * 기록뿐이고, 화면에도 그렇게 적는다.
    */
   const wipeDevice = () => {
+    void logout();
     void clearDevice([tripStorageKey, "daymo.device-settings.v1"]);
     setSpaces(defaultSpaces);
     setTripsByGroup(initialTripsByGroup);
@@ -469,8 +488,15 @@ export function WarmAppShell({
     setTripDestination(destination);
     setTripOpen(true);
   };
+  if (!authReady) {
+    return (
+      <SafeAreaView style={[s.safe, { backgroundColor: theme.background, alignItems: "center", justifyContent: "center" }]}>
+        <Text style={{ color: theme.muted }}>계정을 확인하고 있어요…</Text>
+      </SafeAreaView>
+    );
+  }
   if (!user) {
-    return <AuthScreen theme={theme} onAuth={setUser} />;
+    return <AuthScreen theme={theme} onAuth={(nextUser) => { setUser(nextUser); setAuthOffline(false); }} />;
   }
   if (isTripOpen)
     return (
@@ -513,6 +539,11 @@ export function WarmAppShell({
           <Text style={s.storageWarningText}>
             기기에 저장하지 못했어요. 앱을 다시 열면 최근에 적은 내용이 사라질 수 있어요.
           </Text>
+        </View>
+      )}
+      {authOffline && (
+        <View accessibilityLiveRegion="polite" style={[s.storageWarning, { backgroundColor: theme.accent }]}>
+          <Text style={s.storageWarningText}>서버에 연결되지 않아 이 기기에 저장된 내용을 보여드리고 있어요.</Text>
         </View>
       )}
       <View style={[s.body, { backgroundColor: "transparent" }]}>
@@ -560,7 +591,11 @@ export function WarmAppShell({
             user={user}
             setUser={setUser}
             openTrip={(trip) => openTrip("overview", trip)}
-            onLogout={() => setUser(null)}
+            onLogout={() => {
+              void logout();
+              setUser(null);
+              setAuthOffline(false);
+            }}
             onWipe={wipeDevice}
           />
         )}
@@ -583,6 +618,8 @@ function AuthScreen({
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
@@ -590,16 +627,16 @@ function AuthScreen({
   const oauthBaseUrl = process.env.EXPO_PUBLIC_DAYMO_AUTH_URL?.replace(/\/$/, "");
   const authFormValid =
     email.trim().includes("@") &&
-    password.length >= 6 &&
+    password.length >= 8 &&
     (mode === "login" || (Boolean(name.trim()) && password === confirm && termsAgreed && privacyAgreed));
-  const submit = () => {
+  const submit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail.includes("@")) {
       setError("이메일 주소를 확인해 주세요.");
       return;
     }
-    if (password.length < 6) {
-      setError("비밀번호는 6자 이상 입력해 주세요.");
+    if (password.length < 8) {
+      setError("비밀번호는 8자 이상 입력해 주세요.");
       return;
     }
     if (mode === "signup" && !name.trim()) {
@@ -615,14 +652,32 @@ function AuthScreen({
       return;
     }
     setError("");
-    onAuth({
-      name: mode === "signup" ? name.trim() : normalizedEmail.split("@")[0],
-      email: normalizedEmail,
-    });
+    setNotice("");
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        await signUp(normalizedEmail, password, name.trim());
+        setMode("login");
+        setPassword("");
+        setConfirm("");
+        setNotice("확인 메일을 보냈어요. 이메일 인증을 마친 뒤 로그인해 주세요.");
+        return;
+      }
+      const result = await login(normalizedEmail, password);
+      onAuth(result.user);
+      if (result.endedDevices.length > 0) {
+        Alert.alert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
+      }
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "로그인하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setLoading(false);
+    }
   };
   const switchMode = () => {
     setMode((current) => (current === "login" ? "signup" : "login"));
     setError("");
+    setNotice("");
     setPassword("");
     setConfirm("");
   };
@@ -679,7 +734,7 @@ function AuthScreen({
             <Field theme={theme} label="이름 또는 별명 · 필수" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
           )}
           <Field theme={theme} label="이메일 · 필수" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
-          <Field theme={theme} label="비밀번호 · 필수" value={password} onChangeText={setPassword} placeholder="6자 이상 입력" secureTextEntry />
+          <Field theme={theme} label="비밀번호 · 필수" value={password} onChangeText={setPassword} placeholder="8자 이상 입력" secureTextEntry />
           {mode === "signup" && (
             <Field theme={theme} label="비밀번호 확인 · 필수" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
           )}
@@ -730,14 +785,17 @@ function AuthScreen({
               {error}
             </Text>
           ) : null}
+          {notice ? (
+            <Text accessibilityLiveRegion="polite" style={[s.authError, { color: theme.primary }]}>{notice}</Text>
+          ) : null}
           <Pressable
             onPress={submit}
-            disabled={!authFormValid}
+            disabled={!authFormValid || loading}
             accessibilityRole="button"
-            accessibilityState={{ disabled: !authFormValid }}
-            style={[s.authSubmit, { backgroundColor: theme.primary }, !authFormValid && s.authSubmitDisabled]}
+            accessibilityState={{ disabled: !authFormValid || loading, busy: loading }}
+            style={[s.authSubmit, { backgroundColor: theme.primary }, (!authFormValid || loading) && s.authSubmitDisabled]}
           >
-            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{mode === "login" ? "로그인" : "회원가입"}</Text>
+            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "확인 중…" : mode === "login" ? "로그인" : "회원가입"}</Text>
           </Pressable>
           <View style={s.authDivider}>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />

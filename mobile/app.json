@@ -51,7 +51,8 @@
           "photosPermission": "여행 사진을 기록에 추가하려면 사진 접근 권한이 필요합니다."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ]
   }
 }
