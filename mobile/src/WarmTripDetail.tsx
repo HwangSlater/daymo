@@ -110,9 +110,11 @@ export type PlaceItem = {
   status: "후보" | "일정";
 };
 export type TripPlanningData = {
-  schedule: ScheduleItem[];
-  stay: StayInfo;
-  places: PlaceItem[];
+  // 셋 다 없을 수 있다. 예시 여행처럼 지출만 미리 심어 둔 경우가 있어서다.
+  // 상세 화면을 한 번 열고 닫으면 그때 기본값으로 채워져 저장된다.
+  schedule?: ScheduleItem[];
+  stay?: StayInfo;
+  places?: PlaceItem[];
   reservations?: ReservationInfo[];
   /** 이전 저장 데이터에서 reservations로 옮기기 위한 호환 필드 */
   reservation?: ReservationInfo | null;
@@ -623,7 +625,8 @@ export function WarmTripDetail({
     initialPlanning?.cookingReadyIngredientIds ?? [],
   );
   const [expenses, setExpenses] = useState<Expense[]>(
-    initialPlanning?.expenses ?? sampleExpenses(tripDayOptions),
+    // 예시 지출은 여행마다 WarmAppShell 에서 심는다. 새로 만든 여행은 비어서 시작한다.
+    initialPlanning?.expenses ?? [],
   );
   const [budget, setBudget] = useState(initialPlanning?.budget ?? 500000);
   const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
@@ -6526,19 +6529,6 @@ function SectionLabel({
   );
 }
 
-/** 첫날부터 차례로 채운 예시 지출. 날짜는 이 여행의 날짜 선택지를 따른다. */
-function sampleExpenses(days: string[]): Expense[] {
-  const day = (index: number) => days[Math.min(index, days.length - 1)] ?? "";
-  return [
-    { id: "e1", day: day(0), title: "옹기식탁 점심", amount: 32000, category: "식비", payer: "하늘", share: "함께", memo: "" },
-    { id: "e2", day: day(0), title: "한옥마을 입장료", amount: 6000, category: "입장료", payer: "여울", share: "함께", memo: "둘 다 학생 할인" },
-    { id: "e3", day: day(0), title: "달빛한옥 2박", amount: 180000, category: "숙박", payer: "하늘", share: "함께", memo: "" },
-    { id: "e4", day: day(1), title: "KTX 왕복", amount: 47200, category: "교통", payer: "하늘", share: "하늘", memo: "" },
-    { id: "e5", day: day(1), title: "한지 공예 기념품", amount: 18000, category: "쇼핑", payer: "여울", share: "여울", memo: "" },
-    { id: "e6", day: day(1), title: "저녁 장보기", amount: 41500, category: "식비", payer: "여울", share: "함께", memo: "버섯전골 재료" },
-  ];
-}
-
 function Money({
   tripName,
   dayOptions,
@@ -6805,17 +6795,32 @@ function Money({
           {show(settlement.total)}
         </Text>
         <View style={styles.moneyCurrencyRow}>
+          {/* 글자만 두면 누를 수 있는 줄 모른다. 테두리와 화살표를 줘서 고르는
+              칸이라는 걸 보이게 한다. 자리는 늘 왼쪽으로 고정한다. */}
+          <Pressable
+            onPress={openCurrency}
+            accessibilityRole="button"
+            accessibilityLabel={`여행 통화 ${unit.code} ${unit.label}, 눌러서 바꾸기`}
+            style={({ pressed }) => [
+              styles.moneyCurrencyChip,
+              theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft },
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <Text style={[styles.moneyCurrencyLabel, theme && { color: theme.muted }]}>통화</Text>
+            <Text style={[styles.moneyCurrencyValue, theme && { color: theme.primary }]}>
+              {unit.code === DEFAULT_CURRENCY.code
+                ? `${unit.code} 원`
+                : `${unit.code} · ${amountText(exchangeRate, 2)}원`}
+            </Text>
+            <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />
+          </Pressable>
           {/* 원이 아닐 때만 환산을 낸다. 원이면 같은 숫자를 두 번 보여줄 뿐이다. */}
           {foreign && (
             <Text style={[styles.moneyConverted, theme && { color: theme.muted }]}>
               약 {won(inWon(settlement.total))}원
             </Text>
           )}
-          <Pressable onPress={openCurrency} hitSlop={10} accessibilityRole="button" accessibilityLabel="여행 통화 바꾸기">
-            <Text style={[styles.moneyBudgetAction, theme && { color: theme.primary }]}>
-              {unit.code === DEFAULT_CURRENCY.code ? "통화 바꾸기" : `${unit.code} · 환율 ${amountText(exchangeRate, 2)}`}
-            </Text>
-          </Pressable>
         </View>
         <View style={styles.moneyBudgetHead}>
           <Text style={[styles.moneyBudgetLabel, theme && { color: theme.muted }]}>예산 {show(budget)}</Text>
@@ -9122,8 +9127,11 @@ const styles = StyleSheet.create({
   moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   moneyTotalUnit: { fontSize: 16, fontFamily: typo.body.family },
-  moneyCurrencyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 2 },
-  moneyConverted: { fontSize: 12, fontFamily: typo.data.family },
+  moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
+  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingLeft: 12, paddingRight: 9, paddingVertical: 7 },
+  moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
+  moneyCurrencyValue: { fontSize: 12.5, fontFamily: typo.label.family },
+  moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
   shoppingCost: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 },
   shoppingCostCopy: { flex: 1, minWidth: 0 },
   shoppingCostTitle: { fontSize: 13, fontFamily: typo.title.family },

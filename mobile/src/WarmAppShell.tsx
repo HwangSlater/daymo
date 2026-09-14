@@ -25,7 +25,7 @@ import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSheetDrag } from "./sheetDrag";
-import { money } from "./tripExpenses";
+import { type Expense, money } from "./tripExpenses";
 import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
@@ -113,6 +113,40 @@ const daysSince = (from: string, todayKey: string): number | null => {
   return days > 0 ? days : null;
 };
 
+/**
+ * 여행 며칠째의 날짜 이름. 상세 화면의 날짜 선택지와 같은 "22일(토)" 형식이다.
+ *
+ * 예시 여행의 날짜는 오늘을 기준으로 만들어지므로 지출의 날짜도 같은 규칙으로
+ * 계산해야 한다. 글자로 박아 두면 날이 지날수록 어긋난다.
+ */
+const sampleTripDay = (startKey: string, offset: number) => {
+  const [year, month, day] = startKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day + offset, 12, 0, 0, 0);
+  return `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
+};
+
+/** 예시 지출 한 건. 여행마다 다른 목록을 만들려고 짧게 쓴다. */
+const sampleExpense = (
+  id: string,
+  startKey: string,
+  offset: number,
+  title: string,
+  amount: number,
+  category: Expense["category"],
+  payer: Expense["payer"],
+  share: Expense["share"] = "함께",
+  memo = "",
+): Expense => ({
+  id,
+  day: sampleTripDay(startKey, offset),
+  title,
+  amount,
+  category,
+  payer,
+  share,
+  memo,
+});
+
 const upcomingSampleStart = sampleDate(12);
 const upcomingSampleEnd = sampleDate(14);
 const recentSampleStart = sampleDate(-23);
@@ -130,6 +164,13 @@ const trips: Trip[] = [
     region: "전북",
     start: upcomingSampleStart,
     end: upcomingSampleEnd,
+    // 아직 안 떠난 여행이라 미리 낸 것만 있다.
+    planning: {
+      expenses: [
+        sampleExpense("jj-1", upcomingSampleStart, 0, "KTX 왕복 예매", 47200, "교통", "하늘", "하늘"),
+        sampleExpense("jj-2", upcomingSampleStart, 0, "달빛한옥 예약금", 90000, "숙박", "하늘"),
+      ],
+    },
   },
   {
     name: "강릉 안목",
@@ -140,6 +181,15 @@ const trips: Trip[] = [
     region: "강원",
     start: recentSampleStart,
     end: recentSampleEnd,
+    planning: {
+      expenses: [
+        sampleExpense("gn-1", recentSampleStart, 0, "시외버스 왕복", 28000, "교통", "여울", "여울"),
+        sampleExpense("gn-2", recentSampleStart, 0, "안목 카페 거리", 39000, "식비", "하늘"),
+        sampleExpense("gn-3", recentSampleStart, 0, "바다뷰 숙소 1박", 120000, "숙박", "여울"),
+        sampleExpense("gn-4", recentSampleStart, 1, "보드게임 카페", 24000, "기타", "하늘"),
+        sampleExpense("gn-5", recentSampleStart, 1, "야식 장보기", 31800, "식비", "여울", "함께", "치킨과 맥주"),
+      ],
+    },
   },
   {
     name: "여수",
@@ -150,6 +200,16 @@ const trips: Trip[] = [
     region: "전남",
     start: archiveSampleStart,
     end: archiveSampleEnd,
+    planning: {
+      expenses: [
+        sampleExpense("ys-1", archiveSampleStart, 0, "KTX 왕복", 96000, "교통", "하늘"),
+        sampleExpense("ys-2", archiveSampleStart, 0, "회 정식 저녁", 58000, "식비", "여울"),
+        sampleExpense("ys-3", archiveSampleStart, 0, "게스트하우스 2박", 90000, "숙박", "하늘"),
+        sampleExpense("ys-4", archiveSampleStart, 1, "해상 케이블카", 30000, "입장료", "여울"),
+        sampleExpense("ys-5", archiveSampleStart, 1, "택시", 12000, "교통", "하늘"),
+        sampleExpense("ys-6", archiveSampleStart, 2, "기념품 수제 엽서", 15000, "쇼핑", "여울", "여울"),
+      ],
+    },
   },
 ];
 const initialTripsByGroup: Record<GroupId, Trip[]> = {
@@ -165,6 +225,13 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {
       region: "강원",
       start: "2026-10-03",
       end: "2026-10-04",
+      planning: {
+        expenses: [
+          sampleExpense("sc-1", "2026-10-03", 0, "설악산 입장료", 16000, "입장료", "하늘"),
+          sampleExpense("sc-2", "2026-10-03", 0, "물회 점심", 52000, "식비", "여울"),
+          sampleExpense("sc-3", "2026-10-03", 0, "펜션 1박", 150000, "숙박", "하늘"),
+        ],
+      },
     },
   ],
 };
@@ -193,10 +260,13 @@ const isStoredTrip = (value: unknown): value is Trip => {
 const isStoredPlanning = (value: unknown): value is TripPlanningData => {
   if (!value || typeof value !== "object") return false;
   const planning = value as Partial<TripPlanningData>;
-  return Array.isArray(planning.schedule)
-    && Array.isArray(planning.places)
-    && Boolean(planning.stay)
-    && typeof planning.stay === "object";
+  // 있으면 모양이 맞아야 하고, 없는 건 없는 대로 둔다. 예시 여행처럼 지출만
+  // 심어 둔 계획도 있어서 셋을 다 요구하면 그런 데이터가 통째로 버려진다.
+  const listShape = (list: unknown) => list === undefined || Array.isArray(list);
+  return listShape(planning.schedule)
+    && listShape(planning.places)
+    && listShape(planning.expenses)
+    && (planning.stay === undefined || typeof planning.stay === "object");
 };
 
 const parseStoredTripData = (raw: string | null) => {
