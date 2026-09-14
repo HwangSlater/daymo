@@ -1,0 +1,31 @@
+[project]
+name = "daymo-backend"
+version = "0.1.0"
+description = "Daymo 동기화 API"
+requires-python = ">=3.13"
+# 뼈대가 실제로 쓰는 것만 적는다. Authlib, PyJWT, Pillow는 로그인과 사진을
+# 붙이는 단계에서 추가한다. 쓰지 않는 의존성을 미리 올려 두면 무엇이 실제로
+# 필요한지 알 수 없게 된다.
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.14",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.28",
+    "anyio>=4.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.uv]
+package = false

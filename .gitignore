@@ -16,8 +16,8 @@ mobile/android/
 .env.local
 !.env.example
 
-server/.gradle/
-server/build/
-
 # python
 __pycache__/
+*.pyc
+.venv/
+.pytest_cache/

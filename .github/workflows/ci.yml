@@ -1,6 +1,6 @@
 name: CI
 
-# main push와 모든 pull request에서 클라이언트 정적 검사를 실행한다.
+# main push와 모든 pull request에서 클라이언트와 서버 검사를 실행한다.
 # feature branch는 pull request에서 검사되므로 push trigger는 main으로 제한해 중복 실행을 피한다.
 on:
   push:
@@ -45,3 +45,51 @@ jobs:
 
       - name: Test
         run: npm test
+
+  server:
+    name: server test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      # DB 테스트는 로컬 PostgreSQL 컨테이너를 쓴다. testcontainers는 쓰지 않는다.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: daymo_test
+          POSTGRES_USER: daymo
+          POSTGRES_PASSWORD: daymo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U daymo -d daymo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: daymo_test
+      DB_USERNAME: daymo
+      DB_PASSWORD: daymo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 파이썬 기준은 backend/pyproject.toml의 requires-python(>=3.13)이다.
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --group dev --frozen
+
+      - name: Migrate
+        run: uv run alembic upgrade head
+
+      - name: Test
+        run: uv run pytest

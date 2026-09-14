@@ -144,8 +144,10 @@ uv sync
 docker compose up -d postgres
 uv run alembic upgrade head
 uv run pytest
-uv run uvicorn app.main:app --reload --port 8000
+uv run python dev.py
 ```
+
+로컬에서 `uvicorn app.main:app` 을 직접 부르지 않고 `backend/dev.py` 를 거친다. 윈도우에서 uvicorn은 이벤트 루프를 만든 뒤에 앱을 import하므로 앱 안에서 루프 정책을 바꿔도 늦고, psycopg 비동기는 윈도우 기본 ProactorEventLoop 위에서 동작하지 않는다. 리눅스에서는 `dev.py`가 아무 일도 하지 않으므로 운영 배포는 uvicorn을 직접 부른다. `DB_HOST`는 `localhost`가 아니라 `127.0.0.1`로 둔다. 윈도우는 `localhost`를 `::1`로 먼저 풀고 개발용 컨테이너는 IPv4에만 바인딩돼 있어 연결이 실패하지 않고 멈춘다.
 
 ## 4. 환경 변수
 
@@ -158,7 +160,9 @@ EXPO_PUBLIC_SENTRY_DSN=
 
 # 아래 값은 서버 환경 변수이며 앱 .env에 넣지 않음
 APP_ENV=local
-DB_URL=postgresql+psycopg://localhost:5432/daymo
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=daymo
 DB_USERNAME=daymo
 DB_PASSWORD=
 JWT_SIGNING_KEY=
@@ -185,6 +189,8 @@ RESTIC_REPOSITORY=rclone:daymo-drive:daymo-backup
 RESTIC_PASSWORD_FILE=/etc/daymo/secrets/restic-password
 RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 ```
+
+SQLAlchemy 접속 URL은 위 조각으로 코드에서 조립한다. 비밀번호가 든 완성 URL을 저장소, 로그, 오류 메시지에 남기지 않기 위해서다. `APP_ENV`가 `beta`나 `production`이면 `JWT_SIGNING_KEY`, `REFRESH_TOKEN_PEPPER`, `DB_PASSWORD`가 비어 있을 때 서버가 뜨지 않는다. 빈 서명 키로 조용히 뜨면 누구나 토큰을 위조할 수 있다.
 
 `EXPO_PUBLIC_*` 값은 앱 번들에서 읽을 수 있으므로 비밀키를 넣지 않는다. DB 비밀번호, OAuth secret, JWT 키, 사진 URL 서명 키, restic 비밀번호와 rclone OAuth token은 VPS의 root 전용 env/config 파일 또는 CI secret으로 관리한다.
 
