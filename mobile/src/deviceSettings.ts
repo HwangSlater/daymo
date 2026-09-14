@@ -7,7 +7,7 @@ import { AppearanceMode, ThemeId, themeOptions } from "./theme";
 
 /** 여행 공간. 값 목록을 저장할 때도 확인해야 해서 저장소 쪽에 함께 둔다. */
 export const groupIds = ["ours", "friends", "family"] as const;
-export type GroupId = (typeof groupIds)[number];
+export type GroupId = string;
 
 export type DeviceSettings = {
   themeId: ThemeId;
@@ -48,6 +48,11 @@ const shortText = (value: unknown, fallback: string) =>
     ? value
     : fallback;
 
+const groupId = (value: unknown) =>
+  typeof value === "string" && value.length > 0 && value.length <= 64
+    ? value
+    : defaultDeviceSettings.activeGroupId;
+
 function parseSettings(raw: string | null): DeviceSettings {
   if (!raw) return defaultDeviceSettings;
   let saved: unknown;
@@ -61,7 +66,7 @@ function parseSettings(raw: string | null): DeviceSettings {
   return {
     themeId: oneOf(record.themeId, themeIds, defaultDeviceSettings.themeId),
     appearance: oneOf(record.appearance, appearanceModes, defaultDeviceSettings.appearance),
-    activeGroupId: oneOf(record.activeGroupId, groupIds, defaultDeviceSettings.activeGroupId),
+    activeGroupId: groupId(record.activeGroupId),
     since: shortText(record.since, defaultDeviceSettings.since),
   };
 }

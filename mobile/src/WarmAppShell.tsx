@@ -42,7 +42,7 @@ import {
   useSaveMe,
   useSaveSpaces,
 } from "./spaces";
-import { formatTripRange, TripDateRangePicker } from "./TripDateRangePicker";
+import { TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
@@ -65,6 +65,7 @@ import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { DaymoApiError, login, logout, restoreSession, signUp, type AuthUser } from "./auth";
+import { createSpace, createTrip, listSpaces, listTrips, type ServerSpace, type ServerTrip } from "./serverData";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
@@ -72,6 +73,8 @@ type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
 WebBrowser.maybeCompleteAuthSession();
 
 type Trip = {
+  id?: string;
+  version?: number;
   name: string;
   date: string;
   note: string;
@@ -90,6 +93,27 @@ type Trip = {
    */
   sample?: boolean;
 };
+
+const spaceFromServer = (space: ServerSpace): Space => ({
+  id: space.id,
+  name: space.name,
+  members: [],
+  relationship: space.relationshipType === "couple" ? "연인" : "친구",
+  since: sampleDate(0),
+});
+
+const tripFromServer = (trip: ServerTrip, tone = 0): Trip => ({
+  id: trip.id,
+  version: trip.version,
+  name: trip.title,
+  date: sampleDateRange(trip.startDate, trip.endDate),
+  note: trip.summary ?? "",
+  tone: tone % 6,
+  mark: trip.startDate.slice(5, 7),
+  region: trip.regionName ?? "지역 미정",
+  start: trip.startDate,
+  end: trip.endDate,
+});
 
 const sampleDate = (daysFromToday: number) => {
   const date = new Date();
@@ -307,10 +331,9 @@ const parseStoredTripData = (raw: string | null) => {
       done?: unknown;
     };
     if (!saved.tripsByGroup) return null;
-    const restored = { ...initialTripsByGroup };
-    (["ours", "friends", "family"] as GroupId[]).forEach((groupId) => {
-      const groupTrips = saved.tripsByGroup?.[groupId];
-      if (Array.isArray(groupTrips)) {
+    const restored: Record<GroupId, Trip[]> = {};
+    Object.entries(saved.tripsByGroup).forEach(([groupId, groupTrips]) => {
+      if (groupId.length > 0 && groupId.length <= 64 && Array.isArray(groupTrips)) {
         restored[groupId] = groupTrips.filter(isStoredTrip).map((trip) =>
           trip.planning && !isStoredPlanning(trip.planning)
             ? { ...trip, planning: undefined }
@@ -318,6 +341,7 @@ const parseStoredTripData = (raw: string | null) => {
         );
       }
     });
+    if (!Object.keys(restored).length) return null;
     return {
       tripsByGroup: restored,
       done: Array.isArray(saved.done)
@@ -343,7 +367,7 @@ const appVersion = "0.1.0";
 const helpTopics = [
   {
     q: "적은 게 다른 사람에게도 보이나요?",
-    a: "아직은 아니에요. 지금은 모든 기록이 이 기기에만 저장돼요. 함께 보려면 아래 '여행 기록 내보내기' 로 글을 만들어 공유하세요.",
+    a: "공간과 여행의 이름·지역·기간은 계정에 저장돼요. 일정·준비물·비용·메모는 서버 연결을 진행 중이라 아직 이 기기에만 저장돼요.",
   },
   {
     q: "준비물 담당과 지출의 몫은 누구 중에서 고르나요?",
@@ -355,7 +379,7 @@ const helpTopics = [
   },
   {
     q: "멤버 권한은 지금 작동하나요?",
-    a: "아직 이름표예요. 서버를 붙인 뒤에 실제로 막게 돼요. 지금은 누가 무엇을 맡는지 적어 두는 용도예요.",
+    a: "서버의 공간과 여행 권한 검사는 작동해요. 멤버 초대와 관리 화면 연결은 다음 단계에서 추가돼요.",
   },
 ];
 
@@ -379,11 +403,19 @@ export function WarmAppShell({
   // state 와 모듈 상수 두 벌로 나뉘어 있어서, 멤버 이름을 고쳐도 여행의 참가자
   // 목록에는 옛 이름이 남았다.
   const [spaces, setSpaces] = useState<Space[]>(storedSpaces);
+  const [serverDataReady, setServerDataReady] = useState(false);
+  const [serverDataError, setServerDataError] = useState(false);
   useSaveSpaces(spaces);
   const [activeGroupId, setActiveGroupId] = useState<GroupId>(
     settings.activeGroupId,
   );
-  const activeSpace = spaces.find((space) => space.id === activeGroupId) ?? spaces[0];
+  const activeSpace = spaces.find((space) => space.id === activeGroupId) ?? spaces[0] ?? {
+    id: "pending",
+    name: "첫 여행 공간",
+    members: [],
+    relationship: "친구" as const,
+    since: sampleDate(0),
+  };
   const updateActiveSpace = (change: Partial<Space>) =>
     setSpaces((current) => current.map((space) =>
       space.id === activeSpace.id ? { ...space, ...change } : space));
@@ -392,12 +424,12 @@ export function WarmAppShell({
   // 저장이 막히면 조용히 넘어가지 않는다. 사용자는 적은 게 남았다고 믿는데
   // 앱을 다시 열면 사라진다. 가장 흔한 원인은 용량 초과다.
   const [tripStorageFailed, setTripStorageFailed] = useState(false);
-  const tripItems = tripsByGroup[activeGroupId];
+  const tripItems = tripsByGroup[activeSpace.id as GroupId] ?? [];
   const setTripItems: React.Dispatch<React.SetStateAction<Trip[]>> = (update) =>
     setTripsByGroup((current) => ({
       ...current,
-      [activeGroupId]:
-        typeof update === "function" ? update(current[activeGroupId]) : update,
+      [activeSpace.id]:
+        typeof update === "function" ? update(current[activeSpace.id as GroupId] ?? []) : update,
     }));
   const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
   const [themeId, setThemeId] = useState<ThemeId>(settings.themeId);
@@ -425,6 +457,36 @@ export function WarmAppShell({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    listSpaces()
+      .then(async (serverSpaces) => {
+        const tripLists = await Promise.all(serverSpaces.map((space) => listTrips(space.id)));
+        if (!active) return;
+        const nextSpaces = serverSpaces.map(spaceFromServer);
+        const nextTrips: Record<string, Trip[]> = {};
+        serverSpaces.forEach((space, index) => {
+          nextTrips[space.id] = tripLists[index].map((trip, tone) => tripFromServer(trip, tone));
+        });
+        setSpaces(nextSpaces);
+        setTripsByGroup(nextTrips as Record<GroupId, Trip[]>);
+        if (nextSpaces[0] && !nextSpaces.some((space) => space.id === settings.activeGroupId)) {
+          setActiveGroupId(nextSpaces[0].id as GroupId);
+        }
+        setServerDataError(false);
+      })
+      .catch(() => {
+        if (active) setServerDataError(true);
+      })
+      .finally(() => {
+        if (active) setServerDataReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [settings.activeGroupId, user?.id]);
   /**
    * 이 기기에 남은 것을 전부 지운다.
    *
@@ -496,7 +558,30 @@ export function WarmAppShell({
     );
   }
   if (!user) {
-    return <AuthScreen theme={theme} onAuth={(nextUser) => { setUser(nextUser); setAuthOffline(false); }} />;
+    return <AuthScreen theme={theme} onAuth={(nextUser) => { setServerDataReady(false); setUser(nextUser); setAuthOffline(false); }} />;
+  }
+  if (!serverDataReady && !authOffline) {
+    return (
+      <SafeAreaView style={[s.safe, { backgroundColor: theme.background, alignItems: "center", justifyContent: "center" }]}>
+        <Text style={{ color: theme.muted }}>여행 공간을 불러오고 있어요…</Text>
+      </SafeAreaView>
+    );
+  }
+  if (serverDataReady && spaces.length === 0) {
+    return (
+      <FirstSpaceScreen
+        theme={theme}
+        onCreate={async (name, relationshipType) => {
+          const created = await createSpace(name, relationshipType);
+          const next = spaceFromServer(created);
+          setSpaces([next]);
+          setTripsByGroup({ [next.id]: [] } as Record<GroupId, Trip[]>);
+          setActiveGroupId(next.id as GroupId);
+          setServerDataError(false);
+        }}
+        onLogout={() => { void logout(); setServerDataReady(false); setUser(null); }}
+      />
+    );
   }
   if (isTripOpen)
     return (
@@ -546,6 +631,11 @@ export function WarmAppShell({
           <Text style={s.storageWarningText}>서버에 연결되지 않아 이 기기에 저장된 내용을 보여드리고 있어요.</Text>
         </View>
       )}
+      {serverDataError && !authOffline && (
+        <View accessibilityLiveRegion="polite" style={[s.storageWarning, { backgroundColor: theme.accent }]}>
+          <Text style={s.storageWarningText}>공간을 새로 불러오지 못해 마지막으로 저장된 내용을 보여드리고 있어요.</Text>
+        </View>
+      )}
       <View style={[s.body, { backgroundColor: "transparent" }]}>
         {view === "홈" && (
           <NotebookHome
@@ -572,6 +662,10 @@ export function WarmAppShell({
             spaceMembers={activeSpaceMembers}
             openCreatorOnMount={openTripCreator}
             onCreatorOpened={() => setOpenTripCreator(false)}
+            onCreateTrip={async ({ title, startDate, endDate, regionName, summary }) => {
+              const created = await createTrip(activeSpace.id, { title, startDate, endDate, regionName, summary });
+              return tripFromServer(created, tripItems.length);
+            }}
           />
         )}
         {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} />}
@@ -593,6 +687,7 @@ export function WarmAppShell({
             openTrip={(trip) => openTrip("overview", trip)}
             onLogout={() => {
               void logout();
+              setServerDataReady(false);
               setUser(null);
               setAuthOffline(false);
             }}
@@ -846,6 +941,68 @@ function AuthScreen({
           </Pressable>
         </View>
         <Text style={[s.authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function FirstSpaceScreen({
+  theme,
+  onCreate,
+  onLogout,
+}: {
+  theme: AppTheme;
+  onCreate: (name: string, relationshipType: ServerSpace["relationshipType"]) => Promise<void>;
+  onLogout: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [relationshipType, setRelationshipType] = useState<ServerSpace["relationshipType"]>("couple");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const submit = async () => {
+    if (!name.trim() || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      await onCreate(name.trim(), relationshipType);
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "공간을 만들지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.authPage}>
+        <View style={s.authBrand}>
+          <Text style={[s.authLogo, { color: theme.text }]}>첫 여행 공간</Text>
+          <Text style={[s.authTagline, { color: theme.muted }]}>함께 여행할 사람과 기록을 모아 둘 공간이에요.</Text>
+        </View>
+        <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Field theme={theme} label="공간 이름 · 필수" value={name} onChangeText={setName} placeholder="예: 우리의 여행" />
+          <Text style={[s.sheetCopy, { color: theme.muted }]}>누구와 여행하나요?</Text>
+          {([
+            ["couple", "연인"],
+            ["friends", "친구"],
+            ["family", "가족"],
+            ["other", "기타"],
+          ] as const).map(([value, label]) => (
+            <Choice key={value} theme={theme} selected={relationshipType === value} label={label} onPress={() => setRelationshipType(value)} />
+          ))}
+          {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: statusColor.danger.light }]}>{error}</Text> : null}
+          <Pressable
+            onPress={submit}
+            disabled={!name.trim() || loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !name.trim() || loading, busy: loading }}
+            style={[s.authSubmit, { backgroundColor: theme.primary }, (!name.trim() || loading) && s.authSubmitDisabled]}
+          >
+            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "만드는 중…" : "공간 만들기"}</Text>
+          </Pressable>
+          <Pressable onPress={onLogout} accessibilityRole="button" style={s.authSwitch}>
+            <Text style={[s.authSwitchText, { color: theme.muted }]}>다른 계정으로 로그인</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -1482,6 +1639,7 @@ function TripsExplorer({
   spaceMembers,
   openCreatorOnMount = false,
   onCreatorOpened,
+  onCreateTrip,
 }: {
   open: (trip: Trip) => void;
   theme: AppTheme;
@@ -1491,6 +1649,7 @@ function TripsExplorer({
   spaceMembers: string[];
   openCreatorOnMount?: boolean;
   onCreatorOpened?: () => void;
+  onCreateTrip: (input: { title: string; startDate: string; endDate: string; regionName: string; summary: string }) => Promise<Trip>;
 }) {
   const initialCalendarDate = new Date();
   const initialDateKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, "0")}-${String(initialCalendarDate.getDate()).padStart(2, "0")}`;
@@ -1512,6 +1671,8 @@ function TripsExplorer({
   // 가는 여행이면 여기서 뺀다. 지출의 몫과 준비물 담당이 이 목록을 쓴다.
   const [newPeople, setNewPeople] = useState<string[]>(spaceMembers);
   const [showAllRegions, setShowAllRegions] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createLoading, setCreateLoading] = useState(false);
   const openCreator = () => {
     // 공간을 바꾸면 멤버도 바뀐다. 열 때마다 그 공간의 전원으로 되돌린다.
     setNewPeople(spaceMembers);
@@ -1550,31 +1711,32 @@ function TripsExplorer({
       )
     : [];
   const tripDateValid = tripStart <= tripEnd;
-  const addTrip = () => {
-    if (!place.trim() || !tripDateValid || !newPeople.length) return;
-    const range = formatTripRange(tripStart, tripEnd);
-    const nextTrip: Trip = {
-      name: place.trim(),
-      date: range,
-      note,
-      // 새 여행은 팔레트를 순서대로 돌아가며 받는다.
-      tone: items.length % 6,
-      mark: tripStart.slice(5, 7),
-      region: newRegion,
-      start: tripStart,
-      end: tripEnd,
-      // 참가자는 여행에 붙는 값이다. 공간 멤버가 아니라 이 목록을 기준으로
-      // 지출의 몫과 준비물·교통편 담당이 갈린다.
-      planning: { participants: newPeople },
-    };
-    setItems((current) => [nextTrip, ...current]);
-    setPlace("");
-    setNewPeople(spaceMembers);
-    setCreating(false);
-    setShowAllRegions(false);
-    setSelectedRegion(null);
-    setDisplay("목록");
-    open(nextTrip);
+  const addTrip = async () => {
+    if (!place.trim() || !tripDateValid || !newPeople.length || createLoading) return;
+    setCreateLoading(true);
+    setCreateError("");
+    try {
+      const serverTrip = await onCreateTrip({
+        title: place.trim(),
+        startDate: tripStart,
+        endDate: tripEnd,
+        regionName: newRegion,
+        summary: note,
+      });
+      const nextTrip = { ...serverTrip, planning: { participants: newPeople } };
+      setItems((current) => [nextTrip, ...current]);
+      setPlace("");
+      setNewPeople(spaceMembers);
+      setCreating(false);
+      setShowAllRegions(false);
+      setSelectedRegion(null);
+      setDisplay("목록");
+      open(nextTrip);
+    } catch (caught) {
+      setCreateError(caught instanceof DaymoApiError ? caught.message : "여행을 만들지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setCreateLoading(false);
+    }
   };
   const createFromDate = () => {
     if (selectedDate) {
@@ -1779,13 +1941,14 @@ function TripsExplorer({
                 ? "함께 가는 사람을 한 명은 골라 주세요"
                 : undefined
         }
-        submitDisabled={!place.trim() || !tripDateValid || !newPeople.length}
+        submitDisabled={!place.trim() || !tripDateValid || !newPeople.length || createLoading}
         onClose={() => {
           setCreating(false);
           setShowAllRegions(false);
         }}
         onSubmit={addTrip}
       >
+        {createError ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{createError}</Text> : null}
         <Field
           theme={theme}
           label="여행지 · 필수"

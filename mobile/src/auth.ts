@@ -116,6 +116,22 @@ async function saveSession(tokens: SessionResponse, user: AuthUser) {
   return session;
 }
 
+let refreshInFlight: Promise<SessionTokens> | null = null;
+
+async function refreshStoredSession(saved: SessionTokens) {
+  if (!refreshInFlight) {
+    refreshInFlight = request<SessionResponse>("/v1/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken: saved.refreshToken }),
+    })
+      .then((tokens) => saveSession(tokens, saved.user))
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
 function parseSession(raw: string | null): SessionTokens | null {
   if (!raw) return null;
   try {
@@ -177,6 +193,32 @@ export async function restoreSession(): Promise<{ user: AuthUser; offline: boole
     }
     await storage.remove(sessionKey);
     return null;
+  }
+}
+
+export async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const saved = parseSession(await storage.get(sessionKey));
+  if (!saved) throw new DaymoApiError("다시 로그인해 주세요.", 401, "UNAUTHENTICATED");
+
+  const send = (accessToken: string) => request<T>(path, {
+    ...init,
+    headers: { ...init.headers, Authorization: `Bearer ${accessToken}` },
+  });
+
+  try {
+    return await send(saved.accessToken);
+  } catch (error) {
+    if (!(error instanceof DaymoApiError) || error.status !== 401) throw error;
+  }
+
+  try {
+    const refreshed = await refreshStoredSession(saved);
+    return await send(refreshed.accessToken);
+  } catch (error) {
+    if (!(error instanceof DaymoApiError) || error.status !== 0) {
+      await storage.remove(sessionKey);
+    }
+    throw error;
   }
 }
 
