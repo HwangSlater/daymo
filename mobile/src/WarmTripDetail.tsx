@@ -320,6 +320,27 @@ const todayAmong = (dates: Date[]): string => {
 const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
 // 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
 const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
+
+/** 여행 날짜를 못 정했을 때. 날짜 칸에서 고를 수 있는 값이다. */
+const UNDATED = "날짜 미정";
+
+/**
+ * 예전에 자유롭게 적어 둔 날짜를 이번 여행의 날짜 칸에 맞춘다.
+ *
+ * 기록 탭의 사진 날짜만 아무 글자나 받고 있었다. "1일차" 와 "8월 22일" 이
+ * 섞이면 같은 날인데 다른 날로 세어 "N일의 기록" 이 엉뚱해진다.
+ * 몇째 날로 적었으면 순서로, 날짜로 적었으면 일 숫자로 찾는다. 어느 쪽도
+ * 아니면 적힌 그대로 둔다. 내가 적은 말을 앱이 말없이 버리면 안 된다.
+ */
+const matchTripDay = (value: string, dayOptions: string[]) => {
+  const text = value.trim();
+  if (!text || dayOptions.includes(text)) return text;
+  const nth = text.match(/^(\d+)\s*일차$/);
+  if (nth) return dayOptions[Number(nth[1]) - 1] ?? text;
+  const day = text.match(/(\d+)\s*일/);
+  const found = day && dayOptions.find((option) => dayNumberOf(option) === day[1]);
+  return found || text;
+};
 const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
 
 const validDateKey = (value: string) => {
@@ -698,7 +719,12 @@ export function sampleTripPlanning(
         owner: item.owner === "하늘" ? one : item.owner === "여울" ? two : item.owner,
       })),
     })),
-    memories: initialMemoryData(tripName, `${first} — ${last}`, true),
+    memories: (() => {
+      const seed = initialMemoryData(tripName, `${first} — ${last}`, true);
+      // 예시 사진도 여행의 실제 날짜 칸을 쓴다. "1일차" 로 두면 날짜를 고르는
+      // 자리에 없는 값이라 처음부터 목록 밖에 붙는다.
+      return { ...seed, photos: seed.photos.map((photo) => ({ ...photo, date: matchTripDay(photo.date, dayOptions) })) };
+    })(),
     tripNotes: [
       { id: "memo-meal", author: `${two} · 오늘 10:42`, body: "육수 재료는 미리 1.5배로 준비하기" },
       { id: "memo-booking", author: `${one} · 어제 22:15`, body: "소나기식당 수요일 19:00 예약 확인" },
@@ -798,7 +824,15 @@ export function WarmTripDetail({
   const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
   const [exchangeRate, setExchangeRate] = useState(initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
-    initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate),
+    initialPlanning?.memories
+      ? {
+        ...initialPlanning.memories,
+        photos: initialPlanning.memories.photos.map((photo) => ({
+          ...photo,
+          date: matchTripDay(photo.date, tripDayOptions),
+        })),
+      }
+      : initialMemoryData(tripName, currentTripDate),
   );
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
@@ -1236,6 +1270,8 @@ export function WarmTripDetail({
           {mode === "기록" && (
             <Memories
               tripDate={currentTripDate}
+              dayOptions={tripDayOptions}
+              todayDay={todayTripDay}
               memories={memories}
               setMemories={setMemories}
             />
@@ -6193,10 +6229,16 @@ function Cooking({
 
 function Memories({
   tripDate,
+  dayOptions,
+  todayDay,
   memories,
   setMemories,
 }: {
   tripDate: string;
+  /** 여행 날짜 칸. 비용 탭과 같은 목록에서 고르게 해야 손놀림이 같다. */
+  dayOptions: string[];
+  /** 여행 중이면 오늘. 사진은 대개 찍은 날에 넣는다. */
+  todayDay: string;
   memories: TripMemoryData;
   setMemories: React.Dispatch<React.SetStateAction<TripMemoryData>>;
 }) {
@@ -6221,7 +6263,13 @@ function Memories({
   const [photoSelected, setPhotoSelected] = useState(false);
   const [photoColor, setPhotoColor] = useState("#E7B4A6");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
-  const [photoDate, setPhotoDate] = useState("1일차");
+  const [photoDate, setPhotoDate] = useState(todayDay || dayOptions[0] || UNDATED);
+  const photoDayOptions = useMemo(() => {
+    const known = [...dayOptions, UNDATED];
+    const extra = Array.from(new Set(photos.map((photo) => photo.date)))
+      .filter((date) => date && !known.includes(date));
+    return [...known, ...extra];
+  }, [dayOptions, photos]);
   const [photoCaption, setPhotoCaption] = useState("");
   const [diaryWriting, setDiaryWriting] = useState(false);
   const [diaryTitle, setDiaryTitle] = useState("");
@@ -6236,7 +6284,7 @@ function Memories({
     setPhotoSelected(false);
     setPhotoColor(photoPalette[photos.length % photoPalette.length]);
     setPhotoUri(undefined);
-    setPhotoDate("1일차");
+    setPhotoDate(todayDay || dayOptions[0] || UNDATED);
     setPhotoCaption("");
     setPhotoEditing(true);
   };
@@ -6245,7 +6293,7 @@ function Memories({
     setPhotoSelected(true);
     setPhotoColor(photo.color);
     setPhotoUri(photo.uri);
-    setPhotoDate(photo.date);
+    setPhotoDate(matchTripDay(photo.date, dayOptions));
     setPhotoCaption(photo.caption);
     setPhotoEditing(true);
   };
@@ -6301,7 +6349,7 @@ function Memories({
       notify("사진을 저장하지 못했어요. 다시 선택해 주세요");
       return;
     }
-    const next = { id: editingPhotoId ?? `photo-${Date.now()}`, color: photoColor, date: photoDate.trim() || "날짜 미정", caption: photoCaption.trim(), uri: savedUri };
+    const next = { id: editingPhotoId ?? `photo-${Date.now()}`, color: photoColor, date: photoDate.trim() || UNDATED, caption: photoCaption.trim(), uri: savedUri };
     setPhotos((current) => editingPhotoId
       ? current.map((photo) => photo.id === editingPhotoId ? next : photo)
       : [next, ...current]);
@@ -6357,7 +6405,7 @@ function Memories({
       />
       <View style={styles.memorySummaryLine}>
         <Text style={[styles.memorySummaryText, theme && { color: theme.muted }]}>사진 {photos.length}장 · 일기 {diaries.length}편</Text>
-        <Text style={[styles.memorySummaryText, theme && { color: theme.primary }]}>{new Set(photos.map((photo) => photo.date)).size}일의 기록</Text>
+        <Text style={[styles.memorySummaryText, theme && { color: theme.primary }]}>{new Set(photos.map((photo) => photo.date).filter((date) => date && date !== UNDATED)).size}일의 기록</Text>
       </View>
       <SectionLabel label="여행 사진" count={`${photos.length}장`} />
       <View style={styles.memoryGrid}>
@@ -6498,7 +6546,7 @@ function Memories({
           </View>
         </Pressable>
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>사진을 선택하면 이곳에서 미리 확인할 수 있어요.</Text>
-        <DetailField label="여행 날짜 · 선택 사항" value={photoDate} onChangeText={setPhotoDate} placeholder="예: 2일차 또는 8월 22일" />
+        <OptionField label="여행 날짜" options={photoDayOptions} value={photoDate} onChange={setPhotoDate} />
         <DetailField label="사진 설명 · 선택 사항" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
       </DetailSheet>
       <DetailSheet
