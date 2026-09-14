@@ -1,0 +1,9 @@
+[Unit]
+Description=Deploy the latest Daymo commit with a successful CI run
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/daymo-release-poller

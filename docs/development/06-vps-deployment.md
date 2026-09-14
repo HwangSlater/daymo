@@ -12,7 +12,7 @@
 - Region/country: 한국 리전 서버를 2026-09-14 생성했으며 계약 화면에서 실제 데이터센터 국가를 출시 전 최종 확인
 - OS: Ubuntu 24.04 LTS로 확정
 - 구성: Nginx + FastAPI(uvicorn) + PostgreSQL을 Docker Compose로 같은 VPS에서 운영
-- 빌드: GitHub Actions에서 수행. VPS는 완성된 image만 pull
+- 빌드: GitHub Actions의 전체 CI가 성공한 commit만 VPS가 확인해 가져오고 로컬 image로 빌드
 
 이 사양은 초기 사용자 규모와 수백~수천 건의 여행 데이터에는 충분하다. 다만 공개 가입을 받으므로 증가 속도를 계속 본다. 전송량은 무제한이 아니라 일 20GB이고 넘으면 구간 요금이 붙으므로 사진을 반복해서 내려받는 구간을 함께 본다. 그래도 일반 CRUD보다 사진 저장 용량, 이미지 변환, 상한을 두지 않은 API 워커 메모리에서 먼저 문제가 발생할 가능성이 크다.
 
@@ -159,19 +159,19 @@ S3 호환 오브젝트 스토리지도 검토했으나 쓰지 않기로 했다. 
 
 ## 7. 배포 절차
 
-pull request가 필수 CI를 통과해 `main`에 merge되는 것이 production 자동 배포 trigger다. 별도 수동 배포 승인 단계는 두지 않지만 필수 검증 실패 시 merge와 배포를 막는다.
+pull request가 필수 CI를 통과해 `main`에 merge되는 것이 production 자동 배포 trigger다. VPS의 release poller가 2분마다 GitHub에서 성공한 최신 `main` CI의 commit SHA를 확인한다. CI가 실패했거나 실행 중인 commit은 가져오지 않는다.
 
 1. GitHub Actions가 앱 typecheck·lint·unit test와 서버 pytest·PostgreSQL 컨테이너 DB test 수행
 2. 직전 production schema snapshot으로 Alembic migration 검증
-3. image build 후 commit SHA 태그로 GHCR push
-4. schema 변경이 있으면 배포 직전 PostgreSQL snapshot 생성과 성공 여부 확인, 사진/DB 정합성 checkpoint 생성
-5. VPS에서 새 image pull, expand-contract migration 후 API 교체
+3. VPS가 성공한 commit의 GitHub source archive를 HTTPS로 내려받아 고정된 release 경로에 푼다
+4. 배포 직전 PostgreSQL snapshot 생성과 성공 여부 확인
+5. VPS에서 새 API image를 빌드하고 expand-contract migration 후 API 교체
 6. `GET /v1/health`와 로그인·홈·여행 읽기 smoke test
 7. 실패 시 이전 SHA image로 자동 복귀하고 운영자에게 경고; 별도 수동 rollback 명령도 유지
 
 단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 API 컨테이너 두 벌을 상시 운영하지 않는다.
 
-production deploy workflow는 concurrency group을 하나로 고정한다. 실행 중인 배포는 끝까지 검사하고 강제 취소하지 않으며, 대기 중인 이전 workflow는 폐기하고 가장 최신 commit의 배포만 다음으로 실행한다. 롤백할 때는 이전 commit SHA의 server image만 복구한다. DB에는 down migration을 실행하지 않고 expand-contract로 유지한 호환 schema를 사용하며, 필요한 데이터 수정은 새 forward migration으로 처리한다.
+release poller는 파일 잠금으로 배포를 한 번에 하나만 실행한다. 실행 중인 배포는 끝까지 검사하고, 다음 검사에서 가장 최신 성공 commit만 가져온다. 롤백할 때는 직전 server image와 release 설정을 복구한다. DB에는 down migration을 실행하지 않고 expand-contract로 유지한 호환 schema를 사용하며, 필요한 데이터 수정은 새 forward migration으로 처리한다.
 
 VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사진을 유지한 채 production으로 전환한다. 전환 직전 전체 snapshot을 만들고 별도 환경에서 복원을 확인한다. 베타 데이터는 삭제하지 않으므로 베타 시작 전부터 production 수준의 약관·보안·백업·신고 운영을 적용한다.
 
@@ -190,9 +190,9 @@ EAS iOS/Android build는 server 자동 배포 workflow와 분리한다. 일반 P
 
 ### 서버 계정과 시크릿
 
-- 배포는 제한된 `daymo-deploy` 계정의 전용 SSH key로만 접속하고 root 직접 SSH·배포를 금지
+- 수동 복구 배포는 제한된 `daymo-deploy` 계정의 전용 SSH key로만 접속하고 root 직접 SSH·배포를 금지
 - `daymo-deploy`를 `docker` group에 넣지 않고, 소유자가 root인 allowlist 배포 script만 passwordless sudo 허용
-- GitHub Environment Secrets에는 배포 SSH key·host·검증에 필요한 CI credential만 저장
+- 자동 배포는 VPS가 공개 GitHub 저장소의 성공한 CI SHA를 outbound HTTPS로 확인한다. GitHub 러너의 동적 IP를 위해 SSH를 공개하지 않는다
 - DB·JWT·OAuth·SMTP·사진 서명·restic/rclone secret은 `/etc/daymo/secrets/`의 root 소유 `0600` 파일에 저장
 - secret 원문을 repository, image, compose file, workflow log와 shell history에 기록하지 않음
 

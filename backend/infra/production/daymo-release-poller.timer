@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a tested Daymo backend release
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=2m
+RandomizedDelaySec=20s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

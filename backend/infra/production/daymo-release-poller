@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly LOCK_FILE=/run/daymo-release-poller.lock
+readonly STATE_FILE=/srv/daymo/deployed-sha
+readonly API_URL='https://api.github.com/repos/HwangSlater/daymo/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1'
+readonly RELEASE_ARCHIVE=/home/daymo-deploy/release.tar.gz
+
+exec 9>"$LOCK_FILE"
+flock --nonblock 9 || exit 0
+
+latest_sha="$(
+  curl --fail --silent --show-error --location \
+    --header 'Accept: application/vnd.github+json' \
+    --header 'X-GitHub-Api-Version: 2022-11-28' \
+    "$API_URL" \
+    | jq --exit-status --raw-output '.workflow_runs[0].head_sha'
+)"
+
+if [[ ! "$latest_sha" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "GitHub returned an invalid commit SHA" >&2
+  exit 1
+fi
+
+if [[ -r "$STATE_FILE" ]] && grep --fixed-strings --line-regexp --quiet "$latest_sha" "$STATE_FILE"; then
+  exit 0
+fi
+
+work_dir="$(mktemp --directory /tmp/daymo-release.XXXXXX)"
+trap 'rm -rf "$work_dir"' EXIT
+
+curl --fail --silent --show-error --location \
+  "https://github.com/HwangSlater/daymo/archive/$latest_sha.tar.gz" \
+  --output "$work_dir/source.tar.gz"
+tar --extract --gzip --file "$work_dir/source.tar.gz" --directory "$work_dir"
+source_dir="$work_dir/daymo-$latest_sha"
+test -d "$source_dir/backend"
+
+tar --directory "$source_dir" \
+  --exclude='._*' --exclude='.DS_Store' \
+  --create --gzip --file "$work_dir/release.tar.gz" backend
+install -o daymo-deploy -g daymo-deploy -m 0600 \
+  "$work_dir/release.tar.gz" "$RELEASE_ARCHIVE"
+
+/usr/local/sbin/daymo-deploy
+printf '%s\n' "$latest_sha" >"$STATE_FILE.new"
+mv "$STATE_FILE.new" "$STATE_FILE"

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly COMPOSE_FILE=/srv/daymo/current/backend/infra/production/compose.yml
+readonly ENV_FILE=/etc/daymo/secrets/runtime.env
+readonly BACKUP_DIR=/srv/daymo/backup-staging
+readonly RESTORE_DB=daymo_restore_verify
+
+compose() {
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+backup_file="$(
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name 'pre-deploy-*.sql.gz' -print \
+    | sort | tail -1
+)"
+test -n "$backup_file"
+test -s "$backup_file"
+
+cleanup() {
+  compose exec -T postgres sh -c \
+    'PGPASSWORD="$POSTGRES_PASSWORD" dropdb --if-exists --force --username="$POSTGRES_USER" daymo_restore_verify' \
+    >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+cleanup
+compose exec -T postgres sh -c \
+  'PGPASSWORD="$POSTGRES_PASSWORD" createdb --username="$POSTGRES_USER" daymo_restore_verify'
+gzip -dc "$backup_file" | compose exec -T postgres sh -c \
+  'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --exit-on-error --no-owner --no-privileges --username="$POSTGRES_USER" --dbname=daymo_restore_verify'
+
+production_schema="$(
+  compose exec -T postgres sh -c \
+    'PGPASSWORD="$POSTGRES_PASSWORD" psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command="select version_num from alembic_version"'
+)"
+restored_schema="$(
+  compose exec -T postgres sh -c \
+    'PGPASSWORD="$POSTGRES_PASSWORD" psql --username="$POSTGRES_USER" --dbname=daymo_restore_verify --tuples-only --no-align --command="select version_num from alembic_version"'
+)"
+restored_tables="$(
+  compose exec -T postgres sh -c \
+    'PGPASSWORD="$POSTGRES_PASSWORD" psql --username="$POSTGRES_USER" --dbname=daymo_restore_verify --tuples-only --no-align --command="select count(*) from information_schema.tables where table_schema = '\''public'\''"'
+)"
+
+if [[ "$production_schema" != "$restored_schema" ]]; then
+  echo "backup schema $restored_schema does not match production schema $production_schema" >&2
+  exit 1
+fi
+if [[ ! "$restored_tables" =~ ^[1-9][0-9]*$ ]]; then
+  echo "restored backup contains no application tables" >&2
+  exit 1
+fi
+
+echo "backup restore verified: schema=$restored_schema tables=$restored_tables"
