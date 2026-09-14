@@ -42,9 +42,23 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """FastAPI 의존성. 요청 하나에 세션 하나."""
+    """
+    FastAPI 의존성. 요청 하나가 transaction 하나다.
+
+    요청이 끝까지 성공해야 commit 한다. 중간에 예외가 나면 전부 되돌린다.
+    한 요청이 절반만 반영되는 상태를 만들지 않으려는 것이다. 공간에 멤버를
+    넣다가 정원 검사에서 막히면 멤버만 남아서는 안 된다.
+
+    handler 안에서 `commit()` 을 부르지 않는다. 부르는 순간 그 앞까지가
+    확정되어 이 규칙이 깨진다. `flush()` 로 id 를 얻는 것은 괜찮다.
+    """
     async with get_session_factory()() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def check_database() -> bool:

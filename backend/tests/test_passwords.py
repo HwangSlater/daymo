@@ -20,8 +20,15 @@ from app.core.passwords import (
 def 거부_사유(값: str, **kw) -> str:
     with pytest.raises(AppError) as 잡힌_것:
         validate(값, **kw)
-    assert 잡힌_것.value.code is ErrorCode.VALIDATION_ERROR
+    # 길이 문제는 VALIDATION_ERROR, 값 자체가 문제면 PASSWORD_TOO_COMMON 이다.
+    assert 잡힌_것.value.code in (ErrorCode.VALIDATION_ERROR, ErrorCode.PASSWORD_TOO_COMMON)
     return 잡힌_것.value.fields["password"]
+
+
+def 거부_코드(값: str, **kw) -> ErrorCode:
+    with pytest.raises(AppError) as 잡힌_것:
+        validate(값, **kw)
+    return 잡힌_것.value.code
 
 
 # ---------------------------------------------------------------------------
@@ -189,3 +196,19 @@ def test_비용이_낮은_해시는_다시_만들어야_한다():
 
 def test_normalize는_NFC다():
     assert normalize(unicodedata.normalize("NFD", "한글")) == "한글"
+
+
+def test_거부_이유에_따라_코드가_다르다():
+    """
+    명세서가 흔한 비밀번호에 PASSWORD_TOO_COMMON 을 쓰라고 적어 뒀다.
+    길이 문제와 값 문제는 앱이 다르게 안내해야 한다.
+    """
+    assert 거부_코드("짧다") is ErrorCode.VALIDATION_ERROR
+    assert 거부_코드("password") is ErrorCode.PASSWORD_TOO_COMMON
+
+
+def test_차단_목록_자체를_응답에_넣지_않는다():
+    """어떤 값이 막혀 있는지 알려 주면 목록을 역으로 만들 수 있다."""
+    사유 = 거부_사유("qwerty123")
+
+    assert "qwerty" not in 사유

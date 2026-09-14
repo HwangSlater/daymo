@@ -56,8 +56,8 @@ def normalize(raw: str) -> str:
     return unicodedata.normalize("NFC", raw)
 
 
-def _거부(사유: str) -> None:
-    raise AppError(ErrorCode.VALIDATION_ERROR, fields={"password": 사유})
+def _거부(사유: str, code: ErrorCode = ErrorCode.VALIDATION_ERROR) -> None:
+    raise AppError(code, fields={"password": 사유})
 
 
 def validate(raw: str, *, email: str | None = None) -> str:
@@ -79,17 +79,17 @@ def validate(raw: str, *, email: str | None = None) -> str:
 
     낮춘_값 = 값.lower()
     if 낮춘_값 in _COMMON:
-        _거부("너무 흔한 비밀번호예요. 다른 걸로 정해 주세요.")
+        _거부("너무 흔한 비밀번호예요. 다른 걸로 정해 주세요.", ErrorCode.PASSWORD_TOO_COMMON)
 
     # 한 글자만 반복하는 값은 길이만 채운 것이다.
     if len(set(값)) == 1:
-        _거부("같은 글자만 반복할 수 없어요.")
+        _거부("같은 글자만 반복할 수 없어요.", ErrorCode.PASSWORD_TOO_COMMON)
 
     if email:
         낮춘_이메일 = normalize(email).lower()
         앞부분 = 낮춘_이메일.split("@", 1)[0]
         if 낮춘_값 in (낮춘_이메일, 앞부분):
-            _거부("이메일과 같은 값은 쓸 수 없어요.")
+            _거부("이메일과 같은 값은 쓸 수 없어요.", ErrorCode.PASSWORD_TOO_COMMON)
 
     return 값
 

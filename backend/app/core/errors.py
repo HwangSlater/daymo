@@ -19,6 +19,7 @@ class ErrorCode(StrEnum):
     SETTLEMENT_IN_PROGRESS = "SETTLEMENT_IN_PROGRESS"
     SYNC_CURSOR_EXPIRED = "SYNC_CURSOR_EXPIRED"
     VALIDATION_ERROR = "VALIDATION_ERROR"
+    PASSWORD_TOO_COMMON = "PASSWORD_TOO_COMMON"
     PHOTO_TOO_LARGE = "PHOTO_TOO_LARGE"
     STORAGE_QUOTA_EXCEEDED = "STORAGE_QUOTA_EXCEEDED"
     RATE_LIMITED = "RATE_LIMITED"
@@ -37,6 +38,7 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.PHOTO_TOO_LARGE: 413,
     ErrorCode.STORAGE_QUOTA_EXCEEDED: 413,
     ErrorCode.VALIDATION_ERROR: 422,
+    ErrorCode.PASSWORD_TOO_COMMON: 422,
     ErrorCode.RATE_LIMITED: 429,
     ErrorCode.INTERNAL_ERROR: 500,
     ErrorCode.SERVICE_UNAVAILABLE: 503,
@@ -52,6 +54,7 @@ MESSAGE_BY_CODE: dict[ErrorCode, str] = {
     ErrorCode.SETTLEMENT_IN_PROGRESS: "이미 주고받은 기록이 있어 바꿀 수 없어요.",
     ErrorCode.SYNC_CURSOR_EXPIRED: "동기화 기준이 오래돼 전체를 다시 받아야 해요.",
     ErrorCode.VALIDATION_ERROR: "입력 내용을 확인해 주세요.",
+    ErrorCode.PASSWORD_TOO_COMMON: "너무 흔한 비밀번호예요. 다른 걸로 정해 주세요.",
     ErrorCode.PHOTO_TOO_LARGE: "사진이 너무 커요.",
     ErrorCode.STORAGE_QUOTA_EXCEEDED: "저장 공간이 가득 찼어요.",
     ErrorCode.RATE_LIMITED: "잠시 후 다시 시도해 주세요.",

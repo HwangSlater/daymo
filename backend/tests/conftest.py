@@ -15,6 +15,7 @@ from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 
 from app.core.config import get_settings  # noqa: E402
+from app.core.db import get_session  # noqa: E402
 from app.core.runtime import use_selector_event_loop_on_windows  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models import Base  # noqa: E402
@@ -110,3 +111,25 @@ async def db(db_engine) -> AsyncSession:
 
 
 __all__ = ["Base"]
+
+
+@pytest.fixture
+async def api(app, db):
+    """
+    HTTP 로 두드리는 테스트용 client.
+
+    앱이 쓰는 세션을 테스트 세션으로 갈아 끼운다. 그래야 요청이 남긴 것을
+    같은 자리에서 확인할 수 있고, 테스트가 끝나면 함께 되돌아간다.
+    """
+    from app.services.mailer import get_outbox
+
+    async def 테스트_세션():
+        yield db
+
+    app.dependency_overrides[get_session] = 테스트_세션
+    get_outbox().clear()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.clear()
+    get_outbox().clear()
