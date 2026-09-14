@@ -13,6 +13,18 @@ export type ExpenseCategory = "식비" | "교통" | "숙박" | "입장료" | "�
 /** 참가자 이름. 공간 멤버 가운데 이번 여행에 가는 사람이다. */
 export type Participant = string;
 
+/**
+ * 몫을 나누는 방식.
+ *
+ *   균등  참가자 전원이 똑같이. 가장 흔해서 기본이다.
+ *   일부  고른 사람끼리만 똑같이.
+ *   금액  사람마다 얼마씩인지 직접.
+ *
+ * 사람은 비율보다 금액으로 생각한다. "7 대 3" 이 아니라 "얘는 만오천, 나머지
+ * 나눠" 가 실제로 오가는 말이다.
+ */
+export type SplitMode = "균등" | "일부" | "금액";
+
 export type Expense = {
   id: string;
   /** 여행 날짜 선택지와 같은 형식. "22일(토)" */
@@ -31,6 +43,14 @@ export type Expense = {
    * 값은 비율이 아니라 비중이라 합이 얼마든 상관없다.
    */
   shares?: Record<Participant, number>;
+  /**
+   * 몫을 어떤 방식으로 정했는지.
+   *
+   * 계산에는 안 쓰고 화면에만 쓴다. 고칠 때 고른 방식 그대로 다시 열리게 하고,
+   * 목록에 "여울·가람" 이라고 적을지 "여울 30,000" 이라고 적을지도 이걸로 가른다.
+   * 없으면 shares 모양에서 짐작한다.
+   */
+  splitMode?: SplitMode;
   memo: string;
   /** 영수증 사진 자리. 없으면 안 찍었다는 뜻이다. */
   receiptUri?: string;
@@ -183,33 +203,84 @@ export function josa(word: string, afterJong: string, afterVowel: string): strin
 
 export type Transfer = { from: Participant; to: Participant; amount: number };
 
+/**
+ * 주고받았다고 적어 둔 기록.
+ *
+ * 앱은 계좌이체를 알 수 없다. 그래서 "정산하기" 는 돈을 보내는 일이 아니라
+ * 보냈다고 적는 일이다. 이 기록이 없으면 목록이 줄지 않아서, 지출을 적을수록
+ * 끝나지 않는 할 일만 쌓인다.
+ */
+export type Payment = {
+  id: string;
+  from: Participant;
+  to: Participant;
+  /** 일부만 보냈으면 보낸 만큼. 한 번에 다 갚지 않는 일이 흔하다. */
+  amount: number;
+  at: number;
+};
+
 export type Settlement = {
   total: number;
   /** 각자 실제로 낸 돈. */
   paid: Record<Participant, number>;
   /** 각자 내야 했던 몫. 반올림 전이라 소수가 섞일 수 있다. */
   owed: Record<Participant, number>;
-  /** 주고받을 목록. 오갈 횟수가 적게 나오도록 묶는다. 비면 정산 끝이다. */
+  /**
+   * 주고받은 것까지 반영한 잔액. 양수면 받을 돈, 음수면 보낼 돈이다.
+   * 화면이 "나" 기준으로 말하려면 이 값이 필요하다.
+   */
+  balances: Record<Participant, number>;
+  /**
+   * 묶기 전, 사람 대 사람으로 직접 생긴 빚.
+   *
+   * 묶은 줄이 왜 나왔는지 펼쳐 보일 때 쓴다. 2~6명이면 사슬이 짧아서
+   * "네 몫 22,500원인데 하늘이 대신 냈다" 까지 보여 줄 수 있다.
+   */
+  direct: Transfer[];
+  /** 실제로 보여 줄 주고받을 목록. 비면 정산 끝이다. */
   transfers: Transfer[];
 };
+
+export type SettleOptions = {
+  /** 이미 주고받았다고 적어 둔 것. 잔액에서 뺀다. */
+  payments?: Payment[];
+  /**
+   * 오갈 횟수를 줄일지.
+   *
+   * 켜면 더 받을 사람과 더 낼 사람을 큰 쪽부터 짝지어 없앤다. 송금 횟수는
+   * 줄지만 내가 직접 빌린 적 없는 사람에게 보내라고 할 수 있다. 끄면 누가
+   * 누구에게 진 빚인지 그대로 나온다.
+   */
+  simplify?: boolean;
+};
+
+/** 1원 미만은 주고받을 것이 없다고 본다. */
+const SETTLED = 0.5;
 
 /**
  * 낸 돈과 몫을 견줘 누가 누구에게 얼마를 줘야 하는지 낸다.
  *
- * 사람이 둘이면 한 줄로 끝나지만 셋 이상이면 조합이 여러 개다. 더 받을 사람과
- * 더 낼 사람을 큰 쪽부터 짝지어 없앤다. 이렇게 하면 오갈 횟수가 사람 수보다
- * 늘 적고, 한 번에 큰 금액이 정리돼 사람이 따라가기 쉽다.
- *
  * 나눈 금액에 소수가 생기므로 계산은 소수로 끝까지 하고 주고받을 금액만
  * 반올림한다. 중간마다 반올림하면 건수가 쌓일수록 어긋난다.
  */
-export function settle(expenses: Expense[], participants: Participant[]): Settlement {
+export function settle(
+  expenses: Expense[],
+  participants: Participant[],
+  { payments = [], simplify = true }: SettleOptions = {},
+): Settlement {
   const paid: Record<Participant, number> = {};
   const owed: Record<Participant, number> = {};
   for (const person of participants) {
     paid[person] = 0;
     owed[person] = 0;
   }
+  // 사람 대 사람으로 직접 생긴 빚. owes[갚을 사람][받을 사람]
+  const owes: Record<Participant, Record<Participant, number>> = {};
+  const add = (from: Participant, to: Participant, amount: number) => {
+    if (from === to) return;
+    owes[from] = owes[from] ?? {};
+    owes[from][to] = (owes[from][to] ?? 0) + amount;
+  };
   let total = 0;
   for (const item of expenses) {
     total += item.amount;
@@ -217,14 +288,56 @@ export function settle(expenses: Expense[], participants: Participant[]): Settle
     paid[item.payer] = (paid[item.payer] ?? 0) + item.amount;
     for (const [person, share] of Object.entries(splitAmounts(item, participants))) {
       owed[person] = (owed[person] ?? 0) + share;
+      // 낸 사람이 대신 내 준 만큼이 곧 빚이다.
+      add(person, item.payer, share);
     }
   }
-  // 1원 미만 차이는 주고받을 것이 없다고 본다.
-  const balances = [...new Set([...Object.keys(paid), ...Object.keys(owed)])]
-    .map((person) => ({ person, value: (paid[person] ?? 0) - (owed[person] ?? 0) }))
-    .filter((entry) => Math.abs(entry.value) >= 0.5);
-  const creditors = balances.filter((entry) => entry.value > 0).sort((a, b) => b.value - a.value);
-  const debtors = balances.filter((entry) => entry.value < 0).sort((a, b) => a.value - b.value);
+  // 보냈다고 적어 둔 것은 빚을 줄인다.
+  for (const payment of payments) add(payment.from, payment.to, -payment.amount);
+
+  const everyone = [...new Set([
+    ...participants,
+    ...Object.keys(paid),
+    ...Object.keys(owed),
+    ...payments.flatMap((payment) => [payment.from, payment.to]),
+  ])];
+
+  // 서로 주고받을 게 있으면 상계한다. A 가 B 에게 만, B 가 A 에게 사천이면
+  // A 가 B 에게 육천이다. 양쪽으로 보내라고 하면 아무도 안 그런다.
+  const direct: Transfer[] = [];
+  for (let i = 0; i < everyone.length; i += 1) {
+    for (let j = i + 1; j < everyone.length; j += 1) {
+      const a = everyone[i];
+      const b = everyone[j];
+      const net = (owes[a]?.[b] ?? 0) - (owes[b]?.[a] ?? 0);
+      if (Math.abs(net) < SETTLED) continue;
+      direct.push(net > 0
+        ? { from: a, to: b, amount: Math.round(net) }
+        : { from: b, to: a, amount: Math.round(-net) });
+    }
+  }
+
+  const sent: Record<Participant, number> = {};
+  const got: Record<Participant, number> = {};
+  for (const payment of payments) {
+    sent[payment.from] = (sent[payment.from] ?? 0) + payment.amount;
+    got[payment.to] = (got[payment.to] ?? 0) + payment.amount;
+  }
+  const balances: Record<Participant, number> = {};
+  for (const person of everyone) {
+    balances[person] = (paid[person] ?? 0) - (owed[person] ?? 0)
+      + (sent[person] ?? 0) - (got[person] ?? 0);
+  }
+
+  if (!simplify) {
+    return { total, paid, owed, balances, direct, transfers: sortTransfers(direct) };
+  }
+
+  const remaining = everyone
+    .map((person) => ({ person, value: balances[person] }))
+    .filter((entry) => Math.abs(entry.value) >= SETTLED);
+  const creditors = remaining.filter((entry) => entry.value > 0).sort((a, b) => b.value - a.value);
+  const debtors = remaining.filter((entry) => entry.value < 0).sort((a, b) => a.value - b.value);
   const transfers: Transfer[] = [];
   let creditorIndex = 0;
   let debtorIndex = 0;
@@ -236,10 +349,16 @@ export function settle(expenses: Expense[], participants: Participant[]): Settle
     if (rounded > 0) transfers.push({ from: debtor.person, to: creditor.person, amount: rounded });
     creditor.value -= amount;
     debtor.value += amount;
-    if (creditor.value < 0.5) creditorIndex += 1;
-    if (-debtor.value < 0.5) debtorIndex += 1;
+    if (creditor.value < SETTLED) creditorIndex += 1;
+    if (-debtor.value < SETTLED) debtorIndex += 1;
   }
-  return { total, paid, owed, transfers };
+  return { total, paid, owed, balances, direct, transfers: sortTransfers(transfers) };
+}
+
+/** 큰 금액부터. 같으면 이름 순으로 고정해 화면이 흔들리지 않게 한다. */
+function sortTransfers(transfers: Transfer[]): Transfer[] {
+  return [...transfers].sort((a, b) =>
+    b.amount - a.amount || a.from.localeCompare(b.from, "ko-KR") || a.to.localeCompare(b.to, "ko-KR"));
 }
 
 /**

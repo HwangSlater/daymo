@@ -433,6 +433,7 @@ export function WarmAppShell({
         tripNote={selectedTrip.note}
         initialPlanning={selectedTrip.planning}
         spaceMembers={activeSpaceMembers}
+        me={user?.name ?? activeSpaceMembers[0]}
         appTheme={theme}
         onUpdateTrip={(changes) => {
           const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };

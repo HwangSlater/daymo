@@ -12,6 +12,9 @@ import {
   type Expense,
   type ExpenseCategory,
   type Participant,
+  type Payment,
+  type SplitMode,
+  type Transfer,
   expensesToCsv,
   josa,
   parseAmount,
@@ -21,7 +24,6 @@ import {
   money,
   normalizeExpense,
   shareLabel,
-  splitAmounts,
   toWon,
   totalsByCategory,
   totalsByDay,
@@ -128,6 +130,15 @@ export type TripPlanningData = {
   recipes?: Recipe[];
   cookingReadyIngredientIds?: string[];
   expenses?: Expense[];
+  /** 주고받았다고 적어 둔 것. 지출과 같은 급의 기록이라 나란히 둔다. */
+  payments?: Payment[];
+  /**
+   * 정산을 묶어서 볼지.
+   *
+   * 묶으면 송금 횟수는 줄지만 내가 직접 빌린 적 없는 사람에게 보내라고 할 수
+   * 있다. 없으면 묶는다. 대부분은 그게 편하다.
+   */
+  simplifySettlement?: boolean;
   budget?: number;
   /**
    * 이번 여행에 가는 사람들. 없으면 공간 멤버 전원으로 본다.
@@ -277,6 +288,13 @@ type Props = {
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
   spaceMembers?: string[];
+  /**
+   * 이 앱을 쓰는 사람이 누구인지.
+   *
+   * 정산은 결국 "내가 누구에게 보내고 누구에게 받나" 다. 이걸 모르면 화면이
+   * 전체 조망밖에 못 해서, 세 줄 중 내 줄을 눈으로 찾게 된다.
+   */
+  me?: string;
 };
 
 const parseTripDate = (value?: string) => {
@@ -759,6 +777,7 @@ export function WarmTripDetail({
   initialPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
+  me = spaceMembers[0] ?? "",
 }: Props) {
   const memo = memoPaper(Boolean(appTheme?.dark));
   const [currentStart, setCurrentStart] = useState(tripStart ?? "");
@@ -830,6 +849,10 @@ export function WarmTripDetail({
     // 예시 지출은 여행마다 WarmAppShell 에서 심는다. 새로 만든 여행은 비어서 시작한다.
     // 옛 저장 데이터는 낸 사람과 몫이 두 사람으로 박혀 있어서 여기서 옮긴다.
     (initialPlanning?.expenses ?? []).map(normalizeExpense),
+  );
+  const [payments, setPayments] = useState<Payment[]>(initialPlanning?.payments ?? []);
+  const [simplifySettlement, setSimplifySettlement] = useState(
+    initialPlanning?.simplifySettlement ?? true,
   );
   const [budget, setBudget] = useState(initialPlanning?.budget ?? 500000);
   const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
@@ -953,6 +976,8 @@ export function WarmTripDetail({
       recipes,
       cookingReadyIngredientIds,
       expenses,
+      payments,
+      simplifySettlement,
       budget,
       participants,
       currency,
@@ -960,7 +985,7 @@ export function WarmTripDetail({
       tripNotes,
       hasKitchen,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, payments, places, recipes, registeredStay, reservations, schedule, simplifySettlement, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -979,6 +1004,8 @@ export function WarmTripDetail({
       recipes,
       cookingReadyIngredientIds,
       expenses,
+      payments,
+      simplifySettlement,
       budget,
       participants,
       currency,
@@ -987,7 +1014,7 @@ export function WarmTripDetail({
       hasKitchen,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, payments, places, recipes, registeredStay, reservations, schedule, simplifySettlement, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -1268,6 +1295,11 @@ export function WarmTripDetail({
               setExpenses={setExpenses}
               budget={budget}
               setBudget={setBudget}
+              me={me}
+              payments={payments}
+              setPayments={setPayments}
+              simplify={simplifySettlement}
+              setSimplify={setSimplifySettlement}
               assignedSummary={assignedSummary}
               participants={participants}
               setParticipants={setParticipants}
@@ -6701,6 +6733,11 @@ function Money({
   setExpenses,
   budget,
   setBudget,
+  me,
+  payments,
+  setPayments,
+  simplify,
+  setSimplify,
   assignedSummary,
   participants,
   setParticipants,
@@ -6718,6 +6755,12 @@ function Money({
   setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
   budget: number;
   setBudget: React.Dispatch<React.SetStateAction<number>>;
+  /** 이 앱을 쓰는 사람. 정산을 이 사람 기준으로 먼저 말한다. */
+  me: string;
+  payments: Payment[];
+  setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
+  simplify: boolean;
+  setSimplify: React.Dispatch<React.SetStateAction<boolean>>;
   /** 이 사람 이름으로 여행에 적어 둔 것들. 참가자에서 빼기 전에 보여 준다. */
   assignedSummary: (person: string) => string;
   /** 이번 여행에 가는 사람. 몫은 이 목록을 기준으로 나눈다. */
@@ -6743,7 +6786,15 @@ function Money({
   const [draftCategory, setDraftCategory] = useState<ExpenseCategory>("식비");
   const [draftPayer, setDraftPayer] = useState<Participant>(participants[0] ?? "");
   // 몫을 지는 사람과 비중. 비어 있으면 참가자 전원이 똑같이 나눈다.
-  const [draftShares, setDraftShares] = useState<Record<Participant, number>>({});
+  // 나누는 방식을 눈에 보이게 고르게 한다. 예전에는 아무도 안 고른 상태가
+  // 곧 전원 균등이었는데, 화면에는 "아무도 안 골랐다" 로 보여서 여기서 멈췄다.
+  // 하나를 누르면 갑자기 그 사람만 몫이 되니 고를수록 늘어날 거라는 예상과도
+  // 반대로 움직였다.
+  const [draftSplitMode, setDraftSplitMode] = useState<SplitMode>("균등");
+  /** "일부" 일 때 몫을 지는 사람. 처음에는 전원이 켜진 채로 시작한다. */
+  const [draftPeople, setDraftPeople] = useState<Participant[]>([]);
+  /** "금액" 일 때 사람마다 적은 금액. 치는 중이라 글자로 들고 있는다. */
+  const [draftAmounts, setDraftAmounts] = useState<Record<Participant, string>>({});
   // 마지막에 적은 분류와 낸 사람. 여행 중에는 같은 사람이 같은 종류를 이어서
   // 적는 일이 많아서, 매번 처음 값으로 돌아가면 지출마다 두 번씩 고치게 된다.
   const [lastCategory, setLastCategory] = useState<ExpenseCategory>("식비");
@@ -6793,7 +6844,10 @@ function Money({
     };
     return [...expenses].sort((a, b) => order(a.day) - order(b.day));
   }, [expenses, dayOptions]);
-  const settlement = useMemo(() => settle(expenses, participants), [expenses, participants]);
+  const settlement = useMemo(
+    () => settle(expenses, participants, { payments, simplify }),
+    [expenses, participants, payments, simplify],
+  );
   // 참가자에서 뺀 사람이 낸 지출은 정산에 남는다. 그 사람이 표에 없으면 정산
   // 줄의 이름이 어디서 왔는지 알 길이 없어서, 뒤에 붙여 같이 보여 준다.
   const paidRows = useMemo(() => {
@@ -6837,6 +6891,104 @@ function Money({
   const quickSteps = unit.fraction > 0 ? [1, 5, 10] : [1000, 5000, 10000];
   // 이 탭 안에서는 늘 여행 통화로 적는다. 원 환산은 합계 옆에만 덧붙인다.
   const show = (amount: number) => money(amount, unit.code);
+  // 내 줄을 먼저, 나머지는 접어서. 내가 참가자가 아니면 전부 남의 일이다.
+  const myTransfers = settlement.transfers.filter(
+    (transfer) => transfer.from === me || transfer.to === me,
+  );
+  const otherTransfers = settlement.transfers.filter(
+    (transfer) => transfer.from !== me && transfer.to !== me,
+  );
+  const [othersOpen, setOthersOpen] = useState(false);
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [paying, setPaying] = useState<Transfer | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const openPayment = (transfer: Transfer) => {
+    setPaying(transfer);
+    // 전액이 기본이다. 대개 한 번에 갚는다.
+    setPayAmount(amountText(transfer.amount, unit.fraction));
+  };
+  const payNumber = parseAmount(payAmount, unit.fraction);
+  /** 이 줄이 나온 근거. 낸 돈과 몫, 그리고 대신 받는 경우면 그 사실. */
+  const payWhy = (() => {
+    if (!paying) return [];
+    const lines = [
+      `${paying.from}: 낸 돈 ${show(settlement.paid[paying.from] ?? 0)} · 몫 ${show(settlement.owed[paying.from] ?? 0)}`,
+      `${paying.to}: 낸 돈 ${show(settlement.paid[paying.to] ?? 0)} · 몫 ${show(settlement.owed[paying.to] ?? 0)}`,
+    ];
+    const owedDirectly = settlement.direct.some(
+      (debt) => debt.from === paying.from && debt.to === paying.to,
+    );
+    if (!owedDirectly) {
+      const real = settlement.direct
+        .filter((debt) => debt.from === paying.from)
+        .map((debt) => debt.to);
+      lines.push(real.length
+        ? `${paying.from}${josa(paying.from, "이", "가")} 빌린 건 ${real.join(" · ")}인데, 오갈 횟수를 줄이려고 ${paying.to}${josa(paying.to, "이", "가")} 대신 받아요.`
+        : `오갈 횟수를 줄이려고 ${paying.to}${josa(paying.to, "이", "가")} 대신 받아요.`);
+    }
+    return lines;
+  })();
+  const savePayment = () => {
+    if (!paying || payNumber <= 0) return;
+    const from = paying.from;
+    const to = paying.to;
+    const amount = Math.min(payNumber, paying.amount);
+    setPayments((current) => {
+      // 번호와 시각은 값을 바꾸는 이 안에서 읽는다. 그리는 중에 시계를 읽으면
+      // 같은 그림이 두 번 그려질 때 값이 달라진다.
+      const at = Date.now();
+      return [...current, { id: `pay-${at}`, from, to, amount, at }];
+    });
+    setPaying(null);
+    notify(`${from}${josa(from, "이", "가")} ${to}에게 ${show(amount)} 보낸 걸로 적었어요`);
+  };
+  /** 한 번에 다 갚는 흔한 경우. 줄의 버튼이 바로 적는다. */
+  const recordFull = (transfer: Transfer) => {
+    setPayments((current) => {
+      const at = Date.now();
+      return [...current, { id: `pay-${at}`, from: transfer.from, to: transfer.to, amount: transfer.amount, at }];
+    });
+    notify(`${transfer.from}${josa(transfer.from, "이", "가")} ${transfer.to}에게 ${show(transfer.amount)} 보낸 걸로 적었어요`);
+  };
+  const undoPayment = (payment: Payment) => {
+    setPayments((current) => current.filter((item) => item.id !== payment.id));
+    notify("주고받은 기록을 지웠어요");
+  };
+  const toggleSimplify = () => {
+    // 묶은 화면이 시키는 대로 보낸 뒤에 방식을 바꾸면, 이미 보낸 돈이 엉뚱한
+    // 곳으로 간 게 되고 끝난 일이 되살아난다. 기록을 다 지우면 다시 열린다.
+    if (payments.length) {
+      notify("주고받은 기록이 있어서 지금은 못 바꿔요");
+      return;
+    }
+    setSimplify((current) => !current);
+  };
+  /**
+   * 단톡방에 그대로 붙일 글.
+   *
+   * 정산은 앱 안에서 안 끝난다. 결국 누가 단톡방에 옮겨 적어야 하는데, 그걸
+   * 손으로 치면 숫자가 틀어진다.
+   */
+  const copySettlement = async () => {
+    const lines = [
+      `${tripName} 정산`,
+      `총 ${show(settlement.total)} · ${participants.length}명`,
+      "",
+      ...settlement.transfers.map(
+        (transfer) => `${transfer.from} → ${transfer.to} ${show(transfer.amount)}`,
+      ),
+    ];
+    if (!settlement.transfers.length) lines.push("주고받을 게 없어요");
+    if (payments.length) {
+      lines.push("", `보낸 것 ${payments.length}건`);
+      for (const payment of payments) {
+        lines.push(`${payment.from} → ${payment.to} ${show(payment.amount)} 완료`);
+      }
+    }
+    await Clipboard.setStringAsync(lines.join("\n"));
+    notify("정산 내용을 복사했어요");
+  };
+
   const inWon = (amount: number) => toWon(amount, exchangeRate);
   const foreign = unit.code !== DEFAULT_CURRENCY.code;
   const amountNumber = parseAmount(draftAmount, unit.fraction);
@@ -6869,28 +7021,46 @@ function Money({
     notify("여행 예산을 저장했어요");
   };
 
+  // 고른 방식을 저장 모양(비중)으로 옮긴다. 계산은 한 가지 방식만 알면 된다.
+  const draftShares = ((): Record<Participant, number> | undefined => {
+    if (draftSplitMode === "균등") return undefined;
+    if (draftSplitMode === "일부") {
+      if (!draftPeople.length) return undefined;
+      return Object.fromEntries(draftPeople.map((person) => [person, 1]));
+    }
+    const entries = participants
+      .map((person) => [person, parseAmount(draftAmounts[person] ?? "", unit.fraction)] as const)
+      .filter(([, value]) => value > 0);
+    return entries.length ? Object.fromEntries(entries) : undefined;
+  })();
   const quickNumber = parseAmount(quickAmount, unit.fraction);
   const quickPayer = participants.includes(lastPayer) ? lastPayer : participants[0] ?? "";
-  // 지금 적고 있는 지출을 사람별로 미리 쪼개 본다. 비중이 숫자로만 있으면
-  // 얼마씩인지 감이 안 온다.
-  const draftSplit = splitAmounts(
-    { id: "draft", day: draftDay, title: "", amount: amountNumber, category: draftCategory, payer: draftPayer, shares: Object.keys(draftShares).length ? draftShares : undefined, memo: "" },
-    participants,
+  // 금액을 직접 적을 때 아직 안 채운 돈. 0 이 돼야 저장할 수 있다.
+  const draftAmountLeft = amountNumber - participants.reduce(
+    (sum, person) => sum + parseAmount(draftAmounts[person] ?? "", unit.fraction),
+    0,
   );
+  // 저장을 막는 이유를 하나만 고른다. 여러 줄을 한꺼번에 띄우면 뭘 고쳐야
+  // 하는지 더 헷갈린다.
+  const splitHint = !formValid
+    ? "금액을 입력해 주세요"
+    : draftSplitMode === "일부" && !draftPeople.length
+      ? "몫을 질 사람을 한 명은 골라 주세요"
+      : draftSplitMode === "금액" && draftAmountLeft !== 0
+        ? (draftAmountLeft > 0 ? `${show(draftAmountLeft)}이 남았어요` : `${show(-draftAmountLeft)}을 넘었어요`)
+        : undefined;
   const draftShareSummary = (() => {
     const paid = `${draftPayer}${josa(draftPayer, "이", "가")}`;
-    const picked = Object.keys(draftShares);
+    const picked = Object.keys(draftShares ?? {});
     if (!picked.length) {
       return participants.length > 1
         ? `${paid} 내고 ${participants.length}명이 똑같이 나눠요`
         : `${paid} 냈어요`;
     }
+    if (draftSplitMode === "금액") return `${paid} 내고 ${picked.length}명이 적은 만큼 나눠요`;
     if (picked.length === 1) return `${paid} 내고 ${picked[0]} 몫이에요`;
-    const even = picked.every((person) => draftShares[person] === draftShares[picked[0]]);
     const last = picked[picked.length - 1];
-    return even
-      ? `${paid} 내고 ${picked.join(" · ")}${josa(last, "이", "가")} 똑같이 나눠요`
-      : `${paid} 내고 ${picked.map((person) => `${person} ${draftShares[person]}`).join(" · ")}`;
+    return `${paid} 내고 ${picked.join(" · ")}${josa(last, "이", "가")} 똑같이 나눠요`;
   })();
   const draftPayerHint = participants.length > 1
     ? `${quickPayer}${josa(quickPayer, "이", "가")} 내고 ${participants.length}명이 똑같이 나눠요`
@@ -6914,13 +7084,36 @@ function Money({
     setLastCategory(quickCategory);
     notify(`${quickCategory} ${money(quickNumber, unit.code)}을 적었어요`);
   };
+  /** 나누는 자리를 기본값으로. 전원이 똑같이 나누는 게 가장 흔하다. */
+  const resetSplit = () => {
+    setDraftSplitMode("균등");
+    setDraftPeople(participants);
+    setDraftAmounts({});
+  };
+  /**
+   * 저장된 지출을 고칠 때, 적었던 방식 그대로 다시 연다.
+   *
+   * 옛 데이터는 방식이 안 적혀 있어서 비중 모양에서 짐작한다. 비중이 전부 같으면
+   * 고른 사람끼리 균등이었던 것이고, 다르면 금액이나 비율을 적은 것이다.
+   */
+  const loadSplit = (item: Expense) => {
+    const shares = item.shares ?? {};
+    const picked = Object.keys(shares);
+    const mode: SplitMode = item.splitMode
+      ?? (!picked.length ? "균등" : picked.every((person) => shares[person] === shares[picked[0]]) ? "일부" : "금액");
+    setDraftSplitMode(mode);
+    setDraftPeople(picked.length ? picked : participants);
+    setDraftAmounts(mode === "금액"
+      ? Object.fromEntries(picked.map((person) => [person, amountText(shares[person], unit.fraction)]))
+      : {});
+  };
   const openCreate = () => {
     setEditingId(null);
     setDraftTitle("");
     setDraftAmount("");
     setDraftCategory(lastCategory);
     setDraftPayer(participants.includes(lastPayer) ? lastPayer : participants[0] ?? "");
-    setDraftShares({});
+    resetSplit();
     // 날짜를 거르고 있으면 그 날, 아니면 오늘, 여행 기간이 아니면 첫날이다.
     setDraftDay(dayFilter === "전체" ? todayDay || dayOptions[0] || "" : dayFilter);
     setDraftMemo("");
@@ -6935,7 +7128,7 @@ function Money({
     setDraftAmount(amountText(item.amount, unit.fraction));
     setDraftCategory(item.category);
     setDraftPayer(item.payer);
-    setDraftShares(item.shares ?? {});
+    loadSplit(item);
     setDraftDay(item.day);
     setDraftMemo(item.memo);
     setDraftReceipt(item.receiptUri ?? "");
@@ -6956,7 +7149,8 @@ function Money({
         amount: amountNumber,
         category: draftCategory,
         payer: draftPayer,
-        shares: Object.keys(draftShares).length ? draftShares : undefined,
+        shares: draftShares,
+        splitMode: draftSplitMode,
         memo: draftMemo.trim(),
         receiptUri: draftReceipt || undefined,
       };
@@ -7112,27 +7306,156 @@ function Money({
           )}
         </View>
         {/* 결국 이걸 보려고 들어온다. 합계 바로 다음에 두고, 예산과 사람별
-            숫자는 그 뒤로 미룬다. 셋 이상이면 오갈 줄이 여러 개다. */}
+            숫자는 그 뒤로 미룬다.
+
+            "나" 로 먼저 말한다. 전체 조망만 있으면 여러 줄 중 내 줄을 눈으로
+            찾아야 하고, 정작 내가 할 일이 뭔지는 맨 나중에 안다. */}
         <View style={styles.moneySettleBlock}>
-          <Text style={[styles.moneySettleLabel, theme && { color: theme.muted }]}>정산</Text>
-          {settlement.transfers.length ? (
-            settlement.transfers.map((transfer) => (
-              <View
-                key={`${transfer.from}-${transfer.to}`}
-                style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}
+          <View style={styles.moneySettleHead}>
+            <Text style={[styles.moneySettleLabel, theme && { color: theme.muted }]}>정산</Text>
+            {settlement.transfers.length > 1 && (
+              <Pressable
+                onPress={toggleSimplify}
+                hitSlop={8}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: simplify, disabled: payments.length > 0 }}
+                accessibilityLabel="주고받을 횟수 줄이기"
+                style={styles.moneySettleToggle}
               >
-                <Text numberOfLines={1} style={[styles.moneySettleText, theme && { color: theme.primary }]}>
-                  {transfer.from}{josa(transfer.from, "이", "가")} {transfer.to}에게
+                <Text style={[styles.moneySettleToggleText, theme && { color: payments.length ? theme.muted : theme.primary }]}>
+                  {simplify ? "묶어서 보기" : "그대로 보기"}
                 </Text>
+                <Glyph name={simplify ? "check" : "swap"} size={13} color={(payments.length ? theme?.muted : theme?.primary) ?? "#3F4C8F"} weight={2.4} />
+              </Pressable>
+            )}
+          </View>
+          {myTransfers.map((transfer) => {
+            const iSend = transfer.from === me;
+            const other = iSend ? transfer.to : transfer.from;
+            return (
+              <Pressable
+                key={`${transfer.from}-${transfer.to}`}
+                onPress={() => openPayment(transfer)}
+                accessibilityRole="button"
+                accessibilityLabel={`${other}에게 ${iSend ? "보낼" : "받을"} 돈 ${show(transfer.amount)}, 눌러서 왜 그런지 보거나 일부만 적기`}
+                style={({ pressed }) => [
+                  styles.moneySettle,
+                  theme && { backgroundColor: theme.primarySoft },
+                  pressed && styles.controlPressed,
+                ]}
+              >
+                <View style={styles.moneySettleCopy}>
+                  <Text style={[styles.moneySettleWho, theme && { color: theme.muted }]}>
+                    {iSend ? "내가 보낼 돈" : "내가 받을 돈"}
+                  </Text>
+                  <Text numberOfLines={1} style={[styles.moneySettleText, theme && { color: theme.primary }]}>
+                    {other}{iSend ? "에게" : "에게서"}
+                  </Text>
+                </View>
                 <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{show(transfer.amount)}</Text>
-              </View>
-            ))
-          ) : (
+                <Pressable
+                  onPress={() => recordFull(transfer)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${other}에게 ${show(transfer.amount)} ${iSend ? "다 보냈어요" : "다 받았어요"}`}
+                  style={({ pressed }) => [
+                    styles.moneySettleDone,
+                    theme && { backgroundColor: theme.primary },
+                    pressed && styles.controlPressed,
+                  ]}
+                >
+                  <Text style={[styles.moneySettleDoneText, theme && { color: onAccent(theme.dark) }]}>
+                    {iSend ? "보냈어요" : "받았어요"}
+                  </Text>
+                </Pressable>
+              </Pressable>
+            );
+          })}
+          {!myTransfers.length && (
             <View style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}>
               <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>
-                {expenses.length ? "서로 줄 것도 받을 것도 없어요" : "지출을 적으면 여기서 정산해 드려요"}
+                {!expenses.length
+                  ? "지출을 적으면 여기서 정산해 드려요"
+                  : otherTransfers.length
+                    ? "내가 주고받을 건 없어요"
+                    : "서로 줄 것도 받을 것도 없어요"}
               </Text>
             </View>
+          )}
+          {/* 나머지는 남의 일이라 접어 둔다. 그래도 전체가 맞는지 보고 싶을
+              때가 있어서 없애지는 않는다. */}
+          {otherTransfers.length > 0 && (
+            <Pressable
+              onPress={() => setOthersOpen((current) => !current)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: othersOpen }}
+              style={styles.moneyOthersHead}
+            >
+              <Text style={[styles.moneyOthersLabel, theme && { color: theme.muted }]}>
+                다른 사람들끼리 {otherTransfers.length}건
+              </Text>
+              <Glyph name={othersOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
+            </Pressable>
+          )}
+          {othersOpen && otherTransfers.map((transfer) => (
+            <Pressable
+              key={`${transfer.from}-${transfer.to}`}
+              onPress={() => openPayment(transfer)}
+              accessibilityRole="button"
+              accessibilityLabel={`${transfer.from}${josa(transfer.from, "이", "가")} ${transfer.to}에게 ${show(transfer.amount)}, 눌러서 자세히`}
+              style={({ pressed }) => [
+                styles.moneyOtherRow,
+                theme && { borderColor: theme.border },
+                pressed && styles.controlPressed,
+              ]}
+            >
+              <Text numberOfLines={1} style={[styles.moneyOtherText, theme && { color: theme.text }]}>
+                {transfer.from}{josa(transfer.from, "이", "가")} {transfer.to}에게
+              </Text>
+              <Text style={[styles.moneyOtherAmount, theme && { color: theme.text }]}>{show(transfer.amount)}</Text>
+            </Pressable>
+          ))}
+          {/* 보냈다고 적어 둔 것. 지우면 잔액이 되살아난다. */}
+          {payments.length > 0 && (
+            <Pressable
+              onPress={() => setDoneOpen((current) => !current)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: doneOpen }}
+              style={styles.moneyOthersHead}
+            >
+              <Text style={[styles.moneyOthersLabel, theme && { color: theme.muted }]}>
+                주고받은 것 {payments.length}건
+              </Text>
+              <Glyph name={doneOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
+            </Pressable>
+          )}
+          {doneOpen && [...payments].reverse().map((payment) => (
+            <View key={payment.id} style={[styles.moneyOtherRow, theme && { borderColor: theme.border }]}>
+              <Text numberOfLines={1} style={[styles.moneyOtherText, theme && { color: theme.muted }]}>
+                {payment.from}{josa(payment.from, "이", "가")} {payment.to}에게 {show(payment.amount)}
+              </Text>
+              <Pressable
+                onPress={() => undoPayment(payment)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`${payment.from}에서 ${payment.to}로 보낸 ${show(payment.amount)} 되돌리기`}
+              >
+                <Text style={[styles.moneyOtherUndo, theme && { color: theme.primary }]}>되돌리기</Text>
+              </Pressable>
+            </View>
+          ))}
+          {(settlement.transfers.length > 0 || payments.length > 0) && (
+            <Pressable
+              onPress={copySettlement}
+              accessibilityRole="button"
+              accessibilityLabel="정산 내용 복사"
+              style={({ pressed }) => [
+                styles.moneySettleCopyButton,
+                theme && { borderColor: theme.border },
+                pressed && styles.controlPressed,
+              ]}
+            >
+              <Text style={[styles.moneySettleCopyText, theme && { color: theme.primary }]}>정산 내용 복사</Text>
+            </Pressable>
           )}
         </View>
         <View style={styles.moneyBudgetHead}>
@@ -7407,8 +7730,8 @@ function Money({
         title={editingId ? "지출 수정" : "지출 추가"}
         subtitle="항목과 금액만 적어도 저장돼요"
         submit={editingId ? "변경 저장" : "지출 추가"}
-        disabledHint={!formValid ? "금액을 입력해 주세요" : undefined}
-        submitDisabled={!formValid}
+        disabledHint={splitHint}
+        submitDisabled={!formValid || Boolean(splitHint)}
         destructiveLabel={editingId ? "지출 삭제" : undefined}
         destructiveMessage={editingId ? `${draftTitle || "이 지출"} 내역을 삭제해요.` : undefined}
         onClose={() => setSheetOpen(false)}
@@ -7482,74 +7805,106 @@ function Money({
               <View style={[styles.fieldLabelDot, requiredDot("누구 몫", theme)]} />
               <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>누구 몫</Text>
             </View>
-            {/* 아무도 안 고르면 참가자 전원이 똑같이 나눈다. 가장 흔한 경우라
-                따로 고를 것을 없앴다. 한 명만 고르면 그 사람 몫이고, 여럿을
-                고른 뒤 옆의 숫자를 바꾸면 그 비중대로 갈린다. */}
-            <View style={styles.shareRows}>
-              {participants.map((person) => {
-                const picked = draftShares[person] !== undefined;
+            {/* 방식을 먼저 고르고 그 방식에 맞는 것만 보여 준다. 사람들이
+                실제로 하는 말이 "똑같이 나눠", "쟤는 빼고", "얘는 얼마" 라서
+                그 셋을 그대로 뒀다. 비율이 아니라 금액이다. */}
+            <View style={styles.splitModes}>
+              {(["균등", "일부", "금액"] as const).map((mode) => {
+                const active = draftSplitMode === mode;
+                const label = mode === "균등" ? "똑같이" : mode === "일부" ? "일부만" : "금액 직접";
                 return (
-                  <View key={person} style={styles.shareRow}>
-                    <Pressable
-                      onPress={() => setDraftShares((current) => {
-                        const next = { ...current };
-                        if (picked) delete next[person];
-                        else next[person] = 1;
-                        return next;
-                      })}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: picked }}
-                      accessibilityLabel={`${person} 몫`}
-                      style={({ pressed }) => [
-                        styles.shareName,
-                        theme && { borderColor: picked ? theme.primary : theme.border },
-                        picked && theme && { backgroundColor: theme.primarySoft },
-                        pressed && styles.controlPressed,
-                      ]}
-                    >
-                      <Text style={[styles.shareNameText, theme && { color: picked ? theme.primary : theme.muted }]}>
-                        {person}
-                      </Text>
-                    </Pressable>
-                    {picked && (
-                      <View style={styles.shareWeight}>
-                        <Pressable
-                          onPress={() => setDraftShares((current) => ({
-                            ...current,
-                            [person]: Math.max(1, (current[person] ?? 1) - 1),
-                          }))}
-                          hitSlop={8}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${person} 비중 줄이기`}
-                        >
-                          <Glyph name="minus" size={14} color={theme?.muted ?? "#646C7A"} weight={2.4} />
-                        </Pressable>
-                        <Text style={[styles.shareWeightValue, theme && { color: theme.text }]}>
-                          {draftShares[person]}
-                        </Text>
-                        <Pressable
-                          onPress={() => setDraftShares((current) => ({
-                            ...current,
-                            [person]: Math.min(99, (current[person] ?? 1) + 1),
-                          }))}
-                          hitSlop={8}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${person} 비중 늘리기`}
-                        >
-                          <Glyph name="plus" size={14} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
-                        </Pressable>
-                      </View>
-                    )}
-                    {picked && amountNumber > 0 && (
-                      <Text style={[styles.shareAmount, theme && { color: theme.muted }]}>
-                        {show(draftSplit[person] ?? 0)}
-                      </Text>
-                    )}
-                  </View>
+                  <Pressable
+                    key={mode}
+                    onPress={() => setDraftSplitMode(mode)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={label}
+                    style={({ pressed }) => [
+                      styles.splitMode,
+                      theme && { borderColor: active ? theme.primary : theme.border, backgroundColor: active ? theme.primarySoft : theme.surface },
+                      pressed && styles.controlPressed,
+                    ]}
+                  >
+                    <Text style={[styles.splitModeText, theme && { color: active ? theme.primary : theme.muted }]}>
+                      {label}
+                    </Text>
+                  </Pressable>
                 );
               })}
             </View>
-            <Text style={[styles.settingHint, theme && { color: theme.muted }]}>{draftShareSummary}</Text>
+            {draftSplitMode === "균등" && (
+              <Text style={[styles.splitEven, theme && { color: theme.muted }]}>
+                {participants.length}명이 {amountNumber > 0 ? `${show(amountNumber / participants.length)}씩` : "똑같이"} 나눠요
+              </Text>
+            )}
+            {draftSplitMode === "일부" && (
+              <View style={styles.splitPeople}>
+                {participants.map((person) => {
+                  const joined = draftPeople.includes(person);
+                  return (
+                    <Pressable
+                      key={person}
+                      onPress={() => setDraftPeople((current) => (
+                        current.includes(person)
+                          ? current.filter((name) => name !== person)
+                          : participants.filter((name) => current.includes(name) || name === person)
+                      ))}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: joined }}
+                      accessibilityLabel={`${person} 몫`}
+                      style={({ pressed }) => [
+                        styles.splitPerson,
+                        theme && { borderColor: joined ? theme.primary : theme.border, backgroundColor: joined ? theme.primarySoft : theme.surface },
+                        pressed && styles.controlPressed,
+                      ]}
+                    >
+                      {joined && <Glyph name="check" size={13} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
+                      <Text numberOfLines={1} style={[styles.splitPersonText, theme && { color: joined ? theme.primary : theme.muted }]}>
+                        {person}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+            {draftSplitMode === "금액" && (
+              <View style={styles.splitAmountRows}>
+                {participants.map((person) => (
+                  <View key={person} style={styles.splitAmountRow}>
+                    <Text numberOfLines={1} style={[styles.splitAmountName, theme && { color: theme.text }]}>{person}</Text>
+                    <TextInput
+                      value={draftAmounts[person] ?? ""}
+                      onChangeText={(text) => setDraftAmounts((current) => ({
+                        ...current,
+                        [person]: amountText(parseAmount(text, unit.fraction), unit.fraction),
+                      }))}
+                      accessibilityLabel={`${person} 몫 금액`}
+                      placeholder="0"
+                      placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+                      keyboardType="numeric"
+                      style={[
+                        styles.splitAmountInput,
+                        theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
+                      ]}
+                    />
+                  </View>
+                ))}
+                {/* 남은 돈이 0 이 아니면 저장을 막는다. 합이 안 맞으면 정산이 틀어진다. */}
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={[
+                    styles.splitLeft,
+                    theme && { color: draftAmountLeft === 0 ? theme.muted : (theme.dark ? statusColor.danger.dark : statusColor.danger.light) },
+                  ]}
+                >
+                  {draftAmountLeft === 0
+                    ? "딱 맞아요"
+                    : draftAmountLeft > 0
+                      ? `${show(draftAmountLeft)} 남았어요`
+                      : `${show(-draftAmountLeft)} 넘었어요`}
+                </Text>
+              </View>
+            )}
           </View>
         </OptionalFormSection>
         <OptionalFormSection
@@ -7598,6 +7953,39 @@ function Money({
             placeholder="예: 둘 다 학생 할인"
           />
         </OptionalFormSection>
+      </DetailSheet>
+      <DetailSheet
+        visible={paying !== null}
+        title={paying ? `${paying.from} → ${paying.to}` : "정산"}
+        subtitle="보낸 만큼 적어 두면 남은 금액이 줄어요"
+        submit={payNumber >= (paying?.amount ?? 0) ? "다 보냈어요" : "이만큼 보냈어요"}
+        disabledHint={payNumber <= 0 ? "금액을 입력해 주세요" : undefined}
+        submitDisabled={payNumber <= 0}
+        onClose={() => setPaying(null)}
+        onSubmit={savePayment}
+      >
+        {paying && (
+          <>
+            <DetailField
+              label="보낸 금액 · 필수"
+              value={payAmount}
+              onChangeText={(text) => setPayAmount(amountText(parseAmount(text, unit.fraction), unit.fraction))}
+              placeholder={amountText(paying.amount, unit.fraction)}
+              keyboardType="numeric"
+            />
+            {/* 왜 이 줄이 나왔는지. 사람이 적어서 사슬이 짧으니 여기선 말할 수
+                있다. 묶은 화면은 대개 "내가 왜 저 사람한테?" 에서 막힌다. */}
+            <View style={[styles.payWhy, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+              <Text style={[styles.payWhyLabel, theme && { color: theme.muted }]}>왜 이 금액인가요</Text>
+              {payWhy.map((line) => (
+                <Text key={line} style={[styles.payWhyLine, theme && { color: theme.text }]}>{line}</Text>
+              ))}
+            </View>
+            <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+              실제로 돈을 보내는 건 은행이나 송금 앱에서 하고, 여기에는 보냈다고 적어만 둬요.
+            </Text>
+          </>
+        )}
       </DetailSheet>
       <DetailSheet
         visible={peopleSheetOpen}
@@ -9701,6 +10089,18 @@ const styles = StyleSheet.create({
   participantRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
   participantName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
   participantWarn: { fontSize: 11, fontFamily: typo.caption.family },
+  splitModes: { flexDirection: "row", gap: 6, marginTop: 8 },
+  splitMode: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  splitModeText: { fontSize: 13, fontFamily: typo.label.family },
+  splitEven: { fontSize: 13, marginTop: 10, fontFamily: typo.caption.family },
+  splitPeople: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  splitPerson: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 44, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14 },
+  splitPersonText: { maxWidth: 86, fontSize: 13, fontFamily: typo.label.family },
+  splitAmountRows: { gap: 8, marginTop: 10 },
+  splitAmountRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  splitAmountName: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typo.label.family },
+  splitAmountInput: { width: 124, height: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 14, textAlign: "right", fontFamily: typo.data.family },
+  splitLeft: { fontSize: 13, textAlign: "right", fontFamily: typo.caption.family },
   shareField: { marginBottom: 20 },
   shareRows: { gap: 8, marginTop: 10 },
   shareRow: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -9751,6 +10151,24 @@ const styles = StyleSheet.create({
   moneyPaidGuest: { fontSize: 12, marginTop: 1, fontFamily: typo.caption.family },
   moneyPaidCell: { width: 104, textAlign: "right", fontSize: 14, fontFamily: typo.data.family },
   moneySettleBlock: { marginTop: 16, gap: 6 },
+  moneySettleHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 24 },
+  moneySettleToggle: { flexDirection: "row", alignItems: "center", gap: 4 },
+  moneySettleToggleText: { fontSize: 13, fontFamily: typo.label.family },
+  moneySettleCopy: { flex: 1, minWidth: 0 },
+  moneySettleWho: { fontSize: 12, fontFamily: typo.caption.family },
+  moneySettleDone: { minHeight: 36, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  moneySettleDoneText: { fontSize: 13, fontFamily: typo.label.family },
+  moneyOthersHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 40 },
+  moneyOthersLabel: { fontSize: 13, fontFamily: typo.caption.family },
+  moneyOtherRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14 },
+  moneyOtherText: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: typo.label.family },
+  moneyOtherAmount: { fontSize: 14, fontFamily: typo.data.family },
+  moneyOtherUndo: { fontSize: 13, fontFamily: typo.label.family },
+  moneySettleCopyButton: { minHeight: 44, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  moneySettleCopyText: { fontSize: 13, fontFamily: typo.label.family },
+  payWhy: { gap: 4, borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
+  payWhyLabel: { fontSize: 12, fontFamily: typo.caption.family },
+  payWhyLine: { fontSize: 13, lineHeight: 19, fontFamily: typo.label.family },
   moneySettleLabel: { fontSize: 12, fontFamily: typo.caption.family },
   moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
   moneySettleText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },

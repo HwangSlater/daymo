@@ -301,3 +301,80 @@ test("표에도 조사가 맞게 들어간다", () => {
   assert.ok(rows.some((row) => row.includes("지수가 낸 돈")));
   assert.ok(rows.some((row) => row.includes("하늘이 지수에게")));
 });
+
+test("보냈다고 적으면 잔액에서 빠진다", () => {
+  const 지출들 = [지출(40000, "하늘")];
+  const 전 = settle(지출들, 넷);
+  assert.equal(전.balances["여울"], -10000);
+  assert.equal(전.transfers.length, 3);
+
+  const 후 = settle(지출들, 넷, {
+    payments: [{ id: "p1", from: "여울", to: "하늘", amount: 10000, at: 1 }],
+  });
+  assert.equal(후.balances["여울"], 0);
+  assert.equal(후.balances["하늘"], 20000);
+  assert.deepEqual(후.transfers.map((t) => t.from).sort(), ["가람", "새봄"]);
+});
+
+test("일부만 보내도 보낸 만큼 줄어든다", () => {
+  const 후 = settle([지출(40000, "하늘")], 넷, {
+    payments: [{ id: "p1", from: "여울", to: "하늘", amount: 4000, at: 1 }],
+  });
+  assert.equal(후.balances["여울"], -6000);
+  const 여울줄 = 후.transfers.find((t) => t.from === "여울");
+  assert.equal(여울줄?.amount, 6000);
+});
+
+test("다 보내고 나면 정산할 게 없다", () => {
+  const 후 = settle([지출(40000, "하늘")], 넷, {
+    payments: [
+      { id: "p1", from: "여울", to: "하늘", amount: 10000, at: 1 },
+      { id: "p2", from: "가람", to: "하늘", amount: 10000, at: 2 },
+      { id: "p3", from: "새봄", to: "하늘", amount: 10000, at: 3 },
+    ],
+  });
+  assert.deepEqual(후.transfers, []);
+  assert.equal(후.balances["하늘"], 0);
+});
+
+test("묶지 않으면 누구에게 진 빚인지 그대로 나온다", () => {
+  // 하늘이 숙소를, 여울이 밥을 냈다. 가람은 둘 다에게 빚이 있다.
+  const 지출들 = [지출(40000, "하늘"), 지출(20000, "여울")];
+  const 묶음 = settle(지출들, 넷, { simplify: true });
+  const 그대로 = settle(지출들, 넷, { simplify: false });
+  // 잔액은 방식과 무관하게 같다.
+  assert.deepEqual(묶음.balances, 그대로.balances);
+  // 묶으면 오갈 횟수가 적거나 같다.
+  assert.ok(묶음.transfers.length <= 그대로.transfers.length);
+  // 안 묶으면 가람은 하늘과 여울 양쪽에 보낸다.
+  assert.deepEqual(
+    그대로.transfers.filter((t) => t.from === "가람").map((t) => t.to).sort(),
+    ["여울", "하늘"],
+  );
+});
+
+test("서로 주고받을 게 있으면 상계한다", () => {
+  // 하늘이 만원짜리를 둘이 나눠 냈고, 여울이 사천원짜리를 둘이 나눠 냈다.
+  const 그대로 = settle([지출(10000, "하늘"), 지출(4000, "여울")], 둘, { simplify: false });
+  assert.deepEqual(그대로.transfers, [{ from: "여울", to: "하늘", amount: 3000 }]);
+});
+
+test("직접 진 빚은 묶어도 남아서 왜 그런지 보여 줄 수 있다", () => {
+  const 묶음 = settle([지출(40000, "하늘"), 지출(20000, "여울")], 넷);
+  const 가람이진빚 = 묶음.direct.filter((t) => t.from === "가람");
+  assert.deepEqual(가람이진빚.map((t) => [t.to, t.amount]).sort(), [["여울", 5000], ["하늘", 10000]]);
+});
+
+test("주고받을 목록은 큰 금액부터 나온다", () => {
+  const result = settle([지출(40000, "하늘"), 지출(20000, "여울", { 가람: 1 })], 넷);
+  const amounts = result.transfers.map((t) => t.amount);
+  assert.deepEqual(amounts, [...amounts].sort((a, b) => b - a));
+});
+
+test("참가자가 아닌 사람에게 보낸 것도 셈에 든다", () => {
+  const 후 = settle([지출(20000, "민수")], 둘, {
+    payments: [{ id: "p1", from: "하늘", to: "민수", amount: 10000, at: 1 }],
+  });
+  assert.equal(후.balances["하늘"], 0);
+  assert.equal(후.balances["민수"], 10000);
+});
