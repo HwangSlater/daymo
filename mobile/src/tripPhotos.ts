@@ -1,6 +1,8 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { Platform } from "react-native";
 
+import { photoFileName } from "./filenames";
+
 /** 고른 사진을 옮겨 두는 폴더. 문서 폴더라 OS 가 지우지 않는다. */
 const PHOTO_DIRECTORY = "trip-photos";
 
@@ -26,12 +28,4 @@ export async function keepTripPhoto(uri: string): Promise<string> {
   } catch {
     return uri;
   }
-}
-
-/** 원래 이름을 살리되 폴더 구분자와 물음표 뒤는 버린다. 확장자가 없으면 jpg 로 본다. */
-function photoFileName(uri: string): string {
-  const last = uri.split("?")[0].split("/").pop() ?? "";
-  const cleaned = last.replace(/[\\/:*?"<>|]/g, "").trim();
-  if (!cleaned) return "photo.jpg";
-  return /\.[a-z0-9]{2,5}$/i.test(cleaned) ? cleaned : `${cleaned}.jpg`;
 }

@@ -14,11 +14,11 @@ import {
   expensesToCsv,
   parseAmount,
   settle,
-  shareExpenseCsv,
   totalsByCategory,
   totalsByDay,
   won,
 } from "./tripExpenses";
+import { shareExpenseCsv } from "./tripExpenseExport";
 import {
   Alert,
   Animated,

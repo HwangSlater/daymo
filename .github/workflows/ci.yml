@@ -40,8 +40,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # 현재 기존 화면 코드에 react-hooks 계열 error가 남아 있어 lint는 아직 차단 조건이 아니다.
-      # 해당 error를 정리한 뒤 continue-on-error를 제거해 필수 검사로 승격한다.
       - name: Lint
         run: npm run lint
-        continue-on-error: true
+
+      - name: Test
+        run: npm test

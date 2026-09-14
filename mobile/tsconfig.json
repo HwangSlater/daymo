@@ -1,6 +1,9 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    // 테스트는 Node 가 타입을 벗겨 그대로 돌린다. Node 의 ESM 해석기는 확장자를
+    // 요구하므로 테스트 파일에서만 ./x.ts 로 적는다. Metro 는 둘 다 받는다.
+    "allowImportingTsExtensions": true
   }
 }
