@@ -11,6 +11,10 @@ mobile/.fontsrc/
 mobile/ios/
 mobile/android/
 
+# prebuild 를 저장소 루트에서 돌리면 여기에도 생긴다. 생성물이라 커밋하지 않는다
+/ios/
+/android/
+
 # 실제 환경변수 파일은 커밋하지 않는다. .env.example 만 남긴다
 .env
 .env.local
