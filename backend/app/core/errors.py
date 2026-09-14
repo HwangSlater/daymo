@@ -18,6 +18,7 @@ class ErrorCode(StrEnum):
     TAG_IN_USE = "TAG_IN_USE"
     SETTLEMENT_IN_PROGRESS = "SETTLEMENT_IN_PROGRESS"
     SYNC_CURSOR_EXPIRED = "SYNC_CURSOR_EXPIRED"
+    GONE = "GONE"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     PASSWORD_TOO_COMMON = "PASSWORD_TOO_COMMON"
     PHOTO_TOO_LARGE = "PHOTO_TOO_LARGE"
@@ -35,6 +36,7 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.TAG_IN_USE: 409,
     ErrorCode.SETTLEMENT_IN_PROGRESS: 409,
     ErrorCode.SYNC_CURSOR_EXPIRED: 410,
+    ErrorCode.GONE: 410,
     ErrorCode.PHOTO_TOO_LARGE: 413,
     ErrorCode.STORAGE_QUOTA_EXCEEDED: 413,
     ErrorCode.VALIDATION_ERROR: 422,
@@ -53,6 +55,7 @@ MESSAGE_BY_CODE: dict[ErrorCode, str] = {
     ErrorCode.TAG_IN_USE: "사용 중인 태그예요.",
     ErrorCode.SETTLEMENT_IN_PROGRESS: "이미 주고받은 기록이 있어 바꿀 수 없어요.",
     ErrorCode.SYNC_CURSOR_EXPIRED: "동기화 기준이 오래돼 전체를 다시 받아야 해요.",
+    ErrorCode.GONE: "복구할 수 있는 기간이 지났어요.",
     ErrorCode.VALIDATION_ERROR: "입력 내용을 확인해 주세요.",
     ErrorCode.PASSWORD_TOO_COMMON: "너무 흔한 비밀번호예요. 다른 걸로 정해 주세요.",
     ErrorCode.PHOTO_TOO_LARGE: "사진이 너무 커요.",

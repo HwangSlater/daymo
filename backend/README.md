@@ -32,14 +32,16 @@ uvicorn 이 이벤트 루프를 만든 뒤에 앱을 import 해서, 앱 안에�
 
 ```text
 app/
-  main.py        앱 생성, 미들웨어, 오류 처리
-  api/v1/        라우터. 새 기능은 여기에 모듈을 만들고 router.py 에 붙인다
-  core/          설정, DB, 오류 코드, 응답 봉투
-  models/        SQLAlchemy 모델 (아직 없음)
-  schemas/       Pydantic 스키마 (아직 없음)
-  services/      도메인 로직 (아직 없음)
-alembic/         스키마 변경. 테이블은 여기를 거쳐서만 바뀐다
-tests/           pytest
+  main.py          앱 생성, 미들웨어, 오류 처리
+  api/v1/          라우터. 새 기능은 여기에 모듈을 만들고 router.py 에 붙인다
+  api/deps.py      누가 보냈는지(access token), 어디서 보냈는지(IP)
+  api/permissions.py  멤버십과 권한. 조회 자체에 조건을 넣어 IDOR 를 막는다
+  core/            설정, DB, 토큰, 비밀번호, 오류 코드, 응답 봉투, 접근 로그
+  models/          SQLAlchemy 모델
+  schemas/         Pydantic 스키마
+  services/        도메인 로직
+alembic/           스키마 변경. 테이블은 여기를 거쳐서만 바뀐다
+tests/             pytest
 ```
 
 ## 아직 없는 것
@@ -65,6 +67,14 @@ tests/           pytest
 예외 내용을 그대로 밖으로 내보내지 않는다. 원인은 `requestId` 로 로그에서 찾는다.
 
 **스키마는 Alembic 으로만 바꾼다.** `Base.metadata.create_all` 을 부르지 않는다.
+
+**조회에 권한 조건을 함께 넣는다.** 먼저 찾고 나중에 권한을 보면, 못 보는
+것을 찾아본 것 자체가 답이 된다. `app/api/permissions.py` 를 거쳐라. 없는
+것과 권한 없는 것은 같은 404 다.
+
+**요청 안에서 `commit()` 을 부르지 않는다.** 요청 하나가 transaction 하나다.
+예외는 시도 횟수를 세는 곳뿐인데, 거기는 실패한 요청에서도 기록이 남아야
+해서 일부러 자기 연결을 쓴다.
 
 ## 비밀 값
 

@@ -8,15 +8,22 @@ def test_접속_URL을_조각에서_조립한다():
 
 
 def test_비밀번호가_없으면_붙이지_않는다():
-    settings = Settings(db_password="")
+    # 호스트를 직접 준다. 환경 변수가 있는 자리(CI)에서는 기본값이 덮여서,
+    # 값을 주지 않으면 이 테스트가 환경에 따라 다른 것을 보게 된다.
+    settings = Settings(db_host="db.example", db_name="daymo", db_password="")
 
-    assert "@127.0.0.1:5432/daymo" in settings.database_url
+    assert "@db.example:5432/daymo" in settings.database_url
     assert ":@" not in settings.database_url
 
 
 def test_기본_호스트는_localhost가_아니다():
-    """윈도우는 localhost 를 ::1 로 먼저 풀어서, 연결이 실패하지 않고 멈춘다."""
-    assert Settings().db_host == "127.0.0.1"
+    """
+    윈도우는 localhost 를 ::1 로 먼저 풀어서, 연결이 실패하지 않고 멈춘다.
+
+    `Settings()` 를 만들어 보지 않고 선언된 기본값을 직접 본다. 환경 변수가
+    있으면 그것이 이겨서, 만들어 본 값으로는 기본값을 시험할 수 없다.
+    """
+    assert Settings.model_fields["db_host"].default == "127.0.0.1"
 
 
 def test_특수문자가_든_비밀번호를_escape한다():

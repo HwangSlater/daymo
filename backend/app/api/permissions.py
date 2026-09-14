@@ -1,0 +1,91 @@
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.errors import AppError, ErrorCode
+from app.models import Membership, MembershipRole, Space, Trip
+
+# 권한 표는 docs/development/02-architecture-and-data-model.md 4장에 있다.
+#
+#   공간 수정/삭제, 멤버 내보내기   owner
+#   여행과 하위 데이터 작성          owner, editor
+#   여행 보관/보관 해제              owner, editor
+#   여행 삭제/복구                   owner
+#   조회                             전원
+#
+# **없는 것과 권한 없는 것을 같은 404 로 답한다.** 403 을 주면 그 id 가
+# 존재한다는 뜻이 되어, 남의 공간과 여행 id 를 찍어 볼 수 있다. 멤버가 된
+# 뒤에야 403 이 의미를 갖는다.
+
+WRITERS = (MembershipRole.OWNER, MembershipRole.EDITOR)
+OWNER_ONLY = (MembershipRole.OWNER,)
+
+
+async def membership_in_space(
+    session: AsyncSession, *, user_id: uuid.UUID, space_id: uuid.UUID
+) -> Membership:
+    """
+    이 사람이 그 공간의 살아 있는 멤버인지 본다.
+
+    나간 멤버(`left_at` 이 찬 행)는 멤버가 아니다. 기록으로 남아 있을 뿐이다.
+    """
+    membership = await session.scalar(
+        select(Membership)
+        .join(Space, Space.id == Membership.space_id)
+        .where(
+            Membership.space_id == space_id,
+            Membership.user_id == user_id,
+            Membership.left_at.is_(None),
+            Space.deleted_at.is_(None),
+        )
+    )
+    if membership is None:
+        raise AppError(ErrorCode.NOT_FOUND)
+    return membership
+
+
+async def membership_for_trip(
+    session: AsyncSession, *, user_id: uuid.UUID, trip_id: uuid.UUID, include_deleted: bool = False
+) -> tuple[Membership, Trip]:
+    """
+    여행과 그 여행에 대한 내 자격을 함께 가져온다.
+
+    여행을 먼저 찾고 권한을 나중에 보지 않는다. 한 질의에서 공간을 거쳐
+    멤버십까지 확인해야 남의 여행 id 로 존재 여부를 알아낼 수 없다
+    (문서의 IDOR 차단 원칙).
+
+    `include_deleted` 는 복구 경로에서만 쓴다. 지워진 여행은 일반 조회에
+    나오지 않아야 한다.
+    """
+    조건 = [
+        Trip.id == trip_id,
+        Membership.user_id == user_id,
+        Membership.left_at.is_(None),
+        Space.deleted_at.is_(None),
+    ]
+    if not include_deleted:
+        조건.append(Trip.deleted_at.is_(None))
+
+    줄 = (
+        await session.execute(
+            select(Membership, Trip)
+            .join(Space, Space.id == Membership.space_id)
+            .join(Trip, Trip.space_id == Space.id)
+            .where(*조건)
+        )
+    ).first()
+    if 줄 is None:
+        raise AppError(ErrorCode.NOT_FOUND)
+    return 줄[0], 줄[1]
+
+
+def require(membership: Membership, *allowed: MembershipRole) -> None:
+    """
+    권한이 모자라면 막는다.
+
+    여기까지 왔다는 것은 이미 멤버라는 뜻이므로 403 을 준다. 멤버에게는
+    그 공간에 무엇이 있는지가 이미 보이니 숨길 것이 없다.
+    """
+    if membership.role not in allowed:
+        raise AppError(ErrorCode.FORBIDDEN)
