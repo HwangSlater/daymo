@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly COMPOSE_FILE=/srv/daymo/current/backend/infra/production/compose.yml
+readonly ENV_FILE=/etc/daymo/secrets/runtime.env
+
+docker run --rm \
+  -v /etc/letsencrypt:/etc/letsencrypt \
+  -v /var/www/certbot:/var/www/certbot \
+  certbot/certbot:latest renew --webroot --webroot-path /var/www/certbot --quiet
+
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T nginx nginx -t
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T nginx nginx -s reload
