@@ -44,29 +44,37 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd }: {
     }
   };
   const nights = Math.max(0, Math.round((new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / 86400000));
+  // 요약 판은 짙은 바탕에 밝은 글자다. 짙은 색을 하나로 박아 두면 테마를 바꿔도
+  // 안 따라오고, 라이트 테마의 primary 를 그 위에 얹으면 짙은 색 위의 짙은 색이
+  // 되어 "마지막 날을 선택하세요" 가 2:1 로 묻힌다. 모드별로 나눠 잡는다.
+  const plate = theme.dark ? theme.surfaceAlt : theme.primary;
+  const plateText = theme.dark ? theme.text : "#FFFFFF";
+  const plateLabel = theme.dark ? theme.primary : theme.primarySoft;
   return (
     <View style={styles.rangeField}>
       <Text style={[styles.fieldLabel, { color: theme.muted }]}>기간</Text>
-      <View style={styles.rangeSummary}>
-        <View>
-          <Text style={[styles.rangeSummaryLabel, { color: theme.primary }]}>
+      <View style={[styles.rangeSummary, { backgroundColor: plate }]}>
+        <View style={styles.rangeSummaryCopy}>
+          <Text style={[styles.rangeSummaryLabel, { color: plateLabel }]}>
             {selectingEnd ? "마지막 날을 선택하세요" : "선택한 여행 기간"}
           </Text>
-          <Text style={styles.rangeSummaryValue}>{formatTripRange(start, end)}</Text>
+          <Text numberOfLines={1} style={[styles.rangeSummaryValue, { color: plateText }]}>
+            {formatTripRange(start, end)}
+          </Text>
         </View>
-        <View style={styles.rangeNights}>
-          <Text style={styles.rangeNightsText}>{nights ? `${nights}박` : "당일"}</Text>
+        <View style={[styles.rangeNights, { backgroundColor: theme.dark ? theme.background : "rgba(255,255,255,0.18)" }]}>
+          <Text style={[styles.rangeNightsText, { color: plateText }]}>{nights ? `${nights}박` : "당일"}</Text>
         </View>
       </View>
       <View style={[styles.rangeCalendar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={styles.rangeMonthHead}>
-          <Pressable accessibilityRole="button" accessibilityLabel="이전 달" onPress={() => move(-1)} style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}>
+          <Pressable hitSlop={7} accessibilityRole="button" accessibilityLabel="이전 달" onPress={() => move(-1)} style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}>
             <Glyph name="chevronLeft" size={20} color={theme.text} />
           </Pressable>
           <Text style={[styles.rangeMonthTitle, { color: theme.text }]}>
             {calendarMonth.year}. {String(calendarMonth.value).padStart(2, "0")}
           </Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="다음 달" onPress={() => move(1)} style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}>
+          <Pressable hitSlop={7} accessibilityRole="button" accessibilityLabel="다음 달" onPress={() => move(1)} style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}>
             <Glyph name="chevronRight" size={20} color={theme.text} />
           </Pressable>
         </View>
@@ -109,8 +117,10 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd }: {
                       styles.rangeDayText,
                       { color: theme.muted },
                       inRange && styles.rangeDayTextActive,
-                      inRange && { color: theme.dark ? theme.secondary : "#087D70" },
-                      edge && styles.rangeDayTextEdge,
+                      inRange && { color: theme.dark ? theme.secondary : theme.primary },
+                      // 동그라미 안은 secondary 바탕이다. 다크 모드의 secondary 는
+                      // 밝은 색이라 흰 글자를 얹으면 2.6:1 로 사라진다.
+                      edge && { color: theme.dark ? theme.background : "#FFFFFF" },
                     ]}>{day}</Text>
                   </View>
                 )}
@@ -126,11 +136,12 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd }: {
 const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontFamily: typo.label.family },
   rangeField: { marginBottom: 16 },
-  rangeSummary: { minHeight: 62, borderRadius: 16, paddingHorizontal: 12, backgroundColor: "#17233D", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
-  rangeSummaryLabel: { color: "#5ED8C9", fontSize: 12, fontFamily: typo.label.family },
-  rangeSummaryValue: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.data.family, marginTop: 4 },
-  rangeNights: { minWidth: 42, height: 30, borderRadius: 12, paddingHorizontal: 8, backgroundColor: "#263657", alignItems: "center", justifyContent: "center" },
-  rangeNightsText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.data.family },
+  rangeSummary: { minHeight: 62, borderRadius: 16, paddingHorizontal: 12, gap: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
+  rangeSummaryCopy: { flex: 1 },
+  rangeSummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
+  rangeSummaryValue: { fontSize: 14, fontFamily: typo.data.family, marginTop: 4 },
+  rangeNights: { minWidth: 42, height: 30, borderRadius: 12, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  rangeNightsText: { fontSize: 14, fontFamily: typo.data.family },
   rangeCalendar: { marginTop: 8, borderRadius: 16, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderWidth: 1 },
   rangeMonthHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   rangeMonthButton: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
@@ -138,14 +149,13 @@ const styles = StyleSheet.create({
   rangeWeek: { flexDirection: "row", marginBottom: 2 },
   rangeWeekday: { width: "14.285%", fontSize: 12, fontFamily: typo.label.family, textAlign: "center" },
   rangeGrid: { flexDirection: "row", flexWrap: "wrap" },
-  rangeDay: { width: "14.285%", height: 34, alignItems: "center", justifyContent: "center", position: "relative" },
-  rangeDayBand: { position: "absolute", left: 0, right: 0, height: 26, top: 4 },
-  rangeDayBandStart: { borderTopLeftRadius: 13, borderBottomLeftRadius: 13 },
-  rangeDayBandEnd: { borderTopRightRadius: 13, borderBottomRightRadius: 13 },
+  rangeDay: { width: "14.285%", height: 42, alignItems: "center", justifyContent: "center", position: "relative" },
+  rangeDayBand: { position: "absolute", left: 0, right: 0, height: 30, top: 6 },
+  rangeDayBandStart: { borderTopLeftRadius: 15, borderBottomLeftRadius: 15 },
+  rangeDayBandEnd: { borderTopRightRadius: 15, borderBottomRightRadius: 15 },
   rangeDayBandFirst: { left: "50%" },
   rangeDayBandLast: { right: "50%" },
-  rangeDayCircle: { width: 28, height: 28, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+  rangeDayCircle: { width: 32, height: 32, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   rangeDayText: { fontSize: 14, lineHeight: 17, fontFamily: typo.data.family, textAlign: "center" },
   rangeDayTextActive: { fontFamily: typo.label.family },
-  rangeDayTextEdge: { color: "#FFFFFF" },
 });
