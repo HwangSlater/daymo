@@ -6581,6 +6581,10 @@ function Money({
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
   const [draftRate, setDraftRate] = useState("");
+  // 빠르게 적기. 금액만 치고 단추 한 번이면 한 건이 들어간다. 평소 가계부를
+  // 안 쓰던 사람이 여행 중에 쓰려면 이 정도로 짧아야 한다.
+  const [quickAmount, setQuickAmount] = useState("");
+  const [quickCategory, setQuickCategory] = useState<ExpenseCategory>("식비");
   const previousDays = useRef(dayOptions);
   const dayOptionsKey = dayOptions.join("|");
 
@@ -6635,13 +6639,17 @@ function Money({
     [visible, dayOptions],
   );
   const unit = currencyOf(currency);
+  // 금액 칸에서 눌러 더하는 단위. 통화가 원이면 천 단위, 소수를 쓰는 통화면 한 자리 작게 잡는다.
+  const quickSteps = unit.fraction > 0 ? [1, 5, 10] : [1000, 5000, 10000];
   // 이 탭 안에서는 늘 여행 통화로 적는다. 원 환산은 합계 옆에만 덧붙인다.
   const show = (amount: number) => money(amount, unit.code);
   const inWon = (amount: number) => toWon(amount, exchangeRate);
   const foreign = unit.code !== DEFAULT_CURRENCY.code;
   const amountNumber = parseAmount(draftAmount, unit.fraction);
   const budgetNumber = parseAmount(draftBudget, unit.fraction);
-  const formValid = Boolean(draftTitle.trim()) && amountNumber > 0;
+  // 이름은 안 적어도 된다. 안 적으면 분류가 이름이 된다. "식비 12,000원" 만으로도
+  // 나중에 표를 볼 때 뜻이 통하고, 필수 글자 입력이 하나 줄어든다.
+  const formValid = amountNumber > 0;
   const budgetRemaining = budget - settlement.total;
   const budgetProgress = budget > 0 ? settlement.total / budget : 0;
   // 치는 동안 세 자리마다 끊는다. 32,000 과 320,000 은 자릿수가 안 끊기면
@@ -6667,6 +6675,28 @@ function Money({
     notify("여행 예산을 저장했어요");
   };
 
+  const quickNumber = parseAmount(quickAmount, unit.fraction);
+  const draftPayerHint = `${lastPayer}이 내고 반씩 나눠요`;
+  const addQuickExpense = () => {
+    if (!quickNumber) return;
+    setExpenses((current) => [
+      ...current,
+      {
+        id: `expense-${Date.now()}`,
+        // 빠르게 적는 건 지금 쓴 돈이다. 여행 중이면 오늘, 아니면 첫날이다.
+        day: todayDay || dayOptions[0] || "",
+        title: quickCategory,
+        amount: quickNumber,
+        category: quickCategory,
+        payer: lastPayer,
+        share: "함께",
+        memo: "",
+      },
+    ]);
+    setQuickAmount("");
+    setLastCategory(quickCategory);
+    notify(`${quickCategory} ${money(quickNumber, unit.code)}을 적었어요`);
+  };
   const openCreate = () => {
     setEditingId(null);
     setDraftTitle("");
@@ -6705,7 +6735,7 @@ function Money({
       const next: Expense = {
         id: editingId ?? `expense-${Date.now()}`,
         day: draftDay,
-        title: draftTitle.trim(),
+        title: draftTitle.trim() || draftCategory,
         amount: amountNumber,
         category: draftCategory,
         payer: draftPayer,
@@ -6872,6 +6902,62 @@ function Money({
           )}
         </View>
       </View>
+      {/* 요약 바로 아래에 둔다. 탭을 열자마자 손이 닿는 자리다. */}
+      <View style={[styles.quickAdd, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[styles.quickAddTitle, theme && { color: theme.muted }]}>빠르게 적기</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickAddChips}>
+          {EXPENSE_CATEGORIES.map((item) => {
+            const active = quickCategory === item;
+            return (
+              <Pressable
+                key={item}
+                onPress={() => setQuickCategory(item)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                style={[
+                  styles.quickAddChip,
+                  theme && { borderColor: active ? theme.primary : theme.border },
+                  active && theme && { backgroundColor: theme.primarySoft },
+                ]}
+              >
+                <Text style={[styles.quickAddChipText, theme && { color: active ? theme.primary : theme.muted }]}>{item}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <View style={styles.quickAddRow}>
+          <TextInput
+            accessibilityLabel={`${quickCategory} 금액`}
+            value={quickAmount}
+            onChangeText={(text) => {
+              const amount = parseAmount(text, unit.fraction);
+              setQuickAmount(amount ? amountText(amount, unit.fraction) : "");
+            }}
+            keyboardType="numeric"
+            placeholder={`${quickCategory} 얼마 썼나요`}
+            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+            style={[styles.quickAddInput, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border, color: theme.text }]}
+          />
+          <Pressable
+            onPress={addQuickExpense}
+            disabled={!quickNumber}
+            accessibilityRole="button"
+            accessibilityLabel={`${quickCategory} 지출 적기`}
+            accessibilityState={{ disabled: !quickNumber }}
+            style={({ pressed }) => [
+              styles.quickAddButton,
+              theme && { backgroundColor: quickNumber ? theme.primary : theme.surfaceAlt },
+              pressed && quickNumber > 0 && styles.controlPressed,
+            ]}
+          >
+            <Glyph name="plus" size={16} color={quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE"} weight={2.6} />
+            <Text style={[styles.quickAddButtonText, { color: quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE" }]}>적기</Text>
+          </Pressable>
+        </View>
+        <Text style={[styles.quickAddHint, theme && { color: theme.muted }]}>
+          {draftPayerHint} · 자세히 적으려면 위의 지출 추가를 누르세요
+        </Text>
+      </View>
       {expenses.length > 0 && (
         <View style={[styles.moneyInsightCard, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
           <View style={styles.moneyInsightHeading}>
@@ -7036,7 +7122,7 @@ function Money({
         title={editingId ? "지출 수정" : "지출 추가"}
         subtitle="항목과 금액만 적어도 저장돼요"
         submit={editingId ? "변경 저장" : "지출 추가"}
-        disabledHint={!formValid ? (!draftTitle.trim() ? "항목 이름을 입력해 주세요" : "금액을 입력해 주세요") : undefined}
+        disabledHint={!formValid ? "금액을 입력해 주세요" : undefined}
         submitDisabled={!formValid}
         destructiveLabel={editingId ? "지출 삭제" : undefined}
         destructiveMessage={editingId ? `${draftTitle || "이 지출"} 내역을 삭제해요.` : undefined}
@@ -7045,10 +7131,10 @@ function Money({
         onDestructive={deleteExpense}
       >
         <DetailField
-          label="항목 · 필수"
+          label="항목"
           value={draftTitle}
           onChangeText={setDraftTitle}
-          placeholder="예: 옹기식탁 점심"
+          placeholder={`안 적으면 ${draftCategory}`}
         />
         <DetailField
           label="금액 · 필수"
@@ -7057,6 +7143,36 @@ function Money({
           placeholder="예: 32,000"
           keyboardType="numeric"
         />
+        {/* 0 을 여러 번 치는 대신 눌러서 더한다. 엄지로 적을 때 훨씬 빠르다. */}
+        <View style={styles.amountSteps}>
+          {quickSteps.map((step) => (
+            <Pressable
+              key={step}
+              // 지금 값에서 더한다. 빠르게 두 번 누르면 앞의 결과가 아직 화면에
+              // 반영되기 전이라, 밖에서 읽은 값으로 더하면 첫 번째가 사라진다.
+              onPress={() => setDraftAmount((current) => amountText(parseAmount(current, unit.fraction) + step, unit.fraction))}
+              accessibilityRole="button"
+              accessibilityLabel={`${amountText(step, 0)} 더하기`}
+              style={({ pressed }) => [
+                styles.amountStep,
+                theme && { borderColor: theme.border, backgroundColor: theme.surface },
+                pressed && styles.controlPressed,
+              ]}
+            >
+              <Text style={[styles.amountStepText, theme && { color: theme.primary }]}>+{amountText(step, 0)}</Text>
+            </Pressable>
+          ))}
+          {amountNumber > 0 && (
+            <Pressable
+              onPress={() => setDraftAmount("")}
+              accessibilityRole="button"
+              accessibilityLabel="금액 지우기"
+              style={({ pressed }) => [styles.amountStep, pressed && styles.controlPressed]}
+            >
+              <Text style={[styles.amountStepText, theme && { color: theme.muted }]}>지우기</Text>
+            </Pressable>
+          )}
+        </View>
         <OptionField
           label="분류"
           options={EXPENSE_CATEGORIES}
@@ -9127,6 +9243,19 @@ const styles = StyleSheet.create({
   moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   moneyTotalUnit: { fontSize: 16, fontFamily: typo.body.family },
+  quickAdd: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, marginBottom: 10 },
+  quickAddTitle: { fontSize: 12, fontFamily: typo.label.family },
+  quickAddChips: { gap: 6, paddingVertical: 9, paddingRight: 4 },
+  quickAddChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  quickAddChipText: { fontSize: 12.5, fontFamily: typo.label.family },
+  quickAddRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  quickAddInput: { flex: 1, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, fontFamily: typo.data.family },
+  quickAddButton: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 12, paddingLeft: 12, paddingRight: 14, paddingVertical: 11 },
+  quickAddButtonText: { fontSize: 14, fontFamily: typo.label.family },
+  quickAddHint: { fontSize: 11, marginTop: 8, fontFamily: typo.caption.family },
+  amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: -10, marginBottom: 18 },
+  amountStep: { borderWidth: 1, borderColor: "transparent", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  amountStepText: { fontSize: 12, fontFamily: typo.label.family },
   moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
   moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingLeft: 12, paddingRight: 9, paddingVertical: 7 },
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
