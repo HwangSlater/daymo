@@ -45,7 +45,7 @@
 }
 ```
 
-주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
+주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
 
 ### 캐시 유효성 기본값
 
@@ -267,7 +267,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 여행 목록 query: `status`, `from`, `to`, `regionCode`, `q`, `limit`, `cursor`, `sort`.
 
-일반 여행 상세에는 삭제 동작을 노출하지 않고 `보관`만 제공한다. owner와 editor는 보관·보관 해제를 할 수 있다. 보관은 목록 정리 상태이므로 보관된 여행의 일정·장소·준비물·요리·기록·사진 CRUD API를 차단하지 않는다. 실제 삭제와 복구는 owner만 보관함의 관리 메뉴에서 수행할 수 있으며, 삭제 전에 영향 범위와 7일 복구 기한을 확인한다. 삭제된 여행은 일반 목록·검색·지도·캘린더·알림에서 즉시 제외하고 `status=trash` 관리 조회에서만 보여준다. 7일 안에 복구하면 기존 상태와 종속 콘텐츠를 되살리고, 권한이 없으면 `403 FORBIDDEN`, 기한이 지났으면 `410 GONE`을 반환한다.
+일반 여행 상세에는 삭제 동작을 노출하지 않고 `보관`만 제공한다. owner와 editor는 보관·보관 해제를 할 수 있다. 보관은 목록 정리 상태이므로 보관된 여행의 일정·장소·준비물·요리·비용·기록·사진 CRUD API를 차단하지 않는다. 실제 삭제와 복구는 owner만 보관함의 관리 메뉴에서 수행할 수 있으며, 삭제 전에 영향 범위와 7일 복구 기한을 확인한다. 삭제된 여행은 일반 목록·검색·지도·캘린더·알림에서 즉시 제외하고 `status=trash` 관리 조회에서만 보여준다. 7일 안에 복구하면 기존 상태와 종속 콘텐츠를 되살리고, 권한이 없으면 `403 FORBIDDEN`, 기한이 지났으면 `410 GONE`을 반환한다.
 
 여행 종료일이 공간 timezone의 오늘보다 이전이어도 서버가 자동 보관하지 않는다. 클라이언트는 지난 여행의 `여행` 탭 하위 일정·숙소·예약·교통·메모, `장소`, `요리` 쓰기 동작 전에 `지난 여행을 편집할까요?`를 확인한다. 동의 시 해당 여행·기기에 로컬 승인 시각을 저장해 10분간 재확인을 생략한다. `준비`, `기록`과 사진 추가·수정은 확인 대상이 아니다. API는 이 로컬 확인값을 신뢰하거나 요구하지 않고 기존 membership·version 규칙만 검증한다.
 
@@ -281,11 +281,14 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
   "startDate": "2026-08-21",
   "endDate": "2026-08-23",
   "summary": "숙소에서 수다와 버섯전골",
-  "cookingEnabled": true
+  "cookingEnabled": true,
+  "participantMembershipIds": ["uuid", "uuid"]
 }
 ```
 
 서버는 여행과 기간 내 `trip_days`를 한 트랜잭션으로 생성한다. 종료일은 시작일보다 빠를 수 없으며 초기 최대 기간은 60일로 제한한다.
+
+`participantMembershipIds`는 이번 여행에 가는 사람이다. 공간 멤버 전원이 매번 같이 가지는 않으므로 여행을 만들 때 고르고, 이후에는 `PUT /trips/{tripId}/participants`로 바꾼다. 생략하면 빈 목록으로 만들고 클라이언트가 공간 멤버 전원으로 해석한다.
 
 `cookingEnabled`는 요리 탭 표시의 서버 원본이다. 숙소의 `hasKitchen`이 `true`이고 탭이 꺼져 있으면 켜기를, `false`이고 탭이 켜져 있으면 끄기를 제안한다. 제안은 자동 적용하지 않으며 탭을 꺼도 기존 요리·재료를 삭제하지 않는다.
 
@@ -443,7 +446,78 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 재료를 준비물로 가져오면 응답에 생성된 `checklistItemId`와 `sourceIngredientIds`를 반환한다. 재료와 준비물 완료 API는 서로를 자동 호출하지 않으며, 앱은 연결 정보를 이용해 다른 쪽 반영 여부를 확인한 뒤 사용자가 승인한 경우에만 별도 mutation을 보낸다.
 
-## 9. 메모·사진·일기
+## 9. 비용과 정산
+
+| Method | Path | 용도 |
+| --- | --- | --- |
+| GET | `/trips/{tripId}/participants` | 이번 여행 참가자 목록 |
+| PUT | `/trips/{tripId}/participants` | 참가자 목록 교체 |
+| GET/POST | `/trips/{tripId}/expenses` | 지출 목록/추가 |
+| PATCH/DELETE | `/expenses/{expenseId}` | 지출 수정/삭제 |
+| GET/POST | `/trips/{tripId}/payments` | 정산 송금 기록 목록/추가 |
+| DELETE | `/payments/{paymentId}` | 송금 기록 되돌리기 |
+| PATCH | `/trips/{tripId}/expense-settings` | 여행 통화·환율·예산과 정산 묶기 설정 |
+
+참가자 교체 요청:
+
+```json
+{
+  "membershipIds": ["uuid", "uuid"],
+  "version": 3
+}
+```
+
+참가자는 공간 멤버 가운데 이번 여행에 가는 사람이며 여행 생성 시트, 여행 수정 시트, 비용 탭에서 같은 목록을 고친다. 목록 전체 교체이므로 온라인에서만 수행하고 `version`으로 동시 수정을 검증한다. 빠지는 참가자에게 걸린 준비물·재료 담당, 교통편 이용자, 지출의 몫 개수를 응답 `affected`로 돌려주되 서버가 교체를 막거나 해당 항목을 자동으로 지우지는 않는다. 앱은 확인 화면에서 같은 내용을 기기 데이터로 먼저 보여준다.
+
+빈 목록도 허용하며 이 경우 클라이언트는 공간의 활성 멤버 전원을 참가자로 본다. 멤버가 공간을 나가거나 내보내져도 그 여행의 지출과 몫은 그대로 유지한다.
+
+지출 추가 요청:
+
+```json
+{
+  "tripDayId": "uuid",
+  "title": "소나기식당 점심",
+  "amount": 48000,
+  "category": "meal",
+  "payerMembershipId": "uuid",
+  "splitMode": "subset",
+  "shares": [
+    { "membershipId": "uuid", "weight": 1 },
+    { "membershipId": "uuid", "weight": 1 }
+  ],
+  "memo": "",
+  "receiptPhotoId": null
+}
+```
+
+`shares`를 생략하면 그 지출은 참가자 전원이 똑같이 나눈 것으로 본다. `weight`는 비율이 아니라 비중이므로 합이 얼마든 상관없고 서버는 정규화하지 않는다. `splitMode`는 화면 표기와 재편집에만 쓰는 값이라 서버가 `shares`와 일치하는지 검증하지 않는다. `amount`는 여행 통화 기준이며 원 환산은 저장하지 않는다. `payerMembershipId`가 현재 참가자가 아니어도 거부하지 않는다. 참가자에서 뺀 사람이 낸 지출을 잃어버리면 합계와 잔액이 어긋나기 때문이다.
+
+송금 기록 추가 요청:
+
+```json
+{
+  "fromMembershipId": "uuid",
+  "toMembershipId": "uuid",
+  "amount": 22500,
+  "paidAt": "2026-08-24T09:00:00Z"
+}
+```
+
+`정산하기`는 돈을 보내는 동작이 아니라 **보냈다고 적어 두는 기록**이다. 서버도 앱도 계좌이체를 확인할 수 없으므로 외부 결제 연동을 전제하지 않는다. 같은 여행을 여러 사람이 보기 때문에 이 기록만은 반드시 서버가 알아야 한다. 한 사람이 적어 둔 것을 서버가 모르면 다른 사람 화면에는 여전히 보낼 돈으로 남고, 같은 돈을 두 번 보내게 된다.
+
+주고받을 전액이 아니라 일부만 적는 부분 정산을 허용한다. 서버는 금액이 0보다 큰지, 두 사람이 같은 공간의 멤버인지, 서로 다른 사람인지만 확인하고 잔액 초과 여부로 거부하지 않는다. 되돌리기는 해당 기록의 soft delete이며 온라인에서만 수행하고 `deletedBy`와 audit log를 남긴다.
+
+여행 비용 설정 요청:
+
+```json
+{ "currency": "JPY", "exchangeRate": 9.3, "budget": 800000, "simplifySettlement": true, "version": 7 }
+```
+
+`simplifySettlement`는 주고받을 목록을 묶어서 보여줄지이며 기본값은 `true`다. 삭제되지 않은 송금 기록이 하나라도 있으면 서버가 `409 SETTLEMENT_IN_PROGRESS`로 거부한다. 묶은 목록대로 보낸 뒤 방식을 바꾸면 이미 보낸 돈이 엉뚱한 곳으로 간 것이 되기 때문이며, 기록을 모두 되돌리면 다시 바꿀 수 있다. 클라이언트도 같은 조건으로 토글을 잠그지만 최종 판정은 서버가 한다.
+
+잔액과 주고받을 목록에는 API를 두지 않는다. `낸 돈 − 내야 할 돈 + 보낸 돈 − 받은 돈`은 지출·참가자·송금 기록만 있으면 기기에서 계산할 수 있고, 세 가지 모두 이미 증분 동기화로 받는다. 단톡방에 붙이는 정산 텍스트와 비용 표(CSV) 생성도 같은 이유로 기기에서 처리한다.
+
+## 10. 메모·사진·일기
 
 | Method | Path | 용도 |
 | --- | --- | --- |
@@ -518,7 +592,7 @@ HEIC·HEIF 등 지원하는 기기 원본은 원래 byte와 MIME으로 private s
 
 다운로드는 파일 시스템 경로를 공개하지 않는다. Spring Security가 사용자의 공간 membership을 확인한 뒤 Nginx `X-Accel-Redirect` 또는 제한된 내부 경로로 파일을 전달한다. Range 요청과 적절한 private cache header를 지원한다.
 
-## 10. 통합 검색과 실시간 이벤트
+## 11. 통합 검색과 실시간 이벤트
 
 `GET /spaces/{spaceId}/search?q=소나기식당&types=trip,place,schedule,recipe,packing,diary,photo,memo&limit=20`
 
@@ -540,7 +614,7 @@ HEIC·HEIF 등 지원하는 기기 원본은 원래 byte와 MIME으로 private s
 
 모바일 SSE 구현이 표준 `EventSource`에서 Bearer header를 안정적으로 전달하지 못하는 경우를 대비해 `POST /spaces/{spaceId}/events/ticket`에서 60초 이내 만료되는 1회용 연결 ticket을 발급한다. 장기 access token을 URL에 넣지 않는다. SSE는 변경 신호일 뿐 데이터 원본이 아니며 수신 뒤 증분 sync 또는 대상 GET으로 최신 상태를 확인한다. 연결이 불안정하면 foreground polling으로 자동 전환한다.
 
-## 11. 알림 설정과 기기
+## 12. 알림 설정과 기기
 
 | Method | Path | 용도 |
 | --- | --- | --- |
@@ -566,7 +640,7 @@ OS에 전달하는 title/body는 `Daymo에 새 알림이 있어요`처럼 일반
 
 여행 임박 알림은 공간의 timezone을 기준으로 출발 7일 전과 1일 전, 사용자 현지 시각 오전 9시에 각각 한 번 보낸다. 여행 생성 또는 날짜 변경 시 이미 지난 알림은 소급 발송하지 않고 아직 남은 알림만 예약한다. 여행이 취소·삭제되거나 시작일이 바뀌면 기존 작업은 무효화하며, `(tripId, userId, reminderType, startDate)`를 idempotency key로 사용해 중복 발송을 막는다.
 
-## 12. 증분 동기화 API
+## 13. 증분 동기화 API
 
 | Method | Path | 용도 |
 | --- | --- | --- |
@@ -618,18 +692,19 @@ pending mutation 요청:
 
 오프라인 큐 허용:
 
-- 일정·장소·준비·요리·기록의 일반 생성·수정
+- 일정·장소·준비·요리·비용·기록의 일반 생성·수정
 - 준비물 완료·담당 변경처럼 idempotent intent로 표현 가능한 동작
+- 송금 기록 추가처럼 client UUID로 중복을 막을 수 있는 생성
 
 오프라인 큐 제외:
 
-- 삭제와 목록 전체 교체
+- 삭제와 목록 전체 교체(송금 기록 되돌리기, 참가자 목록 교체 포함)
 - 초대·멤버·권한 변경
 - 사진 byte 전송과 quota 확정
 
 앱은 실행, foreground 복귀, 네트워크 재연결과 사용자 새로고침에서 sync를 시작한다. background sync는 OS가 허용한 실행 기회에만 수행한다. SSE가 정상이면 주기 polling을 함께 돌리지 않고, SSE 실패 시에만 지수 backoff polling으로 전환한다.
 
-## 13. 사진 전송 최적화
+## 14. 사진 전송 최적화
 
 사진 응답은 권한이 필요한 `thumbnailUrl`, `displayUrl`, `originalUrl`, 각 byte 크기와 checksum을 분리한다. Daymo에 추가가 완료된 사진은 원본을 반드시 보유한다.
 

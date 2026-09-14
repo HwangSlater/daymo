@@ -7,10 +7,11 @@
 | 로그인/회원가입 | Auth, User | 이메일과 Apple/Google/Kakao/Naver 로그인 |
 | 홈 | Dashboard | 다음 여행, 숙소, 일정·장소·준비 개수, 빠른 이동, 지난 여행 기록 |
 | 여행 목록/지도/캘린더 | Trip | 같은 여행 데이터를 세 가지 표현으로 조회 |
-| 여행 상세 `여행` | TripDay, Schedule, Stay, Transport, Reservation | 날짜별 전체 일정과 여행 정보 |
+| 여행 상세 `여행` | TripDay, Schedule, Stay, Transport, Reservation, TripParticipant | 날짜별 전체 일정과 여행 정보, 이번 여행 참가자 |
 | `장소` | Place, TripPlace, Tag | 검색·태그·후보/일정 상태, 숙소 등록, 지도 열기 |
 | `준비` | ChecklistItem, Assignment, Tag | 전체/남음/완료와 멤버별 담당, 일괄 붙여넣기 |
 | `요리` | Recipe, Ingredient | 여러 메뉴, 재료 담당·구매, 준비물 가져오기, 출처 링크 |
+| `비용` | Expense, ExpenseShare, Payment, TripParticipant | 참가자별 몫 나누기, 통화·환율, 예산, 정산과 송금 기록, 표 내보내기 |
 | `기록` | Photo, Diary | 사진과 여행 일기, 회고·통계 |
 | 상단 메모지 | Memo | 공동 메모 생성·수정·삭제 |
 | 찾기 | Search | 여행 내부의 모든 구조화 정보 통합 검색 |
@@ -47,8 +48,10 @@ React Native UI
 | 사진 업로드 네트워크 설정 | 기기 | 요금제와 연결 환경이 기기마다 다르므로 기기별 적용 |
 | 생체 앱 잠금 설정 | 기기 보안 저장소 | 기기별 선택 기능이며 서버 계정 인증을 대체하지 않음 |
 | 지도 path, 앱 그림·아이콘 | 앱 bundle | 네트워크 없이 즉시 표시 |
-| 홈/여행/일정/장소/준비/요리 조회본 | SQLite 캐시 | 즉시 표시하고 변경분만 수신 |
+| 홈/여행/일정/장소/준비/요리/비용 조회본 | SQLite 캐시 | 즉시 표시하고 변경분만 수신 |
 | 여행·일정·담당·체크·태그·공동 메모 원본 | 서버 | 멤버 간 동일한 결과와 백업 필요 |
+| 여행 참가자, 지출과 몫, 정산 송금 기록 | 서버 | 같은 여행을 여러 명이 보고 잔액이 사람마다 갈리면 안 됨 |
+| 여행 통화·환율·예산, 정산 묶기 여부 | 서버 | 여행마다 하나뿐인 값이고 화면을 여는 사람마다 다른 금액이 나오면 안 됨 |
 | 프로필과 공간 멤버/권한 | 서버 | 인증·권한 판단의 기준 |
 | 사진 표시본/선택 원본 | VPS private volume | 다른 멤버 공유와 기기 분실 대비 |
 | 사진 썸네일·표시본 | 기기 파일 캐시 | 앱 자체 용량·기간 상한 없이 반복 다운로드 방지, 사용자 직접 비우기 지원 |
@@ -59,6 +62,8 @@ React Native UI
 - 준비물/요리 목록의 복사 텍스트 생성과 붙여넣기 문법 검사
 - 이미 받은 목록의 태그·담당·상태 필터와 정렬
 - 여행 날짜의 달력 범위, 진행률, 개수와 연애 일수 계산
+- 낸 돈·몫·잔액과 주고받을 목록 계산, 묶기 전후 비교, 여행 통화의 원 환산
+- 정산 내용 복사 텍스트와 비용 표(CSV) 생성
 - 공간 timezone 기준 지난 여행 판정과 여행별 편집 확인 10분 TTL 계산
 - 대한민국 지도 확대/이동과 지역 선택
 - 사진 리사이즈·방향 보정·checksum 계산
@@ -67,6 +72,7 @@ React Native UI
 
 - 공유된 원본을 만들거나 변경하는 모든 CRUD와 담당/체크
 - 멤버 초대·권한·공간 전환에 필요한 최신 membership 확인
+- 여행 참가자 변경과 정산 송금 기록의 생성·되돌리기
 - 모든 여행을 대상으로 하는 통합 검색과 통계
 - 다른 멤버의 최신 변경 수신과 충돌 판정
 - 지도 단축 URL redirect 확인/장소 보강처럼 외부 네트워크가 필요한 작업
@@ -105,6 +111,8 @@ React Native UI
 - `space_invite_acceptances`: `invite_id`, `membership_id`, `accepted_by`, `accepted_at`
 - `relationship_profiles`: `space_id`, `started_on nullable`
 
+앱이 다루는 공간 한 덩이는 이름, 멤버 목록, 관계, 함께하기 시작한 날이다. 각각 `spaces.name`, 해당 공간의 `memberships`, `spaces.relationship_type`, `relationship_profiles.started_on`에 해당한다. 멤버 하나는 표시 이름과 권한이며 각각 `memberships.nickname`과 `memberships.role`이다. 화면의 권한 이름표 `관리자`·`편집 가능`·`보기만`이 곧 `owner`·`editor`·`viewer`다. 서버가 붙기 전까지 이 값은 표시용 이름표일 뿐이고 실제 차단은 아래 서버 권한 검증에서만 이뤄진다.
+
 OAuth provider의 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 기존 비밀번호 또는 이미 연결된 provider로 재인증한 뒤 `oauth_accounts`를 연결한다. 사용자는 연결된 로그인 방식을 확인·해제할 수 있지만 사용 가능한 마지막 로그인 수단은 해제할 수 없다.
 
 이메일 계정 비밀번호는 8~128자로 받고 문자 종류 조합은 강제하지 않는다. Unicode, 공백, 붙여넣기와 비밀번호 관리자를 허용하되 흔하거나 유출된 비밀번호 및 이메일과 동일한 값은 거부한다. NFC 정규화 후 전체 값을 Argon2id로 단방향 hash하며 원문·복호화 가능한 값을 저장하지 않는다. 주기적 변경은 강제하지 않고 유출 정황이나 계정 침해가 확인될 때만 재설정한다.
@@ -119,12 +127,19 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 
 ### 여행
 
-- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `cover_photo_id`, `archived_at`, `deleted_at`, `deletion_scheduled_at`
+- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `currency_code`, `exchange_rate`, `budget nullable`, `simplify_settlement`, `cover_photo_id`, `archived_at`, `deleted_at`, `deletion_scheduled_at`
 - `trip_days`: `trip_id`, `date`, `day_index`
+- `trip_participants`: `trip_id`, `membership_id`, `sort_order`, `removed_at`
 - `schedule_items`: `trip_id`, `trip_day_id`, `start_at`, `end_at`, `title`, `type`, `note`, `trip_place_id`, `sort_order`
 - `transports`: `trip_id`, `direction(outbound|return)`, `method`, `departure_name`, `departure_at`, `arrival_name`, `arrival_at`, `booking_status`, `note`
 - `stays`: `trip_id`, `trip_place_id`, `check_in_at`, `check_out_at`, `has_kitchen nullable`, `booking_url`, `note`
 - `reservations`: `trip_id`, `target_type`, `target_id`, `reserved_at`, `status`, `booking_url`, `note`
+
+참가자는 공간이 아니라 여행에 붙는 값이다. 한 공간에 멤버가 여럿이어도 이번 여행에는 일부만 가는 일이 흔하므로 여행마다 `trip_participants`를 따로 고른다. 여행 생성, 여행 수정, 비용 탭이 모두 같은 목록을 읽고 쓴다. `trip_participants`가 비어 있으면 그 공간의 활성 멤버 전원으로 본다.
+
+준비물 담당, 재료 담당, 교통편 이용자와 지출의 몫은 모두 이 목록을 후보로 쓴다. 담당은 `나`·`동행` 같은 자리 이름이 아니라 특정 사람이며, 서버에서는 `membership_id`로 가리키고 표시 이름은 membership에서 읽는다. 사람이 아닌 값(`공용`, `미정`, 재료의 `구매`)만 참가자 목록 밖에 둔다.
+
+참가자를 빼도 그 사람 이름으로 이미 적어 둔 담당·몫·교통편과 지출을 서버가 자동으로 지우지 않는다. 앱이 빼기 전에 무엇이 걸려 있는지 알려 주고, 참가자가 아닌 사람이 낸 지출도 합계와 잔액에 그대로 남긴다.
 
 ### 장소와 태그
 
@@ -145,7 +160,31 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 
 재료를 준비물로 가져오면 `source_ingredient_id`로 출처만 연결한 새 준비물을 만든다. 이후 준비물 수정이 레시피 원문을 자동 변경하지 않게 하여 예상치 못한 동기화를 막는다.
 
+준비물과 재료의 담당 후보는 공간 멤버 전원이 아니라 그 여행의 `trip_participants`다.
+
 재료와 준비물의 완료 상태도 별도로 유지한다. 연결된 한쪽을 완료·해제하면 다른 쪽에 반영할지 사용자에게 제안할 수 있지만 자동으로 양방향 변경하지 않는다. 여러 요리에서 같은 재료를 하나의 준비물로 합친 경우에도 각 재료의 상태를 임의로 일괄 변경하지 않는다.
+
+### 비용과 정산
+
+- `expenses`: `trip_id`, `trip_day_id nullable`, `title`, `amount`, `category(meal|transport|lodging|admission|shopping|other)`, `payer_membership_id`, `split_mode(even|subset|amount)`, `memo`, `receipt_photo_id nullable`
+- `expense_shares`: `expense_id`, `membership_id`, `weight`
+- `payments`: `trip_id`, `from_membership_id`, `to_membership_id`, `amount`, `paid_at`, `deleted_at`
+
+낸 사람과 몫을 지는 사람을 따로 둔다. 대개는 한 사람이 내고 참가자끼리 나누지만 혼자 산 기념품처럼 둘이 어긋나는 지출이 늘 있고, 하나로 합치면 그런 지출이 정산에서 틀어진다.
+
+`expense_shares`가 없는 지출은 참가자 전원이 똑같이 나눈 것으로 본다. 사람이 늘거나 줄어도 고칠 것이 없도록 가장 흔한 경우를 비워 둔다. `weight`는 비율이 아니라 비중이라 합이 얼마든 상관없고, 남은 값이 모두 0 이하면 전원 균등으로 돌아간다.
+
+`split_mode`는 계산에 쓰지 않고 화면에만 쓴다. 지출을 고칠 때 고른 방식 그대로 다시 열고, 목록에 사람 이름만 적을지 금액까지 적을지를 가른다. 값이 없으면 `expense_shares` 모양에서 짐작한다. 화면 문구는 `똑같이`, `일부만`, `금액 직접`이고 기본은 똑같이다.
+
+금액은 여행 통화(`trips.currency_code`) 기준으로 저장하고 원 환산은 보여줄 때만 계산한다. 환율은 매일 바뀌므로 서버가 외부에서 가져오지 않고 사용자가 여행마다 적는 출발점(`trips.exchange_rate`)으로 둔다. 영수증 사진은 기존 사진 업로드 절차를 그대로 쓰고 `receipt_photo_id`로만 연결하며 기록 탭의 여행 사진 목록에는 넣지 않는다.
+
+`payments`는 실제 송금이 아니라 **보냈다고 적어 두는 기록**이다. 앱도 서버도 계좌이체를 알 수 없다. 이 기록이 없으면 목록이 줄지 않아서 지출을 적을수록 끝나지 않는 할 일만 쌓인다. 일부만 보냈다고 적는 부분 정산이 가능하고, 잘못 적었으면 해당 기록을 지워 되돌린다.
+
+잔액은 `낸 돈 − 내야 할 돈 + 보낸 돈 − 받은 돈`이다. 양수면 받을 돈, 음수면 보낼 돈이다. 나눈 금액에 소수가 생기므로 계산은 소수로 끝까지 하고 주고받을 금액만 반올림한다. 1원 미만 차이는 정산할 것이 없다고 본다.
+
+`trips.simplify_settlement`는 주고받을 횟수를 줄여 보여줄지다. 기본은 켜짐이고 여행마다 저장한다. 묶으면 송금 횟수는 줄지만 직접 빌린 적 없는 사람에게 보내라고 할 수 있어서, 화면은 줄을 눌러 사람 대 사람으로 생긴 원래 빚을 펼쳐 보여준다. **송금 기록이 하나라도 있으면 이 값을 바꿀 수 없다.** 묶은 화면대로 보낸 뒤에 방식을 바꾸면 이미 보낸 돈이 엉뚱한 곳으로 간 것이 되기 때문이며, 기록을 모두 지우면 다시 바꿀 수 있다. 이 조건은 기기 UI 안전장치가 아니라 서버가 `payments` 존재 여부로 검증한다.
+
+정산 결과는 테이블로 저장하지 않는다. 낸 돈, 몫, 잔액과 주고받을 목록은 지출·참가자·송금 기록만 있으면 언제든 다시 낼 수 있으므로 기기에서 계산한다.
 
 ### 메모와 기록
 
@@ -168,6 +207,9 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 | 여행 보관/보관 해제 | 가능 | 가능 | 불가 |
 | 여행 삭제/복구 | 가능 | 불가 | 불가 |
 | 준비물 체크·담당 변경 | 가능 | 가능 | 불가 |
+| 여행 참가자 변경 | 가능 | 가능 | 불가 |
+| 지출 추가·수정·삭제 | 가능 | 가능 | 불가 |
+| 정산 송금 기록 추가·되돌리기 | 가능 | 가능 | 불가 |
 | 본인/타인 메모 수정 | 가능 | 본인만 수정 | 불가 |
 | 본인/타인 메모 삭제 | 가능 | 가능 | 불가 |
 | 본인/타인 사진 설명·연결 수정 | 가능 | 본인 사진만 가능 | 불가 |
@@ -183,8 +225,9 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 하위 엔티티의 `trip_id`가 속한 공간을 서버에서 역참조한다.
 - 클라이언트가 전달한 작성자와 완료자는 신뢰하지 않고 SecurityContext 사용자 ID를 사용한다.
 - 삭제는 기본적으로 soft delete하고 audit log를 남긴다.
+- 송금 기록은 잔액을 바로 바꾸므로 되돌리기도 soft delete하고 누가 적고 누가 되돌렸는지 audit log에 남긴다. 서버는 `from`·`to`가 같은 공간의 멤버인지와 금액이 0보다 큰지 확인하고, 남은 송금 기록이 있으면 정산 묶기 설정 변경을 거부한다.
 - 메모·사진 등 사용자 공동 콘텐츠는 삭제 후 일반 조회에서 즉시 제외하고 7일간 휴지통에 보관한다. 메모는 owner와 editor가 복원할 수 있다. 사진은 업로더가 본인 사진을, owner가 모든 사진을 삭제·복구할 수 있고 다른 editor의 사진에는 접근할 수 없다. 7일 뒤 원본 파일과 row를 최종 삭제한다.
-- 여행의 기본 정리 동작은 되돌릴 수 있는 보관이다. 보관은 일반 목록에서 숨기는 정리 상태일 뿐 편집 잠금이 아니므로 owner와 editor는 보관 중에도 일정·장소·준비물·요리·기록·사진을 계속 추가·수정할 수 있다. 여행 삭제는 보관함의 별도 관리 메뉴에서만 시작하고 즉시 조회에서 숨긴 뒤 7일간 여행 휴지통에서 복구할 수 있다. 유예기간이 지나면 종속 데이터 purge를 시작한다.
+- 여행의 기본 정리 동작은 되돌릴 수 있는 보관이다. 보관은 일반 목록에서 숨기는 정리 상태일 뿐 편집 잠금이 아니므로 owner와 editor는 보관 중에도 일정·장소·준비물·요리·비용·기록·사진을 계속 추가·수정할 수 있다. 여행 삭제는 보관함의 별도 관리 메뉴에서만 시작하고 즉시 조회에서 숨긴 뒤 7일간 여행 휴지통에서 복구할 수 있다. 유예기간이 지나면 종속 데이터 purge를 시작한다.
 - 여행 종료일이 공간 timezone의 오늘보다 이전이어도 자동 보관하지 않는다. 지난 여행의 `여행·장소·요리` 탭에서 쓰기 동작을 시작할 때 기기 UI가 한 번 확인하고, 동의 시 `(tripId, deviceId)` 기준 10분간 다시 묻지 않는다. `준비·기록·사진`은 여행 후 정리를 고려해 확인 대상에서 제외한다. 이는 로컬 실수 방지 장치이며 서버 권한이나 version 검증을 대체하지 않는다.
 - 마지막 owner는 다른 멤버에게 owner를 이전하기 전에는 공간을 나갈 수 없다. 멤버가 본인뿐이면 명시적인 공간 삭제 절차만 제공한다.
 - 멤버가 스스로 공간을 나가도 그동안 만든 공동 일정·장소·준비·요리·기록·사진은 유지하고 작성자 계정 연결과 당시 표시 이름도 유지한다. 나가기 확인 전에 본인이 업로드한 사진을 모아 검토·삭제할 진입점을 제공한다. 완료 후 membership을 비활성화하고 해당 공간의 로컬 snapshot·서명 URL·사진 cache를 제거한다.
@@ -207,8 +250,9 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 수정 API에 `version`을 전달하고 불일치 시 `409 VERSION_CONFLICT`를 반환한다.
 - 체크박스와 담당 변경은 마지막 서버 결과를 기준으로 재조정한다.
 - 작성 중인 긴 메모/일기는 로컬 draft를 보존한다.
-- 일정·장소·준비·요리·기록의 일반 생성·수정과 준비물 체크·담당 변경은 idempotent pending mutation으로 오프라인 저장한다.
+- 일정·장소·준비·요리·비용·기록의 일반 생성·수정과 준비물 체크·담당 변경은 idempotent pending mutation으로 오프라인 저장한다.
 - 삭제·일괄 교체·멤버/권한 변경·사진 전송은 온라인에서만 수행한다. 모든 동작을 무리하게 오프라인화하지 않는다.
+- 송금 기록 추가는 client UUID로 중복을 막는 생성이므로 오프라인 큐에 넣을 수 있고, 되돌리기와 참가자 목록 교체는 위 규칙에 따라 온라인에서만 한다.
 - 명시적 로그아웃에서는 token과 push token만 폐기하고 계정별 SQLite·파일 namespace는 잠근 채 유지한다. 같은 계정의 재인증 전에는 읽지 않으며 다른 계정 session과 절대 합치지 않는다. 공간 권한 상실·계정 삭제 완료 때는 해당 namespace를 삭제한다.
 
 ## 6. 성능 설계

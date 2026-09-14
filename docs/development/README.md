@@ -9,7 +9,7 @@
 3. [API 명세](./03-api-specification.md): 화면별 API와 요청·응답 계약
 4. [단계별 개발 계획](./04-implementation-roadmap.md): 구현 순서, 완료 기준, 승인 지점
 5. [품질·운영 기준](./05-quality-and-operations.md): 테스트, 성능, 보안, 모니터링
-6. [ConoHa VPS 운영](./06-conoha-vps-deployment.md): 2GB 서버 구성, 배포, 백업과 용량 정책
+6. [VPS 운영](./06-vps-deployment.md): 2GB 서버 구성, 배포, 백업과 용량 정책, 미니PC/NAS 이전
 7. [기기 저장·동기화](./07-local-first-and-sync.md): 로컬/서버 책임, 증분 동기화, 데이터 절약
 8. [개인정보·출시 준수](./08-privacy-and-release-compliance.md): 동의, 처리방침, 권한, 탈퇴, 스토어 신고
 9. [UI-개발 추적표](./09-ui-development-traceability.md): 현재 화면별 데이터·API·로컬 처리·테스트 연결
@@ -23,7 +23,7 @@
 - 마지막 개발 준비 감사: 2026-08-14
 - 현재 상태: UI 프로토타입. 화면 데이터와 인증은 대부분 로컬 상태/더미 데이터다.
 - 목표: UI를 유지하면서 실제 인증, 공동 공간, 여행 데이터, 파일 저장과 동기화를 순차 연결한다.
-- 백엔드 기준: Java 21 + Spring Boot 3.x, ConoHa VPS(3Core/2GB RAM/SSD 100GB/트래픽 무제한)
+- 백엔드 기준: Java 21 + Spring Boot 3.x, iwinv VPS(2vCPU/2GB RAM/50GB NVMe/일 20GB·월 600GB 트래픽)
 
 ## 제품 원칙
 

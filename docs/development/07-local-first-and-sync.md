@@ -30,6 +30,8 @@
 - 장소, 태그, 장소 상태와 일정/숙소 연결
 - 준비물, 담당, 체크 상태와 완료자
 - 요리, 재료, 구매 방법과 준비물 연결
+- 여행 참가자, 지출과 사람별 몫, 정산 송금 기록
+- 여행 통화·환율·예산과 정산 묶기 설정
 - 공동 메모, 사진 메타데이터, 일기, 통계
 
 다른 멤버가 보거나 다른 기기에서도 유지돼야 하므로 서버가 최종 원본이다. 기기의 SQLite는 읽기 snapshot이자 오프라인 작업 공간이다.
@@ -50,9 +52,24 @@
 | SQLite | 엔티티 snapshot, sync cursor, pending mutation, draft index |
 | FileSystem cache | thumbnail/display image, 임시 업로드 |
 
-SQLite에는 서버 응답 JSON 전체를 한 blob으로만 쌓지 않는다. 조회가 잦은 `trips`, `schedule_items`, `trip_places`, `checklist_items`, `recipes`, `memos`는 최소 필드 table로 두고 서버 ID/version/update 시각을 함께 저장한다.
+SQLite에는 서버 응답 JSON 전체를 한 blob으로만 쌓지 않는다. 조회가 잦은 `trips`, `schedule_items`, `trip_places`, `checklist_items`, `recipes`, `expenses`, `memos`는 최소 필드 table로 두고 서버 ID/version/update 시각을 함께 저장한다.
 
 로컬 migration은 앱 버전과 독립된 schema version을 가진다. migration 실패 시 DB 파일을 즉시 지우지 않고 진단 정보를 남긴 뒤, 서버가 원본인 snapshot만 재-bootstrap할 수 있는 복구 경로를 제공한다. 전송되지 않은 outbox와 draft는 복구 전에 별도 보존한다.
+
+### 서버 이전 전의 저장 키
+
+서버가 아직 없어 공동 데이터도 기기에만 있다. 그래도 성격이 다른 값을 한 덩이로 섞지 않도록 AsyncStorage 키를 나눠 둔다.
+
+| 키 | 담는 것 | 서버가 붙으면 |
+| --- | --- | --- |
+| `daymo.device-settings.v1` | 테마, 화면 모드, 마지막으로 연 공간, 시작일 표시 | 그대로 기기에 남는다 |
+| `daymo.spaces.v1` | 공간 이름, 멤버와 권한, 관계, 함께하기 시작한 날 | 서버가 원본이 되고 이 값은 캐시가 된다 |
+| `daymo.me.v1` | 내 표시 이름과 이메일 | 계정이 원본이 되고 이 값은 캐시가 된다 |
+| `daymo.trip-data.v1` | 여행과 하위 데이터, 참가자·지출·정산 포함 | SQLite snapshot으로 옮기고 서버가 원본이 된다 |
+
+공간·멤버·나를 기기 설정과 같은 키에 두지 않는 이유는 성격이 다르기 때문이다. 기기 설정은 이 기기에만 의미가 있지만, 공간 이름을 바꾸면 같은 공간의 다른 사람 화면에서도 바뀌어야 하고 멤버와 권한은 서버가 원본을 갖는다. 지금부터 나눠 두면 서버가 붙을 때 캐시로 바뀌는 쪽만 들어내면 된다.
+
+설정 화면의 `이 기기 데이터 모두 지우기`는 이 키들을 한 번에 지운다. 서버가 없는 동안에는 이것이 지울 수 있는 전부이므로 계정 삭제와 같은 말로 적지 않는다.
 
 ## 4. 읽기 흐름
 
@@ -98,6 +115,9 @@ SQLite에는 서버 응답 JSON 전체를 한 blob으로만 쌓지 않는다. �
 | 메모·일기 본문 | 자동 덮어쓰기 금지, 내 작성본과 서버 최신본 비교 |
 | 일정 시간/순서 | 충돌 알림 후 서버 최신본 기준 재편집 |
 | 새 항목 생성 | client UUID/idempotency key로 중복 생성 방지 |
+| 송금 기록 추가 | client UUID로 중복 방지, 잔액 초과 여부로 거부하지 않음 |
+| 정산 묶기 설정 | 남아 있는 송금 기록이 있으면 서버가 변경 거부 |
+| 여행 참가자 | 목록 전체 교체이므로 온라인 필수, 뺀 사람의 담당·몫은 자동 삭제하지 않음 |
 | 삭제 | 온라인 필수, 삭제 tombstone이 모든 기기에서 제거 |
 | 목록 전체 교체 | 온라인 필수, 확인창과 transaction 사용 |
 
