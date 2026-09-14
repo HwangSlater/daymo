@@ -17,6 +17,7 @@ import {
 } from "react-native-safe-area-context";
 import { WarmAppShell } from "./src/WarmAppShell";
 import { useStoredSettings } from "./src/deviceSettings";
+import { useStoredMe, useStoredSpaces } from "./src/spaces";
 import { fontAssets } from "./src/theme/typography";
 
 const isWeb = Platform.OS === "web";
@@ -47,10 +48,12 @@ const FRAME_MIN_WIDTH = 700;
 export default function App() {
   const [fontsReady] = useFonts(fontAssets);
   const settings = useStoredSettings();
+  const spaces = useStoredSpaces();
+  const me = useStoredMe();
   const { width } = useWindowDimensions();
   const dark = useColorScheme() === "dark";
   const showPhoneFrame = isWeb && !isTouchScreen && width >= FRAME_MIN_WIDTH;
-  const ready = fontsReady && settings !== null;
+  const ready = fontsReady && settings !== null && spaces !== null && me !== null;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
@@ -58,7 +61,7 @@ export default function App() {
 
   // 기기에서는 위의 실행 화면이 아직 덮고 있다. 이 빈 화면은 실행 화면이 없는
   // 웹을 위한 것이고, 색은 무대가 아니라 앱 배경이어야 화면이 두 번 바뀌지 않는다.
-  if (!fontsReady || settings === null) {
+  if (!ready) {
     return <View style={[s.blank, { backgroundColor: dark ? "#0D111A" : "#F7F5F0" }]} />;
   }
 
@@ -67,7 +70,7 @@ export default function App() {
     return (
       <SafeAreaProvider initialMetrics={isWeb ? undefined : initialWindowMetrics}>
         <StatusBar style="auto" />
-        <WarmAppShell settings={settings} />
+        <WarmAppShell settings={settings} spaces={spaces} me={me.value} />
       </SafeAreaProvider>
     );
   }
@@ -77,7 +80,7 @@ export default function App() {
         <SafeAreaFrameContext.Provider value={phoneFrame}>
           <SafeAreaInsetsContext.Provider value={phoneInsets}>
             <StatusBar style="auto" />
-            <WarmAppShell settings={settings} />
+            <WarmAppShell settings={settings} spaces={spaces} me={me.value} />
           </SafeAreaInsetsContext.Provider>
         </SafeAreaFrameContext.Provider>
         <View pointerEvents="none" style={s.island} />

@@ -1,0 +1,226 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useRef, useState } from "react";
+
+/**
+ * 여행 공간과 멤버.
+ *
+ * 기기 설정(deviceSettings)과 달리 이 값들은 원래 **함께 보는 것**이다. 공간 이름을
+ * 바꾸면 같은 공간의 다른 사람 화면에서도 바뀌어야 하고, 멤버와 권한은 서버가
+ * 원본을 갖는다. 서버가 붙으면 여기 저장된 것은 받아온 목록의 캐시가 된다.
+ * 그래서 기기 설정과 같은 파일에 섞지 않고 따로 둔다.
+ *
+ * 예전에는 이 값들이 "우리" 탭 컴포넌트 안의 useState 였다. 그 탭은 조건부로
+ * 그려져서 홈에 한 번 갔다 오기만 해도 언마운트됐고, 공간 이름을 바꿔도 되돌아가
+ * 있었다. 게다가 나머지 화면은 이 state 가 아니라 모듈 상수를 읽고 있어서, 멤버
+ * 이름을 고쳐도 여행의 참가자 목록에는 옛 이름이 그대로 남았다.
+ */
+
+export type MemberRole = "관리자" | "편집 가능" | "보기만";
+
+export const memberRoles: readonly MemberRole[] = ["관리자", "편집 가능", "보기만"];
+
+export type Member = {
+  name: string;
+  role: MemberRole;
+};
+
+export type Relationship = "연인" | "친구";
+
+export type Space = {
+  id: string;
+  name: string;
+  /** 나를 뺀 사람들. 나는 내 프로필에서 오고 늘 첫 번째다. */
+  members: Member[];
+  relationship: Relationship;
+  /** 함께하기 시작한 날. 연인 공간에서만 "함께한 지 N일째" 로 쓴다. */
+  since: string;
+};
+
+export const defaultSpaces: Space[] = [
+  {
+    id: "ours",
+    name: "우리의 여행 공간",
+    members: [{ name: "다온", role: "편집 가능" }],
+    relationship: "연인",
+    since: "2023-10-20",
+  },
+  {
+    id: "friends",
+    name: "주말 여행 메이트",
+    members: [
+      { name: "여울", role: "편집 가능" },
+      { name: "가람", role: "편집 가능" },
+      { name: "새봄", role: "보기만" },
+    ],
+    relationship: "친구",
+    since: "2023-10-20",
+  },
+  {
+    id: "family",
+    name: "가족 나들이",
+    members: [
+      { name: "보름", role: "편집 가능" },
+      { name: "마루", role: "보기만" },
+    ],
+    relationship: "친구",
+    since: "2023-10-20",
+  },
+];
+
+const storageKey = "daymo.spaces.v1";
+// 이름은 글자를 칠 때마다 바뀐다. 잠깐 모았다가 한 번만 쓴다.
+const writeDelay = 400;
+
+/** 화면을 망가뜨리지 않을 길이의 글자인지만 본다. 이름은 자유 문구라 목록으로 못 거른다. */
+const shortText = (value: unknown, fallback: string, max = 40) =>
+  typeof value === "string" && value.trim().length > 0 && value.length <= max
+    ? value
+    : fallback;
+
+const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
+  typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : fallback;
+
+function parseMember(value: unknown): Member | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const name = shortText(record.name, "", 20);
+  if (!name) return null;
+  return { name, role: oneOf(record.role, memberRoles, "편집 가능") };
+}
+
+function parseSpace(value: unknown, fallback: Space): Space {
+  if (!value || typeof value !== "object") return fallback;
+  const record = value as Record<string, unknown>;
+  const id = shortText(record.id, fallback.id);
+  const members = Array.isArray(record.members)
+    ? record.members.map(parseMember).filter((member): member is Member => member !== null)
+    : fallback.members;
+  return {
+    id,
+    name: shortText(record.name, fallback.name),
+    members,
+    relationship: oneOf(record.relationship, ["연인", "친구"] as const, fallback.relationship),
+    since: shortText(record.since, fallback.since),
+  };
+}
+
+/**
+ * 저장된 공간 목록을 읽는다.
+ *
+ * 저장된 것이 없거나 읽을 수 없으면 기본 공간으로 시작한다. 하나도 안 남게
+ * 저장된 경우에도 기본값으로 돌아간다. 공간이 없는 앱은 아무것도 할 수 없다.
+ */
+export function parseSpaces(raw: string | null): Space[] {
+  if (!raw) return defaultSpaces;
+  let saved: unknown;
+  try {
+    saved = JSON.parse(raw);
+  } catch {
+    return defaultSpaces;
+  }
+  if (!Array.isArray(saved) || !saved.length) return defaultSpaces;
+  return saved.map((value, index) => parseSpace(value, defaultSpaces[index] ?? defaultSpaces[0]));
+}
+
+export function useStoredSpaces(): Space[] | null {
+  const [spaces, setSpaces] = useState<Space[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const done = (value: Space[]) => {
+      if (alive) setSpaces(value);
+    };
+    AsyncStorage.getItem(storageKey)
+      .then((raw) => done(parseSpaces(raw)))
+      .catch(() => done(defaultSpaces));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return spaces;
+}
+
+/** 값이 바뀔 때만 저장한다. 실패해도 알리지 않고 다음 변경에서 다시 쓴다. */
+export function useSaveSpaces(spaces: Space[]) {
+  const written = useRef(false);
+  useEffect(() => {
+    // 첫 실행은 방금 읽어온 값을 그대로 되쓰는 것뿐이라 건너뛴다.
+    if (!written.current) {
+      written.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      AsyncStorage.setItem(storageKey, JSON.stringify(spaces)).catch(() => {});
+    }, writeDelay);
+    return () => clearTimeout(timer);
+  }, [spaces]);
+}
+
+
+// ---------------------------------------------------------------------------
+// 나
+//
+// 공간·멤버와 같은 성격이다. 서버가 붙으면 계정이 원본을 갖고 여기 남는 것은
+// 캐시가 된다. 기기 설정과 섞지 않는 이유도 같다.
+// ---------------------------------------------------------------------------
+
+export type Me = { name: string; email: string };
+
+export const defaultMe: Me = { name: "하늘", email: "sky@daymo.app" };
+
+const meKey = "daymo.me.v1";
+
+export function parseMe(raw: string | null): Me | null {
+  if (!raw) return defaultMe;
+  let saved: unknown;
+  try {
+    saved = JSON.parse(raw);
+  } catch {
+    return defaultMe;
+  }
+  // 로그아웃하면 빈 값을 적어 둔다. 다시 열었을 때 로그인 화면이어야 한다.
+  if (saved === null) return null;
+  if (!saved || typeof saved !== "object") return defaultMe;
+  const record = saved as Record<string, unknown>;
+  return {
+    name: shortText(record.name, defaultMe.name, 20),
+    email: shortText(record.email, defaultMe.email, 120),
+  };
+}
+
+export function useStoredMe(): { value: Me | null } | null {
+  const [me, setMe] = useState<{ value: Me | null } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const done = (value: Me | null) => {
+      if (alive) setMe({ value });
+    };
+    AsyncStorage.getItem(meKey)
+      .then((raw) => done(parseMe(raw)))
+      .catch(() => done(defaultMe));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return me;
+}
+
+export function useSaveMe(me: Me | null) {
+  const written = useRef(false);
+  useEffect(() => {
+    if (!written.current) {
+      written.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      AsyncStorage.setItem(meKey, JSON.stringify(me)).catch(() => {});
+    }, writeDelay);
+    return () => clearTimeout(timer);
+  }, [me]);
+}
+
+/** 이 기기에 남은 것을 전부 지운다. 서버가 없으니 지울 수 있는 건 이것뿐이다. */
+export async function clearDevice(extraKeys: string[] = []) {
+  await AsyncStorage.multiRemove([storageKey, meKey, ...extraKeys]).catch(() => {});
+}

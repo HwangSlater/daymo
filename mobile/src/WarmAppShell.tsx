@@ -32,6 +32,16 @@ import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
 import { NaverMapLink } from "./NaverMapLink";
 import { ParticipantPicker } from "./ParticipantPicker";
+import {
+  clearDevice,
+  defaultMe,
+  defaultSpaces,
+  type Me,
+  type MemberRole,
+  type Space,
+  useSaveMe,
+  useSaveSpaces,
+} from "./spaces";
 import { formatTripRange, TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
@@ -51,7 +61,7 @@ import {
   useSaveSettings,
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
-import { Dot, Glyph } from "./Glyph";
+import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 
@@ -318,20 +328,44 @@ const parseStoredTripData = (raw: string | null) => {
   }
 };
 
-// 저장된 설정은 App이 실행 화면 뒤에서 미리 읽어 넘겨준다. 여기서 읽으면 기본값으로
-// 한 번 그린 뒤 바뀌어 화면이 튄다.
-// 여행 공간 목록. 마지막에 연 공간을 기기에서 읽어 처음 화면을 그릴 때도 필요해서
-// 컴포넌트 밖에 둔다. 서버가 붙으면 이 자리를 받아온 목록이 대신한다.
-const spaceGroups: { id: GroupId; name: string; members: string[]; relationship: "연인" | "친구" }[] = [
-  { id: "ours", name: "우리의 여행 공간", members: ["다온"], relationship: "연인" },
-  { id: "friends", name: "주말 여행 메이트", members: ["여울", "가람", "새봄"], relationship: "친구" },
-  { id: "family", name: "가족 나들이", members: ["보름", "마루"], relationship: "친구" },
+// 저장된 설정과 공간 목록은 App이 실행 화면 뒤에서 미리 읽어 넘겨준다. 여기서
+// 읽으면 기본값으로 한 번 그린 뒤 바뀌어 화면이 튄다.
+/**
+ * 자주 묻는 것.
+ *
+ * 예전에는 "도움말" 을 눌러도 한 문장짜리 소개만 떠서, 답을 찾으러 들어온
+ * 사람이 아무것도 못 얻고 닫았다. 지금 실제로 헷갈리는 것들만 적는다.
+ */
+/** 화면에 적는 버전. package.json 과 app.json 의 version 과 같이 올린다. */
+const appVersion = "0.1.0";
+
+const helpTopics = [
+  {
+    q: "적은 게 다른 사람에게도 보이나요?",
+    a: "아직은 아니에요. 지금은 모든 기록이 이 기기에만 저장돼요. 함께 보려면 아래 '여행 기록 내보내기' 로 글을 만들어 공유하세요.",
+  },
+  {
+    q: "준비물 담당과 지출의 몫은 누구 중에서 고르나요?",
+    a: "여행마다 정한 참가자예요. 여행을 만들거나 고칠 때 '누가 함께 가나요?' 에서 공간 멤버 중 이번에 가는 사람만 고르면 돼요.",
+  },
+  {
+    q: "정산에서 '보냈어요' 를 누르면 돈이 가나요?",
+    a: "아니요. 실제 송금은 은행이나 송금 앱에서 하고, 여기에는 보냈다고 적어만 둬요. 적으면 남은 금액이 줄어들고 되돌릴 수도 있어요.",
+  },
+  {
+    q: "멤버 권한은 지금 작동하나요?",
+    a: "아직 이름표예요. 서버를 붙인 뒤에 실제로 막게 돼요. 지금은 누가 무엇을 맡는지 적어 두는 용도예요.",
+  },
 ];
 
 export function WarmAppShell({
   settings = defaultDeviceSettings,
+  spaces: storedSpaces = defaultSpaces,
+  me: storedUser = defaultMe,
 }: {
   settings?: DeviceSettings;
+  spaces?: Space[];
+  me?: Me | null;
 }) {
   const systemScheme = useColorScheme();
   const [view, setView] = useState<MainView>("홈");
@@ -340,9 +374,18 @@ export function WarmAppShell({
   const [tripDestination, setTripDestination] =
     useState<TripDetailDestination>("overview");
   const [done, setDone] = useState<string[]>(["charger", "toiletries"]);
+  // 공간과 멤버는 앱 전체가 같은 것을 봐야 한다. 예전에는 "우리" 탭 안의
+  // state 와 모듈 상수 두 벌로 나뉘어 있어서, 멤버 이름을 고쳐도 여행의 참가자
+  // 목록에는 옛 이름이 남았다.
+  const [spaces, setSpaces] = useState<Space[]>(storedSpaces);
+  useSaveSpaces(spaces);
   const [activeGroupId, setActiveGroupId] = useState<GroupId>(
     settings.activeGroupId,
   );
+  const activeSpace = spaces.find((space) => space.id === activeGroupId) ?? spaces[0];
+  const updateActiveSpace = (change: Partial<Space>) =>
+    setSpaces((current) => current.map((space) =>
+      space.id === activeSpace.id ? { ...space, ...change } : space));
   const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
   const [tripStorageReady, setTripStorageReady] = useState(false);
   // 저장이 막히면 조용히 넘어가지 않는다. 사용자는 적은 게 남았다고 믿는데
@@ -357,23 +400,32 @@ export function WarmAppShell({
     }));
   const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
   const [themeId, setThemeId] = useState<ThemeId>(settings.themeId);
-  // 함께한 시작일. 우리 탭의 공간 프로필에서 고치고 홈 머리글이 같은 값을 읽는다.
-  const [since, setSince] = useState(settings.since);
+
   const [appearance, setAppearance] = useState<AppearanceMode>(
     settings.appearance,
   );
-  useSaveSettings({ themeId, appearance, activeGroupId, since });
-  const [user, setUser] = useState<DaymoUser | null>({
-    name: "하늘",
-    email: "sky@daymo.app",
-  });
+  useSaveSettings({ themeId, appearance, activeGroupId, since: activeSpace.since });
+  const [user, setUser] = useState<DaymoUser | null>(storedUser);
+  useSaveMe(user);
+  /**
+   * 이 기기에 남은 것을 전부 지운다.
+   *
+   * 서버가 없으니 "계정 삭제" 라고 부를 수 없다. 지울 수 있는 건 이 기기의
+   * 기록뿐이고, 화면에도 그렇게 적는다.
+   */
+  const wipeDevice = () => {
+    void clearDevice([tripStorageKey, "daymo.device-settings.v1"]);
+    setSpaces(defaultSpaces);
+    setTripsByGroup(initialTripsByGroup);
+    setUser(null);
+  };
   // 이 공간에 속한 사람들. 나를 앞에 두고 초대한 멤버가 뒤따른다. 여행 상세는
   // 이 목록에서 이번 여행 참가자를 고른다.
   // 렌더마다 새 배열을 만들면 이 목록을 의존성으로 쓰는 곳이 매번 다시 돈다.
-  const activeSpaceMembers = useMemo(() => [
-    user?.name ?? "나",
-    ...(spaceGroups.find((group) => group.id === activeGroupId)?.members ?? []),
-  ], [activeGroupId, user?.name]);
+  const activeSpaceMembers = useMemo(
+    () => [user?.name ?? "나", ...activeSpace.members.map((member) => member.name)],
+    [activeSpace.members, user?.name],
+  );
   const now = new Date();
 
   useEffect(() => {
@@ -475,9 +527,9 @@ export function WarmAppShell({
             trip={homeTrip}
             trips={tripItems}
             todayKey={todayKey}
-            spaceName={spaceGroups.find((group) => group.id === activeGroupId)?.name ?? "우리의 여행 수첩"}
-            relationship={activeGroupId === "ours" ? "연인" : "친구"}
-            since={since}
+            spaceName={activeSpace.name}
+            relationship={activeSpace.relationship}
+            since={activeSpace.since}
           />
         )}
         {view === "여행" && (
@@ -500,14 +552,16 @@ export function WarmAppShell({
             appearance={appearance}
             setAppearance={setAppearance}
             trips={tripItems}
-            activeGroupId={activeGroupId}
-            since={since}
-            setSince={setSince}
+            spaces={spaces}
+            setSpaces={setSpaces}
+            activeSpace={activeSpace}
+            updateActiveSpace={updateActiveSpace}
             setActiveGroupId={setActiveGroupId}
             user={user}
             setUser={setUser}
             openTrip={(trip) => openTrip("overview", trip)}
             onLogout={() => setUser(null)}
+            onWipe={wipeDevice}
           />
         )}
       </View>
@@ -2958,14 +3012,16 @@ function Together({
   appearance,
   setAppearance,
   trips,
-  activeGroupId,
+  spaces,
+  setSpaces,
+  activeSpace,
+  updateActiveSpace,
   setActiveGroupId,
-  since,
-  setSince,
   user,
   setUser,
   openTrip,
   onLogout,
+  onWipe,
 }: {
   theme: AppTheme;
   themeId: ThemeId;
@@ -2973,44 +3029,71 @@ function Together({
   appearance: AppearanceMode;
   setAppearance: (value: AppearanceMode) => void;
   trips: Trip[];
-  activeGroupId: GroupId;
+  spaces: Space[];
+  setSpaces: React.Dispatch<React.SetStateAction<Space[]>>;
+  /** 지금 보고 있는 공간. 이름·멤버·관계·시작일이 전부 여기서 온다. */
+  activeSpace: Space;
+  updateActiveSpace: (change: Partial<Space>) => void;
   setActiveGroupId: (group: GroupId) => void;
-  since: string;
-  setSince: (value: string) => void;
   user: DaymoUser;
   setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
   openTrip: (trip: Trip) => void;
   onLogout: () => void;
+  /** 이 기기에 남은 것을 전부 지운다. 서버가 없으니 지울 수 있는 건 이것뿐이다. */
+  onWipe: () => void;
 }) {
-  // 이름과 멤버는 마지막에 열어 둔 공간에서 시작한다. 공간만 기억하고 이름은 기본값으로
-  // 두면 다시 열었을 때 머리글과 목록이 서로 다른 공간을 가리킨다.
-  const activeGroup =
-    spaceGroups.find((group) => group.id === activeGroupId) ?? spaceGroups[0];
-  const [notifications, setNotifications] = useState(true);
-  const [relationship, setRelationship] = useState<"연인" | "친구">(
-    activeGroup.relationship,
-  );
-  const [spaceName, setSpaceName] = useState(activeGroup.name);
-  const [memberA, setMemberA] = useState(user.name);
-  const [memberB, setMemberB] = useState(activeGroup.members[0] ?? "");
-  const [memberC, setMemberC] = useState(activeGroup.members[1] ?? "");
-  const [memberD, setMemberD] = useState(activeGroup.members[2] ?? "");
+  const spaceName = activeSpace.name;
+  const relationship = activeSpace.relationship;
+  const since = activeSpace.since;
   const [selectedMember, setSelectedMember] = useState(0);
-  const [memberRoles, setMemberRoles] = useState<("관리자" | "편집 가능" | "보기만")[]>(["관리자", "편집 가능", "편집 가능", "보기만"]);
-  const selectGroup = (group: (typeof spaceGroups)[number]) => {
-    setActiveGroupId(group.id);
-    setSpaceName(group.name);
-    setMemberB(group.members[0] || "");
-    setMemberC(group.members[1] || "");
-    setMemberD(group.members[2] || "");
-    setRelationship(group.relationship);
+  const selectGroup = (space: Space) => {
+    setActiveGroupId(space.id as GroupId);
     setSelectedMember(0);
   };
-  const memberSetters = [setMemberA, setMemberB, setMemberC, setMemberD];
-  const memberEntries = [memberA, memberB, memberC, memberD]
-    .map((name, slot) => ({ name, slot }))
-    .filter((entry) => entry.name);
-  const visibleMembers = memberEntries.map((entry) => entry.name);
+  /**
+   * 화면에 보이는 사람 목록. 나는 늘 첫 번째이고 관리자다.
+   *
+   * 나를 멤버 배열에 같이 넣지 않는다. 내 이름은 내 프로필에서 오고, 서버가
+   * 붙으면 멤버는 초대받은 사람만을 가리키게 된다.
+   */
+  const people = [
+    { name: user.name, role: "관리자" as MemberRole, me: true },
+    ...activeSpace.members.map((member) => ({ ...member, me: false })),
+  ];
+  const setMemberName = (index: number, name: string) => {
+    if (index === 0) {
+      setUser((current) => (current ? { ...current, name } : current));
+      return;
+    }
+    updateActiveSpace({
+      members: activeSpace.members.map((member, slot) =>
+        slot === index - 1 ? { ...member, name } : member),
+    });
+  };
+  const setMemberRole = (index: number, role: MemberRole) => {
+    if (index === 0) return;
+    updateActiveSpace({
+      members: activeSpace.members.map((member, slot) =>
+        slot === index - 1 ? { ...member, role } : member),
+    });
+  };
+  const [newMember, setNewMember] = useState("");
+  const canAddMember = Boolean(newMember.trim())
+    && !people.some((member) => member.name === newMember.trim());
+  const addMember = () => {
+    if (!canAddMember) return;
+    updateActiveSpace({
+      members: [...activeSpace.members, { name: newMember.trim(), role: "편집 가능" }],
+    });
+    setNewMember("");
+  };
+  const removeMember = (index: number) => {
+    if (index === 0) return;
+    updateActiveSpace({
+      members: activeSpace.members.filter((_, slot) => slot !== index - 1),
+    });
+    setSelectedMember(0);
+  };
   const totalTripDays = trips.reduce((total, trip) => {
     const start = new Date(`${trip.start}T00:00:00`).getTime();
     const end = new Date(`${trip.end}T00:00:00`).getTime();
@@ -3029,12 +3112,30 @@ function Together({
     | "groups"
     | null
   >(null);
+  /**
+   * 여행 기록을 글로 내보낸다.
+   *
+   * 예전에는 여행 이름과 한 줄 메모만 담아서, 정작 남기고 싶은 일정·준비물·
+   * 쓴 돈이 빠져 있었다. 앱을 지우기 전에 이걸로 남겨 둘 수 있어야 한다.
+   */
   const exportData = () =>
     Share.share({
       title: "Daymo 여행 기록",
-      message: trips
-        .map((trip) => `${trip.name} · ${trip.date}\n${trip.note}`)
-        .join("\n\n"),
+      message: trips.map((trip) => {
+        const plan = trip.planning;
+        const spent = (plan?.expenses ?? []).reduce((sum, item) => sum + item.amount, 0);
+        const lines = [`■ ${trip.name} · ${trip.date}`];
+        if (trip.note) lines.push(trip.note);
+        for (const item of plan?.schedule ?? []) {
+          lines.push(`  · ${[item.date, item.time, item.title].filter(Boolean).join(" ")}`);
+        }
+        const packing = plan?.packingItems ?? [];
+        if (packing.length) {
+          lines.push(`  준비물 ${packing.length}개: ${packing.map((item) => item.name).join(", ")}`);
+        }
+        if (spent > 0) lines.push(`  쓴 돈 ${money(spent, plan?.currency)}`);
+        return lines.join("\n");
+      }).join("\n\n"),
     });
   const panelTitle =
     panel === "groups"
@@ -3106,61 +3207,26 @@ function Together({
           </View>
           <View style={s.workspaceCopy}>
             <Text style={[s.workspaceLabel, { color: theme.muted }]}>현재 여행 공간</Text>
-            <Text style={[s.workspaceName, { color: theme.text }]}>{spaceName}</Text>
-            <Text numberOfLines={1} style={[s.workspaceMeta, { color: theme.muted }]}>멤버 {visibleMembers.length}명 · 여행 {trips.length}개</Text>
+            <Text numberOfLines={1} style={[s.workspaceName, { color: theme.text }]}>{spaceName}</Text>
+            <Text numberOfLines={1} style={[s.workspaceMeta, { color: theme.muted }]}>멤버 {people.length}명 · 여행 {trips.length}개</Text>
           </View>
           <View style={[s.workspaceSwitchBadge, { backgroundColor: theme.primarySoft }]}>
             <Text style={[s.workspaceSwitchBadgeText, { color: theme.primary }]}>바꾸기</Text>
           </View>
         </Pressable>
-        <View style={s.groupTabs}>
-          {spaceGroups.map((group) => (
-            <Pressable
-              key={group.id}
-              onPress={() => selectGroup(group)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: activeGroupId === group.id }}
-              style={[
-                s.groupTab,
-                { backgroundColor: theme.surface, borderColor: theme.border },
-                activeGroupId === group.id && {
-                  backgroundColor: theme.primarySoft,
-                  borderColor: theme.primary,
-                },
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                style={[
-                  s.groupTabText,
-                  { color: activeGroupId === group.id ? theme.primary : theme.muted },
-                ]}
-              >
-                {group.name}
-              </Text>
-            </Pressable>
-          ))}
-          <Pressable
-            onPress={() => setPanel("groups")}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="공간 모두 보기"
-            style={s.groupTabMore}
-          >
-            <View style={s.groupTabMoreDots}>
-              {[0, 1, 2].map((i) => (
-                <Dot key={i} size={3} color={theme.muted} />
-              ))}
-            </View>
-          </Pressable>
-        </View>
         <View style={s.memberSectionHead}>
           <View>
             <Text style={[s.historyEyebrow, { color: theme.primary }]}>멤버</Text>
             <Text style={[s.memberSectionTitle, { color: theme.text }]}>함께하는 사람</Text>
           </View>
           <Pressable
-            accessibilityRole="button" onPress={() => setPanel("members")}><Text style={[s.memberManageText, { color: theme.primary }]}>관리</Text></Pressable>
+            accessibilityRole="button"
+            accessibilityLabel="멤버 관리"
+            hitSlop={12}
+            style={s.memberManageHit}
+          >
+            <Text style={[s.memberManageText, { color: theme.primary }]}>관리</Text>
+          </Pressable>
         </View>
         <ScrollView
           horizontal
@@ -3168,21 +3234,33 @@ function Together({
           style={[s.memberStrip, { backgroundColor: theme.surface, borderColor: theme.border }]}
           contentContainerStyle={s.memberStripContent}
         >
-          {visibleMembers.map((member, index) => (
+          {people.map((member, index) => (
             <Pressable
-              accessibilityRole="button" key={`${member}-${index}`} onPress={() => setPanel("members")} style={s.memberStripItem}>
+              accessibilityRole="button"
+              accessibilityLabel={`${member.name} ${member.role}, 멤버 관리 열기`}
+              key={`${member.name}-${index}`}
+              onPress={() => {
+                setSelectedMember(index);
+                setPanel("members");
+              }}
+              style={s.memberStripItem}
+            >
               <View style={[s.memberStripAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary][index % 3] }]}>
-                <Text style={s.memberStripInitial}>{member.slice(0, 1)}</Text>
+                <Text style={[s.memberStripInitial, { color: onAccent(theme.dark) }]}>{member.name.slice(0, 1)}</Text>
               </View>
-              <Text numberOfLines={1} style={[s.memberStripName, { color: theme.text }]}>{index === 0 ? "나" : member}</Text>
-              <Text numberOfLines={1} style={[s.memberStripRole, { color: theme.muted }]}>{memberRoles[index] ?? "편집 가능"}</Text>
+              <Text numberOfLines={1} style={[s.memberStripName, { color: theme.text }]}>{member.me ? "나" : member.name}</Text>
+              <Text numberOfLines={1} style={[s.memberStripRole, { color: theme.muted }]}>{member.role}</Text>
             </Pressable>
           ))}
           <Pressable
-            accessibilityRole="button" onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })} style={s.memberStripItem}>
+            accessibilityRole="button"
+            accessibilityLabel="멤버 추가"
+            onPress={() => setPanel("members")}
+            style={s.memberStripItem}
+          >
             <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Glyph name="plus" size={16} color={theme.primary} weight={2.2} /></View>
-            <Text style={[s.memberStripName, { color: theme.muted }]}>초대</Text>
-            <Text style={[s.memberStripRole, { color: theme.muted }]}>링크 공유</Text>
+            <Text style={[s.memberStripName, { color: theme.muted }]}>추가</Text>
+            <Text style={[s.memberStripRole, { color: theme.muted }]}>멤버 관리</Text>
           </Pressable>
         </ScrollView>
         <Text style={[s.managementLabel, { color: theme.muted }]}>빠른 관리</Text>
@@ -3190,21 +3268,21 @@ function Together({
           {[
             {
               icon: "plus" as const,
-              label: "멤버 초대",
-              onPress: () => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" }),
+              label: "멤버 관리",
+              onPress: () => setPanel("members"),
             },
-            { icon: "share" as const, label: "여행 목록 공유", onPress: exportData },
+            { icon: "share" as const, label: "여행 기록 내보내기", onPress: exportData },
             {
-              icon: notifications ? ("bellOn" as const) : ("bellOff" as const),
-              label: notifications ? "알림 켜짐" : "알림 꺼짐",
-              onPress: () => setNotifications((value) => !value),
+              icon: "swap" as const,
+              label: "공간 바꾸기",
+              onPress: () => setPanel("groups"),
             },
           ].map((action) => (
             <Pressable
               key={action.label}
               onPress={action.onPress}
-              accessibilityRole={action.label.startsWith("알림") ? "switch" : "button"}
-              accessibilityState={action.label.startsWith("알림") ? { checked: notifications } : undefined}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
               style={[
                 s.togetherQuick,
                 { backgroundColor: theme.surface, borderColor: theme.border },
@@ -3222,7 +3300,7 @@ function Together({
             <Text style={[s.historyEyebrow, { color: theme.primary }]}>지금까지의 기록</Text>
             <Text style={[s.historyTitle, { color: theme.text }]}>함께 쌓은 여행</Text>
           </View>
-          <Text style={[s.historyPeriod, { color: theme.muted }]}>{since.slice(0, 4)} — 2026</Text>
+          <Text style={[s.historyPeriod, { color: theme.muted }]}>{since.slice(0, 4)} — {new Date().getFullYear()}</Text>
         </View>
         <View
           style={[
@@ -3326,6 +3404,8 @@ function Together({
             onPress={() => setPanel("licenses")}
           />
         </View>
+        {/* 문제를 알릴 때 무엇을 쓰고 있는지 말할 수 있어야 한다. */}
+        <Text style={[s.appVersion, { color: theme.muted }]}>Daymo {appVersion} · 프로토타입</Text>
       </ScrollView>
       <InfoSheet
         theme={theme}
@@ -3336,36 +3416,41 @@ function Together({
         {panel === "groups" && (
           <>
             <Text style={[s.sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 선택하세요.</Text>
-            {spaceGroups.map((group) => (
+            {spaces.map((space) => {
+              const current = space.id === activeSpace.id;
+              return (
               <Pressable
-                key={group.id}
+                key={space.id}
                 onPress={() => {
-                  selectGroup(group);
+                  selectGroup(space);
                   setPanel(null);
                 }}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: activeGroupId === group.id }}
-                style={[s.groupChoice, { backgroundColor: theme.surface, borderColor: activeGroupId === group.id ? theme.primary : theme.border }]}
+                accessibilityLabel={`${space.name} 공간으로 바꾸기`}
+                accessibilityState={{ checked: current }}
+                style={[s.groupChoice, { backgroundColor: theme.surface, borderColor: current ? theme.primary : theme.border }]}
               >
-                <View style={[s.groupChoiceAvatar, { backgroundColor: activeGroupId === group.id ? theme.primary : theme.primarySoft }]}>
-                  <Text style={[s.groupChoiceAvatarText, { color: activeGroupId === group.id ? "#FFFFFF" : theme.primary }]}>{group.name.slice(0, 1)}</Text>
+                <View style={[s.groupChoiceAvatar, { backgroundColor: current ? theme.primary : theme.primarySoft }]}>
+                  <Text style={[s.groupChoiceAvatarText, { color: current ? onAccent(theme.dark) : theme.primary }]}>{space.name.slice(0, 1)}</Text>
                 </View>
                 <View style={s.groupChoiceCopy}>
-                  <Text style={[s.groupChoiceName, { color: theme.text }]}>{group.name}</Text>
-                  <Text numberOfLines={1} style={[s.groupChoiceMeta, { color: theme.muted }]}>{[user.name, ...group.members].join(" · ")}</Text>
+                  <Text numberOfLines={1} style={[s.groupChoiceName, { color: theme.text }]}>{space.name}</Text>
+                  <Text numberOfLines={1} style={[s.groupChoiceMeta, { color: theme.muted }]}>
+                    {[user.name, ...space.members.map((member) => member.name)].join(" · ")}
+                  </Text>
                 </View>
                 <View style={s.groupChoiceCheck}>
-                  {activeGroupId === group.id && <Glyph name="check" size={14} color={theme.primary} weight={2.4} />}
+                  {current && <Glyph name="check" size={14} color={theme.primary} weight={2.4} />}
                 </View>
               </Pressable>
-            ))}
+            );})}
           </>
         )}
         {panel === "account" && (
           <>
             <View style={[s.accountPreview, { backgroundColor: theme.primarySoft }]}>
               <View style={[s.accountAvatar, { backgroundColor: theme.primary }]}>
-                <Text style={s.accountAvatarText}>{user.name.trim().slice(0, 1) || "?"}</Text>
+                <Text style={[s.accountAvatarText, { color: onAccent(theme.dark) }]}>{user.name.trim().slice(0, 1) || "?"}</Text>
               </View>
               <View style={s.accountPreviewCopy}>
                 <Text style={[s.accountPreviewName, { color: theme.text }]}>{user.name}</Text>
@@ -3376,10 +3461,7 @@ function Together({
               theme={theme}
               label="이름 또는 별명"
               value={user.name}
-              onChangeText={(name) => {
-                setUser((current) => (current ? { ...current, name } : current));
-                setMemberA(name);
-              }}
+              onChangeText={(name) => setUser((current) => (current ? { ...current, name } : current))}
               placeholder="앱에서 사용할 이름"
             />
             <Field
@@ -3409,18 +3491,18 @@ function Together({
             <Pressable
               onPress={() => {
                 Alert.alert(
-                  "Daymo 계정을 삭제할까요?",
-                  "참여 중인 여행 공간과 서버에 저장된 내 데이터에 더 이상 접근할 수 없어요. 이 작업은 되돌릴 수 없습니다.",
+                  "이 기기의 데이터를 모두 지울까요?",
+                  "여행과 공간, 앱 설정이 이 기기에서 사라져요. 아직 서버가 없어서 다른 기기나 계정에서 지우는 건 아니에요. 되돌릴 수 없어요.",
                   [
                     { text: "취소", style: "cancel" },
-                    { text: "계정 삭제", style: "destructive", onPress: () => { setPanel(null); onLogout(); } },
+                    { text: "모두 지우기", style: "destructive", onPress: () => { setPanel(null); onWipe(); } },
                   ],
                 );
               }}
               accessibilityRole="button"
               style={s.accountDelete}
             >
-              <Text style={s.accountDeleteText}>계정 삭제</Text>
+              <Text style={s.accountDeleteText}>이 기기 데이터 모두 지우기</Text>
             </Pressable>
           </>
         )}
@@ -3428,50 +3510,69 @@ function Together({
           <>
             <View style={s.memberManagerHead}>
               <View>
-                <Text style={[s.memberManagerTitle, { color: theme.text }]}>{visibleMembers.length}명이 함께하고 있어요</Text>
+                <Text style={[s.memberManagerTitle, { color: theme.text }]}>{people.length}명이 함께하고 있어요</Text>
                 <Text style={[s.memberManagerCopy, { color: theme.muted }]}>관리할 멤버를 선택하세요.</Text>
               </View>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => Share.share({ message: "Daymo에서 주말 여행 메이트를 함께 관리해요.\nhttps://daymo.app/invite/OUR-TRIP" })}
-                style={[s.memberManagerInvite, { backgroundColor: theme.primarySoft }]}
-              >
-                <Text style={[s.memberManagerInviteText, { color: theme.primary }]}>＋ 초대</Text>
-              </Pressable>
             </View>
             <View style={s.memberManagerGrid}>
-              {memberEntries.map(({ name: member, slot }, index) => (
+              {people.map((member, index) => (
                 <Pressable
-                  key={`${member}-manage`}
-                  onPress={() => setSelectedMember(slot)}
+                  key={`${member.name}-manage`}
+                  onPress={() => setSelectedMember(index)}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: selectedMember === slot }}
+                  accessibilityLabel={`${member.name} 고르기`}
+                  accessibilityState={{ checked: selectedMember === index }}
                   style={[
                     s.memberManagerCard,
-                    { backgroundColor: theme.surface, borderColor: selectedMember === slot ? theme.primary : theme.border },
-                    selectedMember === slot && { borderWidth: 2 },
+                    { backgroundColor: theme.surface, borderColor: selectedMember === index ? theme.primary : theme.border },
+                    selectedMember === index && { borderWidth: 2 },
                   ]}
                 >
                   <View style={[s.memberManagerAvatar, { backgroundColor: [theme.primary, theme.accent, theme.secondary][index % 3] }]}>
-                    <Text style={s.memberStripInitial}>{member.slice(0, 1)}</Text>
+                    <Text style={[s.memberStripInitial, { color: onAccent(theme.dark) }]}>{member.name.slice(0, 1)}</Text>
                   </View>
                   <View style={s.memberManagerCardCopy}>
-                    <Text numberOfLines={1} style={[s.memberManagerName, { color: theme.text }]}>{member}{slot === 0 ? " (나)" : ""}</Text>
-                    <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === slot ? theme.primary : theme.muted }]}>{memberRoles[slot]}</Text>
+                    <Text numberOfLines={1} style={[s.memberManagerName, { color: theme.text }]}>{member.name}{member.me ? " (나)" : ""}</Text>
+                    <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === index ? theme.primary : theme.muted }]}>{member.role}</Text>
                   </View>
-                  <View style={selectedMember !== slot && { opacity: 0 }}>
+                  <View style={selectedMember !== index && { opacity: 0 }}>
                     <Glyph name="check" size={16} color={theme.primary} weight={2.4} />
                   </View>
                 </Pressable>
               ))}
+            </View>
+            {/* 서버가 없어서 초대 링크를 발급할 수 없다. 링크 대신 이름만 적어
+                두면 담당과 정산에는 바로 쓸 수 있다. 서버가 붙으면 이 자리가
+                초대가 된다. */}
+            <View style={s.memberAddRow}>
+              <Field
+                theme={theme}
+                label="멤버 추가"
+                value={newMember}
+                onChangeText={setNewMember}
+                placeholder="이름 또는 별명"
+              />
+              <Pressable
+                onPress={addMember}
+                disabled={!canAddMember}
+                accessibilityRole="button"
+                accessibilityLabel="멤버 추가"
+                accessibilityState={{ disabled: !canAddMember }}
+                style={[
+                  s.memberAddButton,
+                  { backgroundColor: canAddMember ? theme.primary : theme.surfaceAlt },
+                ]}
+              >
+                <Text style={[s.memberAddButtonText, { color: canAddMember ? onAccent(theme.dark) : theme.muted }]}>추가</Text>
+              </Pressable>
             </View>
             <View style={[s.memberEditor, { backgroundColor: theme.primarySoft }]}>
               <Text style={[s.memberEditorEyebrow, { color: theme.primary }]}>선택한 멤버</Text>
               <Field
                 theme={theme}
                 label={selectedMember === 0 ? "내 이름" : "멤버 이름"}
-                value={[memberA, memberB, memberC, memberD][selectedMember] || ""}
-                onChangeText={(value) => memberSetters[selectedMember]?.(value)}
+                value={people[selectedMember]?.name ?? ""}
+                onChangeText={(value) => setMemberName(selectedMember, value)}
                 placeholder="이름 또는 별명"
               />
               {selectedMember === 0 ? (
@@ -3481,19 +3582,24 @@ function Together({
                   <Text style={[s.memberPermissionLabel, { color: theme.text }]}>이 공간에서 할 수 있는 일</Text>
                   <Choice
                     theme={theme}
-                    selected={memberRoles[selectedMember] === "편집 가능"}
+                    selected={people[selectedMember]?.role === "편집 가능"}
                     label="함께 관리 · 일정과 준비물을 수정"
-                    onPress={() => setMemberRoles((roles) => roles.map((role, index) => index === selectedMember ? "편집 가능" : role))}
+                    onPress={() => setMemberRole(selectedMember, "편집 가능")}
                   />
                   <Choice
                     theme={theme}
-                    selected={memberRoles[selectedMember] === "보기만"}
+                    selected={people[selectedMember]?.role === "보기만"}
                     label="보기만 · 내용을 확인"
-                    onPress={() => setMemberRoles((roles) => roles.map((role, index) => index === selectedMember ? "보기만" : role))}
+                    onPress={() => setMemberRole(selectedMember, "보기만")}
                   />
+                  {/* 권한은 아직 이름표다. 서버가 없으면 "보기만" 인 사람이
+                      고치는 것을 막을 방법이 없다. 그걸 숨기지 않는다. */}
+                  <Text style={[s.memberRoleText, { color: theme.muted }]}>
+                    권한은 서버를 붙인 뒤에 실제로 적용돼요. 지금은 누가 무엇을 맡는지 적어 두는 용도예요.
+                  </Text>
                   <Pressable
                     onPress={() => {
-                      const memberName = [memberA, memberB, memberC, memberD][selectedMember];
+                      const memberName = people[selectedMember]?.name ?? "";
                       Alert.alert(
                         `${memberName}님을 내보낼까요?`,
                         "이 멤버는 더 이상 이 공간의 여행을 보거나 수정할 수 없어요.",
@@ -3502,10 +3608,7 @@ function Together({
                           {
                             text: "내보내기",
                             style: "destructive",
-                            onPress: () => {
-                              memberSetters[selectedMember]?.("");
-                              setSelectedMember(0);
-                            },
+                            onPress: () => removeMember(selectedMember),
                           },
                         ],
                       );
@@ -3527,13 +3630,13 @@ function Together({
               theme={theme}
               selected={relationship === "연인"}
               label="연인"
-              onPress={() => setRelationship("연인")}
+              onPress={() => updateActiveSpace({ relationship: "연인" })}
             />
             <Choice
               theme={theme}
               selected={relationship === "친구"}
               label="친구"
-              onPress={() => setRelationship("친구")}
+              onPress={() => updateActiveSpace({ relationship: "친구" })}
             />
           </>
         )}
@@ -3609,9 +3712,14 @@ function Together({
           </>
         )}
         {panel === "help" && (
-          <Text style={[s.sheetCopy, { color: theme.muted }]}>
-            여행을 만들고 일정, 준비물, 메모와 사진을 한곳에서 함께 관리하세요.
-          </Text>
+          <>
+            {helpTopics.map((topic) => (
+              <View key={topic.q} style={[s.helpItem, { borderColor: theme.border }]}>
+                <Text style={[s.helpQuestion, { color: theme.text }]}>{topic.q}</Text>
+                <Text style={[s.helpAnswer, { color: theme.muted }]}>{topic.a}</Text>
+              </View>
+            ))}
+          </>
         )}
         {panel === "licenses" && (
           <>
@@ -3650,29 +3758,41 @@ function Together({
         {panel === "profile" && (
           <>
             <View style={[s.profileSheetPreview, { backgroundColor: theme.primarySoft }]}>
-              <View style={[s.profileSheetAvatar, { backgroundColor: theme.primary }]}>
-                <Text style={s.togetherAvatarText}>{memberA.trim().slice(0, 1) || "?"}</Text>
-              </View>
-              <View style={[s.profileSheetAvatar, s.profileSheetAvatarSecond, { backgroundColor: theme.accent }]}>
-                <Text style={s.togetherAvatarText}>{memberB.trim().slice(0, 1) || "?"}</Text>
-              </View>
-              <Text style={[s.profileSheetName, { color: theme.text }]}>{spaceName}</Text>
+              {people.slice(0, 2).map((member, index) => (
+                <View
+                  key={member.name}
+                  style={[
+                    s.profileSheetAvatar,
+                    index > 0 && s.profileSheetAvatarSecond,
+                    { backgroundColor: index > 0 ? theme.accent : theme.primary },
+                  ]}
+                >
+                  <Text style={[s.togetherAvatarText, { color: onAccent(theme.dark) }]}>
+                    {member.name.trim().slice(0, 1) || "?"}
+                  </Text>
+                </View>
+              ))}
+              <Text numberOfLines={1} style={[s.profileSheetName, { color: theme.text }]}>{spaceName}</Text>
             </View>
             <Field
               theme={theme}
               label="공간 이름"
               value={spaceName}
-              onChangeText={setSpaceName}
+              onChangeText={(name) => updateActiveSpace({ name })}
               placeholder="예: 우리의 여행 기록"
             />
-            <Field
-              theme={theme}
-              label="함께한 시작일"
-              value={since}
-              onChangeText={setSince}
-              placeholder="YYYY. MM. DD"
-            />
-            <Text style={[s.sheetCopy, { color: theme.muted }]}>변경 내용은 닫으면 자동으로 저장돼요.</Text>
+            {/* 연인 공간에서만 "함께한 지 N일째" 를 센다. 친구·가족 공간에는
+                쓸 데가 없어서 자리만 차지한다. */}
+            {relationship === "연인" && (
+              <TripDateRangePicker
+                theme={theme}
+                start={since}
+                end={since}
+                setStart={(value) => updateActiveSpace({ since: value })}
+                setEnd={() => {}}
+              />
+            )}
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>바꾸면 바로 저장돼요.</Text>
           </>
         )}
       </InfoSheet>
@@ -4873,7 +4993,7 @@ const s = StyleSheet.create({
   searchEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
   searchEmptyCopy: { fontSize: 14, marginTop: 6 },
   togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  togetherSettingsButton: { minHeight: 40, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  togetherSettingsButton: { minHeight: 44, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   togetherSettingsText: { fontSize: 13, fontFamily: typo.label.family },
   togetherHead: {
     flexDirection: "row",
@@ -5493,7 +5613,7 @@ const s = StyleSheet.create({
     marginTop: 16,
   },
   accountLogoutText: { color: "#DF5148", fontSize: 12, fontFamily: typo.label.family },
-  accountDelete: { minHeight: 40, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  accountDelete: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 4 },
   accountDeleteText: { color: "#A36E67", fontSize: 12, fontFamily: typo.label.family, textDecorationLine: "underline" },
   groupChoice: {
     minHeight: 66,
@@ -5524,7 +5644,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
   },
   noticeLinkText: { fontSize: typo.label.size, lineHeight: typo.label.line, fontFamily: typo.label.family },
-  togetherAccountButton: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  togetherAccountButton: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   togetherAccountInitial: { fontSize: 14, fontFamily: typo.label.family },
   workspaceCard: {
     minHeight: 86,
@@ -5567,6 +5687,7 @@ const s = StyleSheet.create({
   groupTabMoreText: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 1 },
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   memberSectionTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 2 },
+  memberManageHit: { minHeight: 40, justifyContent: "center", paddingLeft: 8 },
   memberManageText: { fontSize: 12, fontFamily: typo.label.family, paddingVertical: 4 },
   memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1 },
   memberStripContent: { minWidth: "100%", paddingHorizontal: 10, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 6 },
@@ -5610,6 +5731,13 @@ const s = StyleSheet.create({
   memberManagerCardCopy: { flex: 1, minWidth: 0, marginLeft: 8 },
   memberManagerName: { fontSize: 14, fontFamily: typo.title.family },
   memberManagerRole: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
+  appVersion: { fontSize: 12, textAlign: "center", marginTop: 18, marginBottom: 8, fontFamily: typo.caption.family },
+  helpItem: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 8 },
+  helpQuestion: { fontSize: 14, fontFamily: typo.title.family },
+  helpAnswer: { fontSize: 13, lineHeight: 20, marginTop: 4, fontFamily: typo.body.family },
+  memberAddRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  memberAddButton: { minWidth: 72, minHeight: 50, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  memberAddButtonText: { fontSize: 14, fontFamily: typo.label.family },
   memberEditor: { borderRadius: 12, padding: 12 },
   memberEditorEyebrow: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 8 },
   memberRemoveButton: { height: 38, alignItems: "center", justifyContent: "center", marginTop: 4 },
