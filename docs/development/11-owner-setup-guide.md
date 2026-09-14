@@ -113,7 +113,7 @@ Daymo의 사진이 개인 기록이고 멤버 공유가 필요 없다면 가능�
 초기 소수 사용자라면 현실적인 선택이다. 다음 조건을 적용한다.
 
 ```text
-사진 저장 상한: 30GB(장당 2MB 기준 약 15,000장). 기본 디스크가 아니라 별도 블록 스토리지에 둔다
+사진 저장 상한: 10GB(장당 2MB 기준 약 5,000장). 기본 50GB 디스크의 전용 경로에 둔다
 사진 1장: 최대 20MB
 공간 1개: 최대 1GB
 동영상: 초기 미지원
@@ -135,7 +135,7 @@ Daymo의 사진이 개인 기록이고 멤버 공유가 필요 없다면 가능�
 ### C. 외부 S3 호환 저장소 — 현재 미사용
 
 - VPS와 사진 장애 영역을 분리한다.
-- 사진이 늘어도 50GB VPS 디스크를 사용하지 않는다.
+- 사진이 늘어도 VPS 기본 디스크 용량에 묶이지 않는다.
 - 별도 공급자, 접근 키, 비용과 개인정보 처리 국가 확인이 필요하다.
 
 공개 사용자 규모가 커진 뒤 이전할 수 있다. 처음부터 저장소 interface를 분리하면 VPS 로컬에서 외부 저장소로 옮길 때 앱 API를 바꾸지 않아도 된다.
@@ -300,7 +300,7 @@ NAVER_CLIENT_SECRET=
 ```dotenv
 PHOTO_STORAGE_TYPE=local
 PHOTO_LOCAL_ROOT=/srv/daymo/uploads
-PHOTO_MAX_TOTAL_BYTES=32212254720
+PHOTO_MAX_TOTAL_BYTES=10737418240
 PHOTO_MAX_UPLOAD_BYTES=
 PHOTO_BACKUP_TARGET=rclone:daymo-drive:daymo-backup
 PHOTO_DOWNLOAD_SIGNING_KEY=
@@ -309,7 +309,7 @@ RESTIC_PASSWORD_FILE=/etc/daymo/secrets/restic-password
 RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 ```
 
-`PHOTO_MAX_TOTAL_BYTES=32212254720`는 사진 전체 30GB 상한이다. `PHOTO_DOWNLOAD_SIGNING_KEY`는 파일 접근용 짧은 URL을 서명할 때 사용한다. 실제 경로를 API 응답이나 로그에 노출하지 않는다.
+`PHOTO_MAX_TOTAL_BYTES=10737418240`는 사진 전체 10GB 상한이다. `PHOTO_DOWNLOAD_SIGNING_KEY`는 파일 접근용 짧은 URL을 서명할 때 사용한다. 실제 경로를 API 응답이나 로그에 노출하지 않는다.
 
 Google 계정 연결 과정에서 생성되는 rclone OAuth token과 restic repository password도 시크릿이다. 채팅이나 Git에 올리지 않고 VPS root만 읽을 수 있게 보관한다. Google 계정 비밀번호 자체를 VPS에 저장하지 않는다.
 
@@ -395,7 +395,7 @@ OS security patch는 자동 설치하되 자동 재부팅은 사용하지 않는
 
 ## 12. iwinv VPS 준비
 
-구매 계획은 iwinv VPS 한국 리전이다. 구매 직후 영수증·계약 화면과 관리 콘솔에서 실제 데이터센터 국가와 세부 지역을 확인해 운영 기록과 개인정보 처리방침 초안에 반영한다.
+2026-09-14 iwinv VPS를 생성하고 Ubuntu 24.04 LTS에 초기 운영 구성을 배포했다. 영수증·계약 화면과 관리 콘솔에서 실제 데이터센터 국가와 세부 지역을 최종 확인해 운영 기록과 개인정보 처리방침 초안에 반영한다.
 
 VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 계정·여행·사진을 지우지 않은 채 production으로 전환한다. 같은 2GB VPS에서 staging과 production을 동시에 상시 실행하지 않는다. 베타 시작 전부터 production 수준 약관·처리방침·백업·신고 운영을 갖추고, 전환 직전 전체 snapshot의 실제 복원을 확인한다.
 
@@ -428,7 +428,7 @@ OS       Ubuntu 24.04 LTS
 
 결제 전에 [06-vps-deployment.md](./06-vps-deployment.md) 1장의 `구매 전 확인 목록`을 하나씩 확인한다. 하나라도 확인되지 않으면 결제하지 않는다.
 
-디스크 50GB가 하드 월은 아니다. iwinv는 SATA block storage를 10GB당 월 390원(최대 20TB)으로 붙일 수 있으므로 사진이 늘면 증설을 검토할 수 있다.
+초기에는 별도 블록 스토리지를 구매하지 않고 기본 50GB 디스크만 사용한다. 사진 10GB 상한이나 전체 디스크 70%에 가까워지면 미니PC와 NAS 이전을 준비한다.
 
 준비할 항목:
 
@@ -448,7 +448,7 @@ OS       Ubuntu 24.04 LTS
 
 ## 13. 도메인과 공개 페이지
 
-기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 가비아에서 구매한다. 현재 상태는 등록 대기다.
+Daymo 전용 `daymo.xyz`를 가비아에서 구매했고 권한 DNS를 Cloudflare로 이전했다.
 
 **권한 DNS는 처음부터 Cloudflare를 쓴다.** 미니PC 단계에서 쓸 Cloudflare Tunnel이 자기 zone의 DNS 레코드를 직접 만들어야 해서 어차피 한 번은 옮겨야 하고, 레코드가 하나도 없는 지금이 가장 싸다. 순서는 이렇다.
 
@@ -467,7 +467,7 @@ OS       Ubuntu 24.04 LTS
 ```text
 daymo.xyz              Vercel 소개·약관·처리방침·계정 삭제 안내
 www.daymo.xyz          daymo.xyz로 redirect
-api.daymo.xyz          가비아 A record → iwinv VPS 운영 API
+api.daymo.xyz          Cloudflare A record → iwinv VPS 운영 API
 staging-api.daymo.xyz  beta 기간 같은 VPS의 beta API, production 전환 후 제거 가능
 ```
 
@@ -475,7 +475,7 @@ Vercel project에는 apex와 `www`만 연결하고 API·사진 요청은 보내�
 
 모바일 프로젝트가 `mobile/`로 분리되어 있으므로 Vercel의 Git project Settings → Build and Deployment → Root Directory를 `mobile`로 변경한다. Framework Preset은 Other, build/output은 `mobile/vercel.json`의 Expo export와 `dist` 설정을 사용한다.
 
-`api.daymo.xyz`는 가비아 A record로 VPS 공인 IPv4에 직접 연결한다. Nginx에서 Let's Encrypt 인증서를 발급하고 자동 갱신 timer, 갱신 dry-run과 만료 알림을 설정한다.
+`api.daymo.xyz`는 Cloudflare A record로 VPS 공인 IPv4에 직접 연결한다. Nginx에서 Let's Encrypt 인증서를 발급하고 자동 갱신 timer, 갱신 dry-run과 만료 알림을 설정한다.
 
 필요한 공개 페이지:
 
@@ -534,6 +534,6 @@ Vercel project에는 apex와 `www`만 연결하고 API·사진 요청은 보내�
 1. 앱 식별자 `com.hwangslater.daymo` 확정 완료
 2. Node 24 LTS 확정, 기능 개발 전 Expo 최신 안정 SDK 업그레이드 검증 완료(SDK 57)
 3. 첫 알파 공개 회원가입 확정, 공간은 초대 멤버 전용
-4. 사진 저장은 iwinv VPS에 붙인 SATA Block 30GB, 상한은 30GB로 확정
+4. 사진 저장은 iwinv VPS 기본 50GB 디스크, 사진 상한은 10GB로 확정
 5. 외부 백업은 Google Drive로 시작
 6. Google Drive 백업은 기존 Daymo 전용 계정 사용으로 확정

@@ -62,8 +62,8 @@
   흐름(일회용 앱 로그인 코드 → 교환)은 만들 수 있다
 - **bot challenge.** 검증 공급자를 문서가 일부러 미뤄 뒀다(처리 국가·SDK·비용
   재승인 필요). 지금은 시도 제한이 그 자리를 막고 있다
-- **VPS와 도메인.** 아직 사지 않았다. 순서는 [`11-owner-setup-guide.md`](./11-owner-setup-guide.md)
-  에 있다. 가비아 구매 → Cloudflare로 네임서버 이전 → VPS 구매 → A record(proxy 끔)
+- **API DNS와 HTTPS.** 도메인 구매, Cloudflare 네임서버 이전, VPS 생성과 HTTP 배포는 완료했다.
+  Cloudflare에 `api` A record(proxy 끔)를 추가한 뒤 HTTPS 인증서를 발급해야 한다
 
 ### 앱 쪽에 남은 것
 

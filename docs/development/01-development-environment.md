@@ -120,7 +120,7 @@ Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋�
 | beta/staging | 구매한 iwinv VPS의 최초 운영 모드 | 공개 가입·실사용 데이터, production 수준 보호 |
 | production | 같은 iwinv VPS를 출시 점검 후 전환 | beta 데이터와 계정 유지 |
 
-2GB VPS에서 staging과 production API·DB를 동시에 상시 운영하지 않는다. VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 출시 체크리스트 통과 후 데이터 초기화 없이 production 설정과 `api.daymo.xyz`로 전환한다. 기본 디스크가 50GB로 줄었지만 사진은 별도 블록 스토리지 30GB에 두므로 사진 한도는 그대로다(`06-vps-deployment.md` 5장). 베타부터 실사용 개인정보가 들어오므로 약관·처리방침·백업·신고 대응과 보안 기준은 production과 동일하게 적용한다.
+2GB VPS에서 staging과 production API·DB를 동시에 상시 운영하지 않는다. VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 출시 체크리스트 통과 후 데이터 초기화 없이 production 설정과 `api.daymo.xyz`로 전환한다. 초기에는 별도 블록 스토리지 없이 기본 50GB 디스크를 쓰며 사진 전체 상한은 10GB다(`06-vps-deployment.md` 5장). 베타부터 실사용 개인정보가 들어오므로 약관·처리방침·백업·신고 대응과 보안 기준은 production과 동일하게 적용한다.
 
 백엔드 권장 스택:
 
@@ -295,7 +295,7 @@ JVM이 빠지면서 생긴 여유는 PostgreSQL(550 → 800MB, `shared_buffers` 
 전송량은 무제한이 아니라 일 20GB(월 600GB)이고 초과분에는 구간 요금이 붙으므로 사진을 반복해서 내려받는 구간이 그대로 비용이 된다. 디스크 50GB에는 OS, Docker image, DB, 로그, 백업도 함께 들어간다. 사진 원본을 VPS 디스크에 장기 보관하면 저장 용량과 장애 복구가 여전히 위험하다.
 
 - 결정: 초기 운영 원본은 iwinv VPS의 `/srv/daymo/uploads` private volume에 저장한다.
-- 사진용 상한은 30GB로 두고 DB와 사진을 Google Drive에 자동 외부 백업한다. 장당 2MB 기준 약 15,000장이다. 사진은 기본 디스크가 아니라 별도 블록 스토리지에 둔다.
+- 사진용 상한은 10GB로 두고 DB와 사진을 Google Drive에 자동 외부 백업한다. 장당 2MB 기준 약 5,000장이다. 사진은 기본 디스크의 `/srv/daymo/uploads`에 둔다.
 - 백업은 폴더 mirror가 아니라 암호화·중복 제거·시점 복구가 가능한 restic snapshot을 rclone Google Drive backend로 전송한다.
 - 업로드 전 앱에서 표시본을 압축하고 썸네일을 생성한다.
 - 저장량과 복구 시간을 측정해 공개 규모가 커질 때만 S3 호환 외부 저장소 이전을 재검토한다.
