@@ -237,6 +237,8 @@ schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 
 5. 실패 단계가 하나라도 있으면 즉시 운영 이메일을 보내고 성공 시각을 기록
 6. `restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune`에 해당하는 보존 정책 적용
 
+운영 파일은 `daymo-backup`, `daymo-backup.service`, `daymo-backup.timer`로 관리한다. `/etc/daymo/secrets/backup.env`, restic password 파일과 rclone 설정이 모두 준비되고 최초 원격 snapshot 복원까지 성공한 뒤에만 timer를 활성화한다.
+
 매월 자동 검증은 최신 snapshot에서 DB를 격리된 임시 PostgreSQL container에 복원해 migration metadata와 주요 table count를 검사하고, 무작위 사진 표본의 checksum과 decode 가능 여부를 확인한 뒤 임시 data를 삭제한다. 분기마다 별도의 빈 local/staging 환경에서 DB와 전체 사진 경로를 수동 복원해 로그인·여행 조회·사진 열기 smoke test까지 수행한다.
 
 Google Drive 동기화 폴더를 단순 `sync`하지 않는다. 서버에서 파일이 손상·삭제되었을 때 원격도 똑같이 삭제될 수 있기 때문이다. restic repository password와 rclone OAuth token은 서로 분리해 root 전용 파일 또는 secret store에 둔다. 두 값을 모두 분실하면 복구할 수 없으므로 비밀번호 관리 도구에 별도 보관한다.

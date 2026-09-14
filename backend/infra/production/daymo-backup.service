@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up Daymo data to encrypted off-site storage
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/daymo-backup

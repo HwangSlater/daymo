@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Daymo off-site backup every day
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 Asia/Seoul
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
