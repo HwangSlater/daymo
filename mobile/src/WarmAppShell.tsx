@@ -183,6 +183,21 @@ const isStoredTrip = (value: unknown): value is Trip => {
     && typeof trip.end === "string";
 };
 
+/**
+ * 저장된 계획 데이터의 모양을 본다.
+ *
+ * 여행 자체는 통과시키고 계획만 버리는 쪽이 낫다. 필드 하나가 어긋났다고
+ * 여행을 통째로 지우면 사용자가 적어 둔 이름과 날짜까지 사라진다.
+ */
+const isStoredPlanning = (value: unknown): value is TripPlanningData => {
+  if (!value || typeof value !== "object") return false;
+  const planning = value as Partial<TripPlanningData>;
+  return Array.isArray(planning.schedule)
+    && Array.isArray(planning.places)
+    && Boolean(planning.stay)
+    && typeof planning.stay === "object";
+};
+
 const parseStoredTripData = (raw: string | null) => {
   if (!raw) return null;
   try {
@@ -194,7 +209,13 @@ const parseStoredTripData = (raw: string | null) => {
     const restored = { ...initialTripsByGroup };
     (["ours", "friends", "family"] as GroupId[]).forEach((groupId) => {
       const groupTrips = saved.tripsByGroup?.[groupId];
-      if (Array.isArray(groupTrips)) restored[groupId] = groupTrips.filter(isStoredTrip);
+      if (Array.isArray(groupTrips)) {
+        restored[groupId] = groupTrips.filter(isStoredTrip).map((trip) =>
+          trip.planning && !isStoredPlanning(trip.planning)
+            ? { ...trip, planning: undefined }
+            : trip,
+        );
+      }
     });
     return {
       tripsByGroup: restored,
@@ -234,6 +255,9 @@ export function WarmAppShell({
   );
   const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
   const [tripStorageReady, setTripStorageReady] = useState(false);
+  // 저장이 막히면 조용히 넘어가지 않는다. 사용자는 적은 게 남았다고 믿는데
+  // 앱을 다시 열면 사라진다. 가장 흔한 원인은 용량 초과다.
+  const [tripStorageFailed, setTripStorageFailed] = useState(false);
   const tripItems = tripsByGroup[activeGroupId];
   const setTripItems: React.Dispatch<React.SetStateAction<Trip[]>> = (update) =>
     setTripsByGroup((current) => ({
@@ -276,10 +300,9 @@ export function WarmAppShell({
 
   useEffect(() => {
     if (!tripStorageReady) return;
-    AsyncStorage.setItem(
-      tripStorageKey,
-      JSON.stringify({ tripsByGroup, done }),
-    ).catch(() => {});
+    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup, done }))
+      .then(() => setTripStorageFailed(false))
+      .catch(() => setTripStorageFailed(true));
   }, [done, tripStorageReady, tripsByGroup]);
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const homeTrip = [...tripItems]
@@ -329,6 +352,18 @@ export function WarmAppShell({
     );
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
+      {/* 저장이 막힌 동안만 뜬다. 경고창으로 막아 세우기보다, 적는 일을 계속하되
+          남지 않는다는 사실은 계속 보이게 한다. */}
+      {tripStorageFailed && (
+        <View
+          accessibilityLiveRegion="polite"
+          style={[s.storageWarning, { backgroundColor: theme.accent }]}
+        >
+          <Text style={s.storageWarningText}>
+            기기에 저장하지 못했어요. 앱을 다시 열면 최근에 적은 내용이 사라질 수 있어요.
+          </Text>
+        </View>
+      )}
       <View style={[s.body, { backgroundColor: "transparent" }]}>
         {view === "홈" && (
           <NotebookHome
@@ -3990,6 +4025,8 @@ function Choice({
 
 const s = StyleSheet.create({
   body: { flex: 1 },
+  storageWarning: { paddingHorizontal: 16, paddingVertical: 8 },
+  storageWarningText: { color: "#FFFFFF", fontSize: 12, lineHeight: 17, fontFamily: typo.body.family },
   page: { padding: 20, paddingBottom: 112 },
   tripArt: {
     width: 121,

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSheetDrag } from "./sheetDrag";
+import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
 import {
@@ -735,7 +736,18 @@ export function WarmTripDetail({
   useEffect(() => {
     onSavePlanningRef.current = onSavePlanning;
   }, [onSavePlanning]);
+  // 상세를 열기만 해도 저장하면 예시 일정과 지출이 그 여행에 박힌다. 여러
+  // 여행이 똑같은 예시를 갖게 되고, 저장된 뒤로는 지워지지도 않는다.
+  // 첫 실행은 화면을 처음 그린 것뿐이라 넘기고, 그 뒤부터가 진짜 바뀐 것이다.
+  const firstPlanningRun = useRef(true);
+  // 이미 저장된 계획이 있으면 처음부터 저장 대상으로 본다.
+  const planningDirty = useRef(Boolean(initialPlanning));
   useEffect(() => {
+    if (firstPlanningRun.current) {
+      firstPlanningRun.current = false;
+      return;
+    }
+    planningDirty.current = true;
     onSavePlanningRef.current?.({
       schedule,
       stay: registeredStay,
@@ -754,6 +766,11 @@ export function WarmTripDetail({
     });
   }, [budget, cookingReadyIngredientIds, expenses, hasKitchen, memories, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
+    // 열어만 보고 닫으면 아무것도 남기지 않는다.
+    if (!planningDirty.current) {
+      onClose();
+      return;
+    }
     onSavePlanning?.({
       schedule,
       stay: registeredStay,
@@ -6117,9 +6134,11 @@ function Memories({
       });
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
-      const uri = Platform.OS === "web" && asset.base64
+      const picked = Platform.OS === "web" && asset.base64
         ? `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`
         : asset.uri;
+      // 고르기가 준 자리는 캐시 폴더라 OS 가 비울 수 있다. 남는 자리로 옮긴다.
+      const uri = await keepTripPhoto(picked);
       setPhotoUri(uri);
       setPhotoSelected(true);
     } catch {
