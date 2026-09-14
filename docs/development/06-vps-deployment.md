@@ -256,7 +256,9 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 
 - API: `GET /v1/health`가 프로세스와 DB 연결 상태를 확인한다. 이 endpoint는 직접 만든다
 - 서버: CPU, RAM, swap, disk, load average
-- API 프로세스 메모리, HTTP latency, DB pool 사용량 같은 내부 지표는 아직 수집 도구를 정하지 않았다. 필요해지는 시점에 붙인다
+- 요청 기록: API가 요청 하나에 JSON 한 줄을 stdout으로 남긴다. 남기는 항목은 `requestId`, `method`, `endpoint`, `status`, `durationMs`, `actor` 여섯 개다. `endpoint`는 실제 경로가 아니라 라우트 틀(`/v1/trips/{trip_id}/expenses`)이라 같은 API의 요청이 한 줄로 모이고 여행 ID가 로그에 흩어지지 않는다. `actor`는 계정 ID가 아니라 pepper를 섞은 해시 앞 16자다. 요청 본문, 질의 문자열, 헤더는 남기지 않는다. 여행 제목·메모·검색어가 거기 들어 있다
+- 로그를 모아 검색하는 도구(Loki, ELK)는 VPS 단계에서 올리지 않는다. 2GB에 들어가지 않는다. 찾는 수단은 `docker compose logs`와 `jq`다
+- **API 프로세스 메모리, HTTP latency 분포, DB pool 사용량 같은 내부 지표는 미니PC 단계로 미룬다(11장).** 수집기와 저장소가 VPS 예산에 들어가지 않는다
 - PostgreSQL: connection, slow query, DB size, backup 성공
 - 앱/API 오류: Sentry
 - UptimeRobot 무료 외부 monitor가 공개용 `/health`를 5분마다 확인
@@ -301,6 +303,22 @@ VPS는 종착지가 아니다. 디스크나 전송량이 한계에 닿으면 집
 가정 회선은 인바운드 80/443이 막혀 있는 경우가 많고 공인 IP도 고정되지 않는다. VPS 때처럼 A record를 IP에 직접 걸 수 없으므로 Cloudflare Tunnel을 쓴다. 미니PC 안의 tunnel client가 바깥으로 연결을 열고 Cloudflare가 `api.daymo.xyz` 요청을 그 연결로 넘기는 방식이라 인바운드 포트 개방과 고정 IP가 필요 없다. 대신 Cloudflare가 트래픽 경유지가 되므로 위탁·국외 이전 검토 대상에 넣는다([08-privacy-and-release-compliance.md](./08-privacy-and-release-compliance.md) 4장).
 
 가정 회선의 업로드 속도, 정전·인터넷 장애 시 복구 방법은 이전 전에 확인한다.
+
+### 운영 지표
+
+VPS 단계에서 미뤄 둔 내부 지표를 여기서 붙인다. 미루는 이유는 하나뿐이고 그것은 메모리다. 2GB에서는 API 400MB, PostgreSQL 800MB, Nginx 64MB에 OS 여유 700MB로 이미 꽉 차 있어서 수집기와 저장소가 들어갈 자리가 없다. 미니PC는 그 제약이 없다.
+
+붙일 대상은 VPS 단계에서 답이 없던 것들이다.
+
+- API 프로세스 메모리와 워커별 사용량. JVM을 버리면서 Actuator가 주던 heap/GC 지표가 없어진 자리다
+- HTTP latency 분포(p50/p95/p99). 지금은 요청 로그의 `durationMs`를 `jq`로 세는 것이 전부다
+- DB connection pool 사용량과 대기 시간. `pool_size=5`, `max_overflow=5`가 맞는 값인지 여기서 처음 확인할 수 있다
+- PostgreSQL slow query와 인덱스 적중률
+- 사진 변환 작업의 처리 시간과 대기 길이
+
+도구는 정하지 않는다. 미니PC의 실제 사양이 정해진 뒤에 고른다. 다만 **경로가 두 갈래**라는 것만 적어 둔다. 지표만 필요하면 Prometheus와 Grafana, 로그까지 모아 검색하려면 Loki를 더한다. 둘 다 합치면 대략 350MB 이상을 쓴다.
+
+지표 수집기는 바깥에 공개하지 않는다. Cloudflare Tunnel에 올리는 것은 `api.daymo.xyz` 하나뿐이고, Grafana 같은 화면은 집 안 네트워크에서만 연다.
 
 ### 백업
 

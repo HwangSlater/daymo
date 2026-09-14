@@ -138,6 +138,10 @@
 | D-018I | 외부 상태 감시 | **결정 완료: UptimeRobot이 공개 `/health`를 5분마다 확인** |
 | D-018J | 공개 장애 이력 | **결정 완료: 현재 장애만 공개**, 과거 incident history 비공개 |
 | D-018K | 예정 점검 공지 | **결정 완료: 초기 운영 범위에서 제외** |
+| D-018L | 요청 기록 | **결정 완료: API가 요청당 JSON 한 줄을 stdout으로**, `requestId`·`method`·`endpoint`(라우트 틀)·`status`·`durationMs`·`actor`(해시)만. 본문·질의 문자열·헤더 미기록 |
+| D-018M | 내부 운영 지표 | **결정 완료: 미니PC 단계로 미룸**, 2GB VPS에 수집기·저장소가 들어가지 않음. 도구는 미니PC 사양 확정 후 선택 |
+| D-018N | 로그 검색 도구 | **결정 완료: VPS 단계는 미사용**, `docker compose logs` + `jq`로 충분. Loki는 미니PC 단계에서 재검토 |
+| D-018O | 제품 통계 | **결정 완료: 이벤트 수집 없이 운영 DB에 SQL로 집계**, 행동 분석이 필요해지면 제3자 SDK 대신 자체 이벤트 테이블 + 별도 동의 |
 | D-019 | VPS SSH 인증 | **결정 완료: SSH key만 허용**, 비밀번호·root 원격 로그인 차단 |
 | D-019A | 배포 계정 | **결정 완료: 제한된 `daymo-deploy` 사용**, root 직접 배포 금지 |
 | D-019B | 운영 secret | **결정 완료: GitHub Environment Secrets + VPS root 전용 `0600` 파일** |

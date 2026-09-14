@@ -8,10 +8,12 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
+from app.core.access_log import log_request
 from app.core.config import get_settings
 from app.core.context import get_request_id, sanitize_request_id, set_request_id
 from app.core.db import dispose_engine
 from app.core.errors import AppError, ErrorCode, code_for_status
+from app.core.logging import configure_logging
 from app.core.runtime import use_selector_event_loop_on_windows
 from app.core.responses import error_response, ok
 
@@ -29,6 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging()
     app = FastAPI(
         title="Daymo API",
         version="0.1.0",
@@ -38,6 +41,17 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings.docs_enabled else None,
         openapi_url="/openapi.json" if settings.docs_enabled else None,
     )
+
+    @app.middleware("http")
+    async def write_access_log(request: Request, call_next):
+        """
+        요청 하나에 로그 한 줄.
+
+        request id 를 붙이는 미들웨어보다 **안쪽**에 있어야 한다. 바깥에
+        두면 로그를 쓰는 시점에 아직 id 가 없다. FastAPI 는 나중에 등록한
+        미들웨어가 바깥이라, 이것을 먼저 등록한다.
+        """
+        return await log_request(request, call_next, settings.refresh_token_pepper)
 
     @app.middleware("http")
     async def attach_request_id(request: Request, call_next):
