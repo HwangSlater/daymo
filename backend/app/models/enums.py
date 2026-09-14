@@ -159,6 +159,32 @@ class ReservationTargetType(StrEnum):
     OTHER = "other"
 
 
+class ExpenseCategory(StrEnum):
+    """앱의 분류 여섯 개 그대로다(식비·교통·숙박·입장료·쇼핑·기타)."""
+
+    MEAL = "meal"
+    TRANSPORT = "transport"
+    LODGING = "lodging"
+    ADMISSION = "admission"
+    SHOPPING = "shopping"
+    OTHER = "other"
+
+
+class SplitMode(StrEnum):
+    """
+    화면에서 고른 나누기 방식. 앱의 `똑같이`·`일부만`·`금액 직접`이다.
+
+    **계산에 쓰지 않는다.** 몫은 `expense_shares` 만 보고 정한다. 이 값은
+    지출을 다시 열 때 고른 방식 그대로 열어 주고, 목록에 사람 이름만 적을지
+    금액까지 적을지를 가르는 데만 쓴다. 값이 없으면 shares 모양에서 짐작한다
+    (docs/development/02-architecture-and-data-model.md 3장).
+    """
+
+    EVEN = "even"
+    SUBSET = "subset"
+    AMOUNT = "amount"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.

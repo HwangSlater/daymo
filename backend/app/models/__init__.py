@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.enums import (
     BookingStatus,
+    ExpenseCategory,
     LinkProvider,
     LinkTargetType,
     MembershipRole,
@@ -9,6 +10,7 @@ from app.models.enums import (
     ReservationStatus,
     ReservationTargetType,
     ScheduleItemType,
+    SplitMode,
     TagScope,
     TransportDirection,
     TransportMethod,
@@ -16,6 +18,7 @@ from app.models.enums import (
     TripStatus,
     UserStatus,
 )
+from app.models.expense import Expense, ExpenseShare, Payment
 from app.models.place import Place, TripPlace
 from app.models.schedule import Reservation, ScheduleItem, Stay, Transport
 from app.models.space import MAX_MEMBERS_PER_SPACE, Membership, RelationshipProfile, Space
@@ -29,11 +32,15 @@ __all__ = [
     "MAX_MEMBERS_PER_SPACE",
     "Base",
     "BookingStatus",
+    "Expense",
+    "ExpenseCategory",
+    "ExpenseShare",
     "ExternalLink",
     "LinkProvider",
     "LinkTargetType",
     "Membership",
     "MembershipRole",
+    "Payment",
     "Place",
     "PlaceProvider",
     "RelationshipProfile",
@@ -44,6 +51,7 @@ __all__ = [
     "ScheduleItem",
     "ScheduleItemType",
     "Space",
+    "SplitMode",
     "Stay",
     "Tag",
     "TagScope",
