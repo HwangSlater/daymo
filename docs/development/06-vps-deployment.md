@@ -66,7 +66,9 @@ Docker private network
 - FastAPI가 자동으로 만드는 문서 경로(`/docs`, `/redoc`, `/openapi.json`)는 운영에서 공개하지 않는다. 베타라도 마찬가지다. 전체 endpoint와 요청·응답 스키마를 그대로 보여 주는 것은 공격자에게 지도를 주는 일이고, 알파 사용자에게 필요한 정보도 아니다. 앱의 typed client는 CI에서 생성한 OpenAPI 산출물로 만들므로 운영 서버가 이 경로를 열어 둘 이유가 없다. local과 beta 환경에서만 켠다.
 - FastAPI의 `8000`도 외부에 직접 공개하지 않고 모든 앱 API 요청을 Nginx를 통해서만 전달한다.
 - UFW와 iwinv 방화벽을 동시에 확인한다.
-- 연결 방식은 단계에 따라 다르다. VPS 단계에서는 가비아 DNS의 `api.daymo.xyz` A record를 VPS 공인 IPv4에 직접 연결하고 별도 proxy를 두지 않는다. 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 사용한다(11장). 이전에는 Cloudflare를 아예 쓰지 않기로 했었으나, 가정 회선에서는 인바운드 개방과 고정 IP가 어려워 바꿨다.
+- **DNS는 처음부터 Cloudflare를 쓴다.** 도메인은 가비아에서 사고 네임서버만 Cloudflare로 넘긴다. 미니PC 단계에서 쓸 Cloudflare Tunnel이 자기 zone의 DNS 레코드를 직접 만들어야 해서, 어차피 한 번은 옮겨야 한다. 레코드가 하나도 없는 지금이 옮기는 값이 가장 싸다. 서비스가 떠 있는 도메인을 나중에 옮기면 전파를 기다리는 동안 불안하다.
+- **VPS 단계에서는 Cloudflare proxy를 끈다(회색 구름).** Cloudflare는 이름만 알려 주고 트래픽은 지나지 않는다. `api.daymo.xyz` A record를 VPS 공인 IPv4에 직접 건다. 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 쓴다(11장).
+- 이전에는 Cloudflare를 아예 쓰지 않기로 했었으나, 가정 회선에서는 인바운드 개방과 고정 IP가 어려워 바꿨다. 다만 **DNS 질의 처리를 맡기는 것 자체가 위탁**이므로 VPS 단계부터 위탁 표에 올린다([08-privacy-and-release-compliance.md](./08-privacy-and-release-compliance.md) 4장).
 - Nginx의 `api.daymo.xyz` 인증서는 Let's Encrypt로 무료 발급하고 자동 갱신 timer와 정기 dry-run을 확인한다.
 - 메일은 처음부터 중계 서비스를 통해 보낸다. 가정용·클라우드 IP에서 직접 SMTP로 발송하면 차단되거나 스팸으로 분류된다. 미니PC로 옮겨도 이 구조는 그대로 쓴다. 업체는 Resend로 정해 뒀다([11-owner-setup-guide.md](./11-owner-setup-guide.md) 참고).
 

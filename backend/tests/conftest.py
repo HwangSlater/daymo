@@ -94,6 +94,13 @@ async def db(db_engine) -> AsyncSession:
     바깥 transaction 을 열고 끝나면 되돌린다. 테스트가 서로의 행을 보지
     않게 하면서 TRUNCATE 없이 빠르게 돈다.
     """
+    # 시도 횟수 표를 먼저 비운다. throttle 은 요청 transaction 바깥에서 자기
+    # 연결로 commit 하므로(그래야 실패한 요청의 횟수가 롤백되지 않는다)
+    # 테스트의 롤백에 딸려 사라지지 않는다. 비우지 않으면 앞 테스트의 실패가
+    # 다음 테스트를 막는다.
+    async with db_engine.begin() as 정리용:
+        await 정리용.execute(text("TRUNCATE throttle_counters"))
+
     async with db_engine.connect() as connection:
         transaction = await connection.begin()
         # join_transaction_mode="create_savepoint" 가 없으면 세션이 바깥
@@ -133,3 +140,26 @@ async def api(app, db):
         yield client
     app.dependency_overrides.clear()
     get_outbox().clear()
+
+
+@pytest.fixture
+async def 시도_시각을_되돌린다(db_engine):
+    """
+    시도 기록을 과거로 민다.
+
+    재전송 간격 같은 것을 시험하려면 실제로 60초를 기다릴 수는 없다.
+    throttle 은 자기 연결로 commit 하므로 여기서도 commit 해야 보인다.
+    """
+
+    async def 되돌린다(초: int):
+        async with db_engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "UPDATE throttle_counters SET last_attempt_at = last_attempt_at - "
+                    "make_interval(secs => :초), window_started_at = window_started_at - "
+                    "make_interval(secs => :초)"
+                ),
+                {"초": 초},
+            )
+
+    return 되돌린다

@@ -154,7 +154,8 @@
 | D-021A | 백업 보존 | **결정 완료: 일간 14개·주간 8개·월간 6개** |
 | D-021B | 백업 실패 | **결정 완료: 한 번이라도 실패하면 즉시 운영 이메일** |
 | D-021C | 복원 검증 | **결정 완료: 매월 자동 표본 복원 + 분기 전체 수동 복원** |
-| D-022 | DNS 사업자 | **결정 완료: 가비아 DNS**, VPS 단계는 Cloudflare 미사용·미니PC 단계는 Cloudflare Tunnel 사용 |
+| D-022 | DNS 사업자 | **결정 완료: 가비아에서 도메인 구매, 권한 DNS는 처음부터 Cloudflare**, 미니PC 단계의 Tunnel이 자기 zone을 요구하므로 레코드가 없는 지금 옮긴다 |
+| D-022C | Cloudflare proxy | **결정 완료: VPS 단계는 proxy 끔(회색 구름)**, 이름만 해석하고 트래픽은 경유하지 않음. 미니PC 단계에서 Tunnel로 전환 |
 | D-022A | 공개 웹 | **결정 완료: `daymo.xyz`를 Vercel에 연결**, 소개·약관·처리방침·계정 삭제 안내 제공 |
 | D-022B | API DNS | **결정 완료: 가비아 A record로 `api.daymo.xyz`→iwinv VPS 직접 연결**, proxy 미사용은 VPS 단계 한정·미니PC 단계는 Cloudflare Tunnel(D-022) |
 | D-022C | API HTTPS | **결정 완료: Let's Encrypt 무료 인증서 자동 발급·갱신** |

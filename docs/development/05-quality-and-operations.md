@@ -171,7 +171,8 @@
 - [ ] GitHub Environment Secrets와 VPS root 전용 secret 파일의 권한·노출 여부 확인
 - [ ] OS security update 자동 설치와 재부팅 필요 알림 확인
 - [ ] OAuth 제공자별 운영 redirect 검증
-- [ ] 가비아의 apex/`www`→Vercel, `api`→iwinv VPS 공인 IPv4 DNS 확인. proxy 미사용은 VPS 단계 한정이며 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 쓴다
+- [ ] `daymo.xyz` 네임서버가 Cloudflare를 가리키고 zone이 `Active`인지 확인
+- [ ] Cloudflare에서 apex/`www`→Vercel, `api`→iwinv VPS 공인 IPv4 확인. **`api` 레코드의 proxy가 꺼져 있는지(회색 구름) 확인한다.** 켜져 있으면 트래픽이 Cloudflare를 지나게 되어 위탁 범위가 달라진다
 - [ ] Let's Encrypt 자동 갱신 dry-run과 인증서 만료 알림 확인
 - [ ] Vercel 사용이 현재 비상업 beta의 이용 조건에 맞는지 확인
 - [ ] 개인정보 처리방침·이용약관·계정 삭제 URL 공개

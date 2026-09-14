@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import DevicePlatform
+from app.models import DevicePlatform, SensitiveAction
 
 # 요청 본문은 앱이 쓰는 camelCase 를 그대로 받는다. API 명세서가 그렇게
 # 적혀 있고, 앱은 OpenAPI 로 타입을 생성하므로 여기가 원본이다.
@@ -94,3 +94,17 @@ class DeviceOut(_Camel):
     last_seen_at: datetime
     # 지금 이 요청을 보낸 기기인지. 사용자가 자기 기기를 끊지 않게 한다.
     current: bool
+
+
+class ReauthRequest(_Camel):
+    """
+    민감한 작업 전에 다시 확인한다.
+
+    `action` 을 함께 받는 것이 핵심이다. 증표는 그 작업에만 묶이고 한 번
+    쓰면 끝난다.
+    """
+
+    action: SensitiveAction
+    # OAuth 로만 가입한 계정은 provider 재로그인이 필요한데 그 경로가 아직
+    # 없다. 지금은 비밀번호가 있는 계정만 증표를 받을 수 있다.
+    password: str | None = None

@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Response, status
 from sqlalchemy import select, update
 
-from app.api.deps import CurrentCaller, DbSession
+from app.api.deps import ClientIp, CurrentCaller, DbSession
 from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok
 from app.core.tokens import ACCESS_TTL
@@ -15,10 +15,12 @@ from app.schemas.auth import (
     PasswordResetRequest,
     RefreshRequest,
     SessionOut,
+    ReauthRequest,
     SignUpRequest,
     TokenRequest,
 )
 from app.services import accounts
+from app.services.reauth import PROOF_TTL, issue_proof
 from app.services.auth_sessions import Session, end_session, rotate_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -29,10 +31,9 @@ _같은_안내 = {"status": "accepted"}
 
 # 아직 없는 것을 적어 둔다. 명세서에는 있고 코드에는 없다.
 #
-# - 로그인 실패 점진적 지연과 rate limit. 계정 hash + IP 기준 상태를 들고
-#   있어야 하는데 그 저장소를 아직 정하지 않았다.
-# - bot challenge
-# - 민감 작업의 1회용 reauthProof
+# - bot challenge. 위험 신호가 쌓였을 때 요구하는 것인데, 검증할 공급자를
+#   아직 고르지 않았다(개인정보 처리 국가·SDK·비용을 다시 승인해야 한다).
+#   지금은 throttle 이 그 자리를 대신 막고 있다.
 # - OAuth (사업자 키가 있어야 실제로 돌려 볼 수 있다)
 
 
@@ -50,7 +51,7 @@ def _세션_응답(세션: Session) -> dict:
 
 
 @router.post("/signup", status_code=status.HTTP_202_ACCEPTED)
-async def sign_up(body: SignUpRequest, db: DbSession) -> dict:
+async def sign_up(body: SignUpRequest, db: DbSession, ip: ClientIp) -> dict:
     """
     이메일로 가입한다.
 
@@ -58,15 +59,19 @@ async def sign_up(body: SignUpRequest, db: DbSession) -> dict:
     이메일만 넣어 보면서 어떤 사람이 이 서비스를 쓰는지 알아낼 수 있다.
     """
     await accounts.sign_up(
-        db, email=body.email, password=body.password, display_name=body.display_name
+        db,
+        email=body.email,
+        password=body.password,
+        display_name=body.display_name,
+        ip=ip,
     )
     return ok(_같은_안내)
 
 
 @router.post("/email-verifications", status_code=status.HTTP_202_ACCEPTED)
-async def send_email_verification(body: EmailRequest, db: DbSession) -> dict:
+async def send_email_verification(body: EmailRequest, db: DbSession, ip: ClientIp) -> dict:
     """확인 링크를 보내거나 다시 보낸다. 계정이 없어도 같은 응답이다."""
-    await accounts.send_email_verification(db, email=body.email)
+    await accounts.send_email_verification(db, email=body.email, ip=ip)
     return ok(_같은_안내)
 
 
@@ -77,7 +82,7 @@ async def confirm_email(body: TokenRequest, db: DbSession) -> dict:
 
 
 @router.post("/login")
-async def log_in(body: LoginRequest, db: DbSession) -> dict:
+async def log_in(body: LoginRequest, db: DbSession, ip: ClientIp) -> dict:
     세션 = await accounts.log_in(
         db,
         email=body.email,
@@ -86,6 +91,7 @@ async def log_in(body: LoginRequest, db: DbSession) -> dict:
         platform=body.device.platform,
         app_version=body.device.app_version,
         device_name=body.device.device_name,
+        ip=ip,
     )
     return ok(_세션_응답(세션))
 
@@ -115,8 +121,8 @@ async def log_out(body: RefreshRequest, db: DbSession) -> Response:
 
 
 @router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED)
-async def forgot_password(body: EmailRequest, db: DbSession) -> dict:
-    await accounts.request_password_reset(db, email=body.email)
+async def forgot_password(body: EmailRequest, db: DbSession, ip: ClientIp) -> dict:
+    await accounts.request_password_reset(db, email=body.email, ip=ip)
     return ok(_같은_안내)
 
 
@@ -187,3 +193,19 @@ async def end_other_session(session_id: uuid.UUID, caller: CurrentCaller, db: Db
     )
     await db.flush()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/reauth", status_code=status.HTTP_201_CREATED)
+async def issue_reauth_proof(
+    body: ReauthRequest, caller: CurrentCaller, db: DbSession
+) -> dict:
+    """
+    민감한 작업 하나에 쓸 증표를 발급한다.
+
+    작업 종류를 함께 받는다. 계정 삭제용으로 받은 증표로 이메일을 바꿀 수
+    없다. 하나를 받아 여러 곳에 돌려 쓸 수 있으면 재인증을 요구한 의미가 없다.
+    """
+    증표 = await issue_proof(
+        db, user=caller.user, action=body.action, password=body.password
+    )
+    return ok({"proof": 증표, "expiresIn": int(PROOF_TTL.total_seconds())})

@@ -256,7 +256,7 @@ docs/development/
 - EAS Update는 동일 native runtime의 JavaScript·스타일·이미지 수정에만 사용하고 내부 검증 후 단계적으로 확대
 - native module, permission, app config, SDK/runtime 변경은 새 store binary로 배포
 
-가비아에서 `daymo.xyz` DNS를 관리한다. apex/`www`는 Vercel의 소개·약관·개인정보처리방침·계정 삭제 안내로 연결한다. `api`는 두 단계로 나뉜다. VPS 단계에서는 `api.daymo.xyz` A record를 VPS 공인 IPv4에 직접 연결하고 별도 proxy를 두지 않는다. 집 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 쓴다. 가정 회선은 인바운드 80/443이 막혀 있고 공인 IP도 고정이 아니라 A record를 걸 수 없기 때문이다(`06-vps-deployment.md` 11장). API HTTPS는 Nginx와 Let's Encrypt로 자동 발급·갱신한다. Vercel Hobby는 비상업 beta에만 사용하며 수익화 전에 당시 이용 조건을 다시 확인하고 부적합하면 정적 문서를 다른 host로 이전한다.
+도메인은 가비아에서 사고 **권한 DNS는 Cloudflare가 맡는다.** 미니PC 단계에서 쓸 Cloudflare Tunnel이 자기 zone을 요구하므로 어차피 한 번은 옮겨야 하고, 레코드가 없는 지금이 가장 싸다. apex/`www`는 Vercel의 소개·약관·개인정보처리방침·계정 삭제 안내로 연결한다. `api`는 두 단계로 나뉜다. VPS 단계에서는 `api.daymo.xyz` A record를 VPS 공인 IPv4에 걸고 **proxy를 끈다(회색 구름).** 이름만 해석하고 트래픽은 Cloudflare를 지나지 않는다. 집 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 쓴다. 가정 회선은 인바운드 80/443이 막혀 있고 공인 IP도 고정이 아니라 A record를 걸 수 없기 때문이다(`06-vps-deployment.md` 11장). API HTTPS는 Nginx와 Let's Encrypt로 자동 발급·갱신한다. Vercel Hobby는 비상업 beta에만 사용하며 수익화 전에 당시 이용 조건을 다시 확인하고 부적합하면 정적 문서를 다른 host로 이전한다.
 - 서버는 GitHub Actions에서 테스트·이미지 빌드 후 GHCR에 올리고, VPS가 고정 태그 이미지를 pull해 무중단에 가깝게 교체한다.
 
 PR CI는 client `typecheck`·`lint`·unit test와 backend `pytest`·PostgreSQL 컨테이너 통합 test를 매번 실행한다. EAS iOS/Android native build는 일반 PR에서 실행하지 않고 beta 또는 production release candidate에서만 두 플랫폼을 같은 release 단위로 생성한다. Dependabot은 매주 client/server 의존성을 생태계별 묶음 PR로 만들며 자동 merge하지 않는다.

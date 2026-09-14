@@ -20,12 +20,14 @@ from app.models.enums import (
     PlaceProvider,
     Procurement,
     RelationshipType,
+    SensitiveAction,
     RevokeReason,
     ReservationStatus,
     ReservationTargetType,
     ScheduleItemType,
     SplitMode,
     TagScope,
+    ThrottleScope,
     TransportDirection,
     TransportMethod,
     TripPlaceStatus,
@@ -35,9 +37,11 @@ from app.models.enums import (
 from app.models.cooking import Checklist, ChecklistItem, Ingredient, Recipe
 from app.models.expense import Expense, ExpenseShare, Payment
 from app.models.memory import AuditLog, Diary, Memo, Photo, PhotoLink
+from app.models.reauth import ReauthProof
 from app.models.place import Place, TripPlace
 from app.models.schedule import Reservation, ScheduleItem, Stay, Transport
 from app.models.space import MAX_MEMBERS_PER_SPACE, Membership, RelationshipProfile, Space
+from app.models.throttle import ThrottleCounter
 from app.models.tag import ExternalLink, Tag, Tagging
 from app.models.trip import Trip, TripDay, TripParticipant
 from app.models.user import User
@@ -77,6 +81,7 @@ __all__ = [
     "PlaceProvider",
     "Procurement",
     "RelationshipProfile",
+    "ReauthProof",
     "Recipe",
     "RefreshToken",
     "RelationshipType",
@@ -86,12 +91,15 @@ __all__ = [
     "RevokeReason",
     "ScheduleItem",
     "ScheduleItemType",
+    "SensitiveAction",
     "Space",
     "SplitMode",
     "Stay",
     "Tag",
     "TagScope",
     "Tagging",
+    "ThrottleCounter",
+    "ThrottleScope",
     "Transport",
     "TransportDirection",
     "TransportMethod",

@@ -448,7 +448,19 @@ OS       Ubuntu 24.04 LTS
 
 ## 13. 도메인과 공개 페이지
 
-기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 가비아에서 구매하고 가비아 DNS를 사용하기로 결정했다. 현재 상태는 등록·DNS 연결 대기다. VPS 단계에서는 Cloudflare와 별도 DNS proxy를 사용하지 않는다. 미니PC로 옮긴 뒤에는 가정 회선의 인바운드 차단과 유동 IP 때문에 A record를 걸 수 없어 Cloudflare Tunnel을 사용한다([06-vps-deployment.md](./06-vps-deployment.md) 11장).
+기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 가비아에서 구매한다. 현재 상태는 등록 대기다.
+
+**권한 DNS는 처음부터 Cloudflare를 쓴다.** 미니PC 단계에서 쓸 Cloudflare Tunnel이 자기 zone의 DNS 레코드를 직접 만들어야 해서 어차피 한 번은 옮겨야 하고, 레코드가 하나도 없는 지금이 가장 싸다. 순서는 이렇다.
+
+1. 가비아에서 `daymo.xyz` 구매. **구매 화면에서는 네임서버를 건드리지 않는다.** 기본값 그대로 둔다
+2. Cloudflare 무료 계정을 만들고 `daymo.xyz`를 zone으로 추가
+3. Cloudflare가 알려 주는 네임서버 두 개를 가비아 도메인 관리 화면의 네임서버 설정에 입력
+4. Cloudflare에서 zone이 `Active`로 바뀔 때까지 기다린다(보통 몇 분~몇 시간)
+5. **그다음에** VPS를 사고 `api.daymo.xyz` A record를 추가한다
+
+레코드를 추가할 때 **proxy는 끈다(회색 구름).** VPS 단계에서 Cloudflare는 이름만 알려 주고 트래픽은 지나지 않는다. 미니PC로 옮긴 뒤에는 가정 회선의 인바운드 차단과 유동 IP 때문에 A record를 걸 수 없어 Cloudflare Tunnel을 사용한다([06-vps-deployment.md](./06-vps-deployment.md) 11장).
+
+네임서버를 옮기면 DNS 질의 처리를 Cloudflare에 맡기는 것이므로 VPS 단계부터 위탁 표에 올린다([08-privacy-and-release-compliance.md](./08-privacy-and-release-compliance.md) 4장).
 
 예시:
 

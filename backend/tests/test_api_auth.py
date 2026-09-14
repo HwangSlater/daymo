@@ -129,10 +129,22 @@ async def test_같은_링크를_두_번_쓸_수_없다(api, db):
     assert 응답.status_code == 422
 
 
-async def test_재전송하면_예전_링크가_죽는다(api, db):
+async def test_바로_재전송하면_막힌다(api, db):
+    """재전송은 요청 사이 60초다. 연타로 메일을 퍼붓게 두지 않는다."""
+    await 가입(api)
+
+    응답 = await api.post("/v1/auth/email-verifications", json={"email": 이메일})
+
+    assert 응답.status_code == 429
+    assert 응답.json()["error"]["code"] == "RATE_LIMITED"
+    assert "retryAfterSeconds" in 응답.json()["error"]["fields"]
+
+
+async def test_재전송하면_예전_링크가_죽는다(api, db, 시도_시각을_되돌린다):
     """메일함을 한 번 본 사람이 오래된 링크로 들어올 수 있으면 안 된다."""
     await 가입(api)
     옛_토큰 = 링크_토큰()
+    await 시도_시각을_되돌린다(61)
 
     await api.post("/v1/auth/email-verifications", json={"email": 이메일})
     새_토큰 = 링크_토큰()
@@ -388,3 +400,133 @@ async def test_실패한_요청은_아무것도_남기지_않는다(api, db):
 
     assert await db.scalar(select(func.count()).select_from(User)) == 이전_수
     assert await db.scalar(select(func.count()).select_from(RefreshToken)) == 0
+
+
+# ---------------------------------------------------------------------------
+# 시도 제한
+# ---------------------------------------------------------------------------
+
+
+async def test_로그인_실패가_쌓이면_막힌다(api, db):
+    """앱이 막는 것으로는 부족하다. API 를 직접 부르는 쪽에서 뚫린다."""
+    await 확인된_계정(api)
+
+    for _ in range(5):
+        assert (await 로그인(api, password="틀린 비밀번호다")).status_code == 401
+
+    응답 = await 로그인(api, password="틀린 비밀번호다")
+    assert 응답.status_code == 429
+
+
+async def test_막혔을_때_맞는_비밀번호도_막힌다(api, db):
+    await 확인된_계정(api)
+    for _ in range(5):
+        await 로그인(api, password="틀린 비밀번호다")
+
+    assert (await 로그인(api)).status_code == 429
+
+
+async def test_막혀도_계정_존재를_드러내지_않는다(api, db):
+    """어떤 기준에 걸렸는지도 알려 주지 않는다."""
+    await 확인된_계정(api)
+    for _ in range(5):
+        await 로그인(api, password="틀린 비밀번호다")
+
+    응답 = await 로그인(api, password="틀린 비밀번호다")
+
+    본문 = 응답.text
+    assert 이메일 not in 본문
+    assert "계정" not in 본문
+
+
+async def test_실패_기록은_롤백되지_않는다(api, db):
+    """
+    로그인 실패는 401 로 끝나고 그 요청의 transaction 은 되돌려진다. 세는
+    일을 같은 세션에서 하면 횟수가 영영 쌓이지 않아, 제한이 있는 것처럼
+    보이지만 아무것도 막지 못한다.
+    """
+    from app.models import ThrottleCounter
+
+    await 확인된_계정(api)
+
+    await 로그인(api, password="틀린 비밀번호다")
+
+    남은_줄 = await db.scalar(
+        select(func.count()).select_from(ThrottleCounter)
+    )
+    assert 남은_줄 >= 1
+
+
+async def test_성공하면_계정_기준_실패가_풀린다(api, db):
+    """
+    IP 기준은 남긴다. 한 IP 에서 여러 계정을 찍어 보는 공격은 그중 하나가
+    맞았다고 멈출 이유가 없다.
+    """
+    await 확인된_계정(api)
+    for _ in range(5):
+        await 로그인(api, password="틀린 비밀번호다")
+    assert (await 로그인(api)).status_code == 429
+
+    # 계정 기준만 손으로 푼다(로그인 성공이 하는 일과 같다).
+    from app.models import ThrottleScope
+    from app.services import throttle
+
+    await throttle.reset(
+        ThrottleScope.LOGIN, throttle.key_for("email", 이메일)
+    )
+
+    assert (await 로그인(api)).status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# 재인증 증표
+# ---------------------------------------------------------------------------
+
+
+async def test_비밀번호로_증표를_받는다(api, db):
+    await 확인된_계정(api)
+    세션 = (await 로그인(api)).json()["data"]
+
+    응답 = await api.post(
+        "/v1/auth/reauth",
+        json={"action": "delete_account", "password": 비밀번호},
+        headers={"Authorization": f"Bearer {세션['accessToken']}"},
+    )
+
+    assert 응답.status_code == 201
+    assert 응답.json()["data"]["proof"]
+    assert 응답.json()["data"]["expiresIn"] == 300
+
+
+async def test_틀린_비밀번호로는_증표를_받지_못한다(api, db):
+    await 확인된_계정(api)
+    세션 = (await 로그인(api)).json()["data"]
+
+    응답 = await api.post(
+        "/v1/auth/reauth",
+        json={"action": "delete_account", "password": "틀린 비밀번호다"},
+        headers={"Authorization": f"Bearer {세션['accessToken']}"},
+    )
+
+    assert 응답.status_code == 401
+
+
+async def test_로그인하지_않으면_증표를_받을_수_없다(api, db):
+    응답 = await api.post(
+        "/v1/auth/reauth", json={"action": "delete_account", "password": 비밀번호}
+    )
+
+    assert 응답.status_code == 401
+
+
+async def test_모르는_작업_종류는_거부한다(api, db):
+    await 확인된_계정(api)
+    세션 = (await 로그인(api)).json()["data"]
+
+    응답 = await api.post(
+        "/v1/auth/reauth",
+        json={"action": "공간_삭제", "password": 비밀번호},
+        headers={"Authorization": f"Bearer {세션['accessToken']}"},
+    )
+
+    assert 응답.status_code == 422

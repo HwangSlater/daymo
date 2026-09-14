@@ -265,6 +265,30 @@ class RevokeReason(StrEnum):
     ADMIN = "admin"
 
 
+class ThrottleScope(StrEnum):
+    """무엇을 세고 있는지. 종류마다 한도와 창 길이가 다르다."""
+
+    LOGIN = "login"
+    SIGNUP = "signup"
+    EMAIL_VERIFICATION = "email_verification"
+    PASSWORD_RESET = "password_reset"
+
+
+class SensitiveAction(StrEnum):
+    """
+    재인증 증표가 필요한 작업.
+
+    공간 삭제는 여기 없다. 재인증 대신 공간 이름을 정확히 입력하는 별도의
+    이중 확인을 쓴다(docs/development/03-api-specification.md 2장).
+    """
+
+    DELETE_ACCOUNT = "delete_account"
+    CHANGE_EMAIL = "change_email"
+    CHANGE_PASSWORD = "change_password"
+    LINK_PROVIDER = "link_provider"
+    UNLINK_PROVIDER = "unlink_provider"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.

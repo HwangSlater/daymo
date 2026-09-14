@@ -71,3 +71,25 @@ async def current_caller(
 
 CurrentCaller = Annotated[Caller, Depends(current_caller)]
 DbSession = Annotated[AsyncSession, Depends(get_session)]
+
+
+def client_ip(request: Request) -> str:
+    """
+    요청을 보낸 쪽의 주소.
+
+    운영에서는 Nginx 뒤에 있어서 `X-Forwarded-For` 의 맨 앞을 본다. 이 값은
+    바깥에서 마음대로 넣을 수 있으므로, **Nginx 가 그 헤더를 덮어쓰도록
+    설정한 뒤에만 믿을 수 있다**(docs/development/06-vps-deployment.md 2장).
+    지금은 세는 데만 쓰고 권한 판단에 쓰지 않는다.
+
+    원문은 저장하지 않는다. 세는 표에는 pepper 를 섞은 해시만 들어간다.
+    """
+    전달된 = request.headers.get("X-Forwarded-For")
+    if 전달된:
+        첫_주소 = 전달된.split(",")[0].strip()
+        if 첫_주소:
+            return 첫_주소
+    return request.client.host if request.client else "unknown"
+
+
+ClientIp = Annotated[str, Depends(client_ip)]

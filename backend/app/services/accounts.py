@@ -12,9 +12,11 @@ from app.models import (
     EmailVerificationToken,
     PasswordResetToken,
     RevokeReason,
+    ThrottleScope,
     User,
     UserStatus,
 )
+from app.services import throttle
 from app.services.auth_sessions import Session, revoke_all_for_user, start_session
 from app.services.mailer import Letter, get_outbox
 
@@ -48,7 +50,7 @@ async def _find_by_email(session: AsyncSession, email: str) -> User | None:
 
 
 async def sign_up(
-    session: AsyncSession, *, email: str, password: str, display_name: str
+    session: AsyncSession, *, email: str, password: str, display_name: str, ip: str = ""
 ) -> None:
     """
     이메일로 가입한다.
@@ -62,6 +64,11 @@ async def sign_up(
     자체가 "이 이메일은 없었다" 는 뜻이 된다.
     """
     정규화된_이메일 = normalize_email(email)
+    # 한 IP 에서 계정을 찍어 내는 것을 막는다. 이메일 기준으로는 세지 않는다.
+    # 이미 있는 이메일로 계속 시도하는 것이 곧 계정 확인이 되기 때문이다.
+    await throttle.check(ThrottleScope.SIGNUP, (throttle.IP, throttle.key_for("ip", ip)))
+    await throttle.record(ThrottleScope.SIGNUP, (throttle.IP, throttle.key_for("ip", ip)))
+
     # 비밀번호 검사를 먼저 한다. 이메일이 이미 있든 없든 같은 일을 해야
     # 응답 시간으로 구분되지 않는다.
     검사된_비밀번호 = passwords.validate(password, email=정규화된_이메일)
@@ -91,10 +98,12 @@ async def sign_up(
     session.add(user)
     await session.flush()
 
-    await send_email_verification(session, email=정규화된_이메일)
+    await send_email_verification(session, email=정규화된_이메일, ip=ip)
 
 
-async def send_email_verification(session: AsyncSession, *, email: str) -> None:
+async def send_email_verification(
+    session: AsyncSession, *, email: str, ip: str = ""
+) -> None:
     """
     이메일 확인 링크를 보낸다. 재전송도 같은 함수다.
 
@@ -104,6 +113,13 @@ async def send_email_verification(session: AsyncSession, *, email: str) -> None:
     보내기 전에 그 계정의 쓰지 않은 링크를 모두 폐기한다. 예전 링크가 계속
     살아 있으면 메일함을 한 번 본 사람이 오래된 링크로 들어올 수 있다.
     """
+    # 세는 것을 먼저 한다. 계정이 없을 때만 빠르게 돌아가면 그 차이로
+    # 계정 존재를 알 수 있다.
+    계정_열쇠 = (throttle.ACCOUNT, throttle.key_for("email", normalize_email(email)))
+    ip_열쇠 = (throttle.IP, throttle.key_for("ip", ip))
+    await throttle.check(ThrottleScope.EMAIL_VERIFICATION, 계정_열쇠, ip_열쇠)
+    await throttle.record(ThrottleScope.EMAIL_VERIFICATION, 계정_열쇠, ip_열쇠)
+
     user = await _find_by_email(session, email)
     if user is None or user.email_verified_at is not None:
         return
@@ -183,6 +199,7 @@ async def log_in(
     platform: DevicePlatform = DevicePlatform.UNKNOWN,
     app_version: str | None = None,
     device_name: str | None = None,
+    ip: str = "",
 ) -> Session:
     """
     이메일로 로그인한다.
@@ -191,19 +208,30 @@ async def log_in(
     비밀번호를 한 번 검증한다. 그러지 않으면 응답이 돌아오는 시간만으로
     그 이메일이 있는지 알 수 있다.
     """
+    계정_열쇠 = (throttle.ACCOUNT, throttle.key_for("email", normalize_email(email)))
+    ip_열쇠 = (throttle.IP, throttle.key_for("ip", ip))
+    await throttle.check(ThrottleScope.LOGIN, 계정_열쇠, ip_열쇠)
+
     user = await _find_by_email(session, email)
 
     if user is None or not user.password_hash:
+        await throttle.record(ThrottleScope.LOGIN, 계정_열쇠, ip_열쇠)
         # 시간을 맞추기 위한 검증이다. 결과는 쓰지 않는다.
         passwords.verify(_DUMMY_HASH, password)
         raise AppError(ErrorCode.UNAUTHENTICATED, message=_LOGIN_FAILED)
 
     if not passwords.verify(user.password_hash, password):
+        await throttle.record(ThrottleScope.LOGIN, 계정_열쇠, ip_열쇠)
         raise AppError(ErrorCode.UNAUTHENTICATED, message=_LOGIN_FAILED)
 
     if user.status is not UserStatus.ACTIVE:
         # 정지·삭제된 계정도 같은 문구다. 상태를 알려 줄 이유가 없다.
+        await throttle.record(ThrottleScope.LOGIN, 계정_열쇠, ip_열쇠)
         raise AppError(ErrorCode.UNAUTHENTICATED, message=_LOGIN_FAILED)
+
+    # 성공했으니 계정 기준 실패 기록을 지운다. IP 기준은 남긴다. 한 IP 에서
+    # 여러 계정을 찍어 보는 공격은 그중 하나가 맞았다고 멈출 이유가 없다.
+    await throttle.reset(ThrottleScope.LOGIN, 계정_열쇠[1])
 
     # 비용 기준을 올린 뒤라면 로그인에 성공한 김에 다시 해시해 둔다.
     if passwords.needs_rehash(user.password_hash):
@@ -229,13 +257,20 @@ _DUMMY_HASH = passwords.hash_password(str(uuid.uuid4()))
 # ---------------------------------------------------------------------------
 
 
-async def request_password_reset(session: AsyncSession, *, email: str) -> None:
+async def request_password_reset(
+    session: AsyncSession, *, email: str, ip: str = ""
+) -> None:
     """
     재설정 링크를 보낸다.
 
     계정이 없어도 조용히 넘어간다. 새 링크를 발급하면서 쓰지 않은 예전
     링크를 모두 폐기한다.
     """
+    계정_열쇠 = (throttle.ACCOUNT, throttle.key_for("email", normalize_email(email)))
+    ip_열쇠 = (throttle.IP, throttle.key_for("ip", ip))
+    await throttle.check(ThrottleScope.PASSWORD_RESET, 계정_열쇠, ip_열쇠)
+    await throttle.record(ThrottleScope.PASSWORD_RESET, 계정_열쇠, ip_열쇠)
+
     user = await _find_by_email(session, email)
     if user is None or user.status is not UserStatus.ACTIVE:
         return
