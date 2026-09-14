@@ -1,11 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
-from app.core.config import Settings
+from app.core.config import MIN_SECRET_BYTES, Settings
 
-# 실제 값처럼 보이지 않게 짧고 뻔한 문자열만 쓴다. 공개 저장소다.
-키_하나 = "테스트용-키-1"
-키_둘 = "테스트용-키-2"
+# 실제 값처럼 보이지 않게 뻔한 문자열을 쓰되, 길이 기준은 넘긴다.
+# 짧은 값으로 통과하면 길이 검사를 시험한 것이 아니다.
+키_하나 = "테스트용-키-1-" + "a" * 40
+키_둘 = "테스트용-키-2-" + "b" * 40
 
 
 @pytest.mark.parametrize("환경", ["beta", "production"])
@@ -37,3 +38,43 @@ def test_운영에_값이_다_있으면_뜬다():
         app_env="production", jwt_signing_key=키_하나, refresh_token_pepper=키_둘, db_password="x"
     )
     assert settings.docs_enabled is False
+
+
+@pytest.mark.parametrize("환경", ["beta", "production"])
+def test_서명키가_짧으면_뜨지_않는다(환경):
+    """
+    비어 있지 않은 것만으로는 부족하다. HS256 서명 키가 해시 출력보다
+    짧으면 그만큼 약해진다(RFC 7518 3.2).
+    """
+    짧은_키 = "a" * (MIN_SECRET_BYTES - 1)
+
+    with pytest.raises(ValidationError) as 잡힌_것:
+        Settings(app_env=환경, jwt_signing_key=짧은_키, refresh_token_pepper=키_둘, db_password="x")
+
+    assert "짧다" in str(잡힌_것.value)
+
+
+def test_pepper가_짧아도_뜨지_않는다():
+    with pytest.raises(ValidationError):
+        Settings(
+            app_env="production",
+            jwt_signing_key=키_하나,
+            refresh_token_pepper="b" * (MIN_SECRET_BYTES - 1),
+            db_password="x",
+        )
+
+
+def test_길이는_바이트로_센다():
+    """
+    한글은 한 글자가 3바이트다. 글자 수로 세면 11자짜리가 통과해 버린다.
+    """
+    한글_키 = "가" * 11
+
+    assert len(한글_키) < MIN_SECRET_BYTES
+    assert len(한글_키.encode()) >= MIN_SECRET_BYTES
+    Settings(
+        app_env="production",
+        jwt_signing_key=한글_키,
+        refresh_token_pepper=키_둘,
+        db_password="x",
+    )

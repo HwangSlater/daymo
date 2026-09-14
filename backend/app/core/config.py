@@ -6,6 +6,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["local", "test", "beta", "production"]
 
+# HS256 서명 키의 최소 길이. RFC 7518 3.2 가 해시 출력 크기(32바이트) 이상을
+# 요구한다. 짧으면 그만큼 서명이 약해진다.
+MIN_SECRET_BYTES = 32
+
 
 class Settings(BaseSettings):
     """
@@ -69,6 +73,24 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"APP_ENV={self.app_env} 에서는 다음 값이 비어 있으면 안 된다: {', '.join(빈_것)}"
             )
+
+        # 비어 있지 않은 것만으로는 부족하다. HS256 서명 키가 해시 출력보다
+        # 짧으면 그만큼 약해진다(RFC 7518 3.2 는 32바이트 이상을 요구한다).
+        # 사람이 손으로 적은 짧은 값이 그대로 운영에 올라가는 것을 막는다.
+        짧은_것 = [
+            이름
+            for 이름, 값 in (
+                ("JWT_SIGNING_KEY", self.jwt_signing_key),
+                ("REFRESH_TOKEN_PEPPER", self.refresh_token_pepper),
+            )
+            if len(값.encode()) < MIN_SECRET_BYTES
+        ]
+        if 짧은_것:
+            raise ValueError(
+                f"다음 값이 {MIN_SECRET_BYTES}바이트보다 짧다: {', '.join(짧은_것)}. "
+                'python -c "import secrets; print(secrets.token_urlsafe(64))" 로 만들어라.'
+            )
+
         if self.jwt_signing_key == self.refresh_token_pepper:
             raise ValueError("JWT_SIGNING_KEY 와 REFRESH_TOKEN_PEPPER 는 서로 달라야 한다.")
         return self

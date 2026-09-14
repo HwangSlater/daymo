@@ -29,10 +29,10 @@ def test_특수문자가_든_비밀번호를_escape한다():
 
 def test_운영에서는_문서_경로를_열지_않는다():
     운영 = Settings(
-        app_env="production", jwt_signing_key="키1", refresh_token_pepper="키2", db_password="x"
+        app_env="production", jwt_signing_key="키1" + "a" * 40, refresh_token_pepper="키2" + "b" * 40, db_password="x"
     )
     베타 = Settings(
-        app_env="beta", jwt_signing_key="키1", refresh_token_pepper="키2", db_password="x"
+        app_env="beta", jwt_signing_key="키1" + "a" * 40, refresh_token_pepper="키2" + "b" * 40, db_password="x"
     )
 
     assert 운영.docs_enabled is False

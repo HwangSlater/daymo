@@ -62,6 +62,8 @@ tests/           pytest
 - `.env` 는 커밋하지 않는다. `.env.example` 만 커밋한다.
 - `APP_ENV` 가 `beta` 나 `production` 이면 `JWT_SIGNING_KEY`·`REFRESH_TOKEN_PEPPER`·`DB_PASSWORD`
   가 비어 있을 때 서버가 뜨지 않는다. 빈 서명 키로 조용히 뜨는 것이 가장 위험해서다.
+- 두 키는 32바이트 이상이어야 하고 서로 달라야 한다. HS256 서명 키가 해시 출력보다 짧으면
+  그만큼 약해진다(RFC 7518 3.2).
 - DB 접속 URL은 조각(`DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD`)으로 받아
   코드에서 조립한다. 비밀번호가 든 완성 URL을 저장소나 로그에 남기지 않는다.
 - 키는 이렇게 만든다.

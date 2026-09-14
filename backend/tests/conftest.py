@@ -6,6 +6,9 @@ import pytest
 # 바꾸면 반영되지 않는다.
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("DB_NAME", "daymo_test")
+# 실제 키처럼 보이지 않게 뻔한 값을 쓴다. 공개 저장소다.
+os.environ.setdefault("JWT_SIGNING_KEY", "테스트-서명-키-" + "0" * 40)
+os.environ.setdefault("REFRESH_TOKEN_PEPPER", "테스트-후추-" + "9" * 40)
 
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
