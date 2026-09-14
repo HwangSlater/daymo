@@ -10,6 +10,9 @@ import {
   settle,
   totalsByCategory,
   totalsByDay,
+  currencyOf,
+  money,
+  toWon,
   won,
 } from "./tripExpenses.ts";
 
@@ -128,4 +131,54 @@ test("쉼표와 따옴표가 든 값은 따옴표로 감싼다", () => {
 test("정산할 게 없으면 표에도 그렇게 적는다", () => {
   const csv = expensesToCsv("여행", [지출(10000, "하늘", "하늘")]);
   assert.ok(csv.includes("정산,정산할 게 없어요"));
+});
+
+test("통화마다 자릿수와 기호가 다르다", () => {
+  assert.equal(money(32000), "32,000원");
+  assert.equal(money(32000, "KRW"), "32,000원");
+  assert.equal(money(3200, "JPY"), "¥3,200");
+  assert.equal(money(24.5, "USD"), "$24.50");
+  assert.equal(money(24, "USD"), "$24.00");
+  // 모르는 통화는 원으로 본다.
+  assert.equal(money(100, "XXX"), "100원");
+});
+
+test("소수를 받는 통화는 점 하나를 남긴다", () => {
+  assert.equal(parseAmount("24.50", 2), 24.5);
+  assert.equal(parseAmount("$24.5", 2), 24.5);
+  // 자릿수를 넘겨 적은 소수는 버린다.
+  assert.equal(parseAmount("24.567", 2), 24.56);
+  // 점이 여러 개면 첫 번째만 소수점으로 본다.
+  assert.equal(parseAmount("2.4.5", 2), 2.45);
+  assert.equal(parseAmount(".5", 2), 0.5);
+  // 소수를 안 받는 통화는 점을 무시한다.
+  assert.equal(parseAmount("24.50", 0), 2450);
+});
+
+test("환율로 원을 환산한다", () => {
+  assert.equal(toWon(100, 9.3), 930);
+  assert.equal(toWon(24.5, 1380), 33810);
+  // 환율이 없거나 0 이면 그대로 둔다.
+  assert.equal(toWon(1000, 0), 1000);
+});
+
+test("원이 아닌 여행은 표에 원 환산 칸이 붙는다", () => {
+  const csv = expensesToCsv("오사카", [지출(3200, "하늘", "함께")], "JPY", 9.3);
+  assert.ok(csv.includes("금액(JPY)"));
+  assert.ok(csv.includes("원 환산"));
+  assert.ok(csv.includes(",29760,"), "3200엔 × 9.3 = 29760원");
+  assert.ok(csv.includes("1 JPY = 9.3원"), "환율의 소수가 살아 있어야 한다");
+});
+
+test("원 여행은 환산 칸 없이 그대로 간다", () => {
+  const csv = expensesToCsv("전주", [지출(32000, "하늘", "함께")]);
+  assert.ok(csv.includes("금액(KRW)"));
+  assert.ok(!csv.includes("원 환산"));
+  assert.ok(!csv.includes("환율"));
+});
+
+test("통화 목록에서 코드로 찾는다", () => {
+  assert.equal(currencyOf("USD").fraction, 2);
+  assert.equal(currencyOf("JPY").fraction, 0);
+  assert.equal(currencyOf("없는코드").code, "KRW");
 });

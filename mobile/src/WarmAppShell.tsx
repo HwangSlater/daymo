@@ -25,6 +25,7 @@ import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSheetDrag } from "./sheetDrag";
+import { money } from "./tripExpenses";
 import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
@@ -1010,8 +1011,11 @@ function HomeTripCard({ trip, theme, todayKey, doneCount, open }: {
 }) {
   const paper = paperCard(theme.dark);
   const stay = trip.planning?.stay;
-  const scheduleCount = trip.planning?.schedule.length ?? 4;
-  const placeCount = trip.planning?.places.length ?? 4;
+  const scheduleCount = trip.planning?.schedule?.length ?? 4;
+  const placeCount = trip.planning?.places?.length ?? 4;
+  // 비용은 여행마다 있을 수도 없을 수도 있다. 적은 게 있을 때만 칸을 내준다.
+  const spent = (trip.planning?.expenses ?? []).reduce((sum, item) => sum + item.amount, 0);
+  const spentCurrency = trip.planning?.currency;
   return (
       <View style={s.paperTripStack}>
         <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />
@@ -1145,6 +1149,9 @@ function HomeTripCard({ trip, theme, todayKey, doneCount, open }: {
             { label: "여행 일정", meta: `${scheduleCount}개`, color: theme.primary, destination: "overview" as TripDetailDestination },
             { label: "저장 장소", meta: `${placeCount}곳`, color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
             { label: "준비물", meta: `${doneCount}개 완료`, color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
+            ...(spent > 0
+              ? [{ label: "쓴 돈", meta: money(spent, spentCurrency), color: domain("cooking", theme.dark).solid, destination: "expenses" as TripDetailDestination }]
+              : []),
           ].map((item, index) => (
             <Pressable
               key={item.label}

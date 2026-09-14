@@ -4,6 +4,8 @@ import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
 import {
+  CURRENCIES,
+  DEFAULT_CURRENCY,
   EXPENSE_CATEGORIES,
   EXPENSE_PAYERS,
   EXPENSE_SHARES,
@@ -14,6 +16,10 @@ import {
   expensesToCsv,
   parseAmount,
   settle,
+  amountText,
+  currencyOf,
+  money,
+  toWon,
   totalsByCategory,
   totalsByDay,
   won,
@@ -51,7 +57,7 @@ const DetailFeedbackContext = createContext<(message: string) => void>(() => und
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "비용" | "기록";
 export type TripDetailDestination =
-  "overview" | "schedule-add" | "places" | "preparation" | "cooking" | "memories";
+  "overview" | "schedule-add" | "places" | "preparation" | "cooking" | "expenses" | "memories";
 const destinationMode = (destination: TripDetailDestination): ViewMode =>
   destination === "places"
     ? "장소"
@@ -59,6 +65,8 @@ const destinationMode = (destination: TripDetailDestination): ViewMode =>
       ? "준비"
       : destination === "cooking"
         ? "요리"
+        : destination === "expenses"
+          ? "비용"
         : destination === "memories"
           ? "기록"
       : "여행";
@@ -116,6 +124,10 @@ export type TripPlanningData = {
   cookingReadyIngredientIds?: string[];
   expenses?: Expense[];
   budget?: number;
+  /** 여행에서 쓰는 통화 코드. 없으면 원이다. */
+  currency?: string;
+  /** 1 단위가 몇 원인지. 통화가 원이면 1 이다. */
+  exchangeRate?: number;
   tripNotes?: TripNote[];
   hasKitchen?: boolean;
 };
@@ -614,6 +626,8 @@ export function WarmTripDetail({
     initialPlanning?.expenses ?? sampleExpenses(tripDayOptions),
   );
   const [budget, setBudget] = useState(initialPlanning?.budget ?? 500000);
+  const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
+  const [exchangeRate, setExchangeRate] = useState(initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
     initialPlanning?.memories ?? initialMemoryData(tripName, currentTripDate),
   );
@@ -761,10 +775,12 @@ export function WarmTripDetail({
       cookingReadyIngredientIds,
       expenses,
       budget,
+      currency,
+      exchangeRate,
       tripNotes,
       hasKitchen,
     });
-  }, [budget, cookingReadyIngredientIds, expenses, hasKitchen, memories, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -784,11 +800,13 @@ export function WarmTripDetail({
       cookingReadyIngredientIds,
       expenses,
       budget,
+      currency,
+      exchangeRate,
       tripNotes,
       hasKitchen,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, places, recipes, registeredStay, reservations, schedule, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -1023,6 +1041,23 @@ export function WarmTripDetail({
               setRecipes={setRecipes}
               readyIngredientIds={cookingReadyIngredientIds}
               setReadyIngredientIds={setCookingReadyIngredientIds}
+              currency={currency}
+              onRecordShopping={(title, amount) => {
+                setExpenses((current) => [
+                  ...current,
+                  {
+                    id: `expense-${Date.now()}`,
+                    day: todayTripDay || tripDayOptions[0] || "",
+                    title,
+                    amount,
+                    category: "식비",
+                    payer: "하늘",
+                    share: "함께",
+                    memo: "요리 재료",
+                  },
+                ]);
+                setMode("비용");
+              }}
               openPreparationImport={() => {
                 setOpenCookingPicker(true);
                 showMode("준비");
@@ -1038,6 +1073,10 @@ export function WarmTripDetail({
               setExpenses={setExpenses}
               budget={budget}
               setBudget={setBudget}
+              currency={currency}
+              setCurrency={setCurrency}
+              exchangeRate={exchangeRate}
+              setExchangeRate={setExchangeRate}
             />
           )}
           {mode === "기록" && (
@@ -5022,12 +5061,17 @@ function Cooking({
   readyIngredientIds,
   setReadyIngredientIds,
   openPreparationImport,
+  onRecordShopping,
+  currency,
 }: {
   recipes: Recipe[];
   setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
   readyIngredientIds: string[];
   setReadyIngredientIds: React.Dispatch<React.SetStateAction<string[]>>;
   openPreparationImport: () => void;
+  /** 장 본 금액을 비용 탭에 적는다. 부르면 지출 한 건이 생긴다. */
+  onRecordShopping: (title: string, amount: number) => void;
+  currency: string;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -5039,6 +5083,9 @@ function Cooking({
   const [aiImporting, setAiImporting] = useState(false);
   const [aiResult, setAiResult] = useState("");
   const [showMyIngredients, setShowMyIngredients] = useState(false);
+  // 장을 보고 나면 그 금액을 비용 탭에 또 손으로 옮겨 적게 된다. 목록을 보는
+  // 자리에서 바로 적을 수 있게 한다.
+  const [shoppingCost, setShoppingCost] = useState("");
   const [ingredientOwnerFilter, setIngredientOwnerFilter] = useState("전체");
   const [showAllRecipes, setShowAllRecipes] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -5768,12 +5815,53 @@ function Cooking({
         title="통합 장보기 목록"
         subtitle={`요리 ${recipes.length}개의 재료를 준비 방법별로 확인하세요`}
         submit="준비 탭에서 가져오기"
-        onClose={() => setShowMyIngredients(false)}
+        onClose={() => {
+          setShoppingCost("");
+          setShowMyIngredients(false);
+        }}
         onSubmit={() => {
+          setShoppingCost("");
           setShowMyIngredients(false);
           openPreparationImport();
         }}
       >
+        <View style={[styles.shoppingCost, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+          <View style={styles.shoppingCostCopy}>
+            <Text style={[styles.shoppingCostTitle, theme && { color: theme.text }]}>장 본 금액 적기</Text>
+            <Text style={[styles.shoppingCostHint, theme && { color: theme.muted }]}>
+              비용 탭에 식비로 한 건 들어가요
+            </Text>
+          </View>
+          <TextInput
+            accessibilityLabel="장 본 금액"
+            value={shoppingCost}
+            onChangeText={(text) => {
+              const amount = parseAmount(text, currencyOf(currency).fraction);
+              setShoppingCost(amount ? amountText(amount, currencyOf(currency).fraction) : "");
+            }}
+            keyboardType="numeric"
+            placeholder="예: 41,500"
+            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+            style={[styles.shoppingCostInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+          />
+          <Pressable
+            onPress={() => {
+              const amount = parseAmount(shoppingCost, currencyOf(currency).fraction);
+              if (!amount) {
+                notify("금액을 입력해 주세요");
+                return;
+              }
+              onRecordShopping("장보기", amount);
+              setShoppingCost("");
+              setShowMyIngredients(false);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="장 본 금액을 비용에 적기"
+            style={[styles.shoppingCostButton, theme && { backgroundColor: theme.primary }]}
+          >
+            <Text style={styles.shoppingCostButtonText}>적기</Text>
+          </Pressable>
+        </View>
         <OptionField
           label={`준비 방법 · ${filteredShoppingCount}개`}
           options={shoppingOwnerOptions}
@@ -6459,6 +6547,10 @@ function Money({
   setExpenses,
   budget,
   setBudget,
+  currency,
+  setCurrency,
+  exchangeRate,
+  setExchangeRate,
 }: {
   tripName: string;
   dayOptions: string[];
@@ -6468,6 +6560,10 @@ function Money({
   setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
   budget: number;
   setBudget: React.Dispatch<React.SetStateAction<number>>;
+  currency: string;
+  setCurrency: React.Dispatch<React.SetStateAction<string>>;
+  exchangeRate: number;
+  setExchangeRate: React.Dispatch<React.SetStateAction<number>>;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -6488,6 +6584,13 @@ function Money({
   const [lastPayer, setLastPayer] = useState<ExpensePayer>("하늘");
   const [draftDay, setDraftDay] = useState(dayOptions[0] ?? "");
   const [draftMemo, setDraftMemo] = useState("");
+  const [draftReceipt, setDraftReceipt] = useState("");
+  // 누가 내고 누구 몫인지, 그리고 영수증과 메모는 대개 기본값 그대로 둔다.
+  // 늘 펼쳐 두면 식당 앞에서 적을 때 제출 단추까지 다섯 줄을 지나야 한다.
+  const [payerOpen, setPayerOpen] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
+  const [draftRate, setDraftRate] = useState("");
   const previousDays = useRef(dayOptions);
   const dayOptionsKey = dayOptions.join("|");
 
@@ -6541,19 +6644,30 @@ function Money({
       })),
     [visible, dayOptions],
   );
-  const amountNumber = parseAmount(draftAmount);
-  const budgetNumber = parseAmount(draftBudget);
+  const unit = currencyOf(currency);
+  // 이 탭 안에서는 늘 여행 통화로 적는다. 원 환산은 합계 옆에만 덧붙인다.
+  const show = (amount: number) => money(amount, unit.code);
+  const inWon = (amount: number) => toWon(amount, exchangeRate);
+  const foreign = unit.code !== DEFAULT_CURRENCY.code;
+  const amountNumber = parseAmount(draftAmount, unit.fraction);
+  const budgetNumber = parseAmount(draftBudget, unit.fraction);
   const formValid = Boolean(draftTitle.trim()) && amountNumber > 0;
   const budgetRemaining = budget - settlement.total;
   const budgetProgress = budget > 0 ? settlement.total / budget : 0;
   // 치는 동안 세 자리마다 끊는다. 32,000 과 320,000 은 자릿수가 안 끊기면
   // 눈으로 구별이 안 되고, 돈에서 제일 흔한 실수가 여기서 난다.
   const changeAmount = (text: string) => {
-    const amount = parseAmount(text);
-    setDraftAmount(amount ? won(amount) : "");
+    // 소수를 받는 통화는 점을 치는 도중이라 아직 숫자가 안 되는 상태가 있다.
+    // "24." 를 지우지 않아야 뒤에 자릿수를 이어 칠 수 있다.
+    if (unit.fraction > 0 && /[.]\d{0,1}$/.test(text)) {
+      setDraftAmount(text.replace(/[^\d.]/g, ""));
+      return;
+    }
+    const amount = parseAmount(text, unit.fraction);
+    setDraftAmount(amount ? amountText(amount, unit.fraction) : "");
   };
   const openBudget = () => {
-    setDraftBudget(budget ? won(budget) : "");
+    setDraftBudget(budget ? amountText(budget, unit.fraction) : "");
     setBudgetSheetOpen(true);
   };
   const saveBudget = () => {
@@ -6573,17 +6687,24 @@ function Money({
     // 날짜를 거르고 있으면 그 날, 아니면 오늘, 여행 기간이 아니면 첫날이다.
     setDraftDay(dayFilter === "전체" ? todayDay || dayOptions[0] || "" : dayFilter);
     setDraftMemo("");
+    setDraftReceipt("");
+    setPayerOpen(false);
+    setExtrasOpen(false);
     setSheetOpen(true);
   };
   const openEdit = (item: Expense) => {
     setEditingId(item.id);
     setDraftTitle(item.title);
-    setDraftAmount(won(item.amount));
+    setDraftAmount(amountText(item.amount, unit.fraction));
     setDraftCategory(item.category);
     setDraftPayer(item.payer);
     setDraftShare(item.share);
     setDraftDay(item.day);
     setDraftMemo(item.memo);
+    setDraftReceipt(item.receiptUri ?? "");
+    // 기본값과 다른 지출을 고칠 때는 그 자리를 바로 보여준다.
+    setPayerOpen(item.share !== "함께");
+    setExtrasOpen(Boolean(item.memo || item.receiptUri));
     setSheetOpen(true);
   };
   const saveExpense = () => {
@@ -6600,6 +6721,7 @@ function Money({
         payer: draftPayer,
         share: draftShare,
         memo: draftMemo.trim(),
+        receiptUri: draftReceipt || undefined,
       };
       return editingId
         ? current.map((item) => (item.id === editingId ? next : item))
@@ -6617,12 +6739,46 @@ function Money({
     setSheetOpen(false);
     notify("지출을 삭제했어요");
   };
+  const chooseReceipt = async () => {
+    if (Platform.OS !== "web") {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        notify("영수증을 넣으려면 사진 접근을 허용해 주세요");
+        return;
+      }
+    }
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.7,
+        base64: Platform.OS === "web",
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const picked = Platform.OS === "web" && asset.base64
+        ? `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`
+        : asset.uri;
+      setDraftReceipt(await keepTripPhoto(picked));
+    } catch {
+      notify("영수증을 불러오지 못했어요");
+    }
+  };
+  const openCurrency = () => {
+    setDraftRate(exchangeRate === 1 ? "" : amountText(exchangeRate, 2));
+    setCurrencySheetOpen(true);
+  };
+  const saveCurrency = () => {
+    // 원으로 돌아오면 환율은 늘 1 이다. 따로 적게 하면 틀릴 자리만 는다.
+    setExchangeRate(currency === DEFAULT_CURRENCY.code ? 1 : Math.max(0.0001, parseAmount(draftRate, 2) || 1));
+    setCurrencySheetOpen(false);
+    notify("여행 통화를 저장했어요");
+  };
   const exportCsv = async () => {
     if (!expenses.length) {
       notify("내보낼 지출이 없어요");
       return;
     }
-    const csv = expensesToCsv(tripName, sorted);
+    const csv = expensesToCsv(tripName, sorted, unit.code, exchangeRate);
     try {
       // 공유를 못 하는 곳에서는 표를 클립보드에 담는다. 스프레드시트에 그대로
       // 붙여넣으면 같은 표가 된다.
@@ -6646,11 +6802,23 @@ function Money({
       <View style={[styles.moneySummary, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Text style={[styles.moneySummaryLabel, theme && { color: theme.muted }]}>이번 여행에서 쓴 돈</Text>
         <Text style={[styles.moneyTotal, theme && { color: theme.text }]}>
-          {won(settlement.total)}
-          <Text style={[styles.moneyTotalUnit, theme && { color: theme.muted }]}>원</Text>
+          {show(settlement.total)}
         </Text>
+        <View style={styles.moneyCurrencyRow}>
+          {/* 원이 아닐 때만 환산을 낸다. 원이면 같은 숫자를 두 번 보여줄 뿐이다. */}
+          {foreign && (
+            <Text style={[styles.moneyConverted, theme && { color: theme.muted }]}>
+              약 {won(inWon(settlement.total))}원
+            </Text>
+          )}
+          <Pressable onPress={openCurrency} hitSlop={10} accessibilityRole="button" accessibilityLabel="여행 통화 바꾸기">
+            <Text style={[styles.moneyBudgetAction, theme && { color: theme.primary }]}>
+              {unit.code === DEFAULT_CURRENCY.code ? "통화 바꾸기" : `${unit.code} · 환율 ${amountText(exchangeRate, 2)}`}
+            </Text>
+          </Pressable>
+        </View>
         <View style={styles.moneyBudgetHead}>
-          <Text style={[styles.moneyBudgetLabel, theme && { color: theme.muted }]}>예산 {won(budget)}원</Text>
+          <Text style={[styles.moneyBudgetLabel, theme && { color: theme.muted }]}>예산 {show(budget)}</Text>
           <Pressable onPress={openBudget} hitSlop={10} accessibilityRole="button" accessibilityLabel="여행 예산 수정">
             <Text style={[styles.moneyBudgetAction, theme && { color: theme.primary }]}>예산 수정</Text>
           </Pressable>
@@ -6666,7 +6834,7 @@ function Money({
         </View>
         <View style={styles.moneyBudgetFoot}>
           <Text style={[styles.moneyBudgetStatus, theme && { color: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.muted }]}>
-            {budgetRemaining < 0 ? `${won(Math.abs(budgetRemaining))}원 초과` : `${won(budgetRemaining)}원 남음`}
+            {budgetRemaining < 0 ? `${show(Math.abs(budgetRemaining))} 초과` : `${show(budgetRemaining)} 남음`}
           </Text>
           <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
         </View>
@@ -6677,10 +6845,10 @@ function Money({
               style={[styles.moneyPaidItem, index > 0 && theme && { borderLeftWidth: 1, borderLeftColor: theme.border }]}
             >
               <Text style={[styles.moneyPaidName, theme && { color: theme.muted }]}>{person}이 낸 돈</Text>
-              <Text style={[styles.moneyPaidAmount, theme && { color: theme.text }]}>{won(settlement.paid[person])}원</Text>
+              <Text style={[styles.moneyPaidAmount, theme && { color: theme.text }]}>{show(settlement.paid[person])}</Text>
               {/* 몫이 있어야 아래 정산 금액이 어디서 나왔는지 셈이 보인다. */}
               <Text style={[styles.moneyPaidShare, theme && { color: theme.muted }]}>
-                몫 {won(settlement.owed[person])}원
+                몫 {show(settlement.owed[person])}
               </Text>
             </View>
           ))}
@@ -6692,7 +6860,7 @@ function Money({
               <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>
                 {settlement.from}이 {settlement.to}에게
               </Text>
-              <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{won(settlement.amount)}원</Text>
+              <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{show(settlement.amount)}</Text>
             </>
           ) : (
             <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>정산할 게 없어요</Text>
@@ -6711,17 +6879,17 @@ function Money({
           <View style={styles.moneyInsightGrid}>
             <View style={styles.moneyInsightItem}>
               <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>쓴 날 하루 평균</Text>
-              <Text style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{won(averagePerSpendingDay)}원</Text>
+              <Text style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{show(averagePerSpendingDay)}</Text>
             </View>
             <View style={[styles.moneyInsightItem, styles.moneyInsightDivider, theme && { borderLeftColor: theme.border }]}>
               <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>가장 많이 쓴 날</Text>
               <Text numberOfLines={1} style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{topDay?.day ?? "-"}</Text>
-              <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{topDay ? `${won(topDay.amount)}원` : ""}</Text>
+              <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{topDay ? `${show(topDay.amount)}` : ""}</Text>
             </View>
             <View style={[styles.moneyInsightItem, styles.moneyInsightDivider, theme && { borderLeftColor: theme.border }]}>
               <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>가장 큰 지출</Text>
               <Text numberOfLines={1} style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{byCategory[0]?.category ?? "-"}</Text>
-              <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{byCategory[0] ? `${won(byCategory[0].amount)}원` : ""}</Text>
+              <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{byCategory[0] ? `${show(byCategory[0].amount)}` : ""}</Text>
             </View>
           </View>
         </View>
@@ -6737,7 +6905,7 @@ function Money({
                 key={row.category}
                 onPress={() => setCategoryFilter(active ? "전체" : row.category)}
                 accessibilityRole="button"
-                accessibilityLabel={`${row.category} 지출 ${won(row.amount)}원 내역 보기`}
+                accessibilityLabel={`${row.category} 지출 ${show(row.amount)} 내역 보기`}
                 accessibilityState={{ selected: active }}
                 style={[
                   styles.moneyCategoryRow,
@@ -6756,7 +6924,7 @@ function Money({
                     ]}
                   />
                 </View>
-                <Text style={[styles.moneyCategoryAmount, theme && { color: theme.muted }]}>{won(row.amount)}</Text>
+                <Text style={[styles.moneyCategoryAmount, theme && { color: theme.muted }]}>{amountText(row.amount, unit.fraction)}</Text>
                 <Text style={[styles.moneyCategoryPercent, theme && { color: theme.muted }]}>
                   {settlement.total ? Math.round((row.amount / settlement.total) * 100) : 0}%
                 </Text>
@@ -6800,14 +6968,14 @@ function Money({
           <View key={group.day} style={styles.moneyGroup}>
             <View style={styles.moneyGroupHead}>
               <Text style={[styles.moneyGroupDay, theme && { color: theme.text }]}>{group.day}</Text>
-              <Text style={[styles.moneyGroupTotal, theme && { color: theme.muted }]}>{won(group.amount)}원</Text>
+              <Text style={[styles.moneyGroupTotal, theme && { color: theme.muted }]}>{show(group.amount)}</Text>
             </View>
             {group.items.map((item) => (
               <Pressable
                 key={item.id}
                 onPress={() => openEdit(item)}
                 accessibilityRole="button"
-                accessibilityLabel={`${group.day} ${item.title} ${won(item.amount)}원 수정`}
+                accessibilityLabel={`${group.day} ${item.title} ${show(item.amount)} 수정`}
                 style={({ pressed }) => [
                   styles.moneyRow,
                   theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -6818,9 +6986,10 @@ function Money({
                   <Text numberOfLines={1} style={[styles.moneyRowTitle, theme && { color: theme.text }]}>{item.title}</Text>
                   <Text numberOfLines={1} style={[styles.moneyRowMeta, theme && { color: theme.muted }]}>
                     {item.category} · {item.payer}이 냄{item.share === "함께" ? "" : ` · ${item.share} 몫`}
+                    {item.receiptUri ? " · 영수증" : ""}
                   </Text>
                 </View>
-                <Text style={[styles.moneyRowAmount, theme && { color: theme.text }]}>{won(item.amount)}원</Text>
+                <Text style={[styles.moneyRowAmount, theme && { color: theme.text }]}>{show(item.amount)}</Text>
               </Pressable>
             ))}
           </View>
@@ -6889,25 +7058,105 @@ function Money({
           value={draftCategory}
           onChange={(value) => setDraftCategory(value as ExpenseCategory)}
         />
-        <OptionField
-          label="낸 사람"
-          options={EXPENSE_PAYERS}
-          value={draftPayer}
-          onChange={(value) => setDraftPayer(value as ExpensePayer)}
-        />
-        <OptionField
-          label="누구 몫"
-          options={EXPENSE_SHARES}
-          value={draftShare}
-          onChange={(value) => setDraftShare(value as ExpenseShare)}
-        />
         <OptionField label="날짜" options={dayOptions} value={draftDay} onChange={setDraftDay} />
-        <DetailField
-          label="메모 · 선택 사항"
-          value={draftMemo}
-          onChangeText={setDraftMemo}
-          placeholder="예: 둘 다 학생 할인"
+        <OptionalFormSection
+          label="누가 내고 누구 몫인지"
+          summary={`${draftPayer}이 내고 ${draftShare === "함께" ? "반씩 나눠요" : `${draftShare} 몫이에요`}`}
+          open={payerOpen}
+          onToggle={() => setPayerOpen((current) => !current)}
+        >
+          <OptionField
+            label="낸 사람"
+            options={EXPENSE_PAYERS}
+            value={draftPayer}
+            onChange={(value) => setDraftPayer(value as ExpensePayer)}
+          />
+          <OptionField
+            label="누구 몫"
+            options={EXPENSE_SHARES}
+            value={draftShare}
+            onChange={(value) => setDraftShare(value as ExpenseShare)}
+          />
+        </OptionalFormSection>
+        <OptionalFormSection
+          label="영수증과 메모"
+          summary={
+            draftReceipt && draftMemo.trim()
+              ? "영수증과 메모가 있어요"
+              : draftReceipt
+                ? "영수증이 있어요"
+                : draftMemo.trim()
+                  ? "메모가 있어요"
+                  : "필요할 때만 추가하세요"
+          }
+          open={extrasOpen}
+          onToggle={() => setExtrasOpen((current) => !current)}
+        >
+          <View style={styles.receiptRow}>
+            {draftReceipt ? (
+              <Image source={{ uri: draftReceipt }} style={styles.receiptThumb} accessibilityLabel="넣은 영수증" />
+            ) : (
+              <View style={[styles.receiptThumb, styles.receiptEmpty, theme && { borderColor: theme.border }]}>
+                <Text style={[styles.receiptEmptyText, theme && { color: theme.muted }]}>없음</Text>
+              </View>
+            )}
+            <View style={styles.receiptActions}>
+              <Pressable
+                onPress={chooseReceipt}
+                accessibilityRole="button"
+                style={[styles.receiptButton, theme && { backgroundColor: theme.primarySoft }]}
+              >
+                <Text style={[styles.receiptButtonText, theme && { color: theme.primary }]}>
+                  {draftReceipt ? "다시 고르기" : "영수증 넣기"}
+                </Text>
+              </Pressable>
+              {Boolean(draftReceipt) && (
+                <Pressable onPress={() => setDraftReceipt("")} accessibilityRole="button" hitSlop={8}>
+                  <Text style={[styles.receiptRemove, theme && { color: theme.muted }]}>빼기</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+          <DetailField
+            label="메모"
+            value={draftMemo}
+            onChangeText={setDraftMemo}
+            placeholder="예: 둘 다 학생 할인"
+          />
+        </OptionalFormSection>
+      </DetailSheet>
+      <DetailSheet
+        visible={currencySheetOpen}
+        title="여행 통화"
+        subtitle="현지 금액으로 적고 합계에서 원으로 환산해 봐요"
+        submit="통화 저장"
+        onClose={() => setCurrencySheetOpen(false)}
+        onSubmit={saveCurrency}
+      >
+        <OptionField
+          label="통화"
+          options={CURRENCIES.map((item) => `${item.code} ${item.label}`)}
+          value={`${unit.code} ${unit.label}`}
+          onChange={(value) => {
+            const picked = currencyOf(value.split(" ")[0]);
+            setCurrency(picked.code);
+            setDraftRate(picked.code === DEFAULT_CURRENCY.code ? "" : amountText(picked.rate, 2));
+          }}
         />
+        {currency !== DEFAULT_CURRENCY.code && (
+          <DetailField
+            label={`1 ${currency} 는 몇 원인가요`}
+            value={draftRate}
+            onChangeText={setDraftRate}
+            placeholder={`예: ${amountText(currencyOf(currency).rate, 2)}`}
+            keyboardType="numeric"
+          />
+        )}
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+          {currency === DEFAULT_CURRENCY.code
+            ? "원으로 적으면 환산 없이 그대로 보여요."
+            : "환율은 여행 때 한 번 적어 두면 돼요. 적어 둔 금액은 바뀌지 않고 환산만 다시 계산해요."}
+        </Text>
       </DetailSheet>
       <DetailSheet
         visible={budgetSheetOpen}
@@ -6920,11 +7169,11 @@ function Money({
         onSubmit={saveBudget}
       >
         <DetailField
-          label="전체 예산 · 필수"
+          label={`전체 예산 · 필수 (${unit.code})`}
           value={draftBudget}
           onChangeText={(text) => {
-            const amount = parseAmount(text);
-            setDraftBudget(amount ? won(amount) : "");
+            const amount = parseAmount(text, unit.fraction);
+            setDraftBudget(amount ? amountText(amount, unit.fraction) : "");
           }}
           placeholder="예: 500,000"
           keyboardType="numeric"
@@ -8873,6 +9122,23 @@ const styles = StyleSheet.create({
   moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   moneyTotalUnit: { fontSize: 16, fontFamily: typo.body.family },
+  moneyCurrencyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 2 },
+  moneyConverted: { fontSize: 12, fontFamily: typo.data.family },
+  shoppingCost: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 },
+  shoppingCostCopy: { flex: 1, minWidth: 0 },
+  shoppingCostTitle: { fontSize: 13, fontFamily: typo.title.family },
+  shoppingCostHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
+  shoppingCostInput: { width: 92, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, textAlign: "right", fontFamily: typo.data.family },
+  shoppingCostButton: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  shoppingCostButtonText: { color: "#FFFFFF", fontSize: 13, fontFamily: typo.label.family },
+  receiptRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
+  receiptThumb: { width: 62, height: 62, borderRadius: 10, overflow: "hidden" },
+  receiptEmpty: { borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
+  receiptEmptyText: { fontSize: 11, fontFamily: typo.caption.family },
+  receiptActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  receiptButton: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  receiptButtonText: { fontSize: 12, fontFamily: typo.label.family },
+  receiptRemove: { fontSize: 12, fontFamily: typo.label.family },
   moneyBudgetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12 },
   moneyBudgetLabel: { fontSize: 11, fontFamily: typo.label.family },
   moneyBudgetAction: { fontSize: 11, fontFamily: typo.label.family },
