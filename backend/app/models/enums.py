@@ -95,6 +95,70 @@ class LinkTargetType(StrEnum):
     STAY = "stay"
 
 
+class ScheduleItemType(StrEnum):
+    """
+    일정 한 줄이 무엇인지.
+
+    문서는 `type` 이라고만 적고 값을 열거하지 않는다. 앱은 어떤 id 가
+    채워졌는지로 종류를 가르고 있는데(`placeId`, `stayId`, ...), 서버에서는
+    그것을 값 하나로 드러낸다.
+    """
+
+    PLACE = "place"
+    MEAL = "meal"
+    MOVE = "move"
+    REST = "rest"
+    OTHER = "other"
+
+
+class TransportDirection(StrEnum):
+    OUTBOUND = "outbound"
+    RETURN = "return"
+
+
+class TransportMethod(StrEnum):
+    """
+    앱의 교통수단 목록 그대로다(`KTX`·`SRT`·`버스`·`항공`·`기타`).
+
+    KTX 와 SRT 를 `train` 하나로 합치지 않는다. 예매처가 다르고 사용자가
+    화면에서 둘을 구분해 고르고 있다.
+    """
+
+    KTX = "ktx"
+    SRT = "srt"
+    BUS = "bus"
+    FLIGHT = "flight"
+    OTHER = "other"
+
+
+class BookingStatus(StrEnum):
+    """앱의 `예매 완료`·`예매 전`."""
+
+    BOOKED = "booked"
+    NOT_BOOKED = "not_booked"
+
+
+class ReservationStatus(StrEnum):
+    """앱의 `예약 확정`·`확인 필요`·`취소`."""
+
+    CONFIRMED = "confirmed"
+    NEEDS_CHECK = "needs_check"
+    CANCELLED = "cancelled"
+
+
+class ReservationTargetType(StrEnum):
+    """
+    예약이 무엇에 붙는지.
+
+    가게 예약이면 장소, 숙소 예약이면 숙소다. 어디에도 안 붙는 예약이 있어
+    `target_id` 는 비어 있을 수 있다.
+    """
+
+    PLACE = "place"
+    STAY = "stay"
+    OTHER = "other"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.

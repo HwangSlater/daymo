@@ -12,11 +12,13 @@ from app.models import (
     Tag,
     TagScope,
     Tagging,
+    ScheduleItem,
+    Stay,
     Trip,
     TripParticipant,
     TripPlace,
 )
-from app.services.space_purge import purge_space
+from app.services.space_purge import link_targets_of, purge_space
 from tests.factories import (
     공간과_멤버_하나,
     여행_장소를_넣는다,
@@ -165,3 +167,58 @@ async def test_다른_공간의_링크는_지우지_않는다(db):
     assert await db.scalar(
         select(func.count()).select_from(ExternalLink).where(ExternalLink.target_id == 남길_여행.id)
     ) == 1
+
+
+async def test_링크가_붙을_수_있는_종류를_하나도_빠뜨리지_않는다(db):
+    """
+    LinkTargetType 에 값을 더하고 purge_space 를 고치지 않으면 그 종류의
+    링크가 공간을 지운 뒤에도 남는다. 오류가 나지 않아 알 수 없는 실수라
+    여기서 잡는다.
+    """
+    space, _ = await 공간과_멤버_하나(db)
+
+    대상 = await link_targets_of(db, space.id)
+
+    assert set(대상) == set(LinkTargetType)
+
+
+async def test_모든_종류의_링크가_지워진다(db):
+    """
+    여행·장소·숙소·일정에 각각 링크를 붙이고 하나도 남지 않는지 본다.
+    """
+    space, membership = await 공간과_멤버_하나(db)
+    trip = await 여행을_넣는다(db, space)
+    await 참가자를_넣는다(db, trip, membership)
+    담긴_장소 = await 여행_장소를_넣는다(db, trip, await 장소를_넣는다(db))
+    stay = Stay(trip_id=trip.id, trip_place_id=담긴_장소.id)
+    일정 = ScheduleItem(trip_id=trip.id, title="일정")
+    db.add_all([stay, 일정])
+    await db.flush()
+
+    붙인_id = {
+        LinkTargetType.TRIP: trip.id,
+        LinkTargetType.PLACE: 담긴_장소.id,
+        LinkTargetType.STAY: stay.id,
+        LinkTargetType.SCHEDULE: 일정.id,
+    }
+    assert set(붙인_id) == set(LinkTargetType), "새 종류가 생겼으면 여기도 채워라"
+    for 종류, 대상_id in 붙인_id.items():
+        db.add(
+            ExternalLink(
+                target_type=종류,
+                target_id=대상_id,
+                provider=LinkProvider.OTHER,
+                url=f"https://example.test/{종류.value}",
+            )
+        )
+    await db.flush()
+
+    await purge_space(db, space.id)
+    await db.flush()
+
+    남은 = await db.scalar(
+        select(func.count()).select_from(ExternalLink).where(
+            ExternalLink.target_id.in_(list(붙인_id.values()))
+        )
+    )
+    assert 남은 == 0
