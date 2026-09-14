@@ -234,6 +234,37 @@ class PhotoTargetType(StrEnum):
     STAY = "stay"
 
 
+class OAuthProvider(StrEnum):
+    GOOGLE = "google"
+    APPLE = "apple"
+    KAKAO = "kakao"
+    NAVER = "naver"
+
+
+class DevicePlatform(StrEnum):
+    IOS = "ios"
+    ANDROID = "android"
+    WEB = "web"
+    UNKNOWN = "unknown"
+
+
+class RevokeReason(StrEnum):
+    """
+    갱신 토큰을 왜 끊었는지.
+
+    `REUSE_DETECTED` 가 가장 중요하다. 이미 갈아 끼운 토큰이 다시 쓰이면
+    훔쳐 간 것으로 보고 같은 가족을 통째로 끊는데, 나중에 무슨 일이었는지
+    되짚으려면 이유가 남아 있어야 한다.
+    """
+
+    ROTATED = "rotated"
+    REUSE_DETECTED = "reuse_detected"
+    LOGOUT = "logout"
+    PASSWORD_RESET = "password_reset"
+    DEVICE_LIMIT = "device_limit"
+    ADMIN = "admin"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.
