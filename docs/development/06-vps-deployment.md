@@ -7,13 +7,14 @@
 - RAM: 2GB
 - 디스크: 50GB NVMe
 - Traffic: 일 20GB(월 600GB), 초과분은 구간 요금
-- 요금: 월 13,100원(일 490원)
+- 요금: 월 13,100원(일 490원). 사진용 블록 스토리지 30GB를 더해 월 14,270원(5장)
+- CPU 제한: 공유 상품은 vCPU 사용률이 50%로 제한된다. 크레딧을 쌓았다가 쓰는 방식이 아니라 고정 상한이다
 - Region/country: 한국 리전을 구매할 계획이며 계약한 VPS의 실제 데이터센터 국가를 출시 전 확인
 - OS: Ubuntu 24.04 LTS로 확정
-- 구성: Nginx + Spring Boot + PostgreSQL을 Docker Compose로 같은 VPS에서 운영
+- 구성: Nginx + FastAPI(uvicorn) + PostgreSQL을 Docker Compose로 같은 VPS에서 운영
 - 빌드: GitHub Actions에서 수행. VPS는 완성된 image만 pull
 
-이 사양은 닫힌 알파의 소수 사용자와 수백~수천 건의 여행 데이터에는 충분하다. 전송량은 무제한이 아니라 일 20GB이고 넘으면 구간 요금이 붙으므로 사진을 반복해서 내려받는 구간을 함께 본다. 그래도 일반 CRUD보다 사진 저장 용량, 이미지 변환, 메모리 제한 없는 JVM에서 먼저 문제가 발생할 가능성이 크다.
+이 사양은 초기 사용자 규모와 수백~수천 건의 여행 데이터에는 충분하다. 다만 공개 가입을 받으므로 증가 속도를 계속 본다. 전송량은 무제한이 아니라 일 20GB이고 넘으면 구간 요금이 붙으므로 사진을 반복해서 내려받는 구간을 함께 본다. 그래도 일반 CRUD보다 사진 저장 용량, 이미지 변환, 상한을 두지 않은 API 워커 메모리에서 먼저 문제가 발생할 가능성이 크다.
 
 VPS의 물리 위치가 대한민국 밖이면 계정, 여행, 메모, 사진의 국외 보관이 될 수 있다. 계약한 리전, 이전 국가, 이전받는 자, 목적, 항목, 시점·방법, 보유기간과 보호조치를 확정해 개인정보 처리방침/고지에 반영하기 전에는 운영 데이터를 넣지 않는다. 한국 리전이면 계정·여행 DB와 사진의 국외 보관은 사라지지만 Google Drive 백업, Sentry처럼 국외에서 처리되는 구성요소는 그대로 남는다.
 
@@ -30,6 +31,20 @@ VPS의 물리 위치가 대한민국 밖이면 계정, 여행, 메모, 사진의
 - 아웃바운드 587/465 개방 여부
 - 공인 IPv4 포함 여부
 - 방화벽(보안그룹) 제공 여부
+- 구매하려는 상품이 공유인지 전용인지와 vCPU 사용률 상한
+- SATA Block 30GB를 같은 존에서 붙일 수 있는지와 서버당 마운트 가능 개수
+
+### 대안 검토 기록
+
+AWS Lightsail 서울 리전을 같이 놓고 봤다. 같은 급인 `$12` 플랜이 2 vCPU / 2GB / SSD 60GB / 월 3TB 전송이고,
+환율 1,345원 기준 약 16,140원이다. 월 3,000원 차이는 결정 근거가 되지 못했고, 실제로 갈린 것은 셋이다.
+
+- 전송량 3TB는 우리에게 값이 없다. 월 600GB도 하루 20GB이고, 썸네일 300KB 기준 하루 6만 회가 넘는 조회량이다.
+- 블록 스토리지 단가가 iwinv 쪽이 훨씬 싸다. Lightsail은 GB당 $0.10라 30GB가 약 4,000원인데 iwinv SATA Block은 1,170원이다. 사진이 늘어나는 축이라 이쪽이 실질적이다.
+- CPU는 Lightsail `$12`가 baseline 20%에 버스트 크레딧 방식이고 iwinv 공유는 50% 고정이다. 이미지 변환을 동시 1개로 묶어 두므로 50% 고정이 더 다루기 쉽다.
+
+Lightsail이 나은 점도 적어 둔다. 스냅샷 가격, 재위탁자 목록, 인증 현황이 모두 공개돼 있어 8장 문서를 채우는 품이 적게 든다.
+따라서 위 구매 전 확인 목록에서 스냅샷이나 아웃바운드 SMTP가 막혀 있는 것으로 드러나면 Lightsail 서울로 다시 검토한다.
 
 ## 2. 네트워크 구성
 
@@ -37,40 +52,40 @@ VPS의 물리 위치가 대한민국 밖이면 계정, 여행, 메모, 사진의
 Internet
   └─ iwinv 방화벽: 22(제한), 80, 443
        └─ Nginx :80/:443
-            ├─ /v1/* → Spring Boot :8080
-            ├─ /actuator/health → 내부 health check만
+            ├─ /v1/health → 내부 health check만
+            ├─ /v1/* → FastAPI(uvicorn) :8000
             └─ TLS termination / rate limit / upload limit
 
 Docker private network
-  ├─ api:8080
+  ├─ api:8000
   └─ postgres:5432 (외부 미공개)
 ```
 
 - SSH 22번은 가능하면 관리자 IP로 제한하고 key 인증만 허용한다. `PasswordAuthentication no`, `PermitRootLogin no`를 적용한다.
-- PostgreSQL과 Actuator 상세 endpoint는 외부에 공개하지 않는다.
-- Spring Boot `8080`도 외부에 직접 공개하지 않고 모든 앱 API 요청을 Nginx를 통해서만 전달한다.
+- PostgreSQL은 외부에 공개하지 않는다.
+- FastAPI가 자동으로 만드는 문서 경로(`/docs`, `/redoc`, `/openapi.json`)는 운영에서 공개하지 않는다. 베타라도 마찬가지다. 전체 endpoint와 요청·응답 스키마를 그대로 보여 주는 것은 공격자에게 지도를 주는 일이고, 알파 사용자에게 필요한 정보도 아니다. 앱의 typed client는 CI에서 생성한 OpenAPI 산출물로 만들므로 운영 서버가 이 경로를 열어 둘 이유가 없다. local과 beta 환경에서만 켠다.
+- FastAPI의 `8000`도 외부에 직접 공개하지 않고 모든 앱 API 요청을 Nginx를 통해서만 전달한다.
 - UFW와 iwinv 방화벽을 동시에 확인한다.
 - 연결 방식은 단계에 따라 다르다. VPS 단계에서는 가비아 DNS의 `api.daymo.xyz` A record를 VPS 공인 IPv4에 직접 연결하고 별도 proxy를 두지 않는다. 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 사용한다(11장). 이전에는 Cloudflare를 아예 쓰지 않기로 했었으나, 가정 회선에서는 인바운드 개방과 고정 IP가 어려워 바꿨다.
 - Nginx의 `api.daymo.xyz` 인증서는 Let's Encrypt로 무료 발급하고 자동 갱신 timer와 정기 dry-run을 확인한다.
 - 메일은 처음부터 중계 서비스를 통해 보낸다. 가정용·클라우드 IP에서 직접 SMTP로 발송하면 차단되거나 스팸으로 분류된다. 미니PC로 옮겨도 이 구조는 그대로 쓴다. 업체는 Resend로 정해 뒀다([11-owner-setup-guide.md](./11-owner-setup-guide.md) 참고).
 
-## 3. 컨테이너와 JVM
+## 3. 컨테이너와 파이썬 런타임
 
-Spring Boot JVM 시작 옵션 권장값:
+uvicorn 실행 기준:
 
 ```text
--Xms256m
--Xmx768m
--XX:+UseG1GC
--XX:MaxMetaspaceSize=192m
--XX:+ExitOnOutOfMemoryError
--Dfile.encoding=UTF-8
--Duser.timezone=UTC
+uvicorn app.main:app
+  --host 0.0.0.0
+  --port 8000
+  --workers 2
+  --proxy-headers
 ```
 
-- Tomcat worker thread는 초기 40개 안팎으로 제한한다.
-- HikariCP pool은 API replica 하나 기준 최대 10개에서 시작한다.
-- 큰 JSON/파일을 JVM 메모리에 통째로 읽지 않고 stream 처리한다.
+- 워커는 vCPU 수에 맞춰 2개로 시작한다. 동시 요청은 워커 수가 아니라 각 워커의 async 이벤트 루프가 받으므로 요청이 늘어도 워커부터 늘리지 않는다. 먼저 볼 것은 DB·파일 접근을 블로킹으로 짜지 않았는지다. 블로킹 호출은 threadpool로 넘기고 그 크기도 함께 제한한다.
+- API 컨테이너 메모리 상한은 400MB로 둔다.
+- SQLAlchemy connection pool은 워커 하나 기준 `pool_size=5`, `max_overflow=5`로 시작한다. 워커가 2개이므로 API가 쓰는 커넥션은 최대 20개다. 4장의 `max_connections = 30`보다 확실히 작아 관리·백업 연결 몫이 남는다. 워커 수나 pool 값을 올릴 때는 이 계산을 다시 하고 `max_connections`도 함께 본다.
+- 큰 JSON/파일을 파이썬 프로세스 메모리에 통째로 읽지 않고 stream 처리한다.
 - 원본은 변경하지 않고 저장하며 서버의 표시본·썸네일 변환 작업은 동시 실행 수를 1로 제한한다.
 - `restart: unless-stopped`, health check, log rotation을 설정한다.
 
@@ -81,7 +96,7 @@ Spring Boot JVM 시작 옵션 권장값:
 PostgreSQL은 같은 Compose project의 private network와 VPS private volume을 사용한다. DB port는 host/public interface에 publish하지 않으며 container를 교체해도 data volume은 유지한다. 외부 managed DB는 초기 범위에 포함하지 않는다.
 
 ```text
-shared_buffers = 128MB
+shared_buffers = 192MB
 effective_cache_size = 512MB
 work_mem = 2MB
 maintenance_work_mem = 64MB
@@ -92,20 +107,28 @@ max_connections = 30
 
 ## 5. 디스크 배분
 
-디스크는 50GB다.
+기본 디스크는 NVMe 50GB다. 사진은 여기에 두지 않고 별도 블록 스토리지에 둔다.
 
 | 용도 | 목표 상한 |
 | --- | --- |
 | OS, Docker, 운영 여유 | 15GB |
-| PostgreSQL | 10GB |
+| PostgreSQL | 12GB |
 | Docker images/cache | 8GB |
 | 로그/임시 파일 | 3GB |
-| 로컬 사진(알파 한정) | 8GB |
-| 비상 여유 | 6GB |
+| 비상 여유 | 12GB |
 | 합계 | 50GB |
 
-- 사진 몫 8GB는 장당 2MB 기준 약 4,000장이다. 이 용량으로 공개 가입을 감당할 수 없으므로 VPS 기간에는 공개 가입을 받지 않고 닫힌 알파로만 운영한다.
-- 디스크 70%에서 경고, 85%에서 사진 업로드 제한을 검토한다.
+### 사진용 블록 스토리지
+
+사진은 iwinv SATA Block(x4 Hard Raid) 30GB를 붙여 `/srv/daymo/uploads`에 마운트한다. 10GB당 월 390원이므로 30GB는 월 1,170원이고, 서버 13,100원과 합쳐 월 14,270원이다. 사진 30GB는 장당 2MB 기준 약 15,000장이다.
+
+기본 디스크가 100GB에서 50GB로 줄어도 사진 한도를 30GB로 유지할 수 있는 이유가 이것이다. 최대 20TB까지 늘릴 수 있으므로 사진이 늘어나는 것이 서버를 바꿀 이유가 되지 않는다. 용량이 부족하면 볼륨만 키운다.
+
+사진을 기본 디스크에서 떼어 두는 이유는 두 가지다. 사진만 독립적으로 늘릴 수 있고, 미니PC/NAS로 옮길 때 옮길 대상이 한 덩어리로 분리되어 있다(11장).
+
+**PostgreSQL data는 블록 스토리지에 두지 않는다.** DB는 기본 NVMe에 둔다. 미니PC 단계에서 DB를 네트워크 마운트에 두지 않는 것과 같은 이유다.
+
+- 기본 디스크와 사진 볼륨을 따로 본다. 각각 70%에서 경고, 85%에서 조치를 검토한다.
 - 배포 후 사용하지 않는 image를 안전하게 정리하되 실행 중 image와 volume은 건드리지 않는다.
 - 애플리케이션 로그는 7~14일 또는 총 1GB 내에서 rotate한다.
 - DB 백업을 같은 디스크에만 두는 것은 백업이 아니다.
@@ -128,9 +151,9 @@ S3 호환 오브젝트 스토리지도 검토했으나 쓰지 않기로 했다. 
 
 ### 현재 선택: VPS 로컬 저장
 
-초기에는 VPS의 `/srv/daymo/uploads` private volume을 사용한다. 외부 일일 백업, 8GB quota, 업로드 크기 제한, 경로 traversal 방지, Nginx `X-Accel-Redirect` 기반 권한 다운로드를 적용한다. 호스트가 바뀌어도 사진 URL이 그대로인 것이 이 방식을 고른 이유이므로 미니PC/NAS로 옮길 때도 경로와 다운로드 방식을 유지한다. 공개 가입 전에는 실제 저장 증가량과 복구 시간을 보고 미니PC/NAS 이전 시점을 다시 결정한다.
+초기에는 VPS의 `/srv/daymo/uploads` private volume을 사용한다. 외부 일일 백업, 30GB quota, 업로드 크기 제한, 경로 traversal 방지, Nginx `X-Accel-Redirect` 기반 권한 다운로드를 적용한다. 호스트가 바뀌어도 사진 URL이 그대로인 것이 이 방식을 고른 이유이므로 미니PC/NAS로 옮길 때도 경로와 다운로드 방식을 유지한다. 실제 저장 증가량과 복구 시간을 보고 블록 스토리지 증설과 미니PC/NAS 이전 시점을 결정한다.
 
-초기 quota는 이미지 1개 20MB, 공간별 1GB, 전체 사진 volume 8GB다. 동영상은 지원하지 않는다. 서버는 DB 집계만 믿지 않고 정기적으로 실제 파일 사용량과 photo metadata를 대조한다.
+초기 quota는 이미지 1개 20MB, 공간별 1GB, 전체 사진 volume 30GB다. 동영상은 지원하지 않는다. 서버는 DB 집계만 믿지 않고 정기적으로 실제 파일 사용량과 photo metadata를 대조한다.
 
 공간 quota 80%부터 사용자에게 경고하고 100%에서는 신규 업로드만 차단한다. 서버 전체 상한에 도달해도 기존 사진을 압축·삭제하지 않으며 신규 업로드를 안전하게 제한한 뒤 volume 증설 또는 미니PC/NAS 이관을 수행한다.
 
@@ -138,19 +161,19 @@ S3 호환 오브젝트 스토리지도 검토했으나 쓰지 않기로 했다. 
 
 pull request가 필수 CI를 통과해 `main`에 merge되는 것이 production 자동 배포 trigger다. 별도 수동 배포 승인 단계는 두지 않지만 필수 검증 실패 시 merge와 배포를 막는다.
 
-1. GitHub Actions가 앱 typecheck·lint·unit test와 Gradle·Testcontainers DB test 수행
-2. 직전 production schema snapshot으로 Flyway migration 검증
+1. GitHub Actions가 앱 typecheck·lint·unit test와 서버 pytest·PostgreSQL 컨테이너 DB test 수행
+2. 직전 production schema snapshot으로 Alembic migration 검증
 3. image build 후 commit SHA 태그로 GHCR push
 4. schema 변경이 있으면 배포 직전 PostgreSQL snapshot 생성과 성공 여부 확인, 사진/DB 정합성 checkpoint 생성
 5. VPS에서 새 image pull, expand-contract migration 후 API 교체
-6. `/actuator/health/readiness`와 로그인·홈·여행 읽기 smoke test
+6. `GET /v1/health`와 로그인·홈·여행 읽기 smoke test
 7. 실패 시 이전 SHA image로 자동 복귀하고 운영자에게 경고; 별도 수동 rollback 명령도 유지
 
-단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 두 JVM을 상시 운영하지 않는다.
+단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 API 컨테이너 두 벌을 상시 운영하지 않는다.
 
 production deploy workflow는 concurrency group을 하나로 고정한다. 실행 중인 배포는 끝까지 검사하고 강제 취소하지 않으며, 대기 중인 이전 workflow는 폐기하고 가장 최신 commit의 배포만 다음으로 실행한다. 롤백할 때는 이전 commit SHA의 server image만 복구한다. DB에는 down migration을 실행하지 않고 expand-contract로 유지한 호환 schema를 사용하며, 필요한 데이터 수정은 새 forward migration으로 처리한다.
 
-VPS는 먼저 beta/staging 설정으로 닫힌 알파를 운영하고 데이터와 사진을 유지한 채 production으로 전환한다. VPS 기간에는 공개 가입을 받지 않는다(5장). 전환 직전 전체 snapshot을 만들고 별도 환경에서 복원을 확인한다. 알파 데이터는 삭제하지 않으므로 알파 시작 전부터 production 수준의 약관·보안·백업·신고 운영을 적용한다.
+VPS는 먼저 beta/staging 설정으로 공개 가입을 받고 데이터와 사진을 유지한 채 production으로 전환한다. 전환 직전 전체 snapshot을 만들고 별도 환경에서 복원을 확인한다. 베타 데이터는 삭제하지 않으므로 베타 시작 전부터 production 수준의 약관·보안·백업·신고 운영을 적용한다.
 
 ### GitHub 브랜치 보호
 
@@ -223,7 +246,7 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 - 백업 크기·시간이 일일 작업 창을 지속적으로 초과
 - Google 계정 정지나 OAuth 재인증이 운영 위험이 됨
 - 복구 목표 시간이 길어짐
-- 공개 사용자 증가로 8GB 사진 상한이 부족해짐
+- 사진이 30GB 상한에 근접함(먼저 블록 스토리지를 키운다. 서버 교체 사유가 아니다)
 
 백업 성공 로그만 신뢰하지 않고 매월 자동 표본 복원과 분기 전체 수동 복원을 모두 통과해야 복구 가능한 백업으로 본다.
 
@@ -231,8 +254,9 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 
 ## 9. 모니터링
 
-- Spring Boot Actuator: health, JVM heap, GC, HTTP latency, DB pool
+- API: `GET /v1/health`가 프로세스와 DB 연결 상태를 확인한다. 이 endpoint는 직접 만든다
 - 서버: CPU, RAM, swap, disk, load average
+- API 프로세스 메모리, HTTP latency, DB pool 사용량 같은 내부 지표는 아직 수집 도구를 정하지 않았다. 필요해지는 시점에 붙인다
 - PostgreSQL: connection, slow query, DB size, backup 성공
 - 앱/API 오류: Sentry
 - UptimeRobot 무료 외부 monitor가 공개용 `/health`를 5분마다 확인

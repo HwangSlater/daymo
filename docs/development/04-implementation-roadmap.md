@@ -12,18 +12,18 @@
 작업:
 
 - 현재 UI 화면/폼/버튼 목록을 회귀 체크리스트로 고정
-- ConoHa VPS OS/도메인/방화벽과 Docker 운영 기준 확인
-- Java 21, Spring Boot, PostgreSQL 버전 확정
+- iwinv VPS OS/도메인/방화벽과 Docker 운영 기준 확인
+- 파이썬 3.13, FastAPI, PostgreSQL 버전 확정
 - 확정된 VPS private 사진 volume과 Google Drive 암호화 백업 경로 검증
 - 앱 bundle identifier와 Android package name 확정
 - 개인정보 처리방침/이용약관 초안 위치 결정. 앱 로그인 화면 아래 문구가 아직 아무 문서로도 연결되지 않는다
 - 개인정보 처리자/보호책임자 연락처와 사업자 표시 정보 확정
 - 저장소 라이선스와 공개 여부 결정([`10-implementation-readiness.md`](./10-implementation-readiness.md) D-004A)
-- ConoHa, Google Drive, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인
+- iwinv, Google Drive, Sentry, OAuth 사업자의 실제 처리 국가·위탁/국외 이전 항목 확인. iwinv는 한국 리전 구매 계획이므로 계약한 VPS의 실제 데이터센터 국가를 확인하고, 미니PC 단계에서 트래픽 경유지가 되는 Cloudflare도 같은 표에 함께 올린다
 - local과 VPS beta→production 전환 환경, 서로 다른 secret과 설정 관리 방식 생성
 - 공개 가입에 필요한 이메일 소유 확인, 가입·로그인 rate limit, 자동 가입 방어와 문의 경로 설계
 - [`10-implementation-readiness.md`](./10-implementation-readiness.md)의 D-001~D-004 결정
-- Node LTS/JDK 21 설치, `.nvmrc`·`engines`·앱 식별자 고정
+- Node LTS와 파이썬 3.13 설치, `.nvmrc`·`engines`·`pyproject.toml`의 파이썬 버전·앱 식별자 고정
 - npm audit 경고를 별도 Expo SDK 호환 브랜치에서 검증
 - 현재 모든 UI 동작을 [`09-ui-development-traceability.md`](./09-ui-development-traceability.md)로 회귀 고정
 
@@ -41,7 +41,7 @@
 - Expo Router 도입, 현재 2개 대형 파일을 route/feature 단위로 점진 분리
 - QueryClient, typed REST client, SecureStore session, 환경 설정 구성
 - SQLite local store, 동기화 cursor, 파일 캐시와 네트워크 상태 계층 구성
-- Spring Boot 모듈, PostgreSQL/Flyway, OpenAPI, Testcontainers 구성
+- FastAPI 앱 구조, PostgreSQL/SQLAlchemy/Alembic, OpenAPI 자동 생성, pytest와 로컬 PostgreSQL 컨테이너 구성
 - 공통 API 오류/로딩/재시도/토스트 처리
 - theme token과 기존 UI 회귀 테스트
 - CI에 typecheck, test, Expo export 추가
@@ -76,7 +76,7 @@
 
 ## 3단계 — 우리 공간과 멤버 (5~7일)
 
-- spaces, memberships, invites, relationship profile Flyway migration과 서비스 권한 검증
+- spaces, memberships, invites, relationship profile Alembic migration과 서비스 권한 검증
 - 공간 생성, 초대 링크, 참여, 공간 전환
 - 공간 나가기 전 본인 사진 검토, 공동 콘텐츠 유지와 로컬 공간 데이터 제거
 - 멤버 내보내기 시 공동 콘텐츠 유지, 접근·pending mutation 즉시 차단

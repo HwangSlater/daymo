@@ -82,9 +82,9 @@
 
 ### 계약·마이그레이션 테스트
 
-- Spring OpenAPI 생성물이 변경되면 앱 typed client 생성 diff를 함께 검토
+- FastAPI가 생성한 OpenAPI 문서가 변경되면 앱 typed client 생성 diff를 함께 검토
 - 문서의 요청·응답 example을 OpenAPI validation test로 실행
-- 모든 Flyway migration을 빈 DB와 직전 production snapshot 구조에 각각 적용
+- 모든 Alembic migration을 빈 DB와 직전 production snapshot 구조에 각각 적용
 - migration 이후 앱의 최소 지원 schema/version이 bootstrap 가능한지 확인
 - dashboard 집계와 원본 테이블의 일정·장소·준비·지난 여행 수가 일치하는지 검증
 - bulk append/replace가 부분 성공 없이 원자적으로 처리되는지 검증
@@ -166,18 +166,18 @@
 ## 7. 출시 체크리스트
 
 - [ ] iOS/Android 앱 ID와 서명 인증서 확정
-- [ ] local과 VPS beta→production 설정·secret 분리, 동일 VPS에서 두 JVM/DB 동시 상시 운영 금지
+- [ ] local과 VPS beta→production 설정·secret 분리, 동일 VPS에서 API 컨테이너/DB 두 벌 동시 상시 운영 금지
 - [ ] SSH key 전용·root 원격 로그인 차단·제한된 deploy 계정과 sudo allowlist 확인
 - [ ] GitHub Environment Secrets와 VPS root 전용 secret 파일의 권한·노출 여부 확인
 - [ ] OS security update 자동 설치와 재부팅 필요 알림 확인
 - [ ] OAuth 제공자별 운영 redirect 검증
-- [ ] 가비아의 apex/`www`→Vercel, `api`→ConoHa DNS와 proxy 미사용 확인
+- [ ] 가비아의 apex/`www`→Vercel, `api`→iwinv VPS 공인 IPv4 DNS 확인. proxy 미사용은 VPS 단계 한정이며 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 쓴다
 - [ ] Let's Encrypt 자동 갱신 dry-run과 인증서 만료 알림 확인
 - [ ] Vercel 사용이 현재 비상업 beta의 이용 조건에 맞는지 확인
 - [ ] 개인정보 처리방침·이용약관·계정 삭제 URL 공개
 - [ ] 개인정보 항목/목적/근거/보유기간/위탁/국외 이전/파기/권리행사 표 검토
 - [ ] 선택 동의가 기본 해제이며 거부해도 가입 가능한지 확인
-- [ ] ConoHa와 모든 외부 서비스의 처리 국가/재위탁자 확인
+- [ ] iwinv와 모든 외부 서비스의 처리 국가/재위탁자 확인. iwinv는 한국 리전을 구매할 계획이므로 계약한 VPS의 실제 데이터센터 국가를 구매 화면·계약 문서에서 확인
 - [ ] 앱 내 개인정보 처리방침과 스토어 URL이 같은 최신 version인지 확인
 - [ ] 카메라·사진 권한 목적 문구 검토
 - [ ] API 권한/IDOR와 사진 접근 정책 자동 테스트 통과
@@ -210,14 +210,14 @@
 
 | Trigger | 필수 작업 |
 | --- | --- |
-| 모든 pull request | client typecheck·lint·unit test, server Gradle test·Testcontainers DB test, migration 검증, server image build |
+| 모든 pull request | client typecheck·lint·unit test, server lint·pytest·PostgreSQL 컨테이너 DB test, migration 검증, server image build |
 | `main` merge | 같은 검증 결과 확인 후 server production 자동 배포 |
 | beta/production release candidate | EAS Build로 iOS·Android native binary 생성, 두 플랫폼 smoke test |
 | 매주 dependency schedule | client/server 생태계별 묶음 update PR 생성, 자동 merge 금지 |
 
-위 표는 목표 기준이다. 현재 구현된 CI는 `.github/workflows/ci.yml` 하나이며 `mobile`에서 `npm ci` → `npm run typecheck` → `npm run lint`까지만 실행한다. `typecheck`만 job을 실패시키고 `lint`는 기존 화면 코드의 `react-hooks` error가 정리될 때까지 `continue-on-error`로 결과만 보고한다. 단위 테스트, E2E, server Gradle test, migration 검증과 image build는 해당 도구와 server 코드가 생긴 뒤에 추가한다. `test`·`test:e2e` npm script도 아직 없다. 로컬 커밋 게이트에서도 같은 이유로 지금 실제로 돌릴 수 있는 검사는 `npm run typecheck`와 `npm run lint`뿐이다.
+위 표는 목표 기준이다. 현재 구현된 CI는 `.github/workflows/ci.yml` 하나이며 `mobile`에서 `npm ci` → `npm run typecheck` → `npm run lint`까지만 실행한다. `typecheck`만 job을 실패시키고 `lint`는 기존 화면 코드의 `react-hooks` error가 정리될 때까지 `continue-on-error`로 결과만 보고한다. 단위 테스트, E2E, server pytest, migration 검증과 image build는 해당 도구와 server 코드가 생긴 뒤에 추가한다. 서버 의존성과 가상환경은 uv로 관리하므로 CI도 uv 기준으로 설치 단계를 짠다. 서버 린터는 아직 고르지 않았고 server 코드를 만들 때 `01` 문서에서 하나로 확정한다. `test`·`test:e2e` npm script도 아직 없다. 로컬 커밋 게이트에서도 같은 이유로 지금 실제로 돌릴 수 있는 검사는 `npm run typecheck`와 `npm run lint`뿐이다.
 
-의존성 PR도 일반 PR과 같은 CI를 통과해야 하며 release note·Expo/Spring 호환성·보안 영향 확인 후 직접 squash merge한다. EAS build를 모든 PR에서 실행하지 않는다.
+의존성 PR도 일반 PR과 같은 CI를 통과해야 하며 release note·Expo/FastAPI 호환성·보안 영향 확인 후 직접 squash merge한다. EAS build를 모든 PR에서 실행하지 않는다.
 
 베타는 공개 가입과 실사용 데이터 유지를 선택했으므로 staging 표기가 있어도 production 개인정보·보안 기준을 적용한다. production 전환 전에 DB·사진 전체 snapshot과 실제 복원 검증을 완료하며 데이터 초기화는 하지 않는다.
 

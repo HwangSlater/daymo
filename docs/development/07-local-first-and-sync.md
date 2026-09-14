@@ -163,7 +163,7 @@ outbox mutation에는 `mutation_id`, `space_id`, `entity`, `operation`, `entity_
 - 304 응답은 DB 조회도 피할 수 있도록 ETag를 집계 version/cache와 연결한다.
 - sync API 한 번으로 여러 엔티티의 변경을 전달해 탭마다 요청하지 않는다.
 - pending mutation batch는 여러 작은 모바일 요청을 합친다.
-- 사진 stream 업로드와 Nginx 내부 전송은 Spring Boot가 파일 전체를 RAM에 올리지 않게 한다.
+- 사진 stream 업로드와 Nginx 내부 전송은 FastAPI 서버가 파일 전체를 RAM에 올리지 않게 한다.
 - 공유 텍스트 파싱·목록 export·진행률 계산은 기기에서 수행해 API 호출 자체를 없앤다.
 - 기기 캐시가 있어 일시적 서버 장애에도 읽기 기능을 유지한다.
 

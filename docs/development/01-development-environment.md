@@ -20,7 +20,8 @@
 | --- | --- | --- |
 | Node.js | 현재 shell `v26.7.0` | 기준은 Node 24 LTS로 확정, SDK 검증 전 실제 전환 필요 |
 | npm | `11.19.0` | 선택한 Node LTS에 포함된 버전으로 lockfile 재검증 |
-| Java | 설치되지 않음 | 백엔드 생성 전에 JDK 21 설치 필수 |
+| Python | 현재 shell `3.13.15` | 백엔드 기준 3.13으로 확정, 그대로 사용 |
+| uv | 설치되지 않음 | 백엔드 생성 전에 설치 필수. 패키지와 가상환경을 uv로 관리 |
 | iOS bundle ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
 | Android package | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
 | 테스트/lint | `typecheck`·`lint`·`export` script 추가 완료, 단위·E2E 테스트 없음 | 테스트 프레임워크 도입 시 `test`·`test:e2e` script 추가 |
@@ -89,7 +90,7 @@ iOS는 CocoaPods가 필요해서 macOS 또는 EAS Build에서만 완전히 만�
 ### P0
 
 - Expo Router: 화면별 파일과 딥링크 구조
-- REST API client: Spring Boot API와 통신하는 fetch 기반 typed client
+- REST API client: fetch 기반 typed client. FastAPI가 OpenAPI 스키마를 자동으로 내보내므로 요청·응답 타입과 client 코드는 그 스키마에서 생성하고 손으로 유지하지 않는다. 서버 스키마가 바뀌면 생성물을 다시 만들어 앱 쪽 타입 오류로 드러낸다
 - TanStack Query: 서버 캐시, 재시도, 낙관적 업데이트
 - Zustand: 작성 중인 폼과 화면 전용 상태
 - React Hook Form + Zod: 폼 검증과 API 스키마 공유
@@ -109,36 +110,41 @@ Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋�
 
 ## 3. 백엔드 환경
 
-백엔드는 사용자의 주 언어와 보유 인프라에 맞춰 **Java 21 + Spring Boot 3.x 모놀리식 API**로 구축한다. 운영 서버는 Ubuntu 24.04 LTS 기반 ConoHa VPS `3Core / RAM 2GB / SSD 100GB / 트래픽 무제한`이다. Nginx·API·PostgreSQL은 Docker Compose로 같은 VPS에서 운영하고 컨테이너별 메모리 상한을 둔다. PostgreSQL data는 container layer가 아닌 private named/bind volume에 보존한다.
+백엔드는 **Python 3.13 + FastAPI 모놀리식 API**로 구축한다. 근거는 두 가지다. 첫째, 운영 환경이 `2 vCPU / 2GB RAM`이다. 기존 계획은 JVM 컨테이너에 900MB 상한을 두었고 그러면 PostgreSQL·Nginx·OS가 남은 1.1GB를 나눠 써야 해서 여유가 거의 없었다. FastAPI + uvicorn은 워커를 몇 개 띄워도 150~250MB 수준이라 같은 서버에서 훨씬 편하고, 최종 목적지인 집 미니PC에서도 가벼운 런타임이 그대로 이득이다. 둘째, 백엔드 코드를 아직 한 줄도 쓰지 않았으므로 바꾸는 비용이 지금 가장 싸다.
+
+운영 서버는 Ubuntu 24.04 LTS 기반 iwinv 한국 리전 VPS `2 vCPU / RAM 2GB / NVMe 50GB / 일 20GB(월 600GB), 초과분 구간 요금`이다. 실제 데이터센터 국가는 구매 화면에서 확인한 뒤 확정한다. Nginx·API·PostgreSQL은 Docker Compose로 같은 VPS에서 운영하고 컨테이너별 메모리 상한을 둔다. PostgreSQL data는 container layer가 아닌 private named/bind volume에 보존한다. 서버 사양과 운영 설계의 기준 문서는 `06-vps-deployment.md`다.
 
 | 환경 | 용도 | 데이터 |
 | --- | --- | --- |
 | local | 개발자 PC, API·DB 통합 테스트 | 가명 시드 데이터만 |
-| beta/staging | 구매한 ConoHa VPS의 최초 운영 모드 | 공개 가입·실사용 데이터, production 수준 보호 |
-| production | 같은 ConoHa VPS를 출시 점검 후 전환 | beta 데이터와 계정 유지 |
+| beta/staging | 구매한 iwinv VPS의 최초 운영 모드 | 공개 가입·실사용 데이터, production 수준 보호 |
+| production | 같은 iwinv VPS를 출시 점검 후 전환 | beta 데이터와 계정 유지 |
 
-2GB VPS에서 staging과 production JVM·DB를 동시에 상시 운영하지 않는다. VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 출시 체크리스트 통과 후 데이터 초기화 없이 production 설정과 `api.daymo.xyz`로 전환한다. beta부터 실사용 개인정보가 들어오므로 약관·처리방침·백업·신고 대응과 보안 기준은 production과 동일하게 적용한다.
+2GB VPS에서 staging과 production API·DB를 동시에 상시 운영하지 않는다. VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 출시 체크리스트 통과 후 데이터 초기화 없이 production 설정과 `api.daymo.xyz`로 전환한다. 기본 디스크가 50GB로 줄었지만 사진은 별도 블록 스토리지 30GB에 두므로 사진 한도는 그대로다(`06-vps-deployment.md` 5장). 베타부터 실사용 개인정보가 들어오므로 약관·처리방침·백업·신고 대응과 보안 기준은 production과 동일하게 적용한다.
 
 백엔드 권장 스택:
 
-- Java 21 LTS, Spring Boot 3.x, Gradle Kotlin DSL
-- Spring Web MVC, Validation, Security, OAuth2 Client, Actuator
-- Spring Data JPA + QueryDSL. 복잡한 검색/집계는 명시적 SQL 또는 jOOQ 도입 검토
-- PostgreSQL 16, Flyway, Testcontainers
-- JWT access token + 회전형 refresh token
-- springdoc-openapi로 OpenAPI 문서 생성
-- JUnit 5, AssertJ, MockMvc, RestAssured
+- Python 3.13, FastAPI + uvicorn. 패키지와 가상환경은 uv로 관리
+- Pydantic v2로 요청·응답 검증과 설정 스키마
+- SQLAlchemy 2.0 + Alembic, DB 드라이버는 psycopg 3. 복잡한 검색/집계는 명시적 SQL을 직접 쓴다
+- PostgreSQL 16
+- Authlib으로 OAuth2 client, PyJWT로 JWT access token + 회전형 refresh token
+- Pillow로 사진 표시본·썸네일 변환
+- OpenAPI 문서는 FastAPI가 기본으로 만들어 주므로 별도 문서 생성 도구를 두지 않는다
+- pytest. DB 테스트는 로컬 PostgreSQL 컨테이너를 쓴다. `testcontainers-python`도 있으나 2GB CI에서 굳이 필요한지는 미정
 - Nginx, Docker Compose, Let's Encrypt
 
-Redis, Elasticsearch, Kafka, Kubernetes는 초기 환경에 넣지 않는다. 캐시는 앱과 Caffeine으로 해결하고 검색은 PostgreSQL에서 시작한다. 스키마는 Flyway migration으로만 변경한다.
+Redis, Elasticsearch, Kafka, Kubernetes는 초기 환경에 넣지 않는다. 캐시는 앱과 API 프로세스 안의 메모리 캐시로 해결하고 검색은 PostgreSQL에서 시작한다. 스키마는 Alembic migration으로만 변경한다.
 
 로컬 실행 예시:
 
 ```bash
-cd server
-./gradlew test
+cd backend
+uv sync
 docker compose up -d postgres
-./gradlew bootRun --args='--spring.profiles.active=local'
+uv run alembic upgrade head
+uv run pytest
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 ## 4. 환경 변수
@@ -147,12 +153,12 @@ docker compose up -d postgres
 
 ```dotenv
 EXPO_PUBLIC_APP_ENV=local
-EXPO_PUBLIC_API_BASE_URL=http://localhost:8080/v1
+EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/v1
 EXPO_PUBLIC_SENTRY_DSN=
 
 # 아래 값은 서버 환경 변수이며 앱 .env에 넣지 않음
-SPRING_PROFILES_ACTIVE=local
-DB_URL=jdbc:postgresql://localhost:5432/daymo
+APP_ENV=local
+DB_URL=postgresql+psycopg://localhost:5432/daymo
 DB_USERNAME=daymo
 DB_PASSWORD=
 JWT_SIGNING_KEY=
@@ -190,7 +196,8 @@ RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 - 개발: Expo development build의 리디렉션 URI 등록
 - 운영: `daymo.xyz` 기반 iOS Universal Link와 Android App Link를 추가하고 스킴은 보조 수단으로 유지
 - 제공자: Apple, Google, Kakao, Naver
-- 로그인 완료 후 URL query에 이메일을 직접 전달하는 현재 데모 방식은 폐기한다. Spring Security OAuth2 Client가 authorization code를 교환하고 일회용 앱 로그인 코드를 발급한다. 앱은 코드를 API에 교환해 access/refresh token을 받는다.
+- 로그인 완료 후 URL query에 이메일을 직접 전달하는 현재 데모 방식은 폐기한다. 서버의 Authlib OAuth2 client가 authorization code를 교환하고 일회용 앱 로그인 코드를 발급한다. 앱은 코드를 API에 교환해 access/refresh token을 받는다.
+- 흐름은 그대로지만 손으로 짤 코드는 늘어난다. Spring Security OAuth2 Client가 대신 해 주던 authorization code 교환, state 검증, token 갱신을 Authlib 위에서 직접 조립해야 한다. 스택을 바꾸면서 잃는 쪽이므로 구현 단계에서 따로 검토한다.
 
 ## 6. 권장 프로젝트 구조
 
@@ -210,11 +217,18 @@ mobile/
   ios/                       # prebuild 산출물, 커밋하지 않음
   android/                   # prebuild 산출물, 커밋하지 않음
   package.json
-server/
-  src/main/java/...          # Spring Boot domain/application/infra/api
-  src/main/resources/db/migration/
-  src/test/java/...
-  build.gradle.kts
+backend/
+  pyproject.toml             # uv로 관리
+  alembic.ini
+  alembic/versions/
+  app/
+    main.py                  # FastAPI 앱
+    api/v1/                  # 라우터
+    core/                    # 설정, 보안, 의존성
+    models/                  # SQLAlchemy 모델
+    schemas/                 # Pydantic 스키마
+    services/                # 도메인 로직
+  tests/                     # pytest
 infra/
   compose.production.yml
   nginx/
@@ -236,18 +250,18 @@ docs/development/
 - EAS Update는 동일 native runtime의 JavaScript·스타일·이미지 수정에만 사용하고 내부 검증 후 단계적으로 확대
 - native module, permission, app config, SDK/runtime 변경은 새 store binary로 배포
 
-가비아에서 `daymo.xyz` DNS를 관리한다. apex/`www`는 Vercel의 소개·약관·개인정보처리방침·계정 삭제 안내로 연결하고 `api` A record는 ConoHa VPS 공인 IP에 직접 연결한다. Cloudflare와 별도 proxy는 사용하지 않는다. API HTTPS는 Nginx와 Let's Encrypt로 자동 발급·갱신한다. Vercel Hobby는 비상업 beta에만 사용하며 수익화 전에 당시 이용 조건을 다시 확인하고 부적합하면 정적 문서를 다른 host로 이전한다.
+가비아에서 `daymo.xyz` DNS를 관리한다. apex/`www`는 Vercel의 소개·약관·개인정보처리방침·계정 삭제 안내로 연결한다. `api`는 두 단계로 나뉜다. VPS 단계에서는 `api.daymo.xyz` A record를 VPS 공인 IPv4에 직접 연결하고 별도 proxy를 두지 않는다. 집 미니PC로 옮긴 뒤에는 Cloudflare Tunnel을 쓴다. 가정 회선은 인바운드 80/443이 막혀 있고 공인 IP도 고정이 아니라 A record를 걸 수 없기 때문이다(`06-vps-deployment.md` 11장). API HTTPS는 Nginx와 Let's Encrypt로 자동 발급·갱신한다. Vercel Hobby는 비상업 beta에만 사용하며 수익화 전에 당시 이용 조건을 다시 확인하고 부적합하면 정적 문서를 다른 host로 이전한다.
 - 서버는 GitHub Actions에서 테스트·이미지 빌드 후 GHCR에 올리고, VPS가 고정 태그 이미지를 pull해 무중단에 가깝게 교체한다.
 
-PR CI는 client `typecheck`·`lint`·unit test와 server Gradle test·Testcontainers PostgreSQL test를 매번 실행한다. EAS iOS/Android native build는 일반 PR에서 실행하지 않고 beta 또는 production release candidate에서만 두 플랫폼을 같은 release 단위로 생성한다. Dependabot은 매주 client/server 의존성을 생태계별 묶음 PR로 만들며 자동 merge하지 않는다.
+PR CI는 client `typecheck`·`lint`·unit test와 backend `pytest`·PostgreSQL 컨테이너 통합 test를 매번 실행한다. EAS iOS/Android native build는 일반 PR에서 실행하지 않고 beta 또는 production release candidate에서만 두 플랫폼을 같은 release 단위로 생성한다. Dependabot은 매주 client/server 의존성을 생태계별 묶음 PR로 만들며 자동 merge하지 않는다.
 
-CI 최소 작업에서 client job의 working directory는 `mobile`, server job은 `server`로 고정한다.
+CI 최소 작업에서 client job의 working directory는 `mobile`, backend job은 `backend`로 고정한다.
 
 1. `cd mobile && npm ci`
 2. `cd mobile && npm run typecheck`
 3. lint/format 검사
 4. 단위 테스트
-5. Gradle 테스트와 Flyway migration 검증
+5. pytest와 Alembic migration 검증
 6. Docker image build
 7. Expo export 검증
 
@@ -257,22 +271,25 @@ CI 최소 작업에서 client job의 working directory는 `mobile`, server job�
 
 | 프로세스 | 메모리 목표/상한 |
 | --- | --- |
-| Spring Boot JVM | `-Xms256m -Xmx768m`, 컨테이너 900MB |
-| PostgreSQL | 컨테이너 550MB, `shared_buffers` 약 128MB |
+| API (uvicorn 워커 2개) | 컨테이너 400MB |
+| PostgreSQL | 컨테이너 800MB, `shared_buffers` 약 192MB |
 | Nginx | 64MB 이하 |
-| OS·Docker·여유 | 약 500MB |
+| OS·Docker·여유 | 약 700MB |
+
+JVM이 빠지면서 생긴 여유는 PostgreSQL(550 → 800MB, `shared_buffers` 128 → 192MB)과 OS 여유(500 → 700MB)에 나눠 줬다. 이것이 스택을 바꿔 실제로 얻는 몫이다.
 
 - swap 2GB를 비상용으로 두되 지속적인 swap 사용은 장애 신호로 본다.
-- JVM은 `UseContainerSupport`를 사용하고 Actuator로 heap/GC를 감시한다.
+- uvicorn 워커는 vCPU 수에 맞춰 2개로 시작하고 API 포트는 `8000`이다.
+- Actuator가 맡던 health check 자리는 FastAPI가 직접 제공하는 `GET /v1/health`가 대신한다. 대신 Actuator가 공짜로 주던 heap/GC/DB pool 지표는 없어진다. 지표가 필요해지면 그때 도구를 붙이며 지금은 미정으로 둔다.
 - API와 DB 외에 상주형 서비스는 추가하지 않는다.
 - 빌드는 VPS에서 하지 않고 CI에서 수행해 배포 중 메모리 부족을 막는다.
 
 ## 9. 사진 저장 결정
 
-트래픽은 무제한이므로 사진 조회량에 따른 전송량 비용은 주요 제약이 아니다. 하지만 100GB에는 OS, Docker image, DB, 로그, 백업도 함께 들어간다. 사진 원본을 VPS 디스크에 장기 보관하면 저장 용량과 장애 복구가 여전히 위험하다.
+전송량은 무제한이 아니라 일 20GB(월 600GB)이고 초과분에는 구간 요금이 붙으므로 사진을 반복해서 내려받는 구간이 그대로 비용이 된다. 디스크 50GB에는 OS, Docker image, DB, 로그, 백업도 함께 들어간다. 사진 원본을 VPS 디스크에 장기 보관하면 저장 용량과 장애 복구가 여전히 위험하다.
 
-- 결정: 초기 운영 원본은 ConoHa VPS의 `/srv/daymo/uploads` private volume에 저장한다.
-- 사진용 상한은 우선 30GB로 두고 DB와 사진을 Google Drive에 자동 외부 백업한다.
+- 결정: 초기 운영 원본은 iwinv VPS의 `/srv/daymo/uploads` private volume에 저장한다.
+- 사진용 상한은 30GB로 두고 DB와 사진을 Google Drive에 자동 외부 백업한다. 장당 2MB 기준 약 15,000장이다. 사진은 기본 디스크가 아니라 별도 블록 스토리지에 둔다.
 - 백업은 폴더 mirror가 아니라 암호화·중복 제거·시점 복구가 가능한 restic snapshot을 rclone Google Drive backend로 전송한다.
 - 업로드 전 앱에서 표시본을 압축하고 썸네일을 생성한다.
 - 저장량과 복구 시간을 측정해 공개 규모가 커질 때만 S3 호환 외부 저장소 이전을 재검토한다.

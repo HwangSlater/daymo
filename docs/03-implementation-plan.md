@@ -9,7 +9,7 @@
 - 여행 상세의 여행·장소·준비·요리·기록 탭과 추가/수정 폼
 - 테마와 시스템 다크모드
 - 데이터와 로그인은 대부분 컴포넌트 로컬 상태와 가명 시드
-- Vercel은 모바일 UI 피드백과 `daymo.xyz`의 소개·약관·처리방침·계정 삭제 안내용이며 실제 앱 배포는 EAS, API는 ConoHa VPS를 사용
+- Vercel은 모바일 UI 피드백과 `daymo.xyz`의 소개·약관·처리방침·계정 삭제 안내용이며 실제 앱 배포는 EAS, API는 iwinv VPS를 사용
 
 ## 2. 개발 목표
 
@@ -37,15 +37,15 @@
 ## 4. 권장 기술 구조
 
 - 클라이언트: Expo Router, TanStack Query, Zustand, React Hook Form, Zod
-- 백엔드: Java 21 + Spring Boot 3.x 모놀리식 API
-- 운영: ConoHa VPS 3Core/2GB/SSD 100GB, Nginx + Docker Compose
-- 데이터: PostgreSQL + Flyway, 서비스 계층에서 공간별 권한 검증
-- 인증: Spring Security, 이메일과 Apple/Google/Kakao/Naver OAuth, JWT/refresh token
+- 백엔드: Python 3.13 + FastAPI 모놀리식 API
+- 운영: iwinv VPS 2vCPU/2GB/NVMe 50GB, 일 20GB(월 600GB) 트래픽, Nginx + Docker Compose
+- 데이터: PostgreSQL + SQLAlchemy 2.0 + Alembic, 서비스 계층에서 공간별 권한 검증
+- 인증: Authlib + PyJWT, 이메일과 Apple/Google/Kakao/Naver OAuth, JWT/refresh token
 - 서버 기능: 초대, 통합 검색, 일괄 가져오기, 사진 업로드 확정, SSE 동기화
 - 검색: 초기 PostgreSQL FTS와 `pg_trgm`
 - 앱 배포: EAS Build/Update, TestFlight, Android Internal Testing
-- 사진: ConoHa VPS private disk에 원본·표시본·썸네일 저장, restic으로 Daymo 전용 Google Drive에 암호화 백업
-- 관측: Sentry, Spring Boot Actuator, 구조화 서버 로그
+- 사진: iwinv VPS의 `/srv/daymo/uploads` private volume에 원본·표시본·썸네일 저장, restic으로 Daymo 전용 Google Drive에 암호화 백업
+- 관측: Sentry, FastAPI `GET /v1/health` 엔드포인트, 구조화 서버 로그(상세 지표 수집 도구는 미정)
 - 모바일 저장: SecureStore + AsyncStorage + SQLite + 파일 LRU 캐시
 - 동기화: ETag/304, opaque sync cursor, tombstone, SSE, 제한된 pending mutation
 

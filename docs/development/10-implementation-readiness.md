@@ -10,14 +10,14 @@
 | --- | --- | --- |
 | UI | 10단계 검토 완료, 홈 지난 여행 추가 | 기준선 태그 필요 |
 | 앱 구조 | `mobile/src/WarmAppShell.tsx`, `mobile/src/WarmTripDetail.tsx` 대형 로컬 상태 | 점진 분리 필요 |
-| API/서버 | 문서만 존재 | Spring Boot 프로젝트 없음 |
+| API/서버 | 문서만 존재 | FastAPI 프로젝트 없음 |
 | Node | v26.7.0 | 표준 LTS와 불일치 |
-| Java | 없음 | JDK 21 설치 필요 |
+| Python | 현재 shell `3.13.15` | 프로젝트 기준 3.13으로 고정, 패키지·가상환경 도구 `uv` 설치 필요 |
 | iOS ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
 | Android ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
 | 자동 검사 | `tsc`만 수동 실행 | lint/test/CI 필요 |
 | npm audit | high 11, moderate 9 | 강제 수정 금지, SDK 호환 업그레이드 검증 |
-| 개인정보/인프라 | 개인 운영 확정, 일본 VPS 구매 예정 | 구매·실제 리전·외부 제공자 계약 확인 전 운영 데이터 사용 금지 |
+| 개인정보/인프라 | 개인 운영 확정, iwinv 한국 리전 VPS 구매 예정 | 구매·실제 리전·외부 제공자 계약 확인 전 운영 데이터 사용 금지 |
 
 ## 3. 사용자 결정이 필요한 항목
 
@@ -80,16 +80,16 @@
 
 | ID | 결정 | 권장안 |
 | --- | --- | --- |
-| D-013 | 사진 저장 | **결정 완료: ConoHa VPS private disk** |
+| D-013 | 사진 저장 | **결정 완료: iwinv VPS private disk** |
 | D-013B | 사진 외부 백업 | **결정 완료: Daymo 전용 Google 계정에 restic 암호화 snapshot 자동 백업** |
 | D-014 | 원본 보관 | **결정 완료: Daymo에 추가한 모든 사진 원본을 VPS에 보관**, 표시본·썸네일 별도 생성 |
-| D-015 | 사진 한도 | **결정 완료: 사진당 20MB, 공간당 1GB, 전체 30GB, 초기 동영상 미지원** |
+| D-015 | 사진 한도 | **결정 완료: 사진당 20MB, 공간당 1GB, 전체 30GB, 초기 동영상 미지원** | 사진은 기본 디스크가 아니라 iwinv SATA Block 30GB(월 1,170원)에 둔다 |
 | D-015A | 사진 업로드 네트워크 | **결정 완료: 기본은 Wi-Fi+모바일 데이터**, 기기별 Wi-Fi 전용 설정과 자동 대기열 제공 |
 | D-015B | 공유 사진 삭제 권한 | **결정 완료: 업로더는 본인 사진, owner는 모든 사진 삭제·복구**, 다른 editor의 타인 사진 삭제 금지 |
 | D-015C | 사진 설명·연결 수정 | **결정 완료: 업로더는 본인 사진, owner는 모든 사진 수정**, 다른 editor의 타인 사진 수정 금지 |
 | D-015D | 사진 한도 도달 | **결정 완료: 80% 사전 경고·100%에서 신규 업로드만 차단**, 기존 사진 자동 변경 금지 |
 | D-016 | 운영 주체 | **결정 완료: 개인 개발자**, 스토어·법적 고지에는 법적 이름 사용, 앱/더미 데이터에는 실명 미사용 |
-| D-016A | VPS 처리 국가 | **구매 계획: ConoHa 일본 리전**, 구매 후 계약·관리 화면에서 실제 국가/세부 지역 확인 필요 |
+| D-016A | VPS 처리 국가 | **구매 계획: iwinv 한국 리전**, 구매 후 계약·관리 화면에서 실제 데이터센터 국가/세부 지역 확인 필요 |
 | D-016B | 공개 문의 이메일 | **결정 완료: `support@daymo.xyz`**, Daymo 전용 Google 계정으로 전달·`no-reply`와 분리 |
 | D-016C | 사진 등장 당사자의 삭제 요청 | **결정 완료: 검토 중 임시 숨김**, 업로더·owner 최소 알림 후 삭제 또는 복원 |
 | D-016D | UGC 신고·차단 | **결정 완료: 첫 출시부터 사용자·콘텐츠 신고와 사용자 차단**, 기존 공동 공간은 자동 삭제하지 않음 |
@@ -114,7 +114,7 @@
 | D-016W | 앱 전환 화면 | **결정 완료: background 즉시 privacy cover로 가림** |
 | D-016X | 생체 인증 fallback | **결정 완료: OS 기기 암호·PIN 허용**, 서버 재인증과 분리 |
 | D-016Y | 스크린샷 | **결정 완료: 일반 스크린샷 허용**, Android 전역 차단 미사용 |
-| D-017 | 베타 서버 운영 | **결정 완료: ConoHa VPS를 beta/staging으로 먼저 사용 후 production 전환**, 동시 상시 운영 없음 |
+| D-017 | 베타 서버 운영 | **결정 완료: iwinv VPS를 beta/staging으로 먼저 사용 후 production 전환**, 동시 상시 운영 없음 |
 | D-017A | 베타 가입 | **결정 완료: 베타부터 공개 회원가입** |
 | D-017B | 베타 데이터 | **결정 완료: 계정·여행·사진을 production까지 유지**, 전환 전 전체 snapshot·복원 검증 |
 | D-017C | production 배포 | **결정 완료: PR 필수 CI 통과 후 `main` merge 시 자동 배포**, health 실패 시 이전 image 자동 복귀 |
@@ -143,20 +143,20 @@
 | D-019B | 운영 secret | **결정 완료: GitHub Environment Secrets + VPS root 전용 `0600` 파일** |
 | D-019C | OS update | **결정 완료: security patch 자동 설치**, 재부팅은 알림 후 직접 수행 |
 | D-020 | VPS OS | **결정 완료: Ubuntu 24.04 LTS** |
-| D-020A | 서버 실행 | **결정 완료: Docker Compose로 Nginx·Spring Boot·PostgreSQL 운영** |
-| D-020B | 외부 요청 | **결정 완료: Nginx만 80/443 공개**, Spring Boot 직접 공개 금지 |
+| D-020A | 서버 실행 | **결정 완료: Docker Compose로 Nginx·FastAPI·PostgreSQL 운영** |
+| D-020B | 외부 요청 | **결정 완료: Nginx만 80/443 공개**, API 컨테이너 8000 직접 공개 금지 |
 | D-020C | PostgreSQL 위치 | **결정 완료: 같은 VPS의 private Docker volume**, 외부 DB 미사용 |
 | D-021 | 자동 백업 | **결정 완료: DB·사진 매일 04:00 Asia/Seoul** |
 | D-021A | 백업 보존 | **결정 완료: 일간 14개·주간 8개·월간 6개** |
 | D-021B | 백업 실패 | **결정 완료: 한 번이라도 실패하면 즉시 운영 이메일** |
 | D-021C | 복원 검증 | **결정 완료: 매월 자동 표본 복원 + 분기 전체 수동 복원** |
-| D-022 | DNS 사업자 | **결정 완료: 가비아 DNS**, Cloudflare 미사용 |
+| D-022 | DNS 사업자 | **결정 완료: 가비아 DNS**, VPS 단계는 Cloudflare 미사용·미니PC 단계는 Cloudflare Tunnel 사용 |
 | D-022A | 공개 웹 | **결정 완료: `daymo.xyz`를 Vercel에 연결**, 소개·약관·처리방침·계정 삭제 안내 제공 |
-| D-022B | API DNS | **결정 완료: 가비아 A record로 `api.daymo.xyz`→ConoHa 직접 연결**, proxy 미사용 |
+| D-022B | API DNS | **결정 완료: 가비아 A record로 `api.daymo.xyz`→iwinv VPS 직접 연결**, proxy 미사용은 VPS 단계 한정·미니PC 단계는 Cloudflare Tunnel(D-022) |
 | D-022C | API HTTPS | **결정 완료: Let's Encrypt 무료 인증서 자동 발급·갱신** |
 | D-022D | Vercel 사용 조건 | **결정 완료: 비상업 beta에만 Hobby 사용**, 상업화 전 조건 재검토·필요 시 정적 host 이전 |
 | D-023 | 모바일 PR CI | **결정 완료: 모든 PR에서 typecheck·lint·unit test** |
-| D-023A | backend PR CI | **결정 완료: 모든 PR에서 Gradle test·Testcontainers DB test** |
+| D-023A | backend PR CI | **결정 완료: 모든 PR에서 pytest·로컬 PostgreSQL 컨테이너 DB test** |
 | D-023B | EAS native build | **결정 완료: release candidate에서만 iOS·Android 병행**, 일반 PR 생략 |
 | D-023C | dependency update | **결정 완료: 매주 묶음 PR·직접 검토 merge**, 자동 merge 금지 |
 | D-024 | 가입 CAPTCHA | **결정 완료: 정상 가입에는 미표시**, 위험 신호가 있을 때만 challenge |
@@ -210,7 +210,7 @@
 ### 0-B. 식별자와 환경
 
 1. D-001~D-003 승인
-2. Node LTS, npm, JDK 21, Android SDK 설치 확인
+2. Node LTS, npm, Python 3.13, uv, Android SDK 설치 확인
 3. 루트 `.nvmrc`, `mobile/package.json` engines, `mobile/.env.example` 작성
 4. iOS bundle ID, Android package, 앱 링크 scheme 분리
 5. local과 VPS beta→production API URL·secret 주입 경계 설정
@@ -219,14 +219,14 @@
 
 1. Expo Router를 별도 커밋으로 도입
 2. UI를 변경하지 않고 route와 feature shell만 분리
-3. `server/` Spring Boot modular monolith 생성
-4. local PostgreSQL, Flyway V1, Testcontainers smoke test
+3. `backend/` FastAPI modular monolith 생성
+4. local PostgreSQL, Alembic 초기 migration, pytest DB smoke test
 5. OpenAPI 생성 결과를 앱 typed client로 만드는 방법 고정
 
 ### 0-D. 품질 게이트
 
 1. npm `typecheck`, `lint`, `test`, `export` script
-2. Gradle `test`, architecture test, migration test
+2. `pytest`, architecture test, migration test
 3. GitHub Actions client/server job 분리
 4. secret scan, dependency audit 결과 기록
 5. iOS/Android development build smoke test
@@ -275,7 +275,7 @@
 - OpenAPI가 서버 계약의 기계 판독 기준이며 앱 타입을 수동 복제하지 않는다.
 - 생성에는 `Idempotency-Key`, 모든 쓰기에는 `X-Client-Mutation-Id`를 사용한다.
 - 공동 수정은 `version` 또는 HTTP conditional request 중 도메인별 하나로 통일한다.
-- 날짜는 `LocalDate`, 순간은 UTC `Instant`, 표시 시간대는 공간 설정을 사용한다.
+- 날짜는 시간 없는 `date`, 순간은 UTC `datetime`, 표시 시간대는 공간 설정을 사용한다.
 - 목록 cursor는 opaque하고 정렬 키와 필터를 서명된 값에 포함한다.
 - 오류 `code`는 앱 분기용 안정 계약이고 `message`는 사용자 표시용으로 서버가 현지화 책임을 독점하지 않는다.
 - 삭제 tombstone과 audit log의 보존 기간은 개인정보 정책과 함께 확정한다.
@@ -287,11 +287,11 @@
 
 - [x] D-001~D-004 승인 완료
 - [ ] 기준선 commit/tag와 회귀 캡처 확보
-- [ ] Node LTS와 JDK 21 설치 확인
-- [ ] `mobile/`에서 `npm ci`, iOS, Android와 `server/` local 실행 문서 검증
+- [ ] Node LTS와 Python 3.13·uv 설치 확인
+- [ ] `mobile/`에서 `npm ci`, iOS, Android와 `backend/` local 실행 문서 검증
 - [ ] 앱/서버 식별자와 dev 환경 변수 확정
 - [ ] client/server CI 통과
-- [ ] Flyway V1과 Testcontainers 통과
+- [ ] Alembic 초기 migration과 pytest DB test 통과
 - [ ] SQLite·SecureStore·outbox spike 통과
 - [ ] 운영 secret이나 실데이터가 저장소에 없음을 확인
 

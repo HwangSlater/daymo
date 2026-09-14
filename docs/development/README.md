@@ -23,7 +23,7 @@
 - 마지막 개발 준비 감사: 2026-08-14
 - 현재 상태: UI 프로토타입. 화면 데이터와 인증은 대부분 로컬 상태/더미 데이터다.
 - 목표: UI를 유지하면서 실제 인증, 공동 공간, 여행 데이터, 파일 저장과 동기화를 순차 연결한다.
-- 백엔드 기준: Java 21 + Spring Boot 3.x, iwinv VPS(2vCPU/2GB RAM/50GB NVMe/일 20GB·월 600GB 트래픽)
+- 백엔드 기준: Python 3.13 + FastAPI, iwinv VPS(2vCPU/2GB RAM/50GB NVMe/일 20GB·월 600GB 트래픽)
 
 ## 제품 원칙
 

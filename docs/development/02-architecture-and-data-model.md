@@ -25,7 +25,7 @@ React Native UI
   ├─ server cache (TanStack Query)
   └─ feature repositories
        └─ HTTPS REST/SSE
-            └─ Spring Boot modular monolith
+            └─ FastAPI modular monolith
                  ├─ PostgreSQL: 도메인 데이터·검색
                  ├─ private VPS volume: 사진
                  └─ background jobs: 썸네일·정리

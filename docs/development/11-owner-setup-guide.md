@@ -101,19 +101,19 @@ S3는 AWS의 Amazon S3에서 시작한 오브젝트 저장 방식이다. `S3 호
 
 Daymo의 사진이 개인 기록이고 멤버 공유가 필요 없다면 가능한 방식이다. 공동 여행 기록으로 함께 보려면 기기 간 직접 전송 또는 서버 업로드 기능이 추가로 필요하다.
 
-### B. ConoHa VPS 디스크에 저장
+### B. iwinv VPS 디스크에 저장
 
 - `/srv/daymo/uploads` 같은 VPS volume에 사진을 저장한다.
 - 별도 Amazon S3 계정이나 비용이 필요 없다.
 - 멤버끼리 사진을 공유할 수 있다.
-- API·DB·사진이 같은 100GB SSD를 사용한다.
+- API·DB·사진이 같은 50GB NVMe를 사용한다.
 - VPS 장애나 디스크 손실에 대비해 다른 장소로 백업해야 한다.
 - 사진 증가량 제한과 저장 공간 경고가 필요하다.
 
 초기 소수 사용자라면 현실적인 선택이다. 다음 조건을 적용한다.
 
 ```text
-사진 저장 상한: 초기 30GB
+사진 저장 상한: 30GB(장당 2MB 기준 약 15,000장). 기본 디스크가 아니라 별도 블록 스토리지에 둔다
 사진 1장: 최대 20MB
 공간 1개: 최대 1GB
 동영상: 초기 미지원
@@ -135,21 +135,21 @@ Daymo의 사진이 개인 기록이고 멤버 공유가 필요 없다면 가능�
 ### C. 외부 S3 호환 저장소 — 현재 미사용
 
 - VPS와 사진 장애 영역을 분리한다.
-- 사진이 늘어도 100GB VPS 디스크를 사용하지 않는다.
+- 사진이 늘어도 50GB VPS 디스크를 사용하지 않는다.
 - 별도 공급자, 접근 키, 비용과 개인정보 처리 국가 확인이 필요하다.
 
 공개 사용자 규모가 커진 뒤 이전할 수 있다. 처음부터 저장소 interface를 분리하면 VPS 로컬에서 외부 저장소로 옮길 때 앱 API를 바꾸지 않아도 된다.
 
 ### 현재 확정 구조
 
-사용자가 뜻한 로컬은 **ConoHa VPS 디스크**로 확인됐다. 다음 구조로 시작한다.
+사용자가 뜻한 로컬은 **iwinv VPS 디스크**로 확인됐다. 다음 구조로 시작한다.
 
 ```text
 모바일 기기
   ├─ 원본 선택
   └─ 원본 업로드
         ↓
-Spring Boot 권한 검사
+FastAPI 권한 검사
         ↓
 /srv/daymo/uploads 원본·표시본·썸네일 비공개 volume
         ↓
@@ -174,35 +174,44 @@ Google Drive에는 노출 가능한 폴더 원본을 그대로 올리지 않는�
 | --- | --- | --- |
 | Node.js | 현재 shell `v26.7.0` | Node 24 LTS로 전환 확정 |
 | npm | `11.19.0` | 선택한 Node 버전과 함께 고정 |
-| Java | 설치되지 않음 | JDK 21 설치 |
+| Python | 현재 shell `3.13.15` | 프로젝트 기준 3.13으로 고정, 그대로 사용 |
+| uv | 설치되지 않음 | 파이썬 패키지·가상환경 도구로 설치 |
 | Expo | SDK 57 | 최신 안정 SDK 업그레이드 검증 완료 |
 | React Native | 0.86.3 | Expo 호환 조합 유지 |
 | PostgreSQL | 미구성 | Docker 기반 PostgreSQL 16 준비 |
-| Spring Boot | 프로젝트 없음 | 기반 단계에서 생성 |
+| FastAPI | 프로젝트 없음 | 기반 단계에서 생성 |
 
 ### 필요한 도구
 
 - Node.js LTS, npm
 - Xcode, CocoaPods, iOS Simulator
 - Android Studio, Android SDK
-- JDK 21
+- Python 3.13
+- uv (파이썬 패키지·가상환경 관리)
 - Docker Desktop
-- IntelliJ IDEA 권장
+- VS Code 또는 PyCharm 권장
 - Git
+
+Python과 uv는 운영체제마다 설치 방법이 다르므로 각 공식 설치 안내를 그대로 따른다. 이 문서에는 검증하지 않은 설치 명령을 적지 않는다. 로컬 Android 빌드에 필요한 JDK는 Android Studio가 함께 설치하는 것을 사용하고, 서버 개발용으로 따로 설치하지 않는다.
 
 백엔드 기준:
 
 ```text
-Java 21
-Spring Boot 3.x
-Gradle Kotlin DSL
+Python 3.13
+FastAPI + uvicorn
+uv (패키지·가상환경)
 PostgreSQL 16
-Flyway
-Spring Security
-Spring Data JPA
-Testcontainers
-OpenAPI
+SQLAlchemy 2.0 + Alembic
+psycopg 3
+Pydantic v2
+Authlib (OAuth2 client)
+PyJWT
+Pillow (이미지 변환)
+pytest
+OpenAPI (FastAPI 자동 생성)
 ```
+
+잃는 것도 적어 둔다. Spring Security OAuth2 Client가 대신 해 주던 authorization code 교환, state 검증과 token 갱신을 Authlib으로 직접 조립해야 한다. 로그인 흐름 자체는 바뀌지 않지만 손으로 맞춰야 할 부분이 늘어난다.
 
 Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 
@@ -224,7 +233,7 @@ Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 
 ### 배포·운영 단계
 
-- ConoHa VPS
+- iwinv VPS
 - 도메인과 DNS 관리 계정
 - Expo/EAS
 - App Store Connect
@@ -240,7 +249,7 @@ Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 
 ```dotenv
 EXPO_PUBLIC_APP_ENV=local
-EXPO_PUBLIC_API_BASE_URL=http://localhost:8080/v1
+EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/v1
 EXPO_PUBLIC_SENTRY_DSN=
 ```
 
@@ -249,14 +258,17 @@ EXPO_PUBLIC_SENTRY_DSN=
 ## 6. 백엔드 기본 시크릿
 
 ```dotenv
-SPRING_PROFILES_ACTIVE=local
-DB_URL=jdbc:postgresql://localhost:5432/daymo
+APP_ENV=local
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=daymo
 DB_USERNAME=daymo
 DB_PASSWORD=
 JWT_SIGNING_KEY=
 REFRESH_TOKEN_PEPPER=
 ```
 
+- SQLAlchemy 접속 URL은 위 값으로 `postgresql+psycopg://` 형식으로 조립한다. 비밀번호가 들어간 완성 URL을 저장소나 로그에 남기지 않는다.
 - `JWT_SIGNING_KEY`와 `REFRESH_TOKEN_PEPPER`는 서로 다른 긴 난수로 생성한다.
 - 운영값은 VPS root 전용 env 또는 배포 secret에 저장한다.
 - 로컬·staging·production 값을 재사용하지 않는다.
@@ -297,13 +309,13 @@ RESTIC_PASSWORD_FILE=/etc/daymo/secrets/restic-password
 RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 ```
 
-`PHOTO_DOWNLOAD_SIGNING_KEY`는 파일 접근용 짧은 URL을 서명할 때 사용한다. 실제 경로를 API 응답이나 로그에 노출하지 않는다.
+`PHOTO_MAX_TOTAL_BYTES=32212254720`는 사진 전체 30GB 상한이다. `PHOTO_DOWNLOAD_SIGNING_KEY`는 파일 접근용 짧은 URL을 서명할 때 사용한다. 실제 경로를 API 응답이나 로그에 노출하지 않는다.
 
 Google 계정 연결 과정에서 생성되는 rclone OAuth token과 restic repository password도 시크릿이다. 채팅이나 Git에 올리지 않고 VPS root만 읽을 수 있게 보관한다. Google 계정 비밀번호 자체를 VPS에 저장하지 않는다.
 
 ## 9. 이메일과 오류 수집
 
-이메일 발송은 ConoHa에서 메일 서버를 직접 운영하지 않고 Resend SMTP를 사용하기로 결정했다.
+이메일 발송은 iwinv VPS에서 메일 서버를 직접 운영하지 않고 Resend SMTP를 사용하기로 결정했다. 가정용·클라우드 IP에서 직접 SMTP로 보내면 차단되거나 스팸으로 분류되기 때문이다. 미니PC로 옮긴 뒤에도 중계 서비스를 그대로 사용한다.
 
 ```dotenv
 MAIL_PROVIDER=resend
@@ -317,7 +329,7 @@ SMTP_STARTTLS=true
 
 로컬 개발에서는 Mailpit 같은 로컬 메일 서버를 사용해 실제 발송 키 없이 검증할 수 있다.
 
-`SMTP_PASSWORD`에는 Resend API Key를 넣는다. 앱에 포함하지 않고 Spring Boot 운영 secret에만 둔다. `daymo.xyz` DNS에는 Resend가 안내하는 도메인 인증·DKIM 레코드를 설정하고 DMARC 정책도 단계적으로 적용한다.
+`SMTP_PASSWORD`에는 Resend API Key를 넣는다. 앱에 포함하지 않고 API 서버 운영 secret(`/etc/daymo/secrets/`)에만 둔다. `daymo.xyz` DNS에는 Resend가 안내하는 도메인 인증·DKIM 레코드를 설정하고 DMARC 정책도 단계적으로 적용한다.
 
 도메인 구매 후 진행 순서:
 
@@ -381,15 +393,15 @@ GitHub Environment Secrets에는 배포 SSH key·host 등 CI에 실제 필요한
 
 OS security patch는 자동 설치하되 자동 재부팅은 사용하지 않는다. 재부팅 필요 알림을 Daymo 운영 이메일로 받은 뒤 백업과 서비스 상태를 확인하고 직접 재부팅한다. 일반 package·major upgrade는 수동 검토한다.
 
-## 12. ConoHa VPS 준비
+## 12. iwinv VPS 준비
 
-구매 계획은 ConoHa VPS 일본 리전이다. 구매 직후 영수증·계약 화면과 관리 콘솔에서 실제 데이터센터 국가와 세부 지역을 확인해 운영 기록과 개인정보 처리방침 초안에 반영한다.
+구매 계획은 iwinv VPS 한국 리전이다. 구매 직후 영수증·계약 화면과 관리 콘솔에서 실제 데이터센터 국가와 세부 지역을 확인해 운영 기록과 개인정보 처리방침 초안에 반영한다.
 
 VPS는 먼저 beta/staging 모드로 공개 가입을 받고, 계정·여행·사진을 지우지 않은 채 production으로 전환한다. 같은 2GB VPS에서 staging과 production을 동시에 상시 실행하지 않는다. 베타 시작 전부터 production 수준 약관·처리방침·백업·신고 운영을 갖추고, 전환 직전 전체 snapshot의 실제 복원을 확인한다.
 
 GitHub의 `main`은 직접 push하지 못하게 보호하고 pull request의 필수 CI가 통과한 뒤에만 merge한다. merge되면 자동 배포하되 schema 변경 배포는 직전 DB snapshot이 성공해야 하며, health/smoke test가 실패하면 이전 image로 자동 복귀한다. DB 변경은 기존 버전과 함께 동작하는 expand-contract 방식으로 나눈다.
 
-모든 PR에서 앱 typecheck·lint·unit test와 server Gradle·Testcontainers test를 실행한다. EAS iOS/Android build는 일반 PR에서 제외하고 release candidate에서만 병행한다. Dependabot은 매주 생태계별 묶음 PR을 만들지만 자동 merge하지 않으며 CI와 호환성 확인 후 직접 병합한다.
+모든 PR에서 앱 typecheck·lint·unit test와 서버 pytest·PostgreSQL 컨테이너 DB test를 실행한다. EAS iOS/Android build는 일반 PR에서 제외하고 release candidate에서만 병행한다. Dependabot은 매주 생태계별 묶음 PR을 만들지만 자동 merge하지 않으며 CI와 호환성 확인 후 직접 병합한다.
 
 초기 1인 개발에서는 다른 사람의 PR 승인을 요구하지 않고 필수 CI를 통과한 PR만 squash merge한다. production 배포는 한 번에 하나만 실행하며 최신 대기 배포만 보존한다. 장애 rollback은 server image만 되돌리고 DB down migration은 사용하지 않는다.
 
@@ -404,11 +416,19 @@ GitHub의 `main`은 직접 push하지 못하게 보호하고 pull request의 필
 현재 예정 사양:
 
 ```text
-CPU 3 Core
-RAM 2GB
-SSD 100GB
-트래픽 무제한
+업체     iwinv
+리전     한국(구매 화면에서 실제 데이터센터 국가 확인 후 확정)
+CPU      2 vCPU
+RAM      2GB
+디스크   NVMe 50GB
+트래픽   일 20GB(월 600GB), 초과분은 구간 요금
+요금     월 13,100원(일 490원)
+OS       Ubuntu 24.04 LTS
 ```
+
+결제 전에 [06-vps-deployment.md](./06-vps-deployment.md) 1장의 `구매 전 확인 목록`을 하나씩 확인한다. 하나라도 확인되지 않으면 결제하지 않는다.
+
+디스크 50GB가 하드 월은 아니다. iwinv는 SATA block storage를 10GB당 월 390원(최대 20TB)으로 붙일 수 있으므로 사진이 늘면 증설을 검토할 수 있다.
 
 준비할 항목:
 
@@ -422,20 +442,20 @@ SSD 100GB
 - 로그 rotation과 2GB 비상 swap
 - 상태 확인 endpoint와 용량 경고
 
-외부에는 80/443만 기본 공개하고 PostgreSQL 5432, Spring Boot 8080과 Actuator 상세 endpoint는 공개하지 않는다. SSH 22는 관리자 IP 제한을 권장한다.
+외부에는 80/443만 기본 공개하고 PostgreSQL 5432, API 8000과 FastAPI 자동 생성 문서 경로(`/docs`, `/redoc`, `/openapi.json`)는 공개하지 않는다. SSH 22는 관리자 IP 제한을 권장한다.
 
-서버 OS는 Ubuntu 24.04 LTS로 고정한다. Nginx·Spring Boot·PostgreSQL은 하나의 Docker Compose project로 실행하되 private network로 분리한다. 외부 요청은 Nginx 80/443만 받고 API 8080과 DB 5432는 host에 publish하지 않는다. PostgreSQL data는 container 삭제와 무관한 VPS private volume에 보존하며 초기에는 외부 DB 서비스를 구매하지 않는다.
+서버 OS는 Ubuntu 24.04 LTS로 고정한다. Nginx·FastAPI·PostgreSQL은 하나의 Docker Compose project로 실행하되 private network로 분리한다. 외부 요청은 Nginx 80/443만 받고 API 8000과 DB 5432는 host에 publish하지 않는다. PostgreSQL data는 container 삭제와 무관한 VPS private volume에 보존하며 초기에는 외부 DB 서비스를 구매하지 않는다.
 
 ## 13. 도메인과 공개 페이지
 
-기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 가비아에서 구매하고 가비아 DNS를 사용하기로 결정했다. 현재 상태는 등록·DNS 연결 대기다. Cloudflare와 별도 DNS proxy는 사용하지 않는다.
+기존 개인 도메인을 재사용하지 않고 Daymo 전용 `daymo.xyz`를 가비아에서 구매하고 가비아 DNS를 사용하기로 결정했다. 현재 상태는 등록·DNS 연결 대기다. VPS 단계에서는 Cloudflare와 별도 DNS proxy를 사용하지 않는다. 미니PC로 옮긴 뒤에는 가정 회선의 인바운드 차단과 유동 IP 때문에 A record를 걸 수 없어 Cloudflare Tunnel을 사용한다([06-vps-deployment.md](./06-vps-deployment.md) 11장).
 
 예시:
 
 ```text
 daymo.xyz              Vercel 소개·약관·처리방침·계정 삭제 안내
 www.daymo.xyz          daymo.xyz로 redirect
-api.daymo.xyz          가비아 A record → ConoHa 운영 API
+api.daymo.xyz          가비아 A record → iwinv VPS 운영 API
 staging-api.daymo.xyz  beta 기간 같은 VPS의 beta API, production 전환 후 제거 가능
 ```
 
@@ -459,7 +479,7 @@ Vercel project에는 apex와 `www`만 연결하고 API·사진 요청은 보내�
 
 - 환경과 앱 식별자 고정
 - 라우팅과 기능 파일 분리
-- Spring Boot, PostgreSQL과 Flyway
+- FastAPI, PostgreSQL과 Alembic
 - 인증·세션·공간 권한
 - 여행 생성과 홈
 - SQLite 캐시·오프라인 읽기·동기화
@@ -502,6 +522,6 @@ Vercel project에는 apex와 `www`만 연결하고 API·사진 요청은 보내�
 1. 앱 식별자 `com.hwangslater.daymo` 확정 완료
 2. Node 24 LTS 확정, 기능 개발 전 Expo 최신 안정 SDK 업그레이드 검증 완료(SDK 57)
 3. 첫 알파 공개 회원가입 확정, 공간은 초대 멤버 전용
-4. 사진 저장은 ConoHa VPS 디스크, 초기 상한은 30GB로 확정
+4. 사진 저장은 iwinv VPS에 붙인 SATA Block 30GB, 상한은 30GB로 확정
 5. 외부 백업은 Google Drive로 시작
 6. Google Drive 백업은 기존 Daymo 전용 계정 사용으로 확정

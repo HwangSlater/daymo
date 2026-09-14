@@ -572,7 +572,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 1. 앱에서 권한 확인, 선택/촬영, 원본 checksum·크기·MIME 확인
 2. `photo-uploads`에서 최대 크기·MIME·checksum과 임시 upload ID 확정; 같은 여행의 동일 checksum은 `duplicateCandidate`로 알리되 업로드를 막지 않음
-3. `content` 요청 body를 JVM 메모리에 적재하지 않고 임시 파일로 stream 저장
+3. `content` 요청 body를 서버 메모리에 적재하지 않고 임시 파일로 stream 저장
 4. `complete`에 크기, MIME, 촬영일과 연결 대상을 전달
 5. 서버가 실제 signature·checksum을 검증한 뒤 private volume으로 원자 이동하고 Photo 생성
 6. EXIF 촬영일을 `takenAt`으로 추출하고 방향을 보정한 뒤 긴 변 1440px JPEG 표시본과 480px JPEG 썸네일 생성; 파생본의 GPS·기기 EXIF 제거, 작업 동시 실행 수 1로 제한
@@ -590,7 +590,7 @@ HEIC·HEIF 등 지원하는 기기 원본은 원래 byte와 MIME으로 private s
 
 저장 공간 관리 화면은 전체 사용량, 남은 용량, 여행별 사용량과 큰 사진 순서를 보여준다. 일반 멤버는 본인이 올린 사진만 정리할 수 있고 owner는 공간 전체 사진을 관리할 수 있다. 서버 전체 30GB 한도 접근은 운영 경고 대상이며 사용자의 기존 사진을 임의로 지우지 않고 신규 업로드 제한과 용량 증설·이관으로 대응한다.
 
-다운로드는 파일 시스템 경로를 공개하지 않는다. Spring Security가 사용자의 공간 membership을 확인한 뒤 Nginx `X-Accel-Redirect` 또는 제한된 내부 경로로 파일을 전달한다. Range 요청과 적절한 private cache header를 지원한다.
+다운로드는 파일 시스템 경로를 공개하지 않는다. API가 사용자의 공간 membership을 확인한 뒤 Nginx `X-Accel-Redirect` 또는 제한된 내부 경로로 파일을 전달한다. Range 요청과 적절한 private cache header를 지원한다.
 
 ## 11. 통합 검색과 실시간 이벤트
 
