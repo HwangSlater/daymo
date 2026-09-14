@@ -6,9 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
     Membership,
     MembershipRole,
+    Place,
+    PlaceProvider,
     Space,
     Trip,
     TripParticipant,
+    TripPlace,
     User,
 )
 
@@ -73,3 +76,23 @@ async def 공간과_멤버_하나(db: AsyncSession) -> tuple[Space, Membership]:
     space = await 공간을_넣는다(db, owner)
     membership = await 멤버를_넣는다(db, space, owner, MembershipRole.OWNER)
     return space, membership
+
+
+async def 장소를_넣는다(
+    db: AsyncSession,
+    *,
+    이름: str = "소나기식당",
+    제공자: PlaceProvider = PlaceProvider.MANUAL,
+    제공자_장소_id: str | None = None,
+) -> Place:
+    place = Place(name=이름, provider=제공자, provider_place_id=제공자_장소_id)
+    db.add(place)
+    await db.flush()
+    return place
+
+
+async def 여행_장소를_넣는다(db: AsyncSession, trip: Trip, place: Place, **값) -> TripPlace:
+    trip_place = TripPlace(trip_id=trip.id, place_id=place.id, **값)
+    db.add(trip_place)
+    await db.flush()
+    return trip_place

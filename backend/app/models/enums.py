@@ -37,6 +37,64 @@ class TripStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class PlaceProvider(StrEnum):
+    """
+    장소 정보를 어디서 가져왔는지.
+
+    문서는 `provider` 라고만 적고 값을 열거하지 않는다. 지금 코드가 읽는
+    것은 네이버뿐이고(`mobile/src/naverPlaceResolver.ts`) 요구사항에 카카오가
+    함께 있어서 둘을 넣었다. 손으로 적은 장소는 `manual` 이다.
+    """
+
+    NAVER = "naver"
+    KAKAO = "kakao"
+    MANUAL = "manual"
+
+
+class TripPlaceStatus(StrEnum):
+    """
+    여행 안에서 그 장소가 어디까지 왔는지.
+
+    앱 화면은 아직 `후보`·`일정` 둘만 쓴다. `visited` 는 문서에 있고 화면이
+    아직 따라오지 않은 값이다.
+    """
+
+    SAVED = "saved"
+    SCHEDULED = "scheduled"
+    VISITED = "visited"
+
+
+class TagScope(StrEnum):
+    """태그가 어디에 붙는 것인지. 같은 이름이라도 쓰임이 다르면 다른 태그다."""
+
+    PLACE = "place"
+    PACKING = "packing"
+    INGREDIENT = "ingredient"
+
+
+class LinkProvider(StrEnum):
+    NAVER_MAP = "naver_map"
+    KAKAO_MAP = "kakao_map"
+    YOUTUBE = "youtube"
+    BOOKING = "booking"
+    OTHER = "other"
+
+
+class LinkTargetType(StrEnum):
+    """
+    바깥 링크가 무엇에 붙는지.
+
+    문서는 `external_links.target_type` 의 값을 열거하지 않는다.
+    `photo_links` 가 쓰는 말(`trip`·`day`·`place`·`schedule`·`stay`)을 그대로
+    따랐다. 새 대상이 생기면 여기에 더한다.
+    """
+
+    TRIP = "trip"
+    PLACE = "place"
+    SCHEDULE = "schedule"
+    STAY = "stay"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.
