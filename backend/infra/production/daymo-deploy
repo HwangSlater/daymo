@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly APP_DIR=/srv/daymo/current
+readonly ENV_FILE=/etc/daymo/secrets/runtime.env
+readonly COMPOSE_FILE="$APP_DIR/backend/infra/production/compose.yml"
+
+if [[ ! -r "$ENV_FILE" ]]; then
+  echo "missing $ENV_FILE" >&2
+  exit 1
+fi
+
+cd "$APP_DIR"
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" config --quiet
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build api
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm api alembic upgrade head
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --remove-orphans
+
+for attempt in {1..30}; do
+  if curl --fail --silent --show-error http://127.0.0.1/health >/dev/null; then
+    docker image prune --force --filter 'until=168h' >/dev/null
+    exit 0
+  fi
+  sleep 2
+done
+
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" logs --tail=100 api nginx
+exit 1
