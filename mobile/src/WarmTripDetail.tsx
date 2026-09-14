@@ -4,6 +4,7 @@ import { useSheetDrag } from "./sheetDrag";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
+import { NaverMapLink } from "./NaverMapLink";
 import { ParticipantPicker } from "./ParticipantPicker";
 import {
   CURRENCIES,
@@ -54,7 +55,7 @@ import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { memoPaper, naverInk, onAccent, status as statusColor } from "./theme/colors";
+import { memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
@@ -3246,14 +3247,23 @@ function Places({
               </View>
             </View>
             <View style={styles.placeMiniActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={place.mapUrl ? `${place.name} 네이버 지도에서 보기` : `${place.name} 지도 링크 넣기`}
-                onPress={(event) => { event.stopPropagation(); if (place.mapUrl) void Linking.openURL(place.mapUrl); else openEdit(place); }}
-                style={[styles.placeMiniMapButton, { backgroundColor: place.mapUrl ? (theme?.dark ? "#16352C" : "#E6F5ED") : theme?.surfaceAlt }]}
-              >
-                <Text style={[styles.placeMiniMapText, { color: place.mapUrl ? naverInk(Boolean(theme?.dark)) : theme?.muted }]}>{place.mapUrl ? "지도" : "＋ 링크"}</Text>
-              </Pressable>
+              {place.mapUrl ? (
+                <NaverMapLink
+                  theme={theme}
+                  url={place.mapUrl}
+                  compact
+                  accessibilityLabel={`${place.name} 네이버 지도에서 보기`}
+                />
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${place.name} 지도 링크 넣기`}
+                  onPress={(event) => { event.stopPropagation(); openEdit(place); }}
+                  style={[styles.placeMiniMapButton, theme && { backgroundColor: theme.surfaceAlt }]}
+                >
+                  <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>＋ 링크</Text>
+                </Pressable>
+              )}
               {settled ? null : place.category === "숙소" ? (
                 <Pressable
                   onPress={(event) => { event.stopPropagation(); onRegisterStay(place); }}
@@ -8404,23 +8414,14 @@ function Moment({
           {note}
         </Text>
         {mapUrl ? (
-          <Pressable
-            onPress={() => Linking.openURL(mapUrl)}
-            hitSlop={10}
-            accessibilityRole="link"
-            accessibilityLabel={`${title} 네이버 지도에서 보기`}
-            style={[
-              styles.mapLink,
-              compact && styles.travelMapLinkCompact,
-              theme && { backgroundColor: theme.surfaceAlt },
-            ]}
-          >
-            <View style={styles.mapLinkIcon}>
-              <Text style={styles.mapLinkIconText}>N</Text>
-            </View>
-            <Text style={[styles.mapLinkText, { color: naverInk(Boolean(theme?.dark)) }]}>{compact ? "지도" : "네이버 지도"}</Text>
-            {!compact && <Text style={[styles.mapLinkArrow, { color: naverInk(Boolean(theme?.dark)) }]}>↗</Text>}
-          </Pressable>
+          <View style={styles.mapLinkRow}>
+            <NaverMapLink
+              theme={theme}
+              url={mapUrl}
+              compact={compact}
+              accessibilityLabel={`${title} 네이버 지도에서 보기`}
+            />
+          </View>
         ) : null}
       </View>
     </Pressable>
@@ -9984,28 +9985,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   linkState: { color: "#278153", fontSize: 14, fontFamily: typo.label.family, marginTop: 8 },
-  mapLink: {
-    alignSelf: "flex-start",
-    height: 25,
-    borderRadius: 8,
-    backgroundColor: "#E6F5ED",
-    paddingHorizontal: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-  },
-  mapLinkIcon: {
-    width: 15,
-    height: 15,
-    borderRadius: 4,
-    backgroundColor: "#03C75A",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 4,
-  },
-  mapLinkIconText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
-  mapLinkText: { fontSize: 14, fontFamily: typo.label.family },
-  mapLinkArrow: { fontSize: 14, marginLeft: 4 },
+  mapLinkRow: { marginTop: 6 },
   placeFilterText: { color: "#7C8390", fontSize: 12, fontFamily: typo.label.family },
   placeFilterTextActive: { color: "#FFFFFF" },
   placeAddText: { fontSize: 12, fontFamily: typo.label.family },

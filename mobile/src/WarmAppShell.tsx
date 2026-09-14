@@ -30,6 +30,7 @@ import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
+import { NaverMapLink } from "./NaverMapLink";
 import { ParticipantPicker } from "./ParticipantPicker";
 import { formatTripRange, TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
@@ -52,7 +53,7 @@ import {
 import { Text, TextInput } from "./AppText";
 import { Dot, Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { domain, kindColor, naverInk, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
+import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = { name: string; email: string };
@@ -2847,14 +2848,12 @@ function Search({
               >
                 <Text style={[s.searchResultActionText, { color: theme.primary }]}>일정 추가</Text>
               </Pressable>
-              <Pressable
-                onPress={() => Linking.openURL(`https://map.naver.com/p/search/${encodeURIComponent(item.title)}`)}
-                accessibilityRole="link"
+              <NaverMapLink
+                theme={theme}
+                url={`https://map.naver.com/p/search/${encodeURIComponent(item.title)}`}
+                shape="inline"
                 accessibilityLabel={`${item.title} 네이버 지도에서 보기`}
-                style={s.searchResultAction}
-              >
-                <Text style={[s.searchResultActionText, { color: naverInk(theme.dark) }]}>네이버 지도</Text>
-              </Pressable>
+              />
             </View>
           )}
         </View>
