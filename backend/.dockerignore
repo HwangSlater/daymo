@@ -1,5 +1,9 @@
 .env
 .git
+.DS_Store
+._*
+**/.DS_Store
+**/._*
 .pytest_cache
 .ruff_cache
 .venv

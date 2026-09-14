@@ -1,30 +1,112 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly APP_DIR=/srv/daymo/current
+readonly APP_ROOT=/srv/daymo
+readonly APP_DIR="$APP_ROOT/current"
+readonly RELEASES_DIR="$APP_ROOT/releases"
+readonly RELEASE_ARCHIVE=/home/daymo-deploy/release.tar.gz
 readonly ENV_FILE=/etc/daymo/secrets/runtime.env
-readonly COMPOSE_FILE="$APP_DIR/backend/infra/production/compose.yml"
+readonly BACKUP_DIR="$APP_ROOT/backup-staging"
+readonly IMAGE=daymo-api:local
+readonly ROLLBACK_IMAGE=daymo-api:rollback
+previous_dir=""
+
+compose() {
+  docker compose --env-file "$ENV_FILE" -f "$APP_DIR/backend/infra/production/compose.yml" "$@"
+}
+
+rollback() {
+  echo "deployment health check failed; restoring the previous API image" >&2
+  if [[ -n "$previous_dir" && -d "$previous_dir" ]]; then
+    ln -sfn "$previous_dir" "$APP_DIR"
+  fi
+  if docker image inspect "$ROLLBACK_IMAGE" >/dev/null 2>&1; then
+    docker tag "$ROLLBACK_IMAGE" "$IMAGE"
+    compose up -d --no-build --force-recreate api nginx || true
+  fi
+  compose ps || true
+  compose logs --tail=100 api nginx || true
+}
 
 if [[ ! -r "$ENV_FILE" ]]; then
   echo "missing $ENV_FILE" >&2
   exit 1
 fi
 
-cd "$APP_DIR"
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" config --quiet
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build api
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d postgres
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm api alembic upgrade head
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --remove-orphans
+if [[ ! -f "$RELEASE_ARCHIVE" || -L "$RELEASE_ARCHIVE" ]]; then
+  echo "missing release archive" >&2
+  exit 1
+fi
+
+if find "$RELEASE_ARCHIVE" -maxdepth 0 ! -user daymo-deploy -print -quit | grep -q .; then
+  echo "release archive has an unexpected owner" >&2
+  exit 1
+fi
+
+if tar -tzf "$RELEASE_ARCHIVE" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+  echo "release archive contains an unsafe path" >&2
+  exit 1
+fi
+
+release_id="$(date -u +%Y%m%dT%H%M%SZ)"
+release_dir="$RELEASES_DIR/$release_id"
+mkdir -p "$release_dir" "$BACKUP_DIR"
+tar --extract --gzip --file "$RELEASE_ARCHIVE" \
+  --directory "$release_dir" --no-same-owner --no-same-permissions
+find "$release_dir" -type f \( -name '._*' -o -name '.DS_Store' \) -delete
+
+for required in \
+  backend/Dockerfile \
+  backend/pyproject.toml \
+  backend/uv.lock \
+  backend/alembic.ini \
+  backend/infra/production/compose.yml \
+  backend/infra/production/nginx.conf; do
+  if [[ ! -f "$release_dir/$required" ]]; then
+    echo "release is missing $required" >&2
+    rm -rf "$release_dir"
+    exit 1
+  fi
+done
+
+docker compose --env-file "$ENV_FILE" \
+  -f "$release_dir/backend/infra/production/compose.yml" config --quiet
+
+if [[ -d "$APP_DIR" && ! -L "$APP_DIR" ]]; then
+  previous_dir="$RELEASES_DIR/bootstrap-$release_id"
+  mv "$APP_DIR" "$previous_dir"
+elif [[ -L "$APP_DIR" ]]; then
+  previous_dir="$(readlink -f "$APP_DIR")"
+fi
+ln -sfn "$release_dir" "$APP_DIR"
+
+compose config --quiet
+compose up -d postgres
+
+backup_file="$BACKUP_DIR/pre-deploy-$release_id.sql.gz"
+compose exec -T postgres sh -c \
+  'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump --format=custom --username="$POSTGRES_USER" "$POSTGRES_DB"' \
+  | gzip -1 >"$backup_file"
+test -s "$backup_file"
+
+if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  docker tag "$IMAGE" "$ROLLBACK_IMAGE"
+fi
+
+compose build api
+compose run --rm api alembic upgrade head
+compose up -d --remove-orphans
 
 for attempt in {1..30}; do
-  if curl --fail --silent --show-error http://127.0.0.1/health >/dev/null; then
+  if curl --fail --silent --show-error https://api.daymo.xyz/v1/health >/dev/null; then
+    rm -f "$RELEASE_ARCHIVE"
+    find "$BACKUP_DIR" -maxdepth 1 -type f -name 'pre-deploy-*.sql.gz' -mtime +7 -delete
+    find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -mtime +14 -exec rm -rf {} +
     docker image prune --force --filter 'until=168h' >/dev/null
     exit 0
   fi
   sleep 2
 done
 
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" logs --tail=100 api nginx
+rollback
 exit 1
