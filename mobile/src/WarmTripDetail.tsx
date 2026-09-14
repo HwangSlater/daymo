@@ -231,7 +231,8 @@ const initialPlaces: PlaceItem[] = [
 
 export type Transportation = {
   id: string;
-  owner: "하늘" | "여울";
+  /** 이 편을 타는 사람. 이번 여행 참가자 가운데 하나다. */
+  owner: string;
   direction: "가는 편" | "오는 편";
   method: "KTX" | "SRT" | "버스" | "항공" | "기타";
   date: string;
@@ -329,18 +330,35 @@ type PackingItem = {
   id: string;
   name: string;
   quantity: string;
-  owner: "함께" | "나" | "동행" | "미정";
+  /** 챙길 사람 이름, 또는 둘 중 하나가 아닌 `공용`·`미정`. */
+  owner: string;
   tags: string[];
 };
 
-const packingOwnerName = (owner: PackingItem["owner"]) =>
-  owner === "나"
-    ? "하늘"
-    : owner === "동행"
-      ? "여울"
-      : owner === "함께"
-        ? "공용"
-        : "미정";
+/** 아무의 것도 아닌 담당. 참가자 목록 뒤에 늘 붙는다. */
+const PACKING_SHARED = "공용";
+const PACKING_UNASSIGNED = "미정";
+
+/**
+ * 옛 저장 데이터의 담당을 이름으로 옮긴다.
+ *
+ * 예전에는 사람이 둘로 박혀 있어서 담당이 `나`·`동행`·`함께` 였다. 여행마다
+ * 가는 사람이 다르니 이제는 이름을 그대로 담는다. 자리로 적힌 옛 값은 참가자
+ * 목록의 첫째와 둘째로 본다.
+ */
+const normalizePackingOwner = (owner: string, participants: string[]) => {
+  if (owner === "나") return participants[0] ?? PACKING_UNASSIGNED;
+  if (owner === "동행") return participants[1] ?? PACKING_UNASSIGNED;
+  if (owner === "함께") return PACKING_SHARED;
+  return owner;
+};
+
+/** 담당으로 고를 수 있는 것들. 참가자 전원 뒤에 공용과 미정을 둔다. */
+const packingOwnerOptions = (participants: string[]) => [
+  ...participants,
+  PACKING_SHARED,
+  PACKING_UNASSIGNED,
+];
 
 const packingTags = (item: PackingItem) => {
   const legacy = item as PackingItem & {
@@ -626,11 +644,32 @@ export function WarmTripDetail({
   ]);
   const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
-  const [packingItems, setPackingItems] = useState<PackingItem[]>(initialPlanning?.packingItems ?? packing);
+  // 준비물 담당과 요리 재료 담당, 교통편 이용자, 지출의 몫이 모두 이 목록을 쓴다.
+  // 한 군데서만 정하지 않으면 같은 여행 안에서 사람 목록이 서로 어긋난다.
+  const [participants, setParticipants] = useState<Participant[]>(
+    initialPlanning?.participants ?? spaceMembers,
+  );
+  // 예시 데이터에 적힌 하늘과 여울 자리. 이 여행에 실제로 가는 사람으로 바꾼다.
+  const sampleFirst = participants[0] ?? "";
+  const sampleSecond = participants[1] ?? participants[0] ?? "";
+  const [packingItems, setPackingItems] = useState<PackingItem[]>(() =>
+    (initialPlanning?.packingItems ?? packing).map((item) => ({
+      ...item,
+      owner: normalizePackingOwner(item.owner, initialPlanning?.participants ?? spaceMembers),
+    })),
+  );
   const [packingDone, setPackingDone] = useState<string[]>(initialPlanning?.packingDone ?? done);
   const togglePacking = (item: string) =>
     setPackingDone((items) => items.includes(item) ? items.filter((value) => value !== item) : [...items, item]);
-  const [recipes, setRecipes] = useState<Recipe[]>(initialPlanning?.recipes ?? initialRecipes);
+  const [recipes, setRecipes] = useState<Recipe[]>(() =>
+    initialPlanning?.recipes ?? initialRecipes.map((recipe) => ({
+      ...recipe,
+      ingredients: recipe.ingredients.map((item) => ({
+        ...item,
+        owner: item.owner === "하늘" ? sampleFirst : item.owner === "여울" ? sampleSecond : item.owner,
+      })),
+    })),
+  );
   const [cookingReadyIngredientIds, setCookingReadyIngredientIds] = useState<string[]>(
     initialPlanning?.cookingReadyIngredientIds ?? [],
   );
@@ -640,9 +679,6 @@ export function WarmTripDetail({
     (initialPlanning?.expenses ?? []).map(normalizeExpense),
   );
   const [budget, setBudget] = useState(initialPlanning?.budget ?? 500000);
-  const [participants, setParticipants] = useState<Participant[]>(
-    initialPlanning?.participants ?? spaceMembers,
-  );
   const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
   const [exchangeRate, setExchangeRate] = useState(initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
@@ -683,13 +719,35 @@ export function WarmTripDetail({
           : []
     ),
   );
+  // 예시 교통편은 이름을 박아 둘 수 없다. 공간마다 가는 사람이 다르니 참가자
+  // 첫째와 둘째로 만든다. 저장해 둔 여행은 적힌 이름을 그대로 쓴다.
   const [transportations, setTransportations] = useState<Transportation[]>(() =>
     initialPlanning?.transportations ?? [
-      { id: "sky-out", owner: "하늘", direction: "가는 편", method: "KTX", date: tripDayOptions[0], departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료", showInSchedule: false },
-      { id: "sky-back", owner: "하늘", direction: "오는 편", method: "KTX", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료", showInSchedule: false },
-      { id: "yeoul-out", owner: "여울", direction: "가는 편", method: "버스", date: tripDayOptions[0], departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료", showInSchedule: false },
-      { id: "yeoul-back", owner: "여울", direction: "오는 편", method: "버스", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료", showInSchedule: false },
+      { id: "sky-out", owner: sampleFirst, direction: "가는 편", method: "KTX", date: tripDayOptions[0], departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료", showInSchedule: false },
+      { id: "sky-back", owner: sampleFirst, direction: "오는 편", method: "KTX", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료", showInSchedule: false },
+      { id: "yeoul-out", owner: sampleSecond, direction: "가는 편", method: "버스", date: tripDayOptions[0], departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료", showInSchedule: false },
+      { id: "yeoul-back", owner: sampleSecond, direction: "오는 편", method: "버스", date: tripDayOptions[tripDayOptions.length - 1], departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료", showInSchedule: false },
     ],
+  );
+  // 참가자에서 사람을 뺄 때, 그 이름으로 적어 둔 게 뭐가 있는지 한 줄로 적는다.
+  // 담당은 이름으로 묶여 있어서 빼고 나면 어디에 남았는지 찾기 어렵다.
+  const assignedSummary = useCallback(
+    (person: string) => {
+      const parts: string[] = [];
+      const spent = expenses.filter((item) => item.payer === person).length;
+      const packed = packingItems.filter((item) => item.owner === person).length;
+      const cooked = recipes.reduce(
+        (sum, recipe) => sum + recipe.ingredients.filter((item) => item.owner === person).length,
+        0,
+      );
+      const rides = transportations.filter((item) => item.owner === person).length;
+      if (spent) parts.push(`지출 ${spent}건`);
+      if (packed) parts.push(`준비물 ${packed}개`);
+      if (cooked) parts.push(`재료 ${cooked}개`);
+      if (rides) parts.push(`교통편 ${rides}편`);
+      return parts.join(" · ");
+    },
+    [expenses, packingItems, recipes, transportations],
   );
   const [schedule, setSchedule] = useState<ScheduleItem[]>(() =>
     initialPlanning?.schedule ?? [
@@ -1011,6 +1069,7 @@ export function WarmTripDetail({
               setReservations={setReservations}
               transportations={transportations}
               setTransportations={setTransportations}
+              participants={participants}
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
               openScheduleOnMount={initialDestination === "schedule-add"}
@@ -1047,6 +1106,7 @@ export function WarmTripDetail({
             <Preparation
               done={packingDone}
               toggle={togglePacking}
+              participants={participants}
               items={packingItems}
               setItems={setPackingItems}
               recipes={recipes}
@@ -1061,6 +1121,7 @@ export function WarmTripDetail({
               readyIngredientIds={cookingReadyIngredientIds}
               setReadyIngredientIds={setCookingReadyIngredientIds}
               currency={currency}
+              participants={participants}
               onRecordShopping={(title, amount) => {
                 setExpenses((current) => [
                   ...current,
@@ -1091,6 +1152,7 @@ export function WarmTripDetail({
               setExpenses={setExpenses}
               budget={budget}
               setBudget={setBudget}
+              assignedSummary={assignedSummary}
               participants={participants}
               setParticipants={setParticipants}
               spaceMembers={spaceMembers}
@@ -1381,6 +1443,7 @@ function TripOverview({
   setReservations,
   transportations,
   setTransportations,
+  participants,
   dayOptions,
   dateOptions,
   openScheduleOnMount,
@@ -1397,6 +1460,8 @@ function TripOverview({
   setReservations: React.Dispatch<React.SetStateAction<ReservationInfo[]>>;
   transportations: Transportation[];
   setTransportations: React.Dispatch<React.SetStateAction<Transportation[]>>;
+  /** 이번 여행에 가는 사람. 교통편 이용자를 여기서 고른다. */
+  participants: string[];
   dayOptions: string[];
   dateOptions: string[];
   openScheduleOnMount?: boolean;
@@ -1422,7 +1487,7 @@ function TripOverview({
   const [selectedPlanPlaceId, setSelectedPlanPlaceId] = useState<string | null>(null);
   const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
-  const [transportOwner, setTransportOwner] = useState<Transportation["owner"]>("하늘");
+  const [transportOwner, setTransportOwner] = useState(participants[0] ?? "");
   const [transportDirection, setTransportDirection] = useState<Transportation["direction"]>("가는 편");
   const [transportMethod, setTransportMethod] = useState<Transportation["method"]>("KTX");
   const [transportDate, setTransportDate] = useState(firstDay);
@@ -1785,9 +1850,22 @@ function TripOverview({
       notify("오는 편을 저장했어요");
     }
   };
+  // 교통편 카드는 사람마다 한 장이다. 참가자에서 빠진 사람이 예매해 둔 편도
+  // 사라지면 안 되니, 실제로 적힌 이용자를 뒤에 붙인다.
+  const transportOwners = useMemo(() => {
+    const extra = transportations
+      .map((item) => item.owner)
+      .filter((owner) => owner && !participants.includes(owner));
+    return [...participants, ...new Set(extra)];
+  }, [participants, transportations]);
+  const transportColors = [
+    theme?.secondary ?? "#55BFB4",
+    theme?.accent ?? "#8B7CF6",
+    theme?.primary ?? "#3F4C8F",
+  ];
   const openTransportCreate = () => {
     const nextDraft = {
-      owner: "하늘" as const,
+      owner: participants[0] ?? "",
       direction: "가는 편" as const,
       method: "KTX" as const,
       date: firstDay,
@@ -1839,7 +1917,7 @@ function TripOverview({
     setTransportArrivalTime(item.arrivalTime === "시간 미정" ? "" : item.arrivalTime);
     setTransportStatus(item.status);
     setTransportShowInSchedule(item.showInSchedule);
-    setTransportDetailsOpen(item.owner !== "하늘" || item.status !== "예매 완료" || !item.showInSchedule);
+    setTransportDetailsOpen(item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule);
     setSheet("transport");
   };
   const deleteTransportation = () => {
@@ -2034,7 +2112,7 @@ function TripOverview({
         onPress={openTransportCreate}
       />
       <View style={styles.transportGrid}>
-        {(["하늘", "여울"] as const).map((owner, index) => {
+        {transportOwners.map((owner, index) => {
           const outbound = transportations.find((item) => item.owner === owner && item.direction === "가는 편");
           const inbound = transportations.find((item) => item.owner === owner && item.direction === "오는 편");
           if (!outbound && !inbound) return null;
@@ -2044,7 +2122,7 @@ function TripOverview({
               owner={owner}
               outbound={outbound}
               inbound={inbound}
-              color={[theme?.secondary ?? "#55BFB4", theme?.accent ?? "#8B7CF6"][index]}
+              color={transportColors[index % transportColors.length]}
               onPress={() => setSelectedTransport(outbound ?? inbound ?? null)}
             />
           );
@@ -2321,7 +2399,7 @@ function TripOverview({
           open={transportDetailsOpen}
           onToggle={() => setTransportDetailsOpen((current) => !current)}
         >
-          <OptionField label="이용자" options={["하늘", "여울"]} value={transportOwner} onChange={(value) => setTransportOwner(value as Transportation["owner"])} />
+          <OptionField label="이용자" options={transportOwners} value={transportOwner} onChange={setTransportOwner} />
           <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
           <OptionField
             label="여행 일정 표시"
@@ -3290,6 +3368,7 @@ function Places({
 function Preparation({
   done,
   toggle,
+  participants,
   items,
   setItems,
   recipes,
@@ -3298,6 +3377,8 @@ function Preparation({
 }: {
   done: string[];
   toggle: (item: string) => void;
+  /** 이번 여행에 가는 사람. 담당으로 고를 수 있는 이름이 여기서 온다. */
+  participants: string[];
   items: PackingItem[];
   setItems: React.Dispatch<React.SetStateAction<PackingItem[]>>;
   recipes: Recipe[];
@@ -3310,18 +3391,13 @@ function Preparation({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [names, setNames] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [owner, setOwner] = useState<PackingItem["owner"]>("미정");
+  const [owner, setOwner] = useState(PACKING_UNASSIGNED);
   const [tagText, setTagText] = useState("");
   const [filter, setFilter] = useState<"전체" | "남은 준비" | "완료">("남은 준비");
-  const [ownerFilter, setOwnerFilter] = useState<"전체" | PackingItem["owner"]>(
-    "전체",
-  );
+  const [ownerFilter, setOwnerFilter] = useState("전체");
   const [tagFilter, setTagFilter] = useState("전체 태그");
   const [tagPicker, setTagPicker] = useState(false);
   const [packingFiltersOpen, setPackingFiltersOpen] = useState(false);
-  const [collapsedOwners, setCollapsedOwners] = useState<
-    PackingItem["owner"][]
-  >(["동행", "함께", "미정"]);
   const [assigningItem, setAssigningItem] = useState<PackingItem | null>(null);
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
@@ -3361,7 +3437,14 @@ function Preparation({
       tagFilter === "전체 태그" || packingTags(item).includes(tagFilter);
     return matchesFilter && matchesOwner && matchesTag;
   });
-  const ownerSections: PackingItem["owner"][] = ["나", "동행", "함께", "미정"];
+  // 참가자가 바뀌어도 그 사람 이름으로 적어 둔 준비물이 걸러지지 않으면 안 되니,
+  // 목록에 실제로 적힌 담당을 뒤에 붙인다.
+  const ownerSections = useMemo(() => {
+    const known = packingOwnerOptions(participants);
+    const extra = Array.from(new Set(items.map((item) => item.owner)))
+      .filter((owner) => owner && !known.includes(owner));
+    return [...known, ...extra];
+  }, [items, participants]);
   const managementTags = useMemo(
     () => [
       "전체 태그",
@@ -3414,26 +3497,18 @@ function Preparation({
   const completedGroups = groupByPrimaryTag(
     visibleItems.filter((item) => done.includes(item.id)),
   );
-  const countForOwner = (target: "전체" | PackingItem["owner"]) =>
+  const countForOwner = (target: string) =>
     items.filter((item) => {
       const matchesOwner = target === "전체" || item.owner === target;
       const matchesStatus = filter === "전체" || (filter === "완료" ? done.includes(item.id) : !done.includes(item.id));
       const matchesTag = tagFilter === "전체 태그" || packingTags(item).includes(tagFilter);
       return matchesOwner && matchesStatus && matchesTag;
     }).length;
-  const selectOwnerFilter = (nextOwner: "전체" | PackingItem["owner"]) => {
-    setOwnerFilter(nextOwner);
-    if (nextOwner !== "전체") {
-      setCollapsedOwners((current) =>
-        current.filter((ownerName) => ownerName !== nextOwner),
-      );
-    }
-  };
   const openPackingCreate = () => {
     setEditingId(null);
     setNames("");
     setQuantity("");
-    setOwner("미정");
+    setOwner(PACKING_UNASSIGNED);
     setTagText("");
     setAdding(true);
   };
@@ -3460,12 +3535,12 @@ function Preparation({
     setAdding(false);
     notify(editingId ? "준비물 정보를 수정했어요" : `준비물 ${newPackingNames.length}개를 추가했어요`);
   };
-  const assignOwner = (item: PackingItem, nextOwner: PackingItem["owner"]) => {
+  const assignOwner = (item: PackingItem, nextOwner: string) => {
     const duplicate = items.some(
       (value) => value.id !== item.id && value.owner === nextOwner && value.name.trim().toLowerCase() === item.name.trim().toLowerCase(),
     );
     if (duplicate) {
-      notify(`${packingOwnerName(nextOwner)}의 목록에 같은 준비물이 있어요`);
+      notify(`${nextOwner}의 목록에 같은 준비물이 있어요`);
       return;
     }
     setItems((current) =>
@@ -3474,7 +3549,7 @@ function Preparation({
       ),
     );
     setAssigningItem(null);
-    notify(`${item.name} 담당을 ${packingOwnerName(nextOwner)}(으)로 변경했어요`);
+    notify(`${item.name} 담당을 ${nextOwner}(으)로 변경했어요`);
   };
   const complete = (item: PackingItem) => {
     toggle(item.id);
@@ -3494,7 +3569,7 @@ function Preparation({
     setNames("");
     setQuantity("");
     setTagText("");
-    setOwner("미정");
+    setOwner(PACKING_UNASSIGNED);
   };
   const deletePacking = () => {
     const target = items.find((item) => item.id === editingId);
@@ -3508,7 +3583,7 @@ function Preparation({
       items
         .map(
           (item) =>
-            `${item.name} | ${item.quantity} | ${packingOwnerName(item.owner)} | ${packingTags(
+            `${item.name} | ${item.quantity} | ${item.owner} | ${packingTags(
               item,
             )
               .map((tag) => `#${tag}`)
@@ -3523,14 +3598,10 @@ function Preparation({
     setImporting(true);
   };
   const importPacking = () => {
-    const ownerAliases: Record<string, PackingItem["owner"]> = {
-      하늘: "나",
-      여울: "동행",
-      공용: "함께",
-      미정: "미정",
-      나: "나",
-      동행: "동행",
-      함께: "함께",
+    // 참가자 이름은 그대로 받고, 옛 목록에서 복사해 온 자리 이름만 옮긴다.
+    const readOwner = (raw: string) => {
+      const moved = normalizePackingOwner(raw, participants);
+      return ownerSections.includes(moved) ? moved : PACKING_UNASSIGNED;
     };
     const stamp = Date.now();
     const parsed = importText
@@ -3545,7 +3616,7 @@ function Preparation({
           id: `${stamp}-${index}`,
           name,
           quantity,
-          owner: ownerAliases[rawOwner] ?? "미정",
+          owner: readOwner(rawOwner),
           tags: rawTags.split(/[# ,]+/).filter(Boolean),
         };
       })
@@ -3593,12 +3664,9 @@ function Preparation({
         id: `cooking-${stamp}-${index}`,
         name: ingredient.name,
         quantity: ingredient.quantity,
-        owner:
-          ingredient.owner === "하늘"
-            ? ("나" as const)
-            : ingredient.owner === "여울"
-              ? ("동행" as const)
-              : ("미정" as const),
+        // 재료의 담당도 같은 참가자 목록을 쓰므로 이름이 맞으면 그대로 가져온다.
+        // 현지에서 산다는 표시는 담당이 아니라 태그라 여기서는 미정이 된다.
+        owner: participants.includes(ingredient.owner) ? ingredient.owner : PACKING_UNASSIGNED,
         tags: Array.from(new Set(["요리 재료", recipe.name, ingredient.group, ...(ingredient.owner === "구매" ? ["구매"] : [])])),
       })),
     ]);
@@ -3669,7 +3737,7 @@ function Preparation({
           style={[styles.packingV2Assignee, theme && { backgroundColor: theme.primarySoft }]}
         >
           <Text style={[styles.packingOwnerChangeText, theme && { color: theme.primary }]}>
-            {packingOwnerName(item.owner)}
+            {item.owner}
           </Text>
         </Pressable>
       </Pressable>
@@ -3771,13 +3839,13 @@ function Preparation({
         {packingFiltersOpen && (
         <>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packingV2Owners}>
-          {(["전체", ...ownerSections] as const).map((ownerName) => {
+          {["전체", ...ownerSections].map((ownerName) => {
             const active = ownerFilter === ownerName;
             const matchingCount = countForOwner(ownerName);
             return (
               <Pressable
                 key={ownerName}
-                onPress={() => selectOwnerFilter(ownerName)}
+                onPress={() => setOwnerFilter(ownerName)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 style={[
@@ -3787,7 +3855,7 @@ function Preparation({
                 ]}
               >
                 <Text style={[styles.packingV2OwnerName, theme && { color: active ? theme.primary : theme.text }]}>
-                  {ownerName === "전체" ? "전체" : packingOwnerName(ownerName)}
+                  {ownerName}
                 </Text>
                 <Text style={[styles.packingV2OwnerCount, theme && { color: active ? theme.primary : theme.muted }]}>{matchingCount}</Text>
               </Pressable>
@@ -3824,7 +3892,7 @@ function Preparation({
           </Text>
         </View>
         <Pressable
-          onPress={() => selectOwnerFilter("전체")}
+          onPress={() => setOwnerFilter("전체")}
           style={[
             styles.packingShowAll,
             theme && {
@@ -3872,7 +3940,7 @@ function Preparation({
                 />
               )}
               <Pressable
-                onPress={() => selectOwnerFilter(active ? "전체" : ownerName)}
+                onPress={() => setOwnerFilter(active ? "전체" : ownerName)}
                 style={[
                   styles.ownerStat,
                   active && styles.ownerStatActive,
@@ -3885,7 +3953,7 @@ function Preparation({
                     theme && { color: active ? theme.primary : theme.text },
                   ]}
                 >
-                  {packingOwnerName(ownerName)}
+                  {ownerName}
                 </Text>
                 <Text
                   style={[
@@ -4097,238 +4165,6 @@ function Preparation({
               completedGroups.flatMap(([, groupItems]) => groupItems).map(renderPackingRow)}
           </View>
         )}
-        {false && ownerSections.map((sectionOwner) => {
-          const ownerItems = visibleItems.filter(
-            (item) => item.owner === sectionOwner,
-          );
-          if (!ownerItems.length) return null;
-          const ownerDone = ownerItems.filter((item) =>
-            done.includes(item.id),
-          ).length;
-          const collapsed = collapsedOwners.includes(sectionOwner);
-          const ownerColor = theme
-            ? sectionOwner === "나"
-              ? theme.primary
-              : sectionOwner === "동행"
-                ? theme.secondary
-                : sectionOwner === "함께"
-                  ? theme.accent
-                  : theme.muted
-            : "#8B7CF6";
-          const sectionTags = Array.from(
-            new Set(
-              ownerItems.map((item) => packingTags(item)[0] || "태그 없음"),
-            ),
-          );
-          return (
-            <View
-              key={sectionOwner}
-              style={[
-                styles.packingOwnerSection,
-                {
-                  borderLeftColor: ownerColor,
-                  backgroundColor: `${ownerColor}0D`,
-                },
-              ]}
-            >
-              <Pressable
-                onPress={() =>
-                  setCollapsedOwners((current) =>
-                    current.includes(sectionOwner)
-                      ? current.filter(
-                          (ownerName) => ownerName !== sectionOwner,
-                        )
-                      : [...current, sectionOwner],
-                  )
-                }
-                style={styles.packingOwnerHead}
-              >
-                <View
-                  style={[
-                    styles.packingOwnerAvatar,
-                    { backgroundColor: `${ownerColor}1C` },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.packingOwnerAvatarText,
-                      { color: ownerColor },
-                    ]}
-                  >
-                    {sectionOwner === "미정"
-                      ? "?"
-                      : packingOwnerName(sectionOwner).slice(0, 1)}
-                  </Text>
-                </View>
-                <View style={styles.packingOwnerCopy}>
-                  <Text
-                    style={[
-                      styles.packingOwnerName,
-                      theme && { color: theme.text },
-                    ]}
-                  >
-                    {sectionOwner === "함께"
-                      ? "공용 준비물"
-                      : sectionOwner === "미정"
-                        ? "담당을 정해요"
-                        : `${packingOwnerName(sectionOwner)}의 준비물`}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.packingOwnerProgress,
-                      theme && { color: theme.muted },
-                    ]}
-                  >
-                    {ownerDone} / {ownerItems.length} 완료
-                  </Text>
-                </View>
-                <Glyph
-                  name={collapsed ? "chevronRight" : "chevronDown"}
-                  size={16}
-                  color={ownerColor}
-                  weight={2.2}
-                />
-              </Pressable>
-              {!collapsed &&
-                sectionTags.map((sourceTag) => {
-                  const taggedItems = ownerItems.filter(
-                    (item) =>
-                      (packingTags(item)[0] || "태그 없음") === sourceTag,
-                  );
-                  if (!taggedItems.length) return null;
-                  return (
-                    <View key={sourceTag} style={styles.packingTagGroup}>
-                      <View style={styles.packingTagHead}>
-                        <Text
-                          style={[
-                            styles.packingTagHeadText,
-                            theme && { color: theme.muted },
-                          ]}
-                        >
-                          # {sourceTag}
-                        </Text>
-                        <View
-                          style={[
-                            styles.packingTagLine,
-                            theme && { backgroundColor: theme.border },
-                          ]}
-                        />
-                        <Text
-                          style={[
-                            styles.packingTagCount,
-                            theme && { color: theme.muted },
-                          ]}
-                        >
-                          {taggedItems.length}
-                        </Text>
-                      </View>
-                      {taggedItems.map((item) => {
-                        const completed = done.includes(item.id);
-                        return (
-                          <Pressable
-                            key={item.id}
-                            onPress={() => complete(item)}
-                            accessibilityRole="checkbox"
-                            accessibilityState={{ checked: completed }}
-                            accessibilityLabel={`${item.name} 준비 완료`}
-                            style={({ pressed }) => [
-                              styles.packingCard,
-                              theme && {
-                                backgroundColor: completed
-                                  ? theme.surfaceAlt
-                                  : theme.surface,
-                                borderColor: theme.border,
-                              },
-                              completed && styles.packingCardDone,
-                              pressed && styles.packingCardPressed,
-                            ]}
-                          >
-                            <View
-                              style={[
-                                styles.completionMark,
-                                theme && {
-                                  borderColor: completed
-                                    ? theme.primary
-                                    : theme.border,
-                                  backgroundColor: completed
-                                    ? theme.primary
-                                    : theme.background,
-                                },
-                              ]}
-                            >
-                              {completed && (
-                                <Glyph name="check" size={14} color="#FFFFFF" weight={2.6} />
-                              )}
-                            </View>
-                            <View style={styles.packingBody}>
-                              <View style={styles.packingTitleRow}>
-                                <Text
-                                  style={[
-                                    styles.checkName,
-                                    theme && { color: theme.text },
-                                    completed && styles.checkNameDone,
-                                  ]}
-                                >
-                                  {item.name}
-                                </Text>
-                                {item.quantity ? (
-                                  <Text
-                                    style={[
-                                      styles.packingQuantity,
-                                      theme && { color: theme.muted },
-                                    ]}
-                                  >
-                                    {item.quantity}
-                                  </Text>
-                                ) : null}
-                              </View>
-                              <View style={styles.packingMetaRow}>
-                                <Text
-                                  style={[
-                                    styles.packingTiming,
-                                    theme && { color: theme.muted },
-                                  ]}
-                                >
-                                  {packingTags(item)
-                                    .slice(1)
-                                    .map((tag) => `# ${tag}`)
-                                    .join("  ") || "태그 없음"}
-                                </Text>
-                                <Pressable
-                                  onPress={(event) => {
-                                    event.stopPropagation();
-                                    setAssigningItem(item);
-                                  }}
-                                  hitSlop={8}
-                                  style={[
-                                    styles.packingOwnerChange,
-                                    theme && {
-                                      backgroundColor: theme.primarySoft,
-                                    },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.packingOwnerChangeText,
-                                      theme && { color: theme.primary },
-                                    ]}
-                                  >
-                                    {sectionOwner === "미정"
-                                      ? "담당 지정"
-                                      : "담당 변경"}
-                                  </Text>
-                                </Pressable>
-                              </View>
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  );
-                })}
-            </View>
-          );
-        })}
       </View>
       {visibleItems.length === 0 && (
         <EmptyState
@@ -4469,12 +4305,12 @@ function Preparation({
         <View style={styles.assignmentOptions}>
           {ownerSections.map((ownerName) => {
             const selected = assigningItem?.owner === ownerName;
-            const descriptions: Record<PackingItem["owner"], string> = {
-              나: "하늘의 준비물로 이동",
-              동행: "여울의 준비물로 이동",
-              함께: "공용 준비물로 이동",
-              미정: "나중에 담당 정하기",
-            };
+            const description =
+              ownerName === PACKING_SHARED
+                ? "같이 쓰는 준비물로 이동"
+                : ownerName === PACKING_UNASSIGNED
+                  ? "나중에 담당 정하기"
+                  : `${ownerName}의 준비물로 이동`;
             return (
               <Pressable
                 key={ownerName}
@@ -4511,9 +4347,7 @@ function Preparation({
                       },
                     ]}
                   >
-                    {ownerName === "미정"
-                      ? "?"
-                      : packingOwnerName(ownerName).slice(0, 1)}
+                    {ownerName === PACKING_UNASSIGNED ? "?" : ownerName.slice(0, 1)}
                   </Text>
                 </View>
                 <View style={styles.assignmentCopy}>
@@ -4523,7 +4357,7 @@ function Preparation({
                       theme && { color: theme.text },
                     ]}
                   >
-                    {packingOwnerName(ownerName)}
+                    {ownerName}
                   </Text>
                   <Text
                     style={[
@@ -4531,7 +4365,7 @@ function Preparation({
                       theme && { color: theme.muted },
                     ]}
                   >
-                    {descriptions[ownerName]}
+                    {description}
                   </Text>
                 </View>
                 <View
@@ -4628,7 +4462,7 @@ function Preparation({
                     },
                   ]}
                 >
-                  {packingOwnerName(ownerName)}
+                  {ownerName}
                 </Text>
               </Pressable>
             ))}
@@ -4871,7 +4705,7 @@ function Preparation({
           placeholder="준비물마다 한 줄씩 붙여넣으세요"
         />
         <Text style={styles.settingHint}>
-          담당: 하늘·여울·공용·미정 / 태그는 #으로 여러 개 적을 수 있어요
+          담당: {ownerSections.join("·")} / 태그는 #으로 여러 개 적을 수 있어요
         </Text>
       </DetailSheet>
     </View>
@@ -4892,6 +4726,17 @@ type Recipe = {
   url?: string;
   ingredients: CookingItem[];
 };
+
+/** 현지에서 사 온다는 표시. 사람이 아니라서 참가자 목록 밖에 둔다. */
+const COOKING_BUY = "구매";
+const COOKING_UNASSIGNED = "미정";
+
+/** 재료를 누가 챙기는지 고를 수 있는 것들. */
+const cookingOwnerOptions = (participants: string[]) => [
+  COOKING_UNASSIGNED,
+  ...participants,
+  COOKING_BUY,
+];
 
 /**
  * GPT 가 돌려준 줄을 요리와 재료로 읽는다.
@@ -4926,11 +4771,8 @@ function parseAiRecipes(text: string, stamp: number): Recipe[] {
           name: values[0],
           quantity: values[1] || "미정",
           group: values[2] || "기본",
-          owner: (["하늘", "여울", "구매", "미정"] as const).includes(
-            values[3] as "하늘" | "여울" | "구매" | "미정",
-          )
-            ? (values[3] as "하늘" | "여울" | "구매" | "미정")
-            : "미정",
+          // 담당은 참가자 이름이거나 구매다. 모르는 값이면 미정으로 둔다.
+          owner: values[3] || COOKING_UNASSIGNED,
         });
       }
     });
@@ -5084,6 +4926,7 @@ function Cooking({
   openPreparationImport,
   onRecordShopping,
   currency,
+  participants,
 }: {
   recipes: Recipe[];
   setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
@@ -5093,6 +4936,8 @@ function Cooking({
   /** 장 본 금액을 비용 탭에 적는다. 부르면 지출 한 건이 생긴다. */
   onRecordShopping: (title: string, amount: number) => void;
   currency: string;
+  /** 이번 여행에 가는 사람. 재료를 누가 챙기는지도 이 목록에서 고른다. */
+  participants: string[];
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -5115,7 +4960,7 @@ function Cooking({
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [group, setGroup] = useState("기본");
-  const [owner, setOwner] = useState("미정");
+  const [owner, setOwner] = useState(COOKING_UNASSIGNED);
   const [recipeName, setRecipeName] = useState("");
   const [recipeNote, setRecipeNote] = useState("");
   const [recipeUrl, setRecipeUrl] = useState("");
@@ -5143,7 +4988,14 @@ function Cooking({
   const allCookingIngredients = recipes.flatMap((recipe) =>
     recipe.ingredients.map((item) => ({ ...item, recipeId: recipe.id, recipe: recipe.name })),
   );
-  const shoppingOwnerOptions = ["전체", "하늘", "여울", "구매", "미정"];
+  // 목록에 이미 적힌 담당 가운데 참가자에서 빠진 이름도 거를 수 있게 남긴다.
+  // 여행 도중 참가자가 바뀌어도 예전에 적어 둔 재료가 안 보이면 곤란하다.
+  const shoppingOwnerOptions = useMemo(() => {
+    const known = cookingOwnerOptions(participants);
+    const extra = Array.from(new Set(allCookingIngredients.map((item) => item.owner)))
+      .filter((owner) => owner && !known.includes(owner));
+    return ["전체", ...known, ...extra];
+  }, [allCookingIngredients, participants]);
   const filteredShoppingCount = ingredientOwnerFilter === "전체"
     ? allCookingIngredients.length
     : allCookingIngredients.filter((item) => item.owner === ingredientOwnerFilter).length;
@@ -5194,7 +5046,7 @@ function Cooking({
     setName("");
     setQuantity("");
     setGroup("기본");
-    setOwner("미정");
+    setOwner(COOKING_UNASSIGNED);
     setEditingIngredient(null);
     setAddingIngredient(false);
     notify(wasEditing ? "재료를 수정했어요" : "재료를 추가했어요");
@@ -5213,7 +5065,7 @@ function Cooking({
     setName("");
     setQuantity("");
     setGroup("기본");
-    setOwner("미정");
+    setOwner(COOKING_UNASSIGNED);
   };
   const addRecipe = () => {
     if (!recipeFormValid) return;
@@ -6000,7 +5852,7 @@ function Cooking({
         </View>
         <OptionField
           label="준비 방법 · 선택 사항"
-          options={["미정", "하늘", "여울", "구매"]}
+          options={cookingOwnerOptions(participants)}
           value={owner}
           onChange={setOwner}
         />
@@ -6555,6 +6407,7 @@ function Money({
   setExpenses,
   budget,
   setBudget,
+  assignedSummary,
   participants,
   setParticipants,
   spaceMembers,
@@ -6571,6 +6424,8 @@ function Money({
   setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
   budget: number;
   setBudget: React.Dispatch<React.SetStateAction<number>>;
+  /** 이 사람 이름으로 여행에 적어 둔 것들. 참가자에서 빼기 전에 보여 준다. */
+  assignedSummary: (person: string) => string;
   /** 이번 여행에 가는 사람. 몫은 이 목록을 기준으로 나눈다. */
   participants: Participant[];
   setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
@@ -7405,7 +7260,7 @@ function Money({
         <View style={styles.shareRows}>
           {spaceMembers.map((person) => {
             const joined = participants.includes(person);
-            const spent = expenses.some((item) => item.payer === person);
+            const assigned = assignedSummary(person);
             return (
               <Pressable
                 key={person}
@@ -7422,9 +7277,10 @@ function Money({
                 ]}
               >
                 <Text style={[styles.participantName, theme && { color: joined ? theme.primary : theme.muted }]}>{person}</Text>
-                {/* 이미 이 사람 이름으로 적은 지출이 있으면 빼기 전에 알려 준다. */}
-                {spent && !joined && (
-                  <Text style={[styles.participantWarn, theme && { color: theme.accent }]}>적은 지출 있음</Text>
+                {/* 이 사람 이름으로 적어 둔 게 있으면 빼기 전에 알려 준다. 지출뿐
+                    아니라 준비물이나 교통편도 이름으로 묶여 있다. */}
+                {!joined && Boolean(assigned) && (
+                  <Text numberOfLines={1} style={[styles.participantWarn, theme && { color: theme.accent }]}>{assigned}</Text>
                 )}
                 {joined && <Glyph name="check" size={16} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
               </Pressable>
