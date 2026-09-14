@@ -1495,7 +1495,7 @@ export function WarmTripDetail({
             value={hasKitchen ? "있어요" : "없어요"}
             onChange={(value) => setHasKitchen(value === "있어요")}
           />
-          <Text style={styles.settingHint}>
+          <Text style={[styles.settingHint, appTheme && { color: appTheme.muted }]}>
             주방이 있을 때만 요리 탭을 표시해요. 언제든 다시 켜거나 숨길 수
             있어요.
           </Text>
@@ -3491,7 +3491,7 @@ function Places({
           multiline
           placeholder="장소마다 한 줄씩 붙여넣으세요"
         />
-        <Text style={styles.settingHint}>
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
           ‘교체’는 현재 목록을 지우고 새 목록으로 바꿔요. 붙여넣은 장소는 저장한
           장소로 추가됩니다.
         </Text>
@@ -4860,7 +4860,7 @@ function Preparation({
           multiline
           placeholder="준비물마다 한 줄씩 붙여넣으세요"
         />
-        <Text style={styles.settingHint}>
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
           담당: {ownerSections.join("·")} / 태그는 #으로 여러 개 적을 수 있어요
         </Text>
       </DetailSheet>
@@ -5742,7 +5742,7 @@ function Cooking({
             </View>
             );
           })}
-          <Text style={styles.longPressHint}>
+          <Text style={[styles.longPressHint, theme && { color: theme.muted }]}>
             왼쪽 원을 눌러 준비 여부를 체크하고, 재료 이름을 누르면 수정할 수 있어요.
           </Text>
           <View
@@ -8802,7 +8802,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  travelTimelineEyebrow: { fontSize: 10, fontFamily: typo.label.family, letterSpacing: 0.4 },
+  travelTimelineEyebrow: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 0.4 },
   travelTimelineDate: { fontSize: 15, fontFamily: typo.title.family, marginTop: 1 },
   travelTimelineCount: { fontSize: 11, fontFamily: typo.label.family },
   travelTimelineItems: { paddingHorizontal: 12, paddingTop: 8 },
@@ -9052,7 +9052,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: typo.data.family,
   },
-  memoryTileDate: { flexShrink: 0, fontSize: 9, fontFamily: typo.caption.family, marginLeft: 3 },
+  memoryTileDate: { flexShrink: 0, fontSize: 11, fontFamily: typo.caption.family, marginLeft: 3 },
   modalBack: {
     flex: 1,
     backgroundColor: "rgba(10,18,35,.42)",
@@ -9212,7 +9212,7 @@ const styles = StyleSheet.create({
   },
   timePickerCopy: { flex: 1, minWidth: 0 },
   timePickerValue: { fontSize: 16, fontFamily: typo.data.family },
-  timePickerHint: { fontSize: 10, lineHeight: 13, fontFamily: typo.caption.family, marginTop: 1 },
+  timePickerHint: { fontSize: 11, lineHeight: 16, fontFamily: typo.caption.family, marginTop: 1 },
   timePickerFallback: {
     height: 50,
     borderWidth: 1,
@@ -9362,7 +9362,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   savedPlaceChoiceName: { fontSize: 13, fontFamily: typo.label.family },
-  savedPlaceChoiceMeta: { fontSize: 10, marginTop: 4 },
+  savedPlaceChoiceMeta: { fontSize: 12, marginTop: 4 },
   naverField: {
     backgroundColor: "#E6F5ED",
     borderRadius: 20,
@@ -9629,7 +9629,7 @@ const styles = StyleSheet.create({
   moneySettleLabel: { fontSize: 12, fontFamily: typo.caption.family },
   moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
   moneySettleText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
-  moneySettleAmount: { fontSize: 19, fontFamily: typo.data.family },
+  moneySettleAmount: { fontSize: 20, fontFamily: typo.data.family },
   moneyInsightCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },
   moneyInsightHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 },
   moneyInsightEyebrow: { fontSize: 11, fontFamily: typo.label.family, marginBottom: 3 },
@@ -9640,7 +9640,7 @@ const styles = StyleSheet.create({
   moneyInsightDivider: { borderLeftWidth: 1, paddingLeft: 10, paddingRight: 4 },
   moneyInsightLabel: { fontSize: 11, fontFamily: typo.caption.family },
   moneyInsightValue: { fontSize: 15, marginTop: 4, fontFamily: typo.data.family },
-  moneyInsightMeta: { fontSize: 10, marginTop: 1, fontFamily: typo.caption.family },
+  moneyInsightMeta: { fontSize: 12, marginTop: 1, fontFamily: typo.caption.family },
   moneyCategoryCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8 },
   moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44, paddingHorizontal: 6, borderRadius: 8 },
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
@@ -9648,7 +9648,7 @@ const styles = StyleSheet.create({
   moneyBarFill: { height: 6, borderRadius: 3 },
   moneyCategoryAmount: { minWidth: 58, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
   moneyCategoryPercent: { minWidth: 30, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
-  moneyCategoryHint: { fontSize: 10, fontFamily: typo.caption.family, paddingHorizontal: 6, paddingTop: 4, paddingBottom: 7 },
+  moneyCategoryHint: { fontSize: 12, fontFamily: typo.caption.family, paddingHorizontal: 6, paddingTop: 4, paddingBottom: 7 },
   moneyDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4 },
   moneyDayChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: "center" },
   moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
@@ -9684,7 +9684,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   scheduleDayHeadCopy: { gap: 2 },
-  scheduleDayLabel: { fontSize: 10, fontFamily: typo.label.family, letterSpacing: 0.5 },
+  scheduleDayLabel: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 0.5 },
   scheduleDayTitle: { fontSize: 16, fontFamily: typo.title.family },
   scheduleDayCountBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
   scheduleDayCount: { fontSize: 11, fontFamily: typo.label.family },
@@ -10193,9 +10193,9 @@ const styles = StyleSheet.create({
   cookingImportItemMeta: { color: "#8C8580", fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   packingQuantity: { color: "#858D99", fontSize: 14, fontFamily: typo.data.family },
   settingHint: {
-    color: "#7A7F89",
-    fontSize: 11,
-    lineHeight: 17,
+    color: "#646C7A",
+    fontSize: 13,
+    lineHeight: 19,
     marginTop: -6,
     marginBottom: 16,
   },
@@ -10488,8 +10488,8 @@ const styles = StyleSheet.create({
   listMoreText: { fontSize: 14, fontFamily: typo.label.family },
   listMoreChevron: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 6 },
   longPressHint: {
-    color: "#AAA39C",
-    fontSize: 11,
+    color: "#646C7A",
+    fontSize: 13,
     textAlign: "center",
     marginTop: 2,
     marginBottom: 20,
@@ -10565,10 +10565,11 @@ const styles = StyleSheet.create({
   },
   sectionActionRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   sectionLabel: {
+    minHeight: 42,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 12,
+    marginTop: 4,
     marginBottom: 8,
   },
   tabActionHeader: {
@@ -10597,7 +10598,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabActionButtonText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
-  sectionTitle: { fontSize: 18, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  sectionTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
   timelineCard: { borderRadius: 12, padding: 12, borderWidth: 1 },
   fullScheduleButton: {
     height: 43,
@@ -10731,13 +10732,13 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "-.5deg" }],
   },
   detailFieldInput: {
-    height: 49,
+    height: 50,
     borderRadius: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
   },
   optionChip: {
-    height: 38,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,

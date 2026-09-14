@@ -4983,9 +4983,9 @@ const s = StyleSheet.create({
   tripThumb: { width: 45, height: 52, marginRight: 2 },
   tripArtSmall: { width: "100%", height: 52, borderRadius: 8, marginBottom: 0 },
   tripInfo: { flex: 1, paddingLeft: 8 },
-  tripName: { fontSize: 14, fontFamily: typo.title.family },
-  tripDate: { fontSize: 11, marginTop: 2 },
-  tripNote: { fontSize: 14, marginTop: 2 },
+  tripName: { fontSize: 16, fontFamily: typo.title.family },
+  tripDate: { fontSize: 12, marginTop: 2 },
+  tripNote: { fontSize: 13, marginTop: 2 },
   tripRowCompact: { minHeight: 72 },
   tripRowArrow: {
     width: 25,
