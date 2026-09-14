@@ -5,28 +5,10 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
-from app.models import Membership, MembershipRole, RelationshipProfile, Space, User
+from app.models import Membership, MembershipRole, RelationshipProfile, User
+from tests.factories import 공간을_넣는다, 사람을_넣는다
 
 pytestmark = pytest.mark.anyio
-
-
-def 사람(이름: str = "하늘") -> User:
-    # 이메일이 unique 라 테스트끼리 부딪히지 않게 매번 다른 값을 쓴다.
-    return User(email=f"{uuid.uuid4()}@example.test", display_name=이름)
-
-
-async def 사람을_넣는다(db, 이름: str = "하늘") -> User:
-    user = 사람(이름)
-    db.add(user)
-    await db.flush()
-    return user
-
-
-async def 공간을_넣는다(db, owner: User, 이름: str = "우리의 여행 공간") -> Space:
-    space = Space(name=이름, owner_id=owner.id, created_by=owner.id)
-    db.add(space)
-    await db.flush()
-    return space
 
 
 async def test_공간과_멤버를_만들_수_있다(db):
@@ -78,9 +60,7 @@ async def test_나갔던_사람은_다시_들어올_수_있다(db):
 
 
 async def test_같은_이메일로_두_계정을_만들_수_없다(db):
-    첫번째 = 사람()
-    db.add(첫번째)
-    await db.flush()
+    첫번째 = await 사람을_넣는다(db)
 
     db.add(User(email=첫번째.email, display_name="다른사람"))
     with pytest.raises(IntegrityError):

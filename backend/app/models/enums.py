@@ -23,6 +23,20 @@ class RelationshipType(StrEnum):
     OTHER = "other"
 
 
+class TripStatus(StrEnum):
+    """
+    여행의 진행 상태.
+
+    `archived` 는 보관함이다. 종료일이 지났다고 서버가 자동으로 옮기지
+    않는다(docs/development/02-architecture-and-data-model.md 4장).
+    """
+
+    PLANNING = "planning"
+    ONGOING = "ongoing"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.
