@@ -1,11 +1,13 @@
 from app.models.base import Base
 from app.models.enums import (
     BookingStatus,
+    ChecklistKind,
     ExpenseCategory,
     LinkProvider,
     LinkTargetType,
     MembershipRole,
     PlaceProvider,
+    Procurement,
     RelationshipType,
     ReservationStatus,
     ReservationTargetType,
@@ -18,6 +20,7 @@ from app.models.enums import (
     TripStatus,
     UserStatus,
 )
+from app.models.cooking import Checklist, ChecklistItem, Ingredient, Recipe
 from app.models.expense import Expense, ExpenseShare, Payment
 from app.models.place import Place, TripPlace
 from app.models.schedule import Reservation, ScheduleItem, Stay, Transport
@@ -32,18 +35,24 @@ __all__ = [
     "MAX_MEMBERS_PER_SPACE",
     "Base",
     "BookingStatus",
+    "Checklist",
+    "ChecklistItem",
+    "ChecklistKind",
     "Expense",
     "ExpenseCategory",
     "ExpenseShare",
     "ExternalLink",
     "LinkProvider",
+    "Ingredient",
     "LinkTargetType",
     "Membership",
     "MembershipRole",
     "Payment",
     "Place",
     "PlaceProvider",
+    "Procurement",
     "RelationshipProfile",
+    "Recipe",
     "RelationshipType",
     "Reservation",
     "ReservationStatus",

@@ -185,6 +185,28 @@ class SplitMode(StrEnum):
     AMOUNT = "amount"
 
 
+class ChecklistKind(StrEnum):
+    """준비물 목록인지 장 볼 목록인지."""
+
+    PACKING = "packing"
+    SHOPPING = "shopping"
+
+
+class Procurement(StrEnum):
+    """
+    재료를 어떻게 마련하는지.
+
+    앱에서 고르는 자리는 하나이고 후보는 `미정 / 참가자들 / 구매` 다. 사람을
+    고르면 그 사람이 가져오는 것(`bring`)이고, `구매` 는 현지에서 사 오는
+    것이라 담당이 없다. 사람이 아닌 값은 참가자 목록 밖에 둔다는 문서 규칙이
+    여기 적용된다.
+    """
+
+    BRING = "bring"
+    BUY = "buy"
+    UNDECIDED = "undecided"
+
+
 class MembershipRole(StrEnum):
     """
     화면의 `관리자`·`편집 가능`·`보기만` 이 각각 이것이다.
