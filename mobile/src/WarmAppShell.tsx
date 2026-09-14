@@ -4111,6 +4111,19 @@ function Choice({
   );
 }
 
+/**
+ * 모서리는 다섯 단계만 쓴다.
+ *
+ *   4    배지와 아주 작은 칩
+ *   8    버튼, 선택 칩, 작은 판
+ *   12   입력칸, 목록 행, 보통 카드
+ *   16   큰 카드와 시트 안의 묶음
+ *   999  알약과 원
+ *
+ * 예외는 높이의 절반이 곧 모양인 것들뿐이다. 2~3px 짜리 점과 얇은 줄, 진행
+ * 막대가 거기 해당한다. 열네 가지가 돌면 같은 급의 것들이 미묘하게 달라 보이고,
+ * 새 화면을 만들 때 무엇을 따라야 할지 알 수 없다.
+ */
 const s = StyleSheet.create({
   body: { flex: 1 },
   storageWarning: { paddingHorizontal: 16, paddingVertical: 8 },
@@ -4127,16 +4140,16 @@ const s = StyleSheet.create({
     position: "absolute",
     width: 107,
     height: 107,
-    borderRadius: 54,
+    borderRadius: 999,
     backgroundColor: "rgba(255,249,244,.45)",
     right: -38,
     top: -28,
   },
   artDate: { position: "absolute", left: 11, bottom: 11 },
-  artText: { color: "#623C38", fontSize: 14, fontFamily: typo.label.family },
+  artText: { fontSize: 14, fontFamily: typo.label.family },
   artUnit: { fontSize: 11, fontFamily: typo.label.family },
   artLine: { width: 25, height: 2, backgroundColor: "#623C38", marginTop: 4 },
-  newTripText: { color: "#FFF9F4", fontSize: 12, fontFamily: typo.label.family },
+  newTripText: { fontSize: 12, fontFamily: typo.label.family },
   arrow: { color: "#A0665B", fontSize: 24, fontWeight: "300" },
   setting: {
     minHeight: 55,
@@ -4146,9 +4159,9 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  settingName: { color: "#6A4941", fontSize: 14, fontFamily: typo.title.family },
+  settingName: { fontSize: 14, fontFamily: typo.title.family },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  settingValue: { color: "#B46F60", fontSize: 14, fontFamily: typo.data.family },
+  settingValue: { fontSize: 14, fontFamily: typo.data.family },
   notebookHead: {
     flexDirection: "row",
     alignItems: "center",
@@ -4296,7 +4309,7 @@ const s = StyleSheet.create({
   },
   paperTripActionBorder: { borderLeftWidth: 1, borderLeftColor: "rgba(118, 107, 83, .18)" },
   paperTripActionLabel: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 0 },
-  paperTripActionMeta: { color: "#756F63", fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
+  paperTripActionMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   paperTripActionUnderline: { position: "absolute", width: 34, height: 8, bottom: 11, borderRadius: 2, transform: [{ rotate: "-1deg" }] },
   scrapTitleRow: {
     flexDirection: "row",
@@ -4413,7 +4426,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginTop: 16,
   },
-  homeEmptyTripActionText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
+  homeEmptyTripActionText: { fontSize: 14, fontFamily: typo.label.family },
   safe: {
     flex: 1,
     width: "100%",
@@ -4426,7 +4439,6 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   logo: {
-    color: "#17233D",
     fontSize: 34,
     letterSpacing: -0.5,
     fontFamily: typo.hero.family,
@@ -4477,7 +4489,6 @@ const s = StyleSheet.create({
   sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 4 },
   sheetRouteDot: { width: 6, height: 6, borderRadius: 999, borderWidth: 1.5 },
   sheetTitle: {
-    color: "#17233D",
     fontSize: 24,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
@@ -4491,7 +4502,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sheetClose: { color: "#6556D8", fontSize: 24, lineHeight: 26, fontWeight: "500" },
+  sheetClose: { fontSize: 24, lineHeight: 26, fontWeight: "500" },
   infoSheetHead: {
     borderWidth: 1,
     borderRadius: 16,
@@ -4513,7 +4524,6 @@ const s = StyleSheet.create({
   fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
   fieldLabelDot: { width: 5, height: 5, borderRadius: 2, marginRight: 6 },
   fieldLabel: {
-    color: "#6F7888",
     fontSize: 12,
     fontFamily: typo.label.family,
     marginBottom: 0,
@@ -4529,7 +4539,7 @@ const s = StyleSheet.create({
     paddingRight: 6,
     marginTop: 6,
   },
-  sheetSubmitText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
+  sheetSubmitText: { fontSize: 14, fontFamily: typo.label.family },
   sheetSubmitDisabled: { opacity: 0.38 },
   sheetSubmitArrow: {
     width: 39,
@@ -4540,13 +4550,12 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   sheetCopy: {
-    color: "#556071",
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 12,
   },
   choiceSelected: { borderColor: "#8B7CF6", backgroundColor: "#E9E5FF" },
-  choiceText: { color: "#576173", fontSize: 14, fontFamily: typo.label.family },
+  choiceText: { fontSize: 14, fontFamily: typo.label.family },
   choiceTextSelected: { color: "#5546C8" },
   choiceMark: { width: 16, alignItems: "center", justifyContent: "center" },
   tripExplorerPage: {
@@ -4556,7 +4565,7 @@ const s = StyleSheet.create({
   },
   tripExplorerMapPage: { flex: 1 },
   tripExplorerMapHeader: { paddingHorizontal: 20, paddingTop: 8 },
-  viewChoiceText: { color: "#858783", fontSize: 14, fontFamily: typo.label.family },
+  viewChoiceText: { fontSize: 14, fontFamily: typo.label.family },
   viewChoiceTextActive: { color: "#FFFFFF" },
   mapOnly: { flex: 1, width: "100%", position: "relative", overflow: "hidden" },
   mapGestureLayer: {
@@ -4599,8 +4608,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 8,
   },
-  mapTrayTitle: { color: "#17233D", fontSize: 18, fontFamily: typo.title.family },
-  mapTrayCount: { color: "#7D8987", fontSize: 14, marginTop: 2 },
+  mapTrayTitle: { fontSize: 18, fontFamily: typo.title.family },
+  mapTrayCount: { fontSize: 14, marginTop: 2 },
   mapTrayClose: {
     width: 28,
     height: 28,
@@ -4609,7 +4618,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  mapTrayCloseText: { color: "#66716F", fontSize: 20, lineHeight: 21 },
+  mapTrayCloseText: { fontSize: 20, lineHeight: 21 },
   mapTrayList: { paddingHorizontal: 12, gap: 8 },
   mapTrayCard: {
     width: 244,
@@ -4631,11 +4640,10 @@ const s = StyleSheet.create({
   },
   mapTrayMarkText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   mapTrayCopy: { flex: 1, paddingHorizontal: 8 },
-  mapTrayName: { color: "#17233D", fontSize: 14, fontFamily: typo.title.family },
-  mapTrayDate: { color: "#8A918F", fontSize: 11, marginTop: 4 },
+  mapTrayName: { fontSize: 14, fontFamily: typo.title.family },
+  mapTrayDate: { fontSize: 11, marginTop: 4 },
   mapTrayArrow: { color: "#159D8D", fontSize: 20 },
   mapTrayEmpty: {
-    color: "#8A918F",
     fontSize: 12,
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -4712,7 +4720,7 @@ const s = StyleSheet.create({
     borderBottomRightRadius: 11,
   },
   dayCellSelected: { borderWidth: 2, borderColor: "#17233D" },
-  dayNumberTrip: { color: "#FFFFFF", fontFamily: typo.label.family },
+  dayNumberTrip: { fontFamily: typo.label.family },
   dayNumberSelected: { fontSize: 12 },
   dayTripDot: {
     width: 3,
@@ -4729,15 +4737,13 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
   },
   calendarResultDate: {
-    color: "#17233D",
     fontSize: 16,
     fontFamily: typo.caption.family,
     marginBottom: 4,
   },
   calendarResultClear: { fontSize: 12, fontFamily: typo.label.family },
-  emptyDateTitle: { color: "#5E6D6B", fontSize: 14, fontFamily: typo.title.family },
+  emptyDateTitle: { fontSize: 14, fontFamily: typo.title.family },
   emptyDateAction: {
-    color: "#0B9888",
     fontSize: 14,
     fontFamily: typo.label.family,
     marginTop: 8,
@@ -4773,7 +4779,7 @@ const s = StyleSheet.create({
   homeQuickLarge: {
     height: 124,
     flex: 1.08,
-    borderRadius: 20,
+    borderRadius: 16,
     flexDirection: "column",
     alignItems: "flex-start",
     paddingHorizontal: 16,
@@ -4837,7 +4843,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   searchClearText: { fontSize: 18, lineHeight: 20 },
-  searchCategoryText: { color: "#747A80", fontSize: 12, fontFamily: typo.label.family },
+  searchCategoryText: { fontSize: 12, fontFamily: typo.label.family },
   searchCategoryTextActive: { color: "#FFFFFF" },
   searchResultHead: {
     flexDirection: "row",
@@ -4845,15 +4851,15 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  searchResultTitle: { color: "#17233D", fontSize: 16, fontFamily: typo.title.family },
+  searchResultTitle: { fontSize: 16, fontFamily: typo.title.family },
   searchResultLine: { flexDirection: "row", alignItems: "center", gap: 6 },
-  searchResultName: { color: "#273143", fontSize: 14, fontFamily: typo.title.family },
+  searchResultName: { fontSize: 14, fontFamily: typo.title.family },
   searchResultType: { fontSize: 12, fontFamily: typo.label.family },
-  searchResultDetail: { color: "#747D88", fontSize: 12, marginTop: 4 },
-  searchResultTrip: { color: "#A0A5AB", fontSize: 12, marginTop: 2 },
+  searchResultDetail: { fontSize: 12, marginTop: 4 },
+  searchResultTrip: { fontSize: 12, marginTop: 2 },
   searchResultArrow: { color: "#9AA1A8", fontSize: 20 },
-  searchEmptyTitle: { color: "#394353", fontSize: 18, fontFamily: typo.title.family },
-  searchEmptyCopy: { color: "#959BA2", fontSize: 14, marginTop: 6 },
+  searchEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
+  searchEmptyCopy: { fontSize: 14, marginTop: 6 },
   togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   togetherSettingsButton: { minHeight: 40, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   togetherSettingsText: { fontSize: 13, fontFamily: typo.label.family },
@@ -4864,7 +4870,6 @@ const s = StyleSheet.create({
   },
   togetherAvatarText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   settingGroupLabel: {
-    color: "#7A818C",
     fontSize: 12,
     fontFamily: typo.label.family,
     letterSpacing: 0.5,
@@ -4892,7 +4897,6 @@ const s = StyleSheet.create({
   themeSwatches: { flexDirection: "row", gap: 4 },
   themeSwatch: { width: 22, height: 22, borderRadius: 8 },
   themeOptionName: {
-    color: "#17233D",
     fontSize: 14,
     fontFamily: typo.title.family,
     marginTop: 12,
@@ -5063,10 +5067,10 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginRight: 2,
   },
-  calendarTodayText: { color: "#596071", fontSize: 12, fontFamily: typo.label.family },
+  calendarTodayText: { fontSize: 12, fontFamily: typo.label.family },
   monthArrowText: { color: "#384052", fontSize: 24, fontWeight: "500", lineHeight: 26 },
-  calendarMonth: { color: "#283046", fontSize: 20, fontFamily: typo.data.family, textAlign: "left", letterSpacing: 0 },
-  calendarSub: { color: "#7B7A76", fontSize: 11, textAlign: "left", marginTop: 2 },
+  calendarMonth: { fontSize: 20, fontFamily: typo.data.family, textAlign: "left", letterSpacing: 0 },
+  calendarSub: { fontSize: 11, textAlign: "left", marginTop: 2 },
   calendarLegend: {
     minHeight: 25,
     borderTopWidth: 0,
@@ -5080,7 +5084,7 @@ const s = StyleSheet.create({
   },
   calendarLegendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   calendarLegendLine: { width: 12, height: 3, borderRadius: 2 },
-  calendarLegendText: { color: "#6F716F", fontSize: 12, fontFamily: typo.label.family },
+  calendarLegendText: { fontSize: 12, fontFamily: typo.label.family },
   weekRow: { flexDirection: "row", marginBottom: 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#DFE1E2", paddingBottom: 4 },
   weekName: { width: "14.285%", textAlign: "center", color: "#85888D", fontSize: 14, fontFamily: typo.title.family },
   weekNameSunday: { color: "#C66D68" },
@@ -5438,7 +5442,7 @@ const s = StyleSheet.create({
     marginTop: 12,
   },
   authSubmitDisabled: { opacity: 0.38 },
-  authSubmitText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
+  authSubmitText: { fontSize: 14, fontFamily: typo.label.family },
   authSwitch: { alignItems: "center", paddingTop: 16, paddingBottom: 2 },
   authSwitchText: { fontSize: 12, fontFamily: typo.label.family },
   authConsentList: { borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: 6, marginBottom: 12 },
@@ -5460,7 +5464,7 @@ const s = StyleSheet.create({
   accountAvatar: {
     width: 43,
     height: 43,
-    borderRadius: 20,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5500,7 +5504,7 @@ const s = StyleSheet.create({
   noticeBody: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 6 },
   noticeLink: {
     minHeight: 40,
-    borderRadius: 10,
+    borderRadius: 12,
     marginTop: 12,
     paddingHorizontal: 12,
     flexDirection: "row",

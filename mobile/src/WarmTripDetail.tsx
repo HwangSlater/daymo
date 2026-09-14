@@ -320,6 +320,16 @@ const todayAmong = (dates: Date[]): string => {
 /** "24일(목)" 형태의 날짜 옵션에서 요일만 꺼낸다. */
 const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
 // 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
+/**
+ * 입력칸 라벨 앞의 점 색.
+ *
+ * 필수든 선택이든 같은 색으로 찍혀 있어 글자를 읽기 전에는 구분이 안 됐다.
+ * 라벨에 이미 · 필수 를 적고 있으니 그 말에서 가져온다. 따로 받으면 언젠가
+ * 말과 색이 어긋난다.
+ */
+const requiredDot = (label: string, theme?: AppTheme) =>
+  theme && { backgroundColor: label.includes("필수") ? theme.primary : theme.border };
+
 const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
 
 /** 여행 날짜를 못 정했을 때. 날짜 칸에서 고를 수 있는 값이다. */
@@ -7431,7 +7441,7 @@ function Money({
           />
           <View style={styles.shareField}>
             <View style={styles.fieldLabelRow}>
-              <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+              <View style={[styles.fieldLabelDot, requiredDot("누구 몫", theme)]} />
               <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>누구 몫</Text>
             </View>
             {/* 아무도 안 고르면 참가자 전원이 똑같이 나눈다. 가장 흔한 경우라
@@ -7984,7 +7994,7 @@ function PairedDetailField({
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
       </View>
       <View style={styles.pairedFieldRow}>
@@ -8036,10 +8046,7 @@ function DetailField({
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
         <View
-          style={[
-            styles.fieldLabelDot,
-            theme && { backgroundColor: theme.primary },
-          ]}
+          style={[styles.fieldLabelDot, requiredDot(label, theme)]}
         />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
           {label}
@@ -8214,7 +8221,7 @@ function TimePickerField({
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
       </View>
       <TimePickerControl
@@ -8245,7 +8252,7 @@ function PairedTimePickerField({
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, theme && { backgroundColor: theme.primary }]} />
+        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
       </View>
       <View style={styles.pairedTimeRow}>
@@ -8697,10 +8704,7 @@ function OptionField({
     <View style={styles.optionField}>
       <View style={styles.fieldLabelRow}>
         <View
-          style={[
-            styles.fieldLabelDot,
-            theme && { backgroundColor: theme.primary },
-          ]}
+          style={[styles.fieldLabelDot, requiredDot(label, theme)]}
         />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
           {label}
@@ -8750,6 +8754,19 @@ function OptionField({
   );
 }
 
+/**
+ * 모서리는 다섯 단계만 쓴다.
+ *
+ *   4    배지와 아주 작은 칩
+ *   8    버튼, 선택 칩, 작은 판
+ *   12   입력칸, 목록 행, 보통 카드
+ *   16   큰 카드와 시트 안의 묶음
+ *   999  알약과 원
+ *
+ * 예외는 높이의 절반이 곧 모양인 것들뿐이다. 2~3px 짜리 점과 얇은 줄, 진행
+ * 막대가 거기 해당한다. 열네 가지가 돌면 같은 급의 것들이 미묘하게 달라 보이고,
+ * 새 화면을 만들 때 무엇을 따라야 할지 알 수 없다.
+ */
 const styles = StyleSheet.create({
   feedbackToast: {
     position: "absolute",
@@ -8805,13 +8822,11 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "2deg" }],
   },
   tripMemoLabel: {
-    color: "#A17F32",
     fontSize: 12,
     fontFamily: typo.label.family,
     letterSpacing: 0.5,
   },
   tripMemoPreview: {
-    color: "#5F4B23",
     fontSize: 11,
     fontFamily: typo.caption.family,
     marginTop: 2,
@@ -8825,7 +8840,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   tripMemoButtonText: {
-    color: "#806727",
     fontSize: 14,
     fontFamily: typo.label.family,
   },
@@ -8848,10 +8862,10 @@ const styles = StyleSheet.create({
   tripMemoRow: { padding: 12, borderWidth: 1, borderColor: "#EEEAE5", borderRadius: 12 },
   tripMemoRowHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   tripMemoActions: { flexDirection: "row", alignItems: "center", gap: 12 },
-  tripMemoEdit: { color: "#746F6A", fontSize: 12, fontFamily: typo.label.family },
-  tripMemoDelete: { color: "#D05E58", fontSize: 12, fontFamily: typo.label.family },
-  tripMemoAuthor: { color: "#B76A59", fontSize: 12, fontFamily: typo.label.family },
-  tripMemoBody: { color: "#35333A", fontSize: 14, lineHeight: 21, marginTop: 6 },
+  tripMemoEdit: { fontSize: 12, fontFamily: typo.label.family },
+  tripMemoDelete: { fontSize: 12, fontFamily: typo.label.family },
+  tripMemoAuthor: { fontSize: 12, fontFamily: typo.label.family },
+  tripMemoBody: { fontSize: 14, lineHeight: 21, marginTop: 6 },
   memoAddButton: {
     minHeight: 58,
     borderRadius: 12,
@@ -9017,7 +9031,7 @@ const styles = StyleSheet.create({
   travelInfoCopy: { flex: 1, minWidth: 0 },
   travelInfoTitle: { fontSize: 14, fontFamily: typo.title.family },
   travelInfoTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  travelInfoBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  travelInfoBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   travelInfoBadgeText: { fontSize: 12, fontFamily: typo.label.family },
   travelInfoMeta: { fontSize: 13, fontFamily: typo.caption.family, marginTop: 2 },
   travelInfoArrowBox: {
@@ -9042,10 +9056,9 @@ const styles = StyleSheet.create({
   dotLine: { alignItems: "center", width: 15 },
   line: { flex: 1, width: 1, backgroundColor: "#F0DCD2", marginTop: 4 },
   momentContent: { flex: 1, paddingLeft: 6 },
-  momentTitle: { color: "#5A3531", fontSize: 14, fontFamily: typo.title.family },
-  momentNote: { color: "#A18980", fontSize: 14, marginTop: 4 },
+  momentTitle: { fontSize: 14, fontFamily: typo.title.family },
+  momentNote: { fontSize: 14, marginTop: 4 },
   readyText: {
-    color: "#FFF8F3",
     fontSize: 14,
     fontFamily: typo.label.family,
     marginTop: 4,
@@ -9053,17 +9066,17 @@ const styles = StyleSheet.create({
   checkName: { color: "#593934", fontSize: 14, fontFamily: typo.title.family },
   checkNameDone: { color: "#B29B92", textDecorationLine: "line-through" },
   keepsakeCopy: { flex: 1, minWidth: 0 },
-  keepsakeStyle: { color: "#B06C5E", fontSize: 12, fontFamily: typo.label.family },
+  keepsakeStyle: { fontSize: 12, fontFamily: typo.label.family },
   keepsakeCompact: {
     minHeight: 76,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 10,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 8,
   },
   keepsakeStrip: { width: 82, height: 52, flexDirection: "row", gap: 2, marginRight: 10 },
-  keepsakeThumb: { flex: 1, borderRadius: 5, overflow: "hidden" },
+  keepsakeThumb: { flex: 1, borderRadius: 4, overflow: "hidden" },
   keepsakeCompactTitle: { fontSize: 13, fontFamily: typo.title.family, marginTop: 2 },
   keepsakeCompactAction: { fontSize: 11, fontFamily: typo.label.family, marginTop: 3 },
   diaryCard: {
@@ -9093,9 +9106,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   diaryPaperRule: { height: StyleSheet.hairlineWidth, opacity: 0.55 },
-  diaryDate: { color: "#B06C5E", fontSize: 11, fontFamily: typo.caption.family },
-  diaryTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
-  diaryBody: { color: "#8C8580", fontSize: 14, lineHeight: 20, marginTop: 6 },
+  diaryDate: { fontSize: 11, fontFamily: typo.caption.family },
+  diaryTitle: { fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
+  diaryBody: { fontSize: 14, lineHeight: 20, marginTop: 6 },
   cardMiniPreview: {
     height: 105,
     borderRadius: 12,
@@ -9177,13 +9190,11 @@ const styles = StyleSheet.create({
   sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 4 },
   sheetRouteDot: { width: 6, height: 6, borderRadius: 999, borderWidth: 1.5 },
   sheetTitle: {
-    color: "#17233D",
     fontSize: 24,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
   },
   sheetSubtitle: {
-    color: "#818A99",
     fontSize: 11,
     lineHeight: 15,
     marginTop: 4,
@@ -9204,7 +9215,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   sheetClose: {
-    color: "#6556D8",
     fontSize: 24,
     lineHeight: 26,
     fontWeight: "500",
@@ -9262,7 +9272,7 @@ const styles = StyleSheet.create({
   optionalSectionAction: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -9285,7 +9295,7 @@ const styles = StyleSheet.create({
   timePickerIcon: {
     width: 34,
     height: 34,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -9324,7 +9334,7 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     marginTop: 6,
   },
-  sheetSubmitText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
+  sheetSubmitText: { fontSize: 14, fontFamily: typo.label.family },
   sheetSubmitDisabled: { opacity: 0.38 },
   sheetSubmitArrow: {
     width: 39,
@@ -9342,9 +9352,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  infoLineLabel: { color: "#858D9A", fontSize: 12, fontFamily: typo.label.family },
+  infoLineLabel: { fontSize: 12, fontFamily: typo.label.family },
   infoLineValue: {
-    color: "#17233D",
     fontSize: 14,
     fontFamily: typo.data.family,
     maxWidth: "70%",
@@ -9374,7 +9383,7 @@ const styles = StyleSheet.create({
   optionField: { marginBottom: 16 },
   optionRow: { gap: 8, paddingRight: 6 },
   optionChipActive: { backgroundColor: "#17233D", borderColor: "#17233D" },
-  optionText: { color: "#747D8D", fontSize: 12, fontFamily: typo.label.family },
+  optionText: { fontSize: 12, fontFamily: typo.label.family },
   optionTextActive: { color: "#FFFFFF" },
   inlineFields: { flexDirection: "row", gap: 8 },
   titleField: { flex: 1 },
@@ -9409,18 +9418,16 @@ const styles = StyleSheet.create({
   },
   previewBody: { flex: 1 },
   previewType: {
-    color: "#3F4C8F",
     fontSize: 12,
     letterSpacing: 0.5,
     fontFamily: typo.label.family,
   },
   previewTitle: {
-    color: "#17233D",
     fontSize: 16,
     fontFamily: typo.title.family,
     marginTop: 6,
   },
-  previewPlace: { color: "#646C7A", fontSize: 12, marginTop: 4 },
+  previewPlace: { fontSize: 12, marginTop: 4 },
   savedPlacePicker: { marginBottom: 18 },
   savedPlacePickerHead: {
     flexDirection: "row",
@@ -9434,7 +9441,7 @@ const styles = StyleSheet.create({
   savedPlaceChoice: {
     width: 152,
     minHeight: 58,
-    borderRadius: 13,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -9444,7 +9451,7 @@ const styles = StyleSheet.create({
   savedPlaceChoiceMeta: { fontSize: 12, marginTop: 4 },
   naverField: {
     backgroundColor: "#E6F5ED",
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
@@ -9466,7 +9473,7 @@ const styles = StyleSheet.create({
   naverAutoFillText: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   naverLinkGuide: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: "#EAF7F0",
     padding: 12,
     marginBottom: 14,
@@ -9475,7 +9482,7 @@ const styles = StyleSheet.create({
   naverLinkButton: {
     flex: 1,
     height: 42,
-    borderRadius: 11,
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -9485,7 +9492,7 @@ const styles = StyleSheet.create({
   naverLinkButtonPrimaryText: { color: "#FFFFFF" },
   naverConnected: {
     minHeight: 38,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 10,
     marginTop: 8,
@@ -9495,7 +9502,7 @@ const styles = StyleSheet.create({
   },
   naverConnectedCopy: { flexDirection: "row", alignItems: "center", gap: 6 },
   naverConnectedText: { color: "#16844E", fontSize: 12, fontFamily: typo.label.family },
-  naverDisconnectText: { color: "#7C8390", fontSize: 11, fontFamily: typo.caption.family },
+  naverDisconnectText: { fontSize: 11, fontFamily: typo.caption.family },
   naverLogo: {
     width: 30,
     height: 30,
@@ -9541,7 +9548,7 @@ const styles = StyleSheet.create({
   mapLinkArrow: { fontSize: 14, marginLeft: 4 },
   placeFilterText: { color: "#7C8390", fontSize: 12, fontFamily: typo.label.family },
   placeFilterTextActive: { color: "#FFFFFF" },
-  placeAddText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
+  placeAddText: { fontSize: 12, fontFamily: typo.label.family },
   placeList: { gap: 8 },
   placeFormIntro: {
     minHeight: 34,
@@ -9552,11 +9559,10 @@ const styles = StyleSheet.create({
   placeRequiredBadge: { height: 25, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", marginRight: 8 },
   placeRequiredBadgeText: { fontSize: 12, fontFamily: typo.label.family },
   placeFormText: {
-    color: "#61598C",
     fontSize: 12,
     fontFamily: typo.label.family,
   },
-  placeSearchInput: { flex: 1, color: "#17233D", fontSize: 12 },
+  placeSearchInput: { flex: 1, fontSize: 12 },
   resultCount: {
     minWidth: 25,
     height: 25,
@@ -9565,12 +9571,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  resultCountText: { color: "#6556D8", fontSize: 14, fontFamily: typo.data.family },
+  resultCountText: { fontSize: 14, fontFamily: typo.data.family },
   tagFilterChipActive: { backgroundColor: "#8B7CF6" },
   tagFilterLabel: { color: "#777F8C", fontSize: 12, fontFamily: typo.label.family },
   tagFilterLabelActive: { color: "#FFFFFF" },
   placeTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 8 },
-  placeTagText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
+  placeTagText: { fontSize: 12, fontFamily: typo.label.family },
   tagEditor: { marginBottom: 16 },
   selectorLabel: { marginBottom: 8 },
   placeRecommendLabel: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 6 },
@@ -9597,7 +9603,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E0DA",
-    color: "#17233D",
     fontSize: 12,
     paddingHorizontal: 12,
   },
@@ -9608,7 +9613,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
-  draftTagText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
+  draftTagText: { fontSize: 12, fontFamily: typo.label.family },
   deletePlace: {
     height: 44,
     alignItems: "center",
@@ -9618,7 +9623,7 @@ const styles = StyleSheet.create({
   deletePlaceText: { fontSize: 13, fontFamily: typo.label.family },
   deleteConfirm: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 12,
     marginTop: 8,
     gap: 10,
@@ -9630,14 +9635,14 @@ const styles = StyleSheet.create({
   deleteConfirmButton: {
     flex: 1,
     minHeight: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   deleteConfirmCancel: { fontSize: 12, fontFamily: typo.label.family },
   deleteConfirmDanger: { fontSize: 13, fontFamily: typo.label.family },
-  fullScheduleText: { color: "#6556D8", fontSize: 12, fontFamily: typo.label.family },
+  fullScheduleText: { fontSize: 12, fontFamily: typo.label.family },
   moneySummary: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 8 },
   moneySummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
@@ -9671,15 +9676,15 @@ const styles = StyleSheet.create({
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
   moneyCurrencyValue: { fontSize: 12.5, fontFamily: typo.label.family },
   moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
-  shoppingCost: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 },
+  shoppingCost: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 },
   shoppingCostCopy: { flex: 1, minWidth: 0 },
   shoppingCostTitle: { fontSize: 13, fontFamily: typo.title.family },
   shoppingCostHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
-  shoppingCostInput: { width: 92, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, textAlign: "right", fontFamily: typo.data.family },
-  shoppingCostButton: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  shoppingCostInput: { width: 92, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, textAlign: "right", fontFamily: typo.data.family },
+  shoppingCostButton: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
   shoppingCostButtonText: { color: "#FFFFFF", fontSize: 13, fontFamily: typo.label.family },
   receiptRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-  receiptThumb: { width: 62, height: 62, borderRadius: 10, overflow: "hidden" },
+  receiptThumb: { width: 62, height: 62, borderRadius: 12, overflow: "hidden" },
   receiptEmpty: { borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   receiptEmptyText: { fontSize: 11, fontFamily: typo.caption.family },
   receiptActions: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -9706,10 +9711,10 @@ const styles = StyleSheet.create({
   moneyPaidCell: { width: 104, textAlign: "right", fontSize: 14, fontFamily: typo.data.family },
   moneySettleBlock: { marginTop: 16, gap: 6 },
   moneySettleLabel: { fontSize: 12, fontFamily: typo.caption.family },
-  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
   moneySettleText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
   moneySettleAmount: { fontSize: 20, fontFamily: typo.data.family },
-  moneyInsightCard: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 8 },
+  moneyInsightCard: { borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 8 },
   moneyInsightHeading: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 12 },
   moneyInsightEyebrow: { fontSize: 11, fontFamily: typo.label.family, marginBottom: 3 },
   moneyInsightTitle: { fontSize: 16, fontFamily: typo.title.family },
@@ -9720,7 +9725,7 @@ const styles = StyleSheet.create({
   moneyInsightLabel: { fontSize: 11, fontFamily: typo.caption.family },
   moneyInsightValue: { fontSize: 15, marginTop: 4, fontFamily: typo.data.family },
   moneyInsightMeta: { fontSize: 12, marginTop: 1, fontFamily: typo.caption.family },
-  moneyCategoryCard: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8 },
+  moneyCategoryCard: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 8 },
   moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44, paddingHorizontal: 6, borderRadius: 8 },
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
   moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
@@ -9770,14 +9775,13 @@ const styles = StyleSheet.create({
   scheduleDayItem: { marginHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
   scheduleDayItemGap: { marginTop: 8 },
   planPlaceSummary: {
-    borderRadius: 20,
+    borderRadius: 16,
     backgroundColor: "#E9E5FF",
     padding: 16,
     marginBottom: 20,
   },
-  planPlaceName: { color: "#17233D", fontSize: 18, fontFamily: typo.title.family },
+  planPlaceName: { fontSize: 18, fontFamily: typo.title.family },
   planPlaceMeta: {
-    color: "#7167A7",
     fontSize: 11,
     fontFamily: typo.caption.family,
     marginTop: 4,
@@ -9802,14 +9806,14 @@ const styles = StyleSheet.create({
   ownerStatSlot: { flex: 1, flexDirection: "row", alignItems: "center" },
   ownerStat: { flex: 1, alignItems: "center" },
   ownerStatActive: { borderRadius: 8, paddingVertical: 8 },
-  ownerStatName: { color: "#17233D", fontSize: 14, fontFamily: typo.title.family },
+  ownerStatName: { fontSize: 14, fontFamily: typo.title.family },
   ownerStatCount: {
     color: "#89909C",
     fontSize: 14,
     fontFamily: typo.data.family,
     marginTop: 4,
   },
-  unassignedText: { color: "#D25A50" },
+  unassignedText: { },
   ownerDivider: { width: 1, height: 26, backgroundColor: "#ECEAE5" },
   packingFilterBoard: {
     borderWidth: 1,
@@ -10030,7 +10034,7 @@ const styles = StyleSheet.create({
   packingV2Owners: { flexDirection: "row", gap: 6, paddingRight: 16 },
   packingV2TagChoice: {
     minHeight: 40,
-    borderRadius: 9,
+    borderRadius: 8,
     paddingHorizontal: 11,
     flexDirection: "row",
     alignItems: "center",
@@ -10190,7 +10194,7 @@ const styles = StyleSheet.create({
   assignmentAvatar: {
     width: 39,
     height: 39,
-    borderRadius: 20,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -10229,8 +10233,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cookingImportCopy: { flex: 1, paddingRight: 8 },
-  cookingImportTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  cookingImportText: { color: "#8C8580", fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
+  cookingImportTitle: { fontSize: 14, fontFamily: typo.title.family },
+  cookingImportText: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
   cookingImportGroup: {
     borderRadius: 12,
     borderWidth: 1,
@@ -10246,8 +10250,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  cookingImportGroupTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  cookingImportGroupCount: { color: "#8C8580", fontSize: 14, fontFamily: typo.data.family },
+  cookingImportGroupTitle: { fontSize: 14, fontFamily: typo.title.family },
+  cookingImportGroupCount: { fontSize: 14, fontFamily: typo.data.family },
   cookingImportRow: {
     minHeight: 45,
     borderTopWidth: 1,
@@ -10268,11 +10272,10 @@ const styles = StyleSheet.create({
   },
   cookingImportCheckText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   cookingImportItemCopy: { flex: 1 },
-  cookingImportItemName: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  cookingImportItemMeta: { color: "#8C8580", fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
+  cookingImportItemName: { fontSize: 14, fontFamily: typo.title.family },
+  cookingImportItemMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   packingQuantity: { color: "#858D99", fontSize: 14, fontFamily: typo.data.family },
   settingHint: {
-    color: "#646C7A",
     fontSize: 13,
     lineHeight: 19,
     marginTop: -6,
@@ -10296,9 +10299,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 8,
   },
-  recipeSelectorTitle: { color: "#777F8C", fontSize: 14, fontFamily: typo.title.family },
+  recipeSelectorTitle: { fontSize: 14, fontFamily: typo.title.family },
   recipeSelectorActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  recipeSelectorMore: { color: "#D9685F", fontSize: 14, fontFamily: typo.label.family },
+  recipeSelectorMore: { fontSize: 14, fontFamily: typo.label.family },
   cookV2MenuList: { gap: 8, paddingRight: 12 },
   cookV2MenuCard: {
     width: 124,
@@ -10341,11 +10344,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 8,
   },
-  recipeListNumberText: { color: "#8C8580", fontSize: 14, fontFamily: typo.data.family },
+  recipeListNumberText: { fontSize: 14, fontFamily: typo.data.family },
   recipeListCopy: { flex: 1, minWidth: 0 },
-  recipeListName: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  recipeListNote: { color: "#8C8580", fontSize: 14, fontFamily: typo.body.family, marginTop: 2 },
-  recipeListCount: { color: "#8C8580", fontSize: 14, fontFamily: typo.data.family, marginLeft: 8 },
+  recipeListName: { fontSize: 14, fontFamily: typo.title.family },
+  recipeListNote: { fontSize: 14, fontFamily: typo.body.family, marginTop: 2 },
+  recipeListCount: { fontSize: 14, fontFamily: typo.data.family, marginLeft: 8 },
   recipeListArrow: { color: "#8C8580", fontSize: 18, fontFamily: typo.label.family, marginLeft: 6 },
   myCookingBox: {
     borderRadius: 12,
@@ -10356,8 +10359,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     marginBottom: 12,
   },
-  myCookingTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  myCookingSummary: { color: "#8C8580", fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
+  myCookingTitle: { fontSize: 14, fontFamily: typo.title.family },
+  myCookingSummary: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
   myCookingCompact: { flexDirection: "row", alignItems: "center" },
   myCookingIcon: {
     width: 32,
@@ -10393,8 +10396,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  myIngredientGroupTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  myIngredientGroupCount: { color: "#D9685F", fontSize: 14, fontFamily: typo.data.family },
+  myIngredientGroupTitle: { fontSize: 14, fontFamily: typo.title.family },
+  myIngredientGroupCount: { fontSize: 14, fontFamily: typo.data.family },
   myIngredientRow: {
     minHeight: 38,
     borderTopWidth: 1,
@@ -10403,8 +10406,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  myIngredientName: { flex: 1, minWidth: 0, color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  myIngredientQuantity: { flexShrink: 0, marginLeft: 8, color: "#8C8580", fontSize: 14, fontFamily: typo.data.family },
+  myIngredientName: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typo.title.family },
+  myIngredientQuantity: { flexShrink: 0, marginLeft: 8, fontSize: 14, fontFamily: typo.data.family },
   aiRecipeCallout: {
     borderRadius: 12,
     borderWidth: 1,
@@ -10416,15 +10419,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   aiRecipeCopy: { flex: 1, paddingRight: 8 },
-  aiRecipeTitle: { color: "#35333A", fontSize: 14, fontFamily: typo.title.family },
-  aiRecipeText: { color: "#8C8580", fontSize: 12, fontFamily: typo.label.family, lineHeight: 15, marginTop: 2 },
+  aiRecipeTitle: { fontSize: 14, fontFamily: typo.title.family },
+  aiRecipeText: { fontSize: 12, fontFamily: typo.label.family, lineHeight: 15, marginTop: 2 },
   aiRecipeButton: {
     borderRadius: 8,
     backgroundColor: "#F0EDFF",
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
-  aiRecipeButtonText: { color: "#6556D8", fontSize: 14, fontFamily: typo.label.family },
+  aiRecipeButtonText: { fontSize: 14, fontFamily: typo.label.family },
   aiPromptBox: {
     borderRadius: 12,
     borderWidth: 1,
@@ -10443,7 +10446,6 @@ const styles = StyleSheet.create({
   aiPromptCopyOnly: { alignSelf: "flex-start", marginTop: 8, paddingVertical: 4 },
   aiPromptCopyText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.body.family },
   aiPromptPreview: {
-    color: "#777F8C",
     fontSize: 11,
     fontFamily: typo.caption.family,
     lineHeight: 13,
@@ -10455,7 +10457,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 8,
   },
-  cookingNote: { color: "#9B7555", fontSize: 14, marginTop: 4 },
+  cookingNote: { fontSize: 14, marginTop: 4 },
   recipeLink: {
     alignSelf: "flex-start",
     flexDirection: "row",
@@ -10464,7 +10466,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 4,
   },
-  recipeLinkText: { color: "#D9685F", fontSize: 14, fontFamily: typo.label.family },
+  recipeLinkText: { fontSize: 14, fontFamily: typo.label.family },
   emptyCooking: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
@@ -10473,8 +10475,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ECE7E1",
   },
-  emptyCookingTitle: { color: "#4B4745", fontSize: 18, fontFamily: typo.title.family },
-  emptyCookingText: { color: "#99928D", fontSize: 12, marginTop: 6 },
+  emptyCookingTitle: { fontSize: 18, fontFamily: typo.title.family },
+  emptyCookingText: { fontSize: 12, marginTop: 6 },
   emptyCookingAction: {
     minHeight: 38,
     borderRadius: 12,
@@ -10485,7 +10487,6 @@ const styles = StyleSheet.create({
   },
   emptyCookingActionText: { fontSize: 14, fontFamily: typo.label.family },
   cookingEyebrow: {
-    color: "#A16E35",
     fontSize: 12,
     fontFamily: typo.label.family,
     marginBottom: 4,
@@ -10501,7 +10502,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cookingTitle: {
-    color: "#5C4030",
     fontSize: 24,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
@@ -10511,7 +10511,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  cookingTip: { color: "#77706A", fontSize: 12 },
+  cookingTip: { fontSize: 12 },
   cookingSectionTitle: {
     color: "#A16E35",
     fontSize: 14,
@@ -10551,9 +10551,9 @@ const styles = StyleSheet.create({
   cookV2IngredientTick: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   cookV2IngredientNameDone: { textDecorationLine: "line-through" },
   ingredientBody: { flex: 1 },
-  ingredientName: { color: "#383534", fontSize: 14, fontFamily: typo.title.family },
-  ingredientOwner: { color: "#96908A", fontSize: 12, marginTop: 2 },
-  ingredientQuantity: { color: "#765D49", fontSize: 14, fontFamily: typo.data.family },
+  ingredientName: { fontSize: 14, fontFamily: typo.title.family },
+  ingredientOwner: { fontSize: 12, marginTop: 2 },
+  ingredientQuantity: { fontSize: 14, fontFamily: typo.data.family },
   emptyState: { minHeight: 76, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center" },
   emptyStateMark: { width: 34, height: 38, borderRadius: 8, paddingHorizontal: 6, justifyContent: "center", gap: 4, marginRight: 8, transform: [{ rotate: "-2deg" }] },
   emptyStateLine: { height: 2, borderRadius: 2, opacity: 0.55 },
@@ -10567,7 +10567,6 @@ const styles = StyleSheet.create({
   listMoreText: { fontSize: 14, fontFamily: typo.label.family },
   listMoreChevron: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 6 },
   longPressHint: {
-    color: "#646C7A",
     fontSize: 13,
     textAlign: "center",
     marginTop: 2,
@@ -10595,14 +10594,13 @@ const styles = StyleSheet.create({
   },
   close: { color: "#17233D", fontSize: 34, lineHeight: 36, fontWeight: "300" },
   headerName: {
-    color: "#17233D",
     fontSize: 16,
     letterSpacing: 1,
     fontFamily: typo.title.family,
   },
   modeText: { color: "#7C8492", fontSize: 14, fontFamily: typo.label.family },
-  modeTextCurrent: { color: "#FFFFFF" },
-  sectionAction: { color: "#6556D8", fontSize: 14, fontFamily: typo.label.family },
+  modeTextCurrent: { },
+  sectionAction: { fontSize: 14, fontFamily: typo.label.family },
   dot: {
     width: 8,
     height: 8,
@@ -10611,7 +10609,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   readyEyebrow: {
-    color: "#6AD6C8",
     fontSize: 12,
     letterSpacing: 1,
     fontFamily: typo.label.family,
@@ -10632,12 +10629,12 @@ const styles = StyleSheet.create({
   mode: {
     flex: 1,
     minHeight: 40,
-    borderRadius: 9,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   modeCurrent: {
-    borderRadius: 9,
+    borderRadius: 8,
     borderWidth: 1,
     shadowOpacity: 0,
     elevation: 0,
@@ -10677,7 +10674,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tabActionButtonText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
+  tabActionButtonText: { fontSize: 14, fontFamily: typo.label.family },
   sectionTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
   timelineCard: { borderRadius: 12, padding: 12, borderWidth: 1 },
   fullScheduleButton: {
