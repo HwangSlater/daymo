@@ -60,3 +60,35 @@ test("화면을 망가뜨릴 만큼 긴 이름은 기본값으로 되돌린다",
   const saved = JSON.stringify([{ ...defaultSpaces[0], name: "가".repeat(41) }]);
   assert.equal(parseSpaces(saved)[0].name, defaultSpaces[0].name);
 });
+
+test("서버에서 받은 멤버 id 와 내 권한을 캐시에 남긴다", () => {
+  // 오프라인으로 열었을 때도 무엇을 바꿀 수 있는지 가르려면 권한이 남아 있어야 한다.
+  const saved = JSON.stringify([{
+    id: "space-1",
+    name: "둘의 여행",
+    members: [{ id: "membership-2", name: "다온", role: "편집 가능" }],
+    relationship: "연인",
+    since: "2024-05-18",
+    myRole: "관리자",
+    relationshipType: "couple",
+  }]);
+
+  const [space] = parseSpaces(saved);
+
+  assert.equal(space.members[0].id, "membership-2");
+  assert.equal(space.myRole, "관리자");
+  assert.equal(space.relationshipType, "couple");
+});
+
+test("모르는 권한은 캐시에서 버린다", () => {
+  const saved = JSON.stringify([{ ...defaultSpaces[0], myRole: "사장님" }]);
+
+  assert.equal(parseSpaces(saved)[0].myRole, undefined);
+});
+
+test("함께한 날을 적지 않은 공간은 빈 값 그대로 읽는다", () => {
+  // 기본값으로 되돌리면 적지도 않은 날이 "함께한 지 N일째" 로 보인다.
+  const saved = JSON.stringify([{ ...defaultSpaces[0], since: "" }]);
+
+  assert.equal(parseSpaces(saved)[0].since, "");
+});

@@ -20,6 +20,8 @@ export type MemberRole = "관리자" | "편집 가능" | "보기만";
 export const memberRoles: readonly MemberRole[] = ["관리자", "편집 가능", "보기만"];
 
 export type Member = {
+  /** 서버의 membership id. 서버에서 받은 멤버에만 있다. */
+  id?: string;
   name: string;
   role: MemberRole;
 };
@@ -32,8 +34,19 @@ export type Space = {
   /** 나를 뺀 사람들. 나는 내 프로필에서 오고 늘 첫 번째다. */
   members: Member[];
   relationship: Relationship;
-  /** 함께하기 시작한 날. 연인 공간에서만 "함께한 지 N일째" 로 쓴다. */
+  /** 함께하기 시작한 날. 연인 공간에서만 "함께한 지 N일째" 로 쓴다. 적지 않았으면 비어 있다. */
   since: string;
+  /**
+   * 이 공간에서 내 권한. 서버에서 받았을 때만 있다.
+   *
+   * 없으면 무엇을 바꿀 수 있는지 모른다는 뜻이라 바꾸지 못하게 둔다.
+   */
+  myRole?: MemberRole;
+  /**
+   * 서버에 저장된 관계 값 그대로. 앱은 연인·친구만 보여 주지만 서버에는
+   * 가족·기타도 있어서, 이것을 들고 있어야 바꾸지 않은 관계를 덮어쓰지 않는다.
+   */
+  relationshipType?: string;
 };
 
 export const defaultSpaces: Space[] = [
@@ -87,7 +100,10 @@ function parseMember(value: unknown): Member | null {
   const record = value as Record<string, unknown>;
   const name = shortText(record.name, "", 20);
   if (!name) return null;
-  return { name, role: oneOf(record.role, memberRoles, "편집 가능") };
+  const member: Member = { name, role: oneOf(record.role, memberRoles, "편집 가능") };
+  const id = shortText(record.id, "", 64);
+  if (id) member.id = id;
+  return member;
 }
 
 function parseSpace(value: unknown, fallback: Space): Space {
@@ -97,13 +113,22 @@ function parseSpace(value: unknown, fallback: Space): Space {
   const members = Array.isArray(record.members)
     ? record.members.map(parseMember).filter((member): member is Member => member !== null)
     : fallback.members;
-  return {
+  const space: Space = {
     id,
     name: shortText(record.name, fallback.name),
     members,
     relationship: oneOf(record.relationship, ["연인", "친구"] as const, fallback.relationship),
-    since: shortText(record.since, fallback.since),
+    // 서버에서 함께한 날을 적지 않은 공간은 빈 값으로 저장된다. 기본값으로
+    // 되돌리면 적지도 않은 날짜가 "함께한 지 N일째" 로 보인다.
+    since: typeof record.since === "string" && record.since.length <= 40 ? record.since : fallback.since,
   };
+  // 오프라인으로 열었을 때도 내 권한을 알아야 바꿀 수 있는 것을 가를 수 있다.
+  if (typeof record.myRole === "string" && (memberRoles as readonly string[]).includes(record.myRole)) {
+    space.myRole = record.myRole as MemberRole;
+  }
+  const relationshipType = shortText(record.relationshipType, "", 20);
+  if (relationshipType) space.relationshipType = relationshipType;
+  return space;
 }
 
 /**

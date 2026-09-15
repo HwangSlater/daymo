@@ -117,6 +117,68 @@ async def test_공간_멤버는_표시_이름과_내_여부를_돌려준다(api,
     ]
 
 
+async def test_앱이_보내는_모양으로_공간을_고친다(api, db):
+    """
+    앱은 바꾼 칸만 보낸다. 이름만 고치면 관계와 함께한 날을 보내지 않고,
+    그 둘은 그대로 남아야 한다. 함께한 날을 지우면 null 을 보낸다.
+    """
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    await api.patch(
+        f"/v1/spaces/{space_id}",
+        json={"relationshipType": "family", "startedOn": "2024-05-18"},
+        headers=headers,
+    )
+
+    이름만 = await api.patch(f"/v1/spaces/{space_id}", json={"name": "가족 나들이"}, headers=headers)
+
+    assert 이름만.json()["data"]["relationshipType"] == "family"
+    assert 이름만.json()["data"]["startedOn"] == "2024-05-18"
+
+    지움 = await api.patch(f"/v1/spaces/{space_id}", json={"startedOn": None}, headers=headers)
+
+    assert 지움.status_code == 200
+    assert 지움.json()["data"]["startedOn"] is None
+    assert 지움.json()["data"]["name"] == "가족 나들이"
+
+
+async def test_editor는_공간_정보를_수정할_수_없다(api, db):
+    """앱은 관리자에게만 칸을 연다. 서버도 같은 선을 지켜야 앱을 우회해도 막힌다."""
+    owner_headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, owner_headers)
+    editor_headers = await 로그인한_사람(api, "editor@example.com", "다온")
+
+    from app.models import Membership, User
+
+    user_id = await db.scalar(select(User.id).where(User.email == "editor@example.com"))
+    db.add(Membership(space_id=space_id, user_id=user_id, role=MembershipRole.EDITOR))
+    await db.flush()
+
+    응답 = await api.patch(
+        f"/v1/spaces/{space_id}", json={"name": "마음대로"}, headers=editor_headers
+    )
+
+    assert 응답.status_code == 403
+
+
+async def test_멤버_목록에_editor와_viewer가_권한과_함께_나온다(api, db):
+    owner_headers = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, owner_headers)
+    await 로그인한_사람(api, "editor@example.com", "다온")
+
+    from app.models import Membership, User
+
+    user_id = await db.scalar(select(User.id).where(User.email == "editor@example.com"))
+    db.add(Membership(space_id=space_id, user_id=user_id, role=MembershipRole.EDITOR))
+    await db.flush()
+
+    응답 = await api.get(f"/v1/spaces/{space_id}/members", headers=owner_headers)
+
+    줄들 = {줄["displayName"]: 줄 for 줄 in 응답.json()["data"]}
+    assert 줄들["하늘"]["role"] == "owner" and 줄들["하늘"]["isMe"] is True
+    assert 줄들["다온"]["role"] == "editor" and 줄들["다온"]["isMe"] is False
+
+
 async def test_viewer는_공간_정보를_수정할_수_없다(api, db):
     owner_headers = await 로그인한_사람(api, "sky@example.com")
     space_id = await 공간을_만든다(api, owner_headers)

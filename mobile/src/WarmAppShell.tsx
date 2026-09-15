@@ -37,7 +37,6 @@ import {
   defaultMe,
   defaultSpaces,
   type Me,
-  type MemberRole,
   type Space,
   useSaveMe,
   useSaveSpaces,
@@ -65,7 +64,26 @@ import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { DaymoApiError, login, logout, restoreSession, signUp, type AuthUser } from "./auth";
-import { createSpace, createTrip, listSpaces, listTrips, updateTrip, type ServerSpace, type ServerTrip } from "./serverData";
+import {
+  createSpace,
+  createTrip,
+  listMembers,
+  listSpaces,
+  listTrips,
+  updateSpace,
+  updateTrip,
+  type ServerSpace,
+  type ServerTrip,
+} from "./serverData";
+import {
+  canEditSpace,
+  membersFromServer,
+  relationshipFromServer,
+  roleFromServer,
+  spacePatchFrom,
+  type ServerMemberInput,
+  type SpaceChange,
+} from "./spaceMapping";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
@@ -94,12 +112,18 @@ type Trip = {
   sample?: boolean;
 };
 
-const spaceFromServer = (space: ServerSpace): Space => ({
+// 서버 공간을 앱의 공간으로 옮긴다. 멤버는 따로 받아 넘긴다.
+//
+// 함께한 날을 적지 않았으면 비워 둔다. 예전에는 오늘 날짜로 채웠는데, 그러면
+// 적지도 않은 날이 "함께한 지 1일째" 로 보였다.
+const spaceFromServer = (space: ServerSpace, members: ServerMemberInput[] = []): Space => ({
   id: space.id,
   name: space.name,
-  members: [],
-  relationship: space.relationshipType === "couple" ? "연인" : "친구",
-  since: sampleDate(0),
+  members: membersFromServer(members),
+  relationship: relationshipFromServer(space.relationshipType),
+  relationshipType: space.relationshipType,
+  since: space.startedOn ?? "",
+  myRole: roleFromServer(space.myRole),
 });
 
 const tripFromServer = (trip: ServerTrip, tone = 0): Trip => ({
@@ -416,9 +440,67 @@ export function WarmAppShell({
     relationship: "친구" as const,
     since: sampleDate(0),
   };
-  const updateActiveSpace = (change: Partial<Space>) =>
+  // 공간 이름·관계·함께한 날을 서버에 저장한다.
+  //
+  // 화면은 바로 바꾸고 저장은 뒤에서 한다. 이름은 글자마다 바뀌어서 잠깐 모았다가
+  // 한 번만 보낸다. 저장이 실패하면 조용히 넘기지 않고 화면에 알린다. 다음에
+  // 서버에서 다시 받으면 되돌아가는데, 사용자는 그 사이 저장됐다고 믿고 있게 된다.
+  const [spaceSaveState, setSpaceSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const pendingSpaceChange = useRef<{ spaceId: string; relationshipType?: string; change: SpaceChange } | null>(null);
+  const spaceSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const spaceSaveSeq = useRef(0);
+  useEffect(() => () => {
+    if (spaceSaveTimer.current) clearTimeout(spaceSaveTimer.current);
+  }, []);
+  const flushSpaceSave = () => {
+    if (spaceSaveTimer.current) {
+      clearTimeout(spaceSaveTimer.current);
+      spaceSaveTimer.current = null;
+    }
+    const pending = pendingSpaceChange.current;
+    pendingSpaceChange.current = null;
+    if (!pending) return;
+    const patch = spacePatchFrom(pending.change, pending.relationshipType);
+    if (!patch) return;
+    // 늦게 끝난 앞 요청이 뒤 요청의 결과를 덮지 않게 번호를 붙인다.
+    const seq = ++spaceSaveSeq.current;
+    setSpaceSaveState("saving");
+    updateSpace(pending.spaceId, patch)
+      .then((saved) => {
+        // 이름과 날짜는 받아 온 값으로 덮지 않는다. 그 사이 사용자가 더 쳤을 수 있다.
+        // 서버만 아는 값(저장된 관계 원본, 내 권한)만 맞춘다.
+        setSpaces((current) => current.map((space) => space.id === saved.id
+          ? { ...space, relationshipType: saved.relationshipType, myRole: roleFromServer(saved.myRole) }
+          : space));
+        if (seq === spaceSaveSeq.current) setSpaceSaveState("saved");
+      })
+      .catch(() => {
+        if (seq === spaceSaveSeq.current) setSpaceSaveState("failed");
+      });
+  };
+  const updateActiveSpace = (change: Partial<Space>) => {
     setSpaces((current) => current.map((space) =>
       space.id === activeSpace.id ? { ...space, ...change } : space));
+
+    const serverChange: SpaceChange = {};
+    if (change.name !== undefined) serverChange.name = change.name;
+    if (change.relationship !== undefined) serverChange.relationship = change.relationship;
+    if (change.since !== undefined) serverChange.since = change.since;
+    // 서버는 관리자만 받는다. 권한이 없는데 보내면 실패만 보인다.
+    if (!Object.keys(serverChange).length || !canEditSpace(activeSpace.myRole)) return;
+
+    // 다른 공간에 대한 저장이 기다리고 있으면 먼저 보낸다. 섞이면 엉뚱한 공간에 저장된다.
+    if (pendingSpaceChange.current && pendingSpaceChange.current.spaceId !== activeSpace.id) {
+      flushSpaceSave();
+    }
+    pendingSpaceChange.current = {
+      spaceId: activeSpace.id,
+      relationshipType: activeSpace.relationshipType,
+      change: { ...(pendingSpaceChange.current?.change ?? {}), ...serverChange },
+    };
+    if (spaceSaveTimer.current) clearTimeout(spaceSaveTimer.current);
+    spaceSaveTimer.current = setTimeout(flushSpaceSave, change.name !== undefined ? 700 : 0);
+  };
   const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
   const [tripStorageReady, setTripStorageReady] = useState(false);
   // 저장이 막히면 조용히 넘어가지 않는다. 사용자는 적은 게 남았다고 믿는데
@@ -463,9 +545,12 @@ export function WarmAppShell({
     let active = true;
     listSpaces()
       .then(async (serverSpaces) => {
-        const tripLists = await Promise.all(serverSpaces.map((space) => listTrips(space.id)));
+        const [tripLists, memberLists] = await Promise.all([
+          Promise.all(serverSpaces.map((space) => listTrips(space.id))),
+          Promise.all(serverSpaces.map((space) => listMembers(space.id))),
+        ]);
         if (!active) return;
-        const nextSpaces = serverSpaces.map(spaceFromServer);
+        const nextSpaces = serverSpaces.map((space, index) => spaceFromServer(space, memberLists[index]));
         const nextTrips: Record<string, Trip[]> = {};
         serverSpaces.forEach((space, index) => {
           nextTrips[space.id] = tripLists[index].map((trip, tone) => tripFromServer(trip, tone));
@@ -693,6 +778,7 @@ export function WarmAppShell({
             setSpaces={setSpaces}
             activeSpace={activeSpace}
             updateActiveSpace={updateActiveSpace}
+            spaceSaveState={spaceSaveState}
             setActiveGroupId={setActiveGroupId}
             user={user}
             setUser={setUser}
@@ -3249,6 +3335,7 @@ function Together({
   setSpaces,
   activeSpace,
   updateActiveSpace,
+  spaceSaveState,
   setActiveGroupId,
   user,
   setUser,
@@ -3267,6 +3354,8 @@ function Together({
   /** 지금 보고 있는 공간. 이름·멤버·관계·시작일이 전부 여기서 온다. */
   activeSpace: Space;
   updateActiveSpace: (change: Partial<Space>) => void;
+  /** 공간 정보 저장이 어디까지 갔는지. 실패를 조용히 넘기지 않으려고 받는다. */
+  spaceSaveState: "idle" | "saving" | "saved" | "failed";
   setActiveGroupId: (group: GroupId) => void;
   user: DaymoUser;
   setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
@@ -3284,48 +3373,30 @@ function Together({
     setSelectedMember(0);
   };
   /**
-   * 화면에 보이는 사람 목록. 나는 늘 첫 번째이고 관리자다.
+   * 화면에 보이는 사람 목록. 나는 늘 첫 번째다.
    *
-   * 나를 멤버 배열에 같이 넣지 않는다. 내 이름은 내 프로필에서 오고, 서버가
-   * 붙으면 멤버는 초대받은 사람만을 가리키게 된다.
+   * 멤버와 권한은 서버에서 온다. 여기서 고치지 않는다. 멤버 이름·권한 변경,
+   * 내보내기, 초대는 서버에 아직 API 가 없어서, 화면에서 고치면 기기에만
+   * 바뀌었다가 다음에 서버에서 받을 때 말없이 되돌아간다. 고친 것처럼 보이는
+   * 버튼을 두지 않고 읽기 전용으로 둔다.
+   *
+   * 내 권한을 아직 모르면(서버에서 못 받았으면) 관리자라고 적지 않는다.
    */
   const people = [
-    { name: user.name, role: "관리자" as MemberRole, me: true },
-    ...activeSpace.members.map((member) => ({ ...member, me: false })),
+    { key: "me", name: user.name, role: activeSpace.myRole ?? "권한 확인 중", me: true },
+    ...activeSpace.members.map((member, index) => ({
+      key: member.id ?? `${member.name}-${index}`,
+      name: member.name,
+      role: member.role as string,
+      me: false,
+    })),
   ];
-  const setMemberName = (index: number, name: string) => {
-    if (index === 0) {
-      setUser((current) => (current ? { ...current, name } : current));
-      return;
-    }
-    updateActiveSpace({
-      members: activeSpace.members.map((member, slot) =>
-        slot === index - 1 ? { ...member, name } : member),
-    });
-  };
-  const setMemberRole = (index: number, role: MemberRole) => {
-    if (index === 0) return;
-    updateActiveSpace({
-      members: activeSpace.members.map((member, slot) =>
-        slot === index - 1 ? { ...member, role } : member),
-    });
-  };
-  const [newMember, setNewMember] = useState("");
-  const canAddMember = Boolean(newMember.trim())
-    && !people.some((member) => member.name === newMember.trim());
-  const addMember = () => {
-    if (!canAddMember) return;
-    updateActiveSpace({
-      members: [...activeSpace.members, { name: newMember.trim(), role: "편집 가능" }],
-    });
-    setNewMember("");
-  };
-  const removeMember = (index: number) => {
-    if (index === 0) return;
-    updateActiveSpace({
-      members: activeSpace.members.filter((_, slot) => slot !== index - 1),
-    });
-    setSelectedMember(0);
+  const selectedPerson = people[selectedMember] ?? people[0];
+  const canEdit = canEditSpace(activeSpace.myRole);
+  const roleExplain: Record<string, string> = {
+    관리자: "공간 정보와 모든 여행을 관리할 수 있어요.",
+    "편집 가능": "여행과 일정·준비물·비용을 함께 고칠 수 있어요.",
+    보기만: "내용을 볼 수 있지만 고칠 수는 없어요.",
   };
   const totalTripDays = trips.reduce((total, trip) => {
     const start = new Date(`${trip.start}T00:00:00`).getTime();
@@ -3750,7 +3821,7 @@ function Together({
             <View style={s.memberManagerGrid}>
               {people.map((member, index) => (
                 <Pressable
-                  key={`${member.name}-manage`}
+                  key={`${member.key}-manage`}
                   onPress={() => setSelectedMember(index)}
                   accessibilityRole="radio"
                   accessibilityLabel={`${member.name} 고르기`}
@@ -3774,86 +3845,26 @@ function Together({
                 </Pressable>
               ))}
             </View>
-            {/* 서버가 없어서 초대 링크를 발급할 수 없다. 링크 대신 이름만 적어
-                두면 담당과 정산에는 바로 쓸 수 있다. 서버가 붙으면 이 자리가
-                초대가 된다. */}
-            <View style={s.memberAddRow}>
-              <Field
-                theme={theme}
-                label="멤버 추가"
-                value={newMember}
-                onChangeText={setNewMember}
-                placeholder="이름 또는 별명"
-              />
-              <Pressable
-                onPress={addMember}
-                disabled={!canAddMember}
-                accessibilityRole="button"
-                accessibilityLabel="멤버 추가"
-                accessibilityState={{ disabled: !canAddMember }}
-                style={[
-                  s.memberAddButton,
-                  { backgroundColor: canAddMember ? theme.primary : theme.surfaceAlt },
-                ]}
-              >
-                <Text style={[s.memberAddButtonText, { color: canAddMember ? onAccent(theme.dark) : theme.muted }]}>추가</Text>
-              </Pressable>
-            </View>
             <View style={[s.memberEditor, { backgroundColor: theme.primarySoft }]}>
               <Text style={[s.memberEditorEyebrow, { color: theme.primary }]}>선택한 멤버</Text>
-              <Field
-                theme={theme}
-                label={selectedMember === 0 ? "내 이름" : "멤버 이름"}
-                value={people[selectedMember]?.name ?? ""}
-                onChangeText={(value) => setMemberName(selectedMember, value)}
-                placeholder="이름 또는 별명"
-              />
-              {selectedMember === 0 ? (
-                <Text style={[s.memberRoleText, { color: theme.muted }]}>관리자는 공간과 모든 여행을 관리할 수 있어요.</Text>
-              ) : (
-                <>
-                  <Text style={[s.memberPermissionLabel, { color: theme.text }]}>이 공간에서 할 수 있는 일</Text>
-                  <Choice
-                    theme={theme}
-                    selected={people[selectedMember]?.role === "편집 가능"}
-                    label="함께 관리 · 일정과 준비물을 수정"
-                    onPress={() => setMemberRole(selectedMember, "편집 가능")}
-                  />
-                  <Choice
-                    theme={theme}
-                    selected={people[selectedMember]?.role === "보기만"}
-                    label="보기만 · 내용을 확인"
-                    onPress={() => setMemberRole(selectedMember, "보기만")}
-                  />
-                  {/* 권한은 아직 이름표다. 서버가 없으면 "보기만" 인 사람이
-                      고치는 것을 막을 방법이 없다. 그걸 숨기지 않는다. */}
-                  <Text style={[s.memberRoleText, { color: theme.muted }]}>
-                    권한은 서버를 붙인 뒤에 실제로 적용돼요. 지금은 누가 무엇을 맡는지 적어 두는 용도예요.
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      const memberName = people[selectedMember]?.name ?? "";
-                      Alert.alert(
-                        `${memberName}님을 내보낼까요?`,
-                        "이 멤버는 더 이상 이 공간의 여행을 보거나 수정할 수 없어요.",
-                        [
-                          { text: "취소", style: "cancel" },
-                          {
-                            text: "내보내기",
-                            style: "destructive",
-                            onPress: () => removeMember(selectedMember),
-                          },
-                        ],
-                      );
-                    }}
-                    hitSlop={6}
-                    accessibilityRole="button"
-                    style={s.memberRemoveButton}
-                  >
-                    <Text style={s.memberRemoveText}>이 공간에서 내보내기</Text>
-                  </Pressable>
-                </>
-              )}
+              <Text style={[s.memberManagerTitle, { color: theme.text }]}>
+                {selectedPerson.name}{selectedPerson.me ? " (나)" : ""}
+              </Text>
+              <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{selectedPerson.role}</Text>
+              {/* 서버가 지키는 권한이다. 예전에는 이름표일 뿐이라고 적어 뒀는데, 이제
+                  보기만인 사람이 고치면 서버가 막는다. */}
+              <Text style={[s.memberRoleText, { color: theme.muted }]}>
+                {roleExplain[selectedPerson.role] ?? "권한을 불러오지 못했어요. 인터넷에 연결되면 다시 확인해요."}
+              </Text>
+            </View>
+            {/* 초대·권한 변경·내보내기는 서버 API 가 생길 때 연다. 그 전까지 이름만
+                적어 넣는 멤버 추가는 막는다. 서버에 없는 사람이 담당과 정산에 들어가면
+                다른 기기에서는 그 사람이 보이지 않는다. */}
+            <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt }]}>
+              <Text style={[s.memberPermissionLabel, { color: theme.text }]}>멤버 초대는 준비 중이에요</Text>
+              <Text style={[s.memberRoleText, { color: theme.muted }]}>
+                초대 링크, 권한 변경, 내보내기는 곧 열려요. 지금은 이 공간에 들어와 있는 사람만 보여요.
+              </Text>
             </View>
           </>
         )}
@@ -3863,14 +3874,17 @@ function Together({
               theme={theme}
               selected={relationship === "연인"}
               label="연인"
+              disabled={!canEdit}
               onPress={() => updateActiveSpace({ relationship: "연인" })}
             />
             <Choice
               theme={theme}
               selected={relationship === "친구"}
               label="친구"
+              disabled={!canEdit}
               onPress={() => updateActiveSpace({ relationship: "친구" })}
             />
+            <SpaceSaveNote theme={theme} canEdit={canEdit} state={spaceSaveState} />
           </>
         )}
         {panel === "theme" && (
@@ -4013,10 +4027,11 @@ function Together({
               value={spaceName}
               onChangeText={(name) => updateActiveSpace({ name })}
               placeholder="예: 우리의 여행 기록"
+              editable={canEdit}
             />
             {/* 연인 공간에서만 "함께한 지 N일째" 를 센다. 친구·가족 공간에는
-                쓸 데가 없어서 자리만 차지한다. */}
-            {relationship === "연인" && (
+                쓸 데가 없어서 자리만 차지한다. 날짜 고르기는 관리자에게만 연다. */}
+            {relationship === "연인" && canEdit && (
               <TripDateRangePicker
                 theme={theme}
                 start={since}
@@ -4025,7 +4040,12 @@ function Together({
                 setEnd={() => {}}
               />
             )}
-            <Text style={[s.sheetCopy, { color: theme.muted }]}>바꾸면 바로 저장돼요.</Text>
+            {relationship === "연인" && !canEdit && (
+              <Text style={[s.sheetCopy, { color: theme.text }]}>
+                {since ? `함께하기 시작한 날 · ${since}` : "함께하기 시작한 날을 아직 적지 않았어요."}
+              </Text>
+            )}
+            <SpaceSaveNote theme={theme} canEdit={canEdit} state={spaceSaveState} />
           </>
         )}
       </InfoSheet>
@@ -4181,6 +4201,7 @@ function Field({
   secureTextEntry?: TextInputProps["secureTextEntry"];
   keyboardType?: TextInputProps["keyboardType"];
   autoCapitalize?: TextInputProps["autoCapitalize"];
+  editable?: TextInputProps["editable"];
 }) {
   return (
     <View style={s.field}>
@@ -4201,6 +4222,8 @@ function Field({
             borderColor: theme.border,
             color: theme.text,
           },
+          // 고칠 수 없는 칸은 흐리게 둔다. 눌러도 반응이 없는데 똑같이 보이면 고장처럼 보인다.
+          props.editable === false && theme && { backgroundColor: theme.surfaceAlt, color: theme.muted },
         ]}
       />
     </View>
@@ -4431,24 +4454,66 @@ function InfoSheet({
     </Modal>
   );
 }
+/**
+ * 공간 정보를 저장했는지 알려 주는 한 줄.
+ *
+ * "바꾸면 바로 저장돼요" 로만 적어 두면 실패해도 사용자는 저장됐다고 믿는다.
+ * 권한이 없는 사람에게는 왜 고칠 수 없는지를 대신 알려 준다.
+ */
+function SpaceSaveNote({
+  theme,
+  canEdit,
+  state,
+}: {
+  theme: AppTheme;
+  canEdit: boolean;
+  state: "idle" | "saving" | "saved" | "failed";
+}) {
+  if (!canEdit) {
+    return (
+      <Text style={[s.sheetCopy, { color: theme.muted }]}>
+        공간 정보는 관리자만 바꿀 수 있어요.
+      </Text>
+    );
+  }
+  const copy = {
+    idle: "바꾸면 모두의 화면에 저장돼요.",
+    saving: "저장하고 있어요…",
+    saved: "저장했어요.",
+    failed: "저장하지 못했어요. 인터넷 연결을 확인하고 다시 바꿔 주세요.",
+  }[state];
+  return (
+    <Text
+      accessibilityLiveRegion="polite"
+      style={[s.sheetCopy, { color: state === "failed" ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.muted }]}
+    >
+      {copy}
+    </Text>
+  );
+}
+
 function Choice({
   theme,
   label,
   selected,
   onPress,
+  disabled,
 }: {
   theme?: AppTheme;
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="radio"
-      accessibilityState={{ checked: Boolean(selected) }}
+      accessibilityState={{ checked: Boolean(selected), disabled: Boolean(disabled) }}
       accessibilityLabel={label}
       style={[
+        disabled && s.choiceDisabled,
         s.choice,
         theme && { backgroundColor: theme.surface, borderColor: theme.border },
         selected && s.choiceSelected,
@@ -4920,6 +4985,7 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   choiceSelected: { borderColor: "#8B7CF6", backgroundColor: "#E9E5FF" },
+  choiceDisabled: { opacity: 0.55 },
   choiceText: { fontSize: 14, fontFamily: typo.label.family },
   choiceTextSelected: { color: "#5546C8" },
   choiceMark: { width: 16, alignItems: "center", justifyContent: "center" },
@@ -5968,11 +6034,6 @@ const s = StyleSheet.create({
   helpItem: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 8 },
   helpQuestion: { fontSize: 14, fontFamily: typo.title.family },
   helpAnswer: { fontSize: 13, lineHeight: 20, marginTop: 4, fontFamily: typo.body.family },
-  memberAddRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  memberAddButton: { minWidth: 72, minHeight: 50, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  memberAddButtonText: { fontSize: 14, fontFamily: typo.label.family },
   memberEditor: { borderRadius: 12, padding: 12 },
   memberEditorEyebrow: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 8 },
-  memberRemoveButton: { height: 38, alignItems: "center", justifyContent: "center", marginTop: 4 },
-  memberRemoveText: { color: "#DF5148", fontSize: 12, fontFamily: typo.label.family },
 });

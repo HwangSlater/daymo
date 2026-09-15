@@ -1,11 +1,14 @@
 import { authenticatedRequest } from "./auth";
+import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
   id: string;
   name: string;
-  relationshipType: "couple" | "friends" | "family" | "other";
+  relationshipType: ServerRelationship;
   timezone: string;
-  myRole: "owner" | "editor" | "viewer";
+  /** 함께하기 시작한 날. 적지 않았으면 비어 있다. */
+  startedOn: string | null;
+  myRole: ServerRole;
 };
 
 export type ServerTrip = {
@@ -28,6 +31,16 @@ export const createSpace = (name: string, relationshipType: ServerSpace["relatio
   authenticatedRequest<ServerSpace>("/v1/spaces", {
     method: "POST",
     body: JSON.stringify({ name, relationshipType, timezone: "Asia/Seoul" }),
+  });
+
+export const listMembers = (spaceId: string) =>
+  authenticatedRequest<ServerMemberInput[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/members`);
+
+/** 공간 이름·관계·함께한 날을 바꾼다. 서버는 관리자만 받는다. */
+export const updateSpace = (spaceId: string, patch: SpacePatch) =>
+  authenticatedRequest<ServerSpace>(`/v1/spaces/${encodeURIComponent(spaceId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
   });
 
 export const listTrips = (spaceId: string) =>
