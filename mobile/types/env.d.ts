@@ -3,7 +3,7 @@
 // React Native와 맞지 않는 전역 타입까지 따라온다. 쓰는 것만 선언한다.
 declare namespace NodeJS {
   interface ProcessEnv {
-    EXPO_PUBLIC_DAYMO_AUTH_URL?: string;
+    EXPO_PUBLIC_DAYMO_API_URL?: string;
     EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL?: string;
   }
 }
