@@ -45,7 +45,7 @@ import { TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
-import { isOnLand, nearestRegion } from "./koreaHitTest";
+import { isOnLand, regionAt } from "./koreaHitTest";
 import {
   AppTheme,
   AppearanceMode,
@@ -3117,14 +3117,14 @@ function KoreaTripMap({
           gesture.current = { kind: "none" };
           setPinching(false);
           if (multiTouch.current || movedFar.current) return;
-          // 움직이지 않았으면 톡 누른 것이다. 육지를 눌렀으면 그 자리에서
-          // 가장 가까운 시도를 고른다. 시도별 영역 데이터가 없어서 쓰는 어림이다.
+          // 움직이지 않았으면 톡 누른 것이다. 육지를 눌렀으면 그 자리를 품은
+          // 시도를 고르고, 이름을 모르는 섬 조각이면 가장 가까운 시도를 고른다.
           const point = toMapPoint(inMap(event.nativeEvent));
           if (!isOnLand(point.x, point.y)) {
             onClear();
             return;
           }
-          const region = nearestRegion(point.x, point.y, tripRegions);
+          const region = regionAt(point.x, point.y);
           if (region) onSelect(region);
           else onClear();
         },
