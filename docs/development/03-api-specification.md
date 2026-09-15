@@ -45,7 +45,9 @@
 }
 ```
 
-주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `OWNER_TRANSFER_REQUIRED(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
+`details`는 앱이 다음 단계로 가는 데 값이 필요한 오류에만 붙는다. 지금은 `ACCOUNT_LINK_REQUIRED`의 `linkToken`·`provider`뿐이다.
+
+주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `OWNER_TRANSFER_REQUIRED(409)`, `ACCOUNT_LINK_REQUIRED(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
 
 ### 캐시 유효성 기본값
 
@@ -85,9 +87,11 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | POST | `/auth/password/reset` | 링크 token으로 비밀번호 변경·기존 세션 종료 |
 | GET | `/auth/sessions` | 로그인된 기기/세션 목록 |
 | DELETE | `/auth/sessions/{sessionId}` | 특정 기기 세션 폐기 |
+| GET | `/auth/oauth/providers` | 서버에 키가 들어가 켜진 provider 목록 |
 | GET | `/auth/oauth/{provider}/start` | OAuth 시작 (`apple/google/kakao/naver`) |
-| GET | `/auth/oauth/{provider}/callback` | code 교환 후 앱으로 복귀 |
+| GET/POST | `/auth/oauth/{provider}/callback` | provider code 교환 후 앱으로 복귀 (Apple은 POST 폼) |
 | POST | `/auth/oauth/exchange` | 일회용 앱 로그인 code를 session token으로 교환 |
+| POST | `/auth/oauth/link` | 같은 이메일의 기존 계정 비밀번호로 확인하고 provider 연결 후 로그인 |
 | GET | `/me/auth-methods` | 연결된 이메일·OAuth 로그인 방식 조회 |
 | POST | `/me/auth-methods/{provider}/link` | 재인증 후 provider 연결 시작 |
 | DELETE | `/me/auth-methods/{provider}` | provider 연결 해제, 마지막 수단은 차단 |
@@ -178,7 +182,23 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버가 1분 이내 만료되고 한 번만 쓸 수 있는 `loginCode`를 앱 링크로 돌려주고 앱은 `/auth/oauth/exchange`로 session token을 교환한다. provider 시작 요청에는 앱이 만든 `state`와 PKCE challenge를 사용한다.
 
+소셜 로그인 흐름:
+
+1. 앱이 `state`(16~128자)와 PKCE `code_verifier`를 만들고 시스템 브라우저로 `GET /auth/oauth/{provider}/start?redirectUri=daymo://oauth&state=...&codeChallenge=...&codeChallengeMethod=S256`를 연다. `redirectUri`는 서버 설정 `OAUTH_APP_REDIRECT_URIS`에 있는 것만 받고, challenge는 `S256`만 받는다. 켜지지 않은 provider는 `NOT_FOUND`다.
+2. 서버는 provider용 `state`와 OIDC `nonce`를 따로 만들어 10분짜리 `oauth_states`에 앱의 값과 함께 적고 provider 로그인 창으로 302 보낸다.
+3. provider가 `{AUTH_LINK_BASE}/v1/auth/oauth/{provider}/callback`으로 돌려보내면 서버는 state를 한 번만 쓰고, code를 토큰으로 바꿔 사람을 확인한다(Google·Apple은 id_token의 서명·발급자·대상·nonce를 검증). 성공하면 `redirectUri?loginCode=...&state=<앱 state>`, 사용자가 취소하면 `?error=cancelled`, 그 밖에는 `?error=failed`로 303 보낸다. 모르는 state나 이미 쓴 state는 앱 주소로 보내지 않고 안내 페이지를 보여 준다.
+4. 앱은 돌아온 `state`가 자기가 만든 것인지 확인하고 `POST /auth/oauth/exchange { loginCode, codeVerifier, device }`를 부른다. verifier가 틀리면 그 loginCode도 버린다. 성공 응답은 `/auth/login`과 같은 session 모양이다.
+5. 이 provider 계정이 처음이면 provider 이메일로 계정을 만든다. provider가 확인한 이메일만 `email_verified_at`을 채운다(네이버는 확인 여부를 주지 않아 채우지 않는다). 이메일을 주지 않으면 `VALIDATION_ERROR(422)`로 가입하지 않는다.
+
 provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 서버는 `ACCOUNT_LINK_REQUIRED`와 짧게 유효한 연결 context를 반환하고, 사용자가 기존 계정으로 재인증한 뒤에만 provider subject를 연결한다.
+
+```json
+{ "error": { "code": "ACCOUNT_LINK_REQUIRED", "message": "...", "details": { "linkToken": "...", "provider": "kakao" }, "requestId": "uuid" } }
+```
+
+앱은 기존 계정 비밀번호를 받아 `POST /auth/oauth/link { linkToken, password, device }`로 보낸다. 연결 토큰은 10분·1회용이고, 비밀번호 확인은 로그인과 같은 시도 제한을 받는다. 틀린 비밀번호와 비밀번호가 없는 계정(다른 provider로만 가입)은 같은 `FORBIDDEN(403)` 문구로 거절해 가입 방식을 드러내지 않는다. 연결에 성공하면 provider가 확인한 이메일로 기존 계정의 이메일 확인도 끝낸다.
+
+아직 없는 것: OAuth로만 가입한 계정의 재인증(provider 재로그인으로 `reauthProof` 발급), `/me/auth-methods` 연결·해제, 탈퇴 시 Apple token revoke와 카카오 unlink, iOS 네이티브 Apple 로그인.
 
 - 서비스 이용약관 동의와 개인정보 처리 관련 고지/동의는 문서 종류와 법적 근거를 구분한다.
 - 계약 이행에 필요한 개인정보까지 관행적으로 모두 ‘필수 동의’로 만들지 않는다.
