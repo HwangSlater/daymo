@@ -17,8 +17,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, CreatedByMixin, TimestampMixin, uuid_pk
 from app.models.enums import ChecklistKind, Procurement, enum_column
 
-# 준비물과 재료의 담당 후보는 공간 멤버 전원이 아니라 그 여행의
-# `trip_participants` 다. 그 검사는 외래키로 표현할 수 없어서 넣는 쪽에서 한다.
+# 준비물과 재료의 담당은 같은 공간의 membership 이다. 외래키로는 공간까지
+# 묶을 수 없어서 넣는 쪽에서 검사한다. 지출과 같이 나간 멤버도 받는다.
 #
 # `quantity` 는 숫자가 아니라 글자다. "2개" 도 있고 "한 봉지" 도 있다.
 # 숫자와 단위로 쪼개면 사용자가 적고 싶은 대로 적을 수 없다.
@@ -79,7 +79,7 @@ class ChecklistItem(Base, TimestampMixin, CreatedByMixin):
         PgUUID(as_uuid=True), ForeignKey("checklists.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(60), nullable=False)
-    quantity: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    quantity: Mapped[str | None] = mapped_column(String(60), nullable=True)
 
     owner_membership_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("memberships.id", ondelete="RESTRICT"), nullable=True
@@ -97,6 +97,7 @@ class ChecklistItem(Base, TimestampMixin, CreatedByMixin):
         PgUUID(as_uuid=True), ForeignKey("ingredients.id", ondelete="SET NULL"), nullable=True
     )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<ChecklistItem {self.id}>"
@@ -120,6 +121,8 @@ class Recipe(Base, TimestampMixin, CreatedByMixin):
     source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     servings: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 재료는 요리와 함께 오간다. 재료를 고쳐도 요리의 version 이 오른다.
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Recipe {self.id}>"
@@ -147,7 +150,7 @@ class Ingredient(Base, TimestampMixin, CreatedByMixin):
         PgUUID(as_uuid=True), ForeignKey("recipes.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(60), nullable=False)
-    quantity: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    quantity: Mapped[str | None] = mapped_column(String(60), nullable=True)
     # 앱의 묶음. GPT 가 읽어 온 값이 그대로 들어와서 목록이 정해져 있지 않다.
     category: Mapped[str | None] = mapped_column(String(30), nullable=True)
 

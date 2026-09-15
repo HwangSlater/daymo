@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.models import Membership, MembershipRole, Space, Trip, TripPlace
+from app.models import Checklist, ChecklistItem, Membership, MembershipRole, Space, Trip, TripPlace
 
 # 권한 표는 docs/development/02-architecture-and-data-model.md 4장에 있다.
 #
@@ -95,6 +95,31 @@ async def membership_for_trip_row(session: AsyncSession, *, user_id: uuid.UUID, 
             .join(model, model.trip_id == Trip.id)
             .where(
                 model.id == row_id,
+                Membership.user_id == user_id,
+                Membership.left_at.is_(None),
+                Space.deleted_at.is_(None),
+                Trip.deleted_at.is_(None),
+            )
+        )
+    ).first()
+    if 줄 is None:
+        raise AppError(ErrorCode.NOT_FOUND)
+    return 줄[0], 줄[1], 줄[2]
+
+
+async def membership_for_checklist_item(
+    session: AsyncSession, *, user_id: uuid.UUID, item_id: uuid.UUID
+) -> tuple[Membership, Trip, ChecklistItem]:
+    """준비물은 여행이 아니라 목록에 딸려 있어서 목록을 한 번 더 거친다."""
+    줄 = (
+        await session.execute(
+            select(Membership, Trip, ChecklistItem)
+            .join(Space, Space.id == Membership.space_id)
+            .join(Trip, Trip.space_id == Space.id)
+            .join(Checklist, Checklist.trip_id == Trip.id)
+            .join(ChecklistItem, ChecklistItem.checklist_id == Checklist.id)
+            .where(
+                ChecklistItem.id == item_id,
                 Membership.user_id == user_id,
                 Membership.left_at.is_(None),
                 Space.deleted_at.is_(None),

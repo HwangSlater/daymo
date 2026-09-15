@@ -5,6 +5,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    Checklist,
+    ChecklistItem,
     ExternalLink,
     LinkTargetType,
     Membership,
@@ -76,6 +78,20 @@ async def detach_trip_children(
         await session.execute(
             delete(Tagging).where(
                 Tagging.target_type == TagScope.PLACE, Tagging.target_id.in_(여행_장소_ids)
+            )
+        )
+
+    여행_ids = 링크_대상[LinkTargetType.TRIP]
+    if 여행_ids:
+        # 준비물 태그도 같은 이유로 뗀다. 준비물은 목록을 거쳐 여행에 딸려 있다.
+        await session.execute(
+            delete(Tagging).where(
+                Tagging.target_type == TagScope.PACKING,
+                Tagging.target_id.in_(
+                    select(ChecklistItem.id)
+                    .join(Checklist, Checklist.id == ChecklistItem.checklist_id)
+                    .where(Checklist.trip_id.in_(여행_ids))
+                ),
             )
         )
 

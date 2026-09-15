@@ -449,6 +449,13 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 완료 API 응답에는 `completedAt`, `completedBy`, 최신 `version`이 포함된다. 동일 여행에서 정규화한 이름과 담당이 같은 미완료 항목은 `duplicateCandidate`로 경고하되 저장을 막지 않는다.
 
+2026-09-15 구현(`backend/app/api/v1/cooking.py`):
+
+- 목록 조회·추가와 `PATCH/DELETE /checklist-items/{itemId}`만 있다. 체크와 담당 변경은 따로 두지 않고 `PATCH`에 `completed`(참/거짓)·`ownerMembershipId`·`isShared`로 보낸다. `id`(앱 UUID)와 `version`을 더했고 낡은 `version`은 `VERSION_CONFLICT(409)`다.
+- 여행마다 준비물 목록(`checklists`, kind `packing`)을 처음 쓸 때 하나 만든다. 응답의 `completed`는 참/거짓이고 `completedAt`·`completedBy`는 서버에만 남긴다. `quantity`는 60자까지다.
+- 담당자를 정하면 공용이 풀리고, 공용으로 바꾸면 담당자가 빈다. 둘을 함께 보내면 422다. 담당은 같은 공간의 membership이면 나간 멤버도 받는다.
+- `duplicateCandidate`와 일괄 API는 아직 없다. 준비물을 지우거나 여행이 정리되면 태그 연결도 뗀다.
+
 일괄 API는 `mode=append|replace`를 명시한다. `replace`는 온라인 전용이며 현재 version, 삭제/추가 preview token과 확인용 idempotency key를 요구하고 전체를 한 transaction으로 처리한다. 행별 validation 오류가 하나라도 있으면 원본 목록을 변경하지 않는다.
 
 ## 8. 요리와 재료
@@ -478,6 +485,12 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 고정 텍스트 형식의 문법 분석과 미리보기는 기기에서 처리하고, 확인된 요리 목록만 일반/일괄 저장 API로 전송한다. 향후 AI 분석 API를 도입하더라도 원문과 분석 결과를 구분하며 자동 저장하지 않는다.
 
 재료를 준비물로 가져오면 응답에 생성된 `checklistItemId`와 `sourceIngredientIds`를 반환한다. 재료와 준비물 완료 API는 서로를 자동 호출하지 않으며, 앱은 연결 정보를 이용해 다른 쪽 반영 여부를 확인한 뒤 사용자가 승인한 경우에만 별도 mutation을 보낸다.
+
+2026-09-15 구현(`backend/app/api/v1/cooking.py`):
+
+- `GET/POST /trips/{tripId}/recipes`와 `PATCH/DELETE /recipes/{recipeId}`만 있다. 재료는 요리와 함께 `ingredients` 배열로 오가고, 재료 단독 API와 준비물로 가져오기는 아직 없다. `servings`는 받지 않는다.
+- 요리를 고칠 때 `ingredients`를 보내면 보낸 목록대로 맞춘다. 같은 `id`의 재료는 고치고, 없는 `id`는 만들고, 빠진 재료는 지운다. 통째로 지우고 다시 만들지 않는 이유는 준비물의 `sourceIngredientId` 연결을 지키기 위해서다. 재료를 고쳐도 요리 `version`이 오른다.
+- 재료의 `ready`(참/거짓)는 앱의 `준비 완료` 체크다. `procurement`가 `bring`일 때만 `ownerMembershipId`를 받는다. `sourceUrl`은 http/https만 받는다.
 
 ## 9. 비용과 정산
 

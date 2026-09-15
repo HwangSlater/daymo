@@ -137,13 +137,17 @@ async def view_of(session: AsyncSession, trip_place: TripPlace) -> PlaceView:
 
 
 async def _tags_by_target(session: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, list[str]]:
+    return await tags_by_target(session, TagScope.PLACE, ids)
+
+
+async def tags_by_target(session: AsyncSession, scope: TagScope, ids: list[uuid.UUID]) -> dict[uuid.UUID, list[str]]:
     if not ids:
         return {}
     줄들 = (
         await session.execute(
             select(Tagging.target_id, Tag.name)
             .join(Tag, Tag.id == Tagging.tag_id)
-            .where(Tagging.target_type == TagScope.PLACE, Tagging.target_id.in_(ids))
+            .where(Tagging.target_type == scope, Tagging.target_id.in_(ids))
         )
     ).all()
     # 태그 연결에는 순서 칸이 없다. 가나다순으로 고정해 돌려준다. 앱은 태그를
@@ -316,12 +320,21 @@ async def purge_orphan_manual_places(session: AsyncSession) -> int:
     return 지운_것.rowcount or 0
 
 
-async def _replace_tags(
-    session: AsyncSession, *, trip: Trip, trip_place: TripPlace, names: list[str], actor: Membership
+async def replace_tags(
+    session: AsyncSession,
+    *,
+    space_id: uuid.UUID,
+    scope: TagScope,
+    target_id: uuid.UUID,
+    names: list[str],
+    actor: Membership,
 ) -> None:
-    await session.execute(
-        delete(Tagging).where(Tagging.target_type == TagScope.PLACE, Tagging.target_id == trip_place.id)
-    )
+    """
+    한 대상의 태그를 통째로 바꾼다. 장소·준비물·재료가 같이 쓴다.
+
+    태그는 공간과 scope 안에서 이름으로 하나다. 없는 이름은 만들고 있는 이름은 잇는다.
+    """
+    await session.execute(delete(Tagging).where(Tagging.target_type == scope, Tagging.target_id == target_id))
     if not names:
         return
     # 동시에 같은 새 태그를 만들어도 유니크 인덱스에 막혀 실패하지 않게 한다.
@@ -329,7 +342,7 @@ async def _replace_tags(
         insert(Tag)
         .values(
             [
-                {"id": uuid.uuid4(), "space_id": trip.space_id, "scope": TagScope.PLACE, "name": 이름, "created_by": actor.user_id}
+                {"id": uuid.uuid4(), "space_id": space_id, "scope": scope, "name": 이름, "created_by": actor.user_id}
                 for 이름 in names
             ]
         )
@@ -338,16 +351,20 @@ async def _replace_tags(
     태그_ids = dict(
         (
             await session.execute(
-                select(Tag.name, Tag.id).where(
-                    Tag.space_id == trip.space_id, Tag.scope == TagScope.PLACE, Tag.name.in_(names)
-                )
+                select(Tag.name, Tag.id).where(Tag.space_id == space_id, Tag.scope == scope, Tag.name.in_(names))
             )
         ).all()
     )
-    session.add_all(
-        [Tagging(tag_id=태그_ids[이름], target_type=TagScope.PLACE, target_id=trip_place.id) for 이름 in names]
-    )
+    session.add_all([Tagging(tag_id=태그_ids[이름], target_type=scope, target_id=target_id) for 이름 in names])
     await session.flush()
+
+
+async def _replace_tags(
+    session: AsyncSession, *, trip: Trip, trip_place: TripPlace, names: list[str], actor: Membership
+) -> None:
+    await replace_tags(
+        session, space_id=trip.space_id, scope=TagScope.PLACE, target_id=trip_place.id, names=names, actor=actor
+    )
 
 
 async def _replace_link(
