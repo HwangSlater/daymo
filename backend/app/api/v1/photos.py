@@ -14,7 +14,7 @@ from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok, page
 from app.models import Photo, PhotoStatus
 from app.schemas.photo import PhotoCreateRequest, PhotoOut, PhotoUpdateRequest
-from app.services import photo_files
+from app.services import audit, photo_files
 from app.services import photos as photo_service
 from app.services.memories import author_names, name_of
 from app.services.schedule import zone_of
@@ -187,7 +187,8 @@ async def update_photo(photo_id: uuid.UUID, body: PhotoUpdateRequest, caller: Cu
 @router.delete("/photos/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_photo(photo_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> Response:
     """올린 사람과 owner 만. 7일 뒤 정리 작업이 파일까지 지운다."""
-    membership, _, photo = await _살아_있는_사진(db, caller, photo_id)
+    membership, trip, photo = await _살아_있는_사진(db, caller, photo_id)
     require(membership, *WRITERS)
     await photo_service.remove_photo(db, photo=photo, actor=membership)
+    await audit.record(db, space_id=trip.space_id, actor_membership_id=membership.id, action="photo.delete", target_type="photo", target_id=photo.id, summary_fields={"tripId": str(trip.id)})
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -25,6 +25,28 @@ export type ServerMemo = {
 
 export type MemoBody = { body: string };
 
+/** 휴지통의 한 줄(`GET /trips/{id}/trash`). 지운 뒤 7일 안의 메모와 사진이다. */
+export type ServerTrashItem = {
+  id: string;
+  type: "memo" | "photo";
+  tripId: string;
+  /** 메모면 본문 앞 40자, 사진이면 설명. */
+  preview: string | null;
+  deletedAt: string;
+  deletedByMembershipId: string | null;
+  deletedByName: string;
+  restoreDeadline: string;
+  canRestore: boolean;
+};
+
+/** `3일 뒤 사라져요`. 하루가 안 남았으면 `오늘 사라져요`. */
+export function trashLeftLabel(restoreDeadline: string, now: Date = new Date()): string {
+  const left = new Date(restoreDeadline).getTime() - now.getTime();
+  if (Number.isNaN(left)) return "";
+  const days = Math.floor(left / 86_400_000);
+  return days < 1 ? "오늘 사라져요" : `${days}일 뒤 사라져요`;
+}
+
 const pad = (value: number) => String(value).padStart(2, "0");
 
 /** `오늘 10:42`, `어제 22:15`, 그보다 전이면 `9월 12일`. */

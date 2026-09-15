@@ -840,6 +840,7 @@ export function WarmAppShell({
         done={done}
         initialDestination={tripDestination}
         tripId={selectedTrip.id}
+        canEditRecords={activeSpace.myRole === "관리자" || activeSpace.myRole === "편집 가능"}
         spaceRoster={activeRoster}
         tripName={selectedTrip.name}
         tripDate={selectedTrip.date}

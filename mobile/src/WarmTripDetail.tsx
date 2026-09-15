@@ -18,6 +18,7 @@ import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./co
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { photoCodec } from "./photoSync";
+import { TripTrash } from "./TripTrash";
 import { downloadPhoto, uploadPhoto } from "./photoTransfer";
 import type { ExpenseSettings } from "./serverData";
 import type { RosterEntry } from "./tripSync";
@@ -442,6 +443,8 @@ type Props = {
   onDeleteTrip?: () => Promise<void>;
   /** 서버 여행 id. 있으면 장소를 서버와 맞춘다. 예시 여행에는 없다. */
   tripId?: string;
+  /** 관리자·편집 가능 멤버인지. 메모 시트의 휴지통을 이 사람에게만 보인다. */
+  canEditRecords?: boolean;
   /** 공간 사람의 이름과 membership id. 교통편의 탈 사람을 서버에 보낼 때 쓴다. */
   spaceRoster?: RosterEntry[];
   /** 서버에 저장된 통화·환율·예산·정산 묶기. */
@@ -943,6 +946,7 @@ export function WarmTripDetail({
   onArchiveTrip,
   onDeleteTrip,
   tripId,
+  canEditRecords = false,
   spaceRoster = [],
   serverExpenseSettings,
   onUpdateExpenseSettings,
@@ -1458,6 +1462,8 @@ export function WarmTripDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rosterKey],
   );
+  // 휴지통에서 되살리면 올린다. 그 목록을 서버에서 다시 받는다.
+  const [trashReload, setTrashReload] = useState({ memo: 0, photo: 0 });
   useListSync({
     tripId,
     label: "메모",
@@ -1467,6 +1473,7 @@ export function WarmTripDetail({
     api: { list: listMemos, create: createMemo, update: updateMemo, remove: deleteMemo },
     syncedIds: memoSyncIds,
     setSyncedIds: setMemoSyncIds,
+    reloadKey: trashReload.memo,
     notify: setFeedback,
   });
   useListSync({
@@ -1507,6 +1514,7 @@ export function WarmTripDetail({
     syncedIds: photoSyncIds,
     setSyncedIds: setPhotoSyncIds,
     refreshKey: tripDateKeyList.join(","),
+    reloadKey: trashReload.photo,
     notify: setFeedback,
   });
   // 다른 기기에서 올린 사진은 표시본을 받아 기기에 둔다. 한 번 받으면 다시 받지 않는다.
@@ -2170,6 +2178,18 @@ export function WarmTripDetail({
               </View>
             ))}
           </View>
+          {serverTrip && tripId && canEditRecords && !memoEditorOpen && (
+            <TripTrash
+              tripId={tripId}
+              appTheme={appTheme}
+              notify={setFeedback}
+              onRestored={(item) => {
+                // 이 기기에서 받았던 사진이면 파일을 다시 받게 한다. 지울 때 기기 파일도 사라졌다.
+                if (item.type === "photo") photoDownloads.current.delete(item.id);
+                setTrashReload((current) => ({ ...current, [item.type]: current[item.type] + 1 }));
+              }}
+            />
+          )}
         </DetailSheet>
         <DetailSheet
           visible={editingTrip}
