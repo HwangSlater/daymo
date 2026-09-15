@@ -171,6 +171,16 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 차단하면 두 사용자 사이의 새 초대 생성·수락, 새 공간 동시 합류와 직접 관련 알림을 서버에서 차단한다. 이미 같은 공간의 membership과 공동 콘텐츠를 자동 삭제하거나 일부만 숨기지 않으며, 차단한 사용자에게 `공간 나가기` 또는 `owner에게 내보내기 요청`을 안내한다. 차단 해제 전에는 상대가 보낸 초대 token도 수락할 수 없다.
 
+2026-09-16 구현(`backend/app/api/v1/reports.py`, `backend/app/services/moderation.py`):
+
+- 신고는 `POST /reports`에 `{spaceId, targetType, targetId?, reason, detail?}`를 보낸다. `targetType`은 `memo|diary|photo|member|trip|other`, `reason`은 `spam|harassment|sexual|violence|privacy|copyright|other`, `detail`은 1000자까지다. `member`의 `targetId`는 사용자 id가 아니라 그 공간의 membership id다. `other`는 `targetId`를 비우고 나머지는 반드시 채운다.
+- 신고자는 그 공간의 지금 멤버여야 하고 대상도 그 공간의 것이어야 한다. 아니면 둘 다 404다. 지운 메모·사진과 지운 여행 안의 것도 404, 나를 멤버로 신고하면 422다.
+- 응답은 `201 {id, receivedAt, reviewDueAt(접수 후 24시간)}`이다. 같은 사람이 같은 대상을 다시 신고하면 열린 신고가 있는 동안 `200`과 처음 `id`를 준다. 새 신고는 한 사람당 1시간에 10건까지이고 넘으면 `RATE_LIMITED(429)`다.
+- 새 신고마다 `support@daymo.xyz`로 접수 번호·대상 종류·사유·검토 기한만 담은 메일을 보낸다. 신고 설명, 대상 본문·사진, 신고자 이메일은 넣지 않는다. 메일이 실패해도 신고는 남는다. 긴급도 구분, 1시간 요약, `/me/reports`, 이의 제기, 임시 `restricted`, 관리자 웹은 아직 없어 운영자가 DB에서 직접 처리한다.
+- 차단은 문서의 `/me/blocks/{blockedUserId}` 대신 `/blocks`를 쓴다. 앱은 다른 사람의 사용자 id를 모르므로 membership id로 가리킨다. `POST /blocks {userMembershipId}`는 지금 함께 있는 공간의 멤버만 받고(아니면 404, 나면 422) 이미 차단했으면 `200`이다. `GET /blocks?spaceId=`는 `{id, membershipId, displayName, blockedAt}` 목록이고, `spaceId`를 주면 그 공간에 있는 사람은 그 공간의 membership id로 준다. `DELETE /blocks/{membershipId}`는 어느 공간의 membership이든 같은 사람의 차단을 푼다. 차단한 공간이 지워져 `membershipId`가 비면 차단 줄 `id`로 푼다.
+- 차단 효과는 지금 초대 수락에만 건다. 받는 사람과 공간의 지금 멤버 사이에 어느 쪽으로든 차단이 있으면 `FORBIDDEN(403)`이고, 문구에 차단 사실을 드러내지 않으며 초대 사용 횟수를 올리지 않는다. 초대 링크는 받는 사람을 정해 만들지 않아서 초대 생성은 막지 않는다. 알림은 아직 기능이 없다.
+- 계정을 최종 정리하면 그 사람이 한 차단과 당한 차단을 지우고, 낸 신고는 남기되 신고자 연결을 끊는다.
+
 메모·일기·장소 설명·요리·기타 사용자 입력과 외부 URL은 저장 전에 서버의 versioned moderation rule을 통과한다. 명백한 불법·위협 패턴, 허용하지 않는 URL scheme과 확인된 위험 domain은 `CONTENT_NOT_ALLOWED`로 거부하고 사용자가 수정할 수 있는 일반 안내만 반환한다. 애매한 단어 하나만으로 차단하지 않으며 운영자가 rule version과 오탐을 추적한다. 거부된 원문 전체는 애플리케이션 로그에 남기지 않는다.
 
 사진은 초기 버전에서 외부 이미지 moderation API로 보내지 않는다. 업로드 전 이용규칙과 신고 가능성을 안내하고 초대 공간 안에서만 제공하며, 신고된 사진은 긴급도에 따라 즉시 `restricted` 처리한다. 공개 피드나 익명 탐색을 추가하거나 실제 악용·스토어 심사 요구가 생기면 외부 전송의 동의·처리 국가·보유기간과 기기/VPS 성능을 다시 승인한 뒤 자동 이미지 판별을 도입한다.

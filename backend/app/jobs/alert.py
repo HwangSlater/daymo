@@ -16,10 +16,9 @@ import sys
 from datetime import UTC, datetime
 
 from app.core.logging import configure_logging
-from app.services.mailer import Letter, get_outbox
+from app.services.mailer import OPERATOR_ADDRESS, Letter, get_outbox
 
-# 운영자가 받는 주소. Cloudflare Email Routing 이 Daymo 전용 메일함으로 넘긴다.
-ALERT_TO = "support@daymo.xyz"
+ALERT_TO = OPERATOR_ADDRESS
 
 # systemd 가 넘기는 unit 이름만 받는다. 제목에 아무 글자나 들어가지 않게 한다.
 _UNIT = re.compile(r"^[A-Za-z0-9@._-]{1,80}$")

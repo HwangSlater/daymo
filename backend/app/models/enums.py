@@ -309,6 +309,46 @@ class MembershipRole(StrEnum):
     VIEWER = "viewer"
 
 
+class ReportTargetType(StrEnum):
+    """
+    무엇을 신고했는지.
+
+    `member` 의 대상 id 는 사용자 id 가 아니라 그 공간의 membership id 다. 앱은
+    다른 사람의 사용자 id 를 모른다.
+    """
+
+    MEMO = "memo"
+    DIARY = "diary"
+    PHOTO = "photo"
+    MEMBER = "member"
+    TRIP = "trip"
+    OTHER = "other"
+
+
+class ReportReason(StrEnum):
+    """앱의 `스팸·광고`·`괴롭힘·혐오`·`음란·성적`·`폭력·위협`·`개인정보 노출`·`저작권 침해`·`기타`."""
+
+    SPAM = "spam"
+    HARASSMENT = "harassment"
+    SEXUAL = "sexual"
+    VIOLENCE = "violence"
+    PRIVACY = "privacy"
+    COPYRIGHT = "copyright"
+    OTHER = "other"
+
+
+class ReportStatus(StrEnum):
+    """
+    신고를 어디까지 봤는지.
+
+    처리는 아직 관리자 웹이 없어 운영자가 메일을 받고 손으로 한다. 결과를
+    나누는 값(제한·삭제·기각)은 관리자 웹을 만들 때 더한다.
+    """
+
+    OPEN = "open"
+    RESOLVED = "resolved"
+
+
 def enum_column(enum_type: type[StrEnum]) -> SAEnum:
     """
     StrEnum 을 VARCHAR + CHECK 로 저장한다.

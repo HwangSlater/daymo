@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, exists, select, update
+from sqlalchemy import delete, exists, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
@@ -16,10 +16,12 @@ from app.models import (
     PasswordResetToken,
     ReauthProof,
     RefreshToken,
+    Report,
     RevokeReason,
     SensitiveAction,
     Space,
     User,
+    UserBlock,
     UserStatus,
 )
 from app.services.auth_sessions import revoke_all_for_user
@@ -188,6 +190,13 @@ async def _scrub(session: AsyncSession, user: User, 지금: datetime) -> None:
     await session.execute(
         update(Membership).where(Membership.user_id == user.id).values(nickname=None)
     )
+
+    # 차단은 이 사람이 한 것도 당한 것도 지운다. 남겨 두면 `탈퇴한 멤버` 가 목록에 남는다.
+    # 신고는 검토가 끝날 때까지 남기되 누가 냈는지는 끊는다.
+    await session.execute(
+        delete(UserBlock).where(or_(UserBlock.blocker_user_id == user.id, UserBlock.blocked_user_id == user.id))
+    )
+    await session.execute(update(Report).where(Report.reporter_user_id == user.id).values(reporter_user_id=None))
 
     # 토큰이 기기를 가리키므로 토큰부터.
     for 표 in (RefreshToken, Device, EmailVerificationToken, PasswordResetToken, ReauthProof, OAuthAccount):
