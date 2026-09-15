@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError, ErrorCode
 from app.models import (
     Device,
+    EmailChangeToken,
     EmailVerificationToken,
     Membership,
     OAuthAccount,
@@ -199,7 +200,7 @@ async def _scrub(session: AsyncSession, user: User, 지금: datetime) -> None:
     await session.execute(update(Report).where(Report.reporter_user_id == user.id).values(reporter_user_id=None))
 
     # 토큰이 기기를 가리키므로 토큰부터.
-    for 표 in (RefreshToken, Device, EmailVerificationToken, PasswordResetToken, ReauthProof, OAuthAccount):
+    for 표 in (RefreshToken, Device, EmailVerificationToken, EmailChangeToken, PasswordResetToken, ReauthProof, OAuthAccount):
         await session.execute(delete(표).where(표.user_id == user.id))
 
     user.email = f"deleted-{user.id.hex}@deleted.invalid"

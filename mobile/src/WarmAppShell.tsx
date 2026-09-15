@@ -64,7 +64,7 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser } from "./auth";
+import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm } from "./auth";
 import { type SocialProvider, socialProviderName } from "./socialLogin";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
@@ -1703,6 +1703,182 @@ function ReconfirmField({
           <Text style={[s.accountLogoutText, { color: theme.text }]}>{socialProviderName[provider]}로 다시 로그인해 확인</Text>
         </Pressable>
       ))}
+    </View>
+  );
+}
+
+/** 비밀번호 규칙이나 주소 오류는 서버가 칸별 문구(fields)로 준다. 그 문구가 전체 안내보다 구체적이다. */
+const accountChangeError = (caught: unknown, fallback: string) =>
+  caught instanceof DaymoApiError
+    ? caught.fields?.password ?? caught.fields?.newEmail ?? caught.message
+    : fallback;
+
+/**
+ * 내 프로필의 비밀번호·이메일 바꾸기. 누른 쪽 양식만 펼친다.
+ *
+ * 둘 다 지금 비밀번호(없으면 연결된 소셜 로그인)로 한 번 더 확인한다. 이메일은 새 주소로 간
+ * 링크를 눌러야 바뀌므로 여기서는 보냈다는 안내만 한다.
+ */
+function AccountChangeSection({
+  theme,
+  user,
+  onPasswordSet,
+}: {
+  theme: AppTheme;
+  user: DaymoUser;
+  onPasswordSet: () => void;
+}) {
+  const [open, setOpen] = useState<"password" | "email" | null>(null);
+  const [notice, setNotice] = useState("");
+  const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
+  const toggle = (next: "password" | "email") => {
+    setNotice("");
+    setOpen((current) => (current === next ? null : next));
+  };
+  const button = (key: "password" | "email", label: string) => (
+    <Pressable
+      onPress={() => toggle(key)}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open === key }}
+      style={[s.accountLogout, { borderColor: open === key ? theme.primary : theme.border }]}
+    >
+      <Text style={[s.accountLogoutText, { color: theme.text }]}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <>
+      {button("password", socialOnly ? "비밀번호 정하기" : "비밀번호 바꾸기")}
+      {open === "password" && (
+        <PasswordChangeForm
+          theme={theme}
+          user={user}
+          onChanged={(message) => { setOpen(null); setNotice(message); onPasswordSet(); }}
+        />
+      )}
+      {button("email", "이메일 바꾸기")}
+      {open === "email" && (
+        <EmailChangeForm theme={theme} user={user} onSent={(message) => { setOpen(null); setNotice(message); }} />
+      )}
+      {notice ? <Text accessibilityLiveRegion="polite" style={[s.authError, { color: theme.primary, marginTop: 8 }]}>{notice}</Text> : null}
+    </>
+  );
+}
+
+function PasswordChangeForm({
+  theme,
+  user,
+  onChanged,
+}: {
+  theme: AppTheme;
+  user: DaymoUser;
+  onChanged: (message: string) => void;
+}) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
+  const nextValid = next.length >= 8 && next === again;
+  const ready = nextValid && (socialOnly || current.length > 0) && !loading;
+  const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  const submit = async (confirm: Reconfirm) => {
+    setLoading(true);
+    setError("");
+    try {
+      await changePassword(confirm, next);
+      onChanged(socialOnly ? "비밀번호를 정했어요. 이제 이메일로도 로그인할 수 있어요." : "비밀번호를 바꿨어요. 다른 기기에서는 로그아웃됐어요.");
+    } catch (caught) {
+      if (!isReconfirmCancelled(caught)) setError(accountChangeError(caught, "비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요."));
+      setLoading(false);
+    }
+  };
+  return (
+    <View style={{ marginTop: 12 }}>
+      <Field theme={theme} label="새 비밀번호 · 8자 이상" value={next} onChangeText={setNext} placeholder="8자 이상 입력해 주세요" secureTextEntry autoCapitalize="none" />
+      <Field theme={theme} label="새 비밀번호 한 번 더" value={again} onChangeText={setAgain} placeholder="같은 비밀번호" secureTextEntry autoCapitalize="none" />
+      {again.length > 0 && next !== again ? (
+        <Text style={[s.authError, { color: danger }]}>두 비밀번호가 달라요.</Text>
+      ) : null}
+      <ReconfirmField
+        theme={theme}
+        user={user}
+        password={current}
+        setPassword={setCurrent}
+        disabled={!nextValid || loading}
+        onProvider={(provider) => void submit({ provider })}
+      />
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
+      {!socialOnly && (
+        <Pressable
+          onPress={() => { if (ready) void submit({ password: current }); }}
+          disabled={!ready}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !ready, busy: loading }}
+          style={[s.authSubmit, { backgroundColor: theme.primary }, !ready && s.authSubmitDisabled]}
+        >
+          <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "바꾸는 중…" : "비밀번호 바꾸기"}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function EmailChangeForm({
+  theme,
+  user,
+  onSent,
+}: {
+  theme: AppTheme;
+  user: DaymoUser;
+  onSent: (message: string) => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
+  const trimmed = email.trim();
+  const same = trimmed.toLowerCase() === user.email.toLowerCase();
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) && !same;
+  const ready = emailValid && (socialOnly || password.length > 0) && !loading;
+  const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  const submit = async (confirm: Reconfirm) => {
+    setLoading(true);
+    setError("");
+    try {
+      await requestEmailChange(confirm, trimmed);
+      onSent("새 주소로 보낸 메일의 링크를 누르면 바뀌어요. 링크는 30분 동안 쓸 수 있어요.");
+    } catch (caught) {
+      if (!isReconfirmCancelled(caught)) setError(accountChangeError(caught, "확인 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요."));
+      setLoading(false);
+    }
+  };
+  return (
+    <View style={{ marginTop: 12 }}>
+      <Field theme={theme} label="새 이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+      {same ? <Text style={[s.authError, { color: danger }]}>지금 쓰는 이메일과 같아요.</Text> : null}
+      <Text style={[s.sheetCopy, { color: theme.muted }]}>새 주소로 확인 메일을 보내요. 메일의 링크를 누르기 전까지는 지금 이메일 그대로예요.</Text>
+      <ReconfirmField
+        theme={theme}
+        user={user}
+        password={password}
+        setPassword={setPassword}
+        disabled={!emailValid || loading}
+        onProvider={(provider) => void submit({ provider })}
+      />
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
+      {!socialOnly && (
+        <Pressable
+          onPress={() => { if (ready) void submit({ password }); }}
+          disabled={!ready}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !ready, busy: loading }}
+          style={[s.authSubmit, { backgroundColor: theme.primary }, !ready && s.authSubmitDisabled]}
+        >
+          <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "보내는 중…" : "확인 메일 보내기"}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -4562,8 +4738,8 @@ function Together({
               onChangeText={(name) => setUser((current) => (current ? { ...current, name } : current))}
               placeholder="앱에서 사용할 이름"
             />
-            {/* 이메일은 새 주소로 확인 메일을 받아야 바꿀 수 있다. 그 흐름이 서버에 없어서
-                고친 것처럼 보이게 두지 않는다. */}
+            {/* 이메일은 새 주소로 간 링크를 눌러야 바뀐다. 이 칸에서 바로 고친 것처럼 보이게 두지 않고
+                아래 ‘이메일 바꾸기’로 보낸다. */}
             <Field
               theme={theme}
               label="이메일"
@@ -4580,8 +4756,13 @@ function Together({
                   ? "이름을 저장하지 못했어요. 연결을 확인하고 다시 고쳐 주세요."
                   : nameSave === "tooLong"
                     ? "이름은 20자까지 쓸 수 있어요."
-                    : "이름은 같은 공간 멤버에게 보여요. 이메일은 바꿀 수 없어요."}
+                    : "이름은 같은 공간 멤버에게 보여요. 이메일은 아래 ‘이메일 바꾸기’에서 바꿀 수 있어요."}
             </Text>
+            <AccountChangeSection
+              theme={theme}
+              user={user}
+              onPasswordSet={() => setUser((current) => (current ? { ...current, hasPassword: true } : current))}
+            />
             <Pressable
               accessibilityRole="button"
               onPress={() => {

@@ -264,6 +264,8 @@ class RevokeReason(StrEnum):
     DEVICE_LIMIT = "device_limit"
     ADMIN = "admin"
     ACCOUNT_DELETION = "account_deletion"
+    # 로그인한 채로 비밀번호를 바꿨다. 바꾼 기기만 남기고 끊는다.
+    PASSWORD_CHANGE = "password_change"
 
 
 class ThrottleScope(StrEnum):
@@ -276,6 +278,8 @@ class ThrottleScope(StrEnum):
     SIGNUP = "signup"
     EMAIL_VERIFICATION = "email_verification"
     PASSWORD_RESET = "password_reset"
+    # 이메일 변경 확인 메일. 아무 주소로나 메일을 보내게 되는 길이라 재전송처럼 센다.
+    EMAIL_CHANGE = "email_change"
 
 
 class SensitiveAction(StrEnum):

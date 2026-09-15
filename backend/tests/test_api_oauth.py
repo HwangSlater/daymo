@@ -445,6 +445,26 @@ async def test_소셜로만_가입한_계정은_제공자로_다시_로그인해
     assert 삭제.status_code == 202, 삭제.text
 
 
+async def test_소셜로만_가입한_계정은_제공자로_다시_확인하고_비밀번호를_정한다(api, db):
+    headers = await 카카오로_가입한다(api)
+
+    확인 = await 다시_확인(api, headers, action="change_password")
+    정하기 = await api.post(
+        "/v1/me/password",
+        json={"reauthProof": 확인.json()["data"]["proof"], "newPassword": 비밀번호},
+        headers=headers,
+    )
+    me = (await api.get("/v1/me", headers=headers)).json()["data"]
+    이메일로 = await api.post(
+        "/v1/auth/login",
+        json={"email": "sky@example.com", "password": 비밀번호, "device": {**기기, "installationId": "설치-다른"}},
+    )
+
+    assert 정하기.status_code == 200, 정하기.text
+    assert me["hasPassword"] is True
+    assert 이메일로.status_code == 200
+
+
 async def test_다른_사람의_소셜_계정으로는_다시_확인할_수_없다(api, db):
     headers = await 카카오로_가입한다(api)
     # 다른 카카오 계정(다른 번호·이메일)으로 로그인 코드를 받는다.

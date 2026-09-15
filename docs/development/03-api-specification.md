@@ -98,6 +98,9 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | DELETE | `/me/auth-methods/{provider}` | provider 연결 해제, 마지막 수단은 차단 |
 | GET | `/me` | 내 프로필·참여 공간 목록 |
 | PATCH | `/me` | 이름/프로필 사진 수정 |
+| POST | `/me/password` | 재인증 후 비밀번호 변경(소셜 전용 계정은 처음 설정)·다른 기기 세션 종료 |
+| POST | `/me/email` | 재인증 후 새 주소로 30분·1회용 변경 확인 링크 발송 |
+| GET/POST | `/auth/confirm-email-change` | 이메일 변경 링크 페이지(GET은 확인 버튼만, POST가 변경) |
 | DELETE | `/me` | 7일 유예 계정 삭제 요청 |
 | POST | `/me/deletion/cancel` | 유예기간 안에 재인증 후 삭제 취소 |
 | GET | `/me/deletion` | 삭제 상태와 최종 삭제 예정일 조회 |
@@ -237,6 +240,25 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 ```
 
 `deletionScheduledAt`이 있으면 삭제를 요청해 둔 계정이다. 앱은 다른 화면보다 먼저 삭제 예정일과 취소 버튼을 보여준다.
+
+### 비밀번호·이메일 바꾸기
+
+2026-09-15부터 로그인한 사용자가 앱의 내 프로필에서 바꾼다(`backend/app/services/account_changes.py`).
+
+비밀번호:
+
+1. 앱이 `POST /auth/reauth`에 `{"action": "change_password", "password": "지금 비밀번호"}`로 증표를 받는다. 비밀번호가 없는(소셜 로그인으로만 가입한) 계정은 `POST /auth/oauth/reauth`에 같은 action으로 받고, 여기서 처음 비밀번호를 정할 수 있다. 정한 뒤에는 이메일과 비밀번호로도 로그인된다.
+2. `POST /me/password`에 `{"reauthProof": "...", "newPassword": "..."}`를 보낸다. 성공은 `200 {"status": "changed"}`다. 새 비밀번호에는 가입과 같은 규칙을 적용하고(`VALIDATION_ERROR`·`PASSWORD_TOO_COMMON`, `fields.password`), 규칙 검사를 증표보다 먼저 해 규칙에 걸려도 증표는 쓰이지 않는다.
+3. 요청한 기기의 세션은 남긴다. 다른 기기의 기기 세션과 refresh token은 같은 transaction에서 끊고(`revoke_reason=password_change`) 이미 받은 access token도 다음 요청부터 막힌다. 쓰지 않은 비밀번호 재설정 링크도 폐기한다.
+4. 계정 주소로 `비밀번호가 바뀌었어요` 알림을 보낸다. 링크는 넣지 않는다.
+
+이메일:
+
+1. 앱이 `change_email` 증표를 받아 `POST /me/email`에 `{"reauthProof": "...", "newEmail": "..."}`를 보낸다. 새 주소에 이미 계정이 있든 없든 `202 {"status": "accepted"}`로 같다. 지금 주소와 같으면(대소문자 무시) `422`다.
+2. 계정이 없는 주소면 새 주소로 `https://api.daymo.xyz/auth/confirm-email-change?token=...` 링크를 보낸다. 30분·1회용이고 hash만 `email_change_tokens`에 바꿀 주소와 함께 저장하며, 새로 요청하면 쓰지 않은 예전 변경 링크를 폐기한다. 이미 계정이 있는 주소면 링크 대신 `누군가 이 주소로 계정 이메일을 바꾸려고 했어요` 알림만 그 주소로 간다.
+3. 어느 경우든 지금 주소에는 앞 글자만 보이게 가린 새 주소와 함께 요청이 있었다는 알림(링크 없음)을 보낸다.
+4. **링크를 누르기 전에는 아무것도 바뀌지 않는다.** 페이지의 GET은 버튼만 보여 주고 POST가 바꾼다. 다른 링크 페이지와 같은 `no-referrer`·`no-store`·CSP를 쓴다. 그새 그 주소로 다른 계정이 생겼거나 계정이 삭제 유예 중이면 만료와 같은 일반 오류 화면이다. 성공하면 `users.email`을 바꾸고 `email_verified_at`을 지금으로 채우며, 남은 변경·이메일 확인·비밀번호 재설정 링크를 폐기하고 예전 주소에 `이메일이 바뀌었어요` 알림을 보낸다. 세션은 끊지 않는다.
+5. 요청은 `email_change` 한도로 계정·받는 주소 각각 요청 사이 60초, 하루 5회, IP 하루 50회까지다. 넘으면 `429 RATE_LIMITED`와 `fields.retryAfterSeconds`다.
 
 ### 계정 삭제
 
