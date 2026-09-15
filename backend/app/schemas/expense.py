@@ -33,6 +33,8 @@ class ExpenseCreateRequest(_Camel):
     split_mode: SplitMode | None = None
     shares: list[ShareIn] = Field(default_factory=list, max_length=50)
     memo: str | None = Field(default=None, max_length=2000)
+    # 같은 여행에 올린 사진. 영수증 사진을 먼저 만들고(`POST /trips/{id}/photos`) 그 id 를 넣는다.
+    receipt_photo_id: uuid.UUID | None = None
 
 
 class ExpenseUpdateRequest(_Camel):
@@ -45,6 +47,7 @@ class ExpenseUpdateRequest(_Camel):
     split_mode: SplitMode | None = None
     shares: list[ShareIn] | None = Field(default=None, max_length=50)
     memo: str | None = Field(default=None, max_length=2000)
+    receipt_photo_id: uuid.UUID | None = None
 
 
 class ShareOut(_Camel):
@@ -64,6 +67,7 @@ class ExpenseOut(_Camel):
     split_mode: SplitMode | None
     shares: list[ShareOut]
     memo: str | None
+    receipt_photo_id: str | None
     version: int
 
 

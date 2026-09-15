@@ -630,6 +630,14 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 사진에 등장한 당사자의 삭제·처리정지 요청이 접수되면 운영자가 대상과 요청자 확인에 필요한 최소 자료를 검토하고 사진을 `restricted`로 전환한다. 제한된 사진은 일반 목록·검색·통계·기념 카드와 모든 variant 다운로드에서 숨긴다. 업로더와 owner에게는 대상 사진, 임시 제한 사실, 이의 제기·처리 절차만 알리고 요청자의 연락처나 증빙을 공유하지 않는다. 확인 결과 삭제가 타당하면 기존 7일 삭제와 deletion ledger 절차로 전환하고, 확인되지 않거나 철회되면 audit log를 남긴 뒤 복원한다. 앱 API만으로 운영자 검토를 우회해 제한 상태를 해제할 수 없다.
 
+2026-09-16 구현(`backend/app/api/v1/photos.py`):
+
+- 업로드 session 표를 따로 두지 않고 사진 줄이 그 역할을 한다. `POST /trips/{tripId}/photos`에 `{id, bytes, checksum(SHA-256), caption, date, isReceipt}`를 보내면 `status=uploading` 줄이 생기고 한 장·공간·서버 한도를 먼저 본다. 이어서 `PUT /photos/{photoId}/content`에 파일 byte를 그대로(multipart 아님) 보내면 서버가 받으면서 크기를 세고, SHA-256을 맞춘 뒤 표시본(긴 변 1440px)·썸네일(480px) JPEG을 만들고 `ready`로 바꾼다. `complete` 단계는 없다. 끊기면 `PUT`만 다시 보낸다.
+- 받는 형식은 JPEG·PNG·WebP다. HEIC는 앱이 JPEG로 바꿔 보낸다. 원본은 받은 byte 그대로 두고, 표시본·썸네일은 방향을 바로잡고 EXIF를 모두 뺀다. `takenAt`은 EXIF 촬영 시각이며 시간대가 없으면 공간 시간대로 읽는다. `date`는 앱에서 고른 날로 `trip_days`를 가리키지 않는다.
+- `GET /photos/{photoId}/content?variant=`는 공간 멤버에게만 파일을 주고 `Cache-Control: private, max-age=31536000, immutable`이다. 목록(`GET /trips/{tripId}/photos`)은 다 올라온 여행 사진만 주고 영수증은 뺀다.
+- 설명·날짜 수정(`PATCH`, `version` 필요)과 삭제는 올린 사람과 owner만 한다. 지우면 `deletedAt`·`deletedBy`를 채우고 7일 뒤 정리 작업이 파일과 줄을 지운다. 휴지통 조회·복원, 중복 후보 안내, 사용량 API, 삭제 ledger는 아직 없다.
+- 지출의 `receiptPhotoId`로 같은 여행의 사진을 영수증으로 붙인다.
+
 사진 업로드 순서:
 
 1. 앱에서 권한 확인, 선택/촬영, 원본 checksum·크기·MIME 확인

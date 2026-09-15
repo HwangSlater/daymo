@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -111,6 +112,9 @@ class Photo(Base, TimestampMixin):
         CheckConstraint(
             "original_bytes IS NULL OR original_bytes > 0", name="bytes_positive"
         ),
+        CheckConstraint(
+            "deleted_at IS NOT NULL OR deleted_by IS NULL", name="deleted_by_needs_time"
+        ),
         Index("ix_photos_trip_status", "trip_id", "status"),
         Index("ix_photos_checksum", "checksum"),
     )
@@ -141,6 +145,23 @@ class Photo(Base, TimestampMixin):
     status: Mapped[PhotoStatus] = mapped_column(
         enum_column(PhotoStatus), nullable=False, default=PhotoStatus.UPLOADING
     )
+
+    # 앱에서 고른 날. 찍은 시각(`taken_at`)과 따로 둔다. 여행 기간이 바뀌어도
+    # 사진이 놓인 날은 그대로여야 해서 trip_days 를 가리키지 않는다.
+    taken_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 원본 MIME. 받은 byte 를 열어 본 결과이지 앱이 말한 값이 아니다.
+    original_mime: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # 원본·표시본·썸네일을 합친 크기. 공간 한도를 셀 때 쓴다.
+    stored_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # 영수증은 기록 탭의 사진 목록에 넣지 않는다. 지출의 `receipt_photo_id` 가 가리킨다.
+    is_receipt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+
+    # 지워도 7일은 파일과 행을 남긴다. 그 뒤 정리 작업이 둘 다 지운다.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("memberships.id", ondelete="SET NULL"), nullable=True
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Photo {self.id}>"

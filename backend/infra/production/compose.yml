@@ -51,6 +51,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       MAIL_FROM: ${MAIL_FROM:-Daymo <no-reply@daymo.xyz>}
+      UPLOAD_ROOT: /srv/daymo/uploads
     volumes:
       - /srv/daymo/uploads:/srv/daymo/uploads
     depends_on:

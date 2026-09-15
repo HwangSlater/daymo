@@ -18,6 +18,7 @@ from app.models import (
     Trip,
     TripPlace,
 )
+from app.services import photo_files
 
 
 async def purge_space(session: AsyncSession, space_id: uuid.UUID) -> None:
@@ -48,7 +49,10 @@ async def purge_space(session: AsyncSession, space_id: uuid.UUID) -> None:
 
     # 여행을 먼저. trip_days, trip_participants, trip_places, schedule_items,
     # stays, transports, reservations 가 전부 딸려 간다.
+    여행_ids = list((await session.execute(select(Trip.id).where(Trip.space_id == space_id))).scalars())
     await session.execute(delete(Trip).where(Trip.space_id == space_id))
+    # 사진 파일은 DB 가 지워 주지 않는다.
+    photo_files.remove_trips(여행_ids)
     # 이제 멤버를 잡고 있는 것이 없다.
     await session.execute(delete(Membership).where(Membership.space_id == space_id))
     # 마지막으로 공간. relationship_profiles 와 tags(그리고 그 taggings)가 딸려 간다.

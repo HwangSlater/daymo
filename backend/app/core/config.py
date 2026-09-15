@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     # 메일 속 링크가 여는 페이지의 주소. API 서버가 직접 보여 준다(app/api/auth_pages.py).
     auth_link_base: str = "https://api.daymo.xyz"
 
+    # 사진 파일을 두는 곳. 운영은 compose 가 /srv/daymo/uploads 를 넘긴다.
+    upload_root: str = "uploads"
+    # 한도는 docs/development/06-vps-deployment.md 6장. 원본 한 장, 공간 하나, 서버 전체.
+    photo_max_bytes: int = 20 * 1024 * 1024
+    photo_space_quota_bytes: int = 1024 * 1024 * 1024
+    photo_total_quota_bytes: int = 10 * 1024 * 1024 * 1024
+
     @property
     def database_url(self) -> str:
         from urllib.parse import quote

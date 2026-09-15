@@ -124,6 +124,8 @@ max_connections = 30
 
 사진은 기본 디스크의 `/srv/daymo/uploads`에 저장한다. 초기 전체 사진 상한은 10GB이며 장당 2MB 기준 약 5,000장이다. 별도 블록 스토리지는 구매하지 않는다.
 
+API 컨테이너는 uid 10001(`daymo`)로 돈다. 호스트의 `/srv/daymo/uploads`는 `10001:10001`, `0750`이어야 사진을 쓸 수 있다(2026-09-16에 맞춤). compose가 `UPLOAD_ROOT=/srv/daymo/uploads`를 넘기고, 정리 작업(`daymo-cleanup`)도 같은 이미지와 볼륨으로 돌아 지운 지 7일 지난 사진과 하루 넘게 멈춘 올리기를 파일째 지운다. 파일 전달은 아직 API가 직접 하며(`FileResponse`), Nginx `X-Accel-Redirect`는 전송량을 보고 붙인다.
+
 사진 경로를 분리해 두면 나중에 같은 경로에 NAS를 마운트해 API와 사진 URL을 유지할 수 있다. 10GB 상한에 가까워지거나 전체 디스크가 70%에 도달하면 미니PC·NAS 이전을 준비한다.
 
 PostgreSQL data도 기본 NVMe에 두되 Docker volume으로 사진 경로와 분리한다. 미니PC 단계에서도 DB는 NAS 네트워크 마운트가 아니라 미니PC의 로컬 SSD에 둔다.

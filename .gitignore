@@ -20,6 +20,9 @@ mobile/android/
 .env.local
 !.env.example
 
+# 로컬 개발 서버가 받은 사진
+backend/uploads/
+
 # python
 __pycache__/
 *.pyc

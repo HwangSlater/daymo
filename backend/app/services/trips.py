@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
 from app.models import Membership, Trip, TripDay, TripParticipant, TripStatus
+from app.services import photo_files
 from app.services.space_purge import detach_trip_children, link_targets_of_trips
 
 # 여행 기간의 상한. 문서가 초기 60일로 정해 뒀다.
@@ -254,4 +255,6 @@ async def purge_deleted_trips(session: AsyncSession, *, now: datetime | None = N
     await detach_trip_children(session, await link_targets_of_trips(session, 여행_ids))
     지운_것 = await session.execute(delete(Trip).where(Trip.id.in_(여행_ids)))
     await session.flush()
+    # 사진 줄은 CASCADE 로 사라지지만 파일은 남는다. 여행 폴더째 지운다.
+    photo_files.remove_trips(list(여행_ids))
     return 지운_것.rowcount or 0

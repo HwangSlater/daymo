@@ -13,7 +13,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.models import Expense, ExpenseShare, Membership, Payment, Trip, TripDay, User
+from app.models import Expense, ExpenseShare, Membership, Payment, Photo, Trip, TripDay, User
 from app.services import settlement
 
 
@@ -98,6 +98,16 @@ async def _replace_shares(session: AsyncSession, trip: Trip, expense: Expense, s
     await session.flush()
 
 
+async def _receipt(session: AsyncSession, trip: Trip, photo_id: uuid.UUID | None) -> uuid.UUID | None:
+    """영수증 사진은 같은 여행의 지우지 않은 사진이어야 한다. 남의 여행 사진을 붙이면 그 사진이 보인다."""
+    if photo_id is None:
+        return None
+    photo = await session.get(Photo, photo_id)
+    if photo is None or photo.trip_id != trip.id or photo.deleted_at is not None:
+        raise AppError(ErrorCode.VALIDATION_ERROR, fields={"receiptPhotoId": "이 여행의 사진이 아니에요."})
+    return photo.id
+
+
 async def create_expense(
     session: AsyncSession, *, trip: Trip, actor: Membership, expense_id: uuid.UUID | None, values: dict
 ) -> tuple[Expense, bool]:
@@ -118,6 +128,7 @@ async def create_expense(
         payer_membership_id=values["payer_membership_id"],
         split_mode=values.get("split_mode"),
         memo=_blank(values.get("memo")),
+        receipt_photo_id=await _receipt(session, trip, values.get("receipt_photo_id")),
         created_by=actor.user_id,
     )
     session.add(expense)
@@ -148,6 +159,8 @@ async def update_expense(session: AsyncSession, *, trip: Trip, expense: Expense,
         expense.split_mode = changes["split_mode"]
     if "memo" in changes:
         expense.memo = _blank(changes["memo"])
+    if "receipt_photo_id" in changes:
+        expense.receipt_photo_id = await _receipt(session, trip, changes["receipt_photo_id"])
     if "shares" in changes:
         await _replace_shares(session, trip, expense, changes["shares"] or [])
     expense.version += 1

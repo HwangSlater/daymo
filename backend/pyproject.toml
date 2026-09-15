@@ -3,7 +3,7 @@ name = "daymo-backend"
 version = "0.1.0"
 description = "Daymo 동기화 API"
 requires-python = ">=3.13"
-# 실제로 쓰는 것만 적는다. Authlib(OAuth)과 Pillow(사진 변환)는 그 기능을
+# 실제로 쓰는 것만 적는다. Authlib(OAuth)은 그 기능을
 # 붙이는 단계에서 추가한다. 쓰지 않는 의존성을 미리 올려 두면 무엇이 실제로
 # 필요한지 알 수 없게 된다.
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
     "argon2-cffi>=23.1",
     "pyjwt>=2.9",
     "tzdata>=2026.4",
+    "pillow>=11.3",
 ]
 
 [dependency-groups]
