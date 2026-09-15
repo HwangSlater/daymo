@@ -619,6 +619,13 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 메모 삭제는 공간 owner와 editor에게 허용하며 viewer는 차단한다. 타인의 메모 삭제도 동일하게 허용하지만 서버는 `deletedBy`, `deletedAt`과 audit log를 남기고 기본 조회에서 제외한다.
 
+2026-09-15 구현(`backend/app/api/v1/memories.py`):
+
+- 메모와 일기의 목록·추가·`PATCH`·`DELETE`만 있다. `id`(앱 UUID)와 `version`을 더했고 낡은 `version`은 `VERSION_CONFLICT(409)`다. `permissions`는 아직 주지 않는다. owner·editor면 누가 쓴 메모든 고치고 지울 수 있다.
+- 작성자는 `author` 객체 대신 `authorMembershipId`와 `authorName`(지금 표시 이름, 계정을 지운 사람은 `탈퇴한 멤버`)으로 준다.
+- 메모를 지우면 `deletedAt`·`deletedBy`를 채우고 목록에서 뺀다. 지운 메모를 같은 `id`로 다시 만들거나 고치면 404다. 휴지통 복원과 audit log는 아직 없다.
+- 일기는 `title`(비우면 null)·`body`·`writtenOn`(그 일기가 다루는 날, 비워도 됨)을 받고, 다루는 날 순서로 주며 날이 없는 일기는 뒤에 둔다. 일기는 지우면 행을 지운다.
+
 메모와 사진은 삭제 후 7일간 휴지통에서 복원할 수 있다. 사진 업로더는 본인 사진의 설명과 날짜·장소·일정 연결을 수정하고 삭제·복구할 수 있다. owner는 공간의 모든 사진에 같은 권한을 가진다. 다른 editor는 타인이 올린 사진의 설명·연결을 수정하거나 삭제·복구할 수 없다. 사진 응답의 `permissions.canEdit`, `canDelete`, `canRestore`도 이 규칙을 반영하고 서버가 uploader/owner 권한을 매 요청마다 확인한다. 7일이 지나면 DB row와 사진 variant를 최종 삭제하고 삭제 ledger를 남겨 오래된 백업을 복원할 때 다시 노출되지 않게 한다.
 
 사진에 등장한 당사자의 삭제·처리정지 요청이 접수되면 운영자가 대상과 요청자 확인에 필요한 최소 자료를 검토하고 사진을 `restricted`로 전환한다. 제한된 사진은 일반 목록·검색·통계·기념 카드와 모든 variant 다운로드에서 숨긴다. 업로더와 owner에게는 대상 사진, 임시 제한 사실, 이의 제기·처리 절차만 알리고 요청자의 연락처나 증빙을 공유하지 않는다. 확인 결과 삭제가 타당하면 기존 7일 삭제와 deletion ledger 절차로 전환하고, 확인되지 않거나 철회되면 audit log를 남긴 뒤 복원한다. 앱 API만으로 운영자 검토를 우회해 제한 상태를 해제할 수 없다.

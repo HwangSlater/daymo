@@ -58,6 +58,7 @@ class Memo(Base, TimestampMixin, CreatedByMixin):
     deleted_by: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("memberships.id", ondelete="SET NULL"), nullable=True
     )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Memo {self.id}>"
@@ -84,6 +85,7 @@ class Diary(Base, TimestampMixin, CreatedByMixin):
     title: Mapped[str | None] = mapped_column(String(60), nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     written_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Diary {self.id}>"
