@@ -128,6 +128,13 @@ import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } 
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
+/**
+ * 이 여행을 고칠 수 있는지. 보기만 하는 멤버에게는 false 다.
+ *
+ * 서버가 쓰기를 403 으로 막으니, 버튼을 그대로 두면 기기에서만 바뀌고 저장되지 않는다.
+ * 고치는 길을 감추고, 목록을 눌러 여는 시트는 보기만 하게 연다(`DetailSheet`).
+ */
+const DetailEditableContext = createContext(true);
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "비용" | "기록";
 export type TripDetailDestination =
@@ -291,7 +298,15 @@ export type TripPlanningData = {
   hasKitchen?: boolean;
 };
 
-export type MemoryPhoto = { id: string; color: string; date: string; caption: string; uri?: string };
+export type MemoryPhoto = {
+  id: string;
+  color: string;
+  date: string;
+  caption: string;
+  uri?: string;
+  /** 올린 사람. 서버에서 받은 사진에만 있다. 비어 있으면 이 기기에서 올린 내 사진이다. */
+  uploaderMembershipId?: string | null;
+};
 export type TravelDiary = {
   id: string;
   title: string;
@@ -460,6 +475,12 @@ type Props = {
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
   spaceMembers?: string[];
+  /** 이 여행을 고칠 수 있는지. 보기만 하는 멤버면 false 다. 예시 여행은 늘 고칠 수 있다. */
+  canEdit?: boolean;
+  /** 공간 관리자인지. 남이 올린 사진도 고치고 지울 수 있다. */
+  isOwner?: boolean;
+  /** 내 membership id. 내가 올린 사진인지 가릴 때 쓴다. */
+  myMembershipId?: string;
   /**
    * 이 앱을 쓰는 사람이 누구인지.
    *
@@ -962,6 +983,9 @@ export function WarmTripDetail({
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
   me = spaceMembers[0] ?? "",
+  canEdit = true,
+  isOwner = false,
+  myMembershipId,
 }: Props) {
   // 열 때 한 번, 기록 안의 이름을 지금 사람 표에 맞춘다. 아래 상태는 모두 이 값에서 시작한다.
   const [initialPlanning] = useState(() => rebindPeople(savedPlanning, spaceRoster));
@@ -1567,6 +1591,8 @@ export function WarmTripDetail({
     setSyncedIds: setPhotoSyncIds,
     refreshKey: tripDateKeyList.join(","),
     reloadKey: trashReload.photo,
+    // 편집 멤버도 남이 올린 사진은 못 고친다. 보기만 하는 멤버에게는 기본 안내가 맞다.
+    forbiddenMessage: canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined,
     notify: setFeedback,
   });
   // 다른 기기에서 올린 사진은 표시본을 받아 기기에 둔다. 한 번 받으면 다시 받지 않는다.
@@ -1632,7 +1658,8 @@ export function WarmTripDetail({
   useEffect(() => {
     // 통화·환율·예산·정산 묶기를 서버에 맞춘다. 처음 연 여행이면 기기 값을 올리고,
     // 그 뒤로는 바꿀 때마다 잠깐 기다렸다가 보낸다.
-    if (!serverTrip || !onUpdateExpenseSettings) return;
+    // 보기만 하는 멤버는 서버가 받지 않는다. 기기에 남은 옛 값을 올리려다 안내만 뜬다.
+    if (!serverTrip || !onUpdateExpenseSettings || !canEdit) return;
     const settings: ExpenseSettings = { currency, exchangeRate, budget, simplifySettlement };
     const key = JSON.stringify(settings);
     if (key === lastSentSettings.current) return;
@@ -1652,7 +1679,7 @@ export function WarmTripDetail({
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budget, currency, exchangeRate, serverTrip, simplifySettlement]);
+  }, [budget, canEdit, currency, exchangeRate, serverTrip, simplifySettlement]);
   useEffect(() => {
     // 교통편·예약의 "일정에 표시" 줄을 목록에서 다시 만든다. 저장 버튼에서만 만들면
     // 다른 기기에서 받은 교통편·예약은 일정에 보이지 않는다. 대표 숙소 줄과 같은 방식이다.
@@ -1821,6 +1848,7 @@ export function WarmTripDetail({
   return (
     <DetailThemeContext.Provider value={appTheme}>
       <DetailFeedbackContext.Provider value={setFeedback}>
+      <DetailEditableContext.Provider value={canEdit}>
       <SafeAreaView
         style={[
           styles.safe,
@@ -1849,6 +1877,7 @@ export function WarmTripDetail({
           >
             Daymo
           </Text>
+          {canEdit ? (
           <Pressable
             onPress={() => {
               setDraftTitle(title);
@@ -1866,6 +1895,10 @@ export function WarmTripDetail({
           >
             <Glyph name="more" size={20} color={appTheme?.text ?? "#17233D"} weight={2.6} />
           </Pressable>
+          ) : (
+            // 제목이 가운데에 머물도록 버튼 자리만 남긴다.
+            <View style={styles.headerSpacer} />
+          )}
         </View>
         <ScrollView
           ref={detailScrollRef}
@@ -1987,7 +2020,7 @@ export function WarmTripDetail({
               packingRemaining={packingItems.filter((item) => !packingDone.includes(item.id)).length}
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
-              openScheduleOnMount={initialDestination === "schedule-add"}
+              openScheduleOnMount={canEdit && initialDestination === "schedule-add"}
             />
           )}
           {mode === "장소" && (
@@ -2094,6 +2127,8 @@ export function WarmTripDetail({
               memories={memories}
               setMemories={setMemories}
               reportSpaceId={reportSpaceId}
+              isOwner={isOwner}
+              myMembershipId={myMembershipId}
             />
           )}
         </ScrollView>
@@ -2136,7 +2171,7 @@ export function WarmTripDetail({
             setMemoEditorOpen(false);
           }}
         >
-          {!memoEditorOpen && (
+          {canEdit && !memoEditorOpen && (
             <Pressable
               accessibilityRole="button"
               onPress={() => {
@@ -2202,7 +2237,7 @@ export function WarmTripDetail({
                 <View style={styles.tripMemoRowHead}>
                   <Text style={[styles.tripMemoAuthor, { color: memo.meta }]}>{note.author}</Text>
                   <View style={styles.tripMemoActions}>
-                    {/* 남이 쓴 메모에만 둔다. 작성자 줄의 앞부분이 이름이다. */}
+                    {/* 남이 쓴 메모에만 둔다. 보기만 하는 멤버도 신고는 한다. 작성자 줄의 앞부분이 이름이다. */}
                     {reportSpaceId && isServerId(note.id) && note.author.split(" · ")[0] !== me && (
                       <Pressable
                         accessibilityRole="button"
@@ -2212,6 +2247,8 @@ export function WarmTripDetail({
                         <Text style={[styles.tripMemoEdit, { color: memo.meta }]}>신고</Text>
                       </Pressable>
                     )}
+                    {canEdit && (
+                    <>
                     <Pressable
                       accessibilityRole="button" onPress={() => {
                       setEditingMemoId(note.id);
@@ -2239,6 +2276,8 @@ export function WarmTripDetail({
                     )}>
                       <Text style={[styles.tripMemoDelete, { color: appTheme?.dark ? statusColor.danger.dark : statusColor.danger.light }]}>삭제</Text>
                     </Pressable>
+                    </>
+                    )}
                   </View>
                 </View>
                 <Text style={[styles.tripMemoBody, { color: memo.text }]}>{note.body}</Text>
@@ -2449,6 +2488,7 @@ export function WarmTripDetail({
           </View>
         )}
       </SafeAreaView>
+      </DetailEditableContext.Provider>
       </DetailFeedbackContext.Provider>
     </DetailThemeContext.Provider>
   );
@@ -2498,6 +2538,7 @@ function TripOverview({
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
+  const canEdit = useContext(DetailEditableContext);
   const [sheet, setSheet] = useState<
     "schedule" | "reservation" | "stay" | "transport" | null
   >(openScheduleOnMount ? "schedule" : null);
@@ -3124,7 +3165,7 @@ function TripOverview({
             title="아직 일정이 없어요"
             description="첫 일정을 추가해 여행의 흐름을 만들어 보세요."
             action="일정 추가"
-            onPress={openScheduleCreate}
+            onPress={canEdit ? openScheduleCreate : undefined}
           />
         )}
         {/* 카드가 앞의 세 개를 이미 보여준다. 그 이하면 '전체'가 지금 보는
@@ -3149,7 +3190,7 @@ function TripOverview({
       <SectionLabel
         label="교통편"
         count={`${transportations.length}편`}
-        action="교통편 추가"
+        action={canEdit ? "교통편 추가" : undefined}
         onPress={openTransportCreate}
       />
       <View style={styles.transportGrid}>
@@ -3174,7 +3215,7 @@ function TripOverview({
           title="등록한 교통편이 없어요"
           description="타고 갈 편을 적어 두면 일정에도 같이 올릴 수 있어요."
           action="교통편 추가"
-          onPress={openTransportCreate}
+          onPress={canEdit ? openTransportCreate : undefined}
         />
       )}
 
@@ -3185,7 +3226,7 @@ function TripOverview({
       <SectionLabel
         label="숙소"
         count={hasStay ? "1곳" : "없음"}
-        action={hasStay ? "숙소 수정" : "숙소 등록"}
+        action={canEdit ? (hasStay ? "숙소 수정" : "숙소 등록") : undefined}
         onPress={() => openStay(!hasStay)}
       />
       <View style={styles.travelInfoList}>
@@ -3218,14 +3259,14 @@ function TripOverview({
           )}
         </View>
         {!hasStay && (
-          <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 등록" onPress={() => openStay(true)} />
+          <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 등록" onPress={canEdit ? () => openStay(true) : undefined} />
         )}
       </View>
 
       <SectionLabel
         label="예약"
         count={`${reservations.length}건`}
-        action="예약 추가"
+        action={canEdit ? "예약 추가" : undefined}
         onPress={() => openReservation()}
       />
       <View style={styles.travelInfoList}>
@@ -3242,7 +3283,7 @@ function TripOverview({
           />
         ))}
         {reservations.length === 0 && (
-          <EmptyState title="예약한 곳이 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={() => openReservation()} />
+          <EmptyState title="예약한 곳이 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={canEdit ? () => openReservation() : undefined} />
         )}
       </View>
 
@@ -3494,10 +3535,12 @@ function TripOverview({
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
               <InfoLine label="여행 일정" value={item.showInSchedule ? "일정에 표시 중" : "교통 정보만 저장"} />
+              {canEdit && (
               <Pressable
                 accessibilityRole="button" onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
                 <Text style={[styles.infoManageButtonText, theme && { color: theme.primary }]}>이 교통편 수정</Text>
               </Pressable>
+              )}
             </View>
           ))}
       </InfoPanel>
@@ -3638,6 +3681,7 @@ function Places({
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
+  const canEdit = useContext(DetailEditableContext);
   const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "숙소">("전체");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -4102,7 +4146,7 @@ function Places({
                   compact
                   subject={place.name}
                 />
-              ) : (
+              ) : canEdit ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${place.name} 지도 링크 넣기`}
@@ -4111,8 +4155,8 @@ function Places({
                 >
                   <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>＋ 링크</Text>
                 </Pressable>
-              )}
-              {settled ? null : place.category === "숙소" ? (
+              ) : null}
+              {settled || !canEdit ? null : place.category === "숙소" ? (
                 <Pressable
                   onPress={(event) => { event.stopPropagation(); onRegisterStay(place); }}
                   accessibilityRole="button"
@@ -4155,6 +4199,7 @@ function Places({
           onPress={() => setShowAllPlaces((value) => !value)}
         />
       )}
+      {canEdit && (
       <View
         style={[
           styles.packingListTools,
@@ -4214,6 +4259,7 @@ function Places({
           </Text>
         </Pressable>
       </View>
+      )}
       <DetailSheet
         visible={planningPlace !== null}
         title="일정에 담기"
@@ -4501,6 +4547,7 @@ function Preparation({
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
+  const canEdit = useContext(DetailEditableContext);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [names, setNames] = useState("");
@@ -4812,6 +4859,7 @@ function Preparation({
       <Pressable
         key={item.id}
         onPress={() => complete(item)}
+        disabled={!canEdit}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: completed }}
         accessibilityLabel={`${item.name} ${completed ? "완료 해제" : "완료"}`}
@@ -4863,6 +4911,7 @@ function Preparation({
             event.stopPropagation();
             setAssigningItem(item);
           }}
+          disabled={!canEdit}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={`${item.name} 담당 및 정보 관리`}
@@ -5321,7 +5370,7 @@ function Preparation({
           title={items.length === 0 ? "아직 준비물이 없어요" : "조건에 맞는 준비물이 없어요"}
           description={items.length === 0 ? "여행에 필요한 준비물을 추가해 보세요." : "상태·담당·태그 필터를 초기화해 보세요."}
           action={items.length === 0 ? "준비물 추가" : "필터 초기화"}
-          onPress={() => {
+          onPress={items.length === 0 && !canEdit ? undefined : () => {
             if (items.length === 0) openPackingCreate();
             else {
               setFilter("전체");
@@ -5331,6 +5380,7 @@ function Preparation({
           }}
         />
       )}
+      {canEdit && (
       <View
         style={[
           styles.packingListTools,
@@ -5390,6 +5440,7 @@ function Preparation({
           </Text>
         </Pressable>
       </View>
+      )}
       <DetailSheet
         visible={tagPicker}
         title="태그 선택"
@@ -6118,6 +6169,7 @@ function Cooking({
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
+  const canEdit = useContext(DetailEditableContext);
   const [activeId, setActiveId] = useState("mille");
   const [addingIngredient, setAddingIngredient] = useState(false);
   const [addingRecipe, setAddingRecipe] = useState(false);
@@ -6576,6 +6628,7 @@ function Cooking({
           >
             요리별로 재료와 준비 방법을 나눌 수 있어요.
           </Text>
+          {canEdit && (
           <Pressable
             accessibilityRole="button"
             onPress={() => setAddingRecipe(true)}
@@ -6583,6 +6636,7 @@ function Cooking({
           >
             <Text style={[styles.emptyCookingActionText, theme && { color: theme.primary }]}>첫 요리 추가</Text>
           </Pressable>
+          )}
         </View>
       ) : (
         <>
@@ -6617,6 +6671,7 @@ function Cooking({
               ) : null}
             </View>
             <View style={styles.cookingHeroActions}>
+              {canEdit && (
               <Pressable
                 onPress={openRecipeEdit}
                 accessibilityRole="button"
@@ -6628,6 +6683,7 @@ function Cooking({
               >
                 <Glyph name="more" size={18} color={theme?.muted ?? "#646C7A"} weight={2.6} />
               </Pressable>
+              )}
               <View style={[styles.cookV2ProgressBadge, theme && { backgroundColor: theme.primarySoft }]}>
                 <Text style={[styles.cookV2ProgressBadgeValue, theme && { color: theme.primary }]}>{ingredientProgress}%</Text>
                 <Text style={[styles.cookV2ProgressBadgeLabel, theme && { color: theme.muted }]}>재료 준비</Text>
@@ -6638,6 +6694,7 @@ function Cooking({
             <Text style={[styles.cookingTip, theme && { color: theme.muted }]}>
               필요한 재료
             </Text>
+            {canEdit && (
             <Pressable
               accessibilityRole="button"
               onPress={() => setAddingIngredient(true)}
@@ -6645,13 +6702,14 @@ function Cooking({
             >
               <Text style={[styles.placeAddText, theme && { color: theme.primary }]}>＋ 재료 추가</Text>
             </Pressable>
+            )}
           </View>
           {ingredients.length === 0 && (
             <EmptyState
               title="아직 재료가 없어요"
               description="첫 재료를 추가하거나 목록을 붙여넣어 요리를 준비해 보세요."
               action="첫 재료 추가"
-              onPress={() => setAddingIngredient(true)}
+              onPress={canEdit ? () => setAddingIngredient(true) : undefined}
             />
           )}
           {groups.map((section, groupIndex) => {
@@ -6704,7 +6762,7 @@ function Cooking({
                   <Pressable
                     key={item.id}
                     onPress={() => openIngredientEdit(item)}
-                    onLongPress={() => removeIngredient(item)}
+                    onLongPress={canEdit ? () => removeIngredient(item) : undefined}
                     accessibilityRole="button"
                     accessibilityLabel={`${item.name}, ${item.quantity}, ${item.owner}, 수정`}
                     style={[
@@ -6724,6 +6782,7 @@ function Cooking({
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: readyIngredientIds.includes(item.id) }}
                       accessibilityLabel={`${item.name} ${readyIngredientIds.includes(item.id) ? "준비 완료 해제" : "준비 완료"}`}
+                      disabled={!canEdit}
                       hitSlop={11}
                       style={[
                         styles.cookV2IngredientCheck,
@@ -6764,9 +6823,12 @@ function Cooking({
             </View>
             );
           })}
+          {canEdit && (
           <Text style={[styles.longPressHint, theme && { color: theme.muted }]}>
             왼쪽 원을 눌러 준비 여부를 체크하고, 재료 이름을 누르면 수정할 수 있어요.
           </Text>
+          )}
+          {canEdit && (
           <View
             style={[
               styles.packingListTools,
@@ -6826,6 +6888,7 @@ function Cooking({
               </Text>
             </Pressable>
           </View>
+          )}
         </>
       )}
       <DetailSheet
@@ -6869,7 +6932,7 @@ function Cooking({
         visible={showMyIngredients}
         title="통합 장보기 목록"
         subtitle={`요리 ${recipes.length}개의 재료를 준비 방법별로 확인하세요`}
-        submit="준비 탭에서 가져오기"
+        submit={canEdit ? "준비 탭에서 가져오기" : "닫기"}
         onClose={() => {
           setShoppingCost("");
           setShowMyIngredients(false);
@@ -6877,9 +6940,10 @@ function Cooking({
         onSubmit={() => {
           setShoppingCost("");
           setShowMyIngredients(false);
-          openPreparationImport();
+          if (canEdit) openPreparationImport();
         }}
       >
+        {canEdit && (
         <View style={[styles.shoppingCost, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
           <View style={styles.shoppingCostCopy}>
             <Text style={[styles.shoppingCostTitle, theme && { color: theme.text }]}>장 본 금액 적기</Text>
@@ -6917,6 +6981,7 @@ function Cooking({
             <Text style={styles.shoppingCostButtonText}>적기</Text>
           </Pressable>
         </View>
+        )}
         <OptionField
           label={`담당 · ${filteredShoppingCount}개`}
           options={shoppingOwnerOptions}
@@ -7227,6 +7292,8 @@ function Memories({
   memories,
   setMemories,
   reportSpaceId,
+  isOwner = false,
+  myMembershipId,
 }: {
   tripDate: string;
   /** 여행 날짜 키(YYYY-MM-DD). 여행 중에 쓴 일기를 그날에 둔다. */
@@ -7239,9 +7306,20 @@ function Memories({
   setMemories: React.Dispatch<React.SetStateAction<TripMemoryData>>;
   /** 서버 여행일 때만. 있으면 사진과 일기 수정 시트에 신고가 보인다. */
   reportSpaceId?: string;
+  /** 공간 관리자인지. 남이 올린 사진도 고칠 수 있다. */
+  isOwner?: boolean;
+  myMembershipId?: string;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
+  const canEdit = useContext(DetailEditableContext);
+  /**
+   * 이 사진을 고치고 지울 수 있는지. 서버는 올린 사람과 관리자만 받는다(photos.can_manage).
+   *
+   * 올린 사람이 비어 있으면 이 기기에서 막 고른 사진이라 내 것이다. 새로 올릴 때는 사진이 없다.
+   */
+  const canManagePhoto = (photo?: MemoryPhoto) =>
+    canEdit && (!photo || isOwner || photo.uploaderMembershipId === undefined || photo.uploaderMembershipId === myMembershipId);
   const { photos, diaries, cardStyle, cardTitle, cardCaption } = memories;
   const setPhotos: React.Dispatch<React.SetStateAction<MemoryPhoto[]>> = (update) =>
     setMemories((current) => ({
@@ -7344,7 +7422,15 @@ function Memories({
     }
     // 사진 자체를 바꾸면 새 사진으로 올린다. 서버는 올라온 파일을 바꾸지 않는다.
     const sameFile = Boolean(previous) && savedUri === previous?.uri;
-    const next = { id: sameFile && editingPhotoId ? editingPhotoId : newPlaceId(), color: photoColor, date: photoDate.trim() || UNDATED, caption: photoCaption.trim(), uri: savedUri };
+    const next: MemoryPhoto = {
+      id: sameFile && editingPhotoId ? editingPhotoId : newPlaceId(),
+      color: photoColor,
+      date: photoDate.trim() || UNDATED,
+      caption: photoCaption.trim(),
+      uri: savedUri,
+      // 같은 사진의 설명만 고치면 올린 사람은 그대로다. 사진을 바꾸면 내가 새로 올린다.
+      ...(sameFile && previous?.uploaderMembershipId !== undefined ? { uploaderMembershipId: previous.uploaderMembershipId } : {}),
+    };
     setPhotos((current) => editingPhotoId
       ? current.map((photo) => photo.id === editingPhotoId ? next : photo)
       : [next, ...current]);
@@ -7419,7 +7505,7 @@ function Memories({
             key={photo.id}
             onPress={() => openPhotoEdit(photo)}
             accessibilityRole="button"
-            accessibilityLabel={`${photo.caption || photo.date} 사진 수정`}
+            accessibilityLabel={`${photo.caption || photo.date} 사진 ${canManagePhoto(photo) ? "수정" : "보기"}`}
             style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
           >
             <View style={[styles.memoryTilePhoto, { backgroundColor: photo.color }]}>
@@ -7433,11 +7519,11 @@ function Memories({
           </Pressable>
         ))}
       </View>
-      {photos.length === 0 && <EmptyState title="아직 추가한 사진이 없어요" description="여행의 첫 장면을 기록에 추가해 보세요." action="사진 추가" onPress={openPhotoCreate} />}
+      {photos.length === 0 && <EmptyState title="아직 추가한 사진이 없어요" description="여행의 첫 장면을 기록에 추가해 보세요." action="사진 추가" onPress={canEdit ? openPhotoCreate : undefined} />}
       {photos.length > 6 && <ListMoreButton expanded={showAllPhotos} hiddenCount={photos.length - 6} onPress={() => setShowAllPhotos((value) => !value)} />}
       <SectionLabel
         label="여행 일기"
-        action="일기 쓰기"
+        action={canEdit ? "일기 쓰기" : undefined}
         onPress={openDiaryCreate}
       />
       {(showAllDiaries ? diaries : diaries.slice(0, 3)).map((diary, index) => (
@@ -7467,7 +7553,7 @@ function Memories({
           title="아직 작성한 일기가 없어요"
           description="여행에서 기억하고 싶은 순간을 글로 남겨보세요."
           action="일기 쓰기"
-          onPress={openDiaryCreate}
+          onPress={canEdit ? openDiaryCreate : undefined}
         />
       )}
       {diaries.length > 3 && (
@@ -7535,6 +7621,8 @@ function Memories({
         submitDisabled={!photoSelected}
         destructiveLabel={editingPhotoId ? "사진 삭제" : undefined}
         destructiveMessage="사진을 여행 기록에서 삭제해요."
+        readOnly={!canManagePhoto(photos.find((photo) => photo.id === editingPhotoId))}
+        readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined}
         onDestructive={deletePhoto}
         onClose={() => setPhotoEditing(false)}
         onSubmit={savePhoto}
@@ -7680,6 +7768,7 @@ function Money({
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
+  const canEdit = useContext(DetailEditableContext);
   const [dayFilter, setDayFilter] = useState("전체");
   const [categoryFilter, setCategoryFilter] = useState<"전체" | ExpenseCategory>("전체");
   const [budgetSheetOpen, setBudgetSheetOpen] = useState(false);
@@ -8162,7 +8251,7 @@ function Money({
         action="지출 추가"
         onPress={openCreate}
       />
-      <MoneyBlock title="쓴 돈" action="예산 수정" onAction={openBudget}>
+      <MoneyBlock title="쓴 돈" action={canEdit ? "예산 수정" : undefined} onAction={openBudget}>
         <Text style={[styles.moneyTotal, theme && { color: theme.text }]}>
           {show(settlement.total)}
         </Text>
@@ -8171,6 +8260,7 @@ function Money({
               칸이라는 걸 보이게 한다. 자리는 늘 왼쪽으로 고정한다. */}
           <Pressable
             onPress={openCurrency}
+            disabled={!canEdit}
             accessibilityRole="button"
             accessibilityLabel={`여행 통화 ${unit.code} ${unit.label}, 눌러서 바꾸기`}
             style={({ pressed }) => [
@@ -8185,12 +8275,13 @@ function Money({
                 ? `${unit.code} 원`
                 : `${unit.code} · ${amountText(exchangeRate, 2)}원`}
             </Text>
-            <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />
+            {canEdit && <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />}
           </Pressable>
           {/* 누구끼리 나누는지가 정산의 전제다. 공간 멤버가 여럿이면 이번
               여행에 누가 갔는지부터 맞아야 아래 숫자가 뜻을 갖는다. */}
           <Pressable
             onPress={openPeople}
+            disabled={!canEdit}
             accessibilityRole="button"
             accessibilityLabel={`이번 여행 참가자 ${participants.length}명, 눌러서 바꾸기`}
             style={({ pressed }) => [
@@ -8203,7 +8294,7 @@ function Money({
             <Text numberOfLines={1} style={[styles.moneyCurrencyValue, theme && { color: theme.primary }]}>
               {participants.length}명
             </Text>
-            <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />
+            {canEdit && <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />}
           </Pressable>
           {/* 원이 아닐 때만 환산을 낸다. 원이면 같은 숫자를 두 번 보여줄 뿐이다. */}
           {foreign && (
@@ -8235,7 +8326,7 @@ function Money({
           찾아야 하고, 정작 내가 할 일이 뭔지는 맨 나중에 안다. */}
       <MoneyBlock
         title="정산"
-        action={settlement.transfers.length > 1 ? (simplify ? "묶어서 보기" : "그대로 보기") : undefined}
+        action={canEdit && settlement.transfers.length > 1 ? (simplify ? "묶어서 보기" : "그대로 보기") : undefined}
         onAction={toggleSimplify}
       >
         <View style={styles.moneySettleBlock}>
@@ -8263,6 +8354,7 @@ function Money({
                   </Text>
                 </View>
                 <Text style={[styles.moneySettleAmount, theme && { color: theme.primary }]}>{show(transfer.amount)}</Text>
+                {canEdit && (
                 <Pressable
                   onPress={() => recordFull(transfer)}
                   accessibilityRole="button"
@@ -8277,6 +8369,7 @@ function Money({
                     {iSend ? "보냈어요" : "받았어요"}
                   </Text>
                 </Pressable>
+                )}
               </Pressable>
             );
           })}
@@ -8343,6 +8436,7 @@ function Money({
               <Text numberOfLines={1} style={[styles.moneyOtherText, theme && { color: theme.muted }]}>
                 {payment.from}{josa(payment.from, "이", "가")} {payment.to}에게 {show(payment.amount)}
               </Text>
+              {canEdit && (
               <Pressable
                 onPress={() => undoPayment(payment)}
                 hitSlop={8}
@@ -8351,6 +8445,7 @@ function Money({
               >
                 <Text style={[styles.moneyOtherUndo, theme && { color: theme.primary }]}>되돌리기</Text>
               </Pressable>
+              )}
             </View>
           ))}
           {(settlement.transfers.length > 0 || payments.length > 0) && (
@@ -8410,6 +8505,7 @@ function Money({
         )}
       </MoneyBlock>
       {/* 요약 바로 아래에 둔다. 탭을 열자마자 손이 닿는 자리다. */}
+      {canEdit && (
       <MoneyBlock title="빠르게 적기">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickAddChips}>
           {EXPENSE_CATEGORIES.map((item) => {
@@ -8464,6 +8560,7 @@ function Money({
           {draftPayerHint} · 자세히 적으려면 위의 지출 추가를 누르세요
         </Text>
       </MoneyBlock>
+      )}
       {expenses.length > 0 && (
         <MoneyBlock title="얼마나 어디에 썼나" meta={`${byDay.length}일`}>
           <View style={styles.moneyInsightGrid}>
@@ -8593,7 +8690,7 @@ function Money({
               : "다른 날을 보거나 전체로 돌아가 보세요."
           }
           action={expenses.length === 0 ? "지출 추가" : "전체 보기"}
-          onPress={() => {
+          onPress={expenses.length === 0 && !canEdit ? undefined : () => {
             if (expenses.length === 0) openCreate();
             else { setDayFilter("전체"); setCategoryFilter("전체"); }
           }}
@@ -9016,12 +9113,17 @@ function TabActionHeader({
   onPress: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
+  const canEdit = useContext(DetailEditableContext);
   return (
     <View style={styles.tabActionHeader}>
       <View style={styles.tabActionTitleRow}>
         <Text style={[styles.tabActionTitle, theme && { color: theme.text }]}>{label}</Text>
         <Text style={[styles.tabActionCount, theme && { color: theme.muted, backgroundColor: theme.surfaceAlt }]}>{count}</Text>
       </View>
+      {/* 탭마다 한 번, 추가 버튼 자리에서 왜 버튼이 없는지 알린다. */}
+      {!canEdit ? (
+        <Text style={[styles.tabActionReadOnly, theme && { color: theme.muted }]}>보기만 할 수 있는 공간이에요</Text>
+      ) : (
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
@@ -9034,6 +9136,7 @@ function TabActionHeader({
       >
         <Text style={[styles.tabActionButtonText, theme && { color: onAccent(theme.dark) }]}>＋ {action}</Text>
       </Pressable>
+      )}
     </View>
   );
 }
@@ -9047,7 +9150,8 @@ function EmptyState({
   title: string;
   description: string;
   action: string;
-  onPress: () => void;
+  /** 없으면 버튼을 내지 않는다. 보기만 하는 멤버에게 추가 버튼을 감출 때 쓴다. */
+  onPress?: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
@@ -9060,6 +9164,7 @@ function EmptyState({
         <Text style={[styles.emptyStateTitle, theme && { color: theme.text }]}>{title}</Text>
         <Text style={[styles.emptyStateDescription, theme && { color: theme.muted }]}>{description}</Text>
       </View>
+      {onPress && (
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
@@ -9068,6 +9173,7 @@ function EmptyState({
       >
         <Text style={[styles.emptyStateActionText, theme && { color: theme.primary }]}>＋ {action}</Text>
       </Pressable>
+      )}
     </View>
   );
 }
@@ -9432,7 +9538,7 @@ function DetailField({
 function OptionalFormSection({
   label,
   summary,
-  open,
+  open: openProp,
   onToggle,
   children,
 }: {
@@ -9443,6 +9549,8 @@ function OptionalFormSection({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
+  // 보기만 하는 시트에서는 펼칠 수 없으니 처음부터 펼쳐 둔다.
+  const open = useContext(DetailEditableContext) ? openProp : true;
   return (
     <View
       style={[
@@ -9666,7 +9774,9 @@ function DetailSheet({
   destructiveMessage,
   confirmSubmit,
   submitDisabled = false,
-  hasUnsavedChanges = false,
+  hasUnsavedChanges: changed = false,
+  readOnly,
+  readOnlyHint = "보기만 할 수 있는 공간이에요",
   onClose,
   onSubmit,
   onDestructive,
@@ -9688,12 +9798,24 @@ function DetailSheet({
   confirmSubmit?: string;
   submitDisabled?: boolean;
   hasUnsavedChanges?: boolean;
+  /**
+   * 고칠 수 없는 사람에게 연 시트. 입력을 막고 저장·삭제 대신 닫기만 둔다.
+   *
+   * 주지 않으면 공간 권한을 따른다. 보기만 하는 멤버도 목록을 눌러 자세한 내용은 볼 수 있다.
+   * 저장 버튼이 `닫기` 인 시트는 둘러보는 시트라 막지 않는다.
+   */
+  readOnly?: boolean;
+  /** 막았을 때 버튼 위에 보이는 말. */
+  readOnlyHint?: string;
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
   onDestructive?: () => void;
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
+  const canEdit = useContext(DetailEditableContext);
+  const locked = readOnly ?? (!canEdit && submit !== "닫기");
+  const hasUnsavedChanges = changed && !locked;
   // 되돌릴 수 없는 것을 확정하는 버튼인데 글자가 가장 흐리면 안 된다.
   // 색값을 따로 박지 말고 라이트/다크 AA 를 맞춰 둔 토큰을 쓴다.
   const danger = theme?.dark ? statusColor.danger.dark : statusColor.danger.light;
@@ -9724,6 +9846,8 @@ function DetailSheet({
     );
   };
   const drag = useSheetDrag(requestClose, visible, hasUnsavedChanges);
+  const submitLabel = locked ? "닫기" : submit;
+  const submitBlocked = !locked && (submitDisabled || submitting);
   const sheetKind = title.includes("일정")
     ? "일정"
     : title.includes("장소")
@@ -9758,7 +9882,9 @@ function DetailSheet({
           ? theme.secondary
           : theme.primary
     : "#FF6B63";
-  const sheetAction = title.includes("수정")
+  const sheetAction = locked
+    ? "보기"
+    : title.includes("수정")
     ? "수정"
     : title.includes("추가")
       ? "추가"
@@ -9848,17 +9974,25 @@ function DetailSheet({
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
-            <View style={styles.sheetFormBody}>
-              {children}
-            </View>
+            <DetailEditableContext.Provider value={canEdit && !locked}>
+              <View style={styles.sheetFormBody} pointerEvents={locked ? "none" : "auto"}>
+                {children}
+              </View>
+            </DetailEditableContext.Provider>
           </ScrollView>
-          {submitDisabled && disabledHint && (
+          {locked ? (
+            <Text style={[styles.sheetDisabledHint, theme && { color: theme.muted }]}>{readOnlyHint}</Text>
+          ) : submitDisabled && disabledHint && (
             <Text accessibilityLiveRegion="polite" style={[styles.sheetDisabledHint, theme && { color: theme.muted }]}>
               {disabledHint}
             </Text>
           )}
           <Pressable
             onPress={async () => {
+              if (locked) {
+                closeAndReset();
+                return;
+              }
               if (submitLocked.current) return;
               Keyboard.dismiss();
               setConfirmingDestructive(false);
@@ -9879,18 +10013,18 @@ function DetailSheet({
                 }, 800);
               }
             }}
-            disabled={submitDisabled || submitting}
+            disabled={submitBlocked}
             accessibilityRole="button"
-            accessibilityLabel={submit}
-            accessibilityState={{ disabled: submitDisabled || submitting, busy: submitting }}
+            accessibilityLabel={submitLabel}
+            accessibilityState={{ disabled: submitBlocked, busy: submitting }}
             style={({ pressed }) => [
               styles.sheetSubmit,
               theme && { backgroundColor: theme.primary },
-              (submitDisabled || submitting) && styles.sheetSubmitDisabled,
-              pressed && !submitDisabled && !submitting && styles.controlPressed,
+              submitBlocked && styles.sheetSubmitDisabled,
+              pressed && !submitBlocked && styles.controlPressed,
             ]}
           >
-            <Text style={[styles.sheetSubmitText, theme && { color: onAccent(theme.dark) }]}>{submitting ? "저장 중…" : submit}</Text>
+            <Text style={[styles.sheetSubmitText, theme && { color: onAccent(theme.dark) }]}>{submitting ? "저장 중…" : submitLabel}</Text>
             <View style={styles.sheetSubmitArrow}>
               <Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} />
             </View>
@@ -9926,7 +10060,7 @@ function DetailSheet({
               </View>
             </View>
           )}
-          {destructiveLabel && confirmingDestructive && (
+          {destructiveLabel && !locked && confirmingDestructive && (
             <View
               accessibilityLiveRegion="polite"
               style={[styles.deleteConfirm, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
@@ -9959,7 +10093,7 @@ function DetailSheet({
               </View>
             </View>
           )}
-          {destructiveLabel && !confirmingDestructive && (
+          {destructiveLabel && !locked && !confirmingDestructive && (
             <Pressable
               onPress={() => setConfirmingDestructive(true)}
               hitSlop={8}
@@ -12087,6 +12221,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontFamily: typo.title.family,
   },
+  headerSpacer: { width: 20 },
   modeText: { color: "#7C8492", fontSize: 14, fontFamily: typo.label.family },
   modeTextCurrent: { },
   sectionAction: { fontSize: 14, fontFamily: typo.label.family },
@@ -12164,6 +12299,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabActionButtonText: { fontSize: 14, fontFamily: typo.label.family },
+  tabActionReadOnly: { flexShrink: 1, marginLeft: 12, fontSize: 12, textAlign: "right", fontFamily: typo.caption.family },
   sectionTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
   timelineCard: { borderRadius: 12, padding: 12, borderWidth: 1 },
   fullScheduleButton: {

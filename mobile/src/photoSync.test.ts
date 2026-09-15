@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { bodyKey, hasWork, planListSync, tripDateKeys, type Confirmed } from "./listSync.ts";
-import { colorOfId, PHOTO_PALETTE, PHOTO_UNDATED, photoCodec } from "./photoSync.ts";
+import { colorOfId, PHOTO_PALETTE, PHOTO_UNDATED, photoCodec, type PhotoRow } from "./photoSync.ts";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const dates = tripDateKeys("2026-10-01", "2026-10-03");
@@ -19,7 +19,7 @@ test("파일이 있거나 서버에 이미 있는 사진만 맞춘다", () => {
 
 test("날짜 줄은 여행 날짜로 오가고 파일 자리와 색은 기기 것을 지킨다", () => {
   const codec = photoCodec(dates, new Set([A]));
-  const local = { id: A, color: "#123456", date: "2일(금)", caption: " 느린 점심 ", uri: "file:///p.jpg" };
+  const local: PhotoRow = { id: A, color: "#123456", date: "2일(금)", caption: " 느린 점심 ", uri: "file:///p.jpg" };
 
   assert.deepEqual(codec.toBody(local), { caption: "느린 점심", date: "2026-10-02" });
   const row = {
@@ -27,8 +27,27 @@ test("날짜 줄은 여행 날짜로 오가고 파일 자리와 색은 기기 �
     isReceipt: false, uploaderMembershipId: null, uploaderName: "하늘", createdAt: "2026-10-02T03:00:00Z", version: 1,
   };
   const back = codec.fromServer(row);
-  assert.deepEqual(codec.keepLocal?.(back, local), { id: A, color: "#123456", date: "2일(금)", caption: "느린 점심", uri: "file:///p.jpg" });
+  assert.deepEqual(codec.keepLocal?.(back, local), {
+    id: A, color: "#123456", date: "2일(금)", caption: "느린 점심", uri: "file:///p.jpg", uploaderMembershipId: null,
+  });
   assert.equal(codec.fromServer({ ...row, date: "2026-12-25" }).date, PHOTO_UNDATED);
+  const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(back)), version: 1 }]]);
+  assert.equal(hasWork(planListSync([local], codec, confirmed)), false);
+});
+
+test("올린 사람은 서버에서 받아 두지만 서버로 보내지 않는다", () => {
+  const codec = photoCodec(dates, new Set([A]));
+  const B = "22222222-2222-4222-8222-222222222222";
+  const row = {
+    id: A, status: "ready" as const, caption: "바다", date: "2026-10-01", takenAt: null, width: 10, height: 10, bytes: 100,
+    isReceipt: false, uploaderMembershipId: B, uploaderName: "여울", createdAt: "2026-10-01T03:00:00Z", version: 1,
+  };
+  const back = codec.fromServer(row);
+  assert.equal(back.uploaderMembershipId, B);
+  // 이 기기에서 막 올린 사진은 올린 사람이 비어 있다. 서버 줄과 합치면 서버 것을 따른다.
+  const local: PhotoRow = { id: A, color: "#123456", date: "1일(목)", caption: "바다", uri: "file:///p.jpg" };
+  assert.equal(codec.keepLocal?.(back, local).uploaderMembershipId, B);
+  assert.deepEqual(codec.toBody(back), codec.toBody(local));
   const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(back)), version: 1 }]]);
   assert.equal(hasWork(planListSync([local], codec, confirmed)), false);
 });

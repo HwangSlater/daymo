@@ -46,6 +46,11 @@ type Options<L, B, S extends ServerRow> = {
    * 만들지 않은 변화를 바로 보여 줄 때 올린다.
    */
   reloadKey?: number;
+  /**
+   * 서버가 403 으로 막았을 때의 안내. 없으면 보기만 하는 공간이라고 알린다.
+   * 사진처럼 편집 멤버도 막히는 줄이 있어, 그때는 까닭을 따로 적는다.
+   */
+  forbiddenMessage?: string;
   notify: (message: string) => void;
 };
 
@@ -164,7 +169,9 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
         } else if (caught instanceof DaymoApiError && caught.status === 403) {
           if (!warnedForbidden.current) {
             warnedForbidden.current = true;
-            latest.current.notify(`이 공간에서는 보기만 할 수 있어 ${label} 변경이 저장되지 않아요`);
+            latest.current.notify(
+              latest.current.forbiddenMessage ?? `이 공간에서는 보기만 할 수 있어 ${label} 변경이 저장되지 않아요`,
+            );
           }
         } else if (!(caught instanceof DaymoApiError) || caught.status === 0 || caught.status >= 500) {
           if (!warnedOffline.current) {

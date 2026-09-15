@@ -12,7 +12,18 @@ import { blank } from "./placeSync.ts";
 import { dayLabelOf, isServerId, type Codec } from "./listSync.ts";
 
 /** 앱의 사진(WarmTripDetail 의 MemoryPhoto)과 같은 모양. */
-export type PhotoRow = { id: string; color: string; date: string; caption: string; uri?: string };
+export type PhotoRow = {
+  id: string;
+  color: string;
+  date: string;
+  caption: string;
+  uri?: string;
+  /**
+   * 올린 사람의 membership id. 서버에서 받은 사진에만 있다. 비어 있으면 이 기기에서
+   * 막 올린 내 사진이다. 사진은 올린 사람과 관리자만 고칠 수 있어 화면이 이 값으로 가린다.
+   */
+  uploaderMembershipId?: string | null;
+};
 
 export type ServerPhoto = {
   id: string;
@@ -63,8 +74,10 @@ export function photoCodec(tripDates: readonly string[], knownIds: ReadonlySet<s
       color: colorOfId(row.id),
       date: row.date && tripDates.includes(row.date) ? dayLabelOf(row.date) : PHOTO_UNDATED,
       caption: row.caption ?? "",
+      // 올린 사람은 받아 두기만 한다. 서버로 보내는 칸(toBody)에는 없다.
+      uploaderMembershipId: row.uploaderMembershipId,
     }),
-    // 받아 둔 파일과 기기에서 고른 색은 서버에 없다.
+    // 받아 둔 파일과 기기에서 고른 색은 서버에 없다. 올린 사람은 서버 것을 따른다.
     keepLocal: (fromServer, local) => ({ ...fromServer, color: local.color, ...(local.uri ? { uri: local.uri } : {}) }),
   };
 }

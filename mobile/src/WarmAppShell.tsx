@@ -864,6 +864,9 @@ export function WarmAppShell({
         spaceMembers={activeSpaceMembers}
         me={user?.name ?? activeSpaceMembers[0]}
         appTheme={theme}
+        canEdit={!selectedTrip.id || activeSpace.myRole !== "보기만"}
+        isOwner={activeSpace.myRole === "관리자"}
+        myMembershipId={activeSpace.myMembershipId}
         onUpdateTrip={async (changes) => {
           if (!selectedTrip.id || selectedTrip.version === undefined) {
             const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
