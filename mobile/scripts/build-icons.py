@@ -1,6 +1,6 @@
 """앱 아이콘과 실행 화면을 그린다.
 
-종이비행기가 휜 궤적을 따라 이름을 지나간다. 아이콘, 실행 화면, 파비콘이
+비행기가 휜 궤적을 따라 이름을 지나간다. 아이콘, 실행 화면, 파비콘이
 모두 같은 그림을 쓴다. 그래야 홈 화면에서 누른 아이콘과 뜨는 화면이 한
 그림으로 이어진다.
 
@@ -25,12 +25,15 @@
 실행 화면은 배경을 app.json 이 깔고 그림만 얹는다. 배경을 앱 배경색과 같게
 두면 실행 화면에서 앱으로 넘어갈 때 색이 튀지 않는다. 그래서 그림 색이
 모드마다 달라야 하고 파일이 두 장이다.
+
+바탕에 모눈을 깔지 않는다. 예전에는 아이콘과 실행 화면에 수첩 모눈을
+깔았는데, 작은 크기에서는 그림 뒤의 잡음이 되어 비행기와 이름을 흐렸다.
 """
 
 import math
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "assets" / "fonts" / "CookieRun-Bold.ttf"
@@ -56,16 +59,42 @@ TRAIL_FROM, TRAIL_TO = 0.16, 0.68
 TRAIL_RADIUS = 9.0
 TRAIL_ALPHA = 0.36
 
-# 종이비행기. 0..100 상자 안에서 오른쪽 위 45도를 본다. 그만큼 되돌린 뒤
-# 궤적의 진행 방향으로 돌려야 코가 선을 따라간다.
-PLANE_UPPER = [(91.7, 8.3), (8.3, 37.5), (45.8, 54.2)]
-PLANE_LOWER = [(91.7, 8.3), (45.8, 54.2), (62.5, 91.7)]
-PLANE_PIVOT = (52.0, 48.0)  # 무게중심. 이 점이 궤적 위에 얹힌다.
-PLANE_HEADING = -45.0
+def _arc(cx, cy, r, start, end, steps=8):
+    """원의 한 토막을 점으로 늘어놓는다. 각도는 도 단위."""
+    return [
+        (cx + r * math.cos(math.radians(start + (end - start) * i / steps)),
+         cy + r * math.sin(math.radians(start + (end - start) * i / steps)))
+        for i in range(steps + 1)
+    ]
+
+
+def _capsule(p1, p2, r):
+    """두 점을 잇는 끝이 둥근 막대."""
+    (x1, y1), (x2, y2) = p1, p2
+    a = math.degrees(math.atan2(y2 - y1, x2 - x1))
+    return _arc(x2, y2, r, a - 90, a + 90) + _arc(x1, y1, r, a + 90, a + 270)
+
+
+# 비행기. 위에서 본 둥근 만화풍이다. 0..100 상자 안에서 오른쪽을 본다.
+#
+# 몸통을 굵게, 날개 끝을 둥글게, 뒤로 덜 젖혔다. 이름을 쓰는 쿠키런 글씨가
+# 둥글고 도톰해서 날카로운 제트기보다 결이 맞고, 홈 화면의 29px 까지 줄여도
+# 비행기 모양이 남는다. 예전의 종이비행기(삼각형 둘)는 마우스 커서처럼 읽혔다.
+#
+# 조각이 겹치는 자리는 같은 색이라 한 덩어리로 보인다.
+PLANE_SHAPES = [
+    (_capsule((12, 50), (84, 50), 10), 1.0),   # 몸통
+    (_capsule((56, 50), (42, 10), 7.5), 1.0),  # 주날개
+    (_capsule((56, 50), (42, 90), 7.5), 1.0),
+    (_capsule((20, 50), (12, 30), 5.5), 1.0),  # 꼬리날개
+    (_capsule((20, 50), (12, 70), 5.5), 1.0),
+]
+# 궤적 위에 얹히는 점. 꼬리 쪽에 둔다. 몸통 한가운데를 얹으면 꼬리가 궤적의
+# 마지막 점을 덮어서 뒤쪽이 지저분해진다.
+PLANE_PIVOT = (12.0, 50.0)
+PLANE_HEADING = 0.0  # 상자 안의 그림이 보는 방향. 궤적의 진행 방향으로 돌린다.
 PLANE_AT = 0.80  # 궤적 위의 자리
-PLANE_SIZE = 76.0
-PLANE_UPPER_ALPHA = 0.58
-PLANE_LOWER_ALPHA = 1.0
+PLANE_SIZE = 74.0
 
 WORDMARK = "Daymo"
 WORDMARK_SIZE = 56
@@ -78,13 +107,8 @@ TAGLINE_SIZE = 12.5
 TAGLINE_AT = (160, 418)
 TAGLINE_ALPHA = 0.55
 
-# 모눈. 실행 화면에만 깐다. 가장자리로 갈수록 흐려져서 종이를 오려 붙인
-# 것처럼 보이지 않는다.
-GRID_STEP = 13.0
-GRID_ALPHA = 0.11
-GRID_WIDTH = 1.0
-
-# 실행 화면이 담는 범위. 모눈이 흐려져 사라지는 데까지 넉넉히 잡는다.
+# 실행 화면이 담는 범위. app.json 의 imageWidth 와 비율이 맞아야 해서 예전
+# 모눈을 깔던 때의 크기를 그대로 둔다.
 SPLASH_BOX = (0, 240, 320, 460)
 SPLASH_PIXEL_WIDTH = 1024
 
@@ -92,13 +116,9 @@ SPLASH_PIXEL_WIDTH = 1024
 ADAPTIVE_SAFE = 0.66
 # 정사각 아이콘에서 그림이 차지할 비율.
 ICON_FIT = 0.78
-# 아이콘 바탕의 모눈. 한 변을 이만큼 나누고 이 진하기로 긋는다. 실행 화면의
-# 모눈과 같은 결이라 둘이 한 짝으로 읽힌다.
-ICON_GRID = (12, 0.14)
-
 # 파비콘. 아이콘과 같은 그림을 쓰되 이름을 1.3배 키우고 궤적을 넷으로 줄인다.
 # 32px 에서는 아이콘의 축소판으로 읽히고, 16px 에서는 이름이 막대가 되지만
-# 색과 비행기 자리가 같아 같은 앱으로 이어진다. 모눈은 작아지면 얼룩이라 뺀다.
+# 색과 비행기 자리가 같아 같은 앱으로 이어진다.
 # 64 는 탭의 16 과 2배 화면의 32 를 정수로 반씩 나눠 담는 크기다.
 FAVICON_SIZE = 64
 FAVICON_FIT = 0.92
@@ -171,37 +191,6 @@ class Canvas:
         return ImageFont.truetype(str(FONT), max(1, round(self.size(points))))
 
 
-def draw_grid(canvas, ink):
-    """모눈을 깔고 가장자리를 흐린다.
-
-    선을 그린 층을 따로 두고 둥근 알파 마스크를 씌운다. 선마다 투명도를
-    바꿔 그리면 교차점이 두 번 칠해져 격자무늬가 얼룩덜룩해진다."""
-    layer = Image.new("RGBA", canvas.image.size, (0, 0, 0, 0))
-    pen = ImageDraw.Draw(layer)
-    width = max(1, round(canvas.size(GRID_WIDTH)))
-    color = rgba(ink, GRID_ALPHA)
-    left, top = SPLASH_BOX[0], SPLASH_BOX[1]
-    right, bottom = SPLASH_BOX[2], SPLASH_BOX[3]
-    x = left
-    while x <= right:
-        pen.line([canvas.at(x, top), canvas.at(x, bottom)], fill=color, width=width)
-        x += GRID_STEP
-    y = top
-    while y <= bottom:
-        pen.line([canvas.at(left, y), canvas.at(right, y)], fill=color, width=width)
-        y += GRID_STEP
-    # 가운데는 그대로 두고 가장자리로 갈수록 지운다. 제곱을 씌워 가운데
-    # 평평한 부분을 넓혀야 마크 뒤에서 모눈이 끊기지 않는다.
-    fade = ImageOps.invert(Image.radial_gradient("L"))
-    fade = fade.point(lambda v: round(255 * (v / 255) ** 0.55))
-    layer.putalpha(Image.composite(
-        layer.getchannel("A"),
-        Image.new("L", layer.size, 0),
-        fade.resize(layer.size, Image.BILINEAR),
-    ))
-    canvas.image.alpha_composite(layer)
-
-
 def draw_scene(canvas, ink, halo=None, trail=TRAIL_COUNT, trail_to=TRAIL_TO,
                wordmark=True, tagline=False, trail_from=TRAIL_FROM):
     """궤적과 비행기와 이름을 그린다.
@@ -226,7 +215,7 @@ def draw_scene(canvas, ink, halo=None, trail=TRAIL_COUNT, trail_to=TRAIL_TO,
             fill=rgba(ink, TAGLINE_ALPHA), anchor="ms",
         )
     # 비행기는 이름 위를 지나간다. 마지막에 그려야 위로 온다.
-    for points, alpha in ((PLANE_UPPER, PLANE_UPPER_ALPHA), (PLANE_LOWER, PLANE_LOWER_ALPHA)):
+    for points, alpha in PLANE_SHAPES:
         canvas.draw.polygon([canvas.at(x, y) for x, y in plane_polygon(points)],
                             fill=rgba(ink, alpha))
 
@@ -238,7 +227,7 @@ def scene_bounds(trail=TRAIL_COUNT, trail_to=TRAIL_TO, wordmark=True,
     for x, y, r in trail_points(trail, trail_to, trail_from):
         xs += [x - r, x + r]
         ys += [y - r, y + r]
-    for points in (PLANE_UPPER, PLANE_LOWER):
+    for points, _ in PLANE_SHAPES:
         for x, y in plane_polygon(points):
             xs.append(x)
             ys.append(y)
@@ -267,24 +256,10 @@ def finish(canvas, size, background=None):
     return image.resize(size, Image.LANCZOS)
 
 
-def draw_icon_grid(canvas, ink, cells, alpha, width=1.0):
-    """아이콘 바탕에 모눈을 깐다. 한 변을 cells 칸으로 나눈다."""
-    side = canvas.image.width
-    step = side / cells
-    pen = canvas.draw
-    line = max(1, round(width * SCALE))
-    for i in range(1, cells):
-        pen.line([(step * i, 0), (step * i, side)], fill=rgba(ink, alpha), width=line)
-        pen.line([(0, step * i), (side, step * i)], fill=rgba(ink, alpha), width=line)
-
-
-def icon(side, ratio, background, transparent=False, grid=None):
-    """grid 는 (칸 수, 투명도) 다. 없으면 민무늬."""
+def icon(side, ratio, background, transparent=False):
     bounds = scene_bounds()
     offset, scale = fit_center(bounds, side, ratio)
     canvas = Canvas((side, side), scale, offset)
-    if grid:
-        draw_icon_grid(canvas, MARK, grid[0], grid[1], width=side / 256)
     draw_scene(canvas, MARK, halo=None if transparent else background)
     return finish(canvas, (side, side), None if transparent else background)
 
@@ -295,7 +270,6 @@ def splash(ink, paper):
     height = round((bottom - top) * scale)
     # 자리 옮김은 크기를 키운 뒤의 값이다. 장면 좌표로 주면 안 된다.
     canvas = Canvas((SPLASH_PIXEL_WIDTH, height), scale, (-left * scale, -top * scale))
-    draw_grid(canvas, ink)
     draw_scene(canvas, ink, halo=paper, tagline=True)
     return finish(canvas, (SPLASH_PIXEL_WIDTH, height))
 
@@ -317,11 +291,10 @@ def favicon():
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
-    icon(1024, ICON_FIT, BACKGROUND, grid=ICON_GRID).convert("RGB").save(OUT / "daymo-icon.png")
-    # 적응형 앞면은 안전 영역 안으로 줄인다. 배경은 app.json 이 깐다. 모눈은
-    # 앞면에 그려야 바탕색 위에 얹히고, 런처가 어떤 모양으로 잘라도 끝까지 간다.
-    icon(1024, ADAPTIVE_SAFE, BACKGROUND, transparent=True, grid=ICON_GRID).save(OUT / "daymo-icon-adaptive.png")
-    icon(512, ICON_FIT, BACKGROUND, grid=ICON_GRID).convert("RGB").save(OUT / "daymo-icon-login.png")
+    icon(1024, ICON_FIT, BACKGROUND).convert("RGB").save(OUT / "daymo-icon.png")
+    # 적응형 앞면은 안전 영역 안으로 줄인다. 배경은 app.json 이 깐다.
+    icon(1024, ADAPTIVE_SAFE, BACKGROUND, transparent=True).save(OUT / "daymo-icon-adaptive.png")
+    icon(512, ICON_FIT, BACKGROUND).convert("RGB").save(OUT / "daymo-icon-login.png")
 
     splash(SPLASH_INK_LIGHT, SPLASH_PAPER_LIGHT).save(OUT / "daymo-splash.png")
     splash(SPLASH_INK_DARK, SPLASH_PAPER_DARK).save(OUT / "daymo-splash-dark.png")
