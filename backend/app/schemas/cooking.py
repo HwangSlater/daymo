@@ -11,6 +11,9 @@ class ChecklistItemCreateRequest(_Camel):
     준비물 하나. 담당은 사람(`ownerMembershipId`)·공용(`isShared`)·미정(둘 다 비움) 중 하나다.
 
     `completed` 를 참으로 보내면 체크한 것이다. 누가 언제 체크했는지는 서버가 적는다.
+
+    `sourceIngredientId` 는 요리 재료에서 가져온 준비물일 때 그 재료다. 같은 여행의 재료만
+    받는다. 완료 상태는 재료와 따로 간다.
     """
 
     id: uuid.UUID | None = None
@@ -20,6 +23,7 @@ class ChecklistItemCreateRequest(_Camel):
     is_shared: bool = False
     completed: bool = False
     tags: list[str] = Field(default_factory=list, max_length=20)
+    source_ingredient_id: uuid.UUID | None = None
 
 
 class ChecklistItemUpdateRequest(_Camel):
@@ -30,6 +34,8 @@ class ChecklistItemUpdateRequest(_Camel):
     is_shared: bool | None = None
     completed: bool | None = None
     tags: list[str] | None = Field(default=None, max_length=20)
+    # null 을 보내면 연결을 끊는다. 보내지 않으면 그대로 둔다.
+    source_ingredient_id: uuid.UUID | None = None
 
 
 class ChecklistItemOut(_Camel):
@@ -41,6 +47,7 @@ class ChecklistItemOut(_Camel):
     is_shared: bool
     completed: bool
     tags: list[str]
+    source_ingredient_id: str | None
     version: int
 
 

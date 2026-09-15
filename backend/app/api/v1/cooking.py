@@ -37,6 +37,7 @@ def _준비물_응답(trip_id: uuid.UUID, view) -> dict:
         is_shared=item.is_shared,
         completed=item.completed_at is not None,
         tags=tags,
+        source_ingredient_id=str(item.source_ingredient_id) if item.source_ingredient_id else None,
         version=item.version,
     ).model_dump(by_alias=True, mode="json")
 

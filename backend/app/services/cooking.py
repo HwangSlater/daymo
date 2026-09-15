@@ -48,6 +48,19 @@ async def _check_owner(session: AsyncSession, trip: Trip, membership_id: uuid.UU
         raise AppError(ErrorCode.VALIDATION_ERROR, fields={field: "이 공간의 멤버가 아니에요."})
 
 
+async def _check_source_ingredient(session: AsyncSession, trip: Trip, ingredient_id: uuid.UUID | None) -> None:
+    """준비물이 가리키는 재료는 같은 여행 요리의 것이어야 한다. 없어진 재료도 받지 않는다."""
+    if ingredient_id is None:
+        return
+    같은_여행 = await session.scalar(
+        select(Ingredient.id)
+        .join(Recipe, Recipe.id == Ingredient.recipe_id)
+        .where(Ingredient.id == ingredient_id, Recipe.trip_id == trip.id)
+    )
+    if 같은_여행 is None:
+        raise AppError(ErrorCode.VALIDATION_ERROR, fields={"sourceIngredientId": "이 여행의 요리 재료가 아니에요."})
+
+
 async def packing_list(session: AsyncSession, trip: Trip, actor: Membership | None = None) -> Checklist | None:
     """여행의 준비물 목록. `actor` 를 주면 없을 때 만든다."""
     found = await session.scalar(
@@ -117,6 +130,7 @@ async def create_item(
             return 기존, False
     tags = normalize_tags(values.get("tags") or [])
     await _check_owner(session, trip, values.get("owner_membership_id"), "ownerMembershipId")
+    await _check_source_ingredient(session, trip, values.get("source_ingredient_id"))
     checklist = await packing_list(session, trip, actor)
     # 한 transaction 안에서 만든 줄은 created_at 이 같다. 넣은 순서는 sort_order 로 지킨다.
     끝 = await session.scalar(select(func.max(ChecklistItem.sort_order)).where(ChecklistItem.checklist_id == checklist.id))
@@ -126,6 +140,7 @@ async def create_item(
         sort_order=(끝 if 끝 is not None else -1) + 1,
         name=values["name"].strip(),
         quantity=_blank(values.get("quantity")),
+        source_ingredient_id=values.get("source_ingredient_id"),
         created_by=actor.user_id,
     )
     _apply_owner(item, values.get("owner_membership_id"), values.get("is_shared", False))
@@ -159,7 +174,11 @@ async def update_item(
         await _check_owner(session, trip, owner, "ownerMembershipId")
         _apply_owner(item, owner, shared)
     if changes.get("completed") is not None:
+        # 재료의 준비 완료는 건드리지 않는다. 함께 바꿀지는 앱이 사용자에게 묻고 따로 보낸다.
         _apply_completed(item, changes["completed"], actor)
+    if "source_ingredient_id" in changes:
+        await _check_source_ingredient(session, trip, changes["source_ingredient_id"])
+        item.source_ingredient_id = changes["source_ingredient_id"]
     if "tags" in changes:
         await replace_tags(
             session, space_id=trip.space_id, scope=TagScope.PACKING, target_id=item.id,
