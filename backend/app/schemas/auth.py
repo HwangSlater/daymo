@@ -68,6 +68,14 @@ class OAuthExchangeRequest(_Camel):
     device: DeviceInfo
 
 
+class OAuthReauthRequest(_Camel):
+    """연결된 제공자로 다시 로그인해 민감한 작업의 증표를 받는다."""
+
+    action: SensitiveAction
+    login_code: str = Field(min_length=1, max_length=200)
+    code_verifier: str = Field(min_length=43, max_length=128)
+
+
 class OAuthLinkRequest(_Camel):
     """같은 이메일의 기존 계정에 제공자를 붙인다. 그 계정의 비밀번호로 확인한다."""
 
@@ -121,8 +129,7 @@ class ReauthRequest(_Camel):
     """
 
     action: SensitiveAction
-    # OAuth 로만 가입한 계정은 provider 재로그인이 필요한데 그 경로가 아직
-    # 없다. 지금은 비밀번호가 있는 계정만 증표를 받을 수 있다.
+    # 비밀번호가 없는(소셜 로그인으로만 가입한) 계정은 `/auth/oauth/reauth` 로 받는다.
     password: str | None = None
 
 
@@ -142,6 +149,9 @@ class MeOut(_Camel):
     # 삭제를 요청해 둔 계정이면 지워질 시각. 앱은 이 값이 있으면 다른 화면
     # 대신 삭제 취소 화면을 먼저 보여 준다.
     deletion_scheduled_at: datetime | None = None
+    # 재인증을 비밀번호로 할지 소셜 로그인으로 할지 앱이 고른다.
+    has_password: bool = True
+    linked_providers: list[str] = Field(default_factory=list)
 
 
 class ReauthProofRequest(_Camel):

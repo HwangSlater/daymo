@@ -406,3 +406,78 @@ async def test_폼으로_돌아오는_callback_도_같게_처리한다(api):
     assert 응답.status_code == 303
     값 = parse_qs(urlsplit(응답.headers["location"]).query)
     assert (await 교환(api, 값["loginCode"][0], verifier)).status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# reauth: 비밀번호가 없는 계정의 재확인
+# ---------------------------------------------------------------------------
+
+
+async def 카카오로_가입한다(api, **서버) -> dict:
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge, **서버)
+    세션 = (await 교환(api, 값["loginCode"], verifier)).json()["data"]
+    return {"Authorization": f"Bearer {세션['accessToken']}"}
+
+
+async def 다시_확인(api, headers, action="delete_account", **서버):
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge, **서버)
+    return await api.post(
+        "/v1/auth/oauth/reauth",
+        json={"action": action, "loginCode": 값["loginCode"], "codeVerifier": verifier},
+        headers=headers,
+    )
+
+
+async def test_소셜로만_가입한_계정은_제공자로_다시_로그인해_계정을_지운다(api, db):
+    headers = await 카카오로_가입한다(api)
+    me = (await api.get("/v1/me", headers=headers)).json()["data"]
+    비밀번호로 = await api.post("/v1/auth/reauth", json={"action": "delete_account", "password": "x"}, headers=headers)
+
+    확인 = await 다시_확인(api, headers)
+    삭제 = await api.request("DELETE", "/v1/me", json={"reauthProof": 확인.json()["data"]["proof"]}, headers=headers)
+
+    assert (me["hasPassword"], me["linkedProviders"]) == (False, ["kakao"])
+    assert 비밀번호로.status_code == 403
+    assert 확인.status_code == 201, 확인.text
+    assert 삭제.status_code == 202, 삭제.text
+
+
+async def test_다른_사람의_소셜_계정으로는_다시_확인할_수_없다(api, db):
+    headers = await 카카오로_가입한다(api)
+    # 다른 카카오 계정(다른 번호·이메일)으로 로그인 코드를 받는다.
+    남의_것 = await 다시_확인(api, headers, 번호=9999, 이메일="other@example.com")
+    같은_코드_다시 = await 다시_확인(api, headers, action="cancel_deletion")
+
+    assert 남의_것.status_code == 403
+    assert 같은_코드_다시.status_code == 201
+    assert await db.scalar(select(func.count()).select_from(User).where(User.email == "other@example.com")) == 0
+
+
+async def test_다시_확인의_증표는_그_작업에만_쓴다(api, db):
+    headers = await 카카오로_가입한다(api)
+    취소용 = (await 다시_확인(api, headers, action="cancel_deletion")).json()["data"]["proof"]
+
+    삭제 = await api.request("DELETE", "/v1/me", json={"reauthProof": 취소용}, headers=headers)
+
+    assert 삭제.status_code == 403
+
+
+async def test_verifier_가_틀린_다시_확인은_코드를_버린다(api, db):
+    headers = await 카카오로_가입한다(api)
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge)
+    틀림 = await api.post(
+        "/v1/auth/oauth/reauth",
+        json={"action": "delete_account", "loginCode": 값["loginCode"], "codeVerifier": "x" * 43},
+        headers=headers,
+    )
+    다시 = await api.post(
+        "/v1/auth/oauth/reauth",
+        json={"action": "delete_account", "loginCode": 값["loginCode"], "codeVerifier": verifier},
+        headers=headers,
+    )
+
+    assert 틀림.status_code == 403
+    assert 다시.status_code == 401

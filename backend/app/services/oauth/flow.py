@@ -5,6 +5,8 @@
     callback   제공자가 확인해 준 사람을 1분짜리 loginCode 에 묶어 앱으로 돌려보낸다.
     exchange   앱이 loginCode 와 code_verifier 로 세션을 받는다. 계정은 여기서 만든다.
     link       같은 이메일의 계정이 이미 있을 때, 그 계정 비밀번호로 확인하고 붙인다.
+    reauth     로그인한 사람이 연결된 제공자로 다시 로그인해 민감한 작업의 증표를 받는다.
+               비밀번호가 없는 계정이 계정 삭제·삭제 취소를 할 수 있게 한다.
 
 docs/development/03-api-specification.md 2장이 원본이다.
 """
@@ -32,11 +34,12 @@ from app.models import (
     OAuthPendingLogin,
     OAuthProvider,
     OAuthState,
+    SensitiveAction,
     ThrottleScope,
     User,
     UserStatus,
 )
-from app.services import throttle
+from app.services import reauth, throttle
 from app.services.accounts import normalize_email
 from app.services.auth_sessions import Session, start_session
 from app.services.oauth.providers import Identity, Provider, ProviderError, get_provider
@@ -252,18 +255,13 @@ async def _start(session: AsyncSession, user: User, device: DeviceArgs) -> Sessi
     )
 
 
-async def exchange(
-    session: AsyncSession, *, login_code: str, code_verifier: str, device: DeviceArgs
-) -> Session | AppError:
+async def _take_pending(
+    session: AsyncSession, *, login_code: str, code_verifier: str
+) -> OAuthPendingLogin | AppError:
     """
-    loginCode 를 세션으로 바꾼다.
+    loginCode 를 쓴다. verifier 가 틀려도 쓴 것으로 남긴다(한 번 틀린 뒤 다시 맞춰 볼 수 없게).
 
-    code_verifier 가 틀려도 loginCode 를 버린다. 한 번 틀린 뒤에 다시 맞춰 볼 수
-    있으면 1분 동안 맞춰 보기를 허락하는 셈이다. 진짜 앱은 틀릴 일이 없다.
-
-    **거절을 raise 하지 않고 돌려준다.** 거절하면서도 남겨야 하는 것이 있어서다
-    (loginCode 를 쓴 표시, 연결 토큰). 예외로 끝나면 요청 transaction 이 되돌아가
-    그것까지 사라진다. 라우터가 받은 오류를 그대로 응답으로 내보낸다.
+    코드가 없거나 이미 썼거나 지났으면 raise 한다. 남길 것이 없다.
     """
     지금 = datetime.now(UTC)
     대기 = await session.scalar(
@@ -280,6 +278,26 @@ async def exchange(
         _s256(code_verifier), 대기.code_challenge
     ):
         return AppError(ErrorCode.UNAUTHENTICATED, message=_CODE_FAILED)
+    return 대기
+
+
+async def exchange(
+    session: AsyncSession, *, login_code: str, code_verifier: str, device: DeviceArgs
+) -> Session | AppError:
+    """
+    loginCode 를 세션으로 바꾼다.
+
+    code_verifier 가 틀려도 loginCode 를 버린다. 한 번 틀린 뒤에 다시 맞춰 볼 수
+    있으면 1분 동안 맞춰 보기를 허락하는 셈이다. 진짜 앱은 틀릴 일이 없다.
+
+    **거절을 raise 하지 않고 돌려준다.** 거절하면서도 남겨야 하는 것이 있어서다
+    (loginCode 를 쓴 표시, 연결 토큰). 예외로 끝나면 요청 transaction 이 되돌아가
+    그것까지 사라진다. 라우터가 받은 오류를 그대로 응답으로 내보낸다.
+    """
+    지금 = datetime.now(UTC)
+    대기 = await _take_pending(session, login_code=login_code, code_verifier=code_verifier)
+    if isinstance(대기, AppError):
+        return 대기
 
     # 1. 이 제공자 계정으로 들어온 적이 있다.
     연결 = await session.scalar(
@@ -335,6 +353,57 @@ async def exchange(
     )
     await session.flush()
     return await _start(session, user, device)
+
+
+# ---------------------------------------------------------------------------
+# reauth
+# ---------------------------------------------------------------------------
+
+
+_REAUTH_FAILED = "로그인한 계정과 같은 소셜 계정으로 확인해 주세요."
+
+
+async def reauth_with_provider(
+    session: AsyncSession,
+    *,
+    user: User,
+    action: SensitiveAction,
+    login_code: str,
+    code_verifier: str,
+    ip: str = "",
+) -> str | AppError:
+    """
+    제공자 로그인으로 본인을 다시 확인하고 그 작업 하나에 쓸 증표를 준다.
+
+    - 새 세션을 만들지 않는다. 확인만 한다.
+    - 제공자 계정이 **지금 로그인한 계정에 연결된 것**이어야 한다. 다른 사람의 카카오로
+      로그인해 내 계정을 지울 수 없어야 한다.
+    - 비밀번호가 있는 계정도 쓸 수 있다. 연결된 제공자로 들어오는 것은 로그인과 같은 확인이다.
+    - 실패도 raise 하지 않고 돌려준다. 쓴 loginCode 와 시도 횟수가 남아야 한다.
+    """
+    계정_열쇠 = (throttle.ACCOUNT, throttle.key_for("user", str(user.id)))
+    ip_열쇠 = (throttle.IP, throttle.key_for("ip", ip))
+    await throttle.check(ThrottleScope.REAUTH, 계정_열쇠, ip_열쇠)
+
+    대기 = await _take_pending(session, login_code=login_code, code_verifier=code_verifier)
+    if isinstance(대기, AppError):
+        await throttle.record(ThrottleScope.REAUTH, 계정_열쇠, ip_열쇠)
+        return AppError(ErrorCode.FORBIDDEN, message=_REAUTH_FAILED)
+
+    연결 = await session.scalar(
+        select(OAuthAccount).where(
+            OAuthAccount.provider == 대기.provider,
+            OAuthAccount.provider_subject == 대기.provider_subject,
+            OAuthAccount.user_id == user.id,
+        )
+    )
+    if 연결 is None:
+        await throttle.record(ThrottleScope.REAUTH, 계정_열쇠, ip_열쇠)
+        # 401 이 아니다. 앱은 401 을 받으면 토큰을 갱신하다 로그아웃한다.
+        return AppError(ErrorCode.FORBIDDEN, message=_REAUTH_FAILED)
+
+    await throttle.reset(ThrottleScope.REAUTH, 계정_열쇠[1])
+    return await reauth.new_proof(session, user=user, action=action)
 
 
 # ---------------------------------------------------------------------------

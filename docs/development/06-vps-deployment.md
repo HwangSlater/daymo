@@ -9,7 +9,7 @@
 - Traffic: 일 20GB(월 600GB), 초과분은 구간 요금
 - 요금: 월 13,100원(일 490원). 초기에는 별도 블록 스토리지를 구매하지 않는다
 - CPU 제한: 공유 상품은 vCPU 사용률이 50%로 제한된다. 크레딧을 쌓았다가 쓰는 방식이 아니라 고정 상한이다
-- Region/country: 한국 리전 서버를 2026-09-14 생성했으며 계약 화면에서 실제 데이터센터 국가를 출시 전 최종 확인
+- Region/country: 한국 리전 서버를 2026-09-14 생성했고, 데이터센터 국가가 대한민국인 것을 운영자가 2026-09-15 확인
 - OS: Ubuntu 24.04 LTS로 확정
 - 구성: Nginx + FastAPI(uvicorn) + PostgreSQL을 Docker Compose로 같은 VPS에서 운영
 - 빌드: GitHub Actions의 전체 CI가 성공한 commit만 VPS가 확인해 가져오고 로컬 image로 빌드
@@ -123,6 +123,8 @@ max_connections = 30
 ### 기본 디스크의 사진 영역
 
 사진은 기본 디스크의 `/srv/daymo/uploads`에 저장한다. 초기 전체 사진 상한은 10GB이며 장당 2MB 기준 약 5,000장이다. 별도 블록 스토리지는 구매하지 않는다.
+
+컨테이너 로그(접속 IP·요청 경로)는 compose의 `logging: journald`로 journald에 모이고, `/etc/systemd/journald.conf.d/daymo.conf`(저장소의 `infra/production/journald-daymo.conf`, 2026-09-15 설치)가 80일 보관·7일 단위 파일로 어떤 기록도 87일을 넘기지 않게 지운다. 개인정보 처리방침의 "3개월을 넘겨 보관하지 않는다"가 이 설정에 기대므로 바꿀 때 함께 본다. 보는 법: `journalctl CONTAINER_TAG=daymo-<컨테이너 이름>` 또는 `docker compose logs`.
 
 API 컨테이너는 uid 10001(`daymo`)로 돈다. 호스트의 `/srv/daymo/uploads`는 `10001:10001`, `0750`이어야 사진을 쓸 수 있다(2026-09-16에 맞춤). compose가 `UPLOAD_ROOT=/srv/daymo/uploads`를 넘기고, 정리 작업(`daymo-cleanup`)도 같은 이미지와 볼륨으로 돌아 지운 지 7일 지난 사진과 하루 넘게 멈춘 올리기를 파일째 지운다. 파일 전달은 아직 API가 직접 하며(`FileResponse`), Nginx `X-Accel-Redirect`는 전송량을 보고 붙인다.
 

@@ -20,7 +20,13 @@ export type AuthUser = {
   email: string;
   /** 삭제를 요청해 둔 계정이면 지워질 시각(ISO). 앱은 이때 삭제 취소 화면부터 보여 준다. */
   deletionScheduledAt?: string | null;
+  /** 비밀번호가 있는지. 없으면 계정 삭제 같은 확인을 연결된 소셜 로그인으로 한다. 모르면 있는 것으로 본다. */
+  hasPassword?: boolean;
+  linkedProviders?: SocialProvider[];
 };
+
+/** 민감한 작업 전의 확인. 비밀번호, 또는 연결된 제공자로 다시 로그인. */
+export type Reconfirm = { password: string } | { provider: SocialProvider };
 
 /** `DELETE /v1/me` 와 삭제 취소가 돌려주는 값. */
 export type AccountDeletionState = {
@@ -122,10 +128,24 @@ async function installationId() {
 }
 
 async function getMe(accessToken: string): Promise<AuthUser> {
-  const me = await request<{ id: string; email: string; displayName: string; deletionScheduledAt?: string | null }>("/v1/me", {
+  const me = await request<{
+    id: string;
+    email: string;
+    displayName: string;
+    deletionScheduledAt?: string | null;
+    hasPassword?: boolean;
+    linkedProviders?: string[];
+  }>("/v1/me", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  return { id: me.id, name: me.displayName, email: me.email, deletionScheduledAt: me.deletionScheduledAt ?? null };
+  return {
+    id: me.id,
+    name: me.displayName,
+    email: me.email,
+    deletionScheduledAt: me.deletionScheduledAt ?? null,
+    hasPassword: me.hasPassword ?? true,
+    linkedProviders: orderedProviders(me.linkedProviders ?? []),
+  };
 }
 
 async function saveSession(tokens: SessionResponse, user: AuthUser) {
@@ -244,6 +264,24 @@ export type SocialLoginResult =
  * 그 계정의 비밀번호를 받아 linkSocialAccount 로 넘긴다.
  */
 export async function socialLogin(provider: SocialProvider): Promise<SocialLoginResult> {
+  const back = await openSocialLogin(provider);
+  if (back.kind === "cancelled") return back;
+
+  try {
+    const signedIn = await signIn("/v1/auth/oauth/exchange", { loginCode: back.loginCode, codeVerifier: back.verifier });
+    return { kind: "signedIn", ...signedIn };
+  } catch (error) {
+    if (error instanceof DaymoApiError && error.code === "ACCOUNT_LINK_REQUIRED" && error.details?.linkToken) {
+      return { kind: "linkRequired", linkToken: error.details.linkToken };
+    }
+    throw error;
+  }
+}
+
+/** 제공자 로그인 창을 열고 돌아온 loginCode 와 그 짝인 verifier 를 받는다. 세션은 받지 않는다. */
+async function openSocialLogin(
+  provider: SocialProvider,
+): Promise<{ kind: "code"; loginCode: string; verifier: string } | { kind: "cancelled" }> {
   // Expo Go 에서는 exp://.../--/oauth 가 된다. 서버의 OAUTH_APP_REDIRECT_URIS 에 있어야 한다.
   const redirectUri = AuthSession.makeRedirectUri({ scheme: "daymo", path: "oauth" });
   const state = randomToken(Crypto.getRandomBytes(32));
@@ -263,17 +301,13 @@ export async function socialLogin(provider: SocialProvider): Promise<SocialLogin
   const back = parseSocialReturn(result.url, state);
   if (back.kind === "cancelled") return back;
   if (back.kind === "failed") throw new DaymoApiError(back.message, 0, "OAUTH_FAILED");
-
-  try {
-    const signedIn = await signIn("/v1/auth/oauth/exchange", { loginCode: back.loginCode, codeVerifier: verifier });
-    return { kind: "signedIn", ...signedIn };
-  } catch (error) {
-    if (error instanceof DaymoApiError && error.code === "ACCOUNT_LINK_REQUIRED" && error.details?.linkToken) {
-      return { kind: "linkRequired", linkToken: error.details.linkToken };
-    }
-    throw error;
-  }
+  return { kind: "code", loginCode: back.loginCode, verifier };
 }
+
+class ReconfirmCancelled extends Error {}
+
+/** 사용자가 제공자 창을 닫았는지. 이때는 오류 문구를 띄우지 않는다. */
+export const isReconfirmCancelled = (error: unknown) => error instanceof ReconfirmCancelled;
 
 /** 같은 이메일의 기존 계정 비밀번호로 확인하고, 소셜 로그인을 붙인 뒤 로그인한다. */
 export async function linkSocialAccount(linkToken: string, password: string) {
@@ -346,10 +380,20 @@ export async function withAccessToken<T>(send: (accessToken: string) => Promise<
  * 비밀번호가 틀리면 서버는 403 을 준다. 401 이 아니라서 위의 토큰 갱신이
  * 끼어들지 않고, 로그인도 풀리지 않는다.
  */
-async function reauthProof(action: "delete_account" | "cancel_deletion", password: string) {
+async function reauthProof(action: "delete_account" | "cancel_deletion", confirm: Reconfirm) {
+  if ("provider" in confirm) {
+    // 비밀번호가 없는 계정. 연결된 제공자로 다시 로그인한 결과로 확인받는다.
+    const back = await openSocialLogin(confirm.provider);
+    if (back.kind === "cancelled") throw new ReconfirmCancelled();
+    const { proof } = await authenticatedRequest<{ proof: string }>("/v1/auth/oauth/reauth", {
+      method: "POST",
+      body: JSON.stringify({ action, loginCode: back.loginCode, codeVerifier: back.verifier }),
+    });
+    return proof;
+  }
   const { proof } = await authenticatedRequest<{ proof: string }>("/v1/auth/reauth", {
     method: "POST",
-    body: JSON.stringify({ action, password }),
+    body: JSON.stringify({ action, password: confirm.password }),
   });
   return proof;
 }
@@ -360,8 +404,8 @@ async function reauthProof(action: "delete_account" | "cancel_deletion", passwor
  * 서버가 이 기기를 포함한 모든 기기를 로그아웃시키므로, 성공하면 저장해 둔
  * 토큰도 지운다. 남겨 두면 다음 실행에 갱신을 시도하다 실패할 뿐이다.
  */
-export async function requestAccountDeletion(password: string) {
-  const proof = await reauthProof("delete_account", password);
+export async function requestAccountDeletion(confirm: Reconfirm) {
+  const proof = await reauthProof("delete_account", confirm);
   const state = await authenticatedRequest<AccountDeletionState>("/v1/me", {
     method: "DELETE",
     body: JSON.stringify({ reauthProof: proof }),
@@ -388,8 +432,8 @@ export async function updateDisplayName(name: string) {
 }
 
 /** 유예 중인 계정 삭제를 취소한다. 삭제 요청과 따로 비밀번호를 다시 받는다. */
-export async function cancelAccountDeletion(password: string) {
-  const proof = await reauthProof("cancel_deletion", password);
+export async function cancelAccountDeletion(confirm: Reconfirm) {
+  const proof = await reauthProof("cancel_deletion", confirm);
   const state = await authenticatedRequest<AccountDeletionState>("/v1/me/deletion/cancel", {
     method: "POST",
     body: JSON.stringify({ reauthProof: proof }),

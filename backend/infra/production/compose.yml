@@ -1,5 +1,13 @@
 name: daymo
 
+# 컨테이너 로그(접속 IP·요청 경로가 들어 있다)는 journald 로 보낸다. 보관 기간은
+# journald 설정(journald-daymo.conf)이 정한다. json-file 은 용량으로만 지워져, 요청이
+# 적으면 몇 달 전 기록이 남는다. 개인정보 처리방침에 3개월을 넘기지 않는다고 적었다.
+x-logging: &logging
+  driver: journald
+  options:
+    tag: "daymo-{{.Name}}"
+
 services:
   postgres:
     image: postgres:16.10-alpine
@@ -28,6 +36,7 @@ services:
       timeout: 3s
       retries: 20
     mem_limit: 800m
+    logging: *logging
     networks: [private]
 
   api:
@@ -70,6 +79,7 @@ services:
       postgres:
         condition: service_healthy
     mem_limit: 400m
+    logging: *logging
     security_opt:
       - no-new-privileges:true
     networks: [private]
@@ -88,6 +98,7 @@ services:
       api:
         condition: service_healthy
     mem_limit: 64m
+    logging: *logging
     networks: [private]
 
 networks:

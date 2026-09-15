@@ -196,6 +196,8 @@ async def test_내_프로필과_참여_공간을_조회한다(api, db):
         "avatarUrl": None,
         "spaces": [],
         "deletionScheduledAt": None,
+        "hasPassword": True,
+        "linkedProviders": [],
     }
 
 

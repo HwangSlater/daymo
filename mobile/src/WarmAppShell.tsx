@@ -63,7 +63,7 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, DaymoApiError, linkSocialAccount, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser } from "./auth";
+import { cancelAccountDeletion, DaymoApiError, isReconfirmCancelled, linkSocialAccount, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser } from "./auth";
 import { type SocialProvider, socialProviderName } from "./socialLogin";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
@@ -105,7 +105,7 @@ import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
-type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt"> & { id?: string };
+type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasPassword" | "linkedProviders"> & { id?: string };
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -793,6 +793,7 @@ export function WarmAppShell({
     return (
       <DeletionPendingScreen
         theme={theme}
+        user={user}
         scheduledAt={user.deletionScheduledAt}
         onCancelled={() => setUser((current) => (current ? { ...current, deletionScheduledAt: null } : current))}
         onLogout={() => { void logout(); setServerDataReady(false); setUser(null); }}
@@ -1505,29 +1506,36 @@ function FirstSpaceScreen({
  */
 function AccountDeletionPanel({
   theme,
+  user,
   onRequested,
 }: {
   theme: AppTheme;
+  user: DaymoUser;
   onRequested: (scheduledAt: string | null) => void;
 }) {
   const [password, setPassword] = useState("");
   const [understood, setUnderstood] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
   const ready = understood && password.length > 0 && !loading;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
-  const submit = async () => {
-    if (!ready) return;
+  const request = async (confirm: { password: string } | { provider: SocialProvider }) => {
     setLoading(true);
     setError("");
     try {
-      const state = await requestAccountDeletion(password);
+      const state = await requestAccountDeletion(confirm);
       onRequested(state.scheduledAt);
     } catch (caught) {
       // 다른 멤버가 있는 공간의 관리자면 서버가 공간 이름을 담아 알려 준다.
-      setError(caught instanceof DaymoApiError ? caught.message : "계정 삭제를 요청하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      if (!isReconfirmCancelled(caught)) {
+        setError(caught instanceof DaymoApiError ? caught.message : "계정 삭제를 요청하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
       setLoading(false);
     }
+  };
+  const submit = () => {
+    if (ready) void request({ password });
   };
   return (
     <>
@@ -1536,7 +1544,7 @@ function AccountDeletionPanel({
         "7일 뒤에 계정이 삭제돼요. 그 전에 다시 로그인하면 삭제를 취소할 수 있어요.",
         "혼자 쓰는 공간과 그 안의 여행은 계정과 함께 삭제돼요.",
         "다른 사람과 함께 쓰는 공간에 남긴 기록은 남고, 이름은 ‘탈퇴한 멤버’로 바뀌어요.",
-        "일정·준비물·비용·기록은 아직 이 기기에만 저장돼 있어요. 필요하면 먼저 ‘여행 기록 내보내기’로 남겨 두세요.",
+        "남기고 싶은 기록이 있으면 먼저 ‘여행 기록 내보내기’로 받아 두세요.",
       ].map((line) => (
         <Text key={line} style={[s.sheetCopy, { color: theme.text }]}>· {line}</Text>
       ))}
@@ -1551,18 +1559,68 @@ function AccountDeletionPanel({
         </View>
         <Text style={[s.authConsentText, { color: theme.text }]}>위 내용을 확인했어요</Text>
       </Pressable>
-      <Field theme={theme} label="비밀번호 확인" value={password} onChangeText={setPassword} placeholder="지금 쓰는 비밀번호" secureTextEntry />
+      <ReconfirmField
+        theme={theme}
+        user={user}
+        password={password}
+        setPassword={setPassword}
+        disabled={!understood || loading}
+        onProvider={(provider) => void request({ provider })}
+      />
       {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
-      <Pressable
-        onPress={submit}
-        disabled={!ready}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !ready, busy: loading }}
-        style={[s.authSubmit, { backgroundColor: danger }, !ready && s.authSubmitDisabled]}
-      >
-        <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "요청하는 중…" : "계정 삭제 요청"}</Text>
-      </Pressable>
+      {!socialOnly && (
+        <Pressable
+          onPress={submit}
+          disabled={!ready}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !ready, busy: loading }}
+          style={[s.authSubmit, { backgroundColor: danger }, !ready && s.authSubmitDisabled]}
+        >
+          <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "요청하는 중…" : "계정 삭제 요청"}</Text>
+        </Pressable>
+      )}
     </>
+  );
+}
+
+/**
+ * 민감한 작업 전의 확인 칸. 비밀번호가 없는 계정(소셜 로그인으로만 가입)은 비밀번호 칸 대신
+ * 연결된 제공자로 다시 로그인하는 버튼을 보여 준다.
+ */
+function ReconfirmField({
+  theme,
+  user,
+  password,
+  setPassword,
+  disabled,
+  onProvider,
+}: {
+  theme: AppTheme;
+  user: DaymoUser;
+  password: string;
+  setPassword: (value: string) => void;
+  disabled: boolean;
+  onProvider: (provider: SocialProvider) => void;
+}) {
+  const providers = user.linkedProviders ?? [];
+  if (user.hasPassword !== false || providers.length === 0) {
+    return <Field theme={theme} label="비밀번호 확인" value={password} onChangeText={setPassword} placeholder="지금 쓰는 비밀번호" secureTextEntry />;
+  }
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={[s.sheetCopy, { color: theme.muted }]}>이 계정은 비밀번호가 없어요. 가입할 때 쓴 소셜 로그인으로 한 번 더 확인해 주세요.</Text>
+      {providers.map((provider) => (
+        <Pressable
+          key={provider}
+          disabled={disabled}
+          onPress={() => onProvider(provider)}
+          accessibilityRole="button"
+          style={[s.accountLogout, { borderColor: theme.border }, disabled && s.authSubmitDisabled]}
+        >
+          <Text style={[s.accountLogoutText, { color: theme.text }]}>{socialProviderName[provider]}로 다시 로그인해 확인</Text>
+        </Pressable>
+      ))}
+    </View>
   );
 }
 
@@ -1574,11 +1632,13 @@ function AccountDeletionPanel({
  */
 function DeletionPendingScreen({
   theme,
+  user,
   scheduledAt,
   onCancelled,
   onLogout,
 }: {
   theme: AppTheme;
+  user: DaymoUser;
   scheduledAt: string;
   onCancelled: () => void;
   onLogout: () => void;
@@ -1587,18 +1647,23 @@ function DeletionPendingScreen({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const label = deletionDateLabel(scheduledAt);
+  const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
   const ready = password.length > 0 && !loading;
-  const submit = async () => {
-    if (!ready) return;
+  const cancel = async (confirm: { password: string } | { provider: SocialProvider }) => {
     setLoading(true);
     setError("");
     try {
-      await cancelAccountDeletion(password);
+      await cancelAccountDeletion(confirm);
       onCancelled();
     } catch (caught) {
-      setError(caught instanceof DaymoApiError ? caught.message : "삭제를 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      if (!isReconfirmCancelled(caught)) {
+        setError(caught instanceof DaymoApiError ? caught.message : "삭제를 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
       setLoading(false);
     }
+  };
+  const submit = () => {
+    if (ready) void cancel({ password });
   };
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
@@ -1606,21 +1671,30 @@ function DeletionPendingScreen({
         <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[s.authTitle, { color: theme.text }]}>계정 삭제가 예정돼 있어요</Text>
           <Text style={[s.authDescription, { color: theme.muted }]}>
-            {label ? `${label}에 계정이 삭제돼요.` : "곧 계정이 삭제돼요."} 계속 쓰려면 비밀번호를 입력하고 삭제를 취소해 주세요.
+            {label ? `${label}에 계정이 삭제돼요.` : "곧 계정이 삭제돼요."} 계속 쓰려면 {socialOnly ? "한 번 더 확인하고" : "비밀번호를 입력하고"} 삭제를 취소해 주세요.
           </Text>
-          <Field theme={theme} label="비밀번호 확인" value={password} onChangeText={setPassword} placeholder="지금 쓰는 비밀번호" secureTextEntry />
+          <ReconfirmField
+            theme={theme}
+            user={user}
+            password={password}
+            setPassword={setPassword}
+            disabled={loading}
+            onProvider={(provider) => void cancel({ provider })}
+          />
           {error ? (
             <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text>
           ) : null}
-          <Pressable
-            onPress={submit}
-            disabled={!ready}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !ready, busy: loading }}
-            style={[s.authSubmit, { backgroundColor: theme.primary }, !ready && s.authSubmitDisabled]}
-          >
-            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "취소하는 중…" : "삭제 취소하고 계속 쓰기"}</Text>
-          </Pressable>
+          {!socialOnly && (
+            <Pressable
+              onPress={submit}
+              disabled={!ready}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !ready, busy: loading }}
+              style={[s.authSubmit, { backgroundColor: theme.primary }, !ready && s.authSubmitDisabled]}
+            >
+              <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "취소하는 중…" : "삭제 취소하고 계속 쓰기"}</Text>
+            </Pressable>
+          )}
           <Pressable onPress={onLogout} accessibilityRole="button" style={s.authSwitch}>
             <Text style={[s.authSwitchText, { color: theme.muted }]}>로그아웃</Text>
           </Pressable>
@@ -4387,6 +4461,7 @@ function Together({
         {panel === "deleteAccount" && (
           <AccountDeletionPanel
             theme={theme}
+            user={user}
             onRequested={(scheduledAt) => {
               setPanel(null);
               onAccountDeletionRequested(scheduledAt);

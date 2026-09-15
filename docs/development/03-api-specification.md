@@ -228,7 +228,7 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 
 ### 계정 삭제
 
-1. 앱이 `POST /auth/reauth`에 `{"action": "delete_account", "password": "..."}`로 증표를 받는다. 비밀번호가 틀리면 `FORBIDDEN(403)`이다. `401`로 답하면 앱이 토큰 만료로 읽고 로그아웃시키기 때문이다. 틀린 시도는 로그인과 같은 한도(15분 5회부터 지연, 최대 15분)로 따로 센다.
+1. 앱이 `POST /auth/reauth`에 `{"action": "delete_account", "password": "..."}`로 증표를 받는다. 비밀번호가 틀리면 `FORBIDDEN(403)`이다. `401`로 답하면 앱이 토큰 만료로 읽고 로그아웃시키기 때문이다. 틀린 시도는 로그인과 같은 한도(15분 5회부터 지연, 최대 15분)로 따로 센다. 비밀번호가 없는(소셜 로그인으로만 가입한) 계정은 2026-09-15부터 연결된 제공자로 다시 로그인한 결과를 `POST /auth/oauth/reauth`에 `{action, loginCode, codeVerifier}`로 보내 같은 증표를 받는다. 제공자 계정이 지금 로그인한 계정에 연결된 것이 아니면 403이고, 새 세션은 만들지 않는다. `GET /me`의 `hasPassword`·`linkedProviders`로 앱이 확인 방식을 고른다.
 2. `DELETE /me`에 `{"reauthProof": "..."}`를 보낸다. `202`와 `{requestedAt, scheduledAt}`을 돌려준다. 기한은 요청 후 7일이다.
 3. 요청하는 순간 모든 기기의 refresh token과 기기 세션을 끊는다. 이미 받은 access token도 다음 요청부터 막힌다. 안내 메일에는 삭제 예정일만 쓰고 링크를 넣지 않는다.
 4. 다른 활성 멤버가 있는 공간의 owner면 `OWNER_TRANSFER_REQUIRED(409)`로 막고 증표를 쓰지 않는다. 혼자 쓰는 공간은 막지 않고 최종 삭제 때 함께 지운다.

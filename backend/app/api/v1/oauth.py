@@ -5,14 +5,15 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth_pages import _form, _message
-from app.api.deps import ClientIp, DbSession
+from app.api.deps import ClientIp, CurrentCaller, DbSession
 from app.api.v1.auth import _세션_응답
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import error_response, ok
 from app.models import OAuthProvider
-from app.schemas.auth import OAuthExchangeRequest, OAuthLinkRequest
+from app.schemas.auth import OAuthExchangeRequest, OAuthLinkRequest, OAuthReauthRequest
 from app.services.oauth import flow
+from app.services.reauth import PROOF_TTL
 from app.services.oauth.providers import configured_providers
 
 router = APIRouter(prefix="/auth/oauth", tags=["auth"])
@@ -121,6 +122,26 @@ async def exchange(body: OAuthExchangeRequest, db: OAuthDb) -> Response | dict:
             결과.code, message=결과.detail, fields=결과.fields, details=결과.details
         )
     return ok(_세션_응답(결과))
+
+
+@router.post("/reauth", status_code=201, response_model=None)
+async def reauth(body: OAuthReauthRequest, caller: CurrentCaller, db: OAuthDb, ip: ClientIp) -> Response | dict:
+    """
+    로그인한 사람이 연결된 제공자로 다시 로그인한 결과(loginCode)로 증표를 받는다.
+
+    `POST /auth/reauth` 의 비밀번호 대신이다. 받은 증표는 `DELETE /me` 같은 곳에 싣는다.
+    """
+    결과 = await flow.reauth_with_provider(
+        db,
+        user=caller.user,
+        action=body.action,
+        login_code=body.login_code,
+        code_verifier=body.code_verifier,
+        ip=ip,
+    )
+    if isinstance(결과, AppError):
+        return error_response(결과.code, message=결과.detail, fields=결과.fields, details=결과.details)
+    return ok({"proof": 결과, "expiresIn": int(PROOF_TTL.total_seconds())})
 
 
 @router.post("/link")

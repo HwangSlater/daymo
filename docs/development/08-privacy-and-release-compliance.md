@@ -58,7 +58,7 @@
 
 | 서비스 | 예상 역할 | 확인할 사항 |
 | --- | --- | --- |
-| iwinv VPS | 계정·여행 DB/API 보관 | **한국 리전 구매 예정**, 구매 후 실제 국가·세부 지역 확인, 운영자 접근, 백업 위치, 삭제 재확인 |
+| iwinv VPS | 계정·여행 DB/API 보관 | 한국 리전, 데이터센터 국가 대한민국 확인(2026-09-15). 운영자 접근, 백업 위치, 삭제 재확인 |
 | Google Drive | 암호화된 DB·사진 백업 | 계정 국가, OAuth token, 보유기간, 삭제·복구 절차 |
 | Cloudflare | `daymo.xyz` 권한 DNS와 `api.daymo.xyz` 연결 경로 | **VPS 단계부터 권한 DNS를 맡긴다.** proxy는 꺼 두므로 트래픽은 지나지 않지만 DNS 질의 처리는 위탁에 해당한다. 미니PC 단계의 Tunnel은 트래픽이 지나가므로 범위가 넓어진다. 둘 다 처리 국가, 로그 항목과 보유기간, 재위탁 확인 |
 | Apple/Google/Kakao/Naver | OAuth | 받는 필드 최소화, 탈퇴 시 연결 해제/token revoke |

@@ -26,15 +26,15 @@ async def issue_proof(
     """
     민감한 작업 하나에 쓸 증표를 발급한다.
 
-    이메일 계정은 현재 비밀번호로 확인한다. OAuth 로만 가입한 계정은 provider
-    재로그인으로 확인해야 하는데 그 경로가 아직 없어서, 지금은 비밀번호가
-    없는 계정에 증표를 주지 않는다. 조용히 통과시키면 그 계정만 재인증 없이
-    계정 삭제까지 가능해진다.
+    이메일 계정은 현재 비밀번호로 확인한다. 비밀번호가 없는(소셜 로그인으로만 가입한)
+    계정은 여기서 증표를 주지 않고, 연결된 제공자로 다시 로그인해 받는다
+    (`app.services.oauth.flow.reauth_with_provider`). 조용히 통과시키면 그 계정만
+    재인증 없이 계정 삭제까지 가능해진다.
     """
     if not user.password_hash:
         raise AppError(
             ErrorCode.FORBIDDEN,
-            message="이 계정은 아직 이 작업을 할 수 없어요. 비밀번호를 먼저 만들어 주세요.",
+            message="이 계정은 비밀번호가 없어요. 가입할 때 쓴 소셜 로그인으로 다시 확인해 주세요.",
         )
 
     # 로그인과 같은 한도로 센다. 없으면 access token 하나만 손에 넣어도
@@ -50,7 +50,11 @@ async def issue_proof(
         raise AppError(ErrorCode.FORBIDDEN, message="비밀번호를 확인해 주세요.")
 
     await throttle.reset(ThrottleScope.REAUTH, 계정_열쇠[1])
+    return await new_proof(session, user=user, action=action)
 
+
+async def new_proof(session: AsyncSession, *, user: User, action: SensitiveAction) -> str:
+    """확인을 마친 사람에게 증표를 만든다. 확인은 부르는 쪽이 한다."""
     원문, 해시 = new_one_time_token()
     session.add(
         ReauthProof(
