@@ -760,6 +760,7 @@ export function WarmAppShell({
         key={tripDestination}
         done={done}
         initialDestination={tripDestination}
+        tripId={selectedTrip.id}
         tripName={selectedTrip.name}
         tripDate={selectedTrip.date}
         tripStart={selectedTrip.start}

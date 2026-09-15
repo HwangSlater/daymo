@@ -1,4 +1,5 @@
 import { authenticatedRequest } from "./auth";
+import type { PlaceBody, ServerPlace } from "./placeSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
@@ -71,6 +72,25 @@ export const setTripParticipants = (tripId: string, input: { version: number; me
     method: "PUT",
     body: JSON.stringify(input),
   });
+
+export const listTripPlaces = (tripId: string) =>
+  authenticatedRequest<ServerPlace[]>(`/v1/trips/${encodeURIComponent(tripId)}/places`);
+
+/** 앱이 만든 id 로 담는다. 같은 id 로 다시 보내도 하나만 생긴다. */
+export const createTripPlace = (tripId: string, id: string, body: PlaceBody) =>
+  authenticatedRequest<ServerPlace>(`/v1/trips/${encodeURIComponent(tripId)}/places`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateTripPlace = (id: string, version: number, body: PlaceBody) =>
+  authenticatedRequest<ServerPlace>(`/v1/trip-places/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteTripPlace = (id: string) =>
+  authenticatedRequest<void>(`/v1/trip-places/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export const updateTrip = (
   tripId: string,
