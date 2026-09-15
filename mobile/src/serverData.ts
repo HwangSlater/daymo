@@ -57,6 +57,20 @@ export const createSpace = (name: string, relationshipType: ServerSpace["relatio
   });
 
 /** 나간 멤버도 함께 받는다. 지난 여행의 기록이 그 사람을 가리킨다. */
+/** 공간을 지운다(7일 뒤 삭제). 관리자만. 공간 이름을 정확히 다시 적어야 한다. */
+export const deleteSpace = (spaceId: string, confirmationName: string) =>
+  authenticatedRequest<{ id: string; deletionScheduledAt: string }>(`/v1/spaces/${encodeURIComponent(spaceId)}`, {
+    method: "DELETE",
+    body: JSON.stringify({ confirmationName, impactAcknowledged: true }),
+  });
+
+/** 내가 관리자인, 아직 되돌릴 수 있는 지운 공간. */
+export const listDeletedSpaces = () =>
+  authenticatedRequest<{ id: string; name: string; deletionScheduledAt: string }[]>("/v1/spaces/deleted");
+
+export const restoreSpace = (spaceId: string) =>
+  authenticatedRequest<ServerSpace>(`/v1/spaces/${encodeURIComponent(spaceId)}/restore`, { method: "POST" });
+
 export const listMembers = (spaceId: string) =>
   authenticatedRequest<ServerMemberInput[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/members?includeLeft=true`);
 

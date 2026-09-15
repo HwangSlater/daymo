@@ -176,3 +176,48 @@ async def test_초대_페이지는_공간을_드러내지_않고_앱을_연다(c
     assert 'href="daymo://invite?token=abcDEF123_-abcDEF123"' in 응답.text
     assert 응답.headers["referrer-policy"] == "no-referrer"
     assert 잘못.status_code == 400 and "<script>" not in 잘못.text
+
+
+async def test_관리자가_이름을_확인하고_공간을_지우면_모두에게서_사라지고_7일_안에_되돌린다(api, db):
+    owner = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, owner, "주말 여행 메이트")
+    invite = await 초대를_만든다(api, owner, space_id)
+    여울 = await 로그인한_사람(api, "yeoul@example.com", "여울")
+    await api.post("/v1/invites/accept", json={"token": token_of(invite)}, headers=여울)
+
+    editor가_지움 = await api.request("DELETE", f"/v1/spaces/{space_id}", json={"confirmationName": "주말 여행 메이트", "impactAcknowledged": True}, headers=여울)
+    이름_틀림 = await api.request("DELETE", f"/v1/spaces/{space_id}", json={"confirmationName": "주말 여행", "impactAcknowledged": True}, headers=owner)
+    확인_안함 = await api.request("DELETE", f"/v1/spaces/{space_id}", json={"confirmationName": "주말 여행 메이트"}, headers=owner)
+    지움 = await api.request("DELETE", f"/v1/spaces/{space_id}", json={"confirmationName": " 주말 여행 메이트 ", "impactAcknowledged": True}, headers=owner)
+
+    assert (editor가_지움.status_code, 이름_틀림.status_code, 확인_안함.status_code) == (403, 422, 422)
+    assert 지움.status_code == 202 and 지움.json()["data"]["deletionScheduledAt"]
+    assert (await api.get("/v1/spaces", headers=owner)).json()["data"] == []
+    assert (await api.get("/v1/spaces", headers=여울)).json()["data"] == []
+    assert (await api.get(f"/v1/spaces/{space_id}/trips", headers=여울)).status_code == 404
+    assert [줄["name"] for 줄 in (await api.get("/v1/spaces/deleted", headers=owner)).json()["data"]] == ["주말 여행 메이트"]
+    assert (await api.get("/v1/spaces/deleted", headers=여울)).json()["data"] == []
+    assert (await api.post(f"/v1/spaces/{space_id}/restore", headers=여울)).status_code == 404
+
+    되돌림 = await api.post(f"/v1/spaces/{space_id}/restore", headers=owner)
+
+    assert 되돌림.status_code == 200
+    assert [줄["id"] for 줄 in (await api.get("/v1/spaces", headers=여울)).json()["data"]] == [space_id]
+
+
+async def test_7일이_지난_공간은_되돌릴_수_없고_정리_작업이_지운다(api, db):
+    from app.services.space_deletion import purge_deleted_spaces
+
+    owner = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, owner, "지울 공간")
+    await api.request("DELETE", f"/v1/spaces/{space_id}", json={"confirmationName": "지울 공간", "impactAcknowledged": True}, headers=owner)
+    space = await db.get(Space, uuid.UUID(space_id))
+    space.deletion_scheduled_at = datetime.now(UTC) - timedelta(minutes=1)
+    await db.flush()
+
+    늦음 = await api.post(f"/v1/spaces/{space_id}/restore", headers=owner)
+    지운_수 = await purge_deleted_spaces(db)
+
+    assert 늦음.status_code == 410
+    assert 지운_수 == 1
+    assert await db.get(Space, uuid.UUID(space_id)) is None

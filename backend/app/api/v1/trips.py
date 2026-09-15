@@ -24,8 +24,10 @@ from app.models import (
     User,
 )
 from app.schemas.trip import (
+    DeletedSpaceOut,
     ParticipantsRequest,
     SpaceCreateRequest,
+    SpaceDeleteRequest,
     SpaceMemberOut,
     SpaceOut,
     SpaceUpdateRequest,
@@ -34,6 +36,7 @@ from app.schemas.trip import (
     TripUpdateRequest,
 )
 from app.services import schedule as schedule_service
+from app.services import space_deletion
 from app.services import trips as trip_service
 
 router = APIRouter(tags=["trips"])
@@ -158,6 +161,48 @@ async def list_spaces(caller: CurrentCaller, db: DbSession) -> dict:
             for space, membership in 줄들
         ]
     )
+
+
+@router.get("/spaces/deleted")
+async def list_deleted_spaces(caller: CurrentCaller, db: DbSession) -> dict:
+    """내가 관리자인, 아직 되돌릴 수 있는 지운 공간."""
+    return ok(
+        [
+            DeletedSpaceOut(
+                id=str(space.id),
+                name=space.name,
+                deletion_scheduled_at=space.deletion_scheduled_at.isoformat(),
+            ).model_dump(by_alias=True)
+            for space in await space_deletion.deleted_spaces_owned_by(db, caller.user.id)
+        ]
+    )
+
+
+@router.delete("/spaces/{space_id}", status_code=status.HTTP_202_ACCEPTED)
+async def delete_space(space_id: uuid.UUID, body: SpaceDeleteRequest, caller: CurrentCaller, db: DbSession) -> dict:
+    """
+    공간을 지운다. 관리자만. 모든 멤버에게서 곧바로 사라지고 7일 뒤 여행·사진까지 지워진다.
+
+    본문이 있는 DELETE 라 이름 확인을 빼먹은 요청은 422 로 막힌다.
+    """
+    membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
+    space = await db.get(Space, space_id)
+    assert space is not None
+    await space_deletion.request_deletion(
+        db,
+        space=space,
+        actor=membership,
+        confirmation_name=body.confirmation_name,
+        impact_acknowledged=body.impact_acknowledged,
+    )
+    return ok({"id": str(space.id), "deletionScheduledAt": space.deletion_scheduled_at.isoformat()})
+
+
+@router.post("/spaces/{space_id}/restore")
+async def restore_space(space_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
+    """지운 공간을 되돌린다. 관리자만, 7일 안에만."""
+    space, membership = await space_deletion.restore(db, space_id=space_id, user_id=caller.user.id)
+    return ok(await _공간_응답(db, space, membership))
 
 
 @router.get("/spaces/{space_id}/members")

@@ -67,6 +67,9 @@ import { cancelAccountDeletion, DaymoApiError, isReconfirmCancelled, linkSocialA
 import { type SocialProvider, socialProviderName } from "./socialLogin";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
+  deleteSpace,
+  listDeletedSpaces,
+  restoreSpace,
   archiveTrip,
   deleteTrip,
   listDeletedTrips,
@@ -1021,6 +1024,12 @@ export function WarmAppShell({
             }}
             onWipe={wipeDevice}
             onMembersChanged={() => setSpacesReload((value) => value + 1)}
+            onCreateSpace={async (name, relationshipType) => {
+              const created = await createSpace(name, relationshipType);
+              activeGroupRef.current = created.id as GroupId;
+              setActiveGroupId(created.id as GroupId);
+              setSpacesReload((value) => value + 1);
+            }}
             onJoinInvite={joinInvite}
             onAccountDeletionRequested={(scheduledAt) => {
               // 서버가 이미 모든 기기를 로그아웃시켰다. 여기서는 화면만 정리한다.
@@ -4064,6 +4073,7 @@ function Together({
   onWipe,
   onMembersChanged,
   onJoinInvite,
+  onCreateSpace,
   onAccountDeletionRequested,
 }: {
   theme: AppTheme;
@@ -4088,6 +4098,8 @@ function Together({
   onWipe: () => void;
   /** 멤버·권한이 바뀌었다. 공간 목록을 서버에서 다시 받는다. */
   onMembersChanged: () => void;
+  /** 공간을 하나 더 만들고 그 공간으로 옮겨 간다. */
+  onCreateSpace: (name: string, relationshipType: ServerSpace["relationshipType"]) => Promise<void>;
   /** 초대 링크로 참여한다. 들어간 공간으로 옮겨 간다. */
   onJoinInvite: (token: string) => Promise<{ alreadyMember: boolean }>;
   /** 계정 삭제 요청이 받아들여졌다. 서버가 모든 기기를 로그아웃시킨 뒤다. */
@@ -4166,6 +4178,7 @@ function Together({
     | "account"
     | "deleteAccount"
     | "groups"
+    | "deleteSpace"
     | null
   >(null);
   /**
@@ -4200,6 +4213,8 @@ function Together({
       ? "내 프로필"
       : panel === "deleteAccount"
       ? "계정 삭제"
+      : panel === "deleteSpace"
+      ? "공간 삭제"
       : panel === "members"
       ? "함께하는 멤버"
       : panel === "relationship"
@@ -4502,6 +4517,18 @@ function Together({
                 </View>
               </Pressable>
             );})}
+            <SpaceExtras
+              theme={theme}
+              onCreate={async (name, relationshipType) => {
+                await onCreateSpace(name, relationshipType);
+                setPanel(null);
+              }}
+              onRestored={(spaceId) => {
+                setActiveGroupId(spaceId as GroupId);
+                onMembersChanged();
+                setPanel(null);
+              }}
+            />
           </>
         )}
         {panel === "account" && (
@@ -4840,7 +4867,23 @@ function Together({
               </Text>
             )}
             <SpaceSaveNote theme={theme} canEdit={canEdit} state={spaceSaveState} />
+            {canEdit && activeSpace.myMembershipId && (
+              <Pressable onPress={() => setPanel("deleteSpace")} accessibilityRole="button" style={s.accountDelete}>
+                <Text style={s.accountDeleteText}>이 공간 삭제</Text>
+              </Pressable>
+            )}
           </>
+        )}
+        {panel === "deleteSpace" && (
+          <SpaceDeletionPanel
+            theme={theme}
+            spaceName={activeSpace.name}
+            onDelete={async (confirmationName) => {
+              await deleteSpace(activeSpace.id, confirmationName);
+              setPanel(null);
+              onMembersChanged();
+            }}
+          />
         )}
       </InfoSheet>
     </>
@@ -5283,6 +5326,159 @@ function SpaceSaveNote({
     >
       {copy}
     </Text>
+  );
+}
+
+/**
+ * 공간 삭제. 계정 삭제처럼 시트 안에서 확인받는다. 공간 이름을 똑같이 적어야 버튼이 켜진다
+ * (docs/development/03-api-specification.md 3장).
+ */
+function SpaceDeletionPanel({
+  theme,
+  spaceName,
+  onDelete,
+}: {
+  theme: AppTheme;
+  spaceName: string;
+  onDelete: (confirmationName: string) => Promise<void>;
+}) {
+  const [typed, setTyped] = useState("");
+  const [understood, setUnderstood] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  const ready = understood && typed.trim() === spaceName.trim() && !loading;
+  const submit = async () => {
+    if (!ready) return;
+    setLoading(true);
+    setError("");
+    try {
+      await onDelete(typed.trim());
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "공간을 지우지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setLoading(false);
+    }
+  };
+  return (
+    <>
+      {[
+        "모든 멤버에게서 이 공간이 바로 사라져요.",
+        "7일 뒤에 공간 안의 여행, 일정, 비용, 사진이 모두 지워져요.",
+        "7일 안에는 여행 공간 바꾸기 화면에서 관리자가 되돌릴 수 있어요.",
+      ].map((line) => (
+        <Text key={line} style={[s.sheetCopy, { color: theme.text }]}>· {line}</Text>
+      ))}
+      <Field theme={theme} label={`공간 이름 “${spaceName}” 을 똑같이 적어 주세요`} value={typed} onChangeText={setTyped} placeholder={spaceName} />
+      <Pressable
+        onPress={() => setUnderstood((current) => !current)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: understood }}
+        style={s.authConsentRow}
+      >
+        <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
+          {understood && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+        </View>
+        <Text style={[s.authConsentText, { color: theme.text }]}>지워지는 범위를 확인했어요</Text>
+      </Pressable>
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
+      <Pressable
+        onPress={() => void submit()}
+        disabled={!ready}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !ready, busy: loading }}
+        style={[s.authSubmit, { backgroundColor: danger }, !ready && s.authSubmitDisabled]}
+      >
+        <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "지우는 중…" : "7일 후 삭제"}</Text>
+      </Pressable>
+    </>
+  );
+}
+
+/** 공간 바꾸기 화면 아래: 새 공간 만들기와, 관리자가 되돌릴 수 있는 지운 공간. */
+function SpaceExtras({
+  theme,
+  onCreate,
+  onRestored,
+}: {
+  theme: AppTheme;
+  onCreate: (name: string, relationshipType: ServerSpace["relationshipType"]) => Promise<void>;
+  onRestored: (spaceId: string) => void;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [relationshipType, setRelationshipType] = useState<ServerSpace["relationshipType"]>("friends");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [deleted, setDeleted] = useState<{ id: string; name: string; deletionScheduledAt: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    listDeletedSpaces()
+      .then((found) => {
+        if (alive) setDeleted(found);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const fail = (caught: unknown) => setError(caught instanceof DaymoApiError ? caught.message : "잠시 후 다시 시도해 주세요.");
+  const create = async () => {
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onCreate(name.trim(), relationshipType);
+    } catch (caught) {
+      fail(caught);
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={{ gap: 8, marginTop: 12 }}>
+      {creating ? (
+        <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 8 }]}>
+          <Field theme={theme} label="새 공간 이름" value={name} onChangeText={setName} placeholder="예: 대학 동기 여행" />
+          <Choice theme={theme} label="연인" selected={relationshipType === "couple"} onPress={() => setRelationshipType("couple")} />
+          <Choice theme={theme} label="친구" selected={relationshipType === "friends"} onPress={() => setRelationshipType("friends")} />
+          <Pressable
+            accessibilityRole="button"
+            disabled={!name.trim() || busy}
+            onPress={() => void create()}
+            style={[s.authSubmit, { backgroundColor: theme.primary }, (!name.trim() || busy) && s.authSubmitDisabled]}
+          >
+            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{busy ? "만드는 중…" : "공간 만들기"}</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable accessibilityRole="button" onPress={() => setCreating(true)} style={[s.accountLogout, { borderColor: theme.border }]}>
+          <Text style={[s.accountLogoutText, { color: theme.text }]}>새 여행 공간 만들기</Text>
+        </Pressable>
+      )}
+      {deleted.length > 0 && (
+        <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 6 }]}>
+          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>지운 공간</Text>
+          <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>관리자만 보여요. 기한이 지나면 되돌릴 수 없어요.</Text>
+          {deleted.map((space) => (
+            <View key={space.id} style={s.inviteRow}>
+              <Text style={[s.memberRoleText, { color: theme.text, marginTop: 0, flex: 1 }]} numberOfLines={1}>
+                {space.name} · {deletionDateLabel(space.deletionScheduledAt)}까지
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${space.name} 되돌리기`}
+                hitSlop={8}
+                onPress={() => {
+                  restoreSpace(space.id).then(() => onRestored(space.id)).catch(fail);
+                }}
+              >
+                <Text style={[s.accountLogoutText, { color: theme.primary }]}>되돌리기</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text> : null}
+    </View>
   );
 }
 

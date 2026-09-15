@@ -86,6 +86,19 @@ class SpaceCreateRequest(_Camel):
     timezone: str = Field(default="Asia/Seoul", max_length=64)
 
 
+class SpaceDeleteRequest(_Camel):
+    """공간 이름을 정확히 다시 적고, 지워지는 범위를 확인했다는 표시를 보낸다."""
+
+    confirmation_name: str = Field(min_length=1, max_length=40)
+    impact_acknowledged: bool = False
+
+
+class DeletedSpaceOut(_Camel):
+    id: str
+    name: str
+    deletion_scheduled_at: str
+
+
 class SpaceUpdateRequest(_Camel):
     name: str | None = Field(default=None, min_length=1, max_length=40)
     relationship_type: RelationshipType | None = None
