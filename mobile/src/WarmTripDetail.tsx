@@ -8,7 +8,24 @@ import { NaverMapLink } from "./NaverMapLink";
 import { ParticipantPicker } from "./ParticipantPicker";
 import { DaymoApiError } from "./auth";
 import { TripConflictError } from "./tripSync";
-import { usePlaceSync } from "./usePlaceSync";
+import { useListSync } from "./useListSync";
+import { isServerId, tripDateKeys } from "./listSync";
+import { legacyIdMap, placeCodec } from "./placeSync";
+import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
+import {
+  createScheduleItem,
+  createStay,
+  createTripPlace,
+  deleteScheduleItem,
+  deleteStay,
+  deleteTripPlace,
+  listScheduleItems,
+  listStays,
+  listTripPlaces,
+  updateScheduleItem,
+  updateStay,
+  updateTripPlace,
+} from "./serverData";
 import * as Crypto from "expo-crypto";
 import {
   CURRENCIES,
@@ -81,6 +98,8 @@ const destinationMode = (destination: TripDetailDestination): ViewMode =>
           ? "기록"
       : "여행";
 export type ScheduleItem = {
+  /** 서버와 맞출 때 쓰는 UUID. 숙소·예약·교통편에서 만들어진 줄에는 없다. */
+  id?: string;
   time: string;
   date?: string;
   title: string;
@@ -92,6 +111,8 @@ export type ScheduleItem = {
   transportationId?: string;
 };
 export type StayInfo = {
+  /** 서버와 맞출 때 쓰는 UUID. */
+  id?: string;
   name: string;
   checkin: string;
   checkout: string;
@@ -119,7 +140,7 @@ export type PlaceItem = {
   tags: string[];
   status: "후보" | "일정";
 };
-/** 새 장소 id. 서버가 이 UUID 를 그대로 받아 쓴다(backend/app/api/v1/places.py). */
+/** 새 장소·일정·숙소 id. 서버가 이 UUID 를 그대로 받아 쓴다(backend/app/api/v1/places.py). */
 const newPlaceId = () => Crypto.randomUUID();
 
 /** 저장 실패 안내. 서버가 준 문구(권한 없음 같은)는 사람이 읽을 수 있게 쓰여 있어 그대로 쓴다. */
@@ -166,6 +187,10 @@ export type TripPlanningData = {
    * "아직 못 올린 것" 인지 "다른 곳에서 지운 것" 인지 가르는 데 쓴다.
    */
   placeSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 일정 줄 id. `placeSyncIds` 와 같은 쓰임이다. */
+  scheduleSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 숙소 id. */
+  staySyncIds?: string[];
   /** 여행에서 쓰는 통화 코드. 없으면 원이다. */
   currency?: string;
   /** 1 단위가 몇 원인지. 통화가 원이면 1 이다. */
@@ -1008,20 +1033,94 @@ export function WarmTripDetail({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, registeredStay, tripDateOptions.join("|"), tripDayOptions.join("|")]);
   const [placeSyncIds, setPlaceSyncIds] = useState<string[]>(() => initialPlanning?.placeSyncIds ?? []);
-  usePlaceSync({
+  const [scheduleSyncIds, setScheduleSyncIds] = useState<string[]>(() => initialPlanning?.scheduleSyncIds ?? []);
+  const [staySyncIds, setStaySyncIds] = useState<string[]>(() => initialPlanning?.staySyncIds ?? []);
+  const serverTrip = isServerId(tripId);
+  useEffect(() => {
+    // 서버와 맞추기 전에, 이 기능이 생기기 전의 기록에 서버가 받는 id 를 준다.
+    // 장소 id 는 일정·숙소가 가리키므로 함께 바꾼다. 한 번 바꾸면 저장되어 다시 돌지 않는다.
+    if (!serverTrip) return;
+    const map = legacyIdMap(places, newPlaceId);
+    const rename = (id: string | undefined) => (id && map.has(id) ? map.get(id) : id);
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (map.size) setPlaces((current) => current.map((place) => ({ ...place, id: rename(place.id) ?? place.id })));
+    setSchedule((current) => current.some((item) => (!isServerId(item.id) && !isDerivedScheduleItem(item)) || (item.placeId && map.has(item.placeId)))
+      ? current.map((item) => ({
+        ...item,
+        ...(!isServerId(item.id) && !isDerivedScheduleItem(item) ? { id: newPlaceId() } : {}),
+        ...(item.placeId ? { placeId: rename(item.placeId) } : {}),
+      }))
+      : current);
+    setRegisteredStay((current) => current.name && (!isServerId(current.id) || (current.placeId && map.has(current.placeId)))
+      ? { ...current, id: isServerId(current.id) ? current.id : newPlaceId(), placeId: rename(current.placeId) }
+      : current);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // 여는 순간 한 번만 본다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverTrip]);
+  const tripDateKeyList = useMemo(() => tripDateKeys(currentStart, currentEnd), [currentStart, currentEnd]);
+  const serverPlaceIds = useMemo(() => new Set(placeSyncIds), [placeSyncIds]);
+  useListSync({
     tripId,
-    places,
-    setPlaces,
+    label: "장소",
+    items: places,
+    setItems: setPlaces,
+    codec: placeCodec,
+    api: { list: listTripPlaces, create: createTripPlace, update: updateTripPlace, remove: deleteTripPlace },
     syncedIds: placeSyncIds,
     setSyncedIds: setPlaceSyncIds,
-    // 장소 목록의 id 는 훅이 바꾼다. 여기서는 그 id 를 가리키는 일정과 숙소만 바꾼다.
-    remapIds: (map) => {
-      setSchedule((current) => current.map((item) =>
-        item.placeId && map.has(item.placeId) ? { ...item, placeId: map.get(item.placeId) } : item));
-      setRegisteredStay((current) =>
-        current.placeId && map.has(current.placeId) ? { ...current, placeId: map.get(current.placeId) } : current);
-    },
-    newId: newPlaceId,
+    notify: setFeedback,
+  });
+  const scheduleSyncCodec = useMemo(
+    () => scheduleCodec(tripDateKeyList, serverPlaceIds),
+    [serverPlaceIds, tripDateKeyList],
+  );
+  useListSync({
+    tripId,
+    label: "일정",
+    items: schedule,
+    setItems: setSchedule,
+    codec: scheduleSyncCodec,
+    api: { list: listScheduleItems, create: createScheduleItem, update: updateScheduleItem, remove: deleteScheduleItem },
+    syncedIds: scheduleSyncIds,
+    setSyncedIds: setScheduleSyncIds,
+    // 장소가 서버에 올라가야 일정에 장소를 이을 수 있다. 기간이 바뀌면 날짜도 다시 본다.
+    refreshKey: `${placeSyncIds.join(",")}|${tripDateKeyList.join(",")}`,
+    notify: setFeedback,
+  });
+  useEffect(() => {
+    // 서버 숙소에는 이름·주소가 없어 이은 장소의 것을 쓴다. 다른 기기에서 받은 숙소는
+    // 장소보다 먼저 도착해 이름을 모를 수 있어, 장소가 들어오면 그 이름으로 맞춘다.
+    if (!registeredStay.placeId) return;
+    const place = places.find((item) => item.id === registeredStay.placeId);
+    if (!place || (place.name === registeredStay.name && (place.address ?? "") === registeredStay.address)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRegisteredStay((current) => ({ ...current, name: place.name, address: place.address ?? current.address }));
+  }, [places, registeredStay.placeId, registeredStay.name, registeredStay.address]);
+  // 앱에는 대표 숙소가 하나다. 서버 목록과 맞추려고 0개나 1개짜리 목록으로 본다.
+  const stayList = useMemo(() => (registeredStay.name ? [registeredStay] : []), [registeredStay]);
+  const setStayList = (updater: (current: StayInfo[]) => StayInfo[]) => {
+    setRegisteredStay((current) => {
+      const next = updater(current.name ? [current] : [])[0];
+      return next
+        ? { ...next, showInSchedule: next.showInSchedule ?? true }
+        : { name: "", checkin: "", checkout: "", address: "", showInSchedule: false };
+    });
+  };
+  const staySyncCodec = useMemo(
+    () => stayCodec(tripDateKeyList, serverPlaceIds, (id) => places.find((place) => place.id === id)),
+    [places, serverPlaceIds, tripDateKeyList],
+  );
+  useListSync({
+    tripId,
+    label: "숙소",
+    items: stayList,
+    setItems: setStayList,
+    codec: staySyncCodec,
+    api: { list: listStays, create: createStay, update: updateStay, remove: deleteStay },
+    syncedIds: staySyncIds,
+    setSyncedIds: setStaySyncIds,
+    refreshKey: `${placeSyncIds.join(",")}|${tripDateKeyList.join(",")}`,
     notify: setFeedback,
   });
   const onSavePlanningRef = useRef(onSavePlanning);
@@ -1061,8 +1160,10 @@ export function WarmTripDetail({
       tripNotes,
       hasKitchen,
       placeSyncIds,
+      scheduleSyncIds,
+      staySyncIds,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservations, schedule, simplifySettlement, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -1090,9 +1191,11 @@ export function WarmTripDetail({
       tripNotes,
       hasKitchen,
       placeSyncIds,
+      scheduleSyncIds,
+      staySyncIds,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservations, schedule, simplifySettlement, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -1893,6 +1996,8 @@ function TripOverview({
     // 하나라도 떨어뜨리면 동기화가 이 줄을 남남으로 보고 원래대로 되돌린다.
     const edited = editingScheduleIndex === null ? undefined : schedule[editingScheduleIndex];
     const next: ScheduleItem = {
+        // 고칠 때는 원래 id 를 지킨다. 숙소·예약·교통편에서 만든 줄은 서버에 따로 두지 않아 id 가 없다.
+        id: edited ? edited.id : newPlaceId(),
         time: `${weekdayOf(planDay)} · ${planTime || "시간 미정"}`,
         date: planDay,
         title: newPlanTitle.trim(),
@@ -2284,7 +2389,12 @@ function TripOverview({
         (place.id === registeredStay.placeId || place.name === previousName || place.name === stayDraft.name),
     );
     const stayPlaceId = registeredStay.placeId ?? linkedPlace?.id ?? newPlaceId();
-    setRegisteredStay({ ...stayDraft, placeId: stayPlaceId, showInSchedule: stayDraft.showInSchedule ?? true });
+    setRegisteredStay({
+      ...stayDraft,
+      id: registeredStay.id ?? newPlaceId(),
+      placeId: stayPlaceId,
+      showInSchedule: stayDraft.showInSchedule ?? true,
+    });
     setPlaces((current) => {
       const match = current.find(
         (place) =>

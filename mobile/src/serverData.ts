@@ -1,5 +1,6 @@
 import { authenticatedRequest } from "./auth";
 import type { PlaceBody, ServerPlace } from "./placeSync";
+import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./scheduleSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
@@ -91,6 +92,42 @@ export const updateTripPlace = (id: string, version: number, body: PlaceBody) =>
 
 export const deleteTripPlace = (id: string) =>
   authenticatedRequest<void>(`/v1/trip-places/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listScheduleItems = (tripId: string) =>
+  authenticatedRequest<ServerScheduleItem[]>(`/v1/trips/${encodeURIComponent(tripId)}/schedule-items`);
+
+export const createScheduleItem = (tripId: string, id: string, body: ScheduleBody) =>
+  authenticatedRequest<ServerScheduleItem>(`/v1/trips/${encodeURIComponent(tripId)}/schedule-items`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateScheduleItem = (id: string, version: number, body: ScheduleBody) =>
+  authenticatedRequest<ServerScheduleItem>(`/v1/schedule-items/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteScheduleItem = (id: string) =>
+  authenticatedRequest<void>(`/v1/schedule-items/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listStays = (tripId: string) =>
+  authenticatedRequest<ServerStay[]>(`/v1/trips/${encodeURIComponent(tripId)}/stays`);
+
+export const createStay = (tripId: string, id: string, body: StayBody) =>
+  authenticatedRequest<ServerStay>(`/v1/trips/${encodeURIComponent(tripId)}/stays`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateStay = (id: string, version: number, body: StayBody) =>
+  authenticatedRequest<ServerStay>(`/v1/stays/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteStay = (id: string) =>
+  authenticatedRequest<void>(`/v1/stays/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export const updateTrip = (
   tripId: string,
