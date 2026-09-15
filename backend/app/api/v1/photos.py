@@ -147,11 +147,14 @@ async def photo_content(
     caller: CurrentCaller,
     db: DbSession,
     variant: Literal["thumbnail", "display", "original"] = Query(default="display"),
-) -> FileResponse:
+) -> Response:
     """
     공간 멤버에게만 파일을 준다. 주소를 알아도 멤버가 아니면 404 다.
 
     같은 id 의 파일은 바뀌지 않으므로 기기가 오래 캐시해도 된다. 공유 캐시에는 두지 않는다.
+
+    `photo_accel_prefix` 가 있으면 본문 없이 `X-Accel-Redirect` 만 답하고 파일은 nginx 가 보낸다.
+    nginx 는 이 응답의 Content-Type 과 Cache-Control 을 그대로 쓴다.
     """
     _, _, photo = await _살아_있는_사진(db, caller, photo_id)
     if photo.status != PhotoStatus.READY:
@@ -162,14 +165,16 @@ async def photo_content(
     파일 = photo_files.absolute(경로)
     if not 파일.is_file():
         raise AppError(ErrorCode.NOT_FOUND)
-    return FileResponse(
-        파일,
-        media_type=photo.original_mime if variant == "original" and photo.original_mime else "image/jpeg",
-        headers={
-            "Cache-Control": "private, max-age=31536000, immutable",
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
+    형식 = photo.original_mime if variant == "original" and photo.original_mime else "image/jpeg"
+    머리 = {
+        "Cache-Control": "private, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+    }
+    접두 = get_settings().photo_accel_prefix
+    if 접두:
+        머리["X-Accel-Redirect"] = photo_files.accel_uri(접두, 경로)
+        return Response(status_code=status.HTTP_200_OK, media_type=형식, headers=머리)
+    return FileResponse(파일, media_type=형식, headers=머리)
 
 
 @router.patch("/photos/{photo_id}")

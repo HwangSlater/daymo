@@ -13,12 +13,18 @@ DB 에는 `upload_root` 아래의 상대 경로만 적는다. 운영에서 사�
 표시본과 썸네일은 방향을 바로잡고 EXIF 를 모두 뺀 JPEG 이다. 파일은 공간 멤버에게만 준다
 (권한 검사는 API 가 한다).
 
+**권한.** 운영에서 nginx(gid 101)가 `X-Accel-Redirect` 로 파일을 직접 읽는다. 호스트의
+사진 폴더는 `10001:101`, `2750`(setgid)이라 새 폴더와 파일이 그룹 101 을 물려받는다.
+폴더는 `0750`, 파일은 `0640` 으로 만들어 그룹만 읽고 그 밖에는 못 읽게 한다
+(docs/development/06-vps-deployment.md 6장).
+
 여기 함수는 모두 동기다. 이미지 변환은 CPU 를 쓰므로 API 는 스레드에서 부른다.
 """
 
 import os
 import shutil
 import uuid
+from urllib.parse import quote
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -58,6 +64,30 @@ def absolute(relative: str) -> Path:
     return path
 
 
+def accel_uri(prefix: str, relative: str) -> str:
+    """
+    nginx 내부 location 으로 넘길 주소. `upload_root` 안인지 먼저 확인하고 경로 조각마다 퍼센트 인코딩한다.
+
+    nginx 는 이 값을 디코딩한 뒤 `..` 를 다시 검사하므로 조각 안의 `/`·`?`·`%` 도 모두 인코딩한다.
+    """
+    parts = absolute(relative).relative_to(root()).parts
+    return prefix.rstrip("/") + "/" + "/".join(quote(part, safe="") for part in parts)
+
+
+def _make_dir(path: Path) -> None:
+    """
+    없는 단계마다 `0750` 으로 만든다. `mkdir(parents=True)` 는 중간 폴더를 기본 권한(0755)으로 만든다.
+
+    일부러 chmod 하지 않는다. 부모의 setgid 와 그룹은 mkdir 때 커널이 물려준다. 그런데
+    API(uid 10001)는 그룹 101 의 구성원이 아니어서 chmod 하면 커널이 setgid 를 지우고,
+    그 아래에 생기는 폴더가 그룹 101 을 못 물려받아 nginx 가 읽지 못한다.
+    """
+    if path.is_dir():
+        return
+    _make_dir(path.parent)
+    path.mkdir(mode=0o750, exist_ok=True)
+
+
 def trip_dir(trip_id: uuid.UUID) -> Path:
     return root() / "trips" / str(trip_id)
 
@@ -68,7 +98,7 @@ def photo_dir(trip_id: uuid.UUID, photo_id: uuid.UUID) -> Path:
 
 def temp_path() -> Path:
     folder = root() / "tmp"
-    folder.mkdir(parents=True, exist_ok=True)
+    _make_dir(folder)
     return folder / f"{uuid.uuid4()}.part"
 
 
@@ -149,7 +179,8 @@ def store(upload: Path, trip_id: uuid.UUID, photo_id: uuid.UUID, zone: ZoneInfo)
     final = photo_dir(trip_id, photo_id)
     building = final.with_name(f"{final.name}.building")
     shutil.rmtree(building, ignore_errors=True)
-    building.mkdir(parents=True)
+    _make_dir(building.parent)
+    building.mkdir(mode=0o750)
     try:
         original = building / f"original.{extension}"
         shutil.move(str(upload), original)

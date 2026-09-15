@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     photo_max_bytes: int = 20 * 1024 * 1024
     photo_space_quota_bytes: int = 1024 * 1024 * 1024
     photo_total_quota_bytes: int = 10 * 1024 * 1024 * 1024
+    # 비어 있으면 API 가 사진 파일을 직접 보낸다. "/_protected_uploads/" 처럼 넣으면 권한만 보고
+    # `X-Accel-Redirect` 로 nginx 에 넘긴다. nginx 에 같은 internal location 이 있어야 한다
+    # (infra/production/nginx.conf, docs/development/06-vps-deployment.md 6장).
+    photo_accel_prefix: str = ""
 
     # 소셜 로그인. 제공자마다 필요한 값이 모두 있어야 그 제공자가 켜진다
     # (app/services/oauth/providers.py 의 configured). 비어 있는 제공자는 목록에서
