@@ -82,6 +82,7 @@ import {
 } from "./serverData";
 import {
   canEditSpace,
+  formerMembersFromServer,
   membersFromServer,
   relationshipFromServer,
   roleFromServer,
@@ -91,6 +92,7 @@ import {
 } from "./spaceMapping";
 import { mergeServerTripsByGroup } from "./tripMerge";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
+import { uniqueNames } from "./people";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt"> & { id?: string };
@@ -134,6 +136,7 @@ const spaceFromServer = (space: ServerSpace, members: ServerMemberInput[] = []):
   id: space.id,
   name: space.name,
   members: membersFromServer(members),
+  formerMembers: formerMembersFromServer(members),
   relationship: relationshipFromServer(space.relationshipType),
   relationshipType: space.relationshipType,
   since: space.startedOn ?? "",
@@ -143,7 +146,7 @@ const spaceFromServer = (space: ServerSpace, members: ServerMemberInput[] = []):
 
 /** 이 공간에서 이름과 membership id 를 오가는 표. 나는 앱이 쓰는 이름으로 들어간다. */
 const rosterOfSpace = (space: Space, myName: string): RosterEntry[] =>
-  rosterOf({ name: myName, membershipId: space.myMembershipId }, space.members);
+  rosterOf({ name: myName, membershipId: space.myMembershipId }, space.members, space.formerMembers);
 
 // 서버에 참가자가 정해져 있으면 이름으로 바꿔 기록(planning)의 참가자 칸에 둔다.
 // 비어 있으면 서버 약속대로 "공간 멤버 전원" 이라 칸을 비워 둔다. 상세 화면이
@@ -650,8 +653,9 @@ export function WarmAppShell({
   // 이 공간에 속한 사람들. 나를 앞에 두고 초대한 멤버가 뒤따른다. 여행 상세는
   // 이 목록에서 이번 여행 참가자를 고른다.
   // 렌더마다 새 배열을 만들면 이 목록을 의존성으로 쓰는 곳이 매번 다시 돈다.
+  // 이름이 겹치면 사람 표(`rosterOfSpace`)와 같은 번호를 붙인다. 고른 이름으로 id 를 찾는다.
   const activeSpaceMembers = useMemo(
-    () => [user?.name ?? "나", ...activeSpace.members.map((member) => member.name)],
+    () => uniqueNames([user?.name ?? "나", ...activeSpace.members.map((member) => member.name)]),
     [activeSpace.members, user?.name],
   );
   const activeRoster = rosterOfSpace(activeSpace, user?.name ?? "");

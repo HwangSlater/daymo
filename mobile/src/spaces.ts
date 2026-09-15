@@ -33,6 +33,8 @@ export type Space = {
   name: string;
   /** 나를 뺀 사람들. 나는 내 프로필에서 오고 늘 첫 번째다. */
   members: Member[];
+  /** 공간을 나간 사람들. 지난 여행의 지출·준비물이 가리키는 이름을 찾을 때만 쓴다. */
+  formerMembers?: Member[];
   relationship: Relationship;
   /** 함께하기 시작한 날. 연인 공간에서만 "함께한 지 N일째" 로 쓴다. 적지 않았으면 비어 있다. */
   since: string;

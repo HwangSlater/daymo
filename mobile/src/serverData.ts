@@ -51,8 +51,9 @@ export const createSpace = (name: string, relationshipType: ServerSpace["relatio
     body: JSON.stringify({ name, relationshipType, timezone: "Asia/Seoul" }),
   });
 
+/** 나간 멤버도 함께 받는다. 지난 여행의 기록이 그 사람을 가리킨다. */
 export const listMembers = (spaceId: string) =>
-  authenticatedRequest<ServerMemberInput[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/members`);
+  authenticatedRequest<ServerMemberInput[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/members?includeLeft=true`);
 
 /** 공간 이름·관계·함께한 날을 바꾼다. 서버는 관리자만 받는다. */
 export const updateSpace = (spaceId: string, patch: SpacePatch) =>

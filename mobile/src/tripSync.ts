@@ -3,11 +3,13 @@
  *
  * 앱 안에서 참가자는 이름이다. 지출의 낸 사람, 준비물 담당, 몫이 전부 이름으로
  * 적혀 있다. 서버는 공간 membership id 로 받는다. 이름을 id 로 바꾸는 표가
- * 여기 있다. 하위 기록이 서버에 올라가는 날(할 일 3번) 이름 대신 id 를 쓰게
- * 되면 이 표도 필요 없어진다.
+ * 여기 있다. 표 안의 이름은 겹치지 않고, 이름이 바뀌면 기록이 따라간다
+ * (`people.ts`).
  *
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
+
+import { uniqueNames } from "./people.ts";
 
 /** 이름과 membership id 한 쌍. 나를 맨 앞에 둔다. */
 export type RosterEntry = { id: string; name: string };
@@ -18,17 +20,27 @@ export type RosterEntry = { id: string; name: string };
  * 내 이름은 서버 이름이 아니라 앱이 쓰는 이름(`user.name`)이다. 여행 기록에
  * 적힌 "나" 가 그 이름이라, 서버 이름을 쓰면 내 지출이 남의 것처럼 보인다.
  * id 를 모르는 사람은 뺀다. 서버에서 받지 않은 멤버다.
+ *
+ * 나간 멤버(`former`)도 넣는다. 지난 여행의 지출·준비물이 그 사람을 가리킨다.
+ * 이름이 겹치면 뒤 사람에게 번호를 붙인다(`하늘 2`). 나 → 지금 멤버 → 나간 멤버 순이다.
  */
 export function rosterOf(
   me: { name: string; membershipId?: string },
   members: { id?: string; name: string }[],
+  former: { id?: string; name: string }[] = [],
 ): RosterEntry[] {
-  const roster: RosterEntry[] = [];
-  if (me.membershipId) roster.push({ id: me.membershipId, name: me.name });
-  for (const member of members) {
-    if (member.id && member.id !== me.membershipId) roster.push({ id: member.id, name: member.name });
-  }
-  return roster;
+  const people: { id: string; name: string }[] = [];
+  const seen = new Set<string>();
+  const add = (id: string | undefined, name: string) => {
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    people.push({ id, name });
+  };
+  add(me.membershipId, me.name);
+  for (const member of members) add(member.id, member.name);
+  for (const member of former) add(member.id, member.name);
+  const names = uniqueNames(people.map((person) => person.name));
+  return people.map((person, index) => ({ id: person.id, name: names[index] }));
 }
 
 /** 서버의 참가자 id 를 이름으로. 표에 없는 id(나간 멤버)는 뺀다. */

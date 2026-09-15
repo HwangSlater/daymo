@@ -18,6 +18,8 @@ export type ServerMemberInput = {
   displayName: string;
   role: ServerRole;
   isMe: boolean;
+  /** 나간 멤버일 때만 있다. */
+  leftAt?: string | null;
 };
 
 export type AppMember = { id: string; name: string; role: AppRole };
@@ -66,7 +68,14 @@ export function relationshipToServer(
  */
 export function membersFromServer(members: ServerMemberInput[]): AppMember[] {
   return members
-    .filter((member) => !member.isMe)
+    .filter((member) => !member.isMe && !member.leftAt)
+    .map((member) => ({ id: member.id, name: member.displayName, role: roleFromServer(member.role) }));
+}
+
+/** 공간을 나간 사람들. 화면의 멤버 목록에는 없고, 지난 기록의 이름을 찾을 때만 쓴다. */
+export function formerMembersFromServer(members: ServerMemberInput[]): AppMember[] {
+  return members
+    .filter((member) => !member.isMe && Boolean(member.leftAt))
     .map((member) => ({ id: member.id, name: member.displayName, role: roleFromServer(member.role) }));
 }
 

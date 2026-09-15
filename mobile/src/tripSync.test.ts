@@ -35,10 +35,20 @@ test("이름을 id 로 바꾸고 모르는 이름은 따로 돌려준다", () =>
   });
 });
 
-test("같은 이름이 둘이면 하나씩 짝짓는다", () => {
-  const twins = rosterOf({ name: "하늘", membershipId: "a" }, [{ id: "b", name: "하늘" }]);
+test("같은 이름이면 뒤 사람에게 번호를 붙이고, 나간 멤버는 지금 멤버 뒤에 선다", () => {
+  const twins = rosterOf(
+    { name: "하늘", membershipId: "a" },
+    [{ id: "b", name: "하늘" }, { id: "c", name: "미정" }],
+    [{ id: "d", name: "하늘" }, { id: "b", name: "하늘" }],
+  );
 
-  assert.deepEqual(idsFromNames(["하늘", "하늘", "하늘"], twins), { ids: ["a", "b"], unknown: ["하늘"] });
+  assert.deepEqual(twins, [
+    { id: "a", name: "하늘" },
+    { id: "b", name: "하늘 2" },
+    { id: "c", name: "미정 2" },
+    { id: "d", name: "하늘 3" },
+  ]);
+  assert.deepEqual(idsFromNames(["하늘 2", "하늘", "하늘"], twins), { ids: ["b", "a"], unknown: ["하늘"] });
 });
 
 test("id 목록은 순서까지 같아야 같다", () => {

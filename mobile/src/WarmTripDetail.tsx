@@ -15,6 +15,7 @@ import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync"
 import { reservationCodec, transportCodec } from "./bookingSync";
 import { expenseCodec, paymentCodec } from "./expenseSync";
 import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
+import { rebindPeople, type PeopleNames } from "./people";
 import type { ExpenseSettings } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
@@ -249,6 +250,8 @@ export type TripPlanningData = {
   paymentSyncIds?: string[];
   /** 서버와 맞춘 적이 있는 준비물 id. */
   packingSyncIds?: string[];
+  /** 마지막으로 쓴 `membership id → 이름`. 멤버가 이름을 바꾸면 기록의 이름을 따라 바꾼다. */
+  personNames?: PeopleNames;
   /** 서버와 맞춘 적이 있는 요리 id. 재료는 요리와 함께 오간다. */
   recipeSyncIds?: string[];
   /**
@@ -903,11 +906,14 @@ export function WarmTripDetail({
   spaceRoster = [],
   serverExpenseSettings,
   onUpdateExpenseSettings,
-  initialPlanning,
+  initialPlanning: savedPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
   me = spaceMembers[0] ?? "",
 }: Props) {
+  // 열 때 한 번, 기록 안의 이름을 지금 사람 표에 맞춘다. 아래 상태는 모두 이 값에서 시작한다.
+  const [initialPlanning] = useState(() => rebindPeople(savedPlanning, spaceRoster));
+  const personNames = initialPlanning?.personNames;
   const memo = memoPaper(Boolean(appTheme?.dark));
   const [currentStart, setCurrentStart] = useState(tripStart ?? "");
   const [currentEnd, setCurrentEnd] = useState(tripEnd ?? "");
@@ -1506,9 +1512,10 @@ export function WarmTripDetail({
       paymentSyncIds,
       packingSyncIds,
       recipeSyncIds,
+      personNames,
       expenseSettingsSynced,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -1544,10 +1551,11 @@ export function WarmTripDetail({
       paymentSyncIds,
       packingSyncIds,
       recipeSyncIds,
+      personNames,
       expenseSettingsSynced,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
