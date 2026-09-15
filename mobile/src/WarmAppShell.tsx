@@ -64,7 +64,7 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, DaymoApiError, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, type AuthUser } from "./auth";
+import { cancelAccountDeletion, DaymoApiError, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, updateDisplayName, type AuthUser } from "./auth";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
   acceptInvite,
@@ -3837,6 +3837,27 @@ function Together({
    *
    * 내 권한을 아직 모르면(서버에서 못 받았으면) 관리자라고 적지 않는다.
    */
+  // 이름을 고치면 잠깐 기다렸다가 서버에 저장한다. 글자마다 보내지 않는다.
+  const [nameSave, setNameSave] = useState<"idle" | "saving" | "saved" | "failed" | "tooLong">("idle");
+  const savedName = useRef(user.name);
+  useEffect(() => {
+    const name = user.name.split(/\s+/).filter(Boolean).join(" ");
+    if (!name || name === savedName.current) return;
+    const timer = setTimeout(() => {
+      if (name.length > 20) {
+        setNameSave("tooLong");
+        return;
+      }
+      setNameSave("saving");
+      updateDisplayName(name)
+        .then((saved) => {
+          savedName.current = saved;
+          setNameSave("saved");
+        })
+        .catch(() => setNameSave("failed"));
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [user.name]);
   const people = [
     { key: "me", membershipId: activeSpace.myMembershipId, name: user.name, role: activeSpace.myRole ?? "권한 확인 중", me: true },
     ...activeSpace.members.map((member, index) => ({
@@ -4238,7 +4259,15 @@ function Together({
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            <Text style={[s.sheetCopy, { color: theme.muted }]}>이름은 아직 이 기기에만 저장돼요. 이메일은 바꿀 수 없어요.</Text>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>
+              {nameSave === "saving"
+                ? "이름을 저장하는 중이에요."
+                : nameSave === "failed"
+                  ? "이름을 저장하지 못했어요. 연결을 확인하고 다시 고쳐 주세요."
+                  : nameSave === "tooLong"
+                    ? "이름은 20자까지 쓸 수 있어요."
+                    : "이름은 같은 공간 멤버에게 보여요. 이메일은 바꿀 수 없어요."}
+            </Text>
             <Pressable
               accessibilityRole="button"
               onPress={() => {

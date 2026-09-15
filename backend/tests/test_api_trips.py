@@ -752,3 +752,17 @@ async def test_이미_참가자인_사람은_공간을_나가도_참가자로_�
 
     assert 남김.status_code == 200
     assert 새로_넣음.status_code == 422
+
+
+async def test_표시_이름을_바꾸면_멤버_목록에도_보인다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, headers)
+
+    바꿈 = await api.patch("/v1/me", json={"displayName": "  하늘   바다 "}, headers=headers)
+    빈칸 = await api.patch("/v1/me", json={"displayName": "   "}, headers=headers)
+    너무_김 = await api.patch("/v1/me", json={"displayName": "가" * 21}, headers=headers)
+    목록 = (await api.get(f"/v1/spaces/{space_id}/members", headers=headers)).json()["data"]
+
+    assert 바꿈.status_code == 200 and 바꿈.json()["data"]["displayName"] == "하늘 바다"
+    assert (빈칸.status_code, 너무_김.status_code) == (422, 422)
+    assert 목록[0]["displayName"] == "하늘 바다"

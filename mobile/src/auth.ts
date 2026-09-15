@@ -285,6 +285,23 @@ export async function requestAccountDeletion(password: string) {
   return state;
 }
 
+/**
+ * 표시 이름을 서버에 저장한다. 같은 공간 멤버에게 이 이름이 보인다.
+ *
+ * 저장해 둔 세션의 사용자 이름도 바꾼다. 연결 없이 앱을 다시 열어도 새 이름이다.
+ */
+export async function updateDisplayName(name: string) {
+  const me = await authenticatedRequest<{ displayName: string }>("/v1/me", {
+    method: "PATCH",
+    body: JSON.stringify({ displayName: name }),
+  });
+  const saved = parseSession(await storage.get(sessionKey));
+  if (saved) {
+    await storage.set(sessionKey, JSON.stringify({ ...saved, user: { ...saved.user, name: me.displayName } }));
+  }
+  return me.displayName;
+}
+
 /** 유예 중인 계정 삭제를 취소한다. 삭제 요청과 따로 비밀번호를 다시 받는다. */
 export async function cancelAccountDeletion(password: string) {
   const proof = await reauthProof("cancel_deletion", password);

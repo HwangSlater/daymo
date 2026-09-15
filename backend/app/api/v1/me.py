@@ -1,10 +1,12 @@
 from fastapi import APIRouter, status
+from pydantic import Field
 from sqlalchemy import select
 
 from app.api.deps import CurrentCaller, DbSession
+from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok
 from app.models import Membership, Space
-from app.schemas.auth import DeletionOut, MeOut, MeSpaceOut, ReauthProofRequest
+from app.schemas.auth import DeletionOut, MeOut, MeSpaceOut, ReauthProofRequest, _Camel
 from app.services import account_deletion
 from app.services.account_deletion import DeletionState
 
@@ -45,6 +47,27 @@ async def get_me(caller: CurrentCaller, db: DbSession) -> dict:
             deletion_scheduled_at=caller.user.deletion_scheduled_at,
         ).model_dump(by_alias=True)
     )
+
+
+class MeUpdateRequest(_Camel):
+    # 가입할 때와 같은 한도다.
+    display_name: str = Field(min_length=1, max_length=20)
+
+
+@router.patch("")
+async def update_me(body: MeUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
+    """
+    표시 이름을 바꾼다. 공간마다 둔 별명(`memberships.nickname`)은 그대로다.
+
+    같은 공간 멤버의 기기는 다음에 멤버 목록을 받을 때 새 이름을 보고, 여행 기록 안의
+    옛 이름을 따라 바꾼다(mobile/src/people.ts).
+    """
+    name = " ".join(body.display_name.split())
+    if not name:
+        raise AppError(ErrorCode.VALIDATION_ERROR, fields={"displayName": "이름을 적어 주세요."})
+    caller.user.display_name = name
+    await db.flush()
+    return await get_me(caller, db)
 
 
 def _삭제_상태(상태: DeletionState) -> dict:
