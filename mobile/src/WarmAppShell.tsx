@@ -777,8 +777,9 @@ export function WarmAppShell({
       .catch(() => setTripStorageFailed(true));
   }, [done, tripStorageReady, tripsByGroup]);
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  // 보관한 여행은 홈에 띄우지 않는다. 치워 둔 여행이 다음 여행으로 보이면 안 된다.
   const homeTrip = [...tripItems]
-    .filter((trip) => trip.end >= todayKey)
+    .filter((trip) => trip.end >= todayKey && !trip.archived)
     .sort((left, right) => left.start.localeCompare(right.start))[0] ?? null;
   const theme = resolveTheme(
     themeId,
