@@ -7,6 +7,14 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  /** 삭제를 요청해 둔 계정이면 지워질 시각(ISO). 앱은 이때 삭제 취소 화면부터 보여 준다. */
+  deletionScheduledAt?: string | null;
+};
+
+/** `DELETE /v1/me` 와 삭제 취소가 돌려주는 값. */
+export type AccountDeletionState = {
+  requestedAt: string | null;
+  scheduledAt: string | null;
 };
 
 type SessionTokens = {
@@ -98,10 +106,10 @@ async function installationId() {
 }
 
 async function getMe(accessToken: string): Promise<AuthUser> {
-  const me = await request<{ id: string; email: string; displayName: string }>("/v1/me", {
+  const me = await request<{ id: string; email: string; displayName: string; deletionScheduledAt?: string | null }>("/v1/me", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  return { id: me.id, name: me.displayName, email: me.email };
+  return { id: me.id, name: me.displayName, email: me.email, deletionScheduledAt: me.deletionScheduledAt ?? null };
 }
 
 async function saveSession(tokens: SessionResponse, user: AuthUser) {
@@ -220,6 +228,50 @@ export async function authenticatedRequest<T>(path: string, init: RequestInit = 
     }
     throw error;
   }
+}
+
+/**
+ * 민감한 작업 하나에 쓸 증표를 받는다. 작업마다 비밀번호를 다시 받는다.
+ *
+ * 비밀번호가 틀리면 서버는 403 을 준다. 401 이 아니라서 위의 토큰 갱신이
+ * 끼어들지 않고, 로그인도 풀리지 않는다.
+ */
+async function reauthProof(action: "delete_account" | "cancel_deletion", password: string) {
+  const { proof } = await authenticatedRequest<{ proof: string }>("/v1/auth/reauth", {
+    method: "POST",
+    body: JSON.stringify({ action, password }),
+  });
+  return proof;
+}
+
+/**
+ * 계정 삭제를 요청한다. 7일 뒤에 지워지고, 그 전에 다시 로그인하면 취소할 수 있다.
+ *
+ * 서버가 이 기기를 포함한 모든 기기를 로그아웃시키므로, 성공하면 저장해 둔
+ * 토큰도 지운다. 남겨 두면 다음 실행에 갱신을 시도하다 실패할 뿐이다.
+ */
+export async function requestAccountDeletion(password: string) {
+  const proof = await reauthProof("delete_account", password);
+  const state = await authenticatedRequest<AccountDeletionState>("/v1/me", {
+    method: "DELETE",
+    body: JSON.stringify({ reauthProof: proof }),
+  });
+  await storage.remove(sessionKey);
+  return state;
+}
+
+/** 유예 중인 계정 삭제를 취소한다. 삭제 요청과 따로 비밀번호를 다시 받는다. */
+export async function cancelAccountDeletion(password: string) {
+  const proof = await reauthProof("cancel_deletion", password);
+  const state = await authenticatedRequest<AccountDeletionState>("/v1/me/deletion/cancel", {
+    method: "POST",
+    body: JSON.stringify({ reauthProof: proof }),
+  });
+  const saved = parseSession(await storage.get(sessionKey));
+  if (saved) {
+    await storage.set(sessionKey, JSON.stringify({ ...saved, user: { ...saved.user, deletionScheduledAt: null } }));
+  }
+  return state;
 }
 
 export async function logout() {

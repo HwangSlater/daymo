@@ -63,7 +63,8 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { DaymoApiError, login, logout, restoreSession, signUp, type AuthUser } from "./auth";
+import { cancelAccountDeletion, DaymoApiError, login, logout, requestAccountDeletion, restoreSession, signUp, type AuthUser } from "./auth";
+import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
   createSpace,
   createTrip,
@@ -87,7 +88,7 @@ import {
 import { mergeServerTripsByGroup } from "./tripMerge";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
-type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
+type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt"> & { id?: string };
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -529,6 +530,8 @@ export function WarmAppShell({
   const [user, setUser] = useState<DaymoUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authOffline, setAuthOffline] = useState(false);
+  // 로그아웃된 뒤 로그인 화면에 한 번 띄울 안내. 계정 삭제를 요청한 직후에 쓴다.
+  const [authNotice, setAuthNotice] = useState("");
   useSaveMe(user);
   useEffect(() => {
     let active = true;
@@ -586,8 +589,8 @@ export function WarmAppShell({
   /**
    * 이 기기에 남은 것을 전부 지운다.
    *
-   * 서버가 없으니 "계정 삭제" 라고 부를 수 없다. 지울 수 있는 건 이 기기의
-   * 기록뿐이고, 화면에도 그렇게 적는다.
+   * 계정 삭제와 다르다. 서버의 계정·공간·여행은 그대로 두고 이 기기의
+   * 기록만 지운다. 화면에도 그렇게 적는다. 계정 삭제는 `AccountDeletionPanel`.
    */
   const wipeDevice = () => {
     void logout();
@@ -654,7 +657,17 @@ export function WarmAppShell({
     );
   }
   if (!user) {
-    return <AuthScreen theme={theme} onAuth={(nextUser) => { setServerDataReady(false); setUser(nextUser); setAuthOffline(false); }} />;
+    return <AuthScreen theme={theme} notice={authNotice} onAuth={(nextUser) => { setAuthNotice(""); setServerDataReady(false); setUser(nextUser); setAuthOffline(false); }} />;
+  }
+  if (user.deletionScheduledAt) {
+    return (
+      <DeletionPendingScreen
+        theme={theme}
+        scheduledAt={user.deletionScheduledAt}
+        onCancelled={() => setUser((current) => (current ? { ...current, deletionScheduledAt: null } : current))}
+        onLogout={() => { void logout(); setServerDataReady(false); setUser(null); }}
+      />
+    );
   }
   if (!serverDataReady && !authOffline) {
     return (
@@ -801,6 +814,13 @@ export function WarmAppShell({
               setAuthOffline(false);
             }}
             onWipe={wipeDevice}
+            onAccountDeletionRequested={(scheduledAt) => {
+              // 서버가 이미 모든 기기를 로그아웃시켰다. 여기서는 화면만 정리한다.
+              setAuthNotice(deletionRequestedNotice(scheduledAt));
+              setServerDataReady(false);
+              setUser(null);
+              setAuthOffline(false);
+            }}
           />
         )}
       </View>
@@ -811,9 +831,12 @@ export function WarmAppShell({
 
 function AuthScreen({
   theme,
+  notice: initialNotice = "",
   onAuth,
 }: {
   theme: AppTheme;
+  /** 로그인 화면에 처음부터 띄울 안내. 계정 삭제를 요청한 직후에 온다. */
+  notice?: string;
   onAuth: (user: DaymoUser) => void;
 }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -822,7 +845,7 @@ function AuthScreen({
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(initialNotice);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [termsAgreed, setTermsAgreed] = useState(false);
@@ -1114,6 +1137,140 @@ function FirstSpaceScreen({
           </Pressable>
           <Pressable onPress={onLogout} accessibilityRole="button" style={s.authSwitch}>
             <Text style={[s.authSwitchText, { color: theme.muted }]}>다른 계정으로 로그인</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+/**
+ * 계정 삭제 요청. 설정 > 내 프로필 > 계정 삭제.
+ *
+ * 경고창(Alert) 대신 시트 안에서 확인받는다. 무엇이 사라지고 무엇이 남는지
+ * 읽고 체크해야 버튼이 켜진다. 비밀번호는 매번 다시 받는다. 서버가 작업마다
+ * 새 재인증 증표를 요구한다(docs/development/03-api-specification.md 2장).
+ */
+function AccountDeletionPanel({
+  theme,
+  onRequested,
+}: {
+  theme: AppTheme;
+  onRequested: (scheduledAt: string | null) => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [understood, setUnderstood] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const ready = understood && password.length > 0 && !loading;
+  const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  const submit = async () => {
+    if (!ready) return;
+    setLoading(true);
+    setError("");
+    try {
+      const state = await requestAccountDeletion(password);
+      onRequested(state.scheduledAt);
+    } catch (caught) {
+      // 다른 멤버가 있는 공간의 관리자면 서버가 공간 이름을 담아 알려 준다.
+      setError(caught instanceof DaymoApiError ? caught.message : "계정 삭제를 요청하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setLoading(false);
+    }
+  };
+  return (
+    <>
+      {[
+        "요청하면 모든 기기에서 바로 로그아웃돼요.",
+        "7일 뒤에 계정이 삭제돼요. 그 전에 다시 로그인하면 삭제를 취소할 수 있어요.",
+        "혼자 쓰는 공간과 그 안의 여행은 계정과 함께 삭제돼요.",
+        "다른 사람과 함께 쓰는 공간에 남긴 기록은 남고, 이름은 ‘탈퇴한 멤버’로 바뀌어요.",
+        "일정·준비물·비용·기록은 아직 이 기기에만 저장돼 있어요. 필요하면 먼저 ‘여행 기록 내보내기’로 남겨 두세요.",
+      ].map((line) => (
+        <Text key={line} style={[s.sheetCopy, { color: theme.text }]}>· {line}</Text>
+      ))}
+      <Pressable
+        onPress={() => setUnderstood((current) => !current)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: understood }}
+        style={s.authConsentRow}
+      >
+        <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
+          {understood && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+        </View>
+        <Text style={[s.authConsentText, { color: theme.text }]}>위 내용을 확인했어요</Text>
+      </Pressable>
+      <Field theme={theme} label="비밀번호 확인" value={password} onChangeText={setPassword} placeholder="지금 쓰는 비밀번호" secureTextEntry />
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
+      <Pressable
+        onPress={submit}
+        disabled={!ready}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !ready, busy: loading }}
+        style={[s.authSubmit, { backgroundColor: danger }, !ready && s.authSubmitDisabled]}
+      >
+        <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "요청하는 중…" : "계정 삭제 요청"}</Text>
+      </Pressable>
+    </>
+  );
+}
+
+/**
+ * 삭제를 요청해 둔 계정으로 로그인했을 때. 다른 화면보다 먼저 뜬다.
+ *
+ * 로그인했다고 삭제가 저절로 취소되지 않는다. 기기를 잠깐 빌린 사람이 되돌리지
+ * 못하게 비밀번호를 한 번 더 받는다.
+ */
+function DeletionPendingScreen({
+  theme,
+  scheduledAt,
+  onCancelled,
+  onLogout,
+}: {
+  theme: AppTheme;
+  scheduledAt: string;
+  onCancelled: () => void;
+  onLogout: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const label = deletionDateLabel(scheduledAt);
+  const ready = password.length > 0 && !loading;
+  const submit = async () => {
+    if (!ready) return;
+    setLoading(true);
+    setError("");
+    try {
+      await cancelAccountDeletion(password);
+      onCancelled();
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "삭제를 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setLoading(false);
+    }
+  };
+  return (
+    <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.authPage}>
+        <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Text style={[s.authTitle, { color: theme.text }]}>계정 삭제가 예정돼 있어요</Text>
+          <Text style={[s.authDescription, { color: theme.muted }]}>
+            {label ? `${label}에 계정이 삭제돼요.` : "곧 계정이 삭제돼요."} 계속 쓰려면 비밀번호를 입력하고 삭제를 취소해 주세요.
+          </Text>
+          <Field theme={theme} label="비밀번호 확인" value={password} onChangeText={setPassword} placeholder="지금 쓰는 비밀번호" secureTextEntry />
+          {error ? (
+            <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text>
+          ) : null}
+          <Pressable
+            onPress={submit}
+            disabled={!ready}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !ready, busy: loading }}
+            style={[s.authSubmit, { backgroundColor: theme.primary }, !ready && s.authSubmitDisabled]}
+          >
+            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "취소하는 중…" : "삭제 취소하고 계속 쓰기"}</Text>
+          </Pressable>
+          <Pressable onPress={onLogout} accessibilityRole="button" style={s.authSwitch}>
+            <Text style={[s.authSwitchText, { color: theme.muted }]}>로그아웃</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -3357,6 +3514,7 @@ function Together({
   openTrip,
   onLogout,
   onWipe,
+  onAccountDeletionRequested,
 }: {
   theme: AppTheme;
   themeId: ThemeId;
@@ -3376,8 +3534,10 @@ function Together({
   setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
   openTrip: (trip: Trip) => void;
   onLogout: () => void;
-  /** 이 기기에 남은 것을 전부 지운다. 서버가 없으니 지울 수 있는 건 이것뿐이다. */
+  /** 이 기기에 남은 것을 전부 지운다. 서버의 계정은 그대로다. */
   onWipe: () => void;
+  /** 계정 삭제 요청이 받아들여졌다. 서버가 모든 기기를 로그아웃시킨 뒤다. */
+  onAccountDeletionRequested: (scheduledAt: string | null) => void;
 }) {
   const spaceName = activeSpace.name;
   const relationship = activeSpace.relationship;
@@ -3428,6 +3588,7 @@ function Together({
     | "help"
     | "licenses"
     | "account"
+    | "deleteAccount"
     | "groups"
     | null
   >(null);
@@ -3461,6 +3622,8 @@ function Together({
       ? "여행 공간 바꾸기"
       : panel === "account"
       ? "내 프로필"
+      : panel === "deleteAccount"
+      ? "계정 삭제"
       : panel === "members"
       ? "함께하는 멤버"
       : panel === "relationship"
@@ -3783,18 +3946,18 @@ function Together({
               onChangeText={(name) => setUser((current) => (current ? { ...current, name } : current))}
               placeholder="앱에서 사용할 이름"
             />
+            {/* 이메일은 새 주소로 확인 메일을 받아야 바꿀 수 있다. 그 흐름이 서버에 없어서
+                고친 것처럼 보이게 두지 않는다. */}
             <Field
               theme={theme}
               label="이메일"
               value={user.email}
-              onChangeText={(email) =>
-                setUser((current) => (current ? { ...current, email } : current))
-              }
-              placeholder="name@example.com"
+              onChangeText={() => {}}
+              editable={false}
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            <Text style={[s.sheetCopy, { color: theme.muted }]}>프로필 변경 내용은 바로 저장돼요.</Text>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>이름은 아직 이 기기에만 저장돼요. 이메일은 바꿀 수 없어요.</Text>
             <Pressable
               accessibilityRole="button"
               onPress={() => {
@@ -3811,7 +3974,7 @@ function Together({
               onPress={() => {
                 Alert.alert(
                   "이 기기의 데이터를 모두 지울까요?",
-                  "여행과 공간, 앱 설정이 이 기기에서 사라져요. 아직 서버가 없어서 다른 기기나 계정에서 지우는 건 아니에요. 되돌릴 수 없어요.",
+                  "이 기기에만 저장된 일정·준비물·비용·기록과 앱 설정이 사라져요. 계정과 서버에 저장된 공간·여행은 그대로예요. 되돌릴 수 없어요.",
                   [
                     { text: "취소", style: "cancel" },
                     { text: "모두 지우기", style: "destructive", onPress: () => { setPanel(null); onWipe(); } },
@@ -3823,7 +3986,23 @@ function Together({
             >
               <Text style={s.accountDeleteText}>이 기기 데이터 모두 지우기</Text>
             </Pressable>
+            <Pressable
+              onPress={() => setPanel("deleteAccount")}
+              accessibilityRole="button"
+              style={s.accountDelete}
+            >
+              <Text style={s.accountDeleteText}>계정 삭제</Text>
+            </Pressable>
           </>
+        )}
+        {panel === "deleteAccount" && (
+          <AccountDeletionPanel
+            theme={theme}
+            onRequested={(scheduledAt) => {
+              setPanel(null);
+              onAccountDeletionRequested(scheduledAt);
+            }}
+          />
         )}
         {panel === "members" && (
           <>
