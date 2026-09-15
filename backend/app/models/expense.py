@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     String,
     Text,
@@ -73,6 +74,8 @@ class Expense(Base, TimestampMixin, CreatedByMixin):
     receipt_photo_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True
     )
+    # 고칠 때마다 올린다. 두 사람이 같은 지출을 동시에 고치면 409.
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Expense {self.id}>"
@@ -150,6 +153,10 @@ class Payment(Base, TimestampMixin, CreatedByMixin):
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 누가 되돌렸는지. 정산 다툼에서 되돌린 사실만큼 누가 되돌렸는지가 중요하다.
+    deleted_by: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Payment {self.id}>"

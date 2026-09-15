@@ -1,0 +1,97 @@
+import uuid
+from datetime import date as Date
+from datetime import datetime
+from decimal import Decimal
+
+from pydantic import Field
+
+from app.models import ExpenseCategory, SplitMode
+from app.schemas.auth import _Camel
+
+# 금액은 여행 통화 기준이고 소수 둘째 자리까지다(달러·유로의 센트).
+_AMOUNT = dict(gt=0, le=Decimal("999999999999.99"), decimal_places=2)
+
+
+class ShareIn(_Camel):
+    membership_id: uuid.UUID
+    weight: Decimal = Field(ge=0, le=Decimal("9999999999"), decimal_places=4)
+
+
+class ExpenseCreateRequest(_Camel):
+    """
+    지출 한 건. `shares` 가 비면 참가자 전원이 똑같이 나눈 것으로 본다.
+
+    `id` 는 앱이 만든 UUID. 같은 id 로 다시 보내면 하나만 생긴다.
+    """
+
+    id: uuid.UUID | None = None
+    date: Date | None = None
+    title: str = Field(min_length=1, max_length=60)
+    amount: Decimal = Field(**_AMOUNT)
+    category: ExpenseCategory = ExpenseCategory.OTHER
+    payer_membership_id: uuid.UUID
+    split_mode: SplitMode | None = None
+    shares: list[ShareIn] = Field(default_factory=list, max_length=50)
+    memo: str | None = Field(default=None, max_length=2000)
+
+
+class ExpenseUpdateRequest(_Camel):
+    version: int
+    date: Date | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=60)
+    amount: Decimal | None = Field(default=None, **_AMOUNT)
+    category: ExpenseCategory | None = None
+    payer_membership_id: uuid.UUID | None = None
+    split_mode: SplitMode | None = None
+    shares: list[ShareIn] | None = Field(default=None, max_length=50)
+    memo: str | None = Field(default=None, max_length=2000)
+
+
+class ShareOut(_Camel):
+    membership_id: str
+    weight: float
+
+
+class ExpenseOut(_Camel):
+    id: str
+    trip_id: str
+    date: Date | None
+    title: str
+    # 앱이 숫자로 바로 쓰게 문자열이 아닌 수로 준다. 소수 둘째 자리까지라 어긋나지 않는다.
+    amount: float
+    category: ExpenseCategory
+    payer_membership_id: str
+    split_mode: SplitMode | None
+    shares: list[ShareOut]
+    memo: str | None
+    version: int
+
+
+class PaymentCreateRequest(_Camel):
+    """주고받았다고 적는 기록. 실제 송금이 아니다."""
+
+    id: uuid.UUID | None = None
+    from_membership_id: uuid.UUID
+    to_membership_id: uuid.UUID
+    amount: Decimal = Field(**_AMOUNT)
+    paid_at: datetime | None = None
+
+
+class PaymentOut(_Camel):
+    id: str
+    trip_id: str
+    from_membership_id: str
+    to_membership_id: str
+    amount: float
+    paid_at: datetime | None
+    version: int = 1
+
+
+class ExpenseSettingsRequest(_Camel):
+    """여행 통화·환율·예산과 정산 묶기. 여행의 `version` 을 함께 받는다."""
+
+    version: int
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    exchange_rate: Decimal | None = Field(default=None, gt=0, le=Decimal("999999999"))
+    budget: Decimal | None = Field(default=None, ge=0, le=Decimal("999999999999.99"))
+    simplify_settlement: bool | None = None
