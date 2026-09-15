@@ -46,24 +46,26 @@ Daymo는 그 한 덩어리를 **여행 단위로 쪼개서 구조로 만든다.*
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/trip-overview.png" width="165"><br><b>여행</b></td>
-    <td align="center"><img src="docs/screenshots/trip-places.png" width="165"><br><b>장소</b></td>
-    <td align="center"><img src="docs/screenshots/trip-packing.png" width="165"><br><b>준비</b></td>
-    <td align="center"><img src="docs/screenshots/trip-cooking.png" width="165"><br><b>요리</b></td>
-    <td align="center"><img src="docs/screenshots/trip-memories.png" width="165"><br><b>기록</b></td>
+    <td align="center"><img src="docs/screenshots/trip-overview.png" width="140"><br><b>여행</b></td>
+    <td align="center"><img src="docs/screenshots/trip-places.png" width="140"><br><b>장소</b></td>
+    <td align="center"><img src="docs/screenshots/trip-packing.png" width="140"><br><b>준비</b></td>
+    <td align="center"><img src="docs/screenshots/trip-cooking.png" width="140"><br><b>요리</b></td>
+    <td align="center"><img src="docs/screenshots/trip-expenses.png" width="140"><br><b>비용</b></td>
+    <td align="center"><img src="docs/screenshots/trip-memories.png" width="140"><br><b>기록</b></td>
   </tr>
   <tr>
-    <td width="20%" valign="top">날짜별 일정, 가는 편과 오는 편 교통편, 대표 숙소와 예약. 일정 줄의 <code>N 지도</code>를 누르면 네이버 지도가 열린다.</td>
-    <td width="20%" valign="top">여행 때 갈지 말지 정할 후보 장소를 모아 둔다. 전체·저장·일정·대표 숙소로 거르고 태그로 좁힌다. 카드마다 <code>대표 숙소</code>·<code>일정에 담김</code> 상태가 붙는다.</td>
-    <td width="20%" valign="top">준비물 30개와 진행률 막대. 상태(전체·남은 준비·완료)와 담당(참가자별·공용·미정, 각각 개수가 붙는다)으로 거르고, 「집에서」처럼 묶어 접는다. 줄 오른쪽 칩이 담당이다.</td>
-    <td width="20%" valign="top">요리를 골라 그 재료를 보고, 통합 장보기에서 <b>현지 구매 7개 · 집에서 9개</b>로 나눠 본다. 요리마다 재료 준비율과 레시피 영상 링크가 있고, 장 본 금액은 비용 탭에 지출 한 건으로 넘긴다.</td>
-    <td width="20%" valign="top">사진·일기·기록한 날 수를 먼저 세어 보여준다. 아래로 여행 기념 카드, 여행 일기, 기기 사진첩에서 고른 여행 사진이 이어진다.</td>
+    <td width="16%" valign="top">날짜별 일정, 가는 편과 오는 편 교통편, 대표 숙소와 예약. 일정 줄의 <code>N 지도</code>를 누르면 네이버 지도가 열린다.</td>
+    <td width="16%" valign="top">여행 때 갈지 말지 정할 후보 장소를 모아 둔다. 전체·저장·일정·대표 숙소로 거르고 태그로 좁힌다. 카드마다 <code>대표 숙소</code>·<code>일정에 담김</code> 상태가 붙는다.</td>
+    <td width="16%" valign="top">준비물 30개와 진행률 막대. 상태(전체·남은 준비·완료)와 담당(참가자별·공용·미정, 각각 개수가 붙는다)으로 거르고, 「집에서」처럼 묶어 접는다. 줄 오른쪽 칩이 담당이다.</td>
+    <td width="16%" valign="top">요리를 골라 그 재료를 보고, 통합 장보기에서 <b>현지 구매 7개 · 집에서 9개</b>로 나눠 본다. 요리마다 재료 준비율과 레시피 영상 링크가 있고, 장 본 금액은 비용 탭에 지출 한 건으로 넘긴다.</td>
+    <td width="16%" valign="top">쓴 돈 합계와 예산 막대, 여행 통화와 참가자 칩이 맨 위에 있다. 바로 아래 정산은 <b>「나」 기준</b>이라 내가 받을 돈과 보낼 돈이 사람별로 먼저 온다.</td>
+    <td width="16%" valign="top">사진·일기·기록한 날 수를 먼저 세어 보여준다. 아래로 여행 기념 카드, 여행 일기, 기기 사진첩에서 고른 여행 사진이 이어진다.</td>
   </tr>
 </table>
 
 요리 탭은 숙소에 주방이 있을 때만 나온다.
 
-**비용 탭**은 아직 스크린샷이 없어 글로 적는다. 맨 위에 쓴 돈 합계와 예산 막대, 여행 통화와 이번 여행 참가자를 고르는 칩이 있고, 그 바로 아래가 정산이다. 이어서 분류를 고르고 금액만 적는 「빠르게 적기」, 분류·날짜별 합계, 날짜로 묶인 지출 내역, 그리고 지출과 정산을 표로 만드는 내보내기가 온다.
+**비용 탭**은 맨 위에 쓴 돈 합계와 예산 막대, 여행 통화와 이번 여행 참가자를 고르는 칩이 있고, 그 바로 아래가 정산이다. 이어서 분류를 고르고 금액만 적는 「빠르게 적기」, 분류·날짜별 합계, 날짜로 묶인 지출 내역, 그리고 지출과 정산을 표로 만드는 내보내기가 온다.
 
 지출 하나를 나누는 방식은 셋이다 — **똑같이 / 일부만 / 금액 직접**. 기본은 참가자 전원이 똑같이 나누는 것이다. 정산은 **「나」 기준**이라 내가 보낼 줄과 받을 줄이 먼저 오고, 다른 사람들끼리의 몫은 접어 둔다. 「보냈어요」는 송금이 아니라 **보냈다고 적어 두는 기록**이고, 일부만 적거나 되돌릴 수 있다. 오갈 횟수를 줄이는 **묶기**는 기본으로 켜져 있으며, 줄을 누르면 왜 그 사람에게 보내는지 근거를 펼친다. 주고받은 기록이 하나라도 생기면 묶기는 잠긴다. 정산 내용은 단톡방에 붙일 수 있게 텍스트로 복사한다.
 
