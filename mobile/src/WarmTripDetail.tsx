@@ -9,16 +9,25 @@ import { ParticipantPicker } from "./ParticipantPicker";
 import { DaymoApiError } from "./auth";
 import { TripConflictError } from "./tripSync";
 import { useListSync } from "./useListSync";
-import { isServerId, tripDateKeys } from "./listSync";
+import { dateKey, dateLabelOf, isServerId, tripDateKeys } from "./listSync";
 import { legacyIdMap, placeCodec } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
 import { reservationCodec, transportCodec } from "./bookingSync";
 import { expenseCodec, paymentCodec } from "./expenseSync";
 import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
 import { rebindPeople, type PeopleNames } from "./people";
+import { diaryCodec, memoCodec } from "./memorySync";
 import type { ExpenseSettings } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
+  createDiary,
+  createMemo,
+  deleteDiary,
+  deleteMemo,
+  listDiaries,
+  listMemos,
+  updateDiary,
+  updateMemo,
   createChecklistItem,
   createRecipe,
   deleteChecklistItem,
@@ -254,6 +263,10 @@ export type TripPlanningData = {
   personNames?: PeopleNames;
   /** 서버와 맞춘 적이 있는 요리 id. 재료는 요리와 함께 오간다. */
   recipeSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 메모 id. */
+  memoSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 일기 id. */
+  diarySyncIds?: string[];
   /**
    * 통화·환율·예산·정산 묶기를 서버와 한 번이라도 맞췄는지. 맞춘 적이 없으면 기기 값을
    * 서버에 올리고, 맞춘 적이 있으면 서버 값으로 연다.
@@ -268,8 +281,19 @@ export type TripPlanningData = {
 };
 
 export type MemoryPhoto = { id: string; color: string; date: string; caption: string; uri?: string };
-export type TravelDiary = { id: string; title: string; body: string; date: string };
+export type TravelDiary = {
+  id: string;
+  title: string;
+  body: string;
+  /** 화면에 보이는 날짜 줄. */
+  date: string;
+  /** 그 일기가 다루는 날(YYYY-MM-DD). 여행 중에 쓰면 오늘이고, 비어 있을 수 있다. */
+  writtenOn?: string;
+};
 export type TripNote = { id: string; author: string; body: string };
+
+/** 제목 없이 쓴 일기의 이름. 저장하지 않고 보여줄 때만 쓴다. */
+const DIARY_UNTITLED = "이번 여행 이야기";
 export type TripMemoryData = {
   photos: MemoryPhoto[];
   diaries: TravelDiary[];
@@ -1144,6 +1168,16 @@ export function WarmTripDetail({
     if (payments.some((item) => !isServerId(item.id))) {
       setPayments((current) => current.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })));
     }
+    // 메모와 일기는 다른 줄이 가리키지 않아 id 만 바꾼다.
+    if (tripNotes.some((item) => !isServerId(item.id))) {
+      setTripNotes((current) => current.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })));
+    }
+    if (memories.diaries.some((item) => !isServerId(item.id))) {
+      setMemories((current) => ({
+        ...current,
+        diaries: current.diaries.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })),
+      }));
+    }
     // 준비물·요리·재료의 옛 id 도 바꾸고, 체크해 둔 것이 따라가게 한다.
     const packingMap = new Map<string, string>();
     for (const item of packingItems) if (!isServerId(item.id)) packingMap.set(item.id, newPlaceId());
@@ -1400,6 +1434,35 @@ export function WarmTripDetail({
     refreshKey: rosterKey,
     notify: setFeedback,
   });
+  const [memoSyncIds, setMemoSyncIds] = useState<string[]>(() => initialPlanning?.memoSyncIds ?? []);
+  const [diarySyncIds, setDiarySyncIds] = useState<string[]>(() => initialPlanning?.diarySyncIds ?? []);
+  const memoSyncCodec = useMemo(
+    () => memoCodec(spaceRoster),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosterKey],
+  );
+  useListSync({
+    tripId,
+    label: "메모",
+    items: tripNotes,
+    setItems: setTripNotes,
+    codec: memoSyncCodec,
+    api: { list: listMemos, create: createMemo, update: updateMemo, remove: deleteMemo },
+    syncedIds: memoSyncIds,
+    setSyncedIds: setMemoSyncIds,
+    notify: setFeedback,
+  });
+  useListSync({
+    tripId,
+    label: "일기",
+    items: memories.diaries,
+    setItems: (updater) => setMemories((current) => ({ ...current, diaries: updater(current.diaries) })),
+    codec: diaryCodec,
+    api: { list: listDiaries, create: createDiary, update: updateDiary, remove: deleteDiary },
+    syncedIds: diarySyncIds,
+    setSyncedIds: setDiarySyncIds,
+    notify: setFeedback,
+  });
   const [expenseSettingsSynced, setExpenseSettingsSynced] = useState(Boolean(initialPlanning?.expenseSettingsSynced));
   const lastSentSettings = useRef<string | null>(
     initialPlanning?.expenseSettingsSynced && serverExpenseSettings ? JSON.stringify(serverExpenseSettings) : null,
@@ -1512,10 +1575,12 @@ export function WarmTripDetail({
       paymentSyncIds,
       packingSyncIds,
       recipeSyncIds,
+      memoSyncIds,
+      diarySyncIds,
       personNames,
       expenseSettingsSynced,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, diarySyncIds, memoSyncIds, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -1551,11 +1616,13 @@ export function WarmTripDetail({
       paymentSyncIds,
       packingSyncIds,
       recipeSyncIds,
+      memoSyncIds,
+      diarySyncIds,
       personNames,
       expenseSettingsSynced,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, diarySyncIds, memoSyncIds, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -1854,6 +1921,7 @@ export function WarmTripDetail({
           {mode === "기록" && (
             <Memories
               tripDate={currentTripDate}
+              tripDateKeys={tripDateKeyList}
               dayOptions={tripDayOptions}
               todayDay={todayTripDay}
               memories={memories}
@@ -1882,13 +1950,14 @@ export function WarmTripDetail({
             const body = memoDraft.trim();
             if (!body) return;
             if (editingMemoId) {
+              // 남이 쓴 메모를 고쳐도 작성자는 그대로다. 시각만 방금으로 바꿔 보인다.
               setTripNotes((current) => current.map((note) =>
-                note.id === editingMemoId ? { ...note, body, author: "하늘 · 방금 수정" } : note,
+                note.id === editingMemoId ? { ...note, body, author: `${note.author.split(" · ")[0]} · 방금 수정` } : note,
               ));
               setFeedback("여행 메모를 수정했어요");
             } else {
               setTripNotes((current) => [
-                { id: `memo-${Date.now()}`, author: "하늘 · 방금", body },
+                { id: newPlaceId(), author: `${me} · 방금`, body },
                 ...current,
               ]);
               setFeedback("여행 메모를 추가했어요");
@@ -6882,12 +6951,15 @@ function Cooking({
 
 function Memories({
   tripDate,
+  tripDateKeys: tripKeys,
   dayOptions,
   todayDay,
   memories,
   setMemories,
 }: {
   tripDate: string;
+  /** 여행 날짜 키(YYYY-MM-DD). 여행 중에 쓴 일기를 그날에 둔다. */
+  tripDateKeys: string[];
   /** 여행 날짜 칸. 비용 탭과 같은 목록에서 고르게 해야 손놀림이 같다. */
   dayOptions: string[];
   /** 여행 중이면 오늘. 사진은 대개 찍은 날에 넣는다. */
@@ -7032,7 +7104,17 @@ function Memories({
   };
   const saveDiary = () => {
     if (!diaryBody.trim()) return;
-    const next = { id: editingDiaryId ?? `diary-${Date.now()}`, title: diaryTitle.trim() || "이번 여행 이야기", body: diaryBody.trim(), date: editingDiaryId ? diaries.find((diary) => diary.id === editingDiaryId)?.date ?? "방금" : "방금" };
+    const previous = diaries.find((diary) => diary.id === editingDiaryId);
+    // 여행 중에 쓰면 오늘 이야기로 둔다. 여행 밖에서 쓰면 다루는 날을 비운다.
+    const today = dateKey(new Date());
+    const writtenOn = previous ? previous.writtenOn : tripKeys.includes(today) ? today : undefined;
+    const next: TravelDiary = {
+      id: previous?.id ?? newPlaceId(),
+      title: diaryTitle.trim(),
+      body: diaryBody.trim(),
+      date: previous?.date ?? (writtenOn ? dateLabelOf(writtenOn) : "방금"),
+      ...(writtenOn ? { writtenOn } : {}),
+    };
     setDiaries((current) => editingDiaryId
       ? current.map((diary) => diary.id === editingDiaryId ? next : diary)
       : [next, ...current]);
@@ -7093,7 +7175,7 @@ function Memories({
           key={diary.id}
           onPress={() => openDiaryEdit(diary)}
           accessibilityRole="button"
-          accessibilityLabel={`${diary.title} 일기 수정`}
+          accessibilityLabel={`${diary.title || DIARY_UNTITLED} 일기 수정`}
           style={[
             styles.diaryCard,
             theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -7106,7 +7188,7 @@ function Memories({
             ))}
           </View>
           <Text style={[styles.diaryDate, theme && { color: theme.primary }]}>{diary.date}</Text>
-          <Text style={[styles.diaryTitle, theme && { color: theme.text }]}>{diary.title}</Text>
+          <Text style={[styles.diaryTitle, theme && { color: theme.text }]}>{diary.title || DIARY_UNTITLED}</Text>
           <Text numberOfLines={3} style={[styles.diaryBody, theme && { color: theme.muted }]}>{diary.body}</Text>
         </Pressable>
       ))}

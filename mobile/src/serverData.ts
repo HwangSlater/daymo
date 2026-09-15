@@ -4,6 +4,7 @@ import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./s
 import type { ReservationBody, ServerReservation, ServerTransport, TransportBody } from "./bookingSync";
 import type { ExpenseBody, PaymentBody, ServerExpense, ServerPayment } from "./expenseSync";
 import type { ChecklistItemBody, RecipeBody, ServerChecklistItem, ServerRecipe } from "./cookingSync";
+import type { DiaryBody, MemoBody, ServerDiary, ServerMemo } from "./memorySync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
@@ -249,6 +250,43 @@ export const updateRecipe = (id: string, version: number, body: RecipeBody) =>
 
 export const deleteRecipe = (id: string) =>
   authenticatedRequest<void>(`/v1/recipes/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listMemos = (tripId: string) =>
+  authenticatedRequest<ServerMemo[]>(`/v1/trips/${encodeURIComponent(tripId)}/memos`);
+
+export const createMemo = (tripId: string, id: string, body: MemoBody) =>
+  authenticatedRequest<ServerMemo>(`/v1/trips/${encodeURIComponent(tripId)}/memos`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateMemo = (id: string, version: number, body: MemoBody) =>
+  authenticatedRequest<ServerMemo>(`/v1/memos/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+/** 서버는 행을 남기고 누가 지웠는지 적는다. */
+export const deleteMemo = (id: string) =>
+  authenticatedRequest<void>(`/v1/memos/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listDiaries = (tripId: string) =>
+  authenticatedRequest<ServerDiary[]>(`/v1/trips/${encodeURIComponent(tripId)}/diaries`);
+
+export const createDiary = (tripId: string, id: string, body: DiaryBody) =>
+  authenticatedRequest<ServerDiary>(`/v1/trips/${encodeURIComponent(tripId)}/diaries`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateDiary = (id: string, version: number, body: DiaryBody) =>
+  authenticatedRequest<ServerDiary>(`/v1/diaries/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteDiary = (id: string) =>
+  authenticatedRequest<void>(`/v1/diaries/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export const updateExpenseSettings = (tripId: string, version: number, settings: ExpenseSettings) =>
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/expense-settings`, {
