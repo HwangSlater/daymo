@@ -20,6 +20,8 @@
   assets/daymo-icon-login.png     512      로그인 화면에 얹는 작은 아이콘.
   assets/daymo-splash.png        1024x704  실행 화면. 배경 없이 그림만, 잉크 남색.
   assets/daymo-splash-dark.png   1024x704  같은 그림, 어두운 모드용 흰색.
+  assets/daymo-splash-android.png      1024  안드로이드 실행 화면. 원 안에 맞춘 정사각형.
+  assets/daymo-splash-android-dark.png 1024  같은 그림, 어두운 모드용 흰색.
   assets/daymo-favicon.png         64      브라우저 탭. 아이콘과 같은 그림, 이름만 키운다.
 
   ../docs/design/logos/                    소셜 로그인 콘솔에 올리는 로고. 앱에 들어가지 않는다.
@@ -133,6 +135,14 @@ TAGLINE_ALPHA = 0.55
 # 모눈을 깔던 때의 크기(320 x 220)를 그대로 둔다.
 SPLASH_BOX = (0, 240, 320, 460)
 SPLASH_PIXEL_WIDTH = 1024
+
+# 안드로이드 12 부터는 실행 화면 그림을 288dp 정사각형 가운데 지름 192dp 원으로
+# 자른다(배경 없는 아이콘 규칙). iOS 용 가로 그림을 그대로 주면 오른쪽 위 비행기와
+# 이름 양 끝이 잘려서, 안드로이드에는 원 안에 맞춘 정사각형을 따로 준다.
+# app.json 의 android.imageWidth 를 288 로 두어야 그림 한 변이 캔버스와 맞는다.
+# 원 반지름은 한 변의 1/3 이고, 조금 안쪽으로 맞춘다.
+ANDROID_SPLASH_SIDE = 1024
+ANDROID_SPLASH_RADIUS = 0.31
 
 # 안드로이드 적응형 아이콘은 108dp 중 가운데 지름 66dp 원이 어떤 런처에서도
 # 보인다. 그림의 모든 점이 그 원 안에 들도록 맞춘다(반지름 비율). 상자로 맞추면
@@ -264,7 +274,8 @@ def scene_bounds(trail=TRAIL_COUNT, trail_to=TRAIL_TO, wordmark=True,
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def scene_points(trail=TRAIL_COUNT, trail_to=TRAIL_TO, trail_from=TRAIL_FROM):
+def scene_points(trail=TRAIL_COUNT, trail_to=TRAIL_TO, trail_from=TRAIL_FROM,
+                 tagline=False):
     """그림의 가장자리 점들. 원 안에 맞출 때 쓴다."""
     points = []
     for x, y, r in trail_points(trail, trail_to, trail_from):
@@ -275,6 +286,11 @@ def scene_points(trail=TRAIL_COUNT, trail_to=TRAIL_TO, trail_from=TRAIL_FROM):
     left, top, right, bottom = font.getbbox(WORDMARK, anchor="ms")
     x0, y0 = WORDMARK_AT
     points += [(x0 + left, y0 + top), (x0 + right, y0 + top), (x0 + left, y0 + bottom), (x0 + right, y0 + bottom)]
+    if tagline:
+        font = ImageFont.truetype(str(FONT), TAGLINE_SIZE)
+        left, top, right, bottom = font.getbbox(TAGLINE, anchor="ms")
+        x0, y0 = TAGLINE_AT
+        points += [(x0 + left, y0 + top), (x0 + right, y0 + top), (x0 + left, y0 + bottom), (x0 + right, y0 + bottom)]
     return points
 
 
@@ -305,9 +321,9 @@ def enclosing_circle(points):
     return cx, cy, best
 
 
-def fit_circle(side, radius_ratio):
+def fit_circle(side, radius_ratio, tagline=False):
     """모든 점이 가운데 원 안에 들어오게 줄이고 옮긴다. 원형으로 잘라도 안 잘린다."""
-    cx, cy, far = enclosing_circle(scene_points())
+    cx, cy, far = enclosing_circle(scene_points(tagline=tagline))
     scale = side * radius_ratio / far
     return (side / 2 - cx * scale, side / 2 - cy * scale), scale
 
@@ -349,6 +365,14 @@ def splash(ink, paper):
     return finish(canvas, (SPLASH_PIXEL_WIDTH, height))
 
 
+def android_splash(ink, paper):
+    side = ANDROID_SPLASH_SIDE
+    offset, scale = fit_circle(side, ANDROID_SPLASH_RADIUS, tagline=True)
+    canvas = Canvas((side, side), scale, offset)
+    draw_scene(canvas, ink, halo=paper, tagline=True)
+    return finish(canvas, (side, side))
+
+
 def favicon():
     global WORDMARK_SIZE
     # 이름만 키운 채로 상자를 재고 그린다. 재기 전에 키워야 잘리지 않는다.
@@ -373,6 +397,8 @@ def main():
 
     splash(SPLASH_INK_LIGHT, SPLASH_PAPER_LIGHT).save(OUT / "daymo-splash.png")
     splash(SPLASH_INK_DARK, SPLASH_PAPER_DARK).save(OUT / "daymo-splash-dark.png")
+    android_splash(SPLASH_INK_LIGHT, SPLASH_PAPER_LIGHT).save(OUT / "daymo-splash-android.png")
+    android_splash(SPLASH_INK_DARK, SPLASH_PAPER_DARK).save(OUT / "daymo-splash-android-dark.png")
 
     # 탭 배경이 밝을지 어두울지 알 수 없으니 아이콘처럼 배경까지 채운다.
     favicon().convert("RGB").save(OUT / "daymo-favicon.png")
@@ -388,6 +414,8 @@ def main():
         "daymo-icon-login.png",
         "daymo-splash.png",
         "daymo-splash-dark.png",
+        "daymo-splash-android.png",
+        "daymo-splash-android-dark.png",
         "daymo-favicon.png",
     ):
         image = Image.open(OUT / name)

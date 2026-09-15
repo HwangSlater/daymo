@@ -52,6 +52,13 @@
           "dark": {
             "image": "./assets/daymo-splash-dark.png",
             "backgroundColor": "#0D111A"
+          },
+          "android": {
+            "image": "./assets/daymo-splash-android.png",
+            "imageWidth": 288,
+            "dark": {
+              "image": "./assets/daymo-splash-android-dark.png"
+            }
           }
         }
       ],
