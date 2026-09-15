@@ -7,6 +7,7 @@ import type { ChecklistItemBody, RecipeBody, ServerChecklistItem, ServerRecipe }
 import type { DiaryBody, MemoBody, ServerDiary, ServerMemo, ServerTrashItem } from "./memorySync";
 import type { PhotoBody, ServerPhoto } from "./photoSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
+import type { ServerTripOverview } from "./tripOverview";
 
 export type ServerSpace = {
   id: string;
@@ -38,6 +39,8 @@ export type ServerTrip = {
   archivedAt?: string | null;
   /** 지운 여행일 때만. 이 시각이 지나면 되돌릴 수 없다. */
   deletionScheduledAt?: string | null;
+  /** 홈 카드가 보여 줄 숫자. 쓸 때 `parseTripOverview` 로 읽는다. */
+  overview?: ServerTripOverview | null;
 };
 
 /** 여행의 통화·환율·예산·정산 묶기. */

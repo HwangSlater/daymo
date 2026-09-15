@@ -115,6 +115,7 @@ import {
   type SpaceChange,
 } from "./spaceMapping";
 import { mergeServerTripsByGroup } from "./tripMerge";
+import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
@@ -137,6 +138,11 @@ type Trip = {
   start: string;
   end: string;
   planning?: TripPlanningData;
+  /**
+   * 서버가 센 홈 카드 숫자. 있으면 홈이 기록(`planning`) 대신 이것을 쓴다.
+   * 기록은 상세를 이 기기에서 열어야 채워져서, 다른 멤버가 채운 여행이 비어 보인다.
+   */
+  overview?: ServerTripOverview;
   /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
   serverExpenseSettings?: ExpenseSettings;
   /**
@@ -177,6 +183,7 @@ const rosterOfSpace = (space: Space, myName: string): RosterEntry[] =>
 // 비어 있는 칸을 멤버 전원으로 읽는다.
 const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []): Trip => {
   const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
+  const overview = parseTripOverview(trip.overview);
   return {
     id: trip.id,
     version: trip.version,
@@ -189,11 +196,22 @@ const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []):
     start: trip.startDate,
     end: trip.endDate,
     ...(participants.length ? { planning: { participants } } : {}),
+    ...(overview ? { overview } : {}),
     serverExpenseSettings: expenseSettingsFrom(trip),
     archived: trip.status === "archived",
     ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
   };
 };
+
+/** 홈 카드 숫자를 셀 때 넘기는 칸. */
+const tripForSummary = (trip: Trip) => ({
+  overview: trip.overview,
+  planning: trip.planning,
+  serverCurrency: trip.serverExpenseSettings?.currency,
+});
+
+// 상세를 닫고 요약을 다시 받기까지 기다리는 시간. 닫으며 보낸 변경이 먼저 서버에 닿게 한다.
+const OVERVIEW_REFRESH_MS = 2500;
 
 const expenseSettingsFrom = (trip: ServerTrip): ExpenseSettings => ({
   currency: trip.currencyCode ?? "KRW",
@@ -757,6 +775,44 @@ export function WarmAppShell({
       throw new TripConflictError(latestTripFrom(latest, activeRoster));
     }
   };
+  /**
+   * 상세를 닫으면 홈 카드 숫자를 다시 받는다.
+   *
+   * 방금 고친 것은 서버 요약보다 기록이 새롭다. 그래서 요약을 먼저 떼어 기록으로 보여
+   * 주고, 상세가 닫히며 보낸 변경이 서버에 닿을 즈음 요약을 새로 받는다. 받지 못하면
+   * (연결 없음) 기록을 그대로 보여 준다.
+   */
+  // 여행마다 따로 기다린다. 곧바로 다른 여행을 열고 닫아도 앞 여행의 요약을 받는다.
+  const overviewTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const timers = overviewTimers.current;
+    return () => timers.forEach((timer) => clearTimeout(timer));
+  }, []);
+  const refreshOverviewAfterDetail = (tripId: string | undefined) => {
+    if (!tripId) return;
+    const setOverview = (overview: ServerTripOverview | undefined) =>
+      setTripsByGroup((current) => {
+        const next = { ...current };
+        for (const group of Object.keys(next) as GroupId[]) {
+          next[group] = next[group].map((trip) => {
+            if (trip.id !== tripId) return trip;
+            const { overview: _old, ...rest } = trip;
+            return overview ? { ...rest, overview } : rest;
+          });
+        }
+        return next;
+      });
+    setOverview(undefined);
+    const timers = overviewTimers.current;
+    const waiting = timers.get(tripId);
+    if (waiting) clearTimeout(waiting);
+    timers.set(tripId, setTimeout(() => {
+      timers.delete(tripId);
+      getTrip(tripId)
+        .then((saved) => setOverview(parseTripOverview(saved.overview)))
+        .catch(() => undefined);
+    }, OVERVIEW_REFRESH_MS));
+  };
   const now = new Date();
 
   useEffect(() => {
@@ -937,7 +993,10 @@ export function WarmAppShell({
           setTripItems((current) => current.map((trip) => trip === selectedTrip ? updated : trip));
           setSelectedTrip(updated);
         }}
-        onClose={() => setTripOpen(false)}
+        onClose={() => {
+          setTripOpen(false);
+          refreshOverviewAfterDetail(selectedTrip.id);
+        }}
       />
     );
   return (
@@ -1978,14 +2037,8 @@ function NotebookHome({
   since: string;
 }) {
   const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
-  const homeStay = trip?.planning?.stay;
-  const homePacking = trip?.planning?.packingItems?.length ?? 0;
-  const homeLeft = Math.max(0, homePacking - (trip?.planning?.packingDone?.length ?? 0));
-  const homePlaces = trip?.planning?.places;
-  // 장소를 아직 안 연 예시 여행은 셀 것이 없다. 그때는 숫자 대신 안내를 낸다.
-  const placesKnown = Boolean(homePlaces);
-  const restaurantCount = homePlaces?.filter((place) => place.category === "식당").length ?? 0;
-  const cafeCount = homePlaces?.filter((place) => place.category === "카페").length ?? 0;
+  const home = homeSummaryOf(trip ? tripForSummary(trip) : {});
+  const homeLeft = Math.max(0, home.packingTotal - home.packingDone);
   return (
     <ScrollView
       style={{ backgroundColor: "transparent" }}
@@ -2037,13 +2090,13 @@ function NotebookHome({
         ]}
       >
         <View pointerEvents="none" style={[s.memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
-        <MemoRow theme={theme} color={theme.primary} text="대표 숙소" meta={homeStay?.name || "아직 등록하지 않았어요"} onPress={() => open("overview", trip)} />
+        <MemoRow theme={theme} color={theme.primary} text="대표 숙소" meta={home.stayName || "아직 등록하지 않았어요"} onPress={() => open("overview", trip)} />
         <MemoRow
           theme={theme}
           color={theme.accent}
           text="준비물"
           meta={
-            homePacking
+            home.packingTotal
               ? homeLeft
                 ? `${homeLeft}개 남았어요`
                 : "다 챙겼어요"
@@ -2051,7 +2104,7 @@ function NotebookHome({
           }
           onPress={() => open("preparation", trip)}
         />
-        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소" meta={placesKnown ? `식당 ${restaurantCount} · 카페 ${cafeCount}` : "아직 없어요"} onPress={() => open("places", trip)} last />
+        <MemoRow theme={theme} color={theme.secondary} text="저장한 장소" meta={home.placeCount ? `식당 ${home.restaurantCount} · 카페 ${home.cafeCount}` : "아직 없어요"} onPress={() => open("places", trip)} last />
       </View>
       {trips.some((item) => item.end < todayKey) && (
         <View style={s.homeArchiveSection}>
@@ -2360,15 +2413,16 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
   const paper = paperCard(theme.dark);
-  const stay = trip.planning?.stay;
   // 없으면 없다고 말한다. 그럴듯한 숫자를 채워 두면 눌러 보고 나서야 빈 줄
   // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다.
-  const scheduleCount = trip.planning?.schedule?.length ?? 0;
-  const placeCount = trip.planning?.places?.length ?? 0;
-  const packedCount = trip.planning?.packingDone?.length ?? 0;
+  // 서버 여행은 서버가 센 요약을, 없으면 기기의 기록을 쓴다(`tripOverview.ts`).
+  const summary = homeSummaryOf(tripForSummary(trip));
+  const scheduleCount = summary.scheduleCount;
+  const placeCount = summary.placeCount;
+  const packedCount = summary.packingDone;
   // 비용은 여행마다 있을 수도 없을 수도 있다. 적은 게 있을 때만 칸을 내준다.
-  const spent = (trip.planning?.expenses ?? []).reduce((sum, item) => sum + item.amount, 0);
-  const spentCurrency = trip.planning?.currency;
+  const spent = summary.spent;
+  const spentCurrency = summary.currency;
   return (
       <View style={s.paperTripStack}>
         <View style={[s.paperTripBack, s.paperTripBackLeft, { backgroundColor: paper.backLeft }]} />
@@ -2481,7 +2535,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[s.paperStayLabel, { color: domain("stay", theme.dark).solid }]}>숙소</Text>
-              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>{stay?.name || "숙소 미등록"}</Text>
+              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>{summary.stayName || "숙소 미등록"}</Text>
             </View>
             <View
               style={[
@@ -2493,7 +2547,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
               ]}
             >
               <Text style={[s.paperStayTimeLabel, { color: paper.muted }]}>체크인</Text>
-              <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>{stay?.checkin || "미정"}</Text>
+              <Text style={[s.paperStayTimeValue, { color: theme.primary }]}>{summary.checkin || "미정"}</Text>
             </View>
           </View>
         </View>
