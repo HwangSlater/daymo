@@ -128,7 +128,7 @@ Expo SDK는 기능 코드를 넣기 전에 별도 되돌리기 가능한 커밋�
 - Pydantic v2로 요청·응답 검증과 설정 스키마
 - SQLAlchemy 2.0 + Alembic, DB 드라이버는 psycopg 3. 복잡한 검색/집계는 명시적 SQL을 직접 쓴다
 - PostgreSQL 16
-- Authlib으로 OAuth2 client, PyJWT로 JWT access token + 회전형 refresh token
+- httpx로 OAuth provider 호출, PyJWT로 JWT access token + 회전형 refresh token
 - Pillow로 사진 표시본·썸네일 변환
 - OpenAPI 문서는 FastAPI가 기본으로 만들어 주므로 별도 문서 생성 도구를 두지 않는다
 - pytest. DB 테스트는 로컬 PostgreSQL 컨테이너를 쓴다. `testcontainers-python`도 있으나 2GB CI에서 굳이 필요한지는 미정
@@ -202,8 +202,8 @@ SQLAlchemy 접속 URL은 위 조각으로 코드에서 조립한다. 비밀번�
 - 개발: Expo development build의 리디렉션 URI 등록
 - 운영: `daymo.xyz` 기반 iOS Universal Link와 Android App Link를 추가하고 스킴은 보조 수단으로 유지
 - 제공자: Apple, Google, Kakao, Naver
-- 로그인 완료 후 URL query에 이메일을 직접 전달하는 현재 데모 방식은 폐기한다. 서버의 Authlib OAuth2 client가 authorization code를 교환하고 일회용 앱 로그인 코드를 발급한다. 앱은 코드를 API에 교환해 access/refresh token을 받는다.
-- 흐름은 그대로지만 손으로 짤 코드는 늘어난다. Spring Security OAuth2 Client가 대신 해 주던 authorization code 교환, state 검증, token 갱신을 Authlib 위에서 직접 조립해야 한다. 스택을 바꾸면서 잃는 쪽이므로 구현 단계에서 따로 검토한다.
+- 서버가 authorization code를 교환하고 일회용 앱 로그인 코드를 발급한다. 앱은 코드를 PKCE verifier와 함께 API에 교환해 access/refresh token을 받는다(`backend/app/services/oauth/`).
+- Authlib은 들이지 않았다. 네 provider가 주고받는 것이 주소 셋과 폼 몇 칸이라 httpx로 직접 부르고, id_token 검증과 Apple client secret 서명은 `pyjwt[crypto]`로 한다. provider token은 사람을 확인한 뒤 저장하지 않으므로 token 갱신은 필요 없다.
 
 ## 6. 권장 프로젝트 구조
 

@@ -9,7 +9,7 @@ from app.core.errors import MESSAGE_BY_CODE, STATUS_BY_CODE, ErrorCode
 #
 #   성공  { "data": ..., "meta": { "requestId": "uuid" } }
 #   목록  { "data": [...], "meta": { "nextCursor": null, "hasMore": false, "requestId": ... } }
-#   오류  { "error": { "code": ..., "message": ..., "fields": ..., "requestId": ... } }
+#   오류  { "error": { "code": ..., "message": ..., "fields": ..., "details": ..., "requestId": ... } }
 
 
 def ok(data: Any, **meta: Any) -> dict[str, Any]:
@@ -33,6 +33,7 @@ def error_response(
     *,
     message: str | None = None,
     fields: dict[str, str] | None = None,
+    details: dict[str, str] | None = None,
     status_code: int | None = None,
 ) -> JSONResponse:
     body: dict[str, Any] = {
@@ -42,6 +43,8 @@ def error_response(
     }
     if fields:
         body["fields"] = fields
+    if details:
+        body["details"] = details
     return JSONResponse(
         status_code=status_code or STATUS_BY_CODE[code],
         content={"error": body},

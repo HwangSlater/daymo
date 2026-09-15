@@ -20,6 +20,7 @@ class ErrorCode(StrEnum):
     OWNER_TRANSFER_REQUIRED = "OWNER_TRANSFER_REQUIRED"
     SPACE_MEMBER_LIMIT_REACHED = "SPACE_MEMBER_LIMIT_REACHED"
     EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED"
+    ACCOUNT_LINK_REQUIRED = "ACCOUNT_LINK_REQUIRED"
     SYNC_CURSOR_EXPIRED = "SYNC_CURSOR_EXPIRED"
     GONE = "GONE"
     VALIDATION_ERROR = "VALIDATION_ERROR"
@@ -41,6 +42,7 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.OWNER_TRANSFER_REQUIRED: 409,
     ErrorCode.SPACE_MEMBER_LIMIT_REACHED: 409,
     ErrorCode.EMAIL_NOT_VERIFIED: 403,
+    ErrorCode.ACCOUNT_LINK_REQUIRED: 409,
     ErrorCode.SYNC_CURSOR_EXPIRED: 410,
     ErrorCode.GONE: 410,
     ErrorCode.PHOTO_TOO_LARGE: 413,
@@ -63,6 +65,7 @@ MESSAGE_BY_CODE: dict[ErrorCode, str] = {
     ErrorCode.OWNER_TRANSFER_REQUIRED: "다른 멤버가 있는 공간의 관리자예요. 관리자를 먼저 넘겨 주세요.",
     ErrorCode.SPACE_MEMBER_LIMIT_REACHED: "이 공간은 10명이 모두 찼어요.",
     ErrorCode.EMAIL_NOT_VERIFIED: "이메일 인증을 마친 뒤 참여할 수 있어요. 받은 메일의 링크를 눌러 주세요.",
+    ErrorCode.ACCOUNT_LINK_REQUIRED: "이 이메일로 가입한 계정이 이미 있어요. 그 계정의 비밀번호를 입력하면 연결돼요.",
     ErrorCode.SYNC_CURSOR_EXPIRED: "동기화 기준이 오래돼 전체를 다시 받아야 해요.",
     ErrorCode.GONE: "복구할 수 있는 기간이 지났어요.",
     ErrorCode.VALIDATION_ERROR: "입력 내용을 확인해 주세요.",
@@ -112,9 +115,13 @@ class AppError(HTTPException):
         *,
         message: str | None = None,
         fields: dict[str, str] | None = None,
+        details: dict[str, str] | None = None,
     ) -> None:
         self.code = code
         self.fields = fields
+        # 앱이 다음 단계로 가는 데 필요한 값. 지금은 ACCOUNT_LINK_REQUIRED 의
+        # 연결 토큰뿐이다. 계정이 있는지 없는지 말고는 드러내지 않는 값만 싣는다.
+        self.details = details
         super().__init__(
             status_code=STATUS_BY_CODE[code],
             detail=message or MESSAGE_BY_CODE[code],

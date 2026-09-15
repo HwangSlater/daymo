@@ -40,7 +40,7 @@
 - 백엔드: Python 3.13 + FastAPI 모놀리식 API
 - 운영: iwinv VPS 2vCPU/2GB/NVMe 50GB, 일 20GB(월 600GB) 트래픽, Nginx + Docker Compose
 - 데이터: PostgreSQL + SQLAlchemy 2.0 + Alembic, 서비스 계층에서 공간별 권한 검증
-- 인증: Authlib + PyJWT, 이메일과 Apple/Google/Kakao/Naver OAuth, JWT/refresh token
+- 인증: httpx + PyJWT, 이메일과 Apple/Google/Kakao/Naver OAuth, JWT/refresh token
 - 서버 기능: 초대, 통합 검색, 일괄 가져오기, 사진 업로드 확정, SSE 동기화
 - 검색: 초기 PostgreSQL FTS와 `pg_trgm`
 - 앱 배포: EAS Build/Update, TestFlight, Android Internal Testing

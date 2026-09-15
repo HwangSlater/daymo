@@ -52,6 +52,18 @@ services:
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       MAIL_FROM: ${MAIL_FROM:-Daymo <no-reply@daymo.xyz>}
       UPLOAD_ROOT: /srv/daymo/uploads
+      # 소셜 로그인. 비어 있는 제공자는 꺼진다. APPLE_PRIVATE_KEY 는 줄바꿈을 \n 으로 적은 한 줄이다.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
+      OAUTH_APP_REDIRECT_URIS: ${OAUTH_APP_REDIRECT_URIS:-daymo://oauth}
     volumes:
       - /srv/daymo/uploads:/srv/daymo/uploads
     depends_on:

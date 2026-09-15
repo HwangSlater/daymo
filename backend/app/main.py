@@ -71,7 +71,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
-        return error_response(exc.code, message=exc.detail, fields=exc.fields)
+        return error_response(exc.code, message=exc.detail, fields=exc.fields, details=exc.details)
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:

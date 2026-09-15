@@ -88,6 +88,8 @@ React Native UI
 
 - `users`: `id`, `email`, `email_verified_at nullable`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
 - `oauth_accounts`: `user_id`, `provider`, `provider_subject`, `provider_email`
+- `oauth_states`: `provider`, `state_hash`, `nonce`, `app_redirect_uri`, `app_state`, `code_challenge`, `expires_at`, `used_at` — 로그인 창 하나. 10분·1회용
+- `oauth_pending_logins`: `provider`, `provider_subject`, `provider_email`, `email_verified`, `display_name`, `code_hash`, `code_challenge`, `expires_at`, `used_at`, `link_token_hash`, `link_expires_at`, `linked_at` — provider 확인 뒤 앱이 세션으로 바꾸기 전까지. loginCode 1분, 연결 토큰 10분. 정리 작업이 기한 지난 줄을 지운다
 - `refresh_tokens`: `user_id`, `device_id`, `token_family_id`, `token_hash`, `last_used_at`, `expires_at`, `replaced_by`, `revoked_at`, `revoke_reason`
 - `email_verification_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`
 - `password_reset_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`

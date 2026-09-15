@@ -21,7 +21,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
-import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
@@ -64,7 +63,8 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, DaymoApiError, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, updateDisplayName, type AuthUser } from "./auth";
+import { cancelAccountDeletion, DaymoApiError, linkSocialAccount, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser } from "./auth";
+import { type SocialProvider, socialProviderName } from "./socialLogin";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
   acceptInvite,
@@ -108,11 +108,6 @@ type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt"> & { id?: string };
 
 WebBrowser.maybeCompleteAuthSession();
-
-// 소셜 로그인은 서버 쪽이 아직 없다. 눌러도 되지 않는 버튼은 심사에서
-// 반려 사유이고(App Review 2.1), 지금의 콜백은 토큰 없이 주소에 실린
-// 이메일만 믿는다. 제공자를 하나씩 서버에 붙일 때 켠다.
-const SOCIAL_LOGIN_READY = false;
 
 type Trip = {
   id?: string;
@@ -1035,7 +1030,19 @@ function AuthScreen({
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [marketingAgreed, setMarketingAgreed] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
-  const oauthBaseUrl = process.env.EXPO_PUBLIC_DAYMO_AUTH_URL?.replace(/\/$/, "");
+  // 서버에 키가 들어간 제공자만 온다. 비어 있으면 소셜 로그인 자리를 통째로 숨긴다.
+  const [providers, setProviders] = useState<SocialProvider[]>([]);
+  // 같은 이메일로 가입한 계정이 있어 비밀번호로 연결해야 하는 중.
+  const [linking, setLinking] = useState<{ token: string; provider: SocialProvider } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    socialProviders().then((found) => {
+      if (alive) setProviders(found);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const authFormValid =
     email.trim().includes("@") &&
     password.length >= 8 &&
@@ -1093,31 +1100,25 @@ function AuthScreen({
     setPassword("");
     setConfirm("");
   };
-  const startOAuth = async (provider: "google" | "apple" | "kakao" | "naver") => {
-    if (!oauthBaseUrl) {
-      setError("OAuth 서버 주소가 필요해요. EXPO_PUBLIC_DAYMO_AUTH_URL을 설정해 주세요.");
-      return;
+  const signedIn = (result: { user: DaymoUser; endedDevices: unknown[] }) => {
+    onAuth(result.user);
+    if (result.endedDevices.length > 0) {
+      Alert.alert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
     }
+  };
+  const startOAuth = async (provider: SocialProvider) => {
     setOauthLoading(provider);
     setError("");
-    const redirectUri = AuthSession.makeRedirectUri({ scheme: "daymo", path: "oauth" });
+    setNotice("");
     try {
-      const result = await WebBrowser.openAuthSessionAsync(
-        `${oauthBaseUrl}/oauth/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`,
-        redirectUri,
-      );
-      if (result.type !== "success") return;
-      const callback = new URL(result.url);
-      const email = callback.searchParams.get("email");
-      const name = callback.searchParams.get("name");
-      const authError = callback.searchParams.get("error");
-      if (authError || !email) {
-        setError(authError || "로그인 정보를 확인하지 못했어요.");
-        return;
+      const result = await socialLogin(provider);
+      if (result.kind === "signedIn") signedIn(result);
+      if (result.kind === "linkRequired") {
+        setPassword("");
+        setLinking({ token: result.linkToken, provider });
       }
-      onAuth({ name: name || email.split("@")[0], email });
-    } catch {
-      setError("소셜 로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "소셜 로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setOauthLoading(null);
     }
@@ -1139,7 +1140,18 @@ function AuthScreen({
           <Text style={[s.authLogo, { color: theme.text }]}>Daymo</Text>
           <Text style={[s.authTagline, { color: theme.muted }]}>함께 떠나고, 오래 기억하는 여행</Text>
         </View>
-        {forgotOpen ? (
+        {linking ? (
+          <LinkSocialCard
+            theme={theme}
+            linkToken={linking.token}
+            provider={linking.provider}
+            onDone={signedIn}
+            onBack={() => {
+              setLinking(null);
+              setError("");
+            }}
+          />
+        ) : forgotOpen ? (
           <ForgotPasswordCard
             theme={theme}
             initialEmail={email}
@@ -1232,14 +1244,14 @@ function AuthScreen({
               <Text style={[s.authSwitchText, { color: theme.muted }]}>비밀번호를 잊었어요</Text>
             </Pressable>
           )}
-          {SOCIAL_LOGIN_READY && (
+          {providers.length > 0 && (
           <View style={s.authDivider}>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
             <Text style={[s.authDividerText, { color: theme.muted }]}>또는 소셜 계정으로</Text>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
           </View>
           )}
-          {SOCIAL_LOGIN_READY && (
+          {providers.length > 0 && (
           <View style={s.oauthGrid}>
             {/*
               심볼 자리는 비워 두었다. 예전에는 동그라미 안에 K·N·G·A 한 글자를
@@ -1258,11 +1270,11 @@ function AuthScreen({
                 ? { id: "google", label: "Google 계정으로 로그인", color: "#131314", text: "#E3E3E3", border: "#8E918F" }
                 : { id: "google", label: "Google 계정으로 로그인", color: "#FFFFFF", text: "#1F1F1F", border: "#747775" },
               { id: "apple", label: "Apple로 로그인", color: theme.dark ? "#FFFFFF" : "#000000", text: theme.dark ? "#000000" : "#FFFFFF", border: theme.dark ? "#FFFFFF" : "#000000" },
-            ].map((provider) => (
+            ].filter((provider) => providers.includes(provider.id as SocialProvider)).map((provider) => (
               <Pressable
                 key={provider.id}
                 disabled={oauthLoading !== null}
-                onPress={() => startOAuth(provider.id as "google" | "apple" | "kakao" | "naver")}
+                onPress={() => startOAuth(provider.id as SocialProvider)}
                 accessibilityRole="button"
                 accessibilityLabel={provider.label}
                 accessibilityState={{ disabled: oauthLoading !== null }}
@@ -1297,6 +1309,73 @@ function AuthScreen({
  * 새 비밀번호는 메일 링크가 여는 브라우저 페이지에서 정한다(api.daymo.xyz/auth/…).
  * 계정이 있든 없든 같은 안내를 띄운다. 달리 말하면 이 화면으로 가입 여부를 알아낼 수 없다.
  */
+/**
+ * 소셜 계정의 이메일로 이미 가입한 계정이 있을 때.
+ *
+ * 서버는 이메일이 같다고 계정을 합치지 않는다. 남의 이메일로 소셜 계정을 만든
+ * 사람이 남의 계정에 들어오는 길이 되기 때문이다. 원래 계정의 비밀번호를 받아야
+ * 소셜 로그인을 붙인다. 다음부터는 소셜 로그인만으로 들어온다.
+ */
+function LinkSocialCard({
+  theme,
+  linkToken,
+  provider,
+  onDone,
+  onBack,
+}: {
+  theme: AppTheme;
+  linkToken: string;
+  provider: SocialProvider;
+  onDone: (result: { user: DaymoUser; endedDevices: unknown[] }) => void;
+  onBack: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const name = socialProviderName[provider];
+  const ready = password.length > 0 && !loading;
+  const submit = async () => {
+    if (!ready) return;
+    setLoading(true);
+    setError("");
+    try {
+      onDone(await linkSocialAccount(linkToken, password));
+    } catch (caught) {
+      // 연결 토큰은 10분만 산다. 지나면 처음부터 다시 해야 한다.
+      setError(caught instanceof DaymoApiError ? caught.message : "연결하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <Text style={[s.authTitle, { color: theme.text }]}>이미 가입한 이메일이에요</Text>
+      <Text style={[s.authDescription, { color: theme.muted }]}>
+        {name} 계정의 이메일로 가입한 Daymo 계정이 있어요. 그 계정의 비밀번호를 입력하면 {name} 로그인이 연결되고, 다음부터는 {name} 로그인으로 바로 들어올 수 있어요.
+      </Text>
+      <Field theme={theme} label="Daymo 비밀번호" value={password} onChangeText={setPassword} placeholder="가입할 때 정한 비밀번호" secureTextEntry />
+      {error ? (
+        <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text>
+      ) : null}
+      <Pressable
+        onPress={submit}
+        disabled={!ready}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !ready, busy: loading }}
+        style={[s.authSubmit, { backgroundColor: theme.primary }, !ready && s.authSubmitDisabled]}
+      >
+        <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "확인 중…" : "연결하고 로그인"}</Text>
+      </Pressable>
+      <Text style={[s.authDescription, { color: theme.muted }]}>
+        비밀번호 없이 다른 소셜 계정으로 가입했다면, 그 방식으로 로그인해 주세요.
+      </Text>
+      <Pressable onPress={onBack} accessibilityRole="button" style={s.authSwitch}>
+        <Text style={[s.authSwitchText, { color: theme.muted }]}>로그인으로 돌아가기</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function ForgotPasswordCard({
   theme,
   initialEmail,

@@ -60,6 +60,22 @@ class LoginRequest(_Camel):
     device: DeviceInfo
 
 
+class OAuthExchangeRequest(_Camel):
+    """소셜 로그인에서 돌아온 앱이 세션을 받는다. PKCE 비밀을 함께 보낸다."""
+
+    login_code: str = Field(min_length=1, max_length=200)
+    code_verifier: str = Field(min_length=43, max_length=128)
+    device: DeviceInfo
+
+
+class OAuthLinkRequest(_Camel):
+    """같은 이메일의 기존 계정에 제공자를 붙인다. 그 계정의 비밀번호로 확인한다."""
+
+    link_token: str = Field(min_length=1, max_length=200)
+    password: str = Field(max_length=1024)
+    device: DeviceInfo
+
+
 class RefreshRequest(_Camel):
     refresh_token: str = Field(min_length=1, max_length=200)
 

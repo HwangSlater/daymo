@@ -204,14 +204,14 @@ PostgreSQL 16
 SQLAlchemy 2.0 + Alembic
 psycopg 3
 Pydantic v2
-Authlib (OAuth2 client)
+httpx (OAuth provider 호출)
 PyJWT
 Pillow (이미지 변환)
 pytest
 OpenAPI (FastAPI 자동 생성)
 ```
 
-잃는 것도 적어 둔다. Spring Security OAuth2 Client가 대신 해 주던 authorization code 교환, state 검증과 token 갱신을 Authlib으로 직접 조립해야 한다. 로그인 흐름 자체는 바뀌지 않지만 손으로 맞춰야 할 부분이 늘어난다.
+잃는 것도 적어 둔다. Spring Security OAuth2 Client가 대신 해 주던 authorization code 교환과 state 검증을 직접 짠다. Authlib 없이 httpx 로 provider 를 부른다(`backend/app/services/oauth/`). provider token 은 저장하지 않아 token 갱신은 필요 없다.
 
 Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 
@@ -288,10 +288,51 @@ NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
 ```
 
-- OAuth secret과 Apple private key는 서버에만 둔다.
-- Kakao 네이티브 앱 키와 REST API 키를 구분한다.
+- OAuth secret과 Apple private key는 서버에만 둔다. 앱 `.env`에는 넣을 값이 없다.
+- Kakao 네이티브 앱 키와 REST API 키를 구분한다. 서버는 REST API 키를 쓴다.
 - 개발·staging·운영 redirect URI를 각각 등록한다.
 - 로그인 결과의 access/refresh token을 URL에 넣지 않는다.
+- 값을 넣은 provider만 켜진다. 비어 있으면 앱에 그 버튼이 나오지 않는다. 운영에서는 `/etc/daymo/secrets/runtime.env`에 넣고 api 컨테이너를 다시 만든다.
+
+### 7.1 provider 콘솔에 등록할 값
+
+provider에 등록하는 redirect URI는 앱 주소가 아니라 API 주소다. 운영은 아래와 같고, 한 글자라도 다르면 provider가 거부한다.
+
+| provider | redirect URI |
+| --- | --- |
+| Google | `https://api.daymo.xyz/v1/auth/oauth/google/callback` |
+| Apple | `https://api.daymo.xyz/v1/auth/oauth/apple/callback` |
+| Kakao | `https://api.daymo.xyz/v1/auth/oauth/kakao/callback` |
+| Naver | `https://api.daymo.xyz/v1/auth/oauth/naver/callback` |
+
+로그인이 끝나면 API가 앱을 `daymo://oauth`로 연다. 이 주소는 `OAUTH_APP_REDIRECT_URIS`(기본 `daymo://oauth`)에 있어야 한다. Expo Go로 시험하면 앱이 `exp://<PC IP>:8081/--/oauth`를 쓰므로 그 주소를 쉼표로 더한다.
+
+콘솔 메뉴 이름은 개편으로 바뀔 수 있다. 아래는 2026-09 기준이다.
+
+**Google** — Google Cloud Console의 Google Auth Platform
+1. 브랜딩(동의 화면)에 앱 이름·지원 이메일(`support@daymo.xyz`)·개인정보처리방침 URL을 넣는다.
+2. 클라이언트 만들기 → 유형 **웹 애플리케이션** → 승인된 리디렉션 URI에 위 주소.
+3. 클라이언트 ID·보안 비밀을 `GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`에 넣는다.
+4. 게시 상태가 테스트면 등록한 테스트 사용자만 로그인된다. 출시 전에 프로덕션으로 게시한다. 요청 범위는 `openid email profile`뿐이라 민감 범위 심사 대상이 아니다.
+
+**Apple** — Apple Developer의 Certificates, Identifiers & Profiles
+1. App ID(`com.hwangslater.daymo`)에 Sign in with Apple을 켠다.
+2. Services ID를 새로 만든다(예: `com.hwangslater.daymo.signin`). Sign in with Apple을 켜고 Configure에서 Primary App ID는 위 App ID, Domains는 `api.daymo.xyz`, Return URLs는 위 주소.
+3. Keys에서 Sign in with Apple 키를 만들고 `.p8`을 받는다. **한 번만 받을 수 있다.** 비밀번호 관리 도구에 보관한다.
+4. `APPLE_CLIENT_ID`=Services ID, `APPLE_TEAM_ID`=멤버십의 Team ID, `APPLE_KEY_ID`=키 ID, `APPLE_PRIVATE_KEY`=`.p8` 내용을 줄바꿈 대신 `\n`으로 이은 한 줄.
+5. 이메일 가리기를 고른 사용자는 `@privaterelay.appleid.com` 주소로 온다. 그 주소로 메일이 닿으려면 Sign in with Apple for Email Communication에 발신 도메인 `daymo.xyz`와 `no-reply@daymo.xyz`를 등록한다(SPF 필요).
+
+**Kakao** — Kakao Developers
+1. 앱을 만들고 카카오 로그인 사용 설정을 ON으로 둔다.
+2. 앱 → 플랫폼 키 → REST API 키에 Redirect URI를 등록한다. 같은 곳의 클라이언트 시크릿이 켜져 있으면 값을 `KAKAO_CLIENT_SECRET`에 넣는다(새 키는 기본으로 켜져 있다).
+3. REST API 키를 `KAKAO_REST_API_KEY`에 넣는다.
+4. 동의항목에서 닉네임을 켠다. **이메일(`account_email`)은 비즈 앱 전환과 추가 기능 신청(심사)을 거쳐야 설정할 수 있다.** 사업자 없는 개인 개발자도 본인인증 후 비즈 앱으로 전환해 신청할 수 있다. 이메일을 받지 못하면 Daymo는 카카오로 새 계정을 만들지 않는다.
+
+**Naver** — NAVER Developers
+1. Application 등록 → 사용 API **네이버 로그인** → 제공 정보에서 이메일 주소(필수)와 별명 또는 이름을 고른다.
+2. 로그인 오픈 API 서비스 환경에 PC 웹을 더하고 서비스 URL `https://daymo.xyz`, Callback URL에 위 주소.
+3. Client ID·Client Secret을 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`에 넣는다. 장소 검색용 Vercel 함수의 같은 이름 변수와 다른 환경이다.
+4. 검수 전에는 멤버 관리에 등록한 네이버 아이디만 로그인된다. 출시 전에 검수를 요청한다.
 
 ## 8. VPS 로컬 사진 저장 설정
 
