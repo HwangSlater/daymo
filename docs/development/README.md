@@ -211,6 +211,13 @@ HTML 페이지를 직접 보여 주게 했다. GET은 아무것도 바꾸지 않
 
 ### 배포 정책 — 앱이 완성될 때까지
 
+2026-09-15 웹 소셜 로그인도 연결했다. 서버가 켠 제공자 목록을 웹에 표시하고,
+팝업은 같은 출처의 `/oauth`로 복귀한다. state·PKCE와 일회용 code 교환은 앱과 동일하다.
+운영 서버 복귀 허용 목록에 `https://www.daymo.xyz/oauth`와 `https://daymo.xyz/oauth`를 추가했다.
+`site/build.mjs`는 `/oauth`를 앱 HTML로 연결한다. 사이트 배포 시 앱과 이 설정을 함께 올려야 한다.
+타입·린트·193개 테스트·웹 export와 모의 제공자를 이용한 브라우저 팝업/세션 저장 검증을 통과했다.
+실제 Google·카카오·네이버 계정 로그인은 공개 웹 배포 후 소유자가 최종 확인한다.
+
 - **서버는 main 푸시마다 자동 배포한다.** 앱이 운영 API에 붙어 있어서 서버가 뒤처지면 안 된다.
   DB migration도 이때 적용된다. 문서만 바꾼 커밋도 배포가 한 번 돌며 API가 잠깐 재시작된다
 - **daymo.xyz 웹 자동 배포는 껐다**(`mobile/vercel.json` 의 `git.deploymentEnabled: false`).

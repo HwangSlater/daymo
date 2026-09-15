@@ -48,6 +48,11 @@ export function socialStartPath(
   return `/v1/auth/oauth/${provider}/start?${query.toString()}`;
 }
 
+/** 앱을 어느 경로에서 열었든 같은 출처의 OAuth 복귀 페이지를 쓴다. */
+export function webSocialRedirectUri(pageUrl: string): string {
+  return new URL("/oauth", pageUrl).href;
+}
+
 export type SocialReturn =
   | { kind: "code"; loginCode: string }
   | { kind: "cancelled" }

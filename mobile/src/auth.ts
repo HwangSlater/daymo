@@ -12,7 +12,13 @@ import {
   type SocialProvider,
   socialStartPath,
   toBase64Url,
+  webSocialRedirectUri,
 } from "./socialLogin";
+
+// 웹 OAuth 복귀 창에서 원래 창에 결과를 전달한다. 서체·세션 복구를 기다리지 않는다.
+if (Platform.OS === "web" && typeof window !== "undefined" && window.location.pathname === "/oauth") {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 export type AuthUser = {
   id: string;
@@ -250,11 +256,10 @@ export async function login(email: string, password: string) {
  * 서버에 키가 들어가 켜진 소셜 로그인 제공자.
  *
  * 앱은 여기 있는 버튼만 보여 준다. 눌러도 되지 않는 버튼은 스토어 심사에서
- * 반려 사유다. 웹 미리보기는 daymo:// 로 돌아올 수 없어서 늘 비어 있다.
+ * 반려 사유다. 웹도 같은 서버 목록을 쓰고 웹 주소로 돌아온다.
  * 서버에 닿지 않으면 빈 목록이다. 이메일 로그인은 그대로 된다.
  */
 export async function socialProviders(): Promise<SocialProvider[]> {
-  if (Platform.OS === "web") return [];
   try {
     const data = await request<{ providers: unknown }>("/v1/auth/oauth/providers");
     return orderedProviders(data.providers);
@@ -295,25 +300,39 @@ async function openSocialLogin(
   provider: SocialProvider,
 ): Promise<{ kind: "code"; loginCode: string; verifier: string } | { kind: "cancelled" }> {
   // Expo Go 에서는 exp://.../--/oauth 가 된다. 서버의 OAUTH_APP_REDIRECT_URIS 에 있어야 한다.
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: "daymo", path: "oauth" });
-  const state = randomToken(Crypto.getRandomBytes(32));
-  const verifier = randomToken(Crypto.getRandomBytes(64));
-  const challenge = toBase64Url(
-    await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {
-      encoding: Crypto.CryptoEncoding.BASE64,
-    }),
-  );
+  const redirectUri = Platform.OS === "web"
+    ? webSocialRedirectUri(window.location.href)
+    : AuthSession.makeRedirectUri({ scheme: "daymo", path: "oauth" });
+  // 난수 해시를 await하기 전에 사용자 클릭으로 창을 확보한다. 모바일 Safari의
+  // 팝업 차단을 피하고 Expo가 같은 이름의 창을 재사용하게 한다.
+  const popupName = "daymo-oauth";
+  const popup = Platform.OS === "web" ? window.open("about:blank", popupName, "popup,width=500,height=720") : null;
+  if (Platform.OS === "web" && !popup) {
+    throw new DaymoApiError("로그인 창이 차단됐어요. 팝업을 허용하고 다시 시도해 주세요.", 0, "OAUTH_POPUP_BLOCKED");
+  }
+  try {
+    const state = randomToken(Crypto.getRandomBytes(32));
+    const verifier = randomToken(Crypto.getRandomBytes(64));
+    const challenge = toBase64Url(
+      await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {
+        encoding: Crypto.CryptoEncoding.BASE64,
+      }),
+    );
 
-  const result = await WebBrowser.openAuthSessionAsync(
-    `${apiUrl}${socialStartPath(provider, { redirectUri, state, codeChallenge: challenge })}`,
-    redirectUri,
-  );
-  if (result.type !== "success") return { kind: "cancelled" };
+    const result = await WebBrowser.openAuthSessionAsync(
+      `${apiUrl}${socialStartPath(provider, { redirectUri, state, codeChallenge: challenge })}`,
+      redirectUri,
+      Platform.OS === "web" ? { windowName: popupName } : undefined,
+    );
+    if (result.type !== "success") return { kind: "cancelled" };
 
-  const back = parseSocialReturn(result.url, state);
-  if (back.kind === "cancelled") return back;
-  if (back.kind === "failed") throw new DaymoApiError(back.message, 0, "OAUTH_FAILED");
-  return { kind: "code", loginCode: back.loginCode, verifier };
+    const back = parseSocialReturn(result.url, state);
+    if (back.kind === "cancelled") return back;
+    if (back.kind === "failed") throw new DaymoApiError(back.message, 0, "OAUTH_FAILED");
+    return { kind: "code", loginCode: back.loginCode, verifier };
+  } finally {
+    popup?.close();
+  }
 }
 
 class ReconfirmCancelled extends Error {}

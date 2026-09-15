@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { orderedProviders, parseSocialReturn, randomToken, socialStartPath, toBase64Url } from "./socialLogin.ts";
+import { orderedProviders, parseSocialReturn, randomToken, socialStartPath, toBase64Url, webSocialRedirectUri } from "./socialLogin.ts";
+
+test("웹 복귀 주소는 앱 경로와 쿼리 대신 같은 출처의 고정 페이지를 쓴다", () => {
+  assert.equal(webSocialRedirectUri("https://www.daymo.xyz/app/?next=trip#home"), "https://www.daymo.xyz/oauth");
+  assert.equal(webSocialRedirectUri("http://localhost:8081/app"), "http://localhost:8081/oauth");
+});
+
+test("웹 복귀도 state가 맞아야 일회용 코드를 쓸 수 있다", () => {
+  assert.deepEqual(parseSocialReturn("https://www.daymo.xyz/oauth?loginCode=abc&state=mine", "mine"), { kind: "code", loginCode: "abc" });
+  assert.equal(parseSocialReturn("https://www.daymo.xyz/oauth?loginCode=abc&state=other", "mine").kind, "failed");
+});
 
 test("난수 바이트를 PKCE 가 허락하는 글자로만 옮긴다", () => {
   const token = randomToken(new Uint8Array([0, 63, 64, 255, 128, 62]));

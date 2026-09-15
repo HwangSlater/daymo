@@ -75,7 +75,7 @@ services:
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
-      OAUTH_APP_REDIRECT_URIS: ${OAUTH_APP_REDIRECT_URIS:-daymo://oauth}
+      OAUTH_APP_REDIRECT_URIS: ${OAUTH_APP_REDIRECT_URIS:-daymo://oauth,https://www.daymo.xyz/oauth,https://daymo.xyz/oauth}
     volumes:
       - /srv/daymo/uploads:/srv/daymo/uploads
     depends_on:
