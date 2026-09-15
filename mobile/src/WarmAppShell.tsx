@@ -65,7 +65,8 @@ import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm } from "./auth";
-import { type SocialProvider, socialProviderName } from "./socialLogin";
+import { type SocialProvider, socialProviderName, socialProviderOrder } from "./socialLogin";
+import { SocialLoginButton } from "./SocialLoginButton";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
   deleteSpace,
@@ -1324,37 +1325,28 @@ function AuthScreen({
           {providers.length > 0 && (
           <View style={s.oauthGrid}>
             {/*
-              심볼 자리는 비워 두었다. 예전에는 동그라미 안에 K·N·G·A 한 글자를
-              직접 그려 넣었는데, 그건 각 사의 상표를 흉내 낸 것이다. 특히
-              구글은 "직접 아이콘을 만들거나 로고의 크기·색을 바꾸는 것"을
-              명시적으로 금지한다. 카카오는 반대로 심볼 없는 버튼을 금지하므로,
-              출시 전에 각 사 콘솔에서 공식 버튼 에셋을 받아 넣어야 한다.
-              docs/development/08-privacy-and-release-compliance.md 12장 참고.
+              각 사 가이드대로 공식 심볼 + 문구 + 지정 색으로 그린다. 예전에는 심볼 없이
+              색과 문구만 썼는데, 카카오는 심볼 없는 버튼을 금지하고 구글은 직접 만든
+              로고를 금지해서 어느 쪽도 만족하지 못했다. 심볼은 각 사가 배포한 원본
+              (PSD·AI·SVG·PNG)에서 옮겼고 출처는 mobile/assets/social/README.md 에 있다.
+              모양과 치수의 근거는 SocialLoginButton.tsx,
+              남은 확인 사항은 docs/development/08-privacy-and-release-compliance.md 12.1.
 
-              색과 문구는 각 사가 문서로 정해 둔 값을 그대로 쓴다.
+              한 줄에 하나씩 꽉 채운다. 둘씩 놓으면 애플 최소 폭 140pt 와
+              "Google 계정으로 로그인" 문구가 좁은 폰에 들어가지 않는다.
             */}
-            {[
-              { id: "kakao", label: "카카오 로그인", color: "#FEE500", text: "#191919", border: "#FEE500" },
-              { id: "naver", label: "네이버 로그인", color: "#03C75A", text: "#FFFFFF", border: "#03C75A" },
-              theme.dark
-                ? { id: "google", label: "Google 계정으로 로그인", color: "#131314", text: "#E3E3E3", border: "#8E918F" }
-                : { id: "google", label: "Google 계정으로 로그인", color: "#FFFFFF", text: "#1F1F1F", border: "#747775" },
-              { id: "apple", label: "Apple로 로그인", color: theme.dark ? "#FFFFFF" : "#000000", text: theme.dark ? "#000000" : "#FFFFFF", border: theme.dark ? "#FFFFFF" : "#000000" },
-            ].filter((provider) => providers.includes(provider.id as SocialProvider)).map((provider) => (
-              <Pressable
-                key={provider.id}
-                disabled={oauthLoading !== null}
-                onPress={() => startOAuth(provider.id as SocialProvider)}
-                accessibilityRole="button"
-                accessibilityLabel={provider.label}
-                accessibilityState={{ disabled: oauthLoading !== null }}
-                style={[s.oauthButton, { backgroundColor: provider.color, borderColor: provider.border }]}
-              >
-                <Text numberOfLines={1} style={[s.oauthLabel, { color: provider.text }]}>
-                  {oauthLoading === provider.id ? "연결 중" : provider.label}
-                </Text>
-              </Pressable>
-            ))}
+            {socialProviderOrder
+              .filter((provider) => providers.includes(provider))
+              .map((provider) => (
+                <SocialLoginButton
+                  key={provider}
+                  provider={provider}
+                  dark={theme.dark}
+                  loading={oauthLoading === provider}
+                  disabled={oauthLoading !== null}
+                  onPress={() => startOAuth(provider)}
+                />
+              ))}
           </View>
           )}
           <Pressable
@@ -7484,21 +7476,8 @@ const s = StyleSheet.create({
   authCard: { borderRadius: 16, borderWidth: 1, padding: 20 },
   authTitle: { fontSize: 20, fontFamily: typo.title.family, letterSpacing: -0.5 },
   authDescription: { fontSize: 14, lineHeight: 22, marginTop: 6, marginBottom: 20 },
-  oauthGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  oauthButton: {
-    // 48.7%씩 둘에 간격 8을 더하면 100%를 넘어 한 줄에 하나씩 떨어졌다.
-    // 남은 폭을 둘이 나눠 갖게 해서 간격을 세고도 두 개가 들어간다.
-    flexGrow: 1,
-    flexBasis: "40%",
-    minWidth: 0,
-    height: 44,
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  oauthLabel: { fontSize: 12, fontFamily: typo.label.family },
+  // 버튼 모양은 SocialLoginButton 이 제공자 가이드대로 정한다. 여기서는 세로로 쌓기만 한다.
+  oauthGrid: { gap: 8 },
   authDivider: { flexDirection: "row", alignItems: "center", marginVertical: 16 },
   authDividerLine: { flex: 1, height: 1 },
   authDividerText: { fontSize: 12, fontFamily: typo.label.family, marginHorizontal: 8 },
