@@ -7118,13 +7118,8 @@ function Memories({
     setPhotoEditing(true);
   };
   const choosePhoto = async () => {
-    if (Platform.OS !== "web") {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        notify("사진을 추가하려면 사진 접근을 허용해 주세요");
-        return;
-      }
-    }
+    // 시스템 사진 선택 창은 권한 없이 고른 사진만 앱에 준다(iOS PHPicker, Android Photo Picker).
+    // 사진 전체 접근을 묻지 않는다(docs/development/08-privacy-and-release-compliance.md 5장).
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -7905,13 +7900,8 @@ function Money({
     notify("지출을 삭제했어요");
   };
   const chooseReceipt = async () => {
-    if (Platform.OS !== "web") {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        notify("영수증을 넣으려면 사진 접근을 허용해 주세요");
-        return;
-      }
-    }
+    // 시스템 사진 선택 창은 권한 없이 고른 사진만 앱에 준다(iOS PHPicker, Android Photo Picker).
+    // 사진 전체 접근을 묻지 않는다(docs/development/08-privacy-and-release-compliance.md 5장).
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
