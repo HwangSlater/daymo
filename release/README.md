@@ -1,0 +1,50 @@
+# Daymo 출시 자료
+
+App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것을 모은 폴더다. 앱 코드에는 들어가지 않는다.
+값은 실제 앱·서버 동작에서 가져왔고, 근거가 되는 코드 위치를 함께 적었다. 앱이나 서버가 바뀌면 여기도 고친다.
+
+| 파일 | 내용 |
+| --- | --- |
+| [shared/listing-ko.md](shared/listing-ko.md) | 앱 이름, 부제·짧은 설명, 긴 설명, 키워드, URL — 두 스토어 공통 |
+| [shared/data-inventory.md](shared/data-inventory.md) | Daymo가 실제로 수집·저장하는 데이터와 들어 있는 SDK. App Privacy와 데이터 보안 답의 원본 |
+| [shared/screenshots.md](shared/screenshots.md) | 찍을 화면, 캡션, 스토어별 크기 |
+| [app-store/app-store-connect.md](app-store/app-store-connect.md) | App Store Connect 필드별 입력값, App Privacy, 연령 등급, 심사 정보 |
+| [app-store/build-and-submit.md](app-store/build-and-submit.md) | iOS 빌드(Xcode 26), TestFlight, 제출 순서 |
+| [play-store/play-console.md](play-store/play-console.md) | Play Console 필드별 입력값, 데이터 보안, 콘텐츠 등급, 앱 콘텐츠 선언 |
+| [play-store/build-and-release.md](play-store/build-and-release.md) | Android 빌드(AAB), 비공개 테스트, 프로덕션 출시 순서 |
+| [assets/](assets/) | Play 아이콘 512px, 그래픽 이미지 1024×500 (`scripts/build-store-assets.py` 로 만든다) |
+
+## 공통 주소
+
+| 용도 | 주소 |
+| --- | --- |
+| 홈페이지·마케팅 URL | https://www.daymo.xyz |
+| 개인정보 처리방침 | https://www.daymo.xyz/privacy |
+| 이용약관 | https://www.daymo.xyz/terms |
+| 지원(문의) | https://www.daymo.xyz/support |
+| 계정 삭제 안내(Google Play 필수) | https://www.daymo.xyz/account-deletion |
+| 문의 이메일 | support@daymo.xyz |
+
+## 출시를 막는 것
+
+위에서부터 끝내야 제출할 수 있다. 끝나면 줄을 긋는다.
+
+| # | 할 일 | 누가 | 왜 |
+| --- | --- | --- | --- |
+| 1 | Apple Developer Program 가입 | 운영자 | iOS 빌드·TestFlight·제출 모두 필요 |
+| 2 | Sign in with Apple 붙이기 | 운영자(키) + 개발 | Google·카카오·네이버 로그인을 두면 App Store 심사 지침 4.8에 따라 Apple 로그인도 있어야 한다. 서버 코드는 준비돼 있고 키만 넣으면 켜진다 |
+| 3 | 앱 안 신고·차단 | 개발 | 다른 사람이 쓴 사진·메모가 보이는 앱이라 App Store 지침 1.2(사용자 생성 콘텐츠)가 신고·차단을 요구한다 |
+| 4 | 카카오 로그인 버튼을 공식 에셋으로 | 개발 | 카카오 디자인 가이드가 심볼 없는 버튼을 허락하지 않는다(`WarmAppShell.tsx` oauthGrid 주석) |
+| 5 | 심사용 데모 계정 | 운영자(이메일) + 개발 | 두 스토어 모두 로그인이 필요한 앱은 심사 계정을 요구한다. 예시 공간·여행을 채워 둔다 |
+| 6 | Google Play 개발자 계정과 비공개 테스트 | 운영자 | 개인 개발자 계정은 테스터 12명 이상이 14일 동안 비공개 테스트를 해야 프로덕션을 신청할 수 있다 |
+| 7 | 실제 기기 스크린샷 | 운영자 + 개발 | 두 스토어 모두 실제 앱 화면이어야 한다 |
+| 8 | 앱 버전 1.0.0 | 개발 | 지금 `mobile/app.json` 은 0.1.0. 첫 스토어 빌드를 만들 때 올린다(빌드 번호는 EAS가 올린다) |
+| 9 | 카카오 비즈 앱 심사(이메일 동의항목) | 카카오 | 2026-09-15 신청, 3~5일 |
+
+## 정할 것
+
+- **사진 원본의 위치 정보.** 지금 서버는 원본 파일을 받은 그대로 보관한다. 폰으로 찍은 사진에는 GPS가 들어 있을 수 있어서,
+  이대로면 App Privacy·데이터 보안에 "정확한 위치"를 신고해야 한다(shared/data-inventory.md). 올릴 때 원본에서도 위치 정보를
+  지우면 신고할 필요가 없고 개인정보 처리방침도 단순해진다. **지우는 쪽을 권한다.**
+- **데모 계정 이메일.** 심사자에게 건넬 주소. `support@daymo.xyz` 로 받을 수 있는 별칭(예: review@daymo.xyz)을 권한다.
+- **배포 국가.** 한국어만 있고 개인정보 처리방침도 한국 법 기준이라 **대한민국만** 권한다.
