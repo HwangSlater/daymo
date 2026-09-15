@@ -21,6 +21,7 @@ from app.core.db import get_engine, get_session_factory
 from app.core.logging import configure_logging
 from app.core.runtime import use_selector_event_loop_on_windows
 from app.services import account_deletion, photos, places, throttle, trips
+from app.services.oauth import flow as oauth_flow
 
 logger = logging.getLogger("daymo.jobs.cleanup")
 
@@ -33,6 +34,8 @@ JOBS: list[tuple[str, Job]] = [
     ("places", lambda session: places.purge_orphan_manual_places(session)),
     ("photos", lambda session: photos.purge_photos(session)),
     ("throttle", lambda session: throttle.purge_expired(session)),
+    # 소셜 로그인 도중의 줄. 제공자가 준 이메일·이름이 들어 있어 오래 두지 않는다.
+    ("oauth", lambda session: oauth_flow.purge_expired(session)),
 ]
 
 

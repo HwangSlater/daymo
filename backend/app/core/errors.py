@@ -18,6 +18,7 @@ class ErrorCode(StrEnum):
     TAG_IN_USE = "TAG_IN_USE"
     SETTLEMENT_IN_PROGRESS = "SETTLEMENT_IN_PROGRESS"
     OWNER_TRANSFER_REQUIRED = "OWNER_TRANSFER_REQUIRED"
+    ACCOUNT_LINK_REQUIRED = "ACCOUNT_LINK_REQUIRED"
     SYNC_CURSOR_EXPIRED = "SYNC_CURSOR_EXPIRED"
     GONE = "GONE"
     VALIDATION_ERROR = "VALIDATION_ERROR"
@@ -37,6 +38,7 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.TAG_IN_USE: 409,
     ErrorCode.SETTLEMENT_IN_PROGRESS: 409,
     ErrorCode.OWNER_TRANSFER_REQUIRED: 409,
+    ErrorCode.ACCOUNT_LINK_REQUIRED: 409,
     ErrorCode.SYNC_CURSOR_EXPIRED: 410,
     ErrorCode.GONE: 410,
     ErrorCode.PHOTO_TOO_LARGE: 413,
@@ -57,6 +59,7 @@ MESSAGE_BY_CODE: dict[ErrorCode, str] = {
     ErrorCode.TAG_IN_USE: "사용 중인 태그예요.",
     ErrorCode.SETTLEMENT_IN_PROGRESS: "이미 주고받은 기록이 있어 바꿀 수 없어요.",
     ErrorCode.OWNER_TRANSFER_REQUIRED: "다른 멤버가 있는 공간의 관리자예요. 관리자를 먼저 넘겨 주세요.",
+    ErrorCode.ACCOUNT_LINK_REQUIRED: "이 이메일로 가입한 계정이 이미 있어요. 그 계정의 비밀번호를 입력하면 연결돼요.",
     ErrorCode.SYNC_CURSOR_EXPIRED: "동기화 기준이 오래돼 전체를 다시 받아야 해요.",
     ErrorCode.GONE: "복구할 수 있는 기간이 지났어요.",
     ErrorCode.VALIDATION_ERROR: "입력 내용을 확인해 주세요.",
@@ -106,9 +109,13 @@ class AppError(HTTPException):
         *,
         message: str | None = None,
         fields: dict[str, str] | None = None,
+        details: dict[str, str] | None = None,
     ) -> None:
         self.code = code
         self.fields = fields
+        # 앱이 다음 단계로 가는 데 필요한 값. 지금은 ACCOUNT_LINK_REQUIRED 의
+        # 연결 토큰뿐이다. 계정이 있는지 없는지 말고는 드러내지 않는 값만 싣는다.
+        self.details = details
         super().__init__(
             status_code=STATUS_BY_CODE[code],
             detail=message or MESSAGE_BY_CODE[code],

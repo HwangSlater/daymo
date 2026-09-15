@@ -57,6 +57,35 @@ class Settings(BaseSettings):
     photo_space_quota_bytes: int = 1024 * 1024 * 1024
     photo_total_quota_bytes: int = 10 * 1024 * 1024 * 1024
 
+    # 소셜 로그인. 제공자마다 필요한 값이 모두 있어야 그 제공자가 켜진다
+    # (app/services/oauth/providers.py 의 configured). 비어 있는 제공자는 목록에서
+    # 빠지고 앱은 그 버튼을 보여 주지 않는다. 값은 서버에만 둔다
+    # (docs/development/11-owner-setup-guide.md 7장).
+    #
+    # 제공자 콘솔에 등록할 redirect URI 는 `{auth_link_base}/v1/auth/oauth/{제공자}/callback` 이다.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Apple 은 앱 번들 id 가 아니라 Services ID 를 client id 로 쓴다.
+    apple_client_id: str = ""
+    apple_team_id: str = ""
+    apple_key_id: str = ""
+    # .p8 파일 내용. 한 줄로 넣으려면 줄바꿈을 \n 으로 적어도 된다.
+    apple_private_key: str = ""
+    kakao_rest_api_key: str = ""
+    # 카카오 콘솔에서 Client Secret 을 켰을 때만 채운다.
+    kakao_client_secret: str = ""
+    naver_client_id: str = ""
+    naver_client_secret: str = ""
+
+    # 로그인을 마친 뒤 돌아갈 수 있는 앱 주소. 쉼표로 여럿. 여기 없는 주소로는
+    # 로그인 코드를 보내지 않는다. 아무 주소나 받으면 남의 사이트가 로그인 코드를
+    # 가로챌 수 있다. 로컬에서 Expo Go 로 시험하려면 exp://.../--/oauth 를 더한다.
+    oauth_app_redirect_uris: str = "daymo://oauth"
+
+    @property
+    def app_redirect_uris(self) -> frozenset[str]:
+        return frozenset(주소.strip() for 주소 in self.oauth_app_redirect_uris.split(",") if 주소.strip())
+
     @property
     def database_url(self) -> str:
         from urllib.parse import quote

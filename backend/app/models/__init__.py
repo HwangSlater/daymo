@@ -37,6 +37,7 @@ from app.models.enums import (
 from app.models.cooking import Checklist, ChecklistItem, Ingredient, Recipe
 from app.models.expense import Expense, ExpenseShare, Payment
 from app.models.memory import AuditLog, Diary, Memo, Photo, PhotoLink
+from app.models.oauth import OAuthPendingLogin, OAuthState
 from app.models.reauth import ReauthProof
 from app.models.place import Place, TripPlace
 from app.models.schedule import Reservation, ScheduleItem, Stay, Transport
@@ -70,7 +71,9 @@ __all__ = [
     "MembershipRole",
     "Memo",
     "OAuthAccount",
+    "OAuthPendingLogin",
     "OAuthProvider",
+    "OAuthState",
     "PasswordResetToken",
     "Payment",
     "Photo",

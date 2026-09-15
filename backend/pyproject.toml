@@ -3,9 +3,12 @@ name = "daymo-backend"
 version = "0.1.0"
 description = "Daymo 동기화 API"
 requires-python = ">=3.13"
-# 실제로 쓰는 것만 적는다. Authlib(OAuth)은 그 기능을
-# 붙이는 단계에서 추가한다. 쓰지 않는 의존성을 미리 올려 두면 무엇이 실제로
+# 실제로 쓰는 것만 적는다. 쓰지 않는 의존성을 미리 올려 두면 무엇이 실제로
 # 필요한지 알 수 없게 된다.
+#
+# 소셜 로그인은 Authlib 없이 httpx 로 제공자를 부른다. 네 곳이 주고받는 것이
+# 주소 셋과 폼 몇 칸뿐이라 직접 쓰는 편이 읽기 쉽다. pyjwt[crypto] 는 Google·
+# Apple 의 id_token(RS256) 검증과 Apple client secret(ES256) 서명에 쓴다.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
@@ -15,9 +18,10 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "alembic>=1.14",
     "argon2-cffi>=23.1",
-    "pyjwt>=2.9",
+    "pyjwt[crypto]>=2.9",
     "tzdata>=2026.4",
     "pillow>=11.3",
+    "httpx>=0.28",
 ]
 
 [dependency-groups]
