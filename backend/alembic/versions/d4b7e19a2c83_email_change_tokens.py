@@ -1,7 +1,7 @@
 """email change tokens, password change revoke reason and email change throttle
 
 Revision ID: d4b7e19a2c83
-Revises: c3e81f5a2d64
+Revises: e9a4c27d51b3
 Create Date: 2026-09-15 20:00:00.000000
 """
 from collections.abc import Sequence
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 revision: str = 'd4b7e19a2c83'
-down_revision: str | None = 'c3e81f5a2d64'
+down_revision: str | None = 'e9a4c27d51b3'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
