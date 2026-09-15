@@ -20,6 +20,11 @@ mobile/android/
 .env.local
 !.env.example
 
+# daymo.xyz 사이트: 운영자 이름(공개 저장소에 넣지 않는다)과 빌드 결과, Vercel 연결 정보
+site/site.local.json
+site/dist/
+site/.vercel/
+
 # 로컬 개발 서버가 받은 사진
 backend/uploads/
 
