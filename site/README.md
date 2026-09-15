@@ -28,6 +28,11 @@ node site/build.mjs
 npx vercel deploy --prod --cwd site/dist
 ```
 
+`build.mjs`는 앱의 웹 버전도 `dist/app`에 함께 만든다(`www.daymo.xyz/app`). iPhone 앱이 나오기 전에 휴대폰 브라우저로
+쓰는 곳이다. 이메일 로그인만 되고 소셜 로그인 버튼은 나오지 않는다(앱으로 돌아오는 주소가 `daymo://` 라서). API 서버의
+`CORS_ORIGINS`(기본 `https://www.daymo.xyz,https://daymo.xyz`)에 이 주소가 있어야 브라우저가 API를 부를 수 있다.
+사이트 글만 고쳐 볼 때는 `node site/build.mjs --preview --no-app` 으로 앱 빌드를 건너뛴다.
+
 `build.mjs`가 `site/.vercel`을 `dist`에 복사하고 `vercel.json`(`cleanUrls`)을 넣는다. 그래서 `/privacy`처럼 `.html` 없이 열린다.
 
 ## 고칠 때

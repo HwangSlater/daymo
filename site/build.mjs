@@ -1,5 +1,6 @@
 // daymo.xyz 정적 사이트를 site/dist 에 만든다. 사용법은 site/README.md.
 
+import { execSync } from "node:child_process";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,7 @@ const ROOT = join(HERE, "..");
 const SRC = join(HERE, "src");
 const DIST = join(HERE, "dist");
 const preview = process.argv.includes("--preview");
+const withoutApp = process.argv.includes("--no-app");
 
 const localPath = join(HERE, "site.local.json");
 let operatorName = "";
@@ -46,12 +48,31 @@ for (const shot of ["trip-overview", "trip-packing", "trip-expenses", "trip-memo
   copyFileSync(join(ROOT, `docs/screenshots/${shot}.png`), join(DIST, `images/${shot}.png`));
 }
 
+// 웹 버전 앱을 /app 아래에 넣는다. 사이트를 올리면 배포가 통째로 바뀌므로 매번 같이 만든다.
+// --clear 가 없으면 예전에 로컬 API 주소로 만든 번들이 캐시에서 그대로 나올 수 있다.
+if (!withoutApp) {
+  execSync(`npx expo export -p web --clear --output-dir "${join(DIST, "app")}"`, {
+    cwd: join(ROOT, "mobile"),
+    stdio: "inherit",
+    env: { ...process.env, DAYMO_WEB_BASE_URL: "/app", EXPO_PUBLIC_DAYMO_API_URL: "https://api.daymo.xyz" },
+  });
+}
+
 writeFileSync(
   join(DIST, "vercel.json"),
   JSON.stringify(
     {
       cleanUrls: true,
       headers: [
+        {
+          // 새로 배포하면 바로 새 번들을 받게 한다. 번들 파일은 이름에 해시가 붙어 오래 둬도 된다.
+          source: "/app",
+          headers: [{ key: "Cache-Control", value: "no-cache" }],
+        },
+        {
+          source: "/app/_expo/(.*)",
+          headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        },
         {
           source: "/(.*)",
           headers: [
