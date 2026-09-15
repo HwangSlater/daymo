@@ -71,6 +71,9 @@ class ScheduleItem(Base, TimestampMixin, CreatedByMixin):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    # 고칠 때마다 올린다. 어긋나면 409(여행·장소와 같은 규칙).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<ScheduleItem {self.id}>"
 
@@ -111,6 +114,9 @@ class Stay(Base, TimestampMixin, CreatedByMixin):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 앱의 일정에 띄우기. 일정표 줄을 따로 만들지 않고 이 값으로 보여 준다.
     show_in_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # 고칠 때마다 올린다. 어긋나면 409(여행·장소와 같은 규칙).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Stay {self.id}>"

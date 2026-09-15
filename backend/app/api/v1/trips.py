@@ -33,6 +33,7 @@ from app.schemas.trip import (
     TripOut,
     TripUpdateRequest,
 )
+from app.services import schedule as schedule_service
 from app.services import trips as trip_service
 
 router = APIRouter(tags=["trips"])
@@ -285,9 +286,10 @@ async def update_trip(
     for 이름, 값 in 보낸_것.items():
         setattr(trip, 이름, 값)
 
-    # 날짜를 건드렸으면 기간 규칙을 다시 본다.
+    # 날짜를 건드렸으면 기간 규칙을 다시 보고, 일정이 붙는 날들도 새 기간에 맞춘다.
     if "start_date" in 보낸_것 or "end_date" in 보낸_것:
         trip_service._기간을_본다(trip.start_date, trip.end_date)
+        await schedule_service.sync_trip_days(db, trip)
 
     trip.version += 1
     await db.flush()

@@ -80,23 +80,21 @@ async def membership_for_trip(
     return 줄[0], 줄[1]
 
 
-async def membership_for_trip_place(
-    session: AsyncSession, *, user_id: uuid.UUID, trip_place_id: uuid.UUID
-) -> tuple[Membership, Trip, TripPlace]:
+async def membership_for_trip_row(session: AsyncSession, *, user_id: uuid.UUID, model, row_id: uuid.UUID):
     """
-    여행 장소와 그 여행, 내 자격을 한 질의로 가져온다.
+    여행에 딸린 줄(장소·일정·숙소 …)과 그 여행, 내 자격을 한 질의로 가져온다.
 
-    `membership_for_trip` 과 같은 이유로 장소를 먼저 찾지 않는다. 지워진 여행의
-    장소는 없는 것으로 본다.
+    `membership_for_trip` 과 같은 이유로 줄을 먼저 찾지 않는다. 지워진 여행의
+    줄은 없는 것으로 본다. `model` 은 `trip_id` 칸이 있는 표다.
     """
     줄 = (
         await session.execute(
-            select(Membership, Trip, TripPlace)
+            select(Membership, Trip, model)
             .join(Space, Space.id == Membership.space_id)
             .join(Trip, Trip.space_id == Space.id)
-            .join(TripPlace, TripPlace.trip_id == Trip.id)
+            .join(model, model.trip_id == Trip.id)
             .where(
-                TripPlace.id == trip_place_id,
+                model.id == row_id,
                 Membership.user_id == user_id,
                 Membership.left_at.is_(None),
                 Space.deleted_at.is_(None),
@@ -107,6 +105,12 @@ async def membership_for_trip_place(
     if 줄 is None:
         raise AppError(ErrorCode.NOT_FOUND)
     return 줄[0], 줄[1], 줄[2]
+
+
+async def membership_for_trip_place(
+    session: AsyncSession, *, user_id: uuid.UUID, trip_place_id: uuid.UUID
+) -> tuple[Membership, Trip, TripPlace]:
+    return await membership_for_trip_row(session, user_id=user_id, model=TripPlace, row_id=trip_place_id)
 
 
 def require(membership: Membership, *allowed: MembershipRole) -> None:
