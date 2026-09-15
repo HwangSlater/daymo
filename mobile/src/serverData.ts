@@ -4,7 +4,7 @@ import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./s
 import type { ReservationBody, ServerReservation, ServerTransport, TransportBody } from "./bookingSync";
 import type { ExpenseBody, PaymentBody, ServerExpense, ServerPayment } from "./expenseSync";
 import type { ChecklistItemBody, RecipeBody, ServerChecklistItem, ServerRecipe } from "./cookingSync";
-import type { DiaryBody, MemoBody, ServerDiary, ServerMemo } from "./memorySync";
+import type { DiaryBody, MemoBody, ServerDiary, ServerMemo, ServerTrashItem } from "./memorySync";
 import type { PhotoBody, ServerPhoto } from "./photoSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
@@ -345,6 +345,17 @@ export const updateDiary = (id: string, version: number, body: DiaryBody) =>
 
 export const deleteDiary = (id: string) =>
   authenticatedRequest<void>(`/v1/diaries/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+/** 지운 뒤 7일 안의 메모와 사진. owner·editor 만 볼 수 있다(보기만 하면 403). */
+export const listTrash = (tripId: string) =>
+  authenticatedRequest<ServerTrashItem[]>(`/v1/trips/${encodeURIComponent(tripId)}/trash`);
+
+/** 되살린 메모나 사진을 목록과 같은 모양으로 돌려준다. 7일이 지났으면 410 이다. */
+export const restoreFromTrash = (type: ServerTrashItem["type"], id: string) =>
+  authenticatedRequest<ServerMemo | ServerPhoto>(
+    `/v1/trash/${type}/${encodeURIComponent(id)}/restore`,
+    { method: "POST" },
+  );
 
 export const listPhotos = (tripId: string) =>
   authenticatedRequest<ServerPhoto[]>(`/v1/trips/${encodeURIComponent(tripId)}/photos`);

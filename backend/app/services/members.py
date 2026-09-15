@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
 from app.core.tokens import hash_refresh_token, new_one_time_token
+from app.services import audit
 from app.models import (
     INVITE_DAYS,
     INVITE_MAX_USES,
@@ -84,7 +85,7 @@ async def revoke_invite(session: AsyncSession, *, space_id: uuid.UUID, invite_id
         raise AppError(ErrorCode.FORBIDDEN)
     if invite.revoked_at is None:
         invite.revoked_at = datetime.now(UTC)
-        await session.flush()
+        await audit.record(session, space_id=space_id, actor_membership_id=actor.id, action="invite.revoke", target_type="invite", target_id=invite.id)
 
 
 async def _active_count(session: AsyncSession, space_id: uuid.UUID) -> int:

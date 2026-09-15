@@ -60,3 +60,22 @@ class DiaryOut(_Camel):
     author_name: str
     created_at: datetime
     version: int
+
+
+class TrashItemOut(_Camel):
+    """
+    휴지통의 한 줄. `type` 은 `memo` 나 `photo` 다.
+
+    `preview` 는 메모면 본문 앞 40자, 사진이면 설명(없으면 null)이다. 지운 사진의 파일은
+    되살리기 전에는 내려 주지 않는다. `canRestore` 는 지금 부른 사람이 되살릴 수 있는지다.
+    """
+
+    id: str
+    type: str
+    trip_id: str
+    preview: str | None
+    deleted_at: datetime
+    deleted_by_membership_id: str | None
+    deleted_by_name: str
+    restore_deadline: datetime
+    can_restore: bool

@@ -41,6 +41,11 @@ type Options<L, B, S extends ServerRow> = {
    * 목록이 그대로여도 다시 비교한다. 장소가 올라간 뒤에야 일정에 장소를 이을 수 있다.
    */
   refreshKey?: string;
+  /**
+   * 바뀌면 열 때처럼 서버 목록을 다시 받아 합친다. 휴지통에서 되살린 줄처럼 이 기기가
+   * 만들지 않은 변화를 바로 보여 줄 때 올린다.
+   */
+  reloadKey?: number;
   notify: (message: string) => void;
 };
 
@@ -188,6 +193,12 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
     let retry: ReturnType<typeof setTimeout> | null = null;
     const open = async () => {
       try {
+        // 다시 받는 경우에는 기다리던 변경을 먼저 보낸다. 그러지 않으면 방금 지운 줄이 되살아나 보인다.
+        if (loaded.current && timer.current) {
+          clearTimeout(timer.current);
+          timer.current = null;
+          await run();
+        }
         const server = await latest.current.api.list(tripId);
         if (!active) return;
         const current = latest.current;
@@ -208,9 +219,9 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
       active = false;
       if (retry) clearTimeout(retry);
     };
-    // 여행이 바뀔 때만 다시 받는다. 나머지 값은 latest 로 읽는다.
+    // 여행이 바뀌거나 다시 받으라고 할 때만 받는다. 나머지 값은 latest 로 읽는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId]);
+  }, [tripId, options.reloadKey]);
 
   // 목록이 바뀌면 잠깐 기다렸다가 맞춘다.
   useEffect(() => {

@@ -35,6 +35,7 @@ from app.schemas.trip import (
     TripOut,
     TripUpdateRequest,
 )
+from app.services import audit
 from app.services import schedule as schedule_service
 from app.services import space_deletion
 from app.services import trips as trip_service
@@ -421,6 +422,7 @@ async def delete_trip(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) 
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     require(membership, *OWNER_ONLY)
     await trip_service.request_delete(db, trip)
+    await audit.record(db, space_id=trip.space_id, actor_membership_id=membership.id, action="trip.delete", target_type="trip", target_id=trip.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -430,5 +432,8 @@ async def restore(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> d
         db, user_id=caller.user.id, trip_id=trip_id, include_deleted=True
     )
     require(membership, *OWNER_ONLY)
+    지웠었다 = trip.deleted_at is not None  # 지우지 않은 여행을 되살리라고 하면 적지 않는다.
     await trip_service.restore_trip(db, trip)
+    if 지웠었다:
+        await audit.record(db, space_id=trip.space_id, actor_membership_id=membership.id, action="trip.restore", target_type="trip", target_id=trip.id)
     return ok(await _여행_응답(db, trip))

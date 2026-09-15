@@ -10,6 +10,7 @@ from app.api.permissions import WRITERS, membership_in_space, require
 from app.core.responses import ok
 from app.models import MembershipRole, SpaceInvite
 from app.schemas.auth import _Camel
+from app.services import audit
 from app.services import members as member_service
 
 router = APIRouter(tags=["members and invites"])
@@ -101,6 +102,7 @@ async def change_member_role(
     target = await member_service.change_role(
         db, space_id=space_id, membership_id=membership_id, role=MembershipRole(body.role), actor=membership
     )
+    await audit.record(db, space_id=space_id, actor_membership_id=membership.id, action="member.role_change", target_type="membership", target_id=target.id, summary_fields={"role": str(target.role)})
     return ok({"id": str(target.id), "role": target.role, "myRole": membership.role})
 
 
@@ -109,4 +111,5 @@ async def remove_member(space_id: uuid.UUID, membership_id: uuid.UUID, caller: C
     """내 membership 이면 나가기, 남의 것이면 내보내기(owner 만)."""
     membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
     await member_service.remove_member(db, space_id=space_id, membership_id=membership_id, actor=membership)
+    await audit.record(db, space_id=space_id, actor_membership_id=membership.id, action="member.leave" if membership_id == membership.id else "member.remove", target_type="membership", target_id=membership_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

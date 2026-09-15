@@ -16,6 +16,7 @@ from app.schemas.expense import (
     PaymentOut,
     ShareOut,
 )
+from app.services import audit
 from app.services import expenses as expense_service
 
 router = APIRouter(tags=["expenses"])
@@ -122,8 +123,10 @@ async def create_payment(
 @router.delete("/payments/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def undo_payment(payment_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> Response:
     """기록을 되돌린다. 행은 남는다."""
-    membership, _, payment = await membership_for_trip_row(db, user_id=caller.user.id, model=Payment, row_id=payment_id)
+    membership, trip, payment = await membership_for_trip_row(db, user_id=caller.user.id, model=Payment, row_id=payment_id)
     require(membership, *WRITERS)
+    if payment.deleted_at is None:  # 이미 되돌린 기록을 다시 보내면 적지 않는다.
+        await audit.record(db, space_id=trip.space_id, actor_membership_id=membership.id, action="payment.undo", target_type="payment", target_id=payment.id, summary_fields={"tripId": str(trip.id)})
     await expense_service.undo_payment(db, payment, caller.user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

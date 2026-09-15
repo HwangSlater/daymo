@@ -672,7 +672,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 - 메모와 일기의 목록·추가·`PATCH`·`DELETE`만 있다. `id`(앱 UUID)와 `version`을 더했고 낡은 `version`은 `VERSION_CONFLICT(409)`다. `permissions`는 아직 주지 않는다. owner·editor면 누가 쓴 메모든 고치고 지울 수 있다.
 - 작성자는 `author` 객체 대신 `authorMembershipId`와 `authorName`(지금 표시 이름, 계정을 지운 사람은 `탈퇴한 멤버`)으로 준다.
-- 메모를 지우면 `deletedAt`·`deletedBy`를 채우고 목록에서 뺀다. 지운 메모를 같은 `id`로 다시 만들거나 고치면 404다. 휴지통 복원과 audit log는 아직 없다.
+- 메모를 지우면 `deletedAt`·`deletedBy`를 채우고 목록에서 뺀다. 지운 메모를 같은 `id`로 다시 만들거나 고치면 404다. 7일 안에는 휴지통에서 되살린다(아래 휴지통 구현).
 - 일기는 `title`(비우면 null)·`body`·`writtenOn`(그 일기가 다루는 날, 비워도 됨)을 받고, 다루는 날 순서로 주며 날이 없는 일기는 뒤에 둔다. 일기는 지우면 행을 지운다.
 
 메모와 사진은 삭제 후 7일간 휴지통에서 복원할 수 있다. 사진 업로더는 본인 사진의 설명과 날짜·장소·일정 연결을 수정하고 삭제·복구할 수 있다. owner는 공간의 모든 사진에 같은 권한을 가진다. 다른 editor는 타인이 올린 사진의 설명·연결을 수정하거나 삭제·복구할 수 없다. 사진 응답의 `permissions.canEdit`, `canDelete`, `canRestore`도 이 규칙을 반영하고 서버가 uploader/owner 권한을 매 요청마다 확인한다. 7일이 지나면 DB row와 사진 variant를 최종 삭제하고 삭제 ledger를 남겨 오래된 백업을 복원할 때 다시 노출되지 않게 한다.
@@ -684,8 +684,16 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 - 업로드 session 표를 따로 두지 않고 사진 줄이 그 역할을 한다. `POST /trips/{tripId}/photos`에 `{id, bytes, checksum(SHA-256), caption, date, isReceipt}`를 보내면 `status=uploading` 줄이 생기고 한 장·공간·서버 한도를 먼저 본다. 이어서 `PUT /photos/{photoId}/content`에 파일 byte를 그대로(multipart 아님) 보내면 서버가 받으면서 크기를 세고, SHA-256을 맞춘 뒤 표시본(긴 변 1440px)·썸네일(480px) JPEG을 만들고 `ready`로 바꾼다. `complete` 단계는 없다. 끊기면 `PUT`만 다시 보낸다.
 - 받는 형식은 JPEG·PNG·WebP다. HEIC는 앱이 JPEG로 바꿔 보낸다. 원본은 그림 데이터를 다시 인코딩하지 않고 메타데이터 조각만 뺀다(JPEG는 방향·찍은 시각만 남긴 EXIF를 새로 넣고, PNG·WebP는 EXIF·XMP·글 조각을 뺀다, 2026-09-15). 표시본·썸네일은 방향을 바로잡고 EXIF를 모두 뺀다. SHA-256은 앱이 보낸 원래 파일로 맞춘다. `takenAt`은 EXIF 촬영 시각이며 시간대가 없으면 공간 시간대로 읽는다. `date`는 앱에서 고른 날로 `trip_days`를 가리키지 않는다.
 - `GET /photos/{photoId}/content?variant=`는 공간 멤버에게만 파일을 주고 `Cache-Control: private, max-age=31536000, immutable`이다. 운영에서 `PHOTO_ACCEL_PREFIX`를 넣으면 같은 권한 검사 뒤 본문 없이 `X-Accel-Redirect`로 Nginx에 넘기고 Nginx가 파일(Range 포함)을 보낸다. 앱이 받는 응답은 같다(06-vps-deployment.md 6장). 목록(`GET /trips/{tripId}/photos`)은 다 올라온 여행 사진만 주고 영수증은 뺀다.
-- 설명·날짜 수정(`PATCH`, `version` 필요)과 삭제는 올린 사람과 owner만 한다. 지우면 `deletedAt`·`deletedBy`를 채우고 7일 뒤 정리 작업이 파일과 줄을 지운다. 휴지통 조회·복원, 중복 후보 안내, 사용량 API, 삭제 ledger는 아직 없다.
+- 설명·날짜 수정(`PATCH`, `version` 필요)과 삭제는 올린 사람과 owner만 한다. 지우면 `deletedAt`·`deletedBy`를 채우고 7일 뒤 정리 작업이 파일과 줄을 지운다. 휴지통 조회·복원은 아래 휴지통 구현을 본다. 중복 후보 안내, 사용량 API, 삭제 ledger는 아직 없다.
 - 지출의 `receiptPhotoId`로 같은 여행의 사진을 영수증으로 붙인다.
+
+2026-09-15 휴지통과 audit log 구현(`backend/app/api/v1/trash.py`, `backend/app/services/trash.py`, `backend/app/services/audit.py`):
+
+- `GET /trips/{tripId}/trash`는 지운 지 7일이 안 된 메모와 다 올라온 여행 사진(영수증 제외)을 최근에 지운 것부터 준다. owner·editor만 보고 viewer는 `403`이다. 한 줄은 `{id, type(memo|photo), tripId, preview, deletedAt, deletedByMembershipId, deletedByName, restoreDeadline, canRestore}`이며 `preview`는 메모면 공백을 한 칸으로 줄인 본문 앞 40자, 사진이면 설명이다. 지운 사진의 파일은 되살리기 전에는 내려 주지 않는다.
+- `POST /trash/{memo|photo}/{targetId}/restore`는 지울 때와 같은 권한이다. 메모는 owner·editor, 사진은 올린 사람과 owner(둘 다 viewer는 `403`). `deletedAt`·`deletedBy`를 비우고 `version`을 올린 뒤 메모·사진 응답과 같은 모양으로 돌려준다. 기한(`deletedAt` + 7일)이 지났으면 정리 작업 전이라도 `410 GONE`이고, 지우지 않은 것이면 바꾸지 않고 그대로 답한다. 제한된 사진은 `404`다.
+- `audit_logs`에 남기는 행동: `memo.delete`·`memo.restore`·`photo.delete`·`photo.restore`·`payment.undo`·`member.remove`·`member.leave`·`member.role_change`(`metadata.role`)·`invite.revoke`·`trip.delete`·`trip.restore`. 이미 되돌린 기록·폐기한 초대·지우지 않은 여행처럼 바뀐 것이 없는 요청은 적지 않는다. 메모·일기 본문, 사진 설명과 파일, 이메일·이름은 `metadata`에 넣지 않고 여행 id·역할처럼 무엇이 바뀌었는지만 둔다. audit log 조회 API와 보유기간 파기는 아직 없다.
+- 지운 메모는 기한이 지나도 행이 남는다(휴지통과 목록에서만 빠진다). 메모 최종 삭제 작업은 아직 없다.
+- 앱은 메모 시트 아래 `휴지통`에서 목록을 받고 `되돌리기` 뒤 메모·사진 목록을 서버에서 다시 받는다(`mobile/src/TripTrash.tsx`, `useListSync`의 `reloadKey`).
 
 사진 업로드 순서:
 

@@ -14,6 +14,7 @@ from app.api.v1 import (
     places,
     reports,
     schedule,
+    trash,
     trips,
 )
 
@@ -33,3 +34,4 @@ api_router.include_router(cooking.router)
 api_router.include_router(memories.router)
 api_router.include_router(photos.router)
 api_router.include_router(reports.router)
+api_router.include_router(trash.router)

@@ -15,6 +15,7 @@ from app.schemas.memory import (
     MemoOut,
     MemoUpdateRequest,
 )
+from app.services import audit
 from app.services import memories as memory_service
 
 router = APIRouter(tags=["memos and diaries"])
@@ -91,9 +92,10 @@ async def update_memo(memo_id: uuid.UUID, body: MemoUpdateRequest, caller: Curre
 @router.delete("/memos/{memo_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_memo(memo_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> Response:
     """남이 쓴 메모도 owner·editor 는 지울 수 있다. 행은 남고 누가 지웠는지 적힌다."""
-    membership, _, memo = await _살아_있는_메모(db, caller, memo_id)
+    membership, trip, memo = await _살아_있는_메모(db, caller, memo_id)
     require(membership, *WRITERS)
     await memory_service.remove_memo(db, memo=memo, actor=membership)
+    await audit.record(db, space_id=trip.space_id, actor_membership_id=membership.id, action="memo.delete", target_type="memo", target_id=memo.id, summary_fields={"tripId": str(trip.id)})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

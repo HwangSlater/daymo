@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { bodyKey, hasWork, planListSync, type Confirmed } from "./listSync.ts";
-import { diaryCodec, memoCodec, memoStamp } from "./memorySync.ts";
+import { diaryCodec, memoCodec, memoStamp, trashLeftLabel } from "./memorySync.ts";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const roster = [{ id: "m-me", name: "하늘" }, { id: "m-yeoul", name: "여울 2" }];
@@ -39,4 +39,12 @@ test("일기는 제목을 비우면 null, 다루는 날이 없으면 쓴 날로 
   assert.deepEqual(undated, { id: A, title: "", body: "우산", date: "10월 5일" });
   const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(diaryCodec.toBody(dated)), version: 1 }]]);
   assert.equal(hasWork(planListSync([dated], diaryCodec, confirmed)), false);
+});
+
+test("휴지통은 남은 날을 내림해서 알리고 하루가 안 남으면 오늘이라고 한다", () => {
+  const at = (days: number) => new Date(now.getTime() + days * 86_400_000).toISOString();
+  assert.equal(trashLeftLabel(at(6.9), now), "6일 뒤 사라져요");
+  assert.equal(trashLeftLabel(at(1), now), "1일 뒤 사라져요");
+  assert.equal(trashLeftLabel(at(0.5), now), "오늘 사라져요");
+  assert.equal(trashLeftLabel("x", now), "");
 });
