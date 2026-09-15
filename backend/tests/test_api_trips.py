@@ -696,3 +696,59 @@ async def test_아직_기한_안인_여행은_정리하지_않는다(api, db):
     지운_수 = await purge_deleted_trips(db)
 
     assert 지운_수 == 0
+
+
+async def test_나간_멤버는_includeLeft로_물을_때만_뒤에_나온다(api, db):
+    owner_headers = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, owner_headers)
+    await 로그인한_사람(api, "editor@example.com", "다온")
+
+    from app.models import Membership, User
+
+    user_id = await db.scalar(select(User.id).where(User.email == "editor@example.com"))
+    db.add(Membership(space_id=space_id, user_id=user_id, role=MembershipRole.EDITOR, left_at=datetime.now(UTC)))
+    await db.flush()
+
+    기본 = (await api.get(f"/v1/spaces/{space_id}/members", headers=owner_headers)).json()["data"]
+    전체 = (await api.get(f"/v1/spaces/{space_id}/members?includeLeft=true", headers=owner_headers)).json()["data"]
+
+    assert [줄["displayName"] for 줄 in 기본] == ["하늘"] and "leftAt" not in 기본[0]
+    assert [(줄["displayName"], 줄["leftAt"] is None) for 줄 in 전체] == [("하늘", True), ("다온", False)]
+
+
+async def test_이미_참가자인_사람은_공간을_나가도_참가자로_남길_수_있다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    await 로그인한_사람(api, "editor@example.com", "다온")
+    await 로그인한_사람(api, "late@example.com", "새봄")
+
+    from app.models import Membership, User
+
+    나 = await db.scalar(select(Membership.id).where(Membership.space_id == space_id))
+    다온 = Membership(space_id=space_id, user_id=await db.scalar(select(User.id).where(User.email == "editor@example.com")), role=MembershipRole.EDITOR)
+    새봄 = Membership(space_id=space_id, user_id=await db.scalar(select(User.id).where(User.email == "late@example.com")), role=MembershipRole.EDITOR)
+    db.add_all([다온, 새봄])
+    await db.flush()
+    첫번째 = await api.put(
+        f"/v1/trips/{trip['id']}/participants",
+        json={"version": trip["version"], "membershipIds": [str(나), str(다온.id)]},
+        headers=headers,
+    )
+    다온.left_at = datetime.now(UTC)
+    새봄.left_at = datetime.now(UTC)
+    await db.flush()
+
+    남김 = await api.put(
+        f"/v1/trips/{trip['id']}/participants",
+        json={"version": 첫번째.json()["data"]["version"], "membershipIds": [str(나), str(다온.id)]},
+        headers=headers,
+    )
+    새로_넣음 = await api.put(
+        f"/v1/trips/{trip['id']}/participants",
+        json={"version": 남김.json()["data"]["version"], "membershipIds": [str(나), str(다온.id), str(새봄.id)]},
+        headers=headers,
+    )
+
+    assert 남김.status_code == 200
+    assert 새로_넣음.status_code == 422

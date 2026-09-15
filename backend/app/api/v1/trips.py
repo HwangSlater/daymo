@@ -161,15 +161,28 @@ async def list_spaces(caller: CurrentCaller, db: DbSession) -> dict:
 
 @router.get("/spaces/{space_id}/members")
 async def list_space_members(
-    space_id: uuid.UUID, caller: CurrentCaller, db: DbSession
+    space_id: uuid.UUID,
+    caller: CurrentCaller,
+    db: DbSession,
+    include_left: bool = Query(default=False, alias="includeLeft"),
 ) -> dict:
+    """
+    공간 멤버. `includeLeft=true` 면 나간 멤버도 `leftAt` 과 함께 뒤에 붙인다.
+
+    지난 여행의 지출·준비물·교통편은 나간 사람을 가리킨다. 앱이 그 이름을 알아야
+    `나간 멤버` 로 뭉개지 않고 누구의 것인지 보여 줄 수 있다. 공간에 함께 있던
+    사람의 표시 이름이라 지금 멤버에게 새로 드러나는 것은 없다.
+    """
     await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
+    조건 = [Membership.space_id == space_id]
+    if not include_left:
+        조건.append(Membership.left_at.is_(None))
     줄들 = (
         await db.execute(
             select(Membership, User)
             .join(User, User.id == Membership.user_id)
-            .where(Membership.space_id == space_id, Membership.left_at.is_(None))
-            .order_by(Membership.joined_at, Membership.id)
+            .where(*조건)
+            .order_by(Membership.left_at.is_not(None), Membership.joined_at, Membership.id)
         )
     ).all()
     return ok(
@@ -179,7 +192,8 @@ async def list_space_members(
                 display_name=membership.nickname or user.display_name,
                 role=membership.role,
                 is_me=membership.user_id == caller.user.id,
-            ).model_dump(by_alias=True)
+                left_at=membership.left_at,
+            ).model_dump(by_alias=True, mode="json", exclude_none=not include_left)
             for membership, user in 줄들
         ]
     )

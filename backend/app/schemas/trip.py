@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import Field
@@ -95,6 +95,8 @@ class SpaceMemberOut(_Camel):
     display_name: str
     role: str
     is_me: bool
+    # 나간 멤버일 때만 채워진다. `includeLeft` 로 물었을 때만 나온다.
+    left_at: datetime | None = None
 
 
 class SpaceOut(_Camel):

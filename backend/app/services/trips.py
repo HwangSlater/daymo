@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
@@ -94,7 +94,9 @@ async def set_participants(
 
     **같은 공간의 살아 있는 멤버만 넣을 수 있다.** 이 검사는 외래키로
     표현할 수 없어서 여기서 한다. 빠지면 남의 공간 멤버를 내 여행 참가자로
-    넣을 수 있고, 그 사람 이름이 내 여행 화면에 뜬다.
+    넣을 수 있고, 그 사람 이름이 내 여행 화면에 뜬다. 다만 이미 참가자인
+    사람은 공간을 나갔어도 남길 수 있다. 지난 여행의 참가자를 고칠 때마다
+    나간 사람이 빠지면 그 사람의 몫이 정산에서 사라진다.
 
     뺀 사람의 줄은 지우지 않고 `removed_at` 을 채운다. 그 사람이 맡았던
     준비물과 낸 지출이 이 줄을 거쳐 사람을 가리킨다.
@@ -107,7 +109,15 @@ async def set_participants(
                 select(Membership.id).where(
                     Membership.id.in_(고른_것),
                     Membership.space_id == trip.space_id,
-                    Membership.left_at.is_(None),
+                    or_(
+                        Membership.left_at.is_(None),
+                        Membership.id.in_(
+                            select(TripParticipant.membership_id).where(
+                                TripParticipant.trip_id == trip.id,
+                                TripParticipant.removed_at.is_(None),
+                            )
+                        ),
+                    ),
                 )
             )
         ).scalars().all()
