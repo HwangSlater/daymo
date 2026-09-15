@@ -45,7 +45,7 @@
 }
 ```
 
-주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `OWNER_TRANSFER_REQUIRED(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
+주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `OWNER_TRANSFER_REQUIRED(409)`, `SPACE_MEMBER_LIMIT_REACHED(409)`, `EMAIL_NOT_VERIFIED(403)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
 
 ### 캐시 유효성 기본값
 
@@ -252,6 +252,14 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 ```
 
 초기 버전의 초대 생성 요청에서는 `role`을 받지 않고 서버가 `editor`로 고정한다. 이후 읽기 전용 공유가 필요해질 때 별도 정책과 UI를 검토한다.
+
+2026-09-16 구현(`backend/app/api/v1/members.py`):
+
+- 초대 링크는 `https://api.daymo.xyz/auth/invite?token=...`이다. 이메일 링크와 같은 이유로 API 서버가 페이지를 직접 보여 주고, 페이지는 공간 이름 없이 `daymo://invite?token=...`으로 앱을 연다. token은 주소의 query에 있어 접속 기록에 남지 않는다.
+- 참여는 `POST /invites/accept`에 `{token}`을 본문으로 보낸다(문서의 `/invites/{token}/accept`와 같은 일). 응답은 `{spaceId, membershipId, alreadyMember}`. 모르는 token은 404, 폐기·만료·횟수 소진은 410, 이메일 미확인은 `EMAIL_NOT_VERIFIED(403)`, 정원 초과는 `SPACE_MEMBER_LIMIT_REACHED(409)`다. 초대 줄과 공간 줄을 잠그고 센다.
+- 초대 만들기·목록은 owner·editor, 폐기는 owner 또는 만든 사람이다. 목록에는 링크 원문이 없다.
+- `PATCH /spaces/{spaceId}/members/{membershipId}`는 `{role: owner|editor|viewer}`를 받고 owner만 한다. `owner`로 바꾸면 관리자를 넘기고 나는 `editor`가 된다. 별명 변경은 아직 없다.
+- `DELETE /spaces/{spaceId}/members/{membershipId}`는 내 membership이면 나가기, 남의 것이면 내보내기(owner만)다. 다른 멤버가 있는 owner는 `OWNER_TRANSFER_REQUIRED`, 혼자 남은 owner는 422다. SSE ticket·알림·사진 URL 폐기와 `MEMBERSHIP_REVOKED`는 그 기능이 생길 때 붙인다. 지금은 membership 검사에서 404가 된다.
 
 참여 성공 전에는 공간 이름과 멤버 개인정보를 노출하지 않는다. 이미 해당 공간의 멤버라면 성공 응답과 함께 공간으로 이동하되 초대 사용 횟수는 올리지 않는다.
 

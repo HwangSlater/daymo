@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -126,3 +126,41 @@ class RelationshipProfile(Base, TimestampMixin):
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<RelationshipProfile {self.id}>"
+
+
+# 초대 링크 하나로 들어올 수 있는 사람 수와 쓸 수 있는 기간
+# (docs/development/03-api-specification.md 3장).
+INVITE_MAX_USES = 10
+INVITE_DAYS = 7
+
+
+class SpaceInvite(Base, TimestampMixin):
+    """
+    공간 초대 링크.
+
+    링크의 token 원문은 만들 때 한 번만 돌려주고 여기에는 hash 만 둔다. DB 가 새어도
+    링크를 되살릴 수 없다. 폐기하면 `revoked_at` 을 채우고 행은 남긴다. 누가 언제
+    초대했는지가 남아야 들어온 사람을 설명할 수 있다.
+    """
+
+    __tablename__ = "space_invites"
+    __table_args__ = (
+        CheckConstraint("used_count >= 0 AND used_count <= max_uses", name="uses_within_limit"),
+        Index("ix_space_invites_space", "space_id", "revoked_at"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    space_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("spaces.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    created_by_membership_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("memberships.id", ondelete="SET NULL"), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    max_uses: Mapped[int] = mapped_column(Integer, nullable=False, default=INVITE_MAX_USES)
+    used_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self) -> str:  # pragma: no cover - 디버깅용
+        return f"<SpaceInvite {self.id}>"

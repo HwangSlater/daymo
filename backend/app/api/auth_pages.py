@@ -243,3 +243,31 @@ async def forgot_password(request: Request, db: DbSession, ip: ClientIp) -> HTML
     except AppError as 오류:
         return _page("비밀번호 찾기", _forgot_form(str(오류.detail)), 429)
     return _message("메일을 보냈어요", "가입한 주소라면 곧 재설정 메일이 도착해요. 링크는 30분 동안 쓸 수 있어요.")
+
+
+# ---------------------------------------------------------------------------
+# 공간 초대
+# ---------------------------------------------------------------------------
+
+
+@router.get("/invite")
+async def invite_page(token: str | None = None) -> HTMLResponse:
+    """
+    초대 링크가 여는 페이지. 공간 이름도, 초대한 사람도 보여 주지 않는다.
+
+    참여는 앱에서만 한다. 로그인과 이메일 확인이 필요해서다. 이 페이지는 앱을 열고,
+    앱이 열리지 않으면 링크를 앱에 붙여 넣는 길을 알려 준다.
+    """
+    usable = _usable_token(token)
+    if usable is None:
+        return _message("초대 링크", "링크가 잘못되었어요. 초대한 사람에게 링크를 다시 받아 주세요.", 400)
+    앱_주소 = f"daymo://invite?token={usable}"
+    return _page(
+        "공간 초대",
+        "<h1>Daymo 여행 공간에 초대받았어요</h1>"
+        "<p>앱에서 로그인하면 바로 함께할 수 있어요.</p>"
+        f'<a href="{escape(앱_주소)}" style="display:block;text-decoration:none">'
+        '<button type="button">Daymo 앱에서 열기</button></a>'
+        '<p style="margin-top:18px">앱이 열리지 않으면 이 페이지 주소를 복사해 Daymo 앱의 '
+        "<strong>우리 → 초대 링크로 참여</strong>에 붙여 넣어 주세요. 링크는 받은 날부터 7일 동안 쓸 수 있어요.</p>",
+    )

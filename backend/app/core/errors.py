@@ -18,6 +18,8 @@ class ErrorCode(StrEnum):
     TAG_IN_USE = "TAG_IN_USE"
     SETTLEMENT_IN_PROGRESS = "SETTLEMENT_IN_PROGRESS"
     OWNER_TRANSFER_REQUIRED = "OWNER_TRANSFER_REQUIRED"
+    SPACE_MEMBER_LIMIT_REACHED = "SPACE_MEMBER_LIMIT_REACHED"
+    EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED"
     SYNC_CURSOR_EXPIRED = "SYNC_CURSOR_EXPIRED"
     GONE = "GONE"
     VALIDATION_ERROR = "VALIDATION_ERROR"
@@ -37,6 +39,8 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.TAG_IN_USE: 409,
     ErrorCode.SETTLEMENT_IN_PROGRESS: 409,
     ErrorCode.OWNER_TRANSFER_REQUIRED: 409,
+    ErrorCode.SPACE_MEMBER_LIMIT_REACHED: 409,
+    ErrorCode.EMAIL_NOT_VERIFIED: 403,
     ErrorCode.SYNC_CURSOR_EXPIRED: 410,
     ErrorCode.GONE: 410,
     ErrorCode.PHOTO_TOO_LARGE: 413,
@@ -57,6 +61,8 @@ MESSAGE_BY_CODE: dict[ErrorCode, str] = {
     ErrorCode.TAG_IN_USE: "사용 중인 태그예요.",
     ErrorCode.SETTLEMENT_IN_PROGRESS: "이미 주고받은 기록이 있어 바꿀 수 없어요.",
     ErrorCode.OWNER_TRANSFER_REQUIRED: "다른 멤버가 있는 공간의 관리자예요. 관리자를 먼저 넘겨 주세요.",
+    ErrorCode.SPACE_MEMBER_LIMIT_REACHED: "이 공간은 10명이 모두 찼어요.",
+    ErrorCode.EMAIL_NOT_VERIFIED: "이메일 인증을 마친 뒤 참여할 수 있어요. 받은 메일의 링크를 눌러 주세요.",
     ErrorCode.SYNC_CURSOR_EXPIRED: "동기화 기준이 오래돼 전체를 다시 받아야 해요.",
     ErrorCode.GONE: "복구할 수 있는 기간이 지났어요.",
     ErrorCode.VALIDATION_ERROR: "입력 내용을 확인해 주세요.",

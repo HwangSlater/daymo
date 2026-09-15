@@ -40,7 +40,15 @@ from app.models.memory import AuditLog, Diary, Memo, Photo, PhotoLink
 from app.models.reauth import ReauthProof
 from app.models.place import Place, TripPlace
 from app.models.schedule import Reservation, ScheduleItem, Stay, Transport
-from app.models.space import MAX_MEMBERS_PER_SPACE, Membership, RelationshipProfile, Space
+from app.models.space import (
+    INVITE_DAYS,
+    INVITE_MAX_USES,
+    MAX_MEMBERS_PER_SPACE,
+    Membership,
+    RelationshipProfile,
+    Space,
+    SpaceInvite,
+)
 from app.models.throttle import ThrottleCounter
 from app.models.tag import ExternalLink, Tag, Tagging
 from app.models.trip import Trip, TripDay, TripParticipant
@@ -49,6 +57,8 @@ from app.models.user import User
 # alembic 이 autogenerate 할 때 여기 없는 모델은 보지 못한다.
 # 새 모델을 만들면 반드시 이 목록에 추가한다.
 __all__ = [
+    "INVITE_DAYS",
+    "INVITE_MAX_USES",
     "MAX_MEMBERS_PER_SPACE",
     "AuditLog",
     "Base",
@@ -93,6 +103,7 @@ __all__ = [
     "ScheduleItemType",
     "SensitiveAction",
     "Space",
+    "SpaceInvite",
     "SplitMode",
     "Stay",
     "Tag",
