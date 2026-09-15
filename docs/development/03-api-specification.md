@@ -350,12 +350,14 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 }
 ```
 
-2026-09-15 구현(`backend/app/api/v1/schedule.py`): 일정과 숙소만 열었다. 교통·예약·정렬 API는 아직 없다.
+2026-09-15 구현(`backend/app/api/v1/schedule.py`, `bookings.py`): 일정·숙소·교통·예약을 열었다. 정렬 API는 없다(앱이 날짜·시각 순으로 보여 준다).
 
 - 위 예시의 `tripDayId`·`startAt` 대신 **공간 시간대의 `date`(YYYY-MM-DD)와 `time`(HH:MM)** 을 주고받는다. 서버가 공간 시간대로 timestamptz를 만들고 날짜로 `trip_day`를 찾는다. 앱마다 시간대 계산을 하면 기기 시간대가 다른 멤버끼리 일정이 어긋나기 때문이다. 시각이 없으면 날짜만 남고, 날짜가 없으면 시각도 저장하지 않는다.
 - 요청 필드는 `id`(앱 UUID), `date`, `time`, `title`(60자), `type(place|meal|move|rest|other)`, `note`, `tripPlaceId`(같은 여행 장소만), `mapUrl`이다. 목록은 날짜·시각 순이다.
 - 숙소는 `id`, `tripPlaceId`, `checkInAt`·`checkOutAt`(공간 시간대 `YYYY-MM-DDTHH:MM`), `note`, `showInSchedule`. 이름·주소는 연결한 장소의 것이다. 숙소 분류(`lodging`) 검사는 아직 하지 않는다.
 - 둘 다 `version`이 있고 `PATCH`에 필수다. 같은 `id`로 다시 만들면 `200`으로 기존 줄을 돌려준다.
+- 교통은 `id`, `direction`, `method(ktx|srt|bus|flight|other)`, `date`, `departureName`·`departureTime`, `arrivalName`·`arrivalTime`, `ownerMembershipId`(같은 공간 멤버만), `bookingStatus(booked|not_booked)`, `note`, `showInSchedule`. 도착 시각이 출발보다 이르면 다음 날 도착으로 저장한다. 날짜만 있고 시각이 없어도 날짜(`travel_on`)는 남는다.
+- 예약은 `id`, `title`, `date`, `time`, `partySize`, `partyLabel`(사람이 적은 인원 글자 그대로), `status(confirmed|needs_check|cancelled)`, `note`, `bookingUrl`(http/https), `showInSchedule`. 날짜는 `reserved_on`에 따로 남는다.
 - 여행 기간을 `PATCH /trips/{id}`로 바꾸면 `trip_days`도 새 기간에 맞춘다. 빠진 날을 가리키던 일정은 날짜가 비고, 앱이 새 날짜로 옮겨 다시 보낸다.
 
 교통 요청은 `direction(outbound|return)`, `method`, 출발/도착 장소와 시각, `bookingStatus`를 가진다. 가는 편 생성 응답에는 오는 편 입력을 묻기 위한 `suggestReturn: true`를 포함할 수 있으나, 실제 알림창 표시는 클라이언트가 결정한다.

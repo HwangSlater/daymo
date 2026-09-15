@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -157,6 +158,8 @@ class Transport(Base, TimestampMixin, CreatedByMixin):
         enum_column(TransportMethod), nullable=False, default=TransportMethod.OTHER
     )
 
+    # 날짜만 정하고 시각은 모르는 교통편이 있다. timestamptz 하나로는 그걸 적을 수 없다.
+    travel_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     departure_name: Mapped[str | None] = mapped_column(String(40), nullable=True)
     departure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     arrival_name: Mapped[str | None] = mapped_column(String(40), nullable=True)
@@ -167,6 +170,7 @@ class Transport(Base, TimestampMixin, CreatedByMixin):
     )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     show_in_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Transport {self.id}>"
@@ -202,6 +206,10 @@ class Reservation(Base, TimestampMixin, CreatedByMixin):
 
     title: Mapped[str] = mapped_column(String(60), nullable=False)
     party_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 사람이 적은 인원 글자 그대로(`2명 + 아이`). 숫자만 남기면 적은 말이 잘린다.
+    party_label: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # 교통편과 같은 이유로 날짜를 따로 둔다.
+    reserved_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     reserved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[ReservationStatus] = mapped_column(
         enum_column(ReservationStatus), nullable=False, default=ReservationStatus.NEEDS_CHECK
@@ -209,6 +217,7 @@ class Reservation(Base, TimestampMixin, CreatedByMixin):
     booking_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     show_in_schedule: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Reservation {self.id}>"
