@@ -74,6 +74,8 @@ class TripOut(_Camel):
     simplify_settlement: bool
     version: int
     archived_at: str | None = None
+    # 지운 여행일 때만 있다. 이 시각이 지나면 되돌릴 수 없다.
+    deletion_scheduled_at: str | None = None
     participant_membership_ids: list[str] = Field(default_factory=list)
 
 

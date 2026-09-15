@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import (
@@ -84,6 +84,7 @@ async def _여행_응답(db, trip: Trip) -> dict:
         simplify_settlement=trip.simplify_settlement,
         version=trip.version,
         archived_at=trip.archived_at.isoformat() if trip.archived_at else None,
+        deletion_scheduled_at=trip.deletion_scheduled_at.isoformat() if trip.deleted_at and trip.deletion_scheduled_at else None,
         participant_membership_ids=await _참가자_ids(db, trip),
     ).model_dump(by_alias=True)
 
@@ -260,14 +261,30 @@ async def list_trips(
     caller: CurrentCaller,
     db: DbSession,
     status_filter: TripStatus | None = Query(default=None, alias="status"),
+    trash: bool = Query(default=False),
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict:
     """
     여행 목록.
 
-    지운 여행은 나오지 않는다. 관리 화면에서만 따로 본다.
+    지운 여행은 나오지 않는다. `trash=true` 면 아직 되돌릴 수 있는 지운 여행만 준다.
+    지우고 되돌리는 것이 owner 만이라 이 목록도 owner 만 본다.
     """
-    await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
+    membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
+
+    if trash:
+        require(membership, *OWNER_ONLY)
+        질의 = (
+            select(Trip)
+            .where(
+                Trip.space_id == space_id,
+                Trip.deleted_at.is_not(None),
+                Trip.deletion_scheduled_at > func.now(),
+            )
+            .order_by(Trip.deleted_at.desc())
+            .limit(limit)
+        )
+        return page([await _여행_응답(db, trip) for trip in (await db.execute(질의)).scalars().all()])
 
     질의 = (
         select(Trip)

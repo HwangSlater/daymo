@@ -35,6 +35,9 @@ export type ServerTrip = {
   exchangeRate?: number | string | null;
   budget?: number | string | null;
   simplifySettlement?: boolean;
+  archivedAt?: string | null;
+  /** 지운 여행일 때만. 이 시각이 지나면 되돌릴 수 없다. */
+  deletionScheduledAt?: string | null;
 };
 
 /** 여행의 통화·환율·예산·정산 묶기. */
@@ -357,6 +360,22 @@ export const updateExpenseSettings = (tripId: string, version: number, settings:
     method: "PATCH",
     body: JSON.stringify({ version, ...settings }),
   });
+
+export const archiveTrip = (tripId: string, archived: boolean) =>
+  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/${archived ? "archive" : "unarchive"}`, {
+    method: "POST",
+  });
+
+/** 7일 뒤에 지워진다. 그 전에는 owner 가 되돌릴 수 있다. */
+export const deleteTrip = (tripId: string) =>
+  authenticatedRequest<void>(`/v1/trips/${encodeURIComponent(tripId)}`, { method: "DELETE" });
+
+export const restoreTrip = (tripId: string) =>
+  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/restore`, { method: "POST" });
+
+/** 아직 되돌릴 수 있는 지운 여행. owner 만 받는다. */
+export const listDeletedTrips = (spaceId: string) =>
+  authenticatedRequest<ServerTrip[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/trips?trash=true&limit=100`);
 
 export const updateTrip = (
   tripId: string,

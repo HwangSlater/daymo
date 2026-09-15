@@ -67,6 +67,10 @@ import { cancelAccountDeletion, DaymoApiError, isReconfirmCancelled, linkSocialA
 import { type SocialProvider, socialProviderName } from "./socialLogin";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
+  archiveTrip,
+  deleteTrip,
+  listDeletedTrips,
+  restoreTrip,
   acceptInvite,
   changeMemberRole,
   createInvite,
@@ -131,6 +135,10 @@ type Trip = {
    * 빈 채로 시작한다. 내가 만들지 않은 내용이 들어 있으면 그건 내 여행이 아니다.
    */
   sample?: boolean;
+  /** 보관한 여행. 여행 목록의 ‘보관’에만 보인다. */
+  archived?: boolean;
+  /** 지운 여행이면 되돌릴 수 있는 마지막 시각. 보관 목록의 ‘지운 여행’에만 쓴다. */
+  deletionScheduledAt?: string;
 };
 
 // 서버 공간을 앱의 공간으로 옮긴다. 멤버는 따로 받아 넘긴다.
@@ -171,6 +179,8 @@ const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []):
     end: trip.endDate,
     ...(participants.length ? { planning: { participants } } : {}),
     serverExpenseSettings: expenseSettingsFrom(trip),
+    archived: trip.status === "archived",
+    ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
   };
 };
 
@@ -884,6 +894,16 @@ export function WarmAppShell({
           }
           applyServerTrip(saved);
         }}
+        archived={Boolean(selectedTrip.archived)}
+        onArchiveTrip={selectedTrip.id ? async (archived) => {
+          applyServerTrip(await archiveTrip(selectedTrip.id as string, archived));
+        } : undefined}
+        onDeleteTrip={selectedTrip.id && activeSpace.myRole === "관리자" ? async () => {
+          const tripId = selectedTrip.id as string;
+          await deleteTrip(tripId);
+          setTripItems((current) => current.filter((trip) => trip.id !== tripId));
+          setTripOpen(false);
+        } : undefined}
         onUpdateParticipants={async (names) => {
           if (!selectedTrip.id || selectedTrip.version === undefined) return names;
           const tripId = selectedTrip.id;
@@ -951,6 +971,15 @@ export function WarmAppShell({
             items={tripItems}
             setItems={setTripItems}
             spaceMembers={activeSpaceMembers}
+            deletedTrips={activeSpace.myRole === "관리자" && activeSpace.myMembershipId
+              ? {
+                load: async () => (await listDeletedTrips(activeSpace.id)).map((trip) => tripFromServer(trip, 0, activeRoster)),
+                restore: async (trip) => {
+                  const restored = tripFromServer(await restoreTrip(trip.id as string), tripItems.length, activeRoster);
+                  setTripItems((current) => [restored, ...current.filter((item) => item.id !== restored.id)]);
+                },
+              }
+              : undefined}
             openCreatorOnMount={openTripCreator}
             onCreatorOpened={() => setOpenTripCreator(false)}
             onCreateTrip={async ({ title, startDate, endDate, regionName, summary, participants }) => {
@@ -2368,7 +2397,10 @@ function TripsExplorer({
   openCreatorOnMount = false,
   onCreatorOpened,
   onCreateTrip,
+  deletedTrips,
 }: {
+  /** 공간 관리자에게만. 지운 여행을 불러오고 되돌린다. */
+  deletedTrips?: { load: () => Promise<Trip[]>; restore: (trip: Trip) => Promise<void> };
   open: (trip: Trip) => void;
   theme: AppTheme;
   items: Trip[];
@@ -2382,7 +2414,23 @@ function TripsExplorer({
   const initialCalendarDate = new Date();
   const initialDateKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, "0")}-${String(initialCalendarDate.getDate()).padStart(2, "0")}`;
   const [display, setDisplay] = useState<TripView>("목록");
-  const [filter, setFilter] = useState<"전체" | "예정" | "추억">("전체");
+  const [filter, setFilter] = useState<"전체" | "예정" | "추억" | "보관">("전체");
+  const [trash, setTrash] = useState<Trip[]>([]);
+  const [trashMessage, setTrashMessage] = useState("");
+  useEffect(() => {
+    if (filter !== "보관" || !deletedTrips) return;
+    let alive = true;
+    deletedTrips.load()
+      .then((found) => {
+        if (alive) setTrash(found);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+    // 보관을 열 때마다 새로 받는다. deletedTrips 는 렌더마다 새 객체라 넣지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [month, setMonth] = useState({
@@ -2424,12 +2472,16 @@ function TripsExplorer({
       setSelectedDate(initialDateKey);
     }
   };
+  // 보관한 여행은 ‘보관’에만 둔다. 지도와 캘린더에는 그대로 보인다(보관은 목록 정리일 뿐이다).
+  const listed = items.filter((trip) => !trip.archived);
   const filtered =
-    filter === "예정"
-      ? items.filter((trip) => trip.end >= initialDateKey)
-      : filter === "추억"
-        ? items.filter((trip) => trip.end < initialDateKey)
-        : items;
+    filter === "보관"
+      ? items.filter((trip) => trip.archived)
+      : filter === "예정"
+        ? listed.filter((trip) => trip.end >= initialDateKey)
+        : filter === "추억"
+          ? listed.filter((trip) => trip.end < initialDateKey)
+          : listed;
   const mapTrips = selectedRegion
     ? items.filter((trip) => trip.region === selectedRegion)
     : items;
@@ -2563,7 +2615,7 @@ function TripsExplorer({
           {display === "목록" && (
             <>
               <View style={s.tripFilters}>
-                {(["전체", "예정", "추억"] as const).map((item) => (
+                {(["전체", "예정", "추억", "보관"] as const).map((item) => (
                   <Pressable
                     key={item}
                     onPress={() => setFilter(item)}
@@ -2593,6 +2645,43 @@ function TripsExplorer({
                 emptyAction={filter === "전체" ? undefined : () => setFilter("전체")}
                 emptyActionLabel="전체 여행 보기"
               />
+              {filter === "보관" && trash.length > 0 && (
+                <View style={{ marginTop: 20, gap: 8 }}>
+                  <Text style={[s.memberPermissionLabel, { color: theme.text }]}>지운 여행</Text>
+                  <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
+                    지운 날부터 7일 안에는 되돌릴 수 있어요. 그 뒤에는 모든 기록이 사라져요.
+                  </Text>
+                  {trash.map((trip) => (
+                    <View key={trip.id} style={[s.inviteRow, { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.memberManagerName, { color: theme.text }]} numberOfLines={1}>{trip.name}</Text>
+                        <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
+                          {trip.date}{trip.deletionScheduledAt ? ` · ${deletionDateLabel(trip.deletionScheduledAt)}까지` : ""}
+                        </Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${trip.name} 되돌리기`}
+                        onPress={() => {
+                          if (!deletedTrips) return;
+                          deletedTrips.restore(trip)
+                            .then(() => {
+                              setTrash((current) => current.filter((item) => item.id !== trip.id));
+                              setTrashMessage(`${trip.name} 여행을 되돌렸어요`);
+                            })
+                            .catch((caught) => setTrashMessage(caught instanceof DaymoApiError ? caught.message : "되돌리지 못했어요. 잠시 후 다시 시도해 주세요."));
+                        }}
+                        hitSlop={8}
+                      >
+                        <Text style={[s.accountLogoutText, { color: theme.primary }]}>되돌리기</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {filter === "보관" && trashMessage ? (
+                <Text accessibilityLiveRegion="polite" style={[s.memberRoleText, { color: theme.primary, marginTop: 8 }]}>{trashMessage}</Text>
+              ) : null}
             </>
           )}
           {display === "캘린더" && (

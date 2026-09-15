@@ -434,6 +434,12 @@ type Props = {
    * 다른 곳에서 먼저 고쳤으면 `TripConflictError` 를 던진다.
    */
   onUpdateParticipants?: (participants: string[]) => Promise<string[]>;
+  /** 보관한 여행인지. 보관은 목록 정리일 뿐이라 기록을 고치는 데는 영향이 없다. */
+  archived?: boolean;
+  /** 보관하거나 보관을 푼다. 서버 여행에만 있다. */
+  onArchiveTrip?: (archived: boolean) => Promise<void>;
+  /** 여행을 지운다(7일 뒤 삭제). 공간 관리자에게만 넘어온다. */
+  onDeleteTrip?: () => Promise<void>;
   /** 서버 여행 id. 있으면 장소를 서버와 맞춘다. 예시 여행에는 없다. */
   tripId?: string;
   /** 공간 사람의 이름과 membership id. 교통편의 탈 사람을 서버에 보낼 때 쓴다. */
@@ -933,6 +939,9 @@ export function WarmTripDetail({
   tripNote = "함께 천천히 걷는 여행",
   onUpdateTrip,
   onUpdateParticipants,
+  archived = false,
+  onArchiveTrip,
+  onDeleteTrip,
   tripId,
   spaceRoster = [],
   serverExpenseSettings,
@@ -2173,6 +2182,11 @@ export function WarmTripDetail({
               : undefined
           }
           submitDisabled={!tripDraftValid}
+          destructiveLabel={onDeleteTrip ? "여행 삭제" : undefined}
+          destructiveMessage="일정·비용·기록까지 이 여행의 모든 내용이 멤버 모두에게서 사라져요. 7일 안에는 여행 탭의 ‘보관’에서 되돌릴 수 있어요."
+          onDestructive={() => {
+            onDeleteTrip?.().catch((caught) => setFeedback(saveErrorMessage(caught)));
+          }}
           onClose={() => setEditingTrip(false)}
           onSubmit={async () => {
             if (!tripDraftValid) return;
@@ -2298,6 +2312,32 @@ export function WarmTripDetail({
             있어요.
           </Text>
           </View>
+          {onArchiveTrip && (
+            <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
+              <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>보관</Text>
+              <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>
+                {archived
+                  ? "보관한 여행이에요. 여행 목록의 ‘보관’에만 보여요."
+                  : "다 다녀온 여행을 목록에서 치워요. 기록은 그대로이고 언제든 다시 꺼낼 수 있어요."}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  onArchiveTrip(!archived)
+                    .then(() => {
+                      setEditingTrip(false);
+                      setFeedback(archived ? "여행을 목록으로 다시 꺼냈어요" : "여행을 보관했어요");
+                    })
+                    .catch((caught) => setFeedback(saveErrorMessage(caught)));
+                }}
+                style={[styles.tripArchiveButton, appTheme && { borderColor: appTheme.border }]}
+              >
+                <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>
+                  {archived ? "보관 해제" : "이 여행 보관하기"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </DetailSheet>
         {!!feedback && (
           <View
@@ -10558,6 +10598,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     marginTop: 2,
   },
+  tripArchiveButton: { minHeight: 44, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
   tripEditSectionTitle: { fontSize: 16, fontFamily: typo.title.family },
   tripEditSectionHint: { fontSize: 11, lineHeight: 16, fontFamily: typo.caption.family, marginTop: 3, marginBottom: 14 },
   optionField: { marginBottom: 16 },

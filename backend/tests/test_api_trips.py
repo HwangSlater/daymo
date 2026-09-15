@@ -769,3 +769,34 @@ async def test_표시_이름을_바꾸면_멤버_목록에도_보인다(api, db)
     assert 바꿈.status_code == 200 and 바꿈.json()["data"]["displayName"] == "하늘 바다"
     assert (빈칸.status_code, 너무_김.status_code) == (422, 422)
     assert 목록[0]["displayName"] == "하늘 바다"
+
+
+async def test_지운_여행은_owner만_trash로_보고_되돌리면_목록에_돌아온다(api, db):
+    owner = await 로그인한_사람(api, "sky@example.com", "하늘")
+    space_id = await 공간을_만든다(api, owner)
+    trip = await 여행을_만든다(api, owner, space_id)
+    await 로그인한_사람(api, "editor@example.com", "다온")
+
+    from app.models import Membership, User
+
+    user_id = await db.scalar(select(User.id).where(User.email == "editor@example.com"))
+    db.add(Membership(space_id=space_id, user_id=user_id, role=MembershipRole.EDITOR))
+    await db.flush()
+    editor = await api.post(
+        "/v1/auth/login",
+        json={"email": "editor@example.com", "password": 비밀번호, "device": {"installationId": "설치-editor-trash", "platform": "ios"}},
+    )
+    editor_headers = {"Authorization": f"Bearer {editor.json()['data']['accessToken']}"}
+
+    await api.delete(f"/v1/trips/{trip['id']}", headers=owner)
+    목록 = (await api.get(f"/v1/spaces/{space_id}/trips", headers=owner)).json()["data"]
+    휴지통 = (await api.get(f"/v1/spaces/{space_id}/trips?trash=true", headers=owner)).json()["data"]
+    editor_휴지통 = await api.get(f"/v1/spaces/{space_id}/trips?trash=true", headers=editor_headers)
+    되돌림 = await api.post(f"/v1/trips/{trip['id']}/restore", headers=owner)
+    다시_목록 = (await api.get(f"/v1/spaces/{space_id}/trips", headers=owner)).json()["data"]
+
+    assert 목록 == []
+    assert [item["id"] for item in 휴지통] == [trip["id"]] and 휴지통[0]["deletionScheduledAt"]
+    assert editor_휴지통.status_code == 403
+    assert 되돌림.status_code == 200 and 되돌림.json()["data"]["deletionScheduledAt"] is None
+    assert [item["id"] for item in 다시_목록] == [trip["id"]]
