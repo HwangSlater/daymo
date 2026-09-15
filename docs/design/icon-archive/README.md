@@ -14,6 +14,7 @@
 | `2026-09-15-rounded-plane-diagonal` | `c165f63` | 둥근 만화풍 비행기, 이름 아래에서 오른쪽 위로 긴 대각선 | 비행기가 오른쪽 위 구석에 멀고, 점 일부가 글자 뒤에 가려졌다 |
 | `2026-09-15-arc-over-name` | `b1276f4` | 점이 이름 위를 넘어 비행기로 이어짐 | 그림을 상자로 맞춰 실제 기기의 둥근 모서리에서 비행기와 궤적이 잘렸다 |
 | `2026-09-15-path-crosses-name` | `eaf13ba` | 점이 이름을 가로질러 지나가고 비행기가 o 뒤에 | 모서리에는 안 잘렸지만 비행기가 위로 솟는 느낌이 없었다 |
+| `2026-09-15-plane-climbs-over-name` | `c1da4f5` | 점이 이름 위를 넘고 비행기가 코를 들고 솟음, 원 안에 맞춤 | 대각선 만화풍(C) 그림으로 돌아가기로 했다. 그 그림을 같은 원 맞춤으로 다시 그려 지금 쓴다 |
 
 ## 시안 (`samples/`)
 
@@ -23,4 +24,6 @@
 | `2026-09-15-plane-shapes-sheet.png`, `plane-shape-*-icon.png` | 비행기 모양 여덟 가지(제트기·만화풍·프로펠러·옆모습 …). 만화풍(C)을 골랐다 |
 | `2026-09-15-plane-position-sheet.png` | 비행기를 왼쪽으로 당긴 시안 A·B·C |
 | `2026-09-15-crossing-name-sheet.png` | 궤적이 이름을 가로지르는 시안(글자 앞·뒤·뚫기) |
+| `2026-09-15-plane-C-safe-circle-sheet.png`, `plane-C-safe-{icon,adaptive}.png` | 대각선 만화풍(C)을 원 안에 맞춘 시안. 기기 모양별로 잘라 본 것. 이것을 골랐다 |
+| `2026-09-15-current-vs-C-safe-sheet.png` | 위로 솟는 비행기와 원에 맞춘 C 비교 |
 | `2026-09-15-rising-and-smoke-sheet.png`, `rising-smoke-*-{icon,adaptive}.png` | 위로 솟는 비행기와 연기로 쓴 이름 시안 A~F. A를 골랐다. C(o 끝의 연기 줄기)와 D(연기 뭉치로 쓴 글씨)는 다음 후보로 남겨 둔다 |

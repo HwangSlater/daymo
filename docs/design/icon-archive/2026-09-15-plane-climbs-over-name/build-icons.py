@@ -22,11 +22,6 @@
   assets/daymo-splash-dark.png   1024x704  같은 그림, 어두운 모드용 흰색.
   assets/daymo-favicon.png         64      브라우저 탭. 아이콘과 같은 그림, 이름만 키운다.
 
-  ../docs/design/logos/                    소셜 로그인 콘솔에 올리는 로고. 앱에 들어가지 않는다.
-    daymo-logo-google-120.png     120      Google Auth Platform 브랜딩. 정사각 120px, 1MB 이하.
-    daymo-logo-naver-140.png      140      네이버 로그인 애플리케이션 로고. 140px.
-    daymo-logo-kakao-128.png      128      카카오 앱 아이콘. 128px 이하 권장, 250KB 미만.
-
 실행 화면은 배경을 app.json 이 깔고 그림만 얹는다. 배경을 앱 배경색과 같게
 두면 실행 화면에서 앱으로 넘어갈 때 색이 튀지 않는다. 그래서 그림 색이
 모드마다 달라야 하고 파일이 두 장이다.
@@ -43,15 +38,6 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "assets" / "fonts" / "CookieRun-Bold.ttf"
 OUT = ROOT / "assets"
-LOGO_OUT = ROOT.parent / "docs" / "design" / "logos"
-# 콘솔마다 요구하는 크기. 동의 화면이 로고를 원이나 둥근 사각형으로 자르므로 앱
-# 아이콘과 같이 원 안에 맞춘 그림을 그 크기로 새로 그린다. 1024 를 줄이는 것보다
-# 글자 가장자리가 또렷하다.
-LOGOS = (
-    ("daymo-logo-google-120.png", 120),
-    ("daymo-logo-naver-140.png", 140),
-    ("daymo-logo-kakao-128.png", 128),
-)
 
 SCALE = 4  # 4배로 그린 뒤 줄인다.
 
@@ -66,19 +52,19 @@ SPLASH_PAPER_DARK = (13, 17, 26)  # #0D111A 앱 배경
 
 # --- 그림 좌표. 320 x 620 짜리 화면 하나를 기준으로 잡는다. -----------------
 
-# 궤적. 이름 왼쪽 아래에서 올라와 이름 뒤를 지나 오른쪽 위의 비행기로 이어진다.
-# 가운데 점이 두 끝을 잇는 선보다 위에 있어서 솟았다가 눕는다.
+# 궤적. D 왼쪽 위에서 떠올라 이름 위를 둥글게 넘어가고, 비행기는 오른쪽 위로 솟는다.
 #
 # 모서리에 닿지 않게 그림 전체를 가운데 원 안에 맞춘다(fit_circle). 기기는 아이콘
-# 모서리를 둥글게(iOS) 또는 원으로(Android) 자른다. 이 대각선 그림을 처음 썼을 때는
-# 그림을 감싸는 상자로 맞춰서, 실제 기기에서 오른쪽 위 비행기와 왼쪽 D 가 잘렸다.
+# 모서리를 둥글게(iOS) 또는 원으로(Android) 자른다. 예전에는 그림을 감싸는 상자로
+# 맞춰서, 대각선 끝에 있는 비행기와 궤적이 실제 기기에서 잘렸다.
 #
-# 이름 위를 넘는 궤적, 위로 솟는 비행기도 써 봤지만 이 대각선으로 돌아왔다
-# (2026-09-15). 예전 그림은 docs/design/icon-archive 에 있다.
-CURVE = ((46, 486), (160, 313), (274, 296))
+# 가로로 글자를 가로지르는 모양과 연기로 쓴 글씨도 시안으로 비교했고, 위로 솟는
+# 이 모양을 골랐다(2026-09-15).
+# 이름("Daymo")은 장면 좌표에서 x 71~250, 위 끝 y 352, 기준선 392 다.
+CURVE = ((68.2, 345.3), (114.9, 289.3), (217.6, 280.0))
 TRAIL_COUNT = 7
-TRAIL_FROM, TRAIL_TO = 0.16, 0.68
-TRAIL_RADIUS = 9.0
+TRAIL_FROM, TRAIL_TO = 0.0, 0.80
+TRAIL_RADIUS = 9.6
 TRAIL_ALPHA = 0.36
 
 def _arc(cx, cy, r, start, end, steps=8):
@@ -114,15 +100,16 @@ PLANE_SHAPES = [
 # 궤적 위에 얹히는 점. 꼬리 쪽에 둔다. 몸통 한가운데를 얹으면 꼬리가 궤적의
 # 마지막 점을 덮어서 뒤쪽이 지저분해진다.
 PLANE_PIVOT = (12.0, 50.0)
-PLANE_HEADING = 0.0  # 상자 안의 그림이 보는 방향. 궤적의 진행 방향으로 돌린다.
-PLANE_AT = 0.80  # 궤적 위의 자리
-PLANE_SIZE = 74.0
+# 상자 안의 그림이 보는 방향. 궤적의 진행 방향에서 이만큼 덜 돌려 코를 12도 들어 올린다.
+PLANE_HEADING = 12.0
+PLANE_AT = 0.93  # 궤적 위의 자리. 마지막 점 바로 뒤.
+PLANE_SIZE = 71.6
 
 WORDMARK = "Daymo"
 WORDMARK_SIZE = 56
 WORDMARK_AT = (160, 392)
-# 궤적이 글자 뒤로 지나가도록 글자 둘레를 배경색으로 한 번 두른다.
-WORDMARK_HALO = 3.5
+# 궤적이 글자와 겹치지 않아 글자 둘레를 배경색으로 두르지 않는다.
+WORDMARK_HALO = 0.0
 
 TAGLINE = "우리의 여행 수첩"
 TAGLINE_SIZE = 12.5
@@ -130,8 +117,9 @@ TAGLINE_AT = (160, 418)
 TAGLINE_ALPHA = 0.55
 
 # 실행 화면이 담는 범위. app.json 의 imageWidth 와 비율이 맞아야 해서 예전
-# 모눈을 깔던 때의 크기(320 x 220)를 그대로 둔다.
-SPLASH_BOX = (0, 240, 320, 460)
+# 모눈을 깔던 때의 크기(320 x 220)를 그대로 둔다. 그림과 한 줄 소개가 한가운데
+# 오게 맞췄다.
+SPLASH_BOX = (2, 222, 322, 442)
 SPLASH_PIXEL_WIDTH = 1024
 
 # 안드로이드 적응형 아이콘은 108dp 중 가운데 지름 66dp 원이 어떤 런처에서도
@@ -268,7 +256,7 @@ def scene_points(trail=TRAIL_COUNT, trail_to=TRAIL_TO, trail_from=TRAIL_FROM):
     """그림의 가장자리 점들. 원 안에 맞출 때 쓴다."""
     points = []
     for x, y, r in trail_points(trail, trail_to, trail_from):
-        points += [(x + r * math.cos(a * math.pi / 8), y + r * math.sin(a * math.pi / 8)) for a in range(16)]
+        points += [(x + r * math.cos(a * math.pi / 4), y + r * math.sin(a * math.pi / 4)) for a in range(8)]
     for shape, _ in PLANE_SHAPES:
         points += plane_polygon(shape)
     font = ImageFont.truetype(str(FONT), WORDMARK_SIZE)
@@ -278,36 +266,12 @@ def scene_points(trail=TRAIL_COUNT, trail_to=TRAIL_TO, trail_from=TRAIL_FROM):
     return points
 
 
-def enclosing_circle(points):
-    """
-    모든 점을 담는 가장 작은 원을 어림한다. (중심 x, 중심 y, 반지름)
-
-    상자 가운데를 중심으로 잡지 않는다. 대각선 그림은 그러면 비행기 쪽 끝이 원에
-    먼저 닿아서 그림 전체가 쓸데없이 작아진다. 가장 먼 점까지의 거리가 줄어드는
-    쪽으로 중심을 옮기고, 더 줄지 않으면 걸음을 반으로 줄인다.
-    """
-    xs, ys = [x for x, _ in points], [y for _, y in points]
-    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-    step = max(max(xs) - min(xs), max(ys) - min(ys)) / 4
-
-    def far(x, y):
-        return max(math.hypot(px - x, py - y) for px, py in points)
-
-    best = far(cx, cy)
-    while step > 0.01:
-        moved = False
-        for dx, dy in ((step, 0), (-step, 0), (0, step), (0, -step)):
-            value = far(cx + dx, cy + dy)
-            if value < best:
-                best, cx, cy, moved = value, cx + dx, cy + dy, True
-        if not moved:
-            step /= 2
-    return cx, cy, best
-
-
 def fit_circle(side, radius_ratio):
     """모든 점이 가운데 원 안에 들어오게 줄이고 옮긴다. 원형으로 잘라도 안 잘린다."""
-    cx, cy, far = enclosing_circle(scene_points())
+    points = scene_points()
+    xs, ys = [x for x, _ in points], [y for _, y in points]
+    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    far = max(math.hypot(x - cx, y - cy) for x, y in points)
     scale = side * radius_ratio / far
     return (side / 2 - cx * scale, side / 2 - cy * scale), scale
 
@@ -376,11 +340,6 @@ def main():
 
     # 탭 배경이 밝을지 어두울지 알 수 없으니 아이콘처럼 배경까지 채운다.
     favicon().convert("RGB").save(OUT / "daymo-favicon.png")
-
-    LOGO_OUT.mkdir(parents=True, exist_ok=True)
-    for name, side in LOGOS:
-        icon(side, None, BACKGROUND, radius=ICON_RADIUS).convert("RGB").save(LOGO_OUT / name, optimize=True)
-        print(f"logos/{name}  {side}x{side}  {(LOGO_OUT / name).stat().st_size} bytes")
 
     for name in (
         "daymo-icon.png",
