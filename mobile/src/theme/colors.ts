@@ -46,6 +46,16 @@ export function naverInk(dark: boolean) {
   return dark ? "#4ADE86" : "#0A6B39";
 }
 
+/**
+ * 카카오 노랑을 글자색으로 쓸 때.
+ *
+ * #FEE500 은 흰 배경에서 거의 안 보인다. 라이트는 같은 색상각의 어두운 황갈색,
+ * 다크는 노랑을 그대로 쓴다.
+ */
+export function kakaoInk(dark: boolean) {
+  return dark ? "#FEE500" : "#6B5A00";
+}
+
 /** 여행 상세 상단의 메모지. 라이트는 노란 종이, 다크는 어두운 호박색. */
 export function memoPaper(dark: boolean) {
   return dark

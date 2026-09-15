@@ -4,7 +4,7 @@ import { useSheetDrag } from "./sheetDrag";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
-import { NaverMapLink } from "./NaverMapLink";
+import { MapLink } from "./MapLink";
 import { ParticipantPicker } from "./ParticipantPicker";
 import { DaymoApiError } from "./auth";
 import { TripConflictError } from "./tripSync";
@@ -119,8 +119,10 @@ import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
-import { memoPaper, onAccent, status as statusColor } from "./theme/colors";
+import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
+import { parseKakaoPlaceShare } from "./kakaoPlaceShare";
+import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } from "./mapLinks";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
@@ -3289,9 +3291,9 @@ function TripOverview({
                 <Text style={styles.naverLogoText}>N</Text>
               </View>
               <View>
-                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도 링크 · 선택</Text>
+                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>지도 링크 · 선택</Text>
                 <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
-                  네이버 지도에서 공유한 링크를 붙여넣으세요
+                  네이버 지도나 카카오맵에서 공유한 링크를 붙여넣으세요
                 </Text>
               </View>
             </View>
@@ -3306,9 +3308,9 @@ function TripOverview({
             />
             {planMapUrl.length > 0 && (
               <Text style={styles.linkState}>
-                {planMapUrl.includes("naver.")
-                  ? "네이버 지도 링크가 연결돼요"
-                  : "네이버 지도 공유 링크인지 확인해 주세요"}
+                {mapProviderOf(planMapUrl) !== "other"
+                  ? `${mapProviderName[mapProviderOf(planMapUrl)]} 링크가 연결돼요`
+                  : "네이버 지도나 카카오맵 공유 링크인지 확인해 주세요"}
               </Text>
             )}
           </View>
@@ -3625,21 +3627,28 @@ function Places({
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
   };
-  const pasteNaverShare = async () => {
+  const pasteMapShare = async () => {
     const clipboard = await Clipboard.getStringAsync();
     if (!clipboard.trim()) {
-      notify("복사한 네이버 지도 정보가 없어요");
+      notify("복사한 지도 정보가 없어요");
       return;
     }
+    // 네이버를 먼저 본다. 카카오맵은 짧은 링크를 풀어 줄 서버가 없어 공유 문구에 있는 만큼만 채운다.
     const parsed = parseNaverPlaceShare(clipboard);
-    if (!parsed) {
-      notify("네이버 지도 공유 텍스트나 링크를 확인해 주세요");
+    const kakao = parsed ? null : parseKakaoPlaceShare(clipboard);
+    const shared = parsed ?? kakao;
+    if (!shared) {
+      notify("네이버 지도나 카카오맵 공유 링크를 확인해 주세요");
       return;
     }
-    if (parsed.name) setName(parsed.name);
-    if (parsed.address) setAddress(parsed.address);
-    setMapUrl(parsed.url);
+    if (shared.name) setName(shared.name);
+    if (shared.address) setAddress(shared.address);
+    setMapUrl(shared.url);
     setPlaceDetailsOpen(true);
+    if (kakao) {
+      notify(kakao.name || kakao.address ? "장소 정보를 자동으로 채웠어요" : "카카오맵 링크를 연결했어요");
+      return;
+    }
     setResolvingNaver(true);
     const resolved = await resolveNaverPlaceShare(clipboard);
     setResolvingNaver(false);
@@ -3994,11 +4003,11 @@ function Places({
             </View>
             <View style={styles.placeMiniActions}>
               {place.mapUrl ? (
-                <NaverMapLink
+                <MapLink
                   theme={theme}
                   url={place.mapUrl}
                   compact
-                  accessibilityLabel={`${place.name} 네이버 지도에서 보기`}
+                  subject={place.name}
                 />
               ) : (
                 <Pressable
@@ -4165,10 +4174,10 @@ function Places({
       >
         {!editingId && !mapUrl && (
           <Pressable
-            onPress={pasteNaverShare}
+            onPress={pasteMapShare}
             disabled={resolvingNaver}
             accessibilityRole="button"
-            accessibilityLabel="복사한 네이버 지도 장소 정보 붙여넣기"
+            accessibilityLabel="복사한 지도 장소 정보 붙여넣기"
             style={[
               styles.naverAutoFill,
               theme && { backgroundColor: theme.dark ? "#16352C" : "#EAF7F0", borderColor: theme.dark ? "#245544" : "#BFE8D1" },
@@ -4178,8 +4187,8 @@ function Places({
               <Text style={styles.naverLogoText}>N</Text>
             </View>
             <View style={styles.naverAutoFillCopy}>
-              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>{resolvingNaver ? "장소 정보 가져오는 중…" : "네이버 지도 링크 붙여넣기"}</Text>
-              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "공유 링크를 복사했다면 여기만 탭하세요"}</Text>
+              <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>{resolvingNaver ? "장소 정보 가져오는 중…" : "지도 링크 붙여넣기"}</Text>
+              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "네이버 지도·카카오맵 공유 링크를 복사했다면 여기만 탭하세요"}</Text>
             </View>
             <Glyph name="chevronRight" size={16} color={theme?.dark ? "#96B7A8" : "#16844E"} />
           </Pressable>
@@ -4226,24 +4235,32 @@ function Places({
                 <Text style={styles.naverLogoText}>N</Text>
               </View>
               <View style={styles.naverCopy}>
-                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>네이버 지도로 장소 연결</Text>
+                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>지도로 장소 연결</Text>
                 <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>지도에서 공유 링크를 복사한 다음 붙여넣으세요</Text>
               </View>
             </View>
             <View style={styles.naverLinkActions}>
               <Pressable
-                onPress={() => void Linking.openURL("https://map.naver.com/")}
+                onPress={() => void Linking.openURL(naverMapSearchUrl(name))}
                 accessibilityRole="link"
-                accessibilityLabel="네이버 지도 열기"
+                accessibilityLabel={name.trim() ? `${name.trim()} 네이버 지도에서 찾기` : "네이버 지도 열기"}
                 style={[styles.naverLinkButton, theme && { backgroundColor: theme.surface }]}
               >
-                <Text style={[styles.naverLinkButtonText, theme?.dark && { color: "#7ED9A7" }]}>지도 열기</Text>
+                <Text style={[styles.naverLinkButtonText, theme?.dark && { color: "#7ED9A7" }]}>네이버 지도</Text>
               </Pressable>
               <Pressable
-                onPress={pasteNaverShare}
+                onPress={() => void Linking.openURL(kakaoMapSearchUrl(name))}
+                accessibilityRole="link"
+                accessibilityLabel={name.trim() ? `${name.trim()} 카카오맵에서 찾기` : "카카오맵 열기"}
+                style={[styles.naverLinkButton, theme && { backgroundColor: theme.surface }]}
+              >
+                <Text style={[styles.naverLinkButtonText, { color: kakaoInk(Boolean(theme?.dark)) }]}>카카오맵</Text>
+              </Pressable>
+              <Pressable
+                onPress={pasteMapShare}
                 disabled={resolvingNaver}
                 accessibilityRole="button"
-                accessibilityLabel="복사한 네이버 지도 링크 붙여넣기"
+                accessibilityLabel="복사한 지도 링크 붙여넣기"
                 style={[styles.naverLinkButton, styles.naverLinkButtonPrimary]}
               >
                 <Text style={[styles.naverLinkButtonText, styles.naverLinkButtonPrimaryText]}>{resolvingNaver ? "가져오는 중…" : "링크 붙여넣기"}</Text>
@@ -4253,9 +4270,9 @@ function Places({
               <View style={[styles.naverConnected, theme && { backgroundColor: theme.surface }]}>
                 <View style={styles.naverConnectedCopy}>
                   <Glyph name="check" size={15} color="#16844E" />
-                  <Text style={[styles.naverConnectedText, theme?.dark && { color: "#7ED9A7" }]}>네이버 지도 연결됨</Text>
+                  <Text style={[styles.naverConnectedText, theme?.dark && { color: "#7ED9A7" }]}>{mapProviderName[mapProviderOf(mapUrl)]} 연결됨</Text>
                 </View>
-                <Pressable onPress={() => setMapUrl("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="네이버 지도 연결 해제">
+                <Pressable onPress={() => setMapUrl("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="지도 연결 해제">
                   <Text style={[styles.naverDisconnectText, theme && { color: theme.muted }]}>연결 해제</Text>
                 </Pressable>
               </View>
@@ -9168,11 +9185,11 @@ function Moment({
         </Text>
         {mapUrl ? (
           <View style={styles.mapLinkRow}>
-            <NaverMapLink
+            <MapLink
               theme={theme}
               url={mapUrl}
               compact={compact}
-              accessibilityLabel={`${title} 네이버 지도에서 보기`}
+              subject={title}
             />
           </View>
         ) : null}

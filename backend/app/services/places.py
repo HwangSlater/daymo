@@ -69,9 +69,11 @@ def normalize_tags(raw: list[str]) -> list[str]:
     return 결과
 
 
+# 앱의 mapProviderOf(mobile/src/mapLinks.ts)와 같은 호스트를 본다.
+# 카카오맵 앱 공유는 kko.kakao.com(예전엔 kko.to) 짧은 링크로 온다.
 _PROVIDER_HOSTS: list[tuple[re.Pattern[str], LinkProvider]] = [
     (re.compile(r"(^|\.)(map\.naver\.com|naver\.me)$"), LinkProvider.NAVER_MAP),
-    (re.compile(r"(^|\.)(map\.kakao\.com|place\.map\.kakao\.com|kko\.to)$"), LinkProvider.KAKAO_MAP),
+    (re.compile(r"(^|\.)(map\.kakao\.com|kko\.kakao\.com|kko\.to)$"), LinkProvider.KAKAO_MAP),
     (re.compile(r"(^|\.)(youtube\.com|youtu\.be)$"), LinkProvider.YOUTUBE),
 ]
 

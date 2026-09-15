@@ -1,38 +1,49 @@
 import { Linking, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./AppText";
+import { mapProviderName, mapProviderOf } from "./mapLinks";
 import { AppTheme } from "./theme";
-import { brand, naverInk } from "./theme/colors";
+import { brand, kakaoInk, naverInk } from "./theme/colors";
 import { typo } from "./theme/typography";
 
+const badges = {
+  naver: { letter: "N", ...brand.naver },
+  kakao: { letter: "K", ...brand.kakao },
+} as const;
+
 /**
- * 네이버 지도로 나가는 버튼.
+ * 지도 앱으로 나가는 버튼.
  *
  * 세 군데(일정 줄, 장소 카드, 찾기 결과)에서 제각각 생겨서, 같은 일을 하는
  * 버튼이 화면마다 다르게 보였다. 어디는 N 배지가 있고 어디는 없고, 바탕색도
  * 하나는 테마를 안 타는 초록으로 박혀 있었다.
  *
- * 앱 밖으로 나가는 버튼이라 어디로 나가는지가 보여야 한다. N 배지가 그 일을
- * 하므로 모양이 달라도 배지는 늘 붙인다.
+ * 앱 밖으로 나가는 버튼이라 어디로 나가는지가 보여야 한다. 링크 주소로
+ * 네이버(N 초록)와 카카오(K 노랑)를 가려 배지를 붙이고, 둘 다 아니면
+ * 배지 없이 "지도"라고만 적는다. 로고 대신 글자 배지를 쓴다.
  *
  *   chip    칩 모양. 목록 줄과 카드 안에 쓴다.
  *   inline  바탕 없이 글자만. 다른 글자 버튼과 한 줄에 놓일 때 쓴다.
  */
-export function NaverMapLink({ theme, url, label, shape = "chip", compact = false, accessibilityLabel }: {
+export function MapLink({ theme, url, label, shape = "chip", compact = false, subject }: {
   theme?: AppTheme;
   url: string;
-  /** 없으면 좁을 때 "지도", 아니면 "네이버 지도". */
+  /** 없으면 좁을 때 "지도", 아니면 "네이버 지도"·"카카오맵". */
   label?: string;
   shape?: "chip" | "inline";
   compact?: boolean;
-  accessibilityLabel: string;
+  /** 무엇을 여는지. 읽어 주기에 "<subject> 카카오맵에서 보기"로 쓴다. */
+  subject: string;
 }) {
-  const ink = naverInk(Boolean(theme?.dark));
+  const provider = mapProviderOf(url);
+  const dark = Boolean(theme?.dark);
+  const badge = provider === "other" ? null : badges[provider];
+  const ink = provider === "naver" ? naverInk(dark) : provider === "kakao" ? kakaoInk(dark) : theme?.text ?? "#232B52";
   return (
     <Pressable
       onPress={() => void Linking.openURL(url)}
       hitSlop={shape === "chip" ? 10 : 6}
       accessibilityRole="link"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={`${subject} ${mapProviderName[provider]}에서 보기`}
       style={({ pressed }) => [
         styles.base,
         shape === "chip" && styles.chip,
@@ -42,11 +53,13 @@ export function NaverMapLink({ theme, url, label, shape = "chip", compact = fals
         pressed && styles.pressed,
       ]}
     >
-      <View style={[styles.mark, compact && styles.markCompact]}>
-        <Text style={[styles.markText, compact && styles.markTextCompact]}>N</Text>
-      </View>
+      {badge && (
+        <View style={[styles.mark, compact && styles.markCompact, { backgroundColor: badge.fill }]}>
+          <Text style={[styles.markText, compact && styles.markTextCompact, { color: badge.text }]}>{badge.letter}</Text>
+        </View>
+      )}
       <Text numberOfLines={1} style={[styles.label, compact && styles.labelCompact, { color: ink }]}>
-        {label ?? (compact ? "지도" : "네이버 지도")}
+        {label ?? (compact ? "지도" : mapProviderName[provider])}
       </Text>
     </Pressable>
   );
@@ -62,12 +75,11 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 4,
-    backgroundColor: brand.naver.fill,
     alignItems: "center",
     justifyContent: "center",
   },
   markCompact: { width: 14, height: 14 },
-  markText: { color: brand.naver.text, fontSize: 12, lineHeight: 16, fontFamily: typo.label.family },
+  markText: { fontSize: 12, lineHeight: 16, fontFamily: typo.label.family },
   markTextCompact: { fontSize: 11, lineHeight: 14 },
   label: { fontSize: 14, fontFamily: typo.label.family },
   labelCompact: { fontSize: 13 },

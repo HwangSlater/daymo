@@ -30,7 +30,8 @@ import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
 import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldCompletePeel } from "./tripPeelMotion";
-import { NaverMapLink } from "./NaverMapLink";
+import { MapLink } from "./MapLink";
+import { naverMapSearchUrl } from "./mapLinks";
 import { ParticipantPicker } from "./ParticipantPicker";
 import {
   clearDevice,
@@ -3951,11 +3952,11 @@ function Search({
               >
                 <Text style={[s.searchResultActionText, { color: theme.primary }]}>일정 추가</Text>
               </Pressable>
-              <NaverMapLink
+              <MapLink
                 theme={theme}
-                url={`https://map.naver.com/p/search/${encodeURIComponent(item.title)}`}
+                url={naverMapSearchUrl(item.title)}
                 shape="inline"
-                accessibilityLabel={`${item.title} 네이버 지도에서 보기`}
+                subject={item.title}
               />
             </View>
           )}
