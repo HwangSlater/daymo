@@ -1,5 +1,5 @@
 """
-메일 속 링크가 여는 페이지. 이메일 확인, 비밀번호 재설정, 비밀번호 찾기.
+메일 속 링크가 여는 페이지. 이메일 확인, 비밀번호 재설정, 비밀번호 찾기, 이메일 변경 확인.
 
 앱 API(`/v1`)가 아니라 사람이 브라우저로 여는 화면이라 JSON 대신 HTML 을
 돌려준다. 웹 앱을 따로 배포하지 않아도 링크가 동작하도록 API 서버가 직접
@@ -26,7 +26,7 @@ from fastapi.responses import HTMLResponse
 
 from app.api.deps import ClientIp, DbSession
 from app.core.errors import AppError
-from app.services import accounts
+from app.services import account_changes, accounts
 
 router = APIRouter(prefix="/auth", include_in_schema=False)
 
@@ -243,6 +243,43 @@ async def forgot_password(request: Request, db: DbSession, ip: ClientIp) -> HTML
     except AppError as 오류:
         return _page("비밀번호 찾기", _forgot_form(str(오류.detail)), 429)
     return _message("메일을 보냈어요", "가입한 주소라면 곧 재설정 메일이 도착해요. 링크는 30분 동안 쓸 수 있어요.")
+
+
+# ---------------------------------------------------------------------------
+# 이메일 변경
+# ---------------------------------------------------------------------------
+
+
+def _email_change_failed() -> HTMLResponse:
+    # 그새 그 주소로 다른 계정이 생긴 경우도 같은 문구다. 링크를 가진 사람에게 가입 여부를 알리지 않는다.
+    return _page("이메일 변경", f"<h1>{_EXPIRED}</h1><p>Daymo 앱의 내 프로필에서 다시 요청해 주세요.</p>", 400)
+
+
+@router.get("/confirm-email-change")
+async def confirm_email_change_page(token: str | None = None) -> HTMLResponse:
+    usable = _usable_token(token)
+    if usable is None:
+        return _email_change_failed()
+    return _page(
+        "이메일 변경",
+        "<h1>이메일을 이 주소로 바꿀게요</h1>"
+        "<p>아래 버튼을 누르면 Daymo 계정의 이메일이 이 주소로 바뀌어요. 다음 로그인부터 이 주소를 써 주세요.</p>"
+        '<form method="post" action="/auth/confirm-email-change">'
+        f'<input type="hidden" name="token" value="{escape(usable)}">'
+        "<button>이메일 바꾸기</button></form>",
+    )
+
+
+@router.post("/confirm-email-change")
+async def confirm_email_change(request: Request, db: DbSession) -> HTMLResponse:
+    usable = _usable_token((await _form(request)).get("token"))
+    if usable is None:
+        return _email_change_failed()
+    try:
+        await account_changes.confirm_email_change(db, token=usable)
+    except AppError:
+        return _email_change_failed()
+    return _message("이메일을 바꿨어요", "이제 이 창을 닫고 Daymo 앱으로 돌아가 주세요. 다음 로그인부터 새 주소를 써 주세요.")
 
 
 # ---------------------------------------------------------------------------

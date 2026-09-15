@@ -104,6 +104,15 @@ RULES: dict[ThrottleScope, Rule] = {
         max_block=timedelta(hours=6),
         min_interval=timedelta(seconds=60),
     ),
+    # 이메일 변경 확인 메일도 재전송과 같다. 계정 기준과 받는 주소 기준을 함께 센다.
+    ThrottleScope.EMAIL_CHANGE: Rule(
+        window=timedelta(days=1),
+        allowance=5,
+        ip_allowance=50,
+        first_delay=timedelta(minutes=10),
+        max_block=timedelta(hours=6),
+        min_interval=timedelta(seconds=60),
+    ),
 }
 
 # 한 열쇠가 계정 기준인지 IP 기준인지. 봐주는 횟수가 다르다.

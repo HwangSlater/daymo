@@ -2,12 +2,20 @@ from fastapi import APIRouter, status
 from pydantic import Field
 from sqlalchemy import select
 
-from app.api.deps import CurrentCaller, DbSession
+from app.api.deps import ClientIp, CurrentCaller, DbSession
 from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok
 from app.models import Membership, OAuthAccount, Space
-from app.schemas.auth import DeletionOut, MeOut, MeSpaceOut, ReauthProofRequest, _Camel
-from app.services import account_deletion
+from app.schemas.auth import (
+    DeletionOut,
+    EmailChangeRequest,
+    MeOut,
+    MeSpaceOut,
+    PasswordChangeRequest,
+    ReauthProofRequest,
+    _Camel,
+)
+from app.services import account_changes, account_deletion
 from app.services.account_deletion import DeletionState
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -74,6 +82,39 @@ async def update_me(body: MeUpdateRequest, caller: CurrentCaller, db: DbSession)
     caller.user.display_name = name
     await db.flush()
     return await get_me(caller, db)
+
+
+@router.post("/password")
+async def change_password(body: PasswordChangeRequest, caller: CurrentCaller, db: DbSession) -> dict:
+    """
+    비밀번호를 바꾼다. 비밀번호가 없는(소셜 로그인으로만 가입한) 계정은 처음 정한다.
+
+    `change_password` 증표가 있어야 한다. 비밀번호 계정은 `POST /auth/reauth`, 소셜 계정은
+    `POST /auth/oauth/reauth` 로 받는다. 이 기기만 남기고 다른 기기는 모두 로그아웃된다.
+    """
+    await account_changes.change_password(
+        db,
+        user=caller.user,
+        current_device_id=caller.device_id,
+        new_password=body.new_password,
+        proof=body.reauth_proof,
+    )
+    return ok({"status": "changed"})
+
+
+@router.post("/email", status_code=status.HTTP_202_ACCEPTED)
+async def request_email_change(
+    body: EmailChangeRequest, caller: CurrentCaller, db: DbSession, ip: ClientIp
+) -> dict:
+    """
+    새 주소로 확인 링크를 보낸다. 링크를 누르기 전에는 바뀌지 않는다.
+
+    `change_email` 증표가 있어야 한다. 새 주소에 이미 계정이 있어도 같은 응답이다.
+    """
+    await account_changes.request_email_change(
+        db, user=caller.user, new_email=body.new_email, proof=body.reauth_proof, ip=ip
+    )
+    return ok({"status": "accepted"})
 
 
 def _삭제_상태(상태: DeletionState) -> dict:

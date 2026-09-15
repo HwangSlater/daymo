@@ -166,6 +166,20 @@ class ReauthProofRequest(_Camel):
     reauth_proof: str | None = None
 
 
+class PasswordChangeRequest(_Camel):
+    """`change_password` 증표와 새 비밀번호. 길이 규칙은 app.core.passwords 한 곳에서 본다."""
+
+    reauth_proof: str | None = None
+    new_password: str = Field(max_length=1024)
+
+
+class EmailChangeRequest(_Camel):
+    """`change_email` 증표와 바꿀 주소. 링크를 누르기 전에는 바뀌지 않는다."""
+
+    reauth_proof: str | None = None
+    new_email: EmailStr
+
+
 class DeletionOut(_Camel):
     requested_at: datetime | None
     scheduled_at: datetime | None

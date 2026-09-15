@@ -196,3 +196,31 @@ class PasswordResetToken(_OneTimeToken):
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<PasswordResetToken {self.id}>"
+
+
+class EmailChangeToken(_OneTimeToken):
+    """
+    로그인한 사람이 계정 이메일을 바꾸는 1회용 링크. 새 주소로 보낸다.
+
+    링크를 누르기 전에는 아무것도 바뀌지 않는다. 새 주소를 실제로 받을 수 있는
+    사람만 그 주소를 계정에 붙일 수 있어야 한다. 남의 주소를 계정에 적어 두면
+    비밀번호 재설정 메일이 그 사람에게 가고, 가입하려던 그 사람은 막힌다.
+
+    이메일 확인 표와 합치지 않는다. 이쪽은 바꿀 주소를 함께 들고 있고, 한쪽의
+    실수가 다른 쪽에 번지면 안 된다.
+    """
+
+    __tablename__ = "email_change_tokens"
+    __table_args__ = (
+        Index("uq_email_change_tokens_hash", "token_hash", unique=True),
+        Index("ix_email_change_tokens_user", "user_id"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    # 정규화한 새 주소. 링크를 누를 때 다시 비어 있는지 본다.
+    new_email: Mapped[str] = mapped_column(String(320), nullable=False)
+
+    def __repr__(self) -> str:  # pragma: no cover - 디버깅용
+        return f"<EmailChangeToken {self.id}>"

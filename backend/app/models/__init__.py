@@ -1,5 +1,6 @@
 from app.models.auth import (
     Device,
+    EmailChangeToken,
     EmailVerificationToken,
     OAuthAccount,
     PasswordResetToken,
@@ -85,6 +86,7 @@ __all__ = [
     "OAuthProvider",
     "OAuthState",
     "PasswordResetToken",
+    "EmailChangeToken",
     "Payment",
     "Photo",
     "PhotoLink",
