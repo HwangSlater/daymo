@@ -5,6 +5,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import passwords
+from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
 from app.core.tokens import hash_refresh_token, new_one_time_token
 from app.models import (
@@ -23,7 +24,11 @@ from app.services.mailer import Letter, get_outbox
 # 1회용 링크는 30분이다(docs/development/03-api-specification.md 2장).
 ONE_TIME_TTL = timedelta(minutes=30)
 
-_WEB_BASE = "https://daymo.xyz"
+
+def _link(path: str) -> str:
+    """메일 속 링크. 확인·재설정 페이지는 API 서버가 직접 보여 준다."""
+    return get_settings().auth_link_base.rstrip("/") + path
+
 
 # 로그인 실패 문구는 하나로 통일한다. 이메일이 있는지, 어떤 방식으로
 # 가입했는지, 잠겼는지를 문구로 드러내지 않는다.
@@ -85,7 +90,13 @@ async def sign_up(
             Letter(
                 to=정규화된_이메일,
                 subject="누군가 이 주소로 가입을 시도했어요",
-                link=f"{_WEB_BASE}/auth/forgot-password",
+                # 1회용 링크가 아니라서 link 칸에 넣지 않는다. 넣으면 "30분 동안 한 번만"
+                # 안내가 붙는다.
+                body=(
+                    "이미 가입한 주소예요. 직접 시도했는데 비밀번호가 기억나지 않으면 "
+                    f"여기서 다시 정할 수 있어요.\n{_link('/auth/forgot-password')}\n\n"
+                    "직접 시도하지 않았다면 이 메일은 무시해도 괜찮아요."
+                ),
             )
         )
         return
@@ -147,7 +158,7 @@ async def send_email_verification(
         Letter(
             to=user.email,
             subject="이메일을 확인해 주세요",
-            link=f"{_WEB_BASE}/auth/verify-email?token={원문}",
+            link=_link(f"/auth/verify-email?token={원문}"),
         )
     )
 
@@ -296,7 +307,7 @@ async def request_password_reset(
         Letter(
             to=user.email,
             subject="비밀번호를 다시 정해 주세요",
-            link=f"{_WEB_BASE}/auth/reset-password?token={원문}",
+            link=_link(f"/auth/reset-password?token={원문}"),
         )
     )
 

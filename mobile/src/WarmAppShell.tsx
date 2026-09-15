@@ -63,7 +63,7 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, DaymoApiError, login, logout, requestAccountDeletion, restoreSession, signUp, type AuthUser } from "./auth";
+import { cancelAccountDeletion, DaymoApiError, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, type AuthUser } from "./auth";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
   createSpace,
@@ -941,6 +941,7 @@ function AuthScreen({
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [marketingAgreed, setMarketingAgreed] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const oauthBaseUrl = process.env.EXPO_PUBLIC_DAYMO_AUTH_URL?.replace(/\/$/, "");
   const authFormValid =
     email.trim().includes("@") &&
@@ -977,7 +978,8 @@ function AuthScreen({
         setMode("login");
         setPassword("");
         setConfirm("");
-        setNotice("확인 메일을 보냈어요. 이메일 인증을 마친 뒤 로그인해 주세요.");
+        // 로그인은 확인 전에도 된다. 확인은 초대 참여처럼 이메일 소유가 필요한 곳에서 쓴다.
+        setNotice("가입했어요. 로그인해 주세요. 받은 메일의 링크로 이메일도 확인해 주세요.");
         return;
       }
       const result = await login(normalizedEmail, password);
@@ -1044,6 +1046,16 @@ function AuthScreen({
           <Text style={[s.authLogo, { color: theme.text }]}>Daymo</Text>
           <Text style={[s.authTagline, { color: theme.muted }]}>함께 떠나고, 오래 기억하는 여행</Text>
         </View>
+        {forgotOpen ? (
+          <ForgotPasswordCard
+            theme={theme}
+            initialEmail={email}
+            onBack={() => {
+              setForgotOpen(false);
+              setError("");
+            }}
+          />
+        ) : (
         <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[s.authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
           <Text style={[s.authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
@@ -1114,6 +1126,19 @@ function AuthScreen({
           >
             <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "확인 중…" : mode === "login" ? "로그인" : "회원가입"}</Text>
           </Pressable>
+          {mode === "login" && (
+            <Pressable
+              onPress={() => {
+                setForgotOpen(true);
+                setError("");
+                setNotice("");
+              }}
+              accessibilityRole="button"
+              style={s.authSwitch}
+            >
+              <Text style={[s.authSwitchText, { color: theme.muted }]}>비밀번호를 잊었어요</Text>
+            </Pressable>
+          )}
           {SOCIAL_LOGIN_READY && (
           <View style={s.authDivider}>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
@@ -1166,9 +1191,74 @@ function AuthScreen({
             <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontFamily: typo.title.family }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
           </Pressable>
         </View>
+        )}
         <Text style={[s.authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * 비밀번호 찾기. 이메일을 받아 재설정 메일을 보낸다.
+ *
+ * 새 비밀번호는 메일 링크가 여는 브라우저 페이지에서 정한다(api.daymo.xyz/auth/…).
+ * 계정이 있든 없든 같은 안내를 띄운다. 달리 말하면 이 화면으로 가입 여부를 알아낼 수 없다.
+ */
+function ForgotPasswordCard({
+  theme,
+  initialEmail,
+  onBack,
+}: {
+  theme: AppTheme;
+  initialEmail: string;
+  onBack: () => void;
+}) {
+  const [email, setEmail] = useState(initialEmail);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+  const ready = email.trim().includes("@") && !loading;
+  const submit = async () => {
+    if (!ready) return;
+    setLoading(true);
+    setError("");
+    try {
+      await requestPasswordReset(email.trim().toLowerCase());
+      setSent(true);
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <Text style={[s.authTitle, { color: theme.text }]}>비밀번호 찾기</Text>
+      <Text style={[s.authDescription, { color: theme.muted }]}>
+        가입한 이메일로 재설정 링크를 보내 드려요. 링크는 30분 동안 쓸 수 있어요.
+      </Text>
+      <Field theme={theme} label="이메일 · 필수" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+      {error ? (
+        <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text>
+      ) : null}
+      {sent ? (
+        <Text accessibilityLiveRegion="polite" style={[s.authError, { color: theme.primary }]}>
+          가입한 주소라면 곧 메일이 도착해요. 스팸함도 확인해 주세요.
+        </Text>
+      ) : null}
+      <Pressable
+        onPress={submit}
+        disabled={!ready}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !ready, busy: loading }}
+        style={[s.authSubmit, { backgroundColor: theme.primary }, !ready && s.authSubmitDisabled]}
+      >
+        <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "보내는 중…" : sent ? "다시 보내기" : "재설정 메일 받기"}</Text>
+      </Pressable>
+      <Pressable onPress={onBack} accessibilityRole="button" style={s.authSwitch}>
+        <Text style={[s.authSwitchText, { color: theme.muted }]}>로그인으로 돌아가기</Text>
+      </Pressable>
+    </View>
   );
 }
 

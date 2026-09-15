@@ -165,6 +165,17 @@ export async function signUp(email: string, password: string, displayName: strin
   });
 }
 
+/**
+ * 비밀번호 재설정 메일을 요청한다. 계정이 없어도 서버는 같은 답을 준다.
+ * 메일의 링크는 브라우저에서 새 비밀번호를 정하는 페이지를 연다.
+ */
+export async function requestPasswordReset(email: string) {
+  await request<{ status: "accepted" }>("/v1/auth/password/forgot", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
 export async function login(email: string, password: string) {
   const tokens = await request<SessionResponse>("/v1/auth/login", {
     method: "POST",

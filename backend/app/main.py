@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.auth_pages import router as auth_pages_router
 from app.api.v1.router import api_router
 from app.core.access_log import log_request
 from app.core.config import get_settings
@@ -122,6 +123,8 @@ def create_app() -> FastAPI:
         return ok({"status": "ok"})
 
     app.include_router(api_router, prefix="/v1")
+    # 메일 링크가 여는 HTML 페이지. /v1 밖에 둔다. JSON 봉투를 쓰지 않는다.
+    app.include_router(auth_pages_router)
     return app
 
 

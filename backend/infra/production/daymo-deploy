@@ -97,6 +97,14 @@ compose build api
 compose run --rm api alembic upgrade head
 compose up -d --remove-orphans
 
+# nginx 는 설정 파일을 컨테이너를 만들 때 붙인다. current 가 새 release 를
+# 가리켜도 compose 가 보기에 경로 글자가 같아 다시 만들지 않고, 떠 있는 nginx 는
+# 처음 붙인 옛 release 의 파일을 계속 본다. 내용이 달라졌을 때만 다시 만든다.
+# 새 설정이 틀렸으면 아래 health 확인에서 걸려 되돌린다.
+if ! compose exec -T nginx cat /etc/nginx/conf.d/default.conf | cmp -s - "$APP_DIR/backend/infra/production/nginx.conf"; then
+  compose up -d --no-deps --force-recreate nginx || true
+fi
+
 for attempt in {1..30}; do
   if curl --fail --silent --show-error https://api.daymo.xyz/v1/health >/dev/null; then
     rm -f "$RELEASE_ARCHIVE"

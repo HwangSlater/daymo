@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_starttls: bool = True
     mail_from: str = "Daymo <no-reply@daymo.xyz>"
+    # 메일 속 링크가 여는 페이지의 주소. API 서버가 직접 보여 준다(app/api/auth_pages.py).
+    auth_link_base: str = "https://api.daymo.xyz"
 
     @property
     def database_url(self) -> str:

@@ -124,11 +124,11 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 비밀번호는 8~128자이며 영문·숫자·특수문자 조합을 강제하지 않는다. Unicode와 내부 공백을 허용하고 NFC 정규화 후 길이를 검사한다. 흔한·유출된 비밀번호와 정규화한 이메일 전체와 동일한 값은 `PASSWORD_TOO_COMMON`으로 거부하되 세부 차단 목록은 응답에 노출하지 않는다. 클라이언트는 붙여넣기·OS Password AutoFill을 막지 않고 사용자에게는 기본 안내를 `8자 이상 입력해 주세요`로 표시한다.
 
-가입 이메일에는 `https://daymo.xyz/auth/verify-email?token=...` 형식의 인증 링크를 보낸다. token은 원문을 저장하지 않고 hash와 30분 만료 시각만 저장하며 성공 시 즉시 폐기한다. 링크의 최초 GET은 메일 보안 스캐너의 자동 방문에 대비해 인증 상태를 변경하지 않는다. Universal Link/App Link로 앱이 열리거나 웹 완료 화면이 로드된 뒤 클라이언트가 token을 `POST /auth/email-verifications/confirm`으로 보내 인증을 완료한다. 앱이 없거나 연결에 실패해도 웹에서 완료할 수 있고, 앱은 다음 활성화 때 인증 상태를 다시 조회한다.
+가입 이메일에는 `https://api.daymo.xyz/auth/verify-email?token=...` 형식의 인증 링크를 보낸다. 2026-09-15부터 이 페이지는 API 서버가 HTML로 직접 보여 준다(`backend/app/api/auth_pages.py`). 웹 앱 배포와 CORS 없이 동작하게 하려는 것이고, 앱 바로 열기(Universal Link/App Link)는 나중에 `daymo.xyz`에서 따로 붙인다. 이메일 확인은 로그인 조건이 아니다. 확인 전에도 로그인할 수 있고, 초대 참여처럼 이메일 소유가 필요한 곳에서 확인 여부를 본다. token은 원문을 저장하지 않고 hash와 30분 만료 시각만 저장하며 성공 시 즉시 폐기한다. 링크의 최초 GET은 메일 보안 스캐너의 자동 방문에 대비해 인증 상태를 변경하지 않는다. Universal Link/App Link로 앱이 열리거나 웹 완료 화면이 로드된 뒤 클라이언트가 token을 `POST /auth/email-verifications/confirm`으로 보내 인증을 완료한다. 앱이 없거나 연결에 실패해도 웹에서 완료할 수 있고, 앱은 다음 활성화 때 인증 상태를 다시 조회한다.
 
 재전송은 요청 사이 60초, 정규화한 계정과 IP 각각 하루 최대 5회로 제한한다. 허용된 재전송에서는 이전 미사용 token을 모두 폐기하고 새 링크만 유효하게 한다. 제한된 요청은 `429 RATE_LIMITED`와 재시도 가능 시각을 반환하되 계정 존재 여부는 노출하지 않는다. 만료·이미 사용·교체된 token은 같은 일반 오류 화면을 보여주고 재전송 동작을 제공한다. 인증 완료 여부와 관계없이 발송 API 응답은 같은 일반 안내를 사용한다.
 
-비밀번호 재설정도 `https://daymo.xyz/auth/reset-password?token=...` 형식의 30분·1회용 링크로 제공한다. token 원문은 저장하지 않으며 새 링크 발급 시 기존 미사용 token을 모두 폐기한다. 링크의 GET은 상태를 변경하지 않고 앱 또는 웹의 새 비밀번호 화면이 `POST /auth/password/reset`을 호출한다. 새 비밀번호에는 가입과 같은 규칙을 적용하고, 성공 transaction에서 해당 사용자의 모든 refresh token과 로그인 세션을 폐기한 뒤 다시 로그인하도록 안내한다. 요청·응답과 오류 화면은 계정 존재 여부를 노출하지 않는다.
+비밀번호 재설정도 `https://api.daymo.xyz/auth/reset-password?token=...` 형식의 30분·1회용 링크로 제공한다. 앱 로그인 화면의 `비밀번호를 잊었어요`가 `POST /auth/password/forgot`을 부르고, 브라우저의 `/auth/forgot-password` 페이지에서도 요청할 수 있다. 링크 페이지는 `no-referrer`·`no-store`·외부 자원 없는 CSP를 쓰고, nginx는 `/auth/` 접속 기록에서 주소의 `?` 뒤를 지운다. token 원문은 저장하지 않으며 새 링크 발급 시 기존 미사용 token을 모두 폐기한다. 링크의 GET은 상태를 변경하지 않고 앱 또는 웹의 새 비밀번호 화면이 `POST /auth/password/reset`을 호출한다. 새 비밀번호에는 가입과 같은 규칙을 적용하고, 성공 transaction에서 해당 사용자의 모든 refresh token과 로그인 세션을 폐기한 뒤 다시 로그인하도록 안내한다. 요청·응답과 오류 화면은 계정 존재 여부를 노출하지 않는다.
 
 로그인과 refresh 응답의 access token은 15분 유효하다. refresh token은 마지막 사용 후 90일의 sliding expiration을 적용하고 매 refresh마다 회전한다. 서버에는 token hash만 저장하며 교체된 token 재사용을 감지하면 같은 token family의 세션을 모두 폐기한다. 앱은 401 응답을 받으면 동시 refresh 요청을 하나로 합치고, 성공 시 원래 요청을 한 번만 재시도한다. refresh 실패 시 로컬 공동 데이터는 즉시 삭제하지 않고 잠근 뒤 재로그인을 안내한다.
 
