@@ -78,7 +78,7 @@
 2026-09-15 Resend로 `daymo.xyz` 발신 인증(SPF·DKIM, 도쿄 리전)을 마치고 운영 API 컨테이너가
 키를 읽는 것을 확인했다. 운영 서버에서 Resend 시험 주소로 한 통 보내 SMTP 접수까지 확인했다.
 `support@daymo.xyz` 수신은 Cloudflare Email Routing이다. DMARC 레코드(`_dmarc`)는 아직 없다.
-**`runtime.env` 를 고친 뒤에는 api 컨테이너를 다시 만들어야 값이 들어간다**(06 문서 참고).
+**`runtime.env` 를 고친 뒤에는 api 컨테이너를 다시 만들어야 값이 들어간다.** `docker compose --env-file /etc/daymo/secrets/runtime.env -f /srv/daymo/current/backend/infra/production/compose.yml up -d --no-build api`. 파일만 고치고 이걸 빠뜨려서 한 번 키가 안 들어갔다.
 
 ### 앱스토어 심사 전에 남은 것
 
