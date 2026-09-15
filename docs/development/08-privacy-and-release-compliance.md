@@ -206,25 +206,47 @@ Sentry, OAuth SDK, push SDK처럼 제3자 SDK가 수집하는 데이터도 스�
 - [ ] 유출 대응 절차와 외부 백업 복원 테스트
 - [ ] 만 14세 미만 정책 확정
 - [ ] 앱 내 라이선스 고지 화면에 쿠키런 저작권 고지·라이선스 전문과 오픈소스 라이선스 포함
-- [ ] 소셜 로그인 버튼에 각 사 공식 에셋 적용. 지금은 심볼 없이 문구와 색만 쓰고 있어 어느 쪽 가이드도 완전히 만족하지 못한다. 아래 12.1 참고
+- [ ] 소셜 로그인 버튼 가이드 준수. 공식 심볼·색·문구는 적용했다. Apple 로고 라이선스 확인과 실기기 확인이 남았다. 아래 12.1 참고
 - [ ] 최종 법률 검토와 스토어 정책 재확인
 
 ### 12.1 소셜 로그인 버튼
 
-버튼의 색과 문구는 각 사가 문서로 정해 둔 값을 이미 코드에 넣었다. 남은 것은
-심볼이다. 직접 그린 글자로 상표를 흉내 내지 않기 위해 심볼 자리를 비워 두었고,
-출시 전에 각 사 콘솔에서 공식 에셋을 받아 넣어야 한다.
+2026-09-15에 각 사 가이드를 다시 읽고 버튼을 공식 심볼 + 문구 + 지정 색으로 바꿨다
+(`mobile/src/SocialLoginButton.tsx`). 심볼은 모두 각 사 배포처에서 자동으로 받은 원본에서
+옮겼고 손으로 그린 것은 없다. 받은 URL, 해시, 옮긴 방법, 사용 조건은
+`mobile/assets/social/README.md` 에 있다.
 
-| 제공사 | 확인한 요구사항 |
-| --- | --- |
-| 카카오 | 심볼·레이블·컨테이너 세 요소로 이뤄진다. **심볼 없이 문구만으로 구성하는 것은 금지**이고 다른 아이콘으로 대체할 수도 없다. 표준 버튼 이미지를 [디자인 리소스](https://developers.kakao.com/tool/resource/login)에서 PNG·PSD로 내려받는다. |
-| 구글 | **직접 아이콘을 만들거나 로고의 크기·색을 바꾸는 것이 금지**된다. 사전 승인된 PNG·SVG 에셋을 쓴다. 색은 밝은 배경 `#FFFFFF` 채움 / `#747775` 1px 테두리 / `#1F1F1F` 글자, 어두운 배경 `#131314` / `#8E918F` / `#E3E3E3`. 문구는 "Google 계정으로 로그인"처럼 현지화한다. |
-| 네이버 | 고유 이미지를 해치지 않는 범위에서 버튼 디자인을 바꿀 수 있고 레이블도 목적에 맞으면 수정할 수 있다. 세 곳 중 가장 유연하다. |
-| 애플 | Human Interface Guidelines 의 Sign in with Apple 규격을 따른다. iOS 에서 다른 소셜 로그인을 제공하면 Apple 로그인도 함께 제공해야 한다. |
+공통 모양: 높이 48, 모서리 12, 한 줄에 하나씩 꽉 채우고, 심볼과 문구를 한 덩어리로
+가운데 정렬한다. 순서는 카카오·네이버·Google·Apple 이고 서버가 켠 제공자만 보인다.
+문구는 OS 기본 서체다(쿠키런 아님).
 
-- 카카오 [디자인 가이드](https://developers.kakao.com/docs/ko/kakaologin/design-guide)
+| 제공사 | 확인한 요구사항 | 적용한 것 |
+| --- | --- | --- |
+| 카카오 | 심볼·레이블·컨테이너 세 요소. **심볼 없는 버튼 금지**, 심볼 형태·비율·색 변경 금지. 컨테이너 `#FEE500`, 심볼 `#000000`, 레이블 `#000000` 85%, radius 12px, 레이블 세로 길이는 컨테이너의 1/3 이하, OS 기본 서체. | 디자인 리소스의 `kakao_login_original.psd` 에 든 말풍선 벡터를 그대로 옮겨 SVG 로 그림. 표준 이미지 비율(45px 버튼에 18px)대로 19.2px, 레이블 16. |
+| 네이버 | 지정 컬러 변경 불가. 권장 녹색 배경 `#03A94D`, 로고·레이블 `#FFFFFF`. N 로고 형태 변경·조합 금지, 완성형 16px 이상, 가운데 정렬 시 간격 8px. 레이블은 목적에 맞으면 수정 가능. | `NAVER_login_KR.ai` 의 N 로고 꼭짓점을 그대로 옮김. 16px, 간격 8. 예전 코드의 `#03C75A` 를 현재 가이드 색 `#03A94D` 로 바꿈. |
+| 구글 | **직접 만든 아이콘, G 크기·색 변경, 단색 G 금지**. Light `#FFFFFF` / `#747775` 1px / `#1F1F1F`, Dark `#131314` / `#8E918F` / `#E3E3E3`. Google Sans Medium 14/20, 로고 뒤 10px. 현지화 권장, 다른 버튼과 같은 비중. | 가이드 페이지의 `g-logo.png`(그라데이션 G)를 비율 그대로 20px. 앱 테마에 따라 Light/Dark. "Google 계정으로 로그인". |
+| 애플 | 밝은 배경 검정 / 어두운 배경 흰색, 로고·문구는 한 가지 색. Apple Design Resources 의 로고 파일만 사용, 높이를 버튼에 맞추고 자르지 않음. 문구 크기는 버튼 높이의 43%. 최소 140x30pt. iOS 에서 다른 소셜 로그인을 제공하면 Apple 로그인도 함께 제공해야 한다. | `Logo - SIWA - Left-aligned - Medium.svg` 의 경로와 31x44 여백 그대로, 높이 48. 라이트 모드 검정·다크 모드 흰색. "Apple로 로그인" 20.6pt. |
+
+남은 확인 사항:
+
+- **Apple 로고 라이선스.** dmg 에 든 "Apple Design Resources License" 는 목업 용도만 허락하고
+  소프트웨어에 포함하는 것을 막는 일반 조항이다. HIG 는 같은 파일로 사용자 지정 버튼을 만들라고
+  안내하지만, 둘이 어긋나므로 출시 전에 확인한다. 더 안전한 길은 iOS 에서
+  `expo-apple-authentication` 의 시스템 버튼(`AppleAuthenticationButton`)을 쓰는 것이다.
+  지금 로그인은 서버를 거치는 웹 인증 흐름이라 그 패키지를 쓰지 않는다.
+- **Apple 버튼을 안드로이드에서 보여 줄지.** HIG 의 사용자 지정 버튼 안내는 iOS·macOS·웹만 말한다.
+- **구글 글꼴과 글자 크기.** Google Sans 에 한글이 없어 OS 기본 서체를 쓴다. 가이드 기준 14 대신
+  다른 버튼과 비중을 맞추려고 16 을 쓴다. OAuth 앱 인증 검수에서 지적되면 14 로 내린다.
+- **모서리.** 카카오 12px 에 네 버튼을 맞췄다. 네이버 표준 에셋은 8 이지만 가이드가 일부 변경을
+  허용한다. 구글·애플은 모서리를 앱에 맞춰도 된다.
+- **실기기 확인.** 웹 미리보기로만 확인했다. iOS·안드로이드 실기기에서 시스템 서체의 굵기와
+  글자 세로 위치를 한 번 본다.
+
+- 카카오 [디자인 가이드](https://developers.kakao.com/docs/ko/kakaologin/design-guide), [디자인 리소스](https://developers.kakao.com/tool/resource/login)
+- 네이버 [네이버 로그인 버튼 사용 가이드](https://developers.naver.com/docs/login/bi/bi.md)
 - 구글 [브랜드 가이드라인](https://developers.google.com/identity/branding-guidelines)
-- 네이버 [로그인 버튼 디자인](https://guide.ncloud-docs.com/docs/sso-button-design-guide)
+- 애플 [Sign in with Apple HIG](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple), [Apple Design Resources](https://developer.apple.com/design/resources/)
+- 이전에 걸려 있던 네이버 링크(guide.ncloud-docs.com)는 네이버 클라우드 플랫폼 SSO 버튼 가이드라 네이버 로그인과 다르다.
 
 ## 13. 공식 참고자료
 
