@@ -121,3 +121,16 @@ test("이름 없는 숙소(대표 숙소 해제)는 서버에 두지 않는다",
   assert.deepEqual(planListSync([], codec, confirmed).deletes, [{ id: A, version: 2 }]);
   assert.equal(codec.syncable(stay({ name: "" })), false);
 });
+
+test("올릴 수 없는 줄이어도 목록에 있으면 서버에서 지우지 않고, 서버에 같은 id 가 있으면 두 번 보이지 않는다", () => {
+  const codec = {
+    syncable: (item: { id: string; ok: boolean }) => item.ok,
+    idOf: (item: { id: string; ok: boolean }) => item.id,
+    toBody: (item: { id: string; ok: boolean }) => ({ id: item.id }),
+    fromServer: (row: { id: string; version: number }) => ({ id: row.id, ok: false }),
+  };
+  const confirmed = new Map<string, Confirmed>([[A, { key: "x", version: 1 }]]);
+
+  assert.deepEqual(planListSync([{ id: A, ok: false }], codec, confirmed).deletes, []);
+  assert.equal(mergeListOnOpen([{ id: A, ok: false }], [{ id: A, version: 1 }], new Set(), codec).length, 1);
+});

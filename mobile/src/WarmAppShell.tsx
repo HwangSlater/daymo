@@ -73,8 +73,10 @@ import {
   listSpaces,
   listTrips,
   setTripParticipants,
+  updateExpenseSettings,
   updateSpace,
   updateTrip,
+  type ExpenseSettings,
   type ServerSpace,
   type ServerTrip,
 } from "./serverData";
@@ -113,6 +115,8 @@ type Trip = {
   start: string;
   end: string;
   planning?: TripPlanningData;
+  /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
+  serverExpenseSettings?: ExpenseSettings;
   /**
    * 앱이 처음부터 들고 있는 예시 여행.
    *
@@ -158,8 +162,16 @@ const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []):
     start: trip.startDate,
     end: trip.endDate,
     ...(participants.length ? { planning: { participants } } : {}),
+    serverExpenseSettings: expenseSettingsFrom(trip),
   };
 };
+
+const expenseSettingsFrom = (trip: ServerTrip): ExpenseSettings => ({
+  currency: trip.currencyCode ?? "KRW",
+  exchangeRate: trip.exchangeRate == null ? 1 : Number(trip.exchangeRate),
+  budget: trip.budget == null ? 0 : Number(trip.budget),
+  simplifySettlement: trip.simplifySettlement ?? true,
+});
 
 const latestTripFrom = (trip: ServerTrip, roster: RosterEntry[]): LatestTrip => {
   const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
@@ -797,6 +809,22 @@ export function WarmAppShell({
             }
             return result;
           });
+          applyServerTrip(saved);
+        }}
+        serverExpenseSettings={selectedTrip.serverExpenseSettings}
+        onUpdateExpenseSettings={async (settings) => {
+          if (!selectedTrip.id || selectedTrip.version === undefined) return;
+          const tripId = selectedTrip.id;
+          let saved: ServerTrip;
+          try {
+            saved = await updateExpenseSettings(tripId, selectedTrip.version, settings);
+          } catch (caught) {
+            // 통화나 예산은 마지막에 고친 값이 맞다. 다른 곳에서 여행을 먼저 고쳤으면
+            // 최신 버전으로 한 번 더 보낸다(정산 묶기 잠금은 서버가 따로 막는다).
+            if (!(caught instanceof DaymoApiError) || caught.code !== "VERSION_CONFLICT") throw caught;
+            const latest = await getTrip(tripId);
+            saved = await updateExpenseSettings(tripId, latest.version, settings);
+          }
           applyServerTrip(saved);
         }}
         onUpdateParticipants={async (names) => {

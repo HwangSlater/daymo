@@ -49,9 +49,11 @@ export function planListSync<L, B, S extends ServerRow>(
   const plan: ListPlan<B> = { creates: [], updates: [], deletes: [] };
   const present = new Set<string>();
   for (const item of items) {
-    if (!codec.syncable(item)) continue;
     const id = codec.idOf(item);
-    present.add(id);
+    // 지금은 올릴 수 없는 줄(예: 나간 멤버가 낸 지출)도 목록에 있으면 지우지 않는다.
+    // 없는 것으로 치면 서버에 있는 기록을 지워 버린다.
+    if (id) present.add(id);
+    if (!codec.syncable(item)) continue;
     const body = codec.toBody(item);
     const key = bodyKey(body as object);
     if (failed.get(id) === key) continue;
@@ -91,9 +93,11 @@ export function mergeListOnOpen<L, B, S extends ServerRow>(
     return mine && codec.keepLocal ? codec.keepLocal(item, mine) : item;
   });
   const kept = local.filter((item) => {
-    if (!codec.syncable(item)) return true;
     const id = codec.idOf(item);
-    return !serverIds.has(id) && !syncedIds.has(id);
+    // 서버에 같은 id 가 있으면 서버 줄을 쓴다. 올릴 수 없는 줄이어도 두 번 보이면 안 된다.
+    if (id && serverIds.has(id)) return false;
+    if (!codec.syncable(item)) return true;
+    return !syncedIds.has(id);
   });
   return [...fromServer, ...kept];
 }

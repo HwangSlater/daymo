@@ -2,6 +2,7 @@ import { authenticatedRequest } from "./auth";
 import type { PlaceBody, ServerPlace } from "./placeSync";
 import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./scheduleSync";
 import type { ReservationBody, ServerReservation, ServerTransport, TransportBody } from "./bookingSync";
+import type { ExpenseBody, PaymentBody, ServerExpense, ServerPayment } from "./expenseSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
@@ -26,6 +27,19 @@ export type ServerTrip = {
   summary: string | null;
   version: number;
   participantMembershipIds: string[];
+  currencyCode?: string;
+  /** 서버는 소수를 문자열이나 수로 준다. 쓸 때 Number 로 읽는다. */
+  exchangeRate?: number | string | null;
+  budget?: number | string | null;
+  simplifySettlement?: boolean;
+};
+
+/** 여행의 통화·환율·예산·정산 묶기. */
+export type ExpenseSettings = {
+  currency: string;
+  exchangeRate: number;
+  budget: number;
+  simplifySettlement: boolean;
 };
 
 export const listSpaces = () => authenticatedRequest<ServerSpace[]>("/v1/spaces");
@@ -165,6 +179,43 @@ export const updateReservation = (id: string, version: number, body: Reservation
 
 export const deleteReservation = (id: string) =>
   authenticatedRequest<void>(`/v1/reservations/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listExpenses = (tripId: string) =>
+  authenticatedRequest<ServerExpense[]>(`/v1/trips/${encodeURIComponent(tripId)}/expenses`);
+
+export const createExpense = (tripId: string, id: string, body: ExpenseBody) =>
+  authenticatedRequest<ServerExpense>(`/v1/trips/${encodeURIComponent(tripId)}/expenses`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateExpense = (id: string, version: number, body: ExpenseBody) =>
+  authenticatedRequest<ServerExpense>(`/v1/expenses/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteExpense = (id: string) =>
+  authenticatedRequest<void>(`/v1/expenses/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listPayments = (tripId: string) =>
+  authenticatedRequest<ServerPayment[]>(`/v1/trips/${encodeURIComponent(tripId)}/payments`);
+
+export const createPayment = (tripId: string, id: string, body: PaymentBody) =>
+  authenticatedRequest<ServerPayment>(`/v1/trips/${encodeURIComponent(tripId)}/payments`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+/** 기록을 되돌린다. 서버는 행을 남기고 목록에서만 뺀다. */
+export const undoPayment = (id: string) =>
+  authenticatedRequest<void>(`/v1/payments/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const updateExpenseSettings = (tripId: string, version: number, settings: ExpenseSettings) =>
+  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/expense-settings`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...settings }),
+  });
 
 export const updateTrip = (
   tripId: string,

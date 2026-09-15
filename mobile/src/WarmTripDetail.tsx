@@ -13,8 +13,17 @@ import { isServerId, tripDateKeys } from "./listSync";
 import { legacyIdMap, placeCodec } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
 import { reservationCodec, transportCodec } from "./bookingSync";
+import { expenseCodec, paymentCodec } from "./expenseSync";
+import type { ExpenseSettings } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
+  createExpense,
+  createPayment,
+  deleteExpense,
+  listExpenses,
+  listPayments,
+  undoPayment,
+  updateExpense,
   createReservation,
   createScheduleItem,
   createStay,
@@ -225,6 +234,15 @@ export type TripPlanningData = {
   transportSyncIds?: string[];
   /** 서버와 맞춘 적이 있는 예약 id. */
   reservationSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 지출 id. */
+  expenseSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 주고받은 기록 id. */
+  paymentSyncIds?: string[];
+  /**
+   * 통화·환율·예산·정산 묶기를 서버와 한 번이라도 맞췄는지. 맞춘 적이 없으면 기기 값을
+   * 서버에 올리고, 맞춘 적이 있으면 서버 값으로 연다.
+   */
+  expenseSettingsSynced?: boolean;
   /** 여행에서 쓰는 통화 코드. 없으면 원이다. */
   currency?: string;
   /** 1 단위가 몇 원인지. 통화가 원이면 1 이다. */
@@ -373,6 +391,10 @@ type Props = {
   tripId?: string;
   /** 공간 사람의 이름과 membership id. 교통편의 탈 사람을 서버에 보낼 때 쓴다. */
   spaceRoster?: RosterEntry[];
+  /** 서버에 저장된 통화·환율·예산·정산 묶기. */
+  serverExpenseSettings?: ExpenseSettings;
+  /** 통화·환율·예산·정산 묶기를 서버에 저장한다. */
+  onUpdateExpenseSettings?: (settings: ExpenseSettings) => Promise<void>;
   initialPlanning?: TripPlanningData;
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
@@ -866,6 +888,8 @@ export function WarmTripDetail({
   onUpdateParticipants,
   tripId,
   spaceRoster = [],
+  serverExpenseSettings,
+  onUpdateExpenseSettings,
   initialPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
@@ -972,12 +996,14 @@ export function WarmTripDetail({
     (initialPlanning?.expenses ?? []).map(normalizeExpense),
   );
   const [payments, setPayments] = useState<Payment[]>(initialPlanning?.payments ?? []);
+  // 서버와 맞춘 적이 있으면 서버 값으로 연다. 다른 기기에서 바꾼 통화가 보여야 한다.
+  const settingsFromServer = initialPlanning?.expenseSettingsSynced ? serverExpenseSettings : undefined;
   const [simplifySettlement, setSimplifySettlement] = useState(
-    initialPlanning?.simplifySettlement ?? true,
+    settingsFromServer?.simplifySettlement ?? initialPlanning?.simplifySettlement ?? true,
   );
-  const [budget, setBudget] = useState(initialPlanning?.budget ?? 500000);
-  const [currency, setCurrency] = useState(initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
-  const [exchangeRate, setExchangeRate] = useState(initialPlanning?.exchangeRate ?? 1);
+  const [budget, setBudget] = useState(settingsFromServer?.budget ?? initialPlanning?.budget ?? 500000);
+  const [currency, setCurrency] = useState(settingsFromServer?.currency ?? initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
+  const [exchangeRate, setExchangeRate] = useState(settingsFromServer?.exchangeRate ?? initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
     initialPlanning?.memories
       ? {
@@ -1092,6 +1118,13 @@ export function WarmTripDetail({
       ? { ...current, id: isServerId(current.id) ? current.id : newPlaceId(), placeId: rename(current.placeId) }
       : current);
     // 교통편·예약의 옛 id 도 바꾸고, 그 id 로 만들어진 일정 줄이 따라가게 한다.
+    // 지출과 주고받은 기록은 다른 줄이 가리키지 않아 id 만 바꾼다.
+    if (expenses.some((item) => !isServerId(item.id))) {
+      setExpenses((current) => current.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })));
+    }
+    if (payments.some((item) => !isServerId(item.id))) {
+      setPayments((current) => current.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })));
+    }
     const bookingMap = new Map<string, string>();
     for (const item of [...transportations, ...reservations]) {
       if (!isServerId(item.id)) bookingMap.set(item.id, newPlaceId());
@@ -1209,6 +1242,78 @@ export function WarmTripDetail({
     refreshKey: tripDateKeyList.join(","),
     notify: setFeedback,
   });
+  const [expenseSyncIds, setExpenseSyncIds] = useState<string[]>(() => initialPlanning?.expenseSyncIds ?? []);
+  const [paymentSyncIds, setPaymentSyncIds] = useState<string[]>(() => initialPlanning?.paymentSyncIds ?? []);
+  const expenseSyncCodec = useMemo(
+    () => expenseCodec(tripDateKeyList, spaceRoster),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosterKey, tripDateKeyList],
+  );
+  useListSync({
+    tripId,
+    label: "지출",
+    items: expenses,
+    setItems: setExpenses,
+    codec: expenseSyncCodec,
+    api: { list: listExpenses, create: createExpense, update: updateExpense, remove: deleteExpense },
+    syncedIds: expenseSyncIds,
+    setSyncedIds: setExpenseSyncIds,
+    refreshKey: `${rosterKey}|${tripDateKeyList.join(",")}`,
+    notify: setFeedback,
+  });
+  const paymentSyncCodec = useMemo(
+    () => paymentCodec(spaceRoster),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosterKey],
+  );
+  useListSync({
+    tripId,
+    label: "주고받은 기록",
+    items: payments,
+    setItems: setPayments,
+    codec: paymentSyncCodec,
+    api: {
+      list: listPayments,
+      create: createPayment,
+      // 기록은 고치지 않는다. 앱도 새로 적거나 되돌리기만 한다.
+      update: async () => {
+        throw new DaymoApiError("주고받은 기록은 고칠 수 없어요.", 422, "VALIDATION_ERROR");
+      },
+      remove: undoPayment,
+    },
+    syncedIds: paymentSyncIds,
+    setSyncedIds: setPaymentSyncIds,
+    refreshKey: rosterKey,
+    notify: setFeedback,
+  });
+  const [expenseSettingsSynced, setExpenseSettingsSynced] = useState(Boolean(initialPlanning?.expenseSettingsSynced));
+  const lastSentSettings = useRef<string | null>(
+    initialPlanning?.expenseSettingsSynced && serverExpenseSettings ? JSON.stringify(serverExpenseSettings) : null,
+  );
+  useEffect(() => {
+    // 통화·환율·예산·정산 묶기를 서버에 맞춘다. 처음 연 여행이면 기기 값을 올리고,
+    // 그 뒤로는 바꿀 때마다 잠깐 기다렸다가 보낸다.
+    if (!serverTrip || !onUpdateExpenseSettings) return;
+    const settings: ExpenseSettings = { currency, exchangeRate, budget, simplifySettlement };
+    const key = JSON.stringify(settings);
+    if (key === lastSentSettings.current) return;
+    const timer = setTimeout(() => {
+      onUpdateExpenseSettings(settings)
+        .then(() => {
+          lastSentSettings.current = key;
+          setExpenseSettingsSynced(true);
+        })
+        .catch((caught) => {
+          if (caught instanceof DaymoApiError && caught.code === "SETTLEMENT_IN_PROGRESS") {
+            // 주고받은 기록이 있으면 묶기를 바꿀 수 없다. 화면을 되돌린다.
+            setSimplifySettlement(!simplifySettlement);
+          }
+          setFeedback(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "비용 설정을 아직 저장하지 못했어요");
+        });
+    }, 800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budget, currency, exchangeRate, serverTrip, simplifySettlement]);
   useEffect(() => {
     // 교통편·예약의 "일정에 표시" 줄을 목록에서 다시 만든다. 저장 버튼에서만 만들면
     // 다른 기기에서 받은 교통편·예약은 일정에 보이지 않는다. 대표 숙소 줄과 같은 방식이다.
@@ -1289,8 +1394,11 @@ export function WarmTripDetail({
       staySyncIds,
       transportSyncIds,
       reservationSyncIds,
+      expenseSyncIds,
+      paymentSyncIds,
+      expenseSettingsSynced,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, participants, paymentSyncIds, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -1322,9 +1430,12 @@ export function WarmTripDetail({
       staySyncIds,
       transportSyncIds,
       reservationSyncIds,
+      expenseSyncIds,
+      paymentSyncIds,
+      expenseSettingsSynced,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, paymentSyncIds, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -1579,7 +1690,7 @@ export function WarmTripDetail({
                 setExpenses((current) => [
                   ...current,
                   {
-                    id: `expense-${Date.now()}`,
+                    id: newPlaceId(),
                     day: todayTripDay || tripDayOptions[0] || "",
                     title,
                     amount,
@@ -7260,7 +7371,7 @@ function Money({
       // 번호와 시각은 값을 바꾸는 이 안에서 읽는다. 그리는 중에 시계를 읽으면
       // 같은 그림이 두 번 그려질 때 값이 달라진다.
       const at = Date.now();
-      return [...current, { id: `pay-${at}`, from, to, amount, at }];
+      return [...current, { id: newPlaceId(), from, to, amount, at }];
     });
     setPaying(null);
     notify(`${from}${josa(from, "이", "가")} ${to}에게 ${show(amount)} 보낸 걸로 적었어요`);
@@ -7269,7 +7380,7 @@ function Money({
   const recordFull = (transfer: Transfer) => {
     setPayments((current) => {
       const at = Date.now();
-      return [...current, { id: `pay-${at}`, from: transfer.from, to: transfer.to, amount: transfer.amount, at }];
+      return [...current, { id: newPlaceId(), from: transfer.from, to: transfer.to, amount: transfer.amount, at }];
     });
     notify(`${transfer.from}${josa(transfer.from, "이", "가")} ${transfer.to}에게 ${show(transfer.amount)} 보낸 걸로 적었어요`);
   };
@@ -7393,7 +7504,7 @@ function Money({
     setExpenses((current) => [
       ...current,
       {
-        id: `expense-${Date.now()}`,
+        id: newPlaceId(),
         // 빠르게 적는 건 지금 쓴 돈이다. 여행 중이면 오늘, 아니면 첫날이다.
         day: todayDay || dayOptions[0] || "",
         title: quickCategory,
@@ -7466,7 +7577,7 @@ function Money({
       // 새 번호는 값을 바꾸는 이 안에서 만든다. 그려지는 중에 시계를 읽으면
       // 같은 그림이 두 번 그려질 때 번호가 달라진다.
       const next: Expense = {
-        id: editingId ?? `expense-${Date.now()}`,
+        id: editingId ?? newPlaceId(),
         day: draftDay,
         title: draftTitle.trim() || draftCategory,
         amount: amountNumber,
