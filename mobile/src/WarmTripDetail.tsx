@@ -14,9 +14,18 @@ import { legacyIdMap, placeCodec } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
 import { reservationCodec, transportCodec } from "./bookingSync";
 import { expenseCodec, paymentCodec } from "./expenseSync";
+import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
 import type { ExpenseSettings } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
+  createChecklistItem,
+  createRecipe,
+  deleteChecklistItem,
+  deleteRecipe,
+  listChecklistItems,
+  listRecipes,
+  updateChecklistItem,
+  updateRecipe,
   createExpense,
   createPayment,
   deleteExpense,
@@ -238,6 +247,10 @@ export type TripPlanningData = {
   expenseSyncIds?: string[];
   /** 서버와 맞춘 적이 있는 주고받은 기록 id. */
   paymentSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 준비물 id. */
+  packingSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 요리 id. 재료는 요리와 함께 오간다. */
+  recipeSyncIds?: string[];
   /**
    * 통화·환율·예산·정산 묶기를 서버와 한 번이라도 맞췄는지. 맞춘 적이 없으면 기기 값을
    * 서버에 올리고, 맞춘 적이 있으면 서버 값으로 연다.
@@ -1125,6 +1138,27 @@ export function WarmTripDetail({
     if (payments.some((item) => !isServerId(item.id))) {
       setPayments((current) => current.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })));
     }
+    // 준비물·요리·재료의 옛 id 도 바꾸고, 체크해 둔 것이 따라가게 한다.
+    const packingMap = new Map<string, string>();
+    for (const item of packingItems) if (!isServerId(item.id)) packingMap.set(item.id, newPlaceId());
+    if (packingMap.size) {
+      setPackingItems((current) => current.map((item) => ({ ...item, id: packingMap.get(item.id) ?? item.id })));
+      setPackingDone((current) => current.map((id) => packingMap.get(id) ?? id));
+    }
+    const recipeMap = new Map<string, string>();
+    for (const recipe of recipes) {
+      if (!isServerId(recipe.id)) recipeMap.set(recipe.id, newPlaceId());
+      for (const item of recipe.ingredients) if (!isServerId(item.id)) recipeMap.set(item.id, newPlaceId());
+    }
+    if (recipeMap.size) {
+      const renameCooking = (id: string) => recipeMap.get(id) ?? id;
+      setRecipes((current) => current.map((recipe) => ({
+        ...recipe,
+        id: renameCooking(recipe.id),
+        ingredients: recipe.ingredients.map((item) => ({ ...item, id: renameCooking(item.id) })),
+      })));
+      setCookingReadyIngredientIds((current) => current.map(renameCooking));
+    }
     const bookingMap = new Map<string, string>();
     for (const item of [...transportations, ...reservations]) {
       if (!isServerId(item.id)) bookingMap.set(item.id, newPlaceId());
@@ -1286,6 +1320,80 @@ export function WarmTripDetail({
     refreshKey: rosterKey,
     notify: setFeedback,
   });
+  const [packingSyncIds, setPackingSyncIds] = useState<string[]>(() => initialPlanning?.packingSyncIds ?? []);
+  const [recipeSyncIds, setRecipeSyncIds] = useState<string[]>(() => initialPlanning?.recipeSyncIds ?? []);
+  // 체크는 목록 밖에 따로 둔다. 서버와 맞출 때만 줄에 붙여 본다.
+  const packingRows = useMemo<PackingRow[]>(
+    () => packingItems.map((item) => ({ ...item, tags: packingTags(item), done: packingDone.includes(item.id) })),
+    [packingDone, packingItems],
+  );
+  const packingRowsRef = useRef(packingRows);
+  useEffect(() => {
+    packingRowsRef.current = packingRows;
+  }, [packingRows]);
+  const setPackingRows = (updater: (current: PackingRow[]) => PackingRow[]) => {
+    const next = updater(packingRowsRef.current);
+    packingRowsRef.current = next;
+    setPackingItems(next.map(({ id, name, quantity, owner, tags }) => ({ id, name, quantity, owner, tags })));
+    setPackingDone(next.filter((row) => row.done).map((row) => row.id));
+  };
+  const packingSyncCodec = useMemo(
+    () => packingCodec(spaceRoster),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosterKey],
+  );
+  useListSync({
+    tripId,
+    label: "준비물",
+    items: packingRows,
+    setItems: setPackingRows,
+    codec: packingSyncCodec,
+    api: { list: listChecklistItems, create: createChecklistItem, update: updateChecklistItem, remove: deleteChecklistItem },
+    syncedIds: packingSyncIds,
+    setSyncedIds: setPackingSyncIds,
+    refreshKey: rosterKey,
+    notify: setFeedback,
+  });
+  const recipeRows = useMemo<RecipeRow[]>(
+    () => recipes.map((recipe) => ({
+      ...recipe,
+      ingredients: recipe.ingredients.map((item) => ({ ...item, ready: cookingReadyIngredientIds.includes(item.id) })),
+    })),
+    [cookingReadyIngredientIds, recipes],
+  );
+  const recipeRowsRef = useRef(recipeRows);
+  useEffect(() => {
+    recipeRowsRef.current = recipeRows;
+  }, [recipeRows]);
+  const setRecipeRows = (updater: (current: RecipeRow[]) => RecipeRow[]) => {
+    const next = updater(recipeRowsRef.current);
+    recipeRowsRef.current = next;
+    setRecipes(next.map((recipe) => ({
+      id: recipe.id,
+      name: recipe.name,
+      note: recipe.note,
+      url: recipe.url,
+      ingredients: recipe.ingredients.map(({ id, name, quantity, group, owner }) => ({ id, name, quantity, group, owner })),
+    })));
+    setCookingReadyIngredientIds(next.flatMap((recipe) => recipe.ingredients.filter((item) => item.ready).map((item) => item.id)));
+  };
+  const recipeSyncCodec = useMemo(
+    () => recipeCodec(spaceRoster),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosterKey],
+  );
+  useListSync({
+    tripId,
+    label: "요리",
+    items: recipeRows,
+    setItems: setRecipeRows,
+    codec: recipeSyncCodec,
+    api: { list: listRecipes, create: createRecipe, update: updateRecipe, remove: deleteRecipe },
+    syncedIds: recipeSyncIds,
+    setSyncedIds: setRecipeSyncIds,
+    refreshKey: rosterKey,
+    notify: setFeedback,
+  });
   const [expenseSettingsSynced, setExpenseSettingsSynced] = useState(Boolean(initialPlanning?.expenseSettingsSynced));
   const lastSentSettings = useRef<string | null>(
     initialPlanning?.expenseSettingsSynced && serverExpenseSettings ? JSON.stringify(serverExpenseSettings) : null,
@@ -1396,9 +1504,11 @@ export function WarmTripDetail({
       reservationSyncIds,
       expenseSyncIds,
       paymentSyncIds,
+      packingSyncIds,
+      recipeSyncIds,
       expenseSettingsSynced,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, participants, paymentSyncIds, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -1432,10 +1542,12 @@ export function WarmTripDetail({
       reservationSyncIds,
       expenseSyncIds,
       paymentSyncIds,
+      packingSyncIds,
+      recipeSyncIds,
       expenseSettingsSynced,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, paymentSyncIds, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, packingSyncIds, participants, paymentSyncIds, payments, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -4192,9 +4304,6 @@ function Preparation({
   };
   const submit = () => {
     if (!newPackingCount) return;
-    // 사용자가 저장을 누른 시점에 여러 로컬 항목의 공통 식별자를 만든다.
-    // eslint-disable-next-line react-hooks/purity
-    const stamp = Date.now();
     if (editingId) {
       const nextName = parsedPackingNames[0];
       setItems((current) => current.map((item) => item.id === editingId
@@ -4203,7 +4312,7 @@ function Preparation({
     } else {
       setItems((current) => [
         ...current,
-        ...newPackingNames.map((name, index) => ({ id: `${stamp}-${index}`, name, quantity: quantity.trim(), owner, tags: draftPackingTags })),
+        ...newPackingNames.map((name) => ({ id: newPlaceId(), name, quantity: quantity.trim(), owner, tags: draftPackingTags })),
       ]);
     }
     setNames("");
@@ -4281,17 +4390,16 @@ function Preparation({
       const moved = normalizePackingOwner(raw, participants);
       return ownerSections.includes(moved) ? moved : PACKING_UNASSIGNED;
     };
-    const stamp = Date.now();
     const parsed = importText
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line, index) => {
+      .map((line) => {
         const [name, quantity = "", rawOwner = "미정", rawTags = ""] = line
           .split("|")
           .map((value) => value.trim());
         return {
-          id: `${stamp}-${index}`,
+          id: newPlaceId(),
           name,
           quantity,
           owner: readOwner(rawOwner),
@@ -4335,11 +4443,10 @@ function Preparation({
       setCookingPicker(false);
       return;
     }
-    const stamp = Date.now();
     setItems((current) => [
       ...current,
-      ...uniqueSelected.map(({ recipe, ingredient }, index) => ({
-        id: `cooking-${stamp}-${index}`,
+      ...uniqueSelected.map(({ recipe, ingredient }) => ({
+        id: newPlaceId(),
         name: ingredient.name,
         quantity: ingredient.quantity,
         // 재료의 담당도 같은 참가자 목록을 쓰므로 이름이 맞으면 그대로 가져온다.
@@ -5455,18 +5562,18 @@ const cookingOwnerOptions = (participants: string[]) => [
  * 나머지 줄은 버린다. 넣기 전에 몇 개가 읽혔는지 미리 세어 보여주려고 컴포넌트
  * 밖으로 꺼냈다. 같은 함수가 미리 읽기와 실제 추가에 함께 쓰인다.
  */
-function parseAiRecipes(text: string, stamp: number): Recipe[] {
+function parseAiRecipes(text: string, newId: () => string): Recipe[] {
   const parsed: Recipe[] = [];
   let currentRecipe: Recipe | null = null;
   text
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .forEach((line, index) => {
+    .forEach((line) => {
       const [type, ...values] = line.split("|").map((value) => value.trim());
       if (type === "요리" && values[0]) {
         currentRecipe = {
-          id: `ai-recipe-${stamp}-${index}`,
+          id: newId(),
           name: values[0],
           note: values[1] || "메모 없음",
           url: values[2] || "",
@@ -5477,7 +5584,7 @@ function parseAiRecipes(text: string, stamp: number): Recipe[] {
       }
       if (type === "재료" && values[0] && currentRecipe) {
         currentRecipe.ingredients.push({
-          id: `ai-ingredient-${stamp}-${index}`,
+          id: newId(),
           name: values[0],
           quantity: values[1] || "미정",
           group: values[2] || "기본",
@@ -5747,7 +5854,7 @@ function Cooking({
     if (!ingredientFormValid || !activeRecipe) return;
     const wasEditing = Boolean(editingIngredient);
     const next = {
-      id: `${Date.now()}`,
+      id: newPlaceId(),
       name: name.trim(),
       quantity: quantity.trim(),
       group,
@@ -5813,7 +5920,7 @@ function Cooking({
       notify("요리 정보를 수정했어요");
       return;
     }
-    const id = `recipe-${Date.now()}`;
+    const id = newPlaceId();
     setRecipes((current) => [
       ...current,
       {
@@ -5852,7 +5959,7 @@ function Cooking({
   };
   // 넣기 전에 몇 개가 읽혔는지 센다. 붙여넣고 나서 무엇이 들어갈지 모른 채
   // 버튼을 누르던 것이 이 흐름에서 가장 불안한 대목이었다.
-  const aiParsed: Recipe[] = useMemo(() => parseAiRecipes(aiResult, 0), [aiResult]);
+  const aiParsed: Recipe[] = useMemo(() => parseAiRecipes(aiResult, () => ""), [aiResult]);
   const aiIngredientCount = aiParsed.reduce((sum, recipe) => sum + recipe.ingredients.length, 0);
   const copyCookingPrompt = async () => {
     await Clipboard.setStringAsync(cookingPrompt);
@@ -5877,7 +5984,7 @@ function Cooking({
     setAiResult(text);
   };
   const importAiRecipes = () => {
-    const parsed = parseAiRecipes(aiResult, Date.now());
+    const parsed = parseAiRecipes(aiResult, newPlaceId);
     if (!parsed.length) {
       notify("요리 줄을 못 찾았어요. 형식이 맞는지 봐 주세요");
       return;
@@ -5960,12 +6067,11 @@ function Cooking({
     setImporting(true);
   };
   const importCooking = () => {
-    const stamp = Date.now();
     const parsed = importText
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line, index) => {
+      .map((line) => {
         const [
           itemName,
           itemQuantity = "",
@@ -5973,7 +6079,7 @@ function Cooking({
           itemOwner = "미정",
         ] = line.split("|").map((value) => value.trim());
         return {
-          id: `${stamp}-${index}`,
+          id: newPlaceId(),
           name: itemName,
           quantity: itemQuantity,
           group: itemGroup,

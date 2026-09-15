@@ -3,6 +3,7 @@ import type { PlaceBody, ServerPlace } from "./placeSync";
 import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./scheduleSync";
 import type { ReservationBody, ServerReservation, ServerTransport, TransportBody } from "./bookingSync";
 import type { ExpenseBody, PaymentBody, ServerExpense, ServerPayment } from "./expenseSync";
+import type { ChecklistItemBody, RecipeBody, ServerChecklistItem, ServerRecipe } from "./cookingSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
@@ -210,6 +211,43 @@ export const createPayment = (tripId: string, id: string, body: PaymentBody) =>
 /** 기록을 되돌린다. 서버는 행을 남기고 목록에서만 뺀다. */
 export const undoPayment = (id: string) =>
   authenticatedRequest<void>(`/v1/payments/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listChecklistItems = (tripId: string) =>
+  authenticatedRequest<ServerChecklistItem[]>(`/v1/trips/${encodeURIComponent(tripId)}/checklist-items`);
+
+export const createChecklistItem = (tripId: string, id: string, body: ChecklistItemBody) =>
+  authenticatedRequest<ServerChecklistItem>(`/v1/trips/${encodeURIComponent(tripId)}/checklist-items`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateChecklistItem = (id: string, version: number, body: ChecklistItemBody) =>
+  authenticatedRequest<ServerChecklistItem>(`/v1/checklist-items/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteChecklistItem = (id: string) =>
+  authenticatedRequest<void>(`/v1/checklist-items/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listRecipes = (tripId: string) =>
+  authenticatedRequest<ServerRecipe[]>(`/v1/trips/${encodeURIComponent(tripId)}/recipes`);
+
+export const createRecipe = (tripId: string, id: string, body: RecipeBody) =>
+  authenticatedRequest<ServerRecipe>(`/v1/trips/${encodeURIComponent(tripId)}/recipes`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+/** 재료는 보낸 목록대로 맞춰진다. 빠진 재료는 서버에서도 지워진다. */
+export const updateRecipe = (id: string, version: number, body: RecipeBody) =>
+  authenticatedRequest<ServerRecipe>(`/v1/recipes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteRecipe = (id: string) =>
+  authenticatedRequest<void>(`/v1/recipes/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export const updateExpenseSettings = (tripId: string, version: number, settings: ExpenseSettings) =>
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/expense-settings`, {
