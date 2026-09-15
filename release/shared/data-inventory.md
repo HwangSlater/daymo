@@ -13,13 +13,12 @@ App Store의 App Privacy와 Google Play의 데이터 보안(Data safety) 답은 
 | 비밀번호 | 이메일 가입 | 로그인 | 예 | Argon2id 해시만 저장 `User.password_hash` |
 | 사용자 ID | 계정 생성 시 서버가 만듦, 소셜 제공자의 회원 식별값 | 계정 식별 | 예 | `User.id`, `OAuthAccount.provider_subject` |
 | 기기 ID | 로그인 | 로그인 기기 관리, 세션 폐기 | 예 | 앱이 만든 설치 UUID `Device.installation_id`, 플랫폼, 앱 버전, 기기 이름 |
-| 사진 | 기록 탭 사진, 지출 영수증 | 여행 기록을 멤버와 공유 | 예 | `backend/app/services/photo_files.py`. 원본 + 위치 정보를 지운 표시본·썸네일 |
-| 사진 속 위치 정보 | 사진 원본에 GPS가 들어 있을 때 | **쓰지 않음.** 원본을 그대로 보관해서 남음 | 예 | 원본은 받은 byte 그대로(`store()`), 표시본·썸네일만 EXIF 제거. release/README.md "정할 것" 참고 |
+| 사진 | 기록 탭 사진, 지출 영수증 | 여행 기록을 멤버와 공유 | 예 | `backend/app/services/photo_files.py`. 원본(메타데이터 제거) + 표시본·썸네일 |
 | 사진 촬영 시각 | 사진 원본 EXIF | 사진을 날짜에 놓기 | 예 | `Photo.taken_at` |
 | 그 밖의 사용자 콘텐츠 | 앱에 입력 | 여행을 멤버와 함께 관리 | 예 | 공간·여행·일정·장소·숙소·교통·예약·준비물·요리·지출·정산 기록·메모·일기 |
 | 약관 동의 기록 | 가입 | 법적 증빙 | 예 | `User.terms_version`, `terms_agreed_at` |
 
-**보내지 않는 것:** 연락처, 기기 위치(GPS 권한을 요청하지 않는다), 결제 정보, 건강 정보, 광고 ID, 검색 기록, 앱 사용 분석, 비정상 종료 기록(오류 수집 SDK가 없다).
+**보내지 않는 것:** 연락처, 위치(GPS 권한을 요청하지 않고, 사진 속 GPS는 서버가 저장 전에 원본에서도 지운다 — `backend/app/services/photo_metadata.py`), 결제 정보, 건강 정보, 광고 ID, 검색 기록, 앱 사용 분석, 비정상 종료 기록(오류 수집 SDK가 없다).
 
 **서버가 스스로 남기는 기록:** 접속 IP·요청 경로(보안·장애 대응, 87일 안에 삭제 — `backend/infra/production/journald-daymo.conf`),
 로그인 시도 횟수(IP·이메일을 해시로만). 개인정보 처리방침에는 적혀 있다. 스토어에 신고할지는 각 스토어 문서의 판단을 따른다

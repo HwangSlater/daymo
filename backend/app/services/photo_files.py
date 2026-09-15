@@ -9,9 +9,9 @@
 DB 에는 `upload_root` 아래의 상대 경로만 적는다. 운영에서 사진 폴더를 NAS 로 옮겨도
 경로가 그대로다(docs/development/06-vps-deployment.md 6장).
 
-**원본은 받은 byte 그대로 둔다.** 표시본과 썸네일은 방향을 바로잡고 EXIF 를 모두 뺀
-JPEG 이다. 원본에는 위치 정보가 남아 있을 수 있어서 `original` 은 올린 사람의 공간
-멤버에게만 준다(권한 검사는 API 가 한다).
+**원본은 그림 데이터를 그대로 두고 위치가 들어갈 수 있는 메타데이터만 뺀다**(`photo_metadata.py`).
+표시본과 썸네일은 방향을 바로잡고 EXIF 를 모두 뺀 JPEG 이다. 파일은 공간 멤버에게만 준다
+(권한 검사는 API 가 한다).
 
 여기 함수는 모두 동기다. 이미지 변환은 CPU 를 쓰므로 API 는 스레드에서 부른다.
 """
@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 from PIL import ExifTags, Image, ImageOps, UnidentifiedImageError
 
 from app.core.config import get_settings
+from app.services.photo_metadata import strip_location
 
 DISPLAY_EDGE = 1440
 THUMBNAIL_EDGE = 480
@@ -152,6 +153,7 @@ def store(upload: Path, trip_id: uuid.UUID, photo_id: uuid.UUID, zone: ZoneInfo)
     try:
         original = building / f"original.{extension}"
         shutil.move(str(upload), original)
+        strip_location(original, kind)
         os.chmod(original, 0o640)
         total = original.stat().st_size
         total += _save_jpeg(upright, DISPLAY_EDGE, building / "display.jpg")

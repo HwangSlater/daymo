@@ -76,7 +76,13 @@ async def test_사진을_올리면_방향을_바로잡은_표시본과_썸네일
         assert not 그림.getexif()
     with Image.open(io.BytesIO(썸네일.content)) as 그림:
         assert max(그림.size) == 480
-    assert 받은_원본.content == 원본
+    # 원본은 그림 데이터가 같고, 위치·기기 정보는 빠지고, 방향과 찍은 시각은 남는다.
+    with Image.open(io.BytesIO(받은_원본.content)) as 받음, Image.open(io.BytesIO(원본)) as 보냄:
+        assert 받음.tobytes() == 보냄.tobytes()
+        exif = 받음.getexif()
+        assert exif.get(0x0112) == 6 and 0x0110 not in exif
+        assert not exif.get_ifd(0x8825)
+        assert exif.get_ifd(0x8769).get(0x9003) == "2026:10:02 09:30:00"
     assert list((사진_폴더 / "tmp").iterdir()) == []
 
 
@@ -242,3 +248,23 @@ async def test_지출에_같은_여행의_영수증_사진만_붙인다(api, db)
     assert 지출.json()["data"]["receiptPhotoId"] == 영수증
     assert 뗌.json()["data"]["receiptPhotoId"] is None
     assert 다른_여행_지출.status_code == 422
+
+
+def test_PNG과_WebP의_메타데이터_조각도_뺀다(tmp_path):
+    from app.services.photo_metadata import strip_location
+
+    그림 = Image.new("RGB", (40, 30), (10, 120, 200))
+    exif = Image.Exif()
+    exif.get_ifd(0x8825)[2] = (37.0, 30.0, 0.0)
+    png = tmp_path / "a.png"
+    그림.save(png, "PNG", exif=exif)
+    webp = tmp_path / "a.webp"
+    그림.save(webp, "WEBP", exif=exif, lossless=True)
+
+    strip_location(png, "PNG")
+    strip_location(webp, "WEBP")
+
+    for 파일 in (png, webp):
+        with Image.open(파일) as 열림:
+            assert 열림.tobytes() == 그림.tobytes()
+            assert not 열림.getexif().get_ifd(0x8825)
