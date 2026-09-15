@@ -8,6 +8,7 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 | [shared/listing-ko.md](shared/listing-ko.md) | 앱 이름, 부제·짧은 설명, 긴 설명, 키워드, URL — 두 스토어 공통 |
 | [shared/data-inventory.md](shared/data-inventory.md) | Daymo가 실제로 수집·저장하는 데이터와 들어 있는 SDK. App Privacy와 데이터 보안 답의 원본 |
 | [shared/screenshots.md](shared/screenshots.md) | 찍을 화면, 캡션, 스토어별 크기 |
+| [shared/demo-account.md](shared/demo-account.md) | 심사용 데모 계정을 서버에서 만들고 되돌리는 법, 심사자가 보는 내용 |
 | [app-store/app-store-connect.md](app-store/app-store-connect.md) | App Store Connect 필드별 입력값, App Privacy, 연령 등급, 심사 정보 |
 | [app-store/build-and-submit.md](app-store/build-and-submit.md) | iOS 빌드(Xcode 26), TestFlight, 제출 순서 |
 | [play-store/play-console.md](play-store/play-console.md) | Play Console 필드별 입력값, 데이터 보안, 콘텐츠 등급, 앱 콘텐츠 선언 |
@@ -35,11 +36,18 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 | 2 | Sign in with Apple 붙이기 | 운영자(키) + 개발 | Google·카카오·네이버 로그인을 두면 App Store 심사 지침 4.8에 따라 Apple 로그인도 있어야 한다. 서버 코드는 준비돼 있고 키만 넣으면 켜진다 |
 | 3 | 앱 안 신고·차단 | 개발 | 다른 사람이 쓴 사진·메모가 보이는 앱이라 App Store 지침 1.2(사용자 생성 콘텐츠)가 신고·차단을 요구한다 |
 | 4 | 카카오 로그인 버튼을 공식 에셋으로 | 개발 | 카카오 디자인 가이드가 심볼 없는 버튼을 허락하지 않는다(`WarmAppShell.tsx` oauthGrid 주석) |
-| 5 | 심사용 데모 계정 | 운영자(이메일) + 개발 | 두 스토어 모두 로그인이 필요한 앱은 심사 계정을 요구한다. 예시 공간·여행을 채워 둔다 |
+| 5 | 심사용 데모 계정 | 운영자(이메일·실행) | 두 스토어 모두 로그인이 필요한 앱은 심사 계정을 요구한다. 만드는 작업은 준비됐다(아래 "데모 계정"). 이메일을 정하고 제출 직전에 서버에서 돌린다 |
 | 6 | Google Play 개발자 계정과 비공개 테스트 | 운영자 | 개인 개발자 계정은 테스터 12명 이상이 14일 동안 비공개 테스트를 해야 프로덕션을 신청할 수 있다 |
 | 7 | 실제 기기 스크린샷 | 운영자 + 개발 | 두 스토어 모두 실제 앱 화면이어야 한다 |
 | 8 | 앱 버전 1.0.0 | 개발 | 지금 `mobile/app.json` 은 0.1.0. 첫 스토어 빌드를 만들 때 올린다(빌드 번호는 EAS가 올린다) |
 | 9 | 카카오 비즈 앱 심사(이메일 동의항목) | 카카오 | 2026-09-15 신청, 3~5일 |
+
+## 데모 계정
+
+심사자가 로그인할 계정은 서버 작업 `python -m app.jobs.seed_demo` 가 만든다. 이름 "하늘"의 확인된 계정, 예시 멤버 여울·가람과 함께 쓰는
+공간 "주말 여행 메이트", 실행한 날 기준의 여행 3개(2주 뒤·여행 중·지난 여행)에 일정·장소·예약·준비물·요리·지출·메모·일기·사진을 채운다.
+다시 돌리면 처음 상태로 되돌리고, 데모 계정이 아닌 계정의 이메일이면 아무것도 바꾸지 않고 멈춘다.
+비밀번호는 환경 변수로만 넘긴다. 실행 명령과 자세한 내용은 [shared/demo-account.md](shared/demo-account.md).
 
 ## 정할 것
 
