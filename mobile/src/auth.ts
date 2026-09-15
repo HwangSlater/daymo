@@ -392,7 +392,10 @@ export async function withAccessToken<T>(send: (accessToken: string) => Promise<
  * 비밀번호가 틀리면 서버는 403 을 준다. 401 이 아니라서 위의 토큰 갱신이
  * 끼어들지 않고, 로그인도 풀리지 않는다.
  */
-async function reauthProof(action: "delete_account" | "cancel_deletion", confirm: Reconfirm) {
+async function reauthProof(
+  action: "delete_account" | "cancel_deletion" | "change_password" | "change_email",
+  confirm: Reconfirm,
+) {
   if ("provider" in confirm) {
     // 비밀번호가 없는 계정. 연결된 제공자로 다시 로그인한 결과로 확인받는다.
     const back = await openSocialLogin(confirm.provider);
@@ -441,6 +444,38 @@ export async function updateDisplayName(name: string) {
     await storage.set(sessionKey, JSON.stringify({ ...saved, user: { ...saved.user, name: me.displayName } }));
   }
   return me.displayName;
+}
+
+/**
+ * 비밀번호를 바꾼다. 비밀번호가 없는(소셜 로그인으로만 가입한) 계정은 여기서 처음 정한다.
+ *
+ * 서버가 이 기기만 남기고 다른 기기를 모두 로그아웃시킨다. 이 기기의 세션은 그대로라
+ * 저장한 토큰을 건드리지 않고, 이제 비밀번호가 있다는 것만 적어 둔다.
+ */
+export async function changePassword(confirm: Reconfirm, newPassword: string) {
+  const proof = await reauthProof("change_password", confirm);
+  await authenticatedRequest<{ status: "changed" }>("/v1/me/password", {
+    method: "POST",
+    body: JSON.stringify({ reauthProof: proof, newPassword }),
+  });
+  const saved = parseSession(await storage.get(sessionKey));
+  if (saved) {
+    await storage.set(sessionKey, JSON.stringify({ ...saved, user: { ...saved.user, hasPassword: true } }));
+  }
+}
+
+/**
+ * 새 주소로 이메일 변경 확인 메일을 보낸다. 링크를 누르기 전에는 바뀌지 않는다.
+ *
+ * 새 주소에 이미 계정이 있어도 서버는 같은 답을 준다. 바뀐 주소는 다음에 앱을 열 때
+ * `GET /v1/me` 에서 받는다.
+ */
+export async function requestEmailChange(confirm: Reconfirm, newEmail: string) {
+  const proof = await reauthProof("change_email", confirm);
+  await authenticatedRequest<{ status: "accepted" }>("/v1/me/email", {
+    method: "POST",
+    body: JSON.stringify({ reauthProof: proof, newEmail }),
+  });
 }
 
 /** 유예 중인 계정 삭제를 취소한다. 삭제 요청과 따로 비밀번호를 다시 받는다. */
