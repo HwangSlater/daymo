@@ -73,6 +73,13 @@
 - **공간 이름을 여러 기기에서 동시에 고치면 나중에 저장한 쪽이 이긴다.**
   공간에는 여행처럼 `version` 이 없다. 관리자만 고칠 수 있어 부딪힐 일이 드물다고 봤다
 
+### 메일
+
+2026-09-15 Resend로 `daymo.xyz` 발신 인증(SPF·DKIM, 도쿄 리전)을 마치고 운영 API 컨테이너가
+키를 읽는 것을 확인했다. 운영 서버에서 Resend 시험 주소로 한 통 보내 SMTP 접수까지 확인했다.
+`support@daymo.xyz` 수신은 Cloudflare Email Routing이다. DMARC 레코드(`_dmarc`)는 아직 없다.
+**`runtime.env` 를 고친 뒤에는 api 컨테이너를 다시 만들어야 값이 들어간다**(06 문서 참고).
+
 ### 앱스토어 심사 전에 남은 것
 
 - **운영 서버에 올리기.** 계정 삭제 커밋은 아직 푸시하지 않았다. 올리면 migration
@@ -88,16 +95,13 @@
   deletion ledger가 없다
 - **내 이름 바꾸기.** `PATCH /me` 가 없어 이름은 기기에만 바뀐다. 이메일 칸은 읽기
   전용으로 바꿨다
-- **스토어 준비.** `eas.json`, 심사용 데모 계정, iPhone 스크린샷(윈도우라 TestFlight
-  실기기로), App Privacy 답변
+- **스토어 준비.** 심사용 데모 계정, iPhone 스크린샷(윈도우라 TestFlight 실기기로),
+  App Privacy 답변. Expo 프로젝트는 `@hwangslater/daymo` 로 연결했고 `mobile/eas.json` 에
+  `preview`(Android APK 내부 배포)·`production`(스토어, 빌드 번호 자동 증가) 프로필을 뒀다.
+  아직 한 번도 빌드하지 않았다. iOS 빌드는 Apple Developer 가입 뒤에 된다
 
 ### 막혀 있는 것 — 바깥 자격증명이 있어야 한다
 
-- **실제 메일 발송.** SMTP 전송 코드는 배포됐다. Resend API 키를 VPS의
-  `SMTP_PASSWORD`에 넣고 발신 도메인을 인증해야 가입 확인 메일이 실제로 간다.
-  **키가 비어 있는 동안 운영 서버의 가입은 메일을 보내다 500으로 실패한다.**
-  발신 주소 기본값은 `no-reply@daymo.xyz` 다. `support@daymo.xyz` 수신은
-  Cloudflare Email Routing으로 받기로 했다(2026-09-15 사용자 진행 중)
 - **OAuth.** Google·Apple·Kakao·Naver 사업자 등록과 키가 필요하다. 키 없이도
   흐름(일회용 앱 로그인 코드 → 교환)은 만들 수 있다
 - **bot challenge.** 검증 공급자를 문서가 일부러 미뤄 뒀다(처리 국가·SDK·비용
