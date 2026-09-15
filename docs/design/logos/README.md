@@ -5,7 +5,7 @@
 
 | 파일 | 올리는 곳 | 요구 |
 | --- | --- | --- |
-| `daymo-logo-google-120.png` | Google Auth Platform → 브랜딩 → 앱 로고 | 정사각 120px, JPG·PNG·BMP, 1MB 이하 |
+| `daymo-logo-google-120.png` | (올리지 않음) Google Auth Platform → 브랜딩 → 앱 로고. 브랜드 인증에서 반려돼 로고 없이 게시했다(docs/development/11-owner-setup-guide.md 7.1) | 정사각 120px, JPG·PNG·BMP, 1MB 이하 |
 | `daymo-logo-naver-140.png` | NAVER Developers → 애플리케이션 → 로고 이미지 | 140×140, JPG·PNG·GIF |
 | `daymo-logo-kakao-128.png` | Kakao Developers → 앱 → 앱 아이콘 | 128×128 이하 권장, 250KB 미만 |
 

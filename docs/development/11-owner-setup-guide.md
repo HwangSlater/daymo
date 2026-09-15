@@ -314,6 +314,7 @@ provider에 등록하는 redirect URI는 앱 주소가 아니라 API 주소다. 
 2. 클라이언트 만들기 → 유형 **웹 애플리케이션** → 승인된 리디렉션 URI에 위 주소.
 3. 클라이언트 ID·보안 비밀을 `GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`에 넣는다.
 4. 게시 상태가 테스트면 등록한 테스트 사용자만 로그인된다. 출시 전에 프로덕션으로 게시한다. 요청 범위는 `openid email profile`뿐이라 민감 범위 심사 대상이 아니다.
+5. **앱 로고는 올리지 않는다(2026-09-15).** 로고를 올리면 브랜드 인증을 거쳐야 하는데, 앱 아이콘 그림(비행기 + Daymo)이 "브랜드를 고유하게 식별하는 로고가 아니다"로 두 번 반려됐다. 로고 없이도 기본 범위만 쓰는 앱은 프로덕션으로 게시할 수 있고 동의 화면에는 앱 이름과 도메인이 보인다. 로고를 다시 올리려면 Search Console 도메인 확인(완료)을 유지한 채 글자 위주 로고를 따로 만들어 홈페이지에도 같은 모양을 보인다.
 
 **Apple** — Apple Developer의 Certificates, Identifiers & Profiles
 1. App ID(`com.hwangslater.daymo`)에 Sign in with Apple을 켠다.
