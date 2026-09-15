@@ -20,6 +20,9 @@ from app.models.enums import (
     PlaceProvider,
     Procurement,
     RelationshipType,
+    ReportReason,
+    ReportStatus,
+    ReportTargetType,
     SensitiveAction,
     RevokeReason,
     ReservationStatus,
@@ -37,6 +40,7 @@ from app.models.enums import (
 from app.models.cooking import Checklist, ChecklistItem, Ingredient, Recipe
 from app.models.expense import Expense, ExpenseShare, Payment
 from app.models.memory import AuditLog, Diary, Memo, Photo, PhotoLink
+from app.models.moderation import REPORT_DETAIL_MAX, Report, UserBlock
 from app.models.oauth import OAuthPendingLogin, OAuthState
 from app.models.reauth import ReauthProof
 from app.models.place import Place, TripPlace
@@ -61,6 +65,7 @@ __all__ = [
     "INVITE_DAYS",
     "INVITE_MAX_USES",
     "MAX_MEMBERS_PER_SPACE",
+    "REPORT_DETAIL_MAX",
     "AuditLog",
     "Base",
     "BookingStatus",
@@ -98,6 +103,10 @@ __all__ = [
     "Recipe",
     "RefreshToken",
     "RelationshipType",
+    "Report",
+    "ReportReason",
+    "ReportStatus",
+    "ReportTargetType",
     "Reservation",
     "ReservationStatus",
     "ReservationTargetType",
@@ -124,5 +133,6 @@ __all__ = [
     "TripPlaceStatus",
     "TripStatus",
     "User",
+    "UserBlock",
     "UserStatus",
 ]

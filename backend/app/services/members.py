@@ -5,6 +5,7 @@
 
 - 만든 뒤 7일, 10명까지. token 원문은 만들 때만 돌려주고 hash 만 둔다.
 - 받는 사람은 로그인하고 이메일을 확인해야 한다. owner 승인 없이 바로 `editor` 로 들어온다.
+- 받는 사람과 공간의 지금 멤버 사이에 어느 쪽으로든 차단이 있으면 들어올 수 없다.
 - 이미 멤버면 들어온 것으로 답하고 사용 횟수를 올리지 않는다. 공간이 10명으로 차면
   409 이고 역시 올리지 않는다.
 - 여러 명이 동시에 눌러도 정원과 횟수를 넘지 않게 초대 줄과 공간 줄을 잠그고 센다.
@@ -36,6 +37,7 @@ from app.models import (
     SpaceInvite,
     User,
 )
+from app.services.moderation import blocked_between
 
 
 def invite_url(token: str) -> str:
@@ -117,6 +119,9 @@ async def accept_invite(session: AsyncSession, *, token: str, user: User) -> tup
         raise AppError(ErrorCode.GONE, message="만료되었거나 더 쓸 수 없는 초대 링크예요. 새 링크를 받아 주세요.")
     if user.email_verified_at is None:
         raise AppError(ErrorCode.EMAIL_NOT_VERIFIED)
+    if await blocked_between(session, user_id=user.id, space_id=space.id):
+        # 누가 누구를 차단했는지는 알려 주지 않는다. 차단당한 사람이 알게 되면 안 된다.
+        raise AppError(ErrorCode.FORBIDDEN, message="이 초대로는 참여할 수 없어요.")
     if await _active_count(session, space.id) >= MAX_MEMBERS_PER_SPACE:
         raise AppError(ErrorCode.SPACE_MEMBER_LIMIT_REACHED)
 

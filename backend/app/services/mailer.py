@@ -11,7 +11,11 @@ logger = logging.getLogger("daymo.mail")
 # 메일은 중계 서비스(Resend)로 보낸다. 가정용·클라우드 IP 에서 직접 SMTP 로
 # 발송하면 차단되거나 스팸으로 분류된다
 # (docs/development/06-vps-deployment.md 2장).
-#
+
+# 운영자가 받는 주소. Cloudflare Email Routing 이 Daymo 전용 메일함으로 넘긴다.
+# 작업 실패 알림과 신고 알림이 여기로 간다.
+OPERATOR_ADDRESS = "support@daymo.xyz"
+
 @dataclass
 class Letter:
     to: str

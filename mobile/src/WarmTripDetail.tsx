@@ -19,9 +19,10 @@ import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { photoCodec } from "./photoSync";
 import { downloadPhoto, uploadPhoto } from "./photoTransfer";
-import type { ExpenseSettings } from "./serverData";
+import type { ExpenseSettings, ReportReason, ReportTargetType } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
+  createReport,
   deletePhoto as deleteServerPhoto,
   listPhotos,
   updatePhoto,
@@ -444,6 +445,8 @@ type Props = {
   onDeleteTrip?: () => Promise<void>;
   /** 서버 여행 id. 있으면 장소를 서버와 맞춘다. 예시 여행에는 없다. */
   tripId?: string;
+  /** 서버 공간 id. 메모·일기·사진을 신고할 때 쓴다. 예시 공간에는 없다. */
+  spaceId?: string;
   /** 공간 사람의 이름과 membership id. 교통편의 탈 사람을 서버에 보낼 때 쓴다. */
   spaceRoster?: RosterEntry[];
   /** 서버에 저장된 통화·환율·예산·정산 묶기. */
@@ -947,6 +950,7 @@ export function WarmTripDetail({
   onArchiveTrip,
   onDeleteTrip,
   tripId,
+  spaceId,
   spaceRoster = [],
   serverExpenseSettings,
   onUpdateExpenseSettings,
@@ -999,6 +1003,7 @@ export function WarmTripDetail({
   const [memoDraft, setMemoDraft] = useState("");
   const [memoEditorOpen, setMemoEditorOpen] = useState(false);
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [reportingMemoId, setReportingMemoId] = useState<string | null>(null);
   const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? []);
   const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
@@ -1162,6 +1167,8 @@ export function WarmTripDetail({
   const [scheduleSyncIds, setScheduleSyncIds] = useState<string[]>(() => initialPlanning?.scheduleSyncIds ?? []);
   const [staySyncIds, setStaySyncIds] = useState<string[]>(() => initialPlanning?.staySyncIds ?? []);
   const serverTrip = isServerId(tripId);
+  // 신고는 서버에 있는 공간과 여행의 것만 받는다.
+  const reportSpaceId = serverTrip && isServerId(spaceId) ? spaceId : undefined;
   useEffect(() => {
     // 서버와 맞추기 전에, 이 기능이 생기기 전의 기록에 서버가 받는 id 를 준다.
     // 장소 id 는 일정·숙소가 가리키므로 함께 바꾼다. 한 번 바꾸면 저장되어 다시 돌지 않는다.
@@ -2078,6 +2085,7 @@ export function WarmTripDetail({
               todayDay={todayTripDay}
               memories={memories}
               setMemories={setMemories}
+              reportSpaceId={reportSpaceId}
             />
           )}
         </ScrollView>
@@ -2092,6 +2100,7 @@ export function WarmTripDetail({
             setMemoPanel(false);
             setMemoEditorOpen(false);
             setEditingMemoId(null);
+            setReportingMemoId(null);
             setMemoDraft("");
           }}
           onSubmit={() => {
@@ -2185,6 +2194,16 @@ export function WarmTripDetail({
                 <View style={styles.tripMemoRowHead}>
                   <Text style={[styles.tripMemoAuthor, { color: memo.meta }]}>{note.author}</Text>
                   <View style={styles.tripMemoActions}>
+                    {/* 남이 쓴 메모에만 둔다. 작성자 줄의 앞부분이 이름이다. */}
+                    {reportSpaceId && isServerId(note.id) && note.author.split(" · ")[0] !== me && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="이 메모 신고"
+                        onPress={() => setReportingMemoId((current) => current === note.id ? null : note.id)}
+                      >
+                        <Text style={[styles.tripMemoEdit, { color: memo.meta }]}>신고</Text>
+                      </Pressable>
+                    )}
                     <Pressable
                       accessibilityRole="button" onPress={() => {
                       setEditingMemoId(note.id);
@@ -2215,6 +2234,14 @@ export function WarmTripDetail({
                   </View>
                 </View>
                 <Text style={[styles.tripMemoBody, { color: memo.text }]}>{note.body}</Text>
+                {reportSpaceId && reportingMemoId === note.id && (
+                  <ReportForm
+                    spaceId={reportSpaceId}
+                    targetType="memo"
+                    targetId={note.id}
+                    onClose={() => setReportingMemoId(null)}
+                  />
+                )}
               </View>
             ))}
           </View>
@@ -7179,6 +7206,7 @@ function Memories({
   todayDay,
   memories,
   setMemories,
+  reportSpaceId,
 }: {
   tripDate: string;
   /** 여행 날짜 키(YYYY-MM-DD). 여행 중에 쓴 일기를 그날에 둔다. */
@@ -7189,6 +7217,8 @@ function Memories({
   todayDay: string;
   memories: TripMemoryData;
   setMemories: React.Dispatch<React.SetStateAction<TripMemoryData>>;
+  /** 서버 여행일 때만. 있으면 사진과 일기 수정 시트에 신고가 보인다. */
+  reportSpaceId?: string;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -7503,6 +7533,9 @@ function Memories({
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>사진을 선택하면 이곳에서 미리 확인할 수 있어요.</Text>
         <OptionField label="여행 날짜" options={photoDayOptions} value={photoDate} onChange={setPhotoDate} />
         <DetailField label="사진 설명 · 선택 사항" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
+        {reportSpaceId && editingPhotoId && isServerId(editingPhotoId) && (
+          <ReportLink key={editingPhotoId} spaceId={reportSpaceId} targetType="photo" targetId={editingPhotoId} label="이 사진 신고하기" />
+        )}
       </DetailSheet>
       <DetailSheet
         visible={diaryWriting}
@@ -7522,6 +7555,9 @@ function Memories({
       >
         <DetailField label="일기 제목 · 선택 사항" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
         <DetailField label="여행 이야기 · 필수" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
+        {reportSpaceId && editingDiaryId && isServerId(editingDiaryId) && (
+          <ReportLink key={editingDiaryId} spaceId={reportSpaceId} targetType="diary" targetId={editingDiaryId} label="이 일기 신고하기" />
+        )}
       </DetailSheet>
     </View>
   );
@@ -9996,6 +10032,125 @@ function InfoLine({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
+
+const REPORT_REASONS: { label: string; value: ReportReason }[] = [
+  { label: "스팸·광고", value: "spam" },
+  { label: "괴롭힘·혐오", value: "harassment" },
+  { label: "음란·성적", value: "sexual" },
+  { label: "폭력·위협", value: "violence" },
+  { label: "개인정보 노출", value: "privacy" },
+  { label: "저작권 침해", value: "copyright" },
+  { label: "기타", value: "other" },
+];
+
+/**
+ * 신고 사유를 고르고 보낸다. 지금 열린 시트 안에 펼친다.
+ *
+ * 시트 위에 창을 하나 더 띄우지 않는다. iOS 에서는 Modal 이 겹치면 뒤에 연 것이
+ * 뜨지 않을 때가 있다. 누가 신고했는지는 상대에게 알려지지 않는다.
+ */
+function ReportForm({
+  spaceId,
+  targetType,
+  targetId,
+  onClose,
+}: {
+  spaceId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  onClose: () => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  const danger = theme?.dark ? statusColor.danger.dark : statusColor.danger.light;
+  const [reason, setReason] = useState("");
+  const [detail, setDetail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const box = [styles.deleteConfirm, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }];
+
+  if (sent) {
+    return (
+      <View accessibilityLiveRegion="polite" style={box}>
+        <View style={styles.deleteConfirmCopy}>
+          <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>신고를 받았어요. 24시간 안에 확인할게요.</Text>
+          <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>신고한 사람은 상대에게 알려지지 않아요.</Text>
+        </View>
+        <Pressable onPress={onClose} accessibilityRole="button" style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}>
+          <Text style={[styles.deleteConfirmCancel, theme && { color: theme.text }]}>닫기</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const send = async () => {
+    const picked = REPORT_REASONS.find((item) => item.label === reason);
+    if (!picked || sending) return;
+    setSending(true);
+    setError("");
+    try {
+      await createReport({
+        spaceId,
+        targetType,
+        targetId,
+        reason: picked.value,
+        ...(detail.trim() ? { detail: detail.trim().slice(0, 1000) } : {}),
+      });
+      setSent(true);
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <View style={box}>
+      <View style={styles.deleteConfirmCopy}>
+        <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>어떤 점이 문제인가요?</Text>
+        <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>운영자가 확인해요. 신고한 사람은 상대에게 알려지지 않아요.</Text>
+      </View>
+      <OptionField label="신고 사유 · 필수" options={REPORT_REASONS.map((item) => item.label)} value={reason} onChange={setReason} />
+      <DetailField label="자세한 내용 · 선택 사항" value={detail} onChangeText={setDetail} placeholder="확인에 도움이 되는 내용을 적어 주세요" multiline />
+      {error ? <Text accessibilityLiveRegion="assertive" style={[styles.deleteConfirmMessage, { color: danger }]}>{error}</Text> : null}
+      <View style={styles.deleteConfirmActions}>
+        <Pressable onPress={onClose} accessibilityRole="button" style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}>
+          <Text style={[styles.deleteConfirmCancel, theme && { color: theme.text }]}>취소</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => void send()}
+          disabled={!reason || sending}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !reason || sending, busy: sending }}
+          style={[styles.deleteConfirmButton, { backgroundColor: danger, borderColor: danger }, (!reason || sending) && styles.sheetSubmitDisabled]}
+        >
+          <Text style={[styles.deleteConfirmDanger, { color: onAccent(Boolean(theme?.dark)) }]}>{sending ? "보내는 중…" : "신고하기"}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** 시트 맨 아래의 `신고하기`. 누르면 그 자리에 신고 칸이 펼쳐진다. */
+function ReportLink({
+  label,
+  ...target
+}: {
+  label: string;
+  spaceId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+}) {
+  const theme = useContext(DetailThemeContext);
+  const [open, setOpen] = useState(false);
+  if (open) return <ReportForm {...target} onClose={() => setOpen(false)} />;
+  return (
+    <Pressable onPress={() => setOpen(true)} accessibilityRole="button" style={styles.reportLink}>
+      <Text style={[styles.reportLinkText, theme && { color: theme.muted }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function OptionField({
   label,
   options,
@@ -10930,6 +11085,8 @@ const styles = StyleSheet.create({
   },
   deleteConfirmCancel: { fontSize: 12, fontFamily: typo.label.family },
   deleteConfirmDanger: { fontSize: 13, fontFamily: typo.label.family },
+  reportLink: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  reportLinkText: { fontSize: 12, fontFamily: typo.label.family },
   fullScheduleText: { fontSize: 12, fontFamily: typo.label.family },
   moneyBlock: { marginBottom: 18 },
   moneyBlockHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 40 },

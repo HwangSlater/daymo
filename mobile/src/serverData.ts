@@ -405,3 +405,46 @@ export const updateTrip = (
   method: "PATCH",
   body: JSON.stringify(input),
 });
+
+export type ReportTargetType = "memo" | "diary" | "photo" | "member" | "trip" | "other";
+export type ReportReason = "spam" | "harassment" | "sexual" | "violence" | "privacy" | "copyright" | "other";
+
+/**
+ * 공간 안의 것을 신고한다. `member` 면 `targetId` 는 그 공간의 membership id 다.
+ *
+ * 같은 대상을 다시 보내도 서버는 처음 접수 번호를 준다. 신고한 사람은 상대에게 알려지지 않는다.
+ */
+export const createReport = (input: {
+  spaceId: string;
+  targetType: ReportTargetType;
+  targetId?: string;
+  reason: ReportReason;
+  detail?: string;
+}) =>
+  authenticatedRequest<{ id: string; receivedAt: string; reviewDueAt: string }>("/v1/reports", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export type ServerBlock = {
+  id: string;
+  /** 차단한 공간이 지워졌으면 비어 있다. 그때는 `id` 로 푼다. */
+  membershipId: string | null;
+  displayName: string;
+  blockedAt: string;
+};
+
+/** 함께 있는 공간의 멤버를 차단한다. 이미 함께 있는 공간은 그대로다. */
+export const blockMember = (membershipId: string) =>
+  authenticatedRequest<ServerBlock>("/v1/blocks", {
+    method: "POST",
+    body: JSON.stringify({ userMembershipId: membershipId }),
+  });
+
+/** 어느 공간의 membership id 든 같은 사람이면 풀린다. */
+export const unblock = (membershipId: string) =>
+  authenticatedRequest<void>(`/v1/blocks/${encodeURIComponent(membershipId)}`, { method: "DELETE" });
+
+/** `spaceId` 를 주면 그 공간에 있는 사람은 그 공간의 membership id 로 온다. */
+export const listBlocks = (spaceId?: string) =>
+  authenticatedRequest<ServerBlock[]>(spaceId ? `/v1/blocks?spaceId=${encodeURIComponent(spaceId)}` : "/v1/blocks");
