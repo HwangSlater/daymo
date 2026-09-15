@@ -72,7 +72,13 @@ import {
   listDeletedTrips,
   restoreTrip,
   acceptInvite,
+  blockMember,
   changeMemberRole,
+  createReport,
+  listBlocks,
+  type ReportReason,
+  type ServerBlock,
+  unblock,
   createInvite,
   listInvites,
   removeMember,
@@ -840,6 +846,7 @@ export function WarmAppShell({
         done={done}
         initialDestination={tripDestination}
         tripId={selectedTrip.id}
+        spaceId={activeSpace.myMembershipId ? activeSpace.id : undefined}
         spaceRoster={activeRoster}
         tripName={selectedTrip.name}
         tripDate={selectedTrip.date}
@@ -4639,6 +4646,8 @@ function Together({
             </View>
             {activeSpace.myMembershipId && (
               <MemberActions
+                // 다른 멤버를 고르면 쓰던 신고와 오류를 새로 시작한다.
+                key={selectedPerson.membershipId ?? selectedPerson.name}
                 theme={theme}
                 spaceId={activeSpace.id}
                 myRole={activeSpace.myRole}
@@ -5291,6 +5300,7 @@ function SpaceSaveNote({
  *
  * - 관리자: 다른 멤버의 권한 바꾸기, 관리자 넘기기, 내보내기
  * - 누구나: 나가기. 다른 멤버가 있는 관리자는 먼저 넘겨야 한다(서버가 409 로 알려 준다)
+ * - 누구나: 다른 멤버 신고하기, 차단하기. 신고한 사람과 차단한 사실은 상대에게 알리지 않는다
  */
 function MemberActions({
   theme,
@@ -5309,6 +5319,22 @@ function MemberActions({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [reporting, setReporting] = useState(false);
+  // 이 공간에서 내가 차단한 사람의 membership id. 서버가 이 공간 기준 id 로 준다.
+  const [blockedIds, setBlockedIds] = useState<string[]>([]);
+  const membershipId = person.membershipId;
+  useEffect(() => {
+    let active = true;
+    listBlocks(spaceId)
+      .then((found) => {
+        if (active) setBlockedIds(blockedMembershipIds(found));
+      })
+      // 못 받아 오면 차단하기로 보인다. 이미 차단한 사람을 다시 차단해도 서버는 그대로 둔다.
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [spaceId]);
   const run = async (work: () => Promise<unknown>) => {
     setBusy(true);
     setError("");
@@ -5321,7 +5347,6 @@ function MemberActions({
       setBusy(false);
     }
   };
-  const membershipId = person.membershipId;
   if (!membershipId) return null;
   const confirm = (title: string, message: string, action: string, work: () => Promise<unknown>) =>
     Alert.alert(title, message, [
@@ -5350,51 +5375,220 @@ function MemberActions({
       </View>
     );
   }
-  if (myRole !== "관리자") return null;
+
+  const blocked = blockedIds.includes(membershipId);
+  // 차단은 멤버 목록을 바꾸지 않는다. 선택을 그대로 두고 차단 여부만 다시 받는다.
+  const changeBlock = async (work: () => Promise<unknown>, done?: () => void) => {
+    setBusy(true);
+    setError("");
+    try {
+      await work();
+      setBlockedIds(blockedMembershipIds(await listBlocks(spaceId)));
+      done?.();
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "잠시 후 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt }]}>
-      <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{person.name}의 권한</Text>
-      <Choice
-        theme={theme}
-        label="편집 가능"
-        selected={person.role === "편집 가능"}
-        disabled={busy}
-        onPress={() => void run(() => changeMemberRole(spaceId, membershipId, roleToServer("편집 가능")))}
-      />
-      <Choice
-        theme={theme}
-        label="보기만"
-        selected={person.role === "보기만"}
-        disabled={busy}
-        onPress={() => void run(() => changeMemberRole(spaceId, membershipId, roleToServer("보기만")))}
-      />
+      {myRole === "관리자" && (
+        <>
+          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{person.name}의 권한</Text>
+          <Choice
+            theme={theme}
+            label="편집 가능"
+            selected={person.role === "편집 가능"}
+            disabled={busy}
+            onPress={() => void run(() => changeMemberRole(spaceId, membershipId, roleToServer("편집 가능")))}
+          />
+          <Choice
+            theme={theme}
+            label="보기만"
+            selected={person.role === "보기만"}
+            disabled={busy}
+            onPress={() => void run(() => changeMemberRole(spaceId, membershipId, roleToServer("보기만")))}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => confirm(
+              `${person.name}에게 관리자를 넘길까요?`,
+              "공간은 관리자 한 명이 관리해요. 넘기면 나는 편집 가능한 멤버가 돼요.",
+              "넘기기",
+              () => changeMemberRole(spaceId, membershipId, "owner"),
+            )}
+            style={[s.accountLogout, { borderColor: theme.border }]}
+          >
+            <Text style={[s.accountLogoutText, { color: theme.text }]}>관리자 넘기기</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => confirm(
+              `${person.name}을(를) 내보낼까요?`,
+              "그 사람이 쓴 일정·지출·기록은 공간에 남아요. 다시 들어오려면 초대 링크가 필요해요.",
+              "내보내기",
+              () => removeMember(spaceId, membershipId),
+            )}
+            style={s.accountDelete}
+          >
+            <Text style={s.accountDeleteText}>공간에서 내보내기</Text>
+          </Pressable>
+        </>
+      )}
+      {reporting ? (
+        <MemberReportForm
+          key={membershipId}
+          theme={theme}
+          spaceId={spaceId}
+          membershipId={membershipId}
+          name={person.name}
+          onClose={() => setReporting(false)}
+        />
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          disabled={busy}
+          onPress={() => setReporting(true)}
+          style={[s.accountLogout, { borderColor: theme.border }]}
+        >
+          <Text style={[s.accountLogoutText, { color: theme.text }]}>신고하기</Text>
+        </Pressable>
+      )}
       <Pressable
         accessibilityRole="button"
         disabled={busy}
-        onPress={() => confirm(
-          `${person.name}에게 관리자를 넘길까요?`,
-          "공간은 관리자 한 명이 관리해요. 넘기면 나는 편집 가능한 멤버가 돼요.",
-          "넘기기",
-          () => changeMemberRole(spaceId, membershipId, "owner"),
-        )}
-        style={[s.accountLogout, { borderColor: theme.border }]}
-      >
-        <Text style={[s.accountLogoutText, { color: theme.text }]}>관리자 넘기기</Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        disabled={busy}
-        onPress={() => confirm(
-          `${person.name}을(를) 내보낼까요?`,
-          "그 사람이 쓴 일정·지출·기록은 공간에 남아요. 다시 들어오려면 초대 링크가 필요해요.",
-          "내보내기",
-          () => removeMember(spaceId, membershipId),
-        )}
+        onPress={() => blocked
+          ? Alert.alert(`${person.name}의 차단을 풀까요?`, "다시 초대 링크로 같은 공간에 들어올 수 있어요.", [
+            { text: "취소", style: "cancel" },
+            { text: "차단 해제", onPress: () => void changeBlock(() => unblock(membershipId)) },
+          ])
+          : Alert.alert(`${person.name}을(를) 차단할까요?`, "차단하면 서로 새 공간에 초대로 함께 들어갈 수 없어요. 상대에게는 알리지 않아요.", [
+            { text: "취소", style: "cancel" },
+            {
+              text: "차단하기",
+              style: "destructive",
+              onPress: () => void changeBlock(() => blockMember(membershipId), () => Alert.alert(
+                "차단했어요",
+                "이미 함께 있는 공간은 그대로예요. 불편하면 공간에서 나가거나 관리자에게 내보내 달라고 해 주세요.",
+              )),
+            },
+          ])}
         style={s.accountDelete}
       >
-        <Text style={s.accountDeleteText}>공간에서 내보내기</Text>
+        <Text style={s.accountDeleteText}>{blocked ? "차단 해제" : "차단하기"}</Text>
       </Pressable>
       {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const blockedMembershipIds = (blocks: ServerBlock[]) =>
+  blocks.map((item) => item.membershipId).filter((id): id is string => Boolean(id));
+
+const REPORT_REASONS: { label: string; value: ReportReason }[] = [
+  { label: "스팸·광고", value: "spam" },
+  { label: "괴롭힘·혐오", value: "harassment" },
+  { label: "음란·성적", value: "sexual" },
+  { label: "폭력·위협", value: "violence" },
+  { label: "개인정보 노출", value: "privacy" },
+  { label: "저작권 침해", value: "copyright" },
+  { label: "기타", value: "other" },
+];
+
+/**
+ * 멤버 신고. 멤버 관리 창 안에 펼친다.
+ *
+ * 창 위에 창을 하나 더 띄우지 않는다. iOS 에서는 Modal 이 겹치면 뒤에 연 것이 뜨지 않을 때가 있다.
+ */
+function MemberReportForm({
+  theme,
+  spaceId,
+  membershipId,
+  name,
+  onClose,
+}: {
+  theme: AppTheme;
+  spaceId: string;
+  membershipId: string;
+  name: string;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState<ReportReason | null>(null);
+  const [detail, setDetail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+
+  if (sent) {
+    return (
+      <View accessibilityLiveRegion="polite" style={{ marginTop: 16 }}>
+        <Text style={[s.memberPermissionLabel, { color: theme.text }]}>신고를 받았어요. 24시간 안에 확인할게요.</Text>
+        <Text style={[s.sheetCopy, { color: theme.muted }]}>신고한 사람은 {name}에게 알려지지 않아요.</Text>
+        <Pressable accessibilityRole="button" onPress={onClose} style={[s.accountLogout, { borderColor: theme.border, marginTop: 0 }]}>
+          <Text style={[s.accountLogoutText, { color: theme.text }]}>닫기</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const send = async () => {
+    if (!reason || sending) return;
+    setSending(true);
+    setError("");
+    try {
+      await createReport({
+        spaceId,
+        targetType: "member",
+        targetId: membershipId,
+        reason,
+        ...(detail.trim() ? { detail: detail.trim().slice(0, 1000) } : {}),
+      });
+      setSent(true);
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <View style={{ marginTop: 16 }}>
+      <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{name}을(를) 신고하는 이유</Text>
+      {REPORT_REASONS.map((item) => (
+        <Choice
+          key={item.value}
+          theme={theme}
+          label={item.label}
+          selected={reason === item.value}
+          disabled={sending}
+          onPress={() => setReason(item.value)}
+        />
+      ))}
+      <Field
+        theme={theme}
+        label="자세한 내용 · 선택 사항"
+        value={detail}
+        onChangeText={setDetail}
+        placeholder="확인에 도움이 되는 내용을 적어 주세요"
+      />
+      <Text style={[s.sheetCopy, { color: theme.muted }]}>운영자가 확인해요. 신고한 사람은 상대에게 알려지지 않아요.</Text>
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
+      <Pressable
+        accessibilityRole="button"
+        disabled={!reason || sending}
+        accessibilityState={{ disabled: !reason || sending, busy: sending }}
+        onPress={() => void send()}
+        style={[s.authSubmit, { backgroundColor: theme.primary, marginTop: 0 }, (!reason || sending) && s.authSubmitDisabled]}
+      >
+        <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{sending ? "보내는 중…" : "신고 보내기"}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" onPress={onClose} style={s.accountDelete}>
+        <Text style={[s.accountDeleteText, { color: theme.muted }]}>취소</Text>
+      </Pressable>
     </View>
   );
 }
