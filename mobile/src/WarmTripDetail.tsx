@@ -556,6 +556,8 @@ type PackingItem = {
   /** 챙길 사람 이름, 또는 둘 중 하나가 아닌 `공용`·`미정`. */
   owner: string;
   tags: string[];
+  /** 요리 재료에서 가져왔으면 그 재료 id. 완료 상태는 재료와 따로 간다. */
+  sourceIngredientId?: string;
 };
 
 /** 아무의 것도 아닌 담당. 참가자 목록 뒤에 늘 붙는다. */
@@ -1379,6 +1381,15 @@ export function WarmTripDetail({
   });
   const [packingSyncIds, setPackingSyncIds] = useState<string[]>(() => initialPlanning?.packingSyncIds ?? []);
   const [recipeSyncIds, setRecipeSyncIds] = useState<string[]>(() => initialPlanning?.recipeSyncIds ?? []);
+  // 서버에 올라간 요리마다 재료 id. 준비물의 재료 연결은 여기 있는 재료만 보낸다.
+  // 요리 목록을 받기 전(null)에는 준비물도 맞추지 않는다. 먼저 맞추면 연결을 비운 모습을
+  // 기준으로 삼아, 요리가 들어온 뒤 연결을 다시 보내는 고치기가 열 때마다 생긴다.
+  const [serverIngredientsByRecipe, setServerIngredientsByRecipe] = useState<Record<string, string[]> | null>(null);
+  const serverIngredientIds = useMemo(
+    () => new Set(Object.values(serverIngredientsByRecipe ?? {}).flat()),
+    [serverIngredientsByRecipe],
+  );
+  const serverIngredientKey = [...serverIngredientIds].sort().join(",");
   // 체크는 목록 밖에 따로 둔다. 서버와 맞출 때만 줄에 붙여 본다.
   const packingRows = useMemo<PackingRow[]>(
     () => packingItems.map((item) => ({ ...item, tags: packingTags(item), done: packingDone.includes(item.id) })),
@@ -1391,16 +1402,18 @@ export function WarmTripDetail({
   const setPackingRows = (updater: (current: PackingRow[]) => PackingRow[]) => {
     const next = updater(packingRowsRef.current);
     packingRowsRef.current = next;
-    setPackingItems(next.map(({ id, name, quantity, owner, tags }) => ({ id, name, quantity, owner, tags })));
+    setPackingItems(next.map(({ id, name, quantity, owner, tags, sourceIngredientId }) => ({
+      id, name, quantity, owner, tags, ...(sourceIngredientId ? { sourceIngredientId } : {}),
+    })));
     setPackingDone(next.filter((row) => row.done).map((row) => row.id));
   };
   const packingSyncCodec = useMemo(
-    () => packingCodec(spaceRoster),
+    () => packingCodec(spaceRoster, serverIngredientIds),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rosterKey],
+    [rosterKey, serverIngredientIds],
   );
   useListSync({
-    tripId,
+    tripId: serverIngredientsByRecipe ? tripId : undefined,
     label: "준비물",
     items: packingRows,
     setItems: setPackingRows,
@@ -1408,7 +1421,8 @@ export function WarmTripDetail({
     api: { list: listChecklistItems, create: createChecklistItem, update: updateChecklistItem, remove: deleteChecklistItem },
     syncedIds: packingSyncIds,
     setSyncedIds: setPackingSyncIds,
-    refreshKey: rosterKey,
+    // 재료가 서버에 올라가야 준비물에 재료를 이을 수 있다.
+    refreshKey: `${rosterKey}|${serverIngredientKey}`,
     notify: setFeedback,
   });
   const recipeRows = useMemo<RecipeRow[]>(
@@ -1445,7 +1459,36 @@ export function WarmTripDetail({
     items: recipeRows,
     setItems: setRecipeRows,
     codec: recipeSyncCodec,
-    api: { list: listRecipes, create: createRecipe, update: updateRecipe, remove: deleteRecipe },
+    api: {
+      // 서버가 돌려준 요리로 재료 id 를 적어 둔다. 준비물의 재료 연결이 이것을 본다.
+      list: async (serverTripId) => {
+        const rows = await listRecipes(serverTripId);
+        setServerIngredientsByRecipe(Object.fromEntries(rows.map((row) => [row.id, row.ingredients.map((item) => item.id)])));
+        return rows;
+      },
+      create: async (serverTripId, id, body) => {
+        const row = await createRecipe(serverTripId, id, body);
+        setServerIngredientsByRecipe((current) => ({ ...current, [row.id]: row.ingredients.map((item) => item.id) }));
+        return row;
+      },
+      update: async (id, version, body) => {
+        const row = await updateRecipe(id, version, body);
+        setServerIngredientsByRecipe((current) => ({ ...current, [row.id]: row.ingredients.map((item) => item.id) }));
+        return row;
+      },
+      remove: async (id) => {
+        try {
+          await deleteRecipe(id);
+        } catch (caught) {
+          if (!(caught instanceof DaymoApiError) || caught.status !== 404) throw caught;
+        }
+        setServerIngredientsByRecipe((current) => {
+          if (!current) return current;
+          const { [id]: _removed, ...rest } = current;
+          return rest;
+        });
+      },
+    },
     syncedIds: recipeSyncIds,
     setSyncedIds: setRecipeSyncIds,
     refreshKey: rosterKey,
@@ -1965,6 +2008,9 @@ export function WarmTripDetail({
               items={packingItems}
               setItems={setPackingItems}
               recipes={recipes}
+              readyIngredientIds={cookingReadyIngredientIds}
+              onMarkIngredientReady={(id) =>
+                setCookingReadyIngredientIds((current) => current.includes(id) ? current : [...current, id])}
               openCookingPickerOnMount={openCookingPicker}
               onCookingPickerOpened={() => setOpenCookingPicker(false)}
             />
@@ -4371,6 +4417,8 @@ function Preparation({
   items,
   setItems,
   recipes,
+  readyIngredientIds,
+  onMarkIngredientReady,
   openCookingPickerOnMount,
   onCookingPickerOpened,
 }: {
@@ -4381,6 +4429,9 @@ function Preparation({
   items: PackingItem[];
   setItems: React.Dispatch<React.SetStateAction<PackingItem[]>>;
   recipes: Recipe[];
+  /** 요리 탭에서 `준비 완료` 로 표시한 재료 id. */
+  readyIngredientIds: string[];
+  onMarkIngredientReady: (ingredientId: string) => void;
   openCookingPickerOnMount?: boolean;
   onCookingPickerOpened?: () => void;
 }) {
@@ -4551,7 +4602,25 @@ function Preparation({
     notify(`${item.name} 담당을 ${nextOwner}(으)로 변경했어요`);
   };
   const complete = (item: PackingItem) => {
+    const checking = !done.includes(item.id);
     toggle(item.id);
+    // 재료에서 가져온 준비물을 챙겼으면 재료 쪽도 준비 완료로 할지 묻는다. 여러 요리의
+    // 같은 재료를 하나로 가져온 경우가 있어 스스로 바꾸지 않는다.
+    if (!checking || !item.sourceIngredientId || readyIngredientIds.includes(item.sourceIngredientId)) return;
+    const ingredientId = item.sourceIngredientId;
+    const recipe = recipes.find((value) => value.ingredients.some((ingredient) => ingredient.id === ingredientId));
+    const ingredient = recipe?.ingredients.find((value) => value.id === ingredientId);
+    if (!recipe || !ingredient) return;
+    Alert.alert("요리 재료에서도 준비 완료로 표시할까요?", `${recipe.name} · ${ingredient.name}`, [
+      { text: "취소", style: "cancel" },
+      {
+        text: "표시하기",
+        onPress: () => {
+          onMarkIngredientReady(ingredientId);
+          notify(`${ingredient.name}을(를) 요리 재료에서도 준비 완료로 표시했어요`);
+        },
+      },
+    ]);
   };
   const openPackingEdit = (item: PackingItem) => {
     setAssigningItem(null);
@@ -4665,6 +4734,8 @@ function Preparation({
         // 현지에서 산다는 표시는 담당이 아니라 태그라 여기서는 미정이 된다.
         owner: participants.includes(ingredient.owner) ? ingredient.owner : PACKING_UNASSIGNED,
         tags: Array.from(new Set(["요리 재료", recipe.name, ingredient.group, ...(ingredient.owner === "구매" ? ["구매"] : [])])),
+        // 어느 재료에서 왔는지 남긴다. 체크할 때 재료 쪽도 표시할지 묻는 데 쓴다.
+        sourceIngredientId: ingredient.id,
       })),
     ]);
     setSelectedCookingItems([]);

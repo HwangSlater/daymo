@@ -4,6 +4,9 @@
  * 앱은 체크 상태를 목록 밖에 따로 둔다(`packingDone`, `cookingReadyIngredientIds`).
  * 서버에서는 줄 하나의 칸이라, 여기서는 체크를 붙인 줄(`done`, `ready`)로 다룬다.
  *
+ * 요리 재료에서 가져온 준비물은 그 재료 id(`sourceIngredientId`)를 함께 둔다. 완료 상태는
+ * 서로 따로 가고, 한쪽을 체크할 때 다른 쪽도 바꿀지는 화면이 사용자에게 묻는다.
+ *
  * 담당은 앱에서 이름이고 서버에서는 membership id 다. 공간 사람 표에 없는 이름이
  * 담당인 줄은 올리지 않는다. 담당을 빼고 올리면 다른 기기에서 미정으로 보인다.
  *
@@ -23,6 +26,8 @@ export type PackingRow = {
   /** 사람 이름, 또는 `공용`·`미정`. */
   owner: string;
   tags: string[];
+  /** 요리 재료에서 가져왔으면 그 재료 id. */
+  sourceIngredientId?: string;
   done: boolean;
 };
 
@@ -37,6 +42,7 @@ export type ServerChecklistItem = {
   isShared: boolean;
   completed: boolean;
   tags: string[];
+  sourceIngredientId: string | null;
   version: number;
 };
 
@@ -57,7 +63,11 @@ const nameFinder = (roster: readonly RosterEntry[]) => ({
   nameOfId: (id: string) => roster.find((entry) => entry.id === id)?.name ?? UNKNOWN_PERSON,
 });
 
-export function packingCodec(roster: readonly RosterEntry[]): Codec<PackingRow, ChecklistItemBody, ServerChecklistItem> {
+export function packingCodec(
+  roster: readonly RosterEntry[],
+  /** 서버에 올라간 재료 id. 아직 안 올라갔거나 지운 재료를 가리키면 서버가 거부하므로 그때는 연결을 비워 보낸다. */
+  serverIngredientIds: ReadonlySet<string>,
+): Codec<PackingRow, ChecklistItemBody, ServerChecklistItem> {
   const { idOfName, nameOfId } = nameFinder(roster);
   const isPerson = (owner: string) => owner !== PACKING_SHARED && owner !== PACKING_UNASSIGNED;
   return {
@@ -70,6 +80,7 @@ export function packingCodec(roster: readonly RosterEntry[]): Codec<PackingRow, 
       isShared: item.owner === PACKING_SHARED,
       completed: item.done,
       tags: tidyTags(item.tags),
+      sourceIngredientId: item.sourceIngredientId && serverIngredientIds.has(item.sourceIngredientId) ? item.sourceIngredientId : null,
     }),
     fromServer: (row) => ({
       id: row.id,
@@ -77,8 +88,15 @@ export function packingCodec(roster: readonly RosterEntry[]): Codec<PackingRow, 
       quantity: row.quantity ?? "",
       owner: row.isShared ? PACKING_SHARED : row.ownerMembershipId ? nameOfId(row.ownerMembershipId) : PACKING_UNASSIGNED,
       tags: [...row.tags],
+      ...(row.sourceIngredientId ? { sourceIngredientId: row.sourceIngredientId } : {}),
       done: row.completed,
     }),
+    // 재료가 아직 안 올라가 연결을 비워 보냈으면 서버 줄에는 연결이 없다. 기기의 연결을
+    // 살려 두었다가 재료가 올라가면 다시 보낸다.
+    keepLocal: (fromServer, local) =>
+      fromServer.sourceIngredientId || !local.sourceIngredientId
+        ? fromServer
+        : { ...fromServer, sourceIngredientId: local.sourceIngredientId },
   };
 }
 

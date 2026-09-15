@@ -8,7 +8,7 @@ from app.models import Checklist, ChecklistItem, Ingredient, MembershipRole, Tag
 from app.services.trips import purge_deleted_trips
 from tests.test_api_expenses import 두_사람_여행, membership_of
 from tests.test_api_places import 멤버로_넣는다
-from tests.test_api_trips import 로그인한_사람
+from tests.test_api_trips import 로그인한_사람, 여행을_만든다
 
 pytestmark = pytest.mark.anyio
 
@@ -134,6 +134,63 @@ async def test_기한이_지난_여행을_지우면_준비물_태그_연결도_�
     assert await db.scalar(
         select(func.count()).select_from(Tagging).where(Tagging.target_type == TagScope.PACKING, Tagging.target_id == uuid.UUID(item["id"]))
     ) == 0
+
+
+async def test_재료에서_가져온_준비물은_재료를_가리키고_완료는_따로_간다(api, db):
+    headers, _, trip, _, _ = await 두_사람_여행(api, db)
+    요리 = (await 요리를_넣는다(api, headers, trip["id"], ingredients=[{"name": "된장"}, {"name": "두부"}])).json()["data"]
+    된장, 두부 = 요리["ingredients"]
+
+    item = (await 준비물을_넣는다(api, headers, trip["id"], name="된장", sourceIngredientId=된장["id"])).json()["data"]
+    체크 = (await api.patch(f"/v1/checklist-items/{item['id']}", json={"version": 1, "completed": True}, headers=headers)).json()["data"]
+    바꿈 = (await api.patch(f"/v1/checklist-items/{item['id']}", json={"version": 2, "sourceIngredientId": 두부["id"]}, headers=headers)).json()["data"]
+    끊음 = (await api.patch(f"/v1/checklist-items/{item['id']}", json={"version": 3, "sourceIngredientId": None}, headers=headers)).json()["data"]
+    재료 = (await api.get(f"/v1/trips/{trip['id']}/recipes", headers=headers)).json()["data"][0]["ingredients"]
+
+    assert item["sourceIngredientId"] == 된장["id"]
+    assert (체크["completed"], 체크["sourceIngredientId"]) == (True, 된장["id"])
+    assert 바꿈["sourceIngredientId"] == 두부["id"]
+    assert 끊음["sourceIngredientId"] is None
+    # 준비물을 체크해도 재료의 준비 완료는 그대로다.
+    assert [i["ready"] for i in 재료] == [False, False]
+
+
+async def test_다른_여행의_재료나_없는_재료는_가리킬_수_없다(api, db):
+    headers, space_id, trip, _, _ = await 두_사람_여행(api, db)
+    다른_여행 = await 여행을_만든다(api, headers, space_id, title="다른 여행")
+    남의_재료 = (await 요리를_넣는다(api, headers, 다른_여행["id"])).json()["data"]["ingredients"][0]["id"]
+    item = (await 준비물을_넣는다(api, headers, trip["id"])).json()["data"]
+
+    만들기 = await api.post(
+        f"/v1/trips/{trip['id']}/checklist-items", json={"name": "된장", "sourceIngredientId": 남의_재료}, headers=headers
+    )
+    없음 = await api.post(
+        f"/v1/trips/{trip['id']}/checklist-items", json={"name": "된장", "sourceIngredientId": str(uuid.uuid4())}, headers=headers
+    )
+    고치기 = await api.patch(f"/v1/checklist-items/{item['id']}", json={"version": 1, "sourceIngredientId": 남의_재료}, headers=headers)
+
+    assert (만들기.status_code, 없음.status_code, 고치기.status_code) == (422, 422, 422)
+    assert "sourceIngredientId" in 만들기.text and "sourceIngredientId" in 고치기.text
+
+
+async def test_요리나_재료를_지워도_가져온_준비물은_남고_연결만_빈다(api, db):
+    headers, _, trip, _, _ = await 두_사람_여행(api, db)
+    요리 = (await 요리를_넣는다(api, headers, trip["id"], ingredients=[{"name": "된장"}, {"name": "두부"}])).json()["data"]
+    된장, 두부 = 요리["ingredients"]
+    된장_준비물 = (await 준비물을_넣는다(api, headers, trip["id"], name="된장", sourceIngredientId=된장["id"])).json()["data"]
+    두부_준비물 = (await 준비물을_넣는다(api, headers, trip["id"], name="두부", sourceIngredientId=두부["id"])).json()["data"]
+
+    재료_지움 = await api.patch(f"/v1/recipes/{요리['id']}", json={"version": 1, "ingredients": [{"id": 두부["id"], "name": "두부"}]}, headers=headers)
+    db.expire_all()
+    재료_뒤 = {i["id"]: i for i in (await api.get(f"/v1/trips/{trip['id']}/checklist-items", headers=headers)).json()["data"]}
+    요리_지움 = await api.delete(f"/v1/recipes/{요리['id']}", headers=headers)
+    db.expire_all()
+    요리_뒤 = {i["id"]: i for i in (await api.get(f"/v1/trips/{trip['id']}/checklist-items", headers=headers)).json()["data"]}
+
+    assert (재료_지움.status_code, 요리_지움.status_code) == (200, 204)
+    assert (재료_뒤[된장_준비물["id"]]["sourceIngredientId"], 재료_뒤[두부_준비물["id"]]["sourceIngredientId"]) == (None, 두부["id"])
+    assert set(요리_뒤) == {된장_준비물["id"], 두부_준비물["id"]}
+    assert 요리_뒤[두부_준비물["id"]]["sourceIngredientId"] is None
 
 
 # ---------------------------------------------------------------------------

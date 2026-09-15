@@ -15,10 +15,10 @@ const packing = (extra: Partial<PackingRow> = {}): PackingRow => ({
 });
 
 test("준비물 담당은 사람·공용·미정으로 나뉘어 간다", () => {
-  const codec = packingCodec(roster);
+  const codec = packingCodec(roster, new Set());
 
   assert.deepEqual(codec.toBody(packing({ done: true })), {
-    name: "충전기", quantity: "1개", ownerMembershipId: "m-me", isShared: false, completed: true, tags: ["집에서", "출발 아침"],
+    name: "충전기", quantity: "1개", ownerMembershipId: "m-me", isShared: false, completed: true, tags: ["집에서", "출발 아침"], sourceIngredientId: null,
   });
   assert.deepEqual(
     [codec.toBody(packing({ owner: "공용" })), codec.toBody(packing({ owner: "미정", quantity: " " }))].map((body) => [body.ownerMembershipId, body.isShared, body.quantity]),
@@ -27,7 +27,7 @@ test("준비물 담당은 사람·공용·미정으로 나뉘어 간다", () => 
 });
 
 test("사람 표에 없는 담당이거나 옛 id 면 올리지 않는다", () => {
-  const codec = packingCodec(roster);
+  const codec = packingCodec(roster, new Set());
 
   assert.equal(codec.syncable(packing({ owner: "동행" })), false);
   assert.equal(codec.syncable(packing({ id: "1726000000-0" })), false);
@@ -35,16 +35,36 @@ test("사람 표에 없는 담당이거나 옛 id 면 올리지 않는다", () =
 });
 
 test("서버 준비물은 이름과 체크로 돌아오고 다시 보내도 같다", () => {
-  const codec = packingCodec(roster);
+  const codec = packingCodec(roster, new Set());
   const back = codec.fromServer({
-    id: A, name: "충전기", quantity: "1개", ownerMembershipId: "m-me", isShared: false, completed: false, tags: ["출발 아침", "집에서"], version: 3,
+    id: A, name: "충전기", quantity: "1개", ownerMembershipId: "m-me", isShared: false, completed: false, tags: ["출발 아침", "집에서"], sourceIngredientId: null, version: 3,
   });
 
   assert.equal(back.owner, "하늘");
   const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(back)), version: 3 }]]);
   assert.equal(hasWork(planListSync([packing()], codec, confirmed)), false);
   assert.equal(hasWork(planListSync([packing({ done: true })], codec, confirmed)), true);
-  assert.equal(codec.fromServer({ ...back, id: B, ownerMembershipId: "m-left", isShared: false, completed: true, quantity: null, name: "x", tags: [], version: 1 }).owner, UNKNOWN_PERSON);
+  assert.equal(codec.fromServer({ ...back, id: B, ownerMembershipId: "m-left", isShared: false, completed: true, quantity: null, name: "x", tags: [], sourceIngredientId: null, version: 1 }).owner, UNKNOWN_PERSON);
+});
+
+test("요리 재료에서 가져온 준비물은 재료가 서버에 있을 때만 연결을 보내고 돌아와도 같다", () => {
+  const linked = packing({ sourceIngredientId: C });
+  const waiting = packingCodec(roster, new Set());
+  const ready = packingCodec(roster, new Set([C]));
+
+  assert.equal(waiting.toBody(linked).sourceIngredientId, null);
+  assert.equal(ready.toBody(linked).sourceIngredientId, C);
+  assert.equal(ready.toBody(packing({ sourceIngredientId: B })).sourceIngredientId, null);
+
+  const back = ready.fromServer({ id: A, version: 2, ...ready.toBody(linked) });
+  assert.deepEqual(back, linked);
+  const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(ready.toBody(back)), version: 2 }]]);
+  assert.equal(hasWork(planListSync([linked], ready, confirmed)), false);
+  // 연결 없이 올라간 줄은 기기의 연결을 살린다. 서버에 연결이 있으면 서버 것을 쓴다.
+  const bare = ready.fromServer({ id: A, version: 1, ...waiting.toBody(linked) });
+  assert.equal("sourceIngredientId" in bare, false);
+  assert.equal(ready.keepLocal?.(bare, linked).sourceIngredientId, C);
+  assert.equal(ready.keepLocal?.(back, packing({ sourceIngredientId: B })).sourceIngredientId, C);
 });
 
 test("태그는 서버처럼 공백을 줄이고 겹치면 하나만 둔다", () => {

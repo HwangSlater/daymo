@@ -526,6 +526,10 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 - `GET/POST /trips/{tripId}/recipes`와 `PATCH/DELETE /recipes/{recipeId}`만 있다. 재료는 요리와 함께 `ingredients` 배열로 오가고, 재료 단독 API와 준비물로 가져오기는 아직 없다. `servings`는 받지 않는다.
 - 요리를 고칠 때 `ingredients`를 보내면 보낸 목록대로 맞춘다. 같은 `id`의 재료는 고치고, 없는 `id`는 만들고, 빠진 재료는 지운다. 통째로 지우고 다시 만들지 않는 이유는 준비물의 `sourceIngredientId` 연결을 지키기 위해서다. 재료를 고쳐도 요리 `version`이 오른다.
 - 재료의 `ready`(참/거짓)는 앱의 `준비 완료` 체크다. `procurement`가 `bring`일 때만 `ownerMembershipId`를 받는다. `sourceUrl`은 http/https만 받는다.
+- 재료를 준비물로 가져오기는 별도 API 없이 기기에서 준비물을 만들고, 준비물 만들기/고치기(`POST /trips/{tripId}/checklist-items`, `PATCH /checklist-items/{itemId}`)에 `sourceIngredientId`를 함께 보낸다. 응답에도 같은 칸이 온다. 같은 여행 요리의 재료만 받고, 다른 여행이거나 없는 재료면 `422`(`fields.sourceIngredientId`)다. 고칠 때 `null`을 보내면 연결을 끊고, 보내지 않으면 그대로 둔다.
+- 요리나 재료를 지워도 가져온 준비물은 남고 `sourceIngredientId`만 `null`이 된다.
+- 준비물 `completed`와 재료 `ready`는 서로 바꾸지 않는다. 앱은 재료에서 가져온 준비물을 체크할 때 그 재료가 아직 준비 완료가 아니면 "요리 재료에서도 준비 완료로 표시할까요?"라고 묻고, `표시하기`를 고른 경우에만 요리 고치기로 `ready`를 보낸다. 반대 방향(재료 체크 → 준비물)은 아직 묻지 않는다.
+- 앱은 서버에 올라간 재료만 연결해 보낸다. 재료가 아직 안 올라갔으면 연결을 비워 보내고 기기에는 연결을 남겨 두었다가, 요리가 올라간 뒤 다시 보낸다. 그래서 여행을 열 때 요리 목록을 받은 다음에 준비물을 맞춘다.
 
 ## 9. 비용과 정산
 
