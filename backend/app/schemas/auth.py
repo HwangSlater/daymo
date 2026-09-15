@@ -123,3 +123,17 @@ class MeOut(_Camel):
     display_name: str
     avatar_url: str | None = None
     spaces: list[MeSpaceOut] = Field(default_factory=list)
+    # 삭제를 요청해 둔 계정이면 지워질 시각. 앱은 이 값이 있으면 다른 화면
+    # 대신 삭제 취소 화면을 먼저 보여 준다.
+    deletion_scheduled_at: datetime | None = None
+
+
+class ReauthProofRequest(_Camel):
+    """`POST /auth/reauth` 로 받은 증표를 싣는다. 작업마다 새로 받아야 한다."""
+
+    reauth_proof: str | None = None
+
+
+class DeletionOut(_Camel):
+    requested_at: datetime | None
+    scheduled_at: datetime | None

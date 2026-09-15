@@ -263,6 +263,7 @@ class RevokeReason(StrEnum):
     PASSWORD_RESET = "password_reset"
     DEVICE_LIMIT = "device_limit"
     ADMIN = "admin"
+    ACCOUNT_DELETION = "account_deletion"
 
 
 class ThrottleScope(StrEnum):
@@ -283,6 +284,9 @@ class SensitiveAction(StrEnum):
     """
 
     DELETE_ACCOUNT = "delete_account"
+    # 삭제 취소도 따로 받는다. 기기를 잠깐 빌린 사람이 남의 삭제 요청을
+    # 되돌리지 못하게 한다.
+    CANCEL_DELETION = "cancel_deletion"
     CHANGE_EMAIL = "change_email"
     CHANGE_PASSWORD = "change_password"
     LINK_PROVIDER = "link_provider"

@@ -16,8 +16,11 @@ logger = logging.getLogger("daymo.mail")
 class Letter:
     to: str
     subject: str
-    # 링크에 실리는 1회용 토큰 원문. 저장하지 않는다.
-    link: str
+    # 링크에 실리는 1회용 토큰 원문. 저장하지 않는다. 알리기만 하는 메일은
+    # 링크가 없다.
+    link: str | None = None
+    # 링크 위에 붙는 설명. 비어 있으면 제목만 쓴다.
+    body: str | None = None
 
 
 @dataclass
@@ -55,9 +58,12 @@ class Outbox:
         message["From"] = settings.mail_from
         message["To"] = letter.to
         message["Subject"] = letter.subject
-        message.set_content(
-            f"{letter.subject}\n\n아래 링크는 30분 동안 한 번만 사용할 수 있어요.\n{letter.link}\n"
-        )
+        문단 = [letter.subject]
+        if letter.body:
+            문단.append(letter.body)
+        if letter.link:
+            문단.append(f"아래 링크는 30분 동안 한 번만 사용할 수 있어요.\n{letter.link}")
+        message.set_content("\n\n".join(문단) + "\n")
 
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
             if settings.smtp_starttls:

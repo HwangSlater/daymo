@@ -239,6 +239,8 @@ schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 
 
 운영 파일은 `daymo-backup`, `daymo-backup.service`, `daymo-backup.timer`로 관리한다. `/etc/daymo/secrets/backup.env`, restic password 파일과 rclone 설정이 모두 준비되고 최초 원격 snapshot 복원까지 성공한 뒤에만 timer를 활성화한다.
 
+정리 작업은 `daymo-cleanup`, `daymo-cleanup.service`, `daymo-cleanup.timer`로 관리한다. 매일 04:40 Asia/Seoul, 백업이 끝난 뒤에 api 이미지로 `python -m app.jobs.cleanup`을 한 번 실행하고 컨테이너를 지운다. 유예가 지난 계정 비식별화, 삭제 기한이 지난 여행, 오래된 시도 횟수 표를 정리한다. 일마다 transaction이 따로라 하나가 실패해도 나머지는 끝나고, 실패가 있으면 종료 코드 1로 timer 실패가 남는다. 백업보다 뒤에 두는 이유는 지우기 직전 상태를 그날 snapshot에 남기기 위해서다. 백업에서 복원할 때 이미 정리한 계정이 되살아나지 않게 하는 deletion ledger는 아직 없다.
+
 매월 자동 검증은 최신 snapshot에서 DB를 격리된 임시 PostgreSQL container에 복원해 migration metadata와 주요 table count를 검사하고, 무작위 사진 표본의 checksum과 decode 가능 여부를 확인한 뒤 임시 data를 삭제한다. 분기마다 별도의 빈 local/staging 환경에서 DB와 전체 사진 경로를 수동 복원해 로그인·여행 조회·사진 열기 smoke test까지 수행한다.
 
 Google Drive 동기화 폴더를 단순 `sync`하지 않는다. 서버에서 파일이 손상·삭제되었을 때 원격도 똑같이 삭제될 수 있기 때문이다. restic repository password와 rclone OAuth token은 서로 분리해 root 전용 파일 또는 secret store에 둔다. 두 값을 모두 분실하면 복구할 수 없으므로 비밀번호 관리 도구에 별도 보관한다.

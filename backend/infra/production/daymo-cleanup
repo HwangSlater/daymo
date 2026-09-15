@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly COMPOSE_FILE=/srv/daymo/current/backend/infra/production/compose.yml
+readonly ENV_FILE=/etc/daymo/secrets/runtime.env
+
+# 기한이 지난 계정·여행과 오래된 시도 횟수를 정리한다. 떠 있는 api 와 같은
+# 이미지로 한 번 실행하고 컨테이너를 지운다.
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm --no-deps -T api \
+  python -m app.jobs.cleanup

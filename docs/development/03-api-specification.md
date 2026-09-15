@@ -45,7 +45,7 @@
 }
 ```
 
-주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
+주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `OWNER_TRANSFER_REQUIRED(409)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
 
 ### 캐시 유효성 기본값
 
@@ -195,10 +195,22 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
     "email": "sky@example.com",
     "displayName": "하늘",
     "avatarUrl": null,
-    "spaces": [{ "id": "uuid", "name": "주말 여행", "relationshipType": "friends", "role": "owner" }]
+    "spaces": [{ "id": "uuid", "name": "주말 여행", "relationshipType": "friends", "role": "owner" }],
+    "deletionScheduledAt": null
   }
 }
 ```
+
+`deletionScheduledAt`이 있으면 삭제를 요청해 둔 계정이다. 앱은 다른 화면보다 먼저 삭제 예정일과 취소 버튼을 보여준다.
+
+### 계정 삭제
+
+1. 앱이 `POST /auth/reauth`에 `{"action": "delete_account", "password": "..."}`로 증표를 받는다.
+2. `DELETE /me`에 `{"reauthProof": "..."}`를 보낸다. `202`와 `{requestedAt, scheduledAt}`을 돌려준다. 기한은 요청 후 7일이다.
+3. 요청하는 순간 모든 기기의 refresh token과 기기 세션을 끊는다. 이미 받은 access token도 다음 요청부터 막힌다. 안내 메일에는 삭제 예정일만 쓰고 링크를 넣지 않는다.
+4. 다른 활성 멤버가 있는 공간의 owner면 `OWNER_TRANSFER_REQUIRED(409)`로 막고 증표를 쓰지 않는다. 혼자 쓰는 공간은 막지 않고 최종 삭제 때 함께 지운다.
+5. 유예 중에 다시 로그인하면 `GET /me`의 `deletionScheduledAt`이 채워져 있다. `cancel_deletion` 증표로 `POST /me/deletion/cancel`을 부르면 취소된다. 기한이 지났으면 `GONE(410)`이다.
+6. 하루 한 번 정리 작업(`python -m app.jobs.cleanup`)이 기한이 지난 계정을 비식별화한다. `users` 줄은 공동 기록이 가리키므로 남기고 이메일·비밀번호·이름·기기·토큰·OAuth 연결을 지운다. 이름은 `탈퇴한 멤버`가 되고, 다른 사람 공간의 멤버십은 나간 것으로 바뀐다. 같은 이메일로 다시 가입할 수 있다.
 
 ## 3. 공간과 멤버
 

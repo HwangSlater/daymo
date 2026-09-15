@@ -1,0 +1,8 @@
+[Unit]
+Description=Purge Daymo accounts, trips and counters past their deadline
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/daymo-cleanup

@@ -17,6 +17,7 @@ class ErrorCode(StrEnum):
     VERSION_CONFLICT = "VERSION_CONFLICT"
     TAG_IN_USE = "TAG_IN_USE"
     SETTLEMENT_IN_PROGRESS = "SETTLEMENT_IN_PROGRESS"
+    OWNER_TRANSFER_REQUIRED = "OWNER_TRANSFER_REQUIRED"
     SYNC_CURSOR_EXPIRED = "SYNC_CURSOR_EXPIRED"
     GONE = "GONE"
     VALIDATION_ERROR = "VALIDATION_ERROR"
@@ -35,6 +36,7 @@ STATUS_BY_CODE: dict[ErrorCode, int] = {
     ErrorCode.VERSION_CONFLICT: 409,
     ErrorCode.TAG_IN_USE: 409,
     ErrorCode.SETTLEMENT_IN_PROGRESS: 409,
+    ErrorCode.OWNER_TRANSFER_REQUIRED: 409,
     ErrorCode.SYNC_CURSOR_EXPIRED: 410,
     ErrorCode.GONE: 410,
     ErrorCode.PHOTO_TOO_LARGE: 413,
@@ -54,6 +56,7 @@ MESSAGE_BY_CODE: dict[ErrorCode, str] = {
     ErrorCode.VERSION_CONFLICT: "다른 곳에서 먼저 수정됐어요. 새로고침한 뒤 다시 시도해 주세요.",
     ErrorCode.TAG_IN_USE: "사용 중인 태그예요.",
     ErrorCode.SETTLEMENT_IN_PROGRESS: "이미 주고받은 기록이 있어 바꿀 수 없어요.",
+    ErrorCode.OWNER_TRANSFER_REQUIRED: "다른 멤버가 있는 공간의 관리자예요. 관리자를 먼저 넘겨 주세요.",
     ErrorCode.SYNC_CURSOR_EXPIRED: "동기화 기준이 오래돼 전체를 다시 받아야 해요.",
     ErrorCode.GONE: "복구할 수 있는 기간이 지났어요.",
     ErrorCode.VALIDATION_ERROR: "입력 내용을 확인해 주세요.",

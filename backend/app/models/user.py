@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, uuid_pk
@@ -16,6 +16,14 @@ class User(Base, TimestampMixin):
     """
 
     __tablename__ = "users"
+    __table_args__ = (
+        # 정리 작업이 기한이 지난 계정을 찾는다. 삭제를 요청한 계정만 담는다.
+        Index(
+            "ix_users_deletion_due",
+            "deletion_scheduled_at",
+            postgresql_where=("deletion_scheduled_at IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = uuid_pk()
 
@@ -40,6 +48,18 @@ class User(Base, TimestampMixin):
         nullable=False,
         default=UserStatus.ACTIVE,
     )
+
+    # 계정 삭제는 7일 유예다. 유예 중에도 status 는 active 로 둔다. 다시
+    # 로그인해 삭제를 취소할 수 있어야 해서다. 기한이 지나면 정리 작업이
+    # 개인정보를 지우고 status 를 deleted 로, deleted_at 을 채운다
+    # (docs/development/08-privacy-and-release-compliance.md 6장).
+    deletion_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deletion_scheduled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         # 이메일을 찍지 않는다. repr 은 로그와 예외 메시지에 그대로 실린다.
