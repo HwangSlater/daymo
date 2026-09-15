@@ -18,10 +18,12 @@ node site/build.mjs --preview  # 이름 없이 미리 보기용으로 만든다(
 
 ## 배포
 
-Vercel의 daymo.xyz 프로젝트에 `site/dist`를 그대로 올린다. 저장소 push로는 배포되지 않는다.
+Vercel 프로젝트 `daymo-site`에 `site/dist`를 그대로 올린다. `www.daymo.xyz`가 이 프로젝트에 붙어 있고,
+`daymo.xyz`는 `www`로 308 넘어간다. 저장소 push로는 배포되지 않는다. 예전 웹 앱 빌드가 있던 `daymo` 프로젝트는
+2026-09-15에 도메인만 떼어 두었다.
 
 ```sh
-npx vercel link --cwd site      # 한 번만. site/.vercel 이 생기고 커밋하지 않는다
+npx vercel link --yes --project daymo-site --cwd site   # 한 번만. site/.vercel 은 커밋하지 않는다
 node site/build.mjs
 npx vercel deploy --prod --cwd site/dist
 ```

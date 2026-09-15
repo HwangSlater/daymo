@@ -24,6 +24,7 @@ mobile/android/
 site/site.local.json
 site/dist/
 site/.vercel/
+site/.env*
 
 # 로컬 개발 서버가 받은 사진
 backend/uploads/
