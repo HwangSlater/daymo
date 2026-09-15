@@ -89,7 +89,7 @@ App Store Connect → 앱 개인정보 보호 → 시작하기.
 | 칸 | 값 |
 | --- | --- |
 | 로그인 필요 | 예 |
-| 사용자 이름 / 암호 | 데모 계정(release/README.md 5번). 예시 공간·여행·사진을 채워 둔다 |
+| 사용자 이름 / 암호 | 데모 계정([../shared/demo-account.md](../shared/demo-account.md)). 제출 직전에 서버에서 만들어 예시 공간·여행·사진을 채운다 |
 | 연락처 | 운영자 이름, 전화번호, support@daymo.xyz |
 | 메모 | 아래 |
 
