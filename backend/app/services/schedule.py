@@ -36,7 +36,10 @@ from app.services.places import check_map_url
 
 
 async def zone_of(session: AsyncSession, trip: Trip) -> ZoneInfo:
-    이름 = await session.scalar(select(Space.timezone).where(Space.id == trip.space_id))
+    return zone_named(await session.scalar(select(Space.timezone).where(Space.id == trip.space_id)))
+
+
+def zone_named(이름: str | None) -> ZoneInfo:
     try:
         return ZoneInfo(이름 or "Asia/Seoul")
     except Exception:  # noqa: BLE001 - 잘못 저장된 시간대는 기본값으로 읽는다

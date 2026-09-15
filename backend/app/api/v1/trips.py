@@ -33,11 +33,14 @@ from app.schemas.trip import (
     SpaceUpdateRequest,
     TripCreateRequest,
     TripOut,
+    TripOverviewOut,
+    TripOverviewStayOut,
     TripUpdateRequest,
 )
 from app.services import audit
 from app.services import schedule as schedule_service
 from app.services import space_deletion
+from app.services import trip_overview
 from app.services import trips as trip_service
 
 router = APIRouter(tags=["trips"])
@@ -70,7 +73,28 @@ async def _참가자_ids(db, trip: Trip) -> list[str]:
     return [str(값) for 값 in 줄들]
 
 
-async def _여행_응답(db, trip: Trip) -> dict:
+def _요약_응답(overview: trip_overview.TripOverview) -> TripOverviewOut:
+    return TripOverviewOut(
+        stay=TripOverviewStayOut(name=overview.stay.name, check_in_at=overview.stay.check_in_at) if overview.stay else None,
+        schedule_count=overview.schedule_count,
+        place_count=overview.place_count,
+        restaurant_count=overview.restaurant_count,
+        cafe_count=overview.cafe_count,
+        packing_total=overview.packing_total,
+        packing_done=overview.packing_done,
+        spent_total=float(overview.spent_total),
+    )
+
+
+async def _여행들_응답(db, trips: list[Trip]) -> list[dict]:
+    """목록은 요약을 한꺼번에 센다. 여행마다 따로 세면 목록이 길수록 질의가 늘어난다."""
+    요약 = await trip_overview.overviews_of(db, trips)
+    return [await _여행_응답(db, trip, 요약[trip.id]) for trip in trips]
+
+
+async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | None = None) -> dict:
+    if overview is None:
+        overview = (await trip_overview.overviews_of(db, [trip]))[trip.id]
     return TripOut(
         id=str(trip.id),
         space_id=str(trip.space_id),
@@ -90,6 +114,7 @@ async def _여행_응답(db, trip: Trip) -> dict:
         archived_at=trip.archived_at.isoformat() if trip.archived_at else None,
         deletion_scheduled_at=trip.deletion_scheduled_at.isoformat() if trip.deleted_at and trip.deletion_scheduled_at else None,
         participant_membership_ids=await _참가자_ids(db, trip),
+        overview=_요약_응답(overview),
     ).model_dump(by_alias=True)
 
 
@@ -315,6 +340,8 @@ async def list_trips(
 
     지운 여행은 나오지 않는다. `trash=true` 면 아직 되돌릴 수 있는 지운 여행만 준다.
     지우고 되돌리는 것이 owner 만이라 이 목록도 owner 만 본다.
+
+    여행마다 홈 카드가 보여 줄 요약(`overview`)이 붙는다(`services/trip_overview.py`).
     """
     membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
 
@@ -330,7 +357,7 @@ async def list_trips(
             .order_by(Trip.deleted_at.desc())
             .limit(limit)
         )
-        return page([await _여행_응답(db, trip) for trip in (await db.execute(질의)).scalars().all()])
+        return page(await _여행들_응답(db, list((await db.execute(질의)).scalars().all())))
 
     질의 = (
         select(Trip)
@@ -341,8 +368,8 @@ async def list_trips(
     if status_filter is not None:
         질의 = 질의.where(Trip.status == status_filter)
 
-    여행들 = (await db.execute(질의)).scalars().all()
-    return page([await _여행_응답(db, trip) for trip in 여행들])
+    여행들 = list((await db.execute(질의)).scalars().all())
+    return page(await _여행들_응답(db, 여행들))
 
 
 @router.get("/trips/{trip_id}")

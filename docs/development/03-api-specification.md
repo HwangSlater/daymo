@@ -390,6 +390,26 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 }
 ```
 
+2026-09-15 구현(`backend/app/api/v1/trips.py`, `backend/app/services/trip_overview.py`): 대시보드 API는 아직 없다. 대신 여행 응답(`GET /spaces/{spaceId}/trips`, `GET /trips/{tripId}`와 여행을 돌려주는 다른 응답)에 홈 여행 카드와 "출발 전 확인할 것"이 보여 주는 요약 `overview`를 붙였다. 앱은 이 숫자를 기기에 저장된 기록에서만 셌는데, 기록은 여행 상세를 그 기기에서 열어야 채워져 새로 로그인했거나 다른 멤버가 채운 여행이 홈에서 비어 보였다.
+
+```json
+"overview": {
+  "stay": { "name": "달빛한옥", "checkInAt": "2026-08-21T15:00" },
+  "scheduleCount": 5,
+  "placeCount": 8,
+  "restaurantCount": 3,
+  "cafeCount": 2,
+  "packingTotal": 6,
+  "packingDone": 2,
+  "spentTotal": 60000.5
+}
+```
+
+- `stay`는 대표 숙소, 즉 숙소 목록(`GET /trips/{tripId}/stays`)의 첫 줄이다. 숙소가 없으면 `null`이다. `name`은 연결한 여행 장소의 이름이고 없으면 `null`, `checkInAt`은 숙소 API와 같은 공간 시간대의 `YYYY-MM-DDTHH:MM`이다.
+- `scheduleCount`는 일정 탭의 줄 수다. 일정 줄에 더해 `showInSchedule`을 켠 교통편·예약과 대표 숙소 줄을 센다.
+- `restaurantCount`·`cafeCount`는 장소 분류가 `식당`·`카페`인 것이다. `packingTotal`·`packingDone`은 여행 준비물 목록의 전체와 체크한 수이고 요리 재료는 세지 않는다. `spentTotal`은 여행 통화 기준 지출 합이다.
+- 목록은 여행마다 따로 묻지 않고 표마다 한 번씩 묶어서 센다.
+
 ## 5. 일정·교통·숙소·예약
 
 | Method | Path | 용도 |

@@ -57,6 +57,31 @@ class ParticipantsRequest(_Camel):
     membership_ids: list[str] = Field(default_factory=list, max_length=10)
 
 
+class TripOverviewStayOut(_Camel):
+    # 연결한 장소가 없으면 비어 있다.
+    name: str | None
+    # 공간 시간대의 `YYYY-MM-DDTHH:MM`. 숙소 API 와 같은 모양이다.
+    check_in_at: str | None
+
+
+class TripOverviewOut(_Camel):
+    """
+    홈의 여행 카드가 보여 주는 요약. 상세 화면을 열지 않아도 숫자가 맞게 나온다.
+
+    `scheduleCount` 는 일정 탭의 줄 수다. 직접 적은 일정에 더해 "일정에 표시" 를 켠
+    교통편·예약·대표 숙소의 줄도 센다. `spentTotal` 은 여행 통화 기준 지출 합이다.
+    """
+
+    stay: TripOverviewStayOut | None = None
+    schedule_count: int = 0
+    place_count: int = 0
+    restaurant_count: int = 0
+    cafe_count: int = 0
+    packing_total: int = 0
+    packing_done: int = 0
+    spent_total: float = 0
+
+
 class TripOut(_Camel):
     id: str
     space_id: str
@@ -77,6 +102,7 @@ class TripOut(_Camel):
     # 지운 여행일 때만 있다. 이 시각이 지나면 되돌릴 수 없다.
     deletion_scheduled_at: str | None = None
     participant_membership_ids: list[str] = Field(default_factory=list)
+    overview: TripOverviewOut | None = None
 
 
 class SpaceCreateRequest(_Camel):
