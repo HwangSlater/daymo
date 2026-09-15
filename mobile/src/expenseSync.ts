@@ -26,6 +26,7 @@ export type ServerExpense = {
   splitMode: ServerSplit | null;
   shares: { membershipId: string; weight: number }[];
   memo: string | null;
+  receiptPhotoId?: string | null;
   version: number;
 };
 
@@ -71,6 +72,7 @@ export function expenseCodec(
         .map(([name, weight]) => ({ membershipId: idOfName(name) ?? "", weight: round(weight, 4) }))
         .sort((a, b) => a.membershipId.localeCompare(b.membershipId)),
       memo: blank(item.memo, 2000),
+      receiptPhotoId: item.receiptPhotoId ?? null,
     }),
     fromServer: (row) => {
       const shares: Record<string, number> = {};
@@ -85,10 +87,15 @@ export function expenseCodec(
         ...(row.shares.length ? { shares } : {}),
         ...(row.splitMode ? { splitMode: SPLIT_TO_APP[row.splitMode] } : {}),
         memo: row.memo ?? "",
+        ...(row.receiptPhotoId ? { receiptPhotoId: row.receiptPhotoId } : {}),
       };
     },
-    // 영수증 사진은 아직 기기에만 있다. 서버 줄로 바꿔도 사진 자리는 지킨다.
-    keepLocal: (fromServer, local) => (local.receiptUri ? { ...fromServer, receiptUri: local.receiptUri } : fromServer),
+    // 영수증 파일은 기기에 있다. 아직 올리지 않았거나 같은 사진이면 파일 자리를 지킨다.
+    // 다른 기기에서 영수증을 바꾸거나 뗐으면 기기의 파일을 따르지 않는다.
+    keepLocal: (fromServer, local) =>
+      local.receiptUri && (!local.receiptPhotoId || local.receiptPhotoId === fromServer.receiptPhotoId)
+        ? { ...fromServer, receiptUri: local.receiptUri }
+        : fromServer,
   };
 }
 

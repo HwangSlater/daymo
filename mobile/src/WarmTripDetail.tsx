@@ -17,9 +17,14 @@ import { expenseCodec, paymentCodec } from "./expenseSync";
 import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
+import { photoCodec } from "./photoSync";
+import { downloadPhoto, uploadPhoto } from "./photoTransfer";
 import type { ExpenseSettings } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
+  deletePhoto as deleteServerPhoto,
+  listPhotos,
+  updatePhoto,
   createDiary,
   createMemo,
   deleteDiary,
@@ -267,6 +272,8 @@ export type TripPlanningData = {
   memoSyncIds?: string[];
   /** 서버와 맞춘 적이 있는 일기 id. */
   diarySyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 사진 id. */
+  photoSyncIds?: string[];
   /**
    * 통화·환율·예산·정산 묶기를 서버와 한 번이라도 맞췄는지. 맞춘 적이 없으면 기기 값을
    * 서버에 올리고, 맞춘 적이 있으면 서버 값으로 연다.
@@ -1172,10 +1179,11 @@ export function WarmTripDetail({
     if (tripNotes.some((item) => !isServerId(item.id))) {
       setTripNotes((current) => current.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })));
     }
-    if (memories.diaries.some((item) => !isServerId(item.id))) {
+    if (memories.diaries.some((item) => !isServerId(item.id)) || memories.photos.some((item) => !isServerId(item.id))) {
       setMemories((current) => ({
         ...current,
         diaries: current.diaries.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })),
+        photos: current.photos.map((item) => (isServerId(item.id) ? item : { ...item, id: newPlaceId() })),
       }));
     }
     // 준비물·요리·재료의 옛 id 도 바꾸고, 체크해 둔 것이 따라가게 한다.
@@ -1463,6 +1471,91 @@ export function WarmTripDetail({
     setSyncedIds: setDiarySyncIds,
     notify: setFeedback,
   });
+  const [photoSyncIds, setPhotoSyncIds] = useState<string[]>(() => initialPlanning?.photoSyncIds ?? []);
+  const knownPhotoIds = useMemo(() => new Set(photoSyncIds), [photoSyncIds]);
+  const photoSyncCodec = useMemo(() => photoCodec(tripDateKeyList, knownPhotoIds), [knownPhotoIds, tripDateKeyList]);
+  // 새 사진을 올릴 때 파일 자리를 찾는다. 서버로 가는 칸(설명·날짜)에는 자리가 없다.
+  const photosRef = useRef(memories.photos);
+  useEffect(() => {
+    photosRef.current = memories.photos;
+  }, [memories.photos]);
+  useListSync({
+    tripId,
+    label: "사진",
+    items: memories.photos,
+    setItems: (updater) => setMemories((current) => ({ ...current, photos: updater(current.photos) })),
+    codec: photoSyncCodec,
+    api: {
+      list: listPhotos,
+      create: async (serverTripId, id, body) => {
+        const uri = photosRef.current.find((photo) => photo.id === id)?.uri;
+        if (!uri) throw new DaymoApiError("사진 파일을 찾지 못했어요. 사진을 다시 골라 주세요.", 422, "VALIDATION_ERROR");
+        return uploadPhoto(serverTripId, id, uri, body);
+      },
+      update: updatePhoto,
+      remove: deleteServerPhoto,
+    },
+    syncedIds: photoSyncIds,
+    setSyncedIds: setPhotoSyncIds,
+    refreshKey: tripDateKeyList.join(","),
+    notify: setFeedback,
+  });
+  // 다른 기기에서 올린 사진은 표시본을 받아 기기에 둔다. 한 번 받으면 다시 받지 않는다.
+  const photoDownloads = useRef(new Set<string>());
+  useEffect(() => {
+    if (!serverTrip) return;
+    const missing = memories.photos.filter((photo) => !photo.uri && knownPhotoIds.has(photo.id) && !photoDownloads.current.has(photo.id));
+    if (!missing.length) return;
+    missing.forEach((photo) => photoDownloads.current.add(photo.id));
+    void (async () => {
+      for (const photo of missing) {
+        try {
+          const uri = await downloadPhoto(photo.id);
+          if (!uri) continue;
+          setMemories((current) => ({
+            ...current,
+            photos: current.photos.map((item) => (item.id === photo.id && !item.uri ? { ...item, uri } : item)),
+          }));
+        } catch {
+          // 연결이 없으면 다음에 목록이 바뀔 때 다시 받는다.
+          photoDownloads.current.delete(photo.id);
+        }
+      }
+    })();
+  }, [knownPhotoIds, memories.photos, serverTrip]);
+  // 영수증은 지출과 따로 올린다. 올라가면 지출에 사진 id 를 붙여 지출 동기화가 서버에 알린다.
+  const receiptUploads = useRef(new Set<string>());
+  useEffect(() => {
+    if (!serverTrip || !tripId) return;
+    const pending = expenses.filter((item) =>
+      item.receiptUri && !item.receiptPhotoId && isServerId(item.id) && !receiptUploads.current.has(`${item.id}:${item.receiptUri}`));
+    for (const item of pending) {
+      const key = `${item.id}:${item.receiptUri}`;
+      const photoId = newPlaceId();
+      receiptUploads.current.add(key);
+      uploadPhoto(tripId, photoId, item.receiptUri as string, { caption: null, date: null, isReceipt: true })
+        .then(() => setExpenses((current) => current.map((expense) =>
+          expense.id === item.id && expense.receiptUri === item.receiptUri ? { ...expense, receiptPhotoId: photoId } : expense)))
+        .catch(() => receiptUploads.current.delete(key));
+    }
+  }, [expenses, serverTrip, tripId]);
+  // 다른 기기에서 붙인 영수증은 받아 둔다.
+  const receiptDownloads = useRef(new Set<string>());
+  useEffect(() => {
+    if (!serverTrip) return;
+    const missing = expenses.filter((item) => item.receiptPhotoId && !item.receiptUri && !receiptDownloads.current.has(item.receiptPhotoId));
+    for (const item of missing) {
+      const photoId = item.receiptPhotoId as string;
+      receiptDownloads.current.add(photoId);
+      downloadPhoto(photoId)
+        .then((uri) => {
+          if (!uri) return;
+          setExpenses((current) => current.map((expense) =>
+            expense.receiptPhotoId === photoId && !expense.receiptUri ? { ...expense, receiptUri: uri } : expense));
+        })
+        .catch(() => receiptDownloads.current.delete(photoId));
+    }
+  }, [expenses, serverTrip]);
   const [expenseSettingsSynced, setExpenseSettingsSynced] = useState(Boolean(initialPlanning?.expenseSettingsSynced));
   const lastSentSettings = useRef<string | null>(
     initialPlanning?.expenseSettingsSynced && serverExpenseSettings ? JSON.stringify(serverExpenseSettings) : null,
@@ -1577,10 +1670,11 @@ export function WarmTripDetail({
       recipeSyncIds,
       memoSyncIds,
       diarySyncIds,
+      photoSyncIds,
       personNames,
       expenseSettingsSynced,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, diarySyncIds, memoSyncIds, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, packingDone, packingItems, diarySyncIds, memoSyncIds, packingSyncIds, participants, paymentSyncIds, payments, personNames, photoSyncIds, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -1618,11 +1712,12 @@ export function WarmTripDetail({
       recipeSyncIds,
       memoSyncIds,
       diarySyncIds,
+      photoSyncIds,
       personNames,
       expenseSettingsSynced,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, diarySyncIds, memoSyncIds, packingSyncIds, participants, paymentSyncIds, payments, personNames, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenseSettingsSynced, expenseSyncIds, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, diarySyncIds, memoSyncIds, packingSyncIds, participants, paymentSyncIds, payments, personNames, photoSyncIds, placeSyncIds, places, recipeSyncIds, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -7074,7 +7169,9 @@ function Memories({
       notify("사진을 저장하지 못했어요. 다시 선택해 주세요");
       return;
     }
-    const next = { id: editingPhotoId ?? `photo-${Date.now()}`, color: photoColor, date: photoDate.trim() || UNDATED, caption: photoCaption.trim(), uri: savedUri };
+    // 사진 자체를 바꾸면 새 사진으로 올린다. 서버는 올라온 파일을 바꾸지 않는다.
+    const sameFile = Boolean(previous) && savedUri === previous?.uri;
+    const next = { id: sameFile && editingPhotoId ? editingPhotoId : newPlaceId(), color: photoColor, date: photoDate.trim() || UNDATED, caption: photoCaption.trim(), uri: savedUri };
     setPhotos((current) => editingPhotoId
       ? current.map((photo) => photo.id === editingPhotoId ? next : photo)
       : [next, ...current]);
@@ -7783,6 +7880,13 @@ function Money({
         splitMode: draftSplitMode,
         memo: draftMemo.trim(),
         receiptUri: draftReceipt || undefined,
+        // 영수증을 그대로 두었으면 올린 사진 id 도 그대로다. 바꾸거나 떼면 새로 올린다.
+        ...(() => {
+          const before = current.find((item) => item.id === editingId);
+          return draftReceipt && before?.receiptPhotoId && before.receiptUri === draftReceipt
+            ? { receiptPhotoId: before.receiptPhotoId }
+            : {};
+        })(),
       };
       return editingId
         ? current.map((item) => (item.id === editingId ? next : item))

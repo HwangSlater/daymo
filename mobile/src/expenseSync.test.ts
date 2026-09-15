@@ -32,7 +32,18 @@ test("지출을 서버 모양으로 바꾸고 사람은 membership id 로 보낸
     splitMode: "amount",
     shares: [{ membershipId: "m-me", weight: 30000 }, { membershipId: "m-yeoul", weight: 18000 }],
     memo: null,
+    receiptPhotoId: null,
   });
+});
+
+test("영수증은 같은 사진이거나 아직 올리지 않았을 때만 기기 파일을 지킨다", () => {
+  const codec = expenseCodec(dates, roster);
+  const server = expense({ receiptPhotoId: "p-1" });
+
+  assert.equal(codec.keepLocal?.(server, expense({ receiptUri: "file:///a.jpg" })).receiptUri, "file:///a.jpg");
+  assert.equal(codec.keepLocal?.(server, expense({ receiptUri: "file:///a.jpg", receiptPhotoId: "p-1" })).receiptUri, "file:///a.jpg");
+  assert.equal(codec.keepLocal?.(expense(), expense({ receiptUri: "file:///a.jpg", receiptPhotoId: "p-1" })).receiptUri, undefined);
+  assert.equal(codec.toBody(server).receiptPhotoId, "p-1");
 });
 
 test("공간에 없는 이름이 섞이거나 0원이면 올리지 않는다", () => {

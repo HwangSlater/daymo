@@ -216,13 +216,24 @@ export async function restoreSession(): Promise<{ user: AuthUser; offline: boole
 }
 
 export async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const saved = parseSession(await storage.get(sessionKey));
-  if (!saved) throw new DaymoApiError("다시 로그인해 주세요.", 401, "UNAUTHENTICATED");
-
-  const send = (accessToken: string) => request<T>(path, {
+  return withAccessToken((accessToken) => request<T>(path, {
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${accessToken}` },
-  });
+  }));
+}
+
+/** API 주소 앞부분. 사진 파일처럼 JSON 이 아닌 요청이 쓴다. */
+export const apiUrlOf = (path: string) => `${apiUrl}${path}`;
+
+/**
+ * 저장된 세션의 access token 으로 `send` 를 부른다. 401 이면 한 번 갱신하고 다시 부른다.
+ *
+ * 사진 올리기·받기처럼 `fetch` 가 아닌 길로 보내는 요청도 같은 갱신 규칙을 쓰게 꺼냈다.
+ * `send` 는 401 을 `DaymoApiError` 로 던져야 한다.
+ */
+export async function withAccessToken<T>(send: (accessToken: string) => Promise<T>): Promise<T> {
+  const saved = parseSession(await storage.get(sessionKey));
+  if (!saved) throw new DaymoApiError("다시 로그인해 주세요.", 401, "UNAUTHENTICATED");
 
   try {
     return await send(saved.accessToken);
@@ -230,15 +241,18 @@ export async function authenticatedRequest<T>(path: string, init: RequestInit = 
     if (!(error instanceof DaymoApiError) || error.status !== 401) throw error;
   }
 
+  // 갱신이 거절됐을 때만 로그인을 푼다. 갱신 뒤 요청이 422 같은 이유로 실패한 것은
+  // 세션 문제가 아니다. 예전에는 그때도 로그인이 풀렸다.
+  let refreshed: SessionTokens;
   try {
-    const refreshed = await refreshStoredSession(saved);
-    return await send(refreshed.accessToken);
+    refreshed = await refreshStoredSession(saved);
   } catch (error) {
     if (!(error instanceof DaymoApiError) || error.status !== 0) {
       await storage.remove(sessionKey);
     }
     throw error;
   }
+  return send(refreshed.accessToken);
 }
 
 /**

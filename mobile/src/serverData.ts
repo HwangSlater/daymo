@@ -5,6 +5,7 @@ import type { ReservationBody, ServerReservation, ServerTransport, TransportBody
 import type { ExpenseBody, PaymentBody, ServerExpense, ServerPayment } from "./expenseSync";
 import type { ChecklistItemBody, RecipeBody, ServerChecklistItem, ServerRecipe } from "./cookingSync";
 import type { DiaryBody, MemoBody, ServerDiary, ServerMemo } from "./memorySync";
+import type { PhotoBody, ServerPhoto } from "./photoSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
@@ -287,6 +288,29 @@ export const updateDiary = (id: string, version: number, body: DiaryBody) =>
 
 export const deleteDiary = (id: string) =>
   authenticatedRequest<void>(`/v1/diaries/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listPhotos = (tripId: string) =>
+  authenticatedRequest<ServerPhoto[]>(`/v1/trips/${encodeURIComponent(tripId)}/photos`);
+
+/** 사진 줄만 만든다. 파일은 `photoTransfer.ts` 가 따로 보낸다. */
+export const createPhoto = (
+  tripId: string,
+  id: string,
+  body: PhotoBody & { bytes: number; checksum: string; isReceipt?: boolean },
+) =>
+  authenticatedRequest<ServerPhoto>(`/v1/trips/${encodeURIComponent(tripId)}/photos`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updatePhoto = (id: string, version: number, body: PhotoBody) =>
+  authenticatedRequest<ServerPhoto>(`/v1/photos/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deletePhoto = (id: string) =>
+  authenticatedRequest<void>(`/v1/photos/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export const updateExpenseSettings = (tripId: string, version: number, settings: ExpenseSettings) =>
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/expense-settings`, {

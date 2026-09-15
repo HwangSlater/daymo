@@ -54,6 +54,8 @@ export type Expense = {
   memo: string;
   /** 영수증 사진 자리. 없으면 안 찍었다는 뜻이다. */
   receiptUri?: string;
+  /** 서버에 올라간 영수증 사진 id. 올린 뒤에 생긴다. */
+  receiptPhotoId?: string;
 };
 
 /**
