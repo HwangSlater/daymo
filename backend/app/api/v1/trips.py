@@ -11,6 +11,7 @@ from app.api.permissions import (
     membership_in_space,
     require,
 )
+from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok, page
 from app.models import (
     Membership,
@@ -299,13 +300,20 @@ async def set_participants(
 ) -> dict:
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     require(membership, *WRITERS)
+    trip_service.check_version(trip, body.version)
 
-    await trip_service.set_participants(
-        db,
-        trip=trip,
-        membership_ids=[uuid.UUID(값) for 값 in body.membership_ids],
-        actor=membership,
-    )
+    try:
+        고른_ids = [uuid.UUID(값) for 값 in body.membership_ids]
+    except ValueError as 원인:
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR,
+            fields={"membershipIds": "이 공간의 멤버가 아닌 사람이 있어요."},
+        ) from 원인
+
+    await trip_service.set_participants(db, trip=trip, membership_ids=고른_ids, actor=membership)
+    # 참가자도 여행의 내용이다. 버전을 올려야 다른 기기가 낡은 목록으로 덮어쓰지 못한다.
+    trip.version += 1
+    await db.flush()
     return ok(await _여행_응답(db, trip))
 
 

@@ -447,11 +447,63 @@ async def test_참가자를_정할_수_있다(api, db):
     )
     응답 = await api.put(
         f"/v1/trips/{trip['id']}/participants",
-        json={"membershipIds": [str(내_membership)]},
+        json={"version": trip["version"], "membershipIds": [str(내_membership)]},
         headers=headers,
     )
 
     assert 응답.json()["data"]["participantMembershipIds"] == [str(내_membership)]
+    assert 응답.json()["data"]["version"] == trip["version"] + 1
+
+
+async def test_낡은_버전으로는_참가자를_바꿀_수_없다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    from app.models import Membership
+
+    내_membership = await db.scalar(
+        select(Membership.id).where(Membership.space_id == space_id)
+    )
+    # 다른 기기가 먼저 제목을 고쳤다.
+    await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "title": "먼저 고친 제목"}, headers=headers
+    )
+
+    응답 = await api.put(
+        f"/v1/trips/{trip['id']}/participants",
+        json={"version": trip["version"], "membershipIds": [str(내_membership)]},
+        headers=headers,
+    )
+
+    assert 응답.status_code == 409
+    assert 응답.json()["error"]["code"] == "VERSION_CONFLICT"
+
+
+async def test_버전_없이는_참가자를_바꿀_수_없다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    응답 = await api.put(
+        f"/v1/trips/{trip['id']}/participants", json={"membershipIds": []}, headers=headers
+    )
+
+    assert 응답.status_code == 422
+
+
+async def test_id_모양이_아닌_참가자는_422다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    응답 = await api.put(
+        f"/v1/trips/{trip['id']}/participants",
+        json={"version": trip["version"], "membershipIds": ["하늘"]},
+        headers=headers,
+    )
+
+    assert 응답.status_code == 422
 
 
 async def test_남의_공간_멤버를_참가자로_넣을_수_없다(api, db):
@@ -472,7 +524,7 @@ async def test_남의_공간_멤버를_참가자로_넣을_수_없다(api, db):
     )
     응답 = await api.put(
         f"/v1/trips/{trip['id']}/participants",
-        json={"membershipIds": [str(남의_membership)]},
+        json={"version": trip["version"], "membershipIds": [str(남의_membership)]},
         headers=내_headers,
     )
 
@@ -490,13 +542,15 @@ async def test_참가자에서_빼도_줄은_남는다(api, db):
     내_membership = await db.scalar(
         select(Membership.id).where(Membership.space_id == space_id)
     )
-    await api.put(
+    첫번째 = await api.put(
         f"/v1/trips/{trip['id']}/participants",
-        json={"membershipIds": [str(내_membership)]},
+        json={"version": trip["version"], "membershipIds": [str(내_membership)]},
         headers=headers,
     )
     응답 = await api.put(
-        f"/v1/trips/{trip['id']}/participants", json={"membershipIds": []}, headers=headers
+        f"/v1/trips/{trip['id']}/participants",
+        json={"version": 첫번째.json()["data"]["version"], "membershipIds": []},
+        headers=headers,
     )
 
     assert 응답.json()["data"]["participantMembershipIds"] == []

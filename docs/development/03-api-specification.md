@@ -301,7 +301,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 서버는 여행과 기간 내 `trip_days`를 한 트랜잭션으로 생성한다. 종료일은 시작일보다 빠를 수 없으며 초기 최대 기간은 60일로 제한한다.
 
-`participantMembershipIds`는 이번 여행에 가는 사람이다. 공간 멤버 전원이 매번 같이 가지는 않으므로 여행을 만들 때 고르고, 이후에는 `PUT /trips/{tripId}/participants`로 바꾼다. 생략하면 빈 목록으로 만들고 클라이언트가 공간 멤버 전원으로 해석한다.
+`participantMembershipIds`는 이번 여행에 가는 사람이다. 공간 멤버 전원이 매번 같이 가지는 않으므로 여행을 만들 때 고르고, 이후에는 `PUT /trips/{tripId}/participants`에 `{version, membershipIds}`로 바꾼다. 참가자를 바꾸면 여행 `version`이 오르고, 낡은 `version`이면 `VERSION_CONFLICT(409)`다. 참가자에는 지출 몫과 준비물 담당이 걸려 있어 조용히 덮어쓰면 정산이 틀어진다. 생략하면 빈 목록으로 만들고 클라이언트가 공간 멤버 전원으로 해석한다.
 
 `cookingEnabled`는 요리 탭 표시의 서버 원본이다. 숙소의 `hasKitchen`이 `true`이고 탭이 꺼져 있으면 켜기를, `false`이고 탭이 켜져 있으면 끄기를 제안한다. 제안은 자동 적용하지 않으며 탭을 꺼도 기존 요리·재료를 삭제하지 않는다.
 

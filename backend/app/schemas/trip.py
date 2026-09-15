@@ -45,6 +45,15 @@ class TripUpdateRequest(_Camel):
 
 
 class ParticipantsRequest(_Camel):
+    """
+    참가자 목록을 통째로 바꾼다.
+
+    `version` 이 필수다. 두 사람이 동시에 참가자를 고치면 나중에 저장한 쪽이
+    앞사람이 넣은 사람을 조용히 빼 버린다. 참가자는 지출의 몫과 준비물 담당이
+    걸려 있어서 사라지면 정산이 틀어진다.
+    """
+
+    version: int
     membership_ids: list[str] = Field(default_factory=list, max_length=10)
 
 
