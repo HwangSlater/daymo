@@ -61,6 +61,9 @@ services:
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       MAIL_FROM: ${MAIL_FROM:-Daymo <no-reply@daymo.xyz>}
       UPLOAD_ROOT: /srv/daymo/uploads
+      # 넣으면 사진 파일을 nginx 가 보낸다(X-Accel-Redirect). 비어 있으면 API 가 직접 보낸다.
+      # 켜기 전에 호스트 권한부터 맞춘다(docs/development/06-vps-deployment.md 6장).
+      PHOTO_ACCEL_PREFIX: ${PHOTO_ACCEL_PREFIX:-}
       # 소셜 로그인. 비어 있는 제공자는 꺼진다. APPLE_PRIVATE_KEY 는 줄바꿈을 \n 으로 적은 한 줄이다.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -94,6 +97,8 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
+      # X-Accel-Redirect 로 사진을 보낼 때만 읽는다. 쓰기는 API 만 한다.
+      - /srv/daymo/uploads:/srv/daymo/uploads:ro
     depends_on:
       api:
         condition: service_healthy

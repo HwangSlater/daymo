@@ -1,7 +1,10 @@
 import hashlib
 import io
+import stat
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from PIL import Image
@@ -9,6 +12,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.models import Membership, MembershipRole, Photo, PhotoStatus, Trip
+from app.services import photo_files
 from app.services.photos import purge_photos
 from app.services.trips import purge_deleted_trips
 from tests.test_api_places import 멤버로_넣는다, 여행_하나
@@ -185,6 +189,52 @@ async def test_남의_공간_사진은_내용도_404다(api, db):
     응답 = await api.get(f"/v1/photos/{올림.json()['data']['id']}/content?variant=original", headers=남)
 
     assert 응답.status_code == 404
+
+
+async def test_accel_접두가_있으면_본문_없이_nginx_내부_주소와_형식만_답한다(api, db, monkeypatch):
+    headers, _, trip = await 여행_하나(api)
+    _, 올림 = await 사진을_올린다(api, headers, trip["id"], png_with_alpha())
+    photo_id = 올림.json()["data"]["id"]
+    남 = await 로그인한_사람(api, "stranger@example.com", "낯선이")
+    monkeypatch.setattr(get_settings(), "photo_accel_prefix", "/_protected_uploads/")
+
+    표시본 = await api.get(f"/v1/photos/{photo_id}/content?variant=display", headers=headers)
+    원본 = await api.get(f"/v1/photos/{photo_id}/content?variant=original", headers=headers)
+    남이_봄 = await api.get(f"/v1/photos/{photo_id}/content?variant=original", headers=남)
+
+    내부 = f"/_protected_uploads/trips/{trip['id']}/{photo_id}"
+    assert 표시본.status_code == 200 and 표시본.content == b""
+    assert 표시본.headers["x-accel-redirect"] == f"{내부}/display.jpg"
+    assert 표시본.headers["content-type"] == "image/jpeg"
+    assert 표시본.headers["cache-control"] == "private, max-age=31536000, immutable"
+    assert 표시본.headers["x-content-type-options"] == "nosniff"
+    assert 원본.headers["x-accel-redirect"] == f"{내부}/original.png"
+    assert 원본.headers["content-type"] == "image/png" and 원본.content == b""
+    assert 남이_봄.status_code == 404 and "x-accel-redirect" not in 남이_봄.headers
+
+
+def test_accel_주소는_조각마다_인코딩하고_업로드_폴더_밖은_거부한다(사진_폴더):
+    assert photo_files.accel_uri("/_protected_uploads", "trips/a b/%3F.jpg") == "/_protected_uploads/trips/a%20b/%253F.jpg"
+    assert photo_files.accel_uri("/_protected_uploads/", "trips/./x/../y.jpg") == "/_protected_uploads/trips/y.jpg"
+    with pytest.raises(ValueError):
+        photo_files.accel_uri("/_protected_uploads/", "../secret")
+
+
+def test_사진_폴더는_그룹만_읽고_그_밖에는_못_읽는다(사진_폴더):
+    """nginx(그룹 101)가 읽을 수 있어야 한다. setgid 는 호스트 폴더에서 물려받으므로 여기서 보지 않는다."""
+    받은 = 사진_폴더 / "받은.jpg"
+    받은.write_bytes(jpeg(400, 300))
+    trip_id, photo_id = uuid.uuid4(), uuid.uuid4()
+
+    photo_files.store(받은, trip_id, photo_id, ZoneInfo("Asia/Seoul"))
+
+    폴더들 = [사진_폴더 / "trips", photo_files.trip_dir(trip_id), photo_files.photo_dir(trip_id, photo_id)]
+    파일들 = list(photo_files.photo_dir(trip_id, photo_id).iterdir())
+    assert all(폴더.is_dir() for 폴더 in 폴더들) and len(파일들) == 3
+    if sys.platform == "win32":
+        return  # Windows 의 chmod 는 읽기 전용 표시만 바꾼다.
+    assert [oct(stat.S_IMODE(폴더.stat().st_mode) & 0o777) for 폴더 in 폴더들] == [oct(0o750)] * 3
+    assert {oct(stat.S_IMODE(파일.stat().st_mode)) for 파일 in 파일들} == {oct(0o640)}
 
 
 async def test_정리_작업은_지운_지_7일_지난_사진과_오래_멈춘_올리기를_파일째_지운다(api, db, 사진_폴더):

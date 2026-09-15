@@ -126,7 +126,7 @@ max_connections = 30
 
 컨테이너 로그(접속 IP·요청 경로)는 compose의 `logging: journald`로 journald에 모이고, `/etc/systemd/journald.conf.d/daymo.conf`(저장소의 `infra/production/journald-daymo.conf`, 2026-09-15 설치)가 80일 보관·7일 단위 파일로 어떤 기록도 87일을 넘기지 않게 지운다. 개인정보 처리방침의 "3개월을 넘겨 보관하지 않는다"가 이 설정에 기대므로 바꿀 때 함께 본다. 보는 법: `journalctl CONTAINER_TAG=daymo-<컨테이너 이름>` 또는 `docker compose logs`.
 
-API 컨테이너는 uid 10001(`daymo`)로 돈다. 호스트의 `/srv/daymo/uploads`는 `10001:10001`, `0750`이어야 사진을 쓸 수 있다(2026-09-16에 맞춤). compose가 `UPLOAD_ROOT=/srv/daymo/uploads`를 넘기고, 정리 작업(`daymo-cleanup`)도 같은 이미지와 볼륨으로 돌아 지운 지 7일 지난 사진과 하루 넘게 멈춘 올리기를 파일째 지운다. 파일 전달은 아직 API가 직접 하며(`FileResponse`), Nginx `X-Accel-Redirect`는 전송량을 보고 붙인다.
+API 컨테이너는 uid 10001(`daymo`)로 돈다. 호스트의 `/srv/daymo/uploads`는 `10001:10001`, `0750`이어야 사진을 쓸 수 있다(2026-09-16에 맞춤). compose가 `UPLOAD_ROOT=/srv/daymo/uploads`를 넘기고, 정리 작업(`daymo-cleanup`)도 같은 이미지와 볼륨으로 돌아 지운 지 7일 지난 사진과 하루 넘게 멈춘 올리기를 파일째 지운다. 파일 전달은 기본값으로 API가 직접 하며(`FileResponse`), `PHOTO_ACCEL_PREFIX`를 넣으면 Nginx가 `X-Accel-Redirect`로 보낸다. 켜는 법과 권한은 6장 "Nginx가 사진 파일 보내기"에 적었다.
 
 사진 경로를 분리해 두면 나중에 같은 경로에 NAS를 마운트해 API와 사진 URL을 유지할 수 있다. 10GB 상한에 가까워지거나 전체 디스크가 70%에 도달하면 미니PC·NAS 이전을 준비한다.
 
@@ -160,6 +160,71 @@ S3 호환 오브젝트 스토리지도 검토했으나 쓰지 않기로 했다. 
 초기 quota는 이미지 1개 20MB, 공간별 1GB, 전체 사진 10GB다. 동영상은 지원하지 않는다. 서버는 DB 집계만 믿지 않고 정기적으로 실제 파일 사용량과 photo metadata를 대조한다.
 
 공간 quota 80%부터 사용자에게 경고하고 100%에서는 신규 업로드만 차단한다. 서버 전체 상한에 도달해도 기존 사진을 압축·삭제하지 않으며 신규 업로드를 안전하게 제한한 뒤 volume 증설 또는 미니PC/NAS 이관을 수행한다.
+
+### Nginx가 사진 파일 보내기 (`X-Accel-Redirect`)
+
+`GET /v1/photos/{id}/content`는 API가 공간 멤버인지 본 뒤 파일을 준다. `PHOTO_ACCEL_PREFIX`가 비어 있으면(기본값) API 워커가 파일을 끝까지 보낸다. `/_protected_uploads/`를 넣으면 API는 본문 없이 `X-Accel-Redirect: /_protected_uploads/trips/{tripId}/{photoId}/{variant 파일}`, `Content-Type`, `Cache-Control`만 답하고 Nginx가 `internal` location(`infra/production/nginx.conf`)에서 파일을 보낸다. 워커가 사진 전송에 묶이지 않고 Range·ETag·304도 Nginx가 처리한다.
+
+- Nginx는 이 응답의 `Content-Type`·`Cache-Control`을 그대로 옮긴다. `X-Content-Type-Options`·HSTS는 server 블록의 `add_header`가 붙인다. 그래서 내부 location에는 `add_header`를 쓰지 않는다(쓰면 server의 `add_header`가 모두 빠진다).
+- 내부 주소는 밖에서 바로 부르면 404다. API가 경로 조각마다 퍼센트 인코딩하고 `upload_root` 밖 경로는 거부한다.
+- Nginx 컨테이너는 `/srv/daymo/uploads`를 읽기 전용으로만 받는다.
+
+**권한.** Nginx 작업 프로세스는 `nginx` 사용자(uid·gid 101)로 돌고, 컨테이너에서 준 추가 그룹은 작업 프로세스가 뜰 때 사라진다. 그래서 파일 그룹을 101로 둔다.
+
+| 대상 | 소유 | 권한 |
+| --- | --- | --- |
+| `/srv/daymo/uploads`와 그 아래 폴더 | `10001:101` | `2750` (setgid) |
+| 사진 파일 | `10001:101` | `0640` |
+
+setgid 폴더 안에 새로 만든 폴더와 파일은 커널이 그룹 101과 setgid를 물려준다. API는 폴더를 `0750`, 파일을 `0640`으로 만들고 폴더에는 chmod 하지 않는다. API(uid 10001)는 그룹 101의 구성원이 아니라서 폴더에 chmod 하면 커널이 setgid를 지우고, 그 아래에 생기는 폴더가 그룹 101을 못 물려받는다(2026-09-15 컨테이너에서 확인). 다른 사용자는 읽지 못하고, Nginx는 읽기만 한다.
+
+**켜기.** 순서를 지킨다. 변수부터 넣으면 Nginx 설정이 없는 동안 빈 사진이 나간다.
+
+1. 이 변경(내부 location, nginx 볼륨)이 배포되어 있는지 본다. 변수가 비어 있으면 동작은 그대로다.
+
+   ```bash
+   docker compose --env-file /etc/daymo/secrets/runtime.env -f /srv/daymo/current/backend/infra/production/compose.yml \
+     exec -T nginx grep -c _protected_uploads /etc/nginx/conf.d/default.conf
+   ```
+
+2. 호스트 권한을 한 번 맞춘다(root). 소유자는 10001 그대로다.
+
+   ```bash
+   sudo chgrp -R 101 /srv/daymo/uploads
+   sudo find /srv/daymo/uploads -type d -exec chmod 2750 {} +
+   sudo find /srv/daymo/uploads -type f -exec chmod 0640 {} +
+   # 도중에 올라온 사진이 있으면 다시 돌린다. 아무것도 나오지 않아야 한다.
+   sudo find /srv/daymo/uploads ! -group 101
+   ```
+
+3. Nginx 사용자로 읽히는지 본다(`ok`가 나와야 한다).
+
+   ```bash
+   docker compose --env-file /etc/daymo/secrets/runtime.env -f /srv/daymo/current/backend/infra/production/compose.yml \
+     exec -T -u nginx nginx sh -c 'f=$(find /srv/daymo/uploads/trips -type f | head -n 1); [ -z "$f" ] || head -c 1 "$f" >/dev/null && echo ok'
+   ```
+
+4. `/etc/daymo/secrets/runtime.env`에 `PHOTO_ACCEL_PREFIX=/_protected_uploads/`를 넣고 api와 nginx를 다시 만든다.
+
+   ```bash
+   docker compose --env-file /etc/daymo/secrets/runtime.env -f /srv/daymo/current/backend/infra/production/compose.yml \
+     up -d --no-build --force-recreate api nginx
+   ```
+
+5. 앱에서 로그인한 access token과 내가 볼 수 있는 사진 id로 확인한다. 이 경로는 GET만 받아서 `curl -I`(HEAD)는 405이므로 GET으로 머리만 본다.
+
+   ```bash
+   curl -sS -o /dev/null -D - -H "Authorization: Bearer $TOKEN" \
+     "https://api.daymo.xyz/v1/photos/$PHOTO_ID/content?variant=thumbnail"
+   # 200, content-type: image/jpeg, content-length > 0, cache-control: private, ..., x-accel-redirect 는 없어야 한다
+   docker compose --env-file /etc/daymo/secrets/runtime.env -f /srv/daymo/current/backend/infra/production/compose.yml \
+     logs --since 2m nginx | grep _protected_uploads   # Nginx 가 보냈다는 기록
+   curl -sS -o /dev/null -w '%{http_code}\n' https://api.daymo.xyz/_protected_uploads/   # 404
+   ```
+
+   `content-length: 0`이면 Nginx가 내부 location을 모르는 것이고, 403이면 2번 권한이 맞지 않은 것이다. 바로 되돌린다.
+
+**되돌리기.** `runtime.env`에서 `PHOTO_ACCEL_PREFIX` 줄을 지우거나 비우고 4번의 `up -d --no-build --force-recreate api`를 다시 돌린다. API가 다시 파일을 직접 보낸다. 호스트 권한(`10001:101`, `2750`/`0640`)은 API가 그대로 읽고 쓰므로 되돌리지 않아도 된다.
 
 ## 7. 배포 절차
 

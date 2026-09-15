@@ -667,7 +667,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 - 업로드 session 표를 따로 두지 않고 사진 줄이 그 역할을 한다. `POST /trips/{tripId}/photos`에 `{id, bytes, checksum(SHA-256), caption, date, isReceipt}`를 보내면 `status=uploading` 줄이 생기고 한 장·공간·서버 한도를 먼저 본다. 이어서 `PUT /photos/{photoId}/content`에 파일 byte를 그대로(multipart 아님) 보내면 서버가 받으면서 크기를 세고, SHA-256을 맞춘 뒤 표시본(긴 변 1440px)·썸네일(480px) JPEG을 만들고 `ready`로 바꾼다. `complete` 단계는 없다. 끊기면 `PUT`만 다시 보낸다.
 - 받는 형식은 JPEG·PNG·WebP다. HEIC는 앱이 JPEG로 바꿔 보낸다. 원본은 받은 byte 그대로 두고, 표시본·썸네일은 방향을 바로잡고 EXIF를 모두 뺀다. `takenAt`은 EXIF 촬영 시각이며 시간대가 없으면 공간 시간대로 읽는다. `date`는 앱에서 고른 날로 `trip_days`를 가리키지 않는다.
-- `GET /photos/{photoId}/content?variant=`는 공간 멤버에게만 파일을 주고 `Cache-Control: private, max-age=31536000, immutable`이다. 목록(`GET /trips/{tripId}/photos`)은 다 올라온 여행 사진만 주고 영수증은 뺀다.
+- `GET /photos/{photoId}/content?variant=`는 공간 멤버에게만 파일을 주고 `Cache-Control: private, max-age=31536000, immutable`이다. 운영에서 `PHOTO_ACCEL_PREFIX`를 넣으면 같은 권한 검사 뒤 본문 없이 `X-Accel-Redirect`로 Nginx에 넘기고 Nginx가 파일(Range 포함)을 보낸다. 앱이 받는 응답은 같다(06-vps-deployment.md 6장). 목록(`GET /trips/{tripId}/photos`)은 다 올라온 여행 사진만 주고 영수증은 뺀다.
 - 설명·날짜 수정(`PATCH`, `version` 필요)과 삭제는 올린 사람과 owner만 한다. 지우면 `deletedAt`·`deletedBy`를 채우고 7일 뒤 정리 작업이 파일과 줄을 지운다. 휴지통 조회·복원, 중복 후보 안내, 사용량 API, 삭제 ledger는 아직 없다.
 - 지출의 `receiptPhotoId`로 같은 여행의 사진을 영수증으로 붙인다.
 
