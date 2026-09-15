@@ -207,6 +207,8 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 - 필수 문서의 중요한 변경은 재동의 또는 재확인을 요구하고 단순 문구 수정은 변경 공지로 처리한다.
 - 시스템 사진/카메라 권한은 이 API 동의와 별개이며 실제 기능을 누른 시점에 OS prompt를 요청한다.
 
+가입(`POST /auth/signup`)과 소셜 로그인으로 계정이 새로 생기는 `POST /auth/oauth/exchange`는 2026-09-15부터 `agreedTermsVersion`(게시한 약관의 시행일, 지금 `2026-09-15`)과 `ageConfirmed: true`를 받는다. 다르거나 없으면 422이고, 받으면 `users.terms_version`·`terms_agreed_at`에 남긴다. 이미 있는 계정으로 로그인할 때는 보지 않는다.
+
 `PATCH /me`는 2026-09-16부터 `{displayName}`(공백을 한 칸으로 줄여 1~20자)만 받고 `GET /me`와 같은 응답을 준다. 프로필 사진은 아직 없다. 공간별 별명(`nickname`)은 바뀌지 않는다.
 
 `GET /me` 핵심 응답:

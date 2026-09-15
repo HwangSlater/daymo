@@ -40,6 +40,12 @@ class User(Base, TimestampMixin):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     display_name: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    # 가입할 때 동의한 이용약관·개인정보 처리방침의 판(시행일)과 그 시각. 만 14세 이상
+    # 확인도 같은 화면에서 함께 받는다(docs/development/08-privacy-and-release-compliance.md 2장).
+    # 이 기능 전에 만든 계정은 비어 있다.
+    terms_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    terms_agreed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     avatar_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Asia/Seoul")
 

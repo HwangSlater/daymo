@@ -54,8 +54,36 @@ async def _find_by_email(session: AsyncSession, email: str) -> User | None:
 # ---------------------------------------------------------------------------
 
 
+# 지금 게시한 이용약관·개인정보 처리방침의 판. site/src/terms.html·privacy.html 의 시행일과 같다.
+# 약관을 바꾸면 여기와 앱(mobile/src/auth.ts 의 TERMS_VERSION)을 함께 올린다.
+TERMS_VERSION = "2026-09-15"
+
+
+def check_consent(agreed_terms_version: str | None, age_confirmed: bool) -> None:
+    """가입 전에 지금 판의 약관·처리방침에 동의하고 만 14세 이상임을 확인했는지 본다."""
+    if agreed_terms_version != TERMS_VERSION:
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR,
+            message="이용약관과 개인정보 처리방침에 동의해 주세요. 앱을 업데이트해야 할 수도 있어요.",
+            fields={"agreedTermsVersion": "지금 약관에 동의해야 가입할 수 있어요."},
+        )
+    if not age_confirmed:
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR,
+            message="만 14세 이상만 가입할 수 있어요.",
+            fields={"ageConfirmed": "만 14세 이상만 가입할 수 있어요."},
+        )
+
+
 async def sign_up(
-    session: AsyncSession, *, email: str, password: str, display_name: str, ip: str = ""
+    session: AsyncSession,
+    *,
+    email: str,
+    password: str,
+    display_name: str,
+    agreed_terms_version: str | None = None,
+    age_confirmed: bool = False,
+    ip: str = "",
 ) -> None:
     """
     이메일로 가입한다.
@@ -69,6 +97,7 @@ async def sign_up(
     자체가 "이 이메일은 없었다" 는 뜻이 된다.
     """
     정규화된_이메일 = normalize_email(email)
+    check_consent(agreed_terms_version, age_confirmed)
     # 한 IP 에서 계정을 찍어 내는 것을 막는다. 이메일 기준으로는 세지 않는다.
     # 이미 있는 이메일로 계속 시도하는 것이 곧 계정 확인이 되기 때문이다.
     await throttle.check(ThrottleScope.SIGNUP, (throttle.IP, throttle.key_for("ip", ip)))
@@ -105,6 +134,8 @@ async def sign_up(
         email=정규화된_이메일,
         password_hash=passwords.hash_password(검사된_비밀번호),
         display_name=이름,
+        terms_version=TERMS_VERSION,
+        terms_agreed_at=datetime.now(UTC),
     )
     session.add(user)
     await session.flush()

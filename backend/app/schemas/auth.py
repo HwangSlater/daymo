@@ -39,6 +39,9 @@ class SignUpRequest(_Camel):
     # 한 곳(app.core.passwords)에서만 정하기 위해서다.
     password: str
     display_name: str = Field(min_length=1, max_length=20)
+    # 가입 화면에서 동의한 약관 판(시행일)과 만 14세 이상 확인. 지금 판과 다르면 422.
+    agreed_terms_version: str | None = Field(default=None, max_length=20)
+    age_confirmed: bool = False
 
 
 class EmailRequest(_Camel):
@@ -66,6 +69,9 @@ class OAuthExchangeRequest(_Camel):
     login_code: str = Field(min_length=1, max_length=200)
     code_verifier: str = Field(min_length=43, max_length=128)
     device: DeviceInfo
+    # 이 로그인으로 계정이 새로 생길 때만 본다. 앱은 소셜 버튼 아래에 동의 문구를 보여 주고 늘 보낸다.
+    agreed_terms_version: str | None = Field(default=None, max_length=20)
+    age_confirmed: bool = False
 
 
 class OAuthReauthRequest(_Camel):

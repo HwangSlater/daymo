@@ -88,7 +88,8 @@ async def 로그인_코드(api, challenge, **서버) -> dict[str, str]:
 
 async def 교환(api, code, verifier):
     return await api.post(
-        "/v1/auth/oauth/exchange", json={"loginCode": code, "codeVerifier": verifier, "device": 기기}
+        "/v1/auth/oauth/exchange",
+        json={"loginCode": code, "codeVerifier": verifier, "device": 기기, "agreedTermsVersion": "2026-09-15", "ageConfirmed": True},
     )
 
 
@@ -481,3 +482,24 @@ async def test_verifier_가_틀린_다시_확인은_코드를_버린다(api, db)
 
     assert 틀림.status_code == 403
     assert 다시.status_code == 401
+
+
+async def test_소셜로_처음_가입할_때도_약관_동의가_있어야_한다(api, db):
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge)
+
+    응답 = await api.post(
+        "/v1/auth/oauth/exchange", json={"loginCode": 값["loginCode"], "codeVerifier": verifier, "device": 기기}
+    )
+
+    assert 응답.status_code == 422 and "agreedTermsVersion" in 응답.text
+    assert await db.scalar(select(func.count()).select_from(User)) == 0
+
+
+async def test_소셜로_가입하면_동의한_약관_판이_남는다(api, db):
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge)
+    await 교환(api, 값["loginCode"], verifier)
+
+    user = await db.scalar(select(User).where(User.email == "sky@example.com"))
+    assert user.terms_version == "2026-09-15" and user.terms_agreed_at is not None

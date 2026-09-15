@@ -114,7 +114,12 @@ async def exchange(body: OAuthExchangeRequest, db: OAuthDb) -> Response | dict:
     `details.linkToken` 을 준다. 앱은 비밀번호를 받아 `/auth/oauth/link` 로 보낸다.
     """
     결과 = await flow.exchange(
-        db, login_code=body.login_code, code_verifier=body.code_verifier, device=_device(body)
+        db,
+        login_code=body.login_code,
+        code_verifier=body.code_verifier,
+        device=_device(body),
+        agreed_terms_version=body.agreed_terms_version,
+        age_confirmed=body.age_confirmed,
     )
     if isinstance(결과, AppError):
         # raise 하지 않는다. 쓴 loginCode 와 연결 토큰이 commit 되어야 한다.

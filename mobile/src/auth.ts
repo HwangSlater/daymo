@@ -194,10 +194,21 @@ function parseSession(raw: string | null): SessionTokens | null {
   }
 }
 
+/**
+ * 지금 게시한 이용약관·개인정보 처리방침의 판(시행일). 서버(backend/app/services/accounts.py 의
+ * TERMS_VERSION)와 같아야 가입된다. 약관을 바꾸면 사이트·서버·앱을 함께 올린다.
+ */
+export const TERMS_VERSION = "2026-09-15";
+export const TERMS_URL = "https://www.daymo.xyz/terms";
+export const PRIVACY_URL = "https://www.daymo.xyz/privacy";
+
+/** 가입 화면에서 약관·처리방침에 동의하고 만 14세 이상임을 확인했다는 표시. */
+const consent = { agreedTermsVersion: TERMS_VERSION, ageConfirmed: true };
+
 export async function signUp(email: string, password: string, displayName: string) {
   await request<{ status: "accepted" }>("/v1/auth/signup", {
     method: "POST",
-    body: JSON.stringify({ email, password, displayName }),
+    body: JSON.stringify({ email, password, displayName, ...consent }),
   });
 }
 
@@ -268,7 +279,8 @@ export async function socialLogin(provider: SocialProvider): Promise<SocialLogin
   if (back.kind === "cancelled") return back;
 
   try {
-    const signedIn = await signIn("/v1/auth/oauth/exchange", { loginCode: back.loginCode, codeVerifier: back.verifier });
+    // 처음이면 이 로그인으로 계정이 생긴다. 소셜 버튼 아래의 동의 문구를 보고 누른 것이다.
+    const signedIn = await signIn("/v1/auth/oauth/exchange", { loginCode: back.loginCode, codeVerifier: back.verifier, ...consent });
     return { kind: "signedIn", ...signedIn };
   } catch (error) {
     if (error instanceof DaymoApiError && error.code === "ACCOUNT_LINK_REQUIRED" && error.details?.linkToken) {

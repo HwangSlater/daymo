@@ -40,6 +40,7 @@ from app.models import (
     UserStatus,
 )
 from app.services import reauth, throttle
+from app.services import accounts
 from app.services.accounts import normalize_email
 from app.services.auth_sessions import Session, start_session
 from app.services.oauth.providers import Identity, Provider, ProviderError, get_provider
@@ -282,7 +283,13 @@ async def _take_pending(
 
 
 async def exchange(
-    session: AsyncSession, *, login_code: str, code_verifier: str, device: DeviceArgs
+    session: AsyncSession,
+    *,
+    login_code: str,
+    code_verifier: str,
+    device: DeviceArgs,
+    agreed_terms_version: str | None = None,
+    age_confirmed: bool = False,
 ) -> Session | AppError:
     """
     loginCode 를 세션으로 바꾼다.
@@ -334,7 +341,14 @@ async def exchange(
             details={"linkToken": link_token, "provider": 대기.provider.value},
         )
 
+    # 새 계정이 생기는 자리다. 이메일 가입과 같은 동의를 받았어야 한다.
+    try:
+        accounts.check_consent(agreed_terms_version, age_confirmed)
+    except AppError as 동의_없음:
+        return 동의_없음
     user = User(
+        terms_version=accounts.TERMS_VERSION,
+        terms_agreed_at=지금,
         email=대기.provider_email,
         # 제공자가 확인한 이메일만 확인된 것으로 친다.
         email_verified_at=지금 if 대기.email_verified else None,

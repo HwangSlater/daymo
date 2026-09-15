@@ -63,7 +63,7 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, DaymoApiError, isReconfirmCancelled, linkSocialAccount, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser } from "./auth";
+import { cancelAccountDeletion, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser } from "./auth";
 import { type SocialProvider, socialProviderName } from "./socialLogin";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
@@ -1029,7 +1029,8 @@ function AuthScreen({
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
-  const [marketingAgreed, setMarketingAgreed] = useState(false);
+  // 만 14세 미만은 가입할 수 없다(이용약관 제4조). 생년월일은 받지 않고 확인만 받는다.
+  const [ageAgreed, setAgeAgreed] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   // 서버에 키가 들어간 제공자만 온다. 비어 있으면 소셜 로그인 자리를 통째로 숨긴다.
   const [providers, setProviders] = useState<SocialProvider[]>([]);
@@ -1047,7 +1048,7 @@ function AuthScreen({
   const authFormValid =
     email.trim().includes("@") &&
     password.length >= 8 &&
-    (mode === "login" || (Boolean(name.trim()) && password === confirm && termsAgreed && privacyAgreed));
+    (mode === "login" || (Boolean(name.trim()) && password === confirm && termsAgreed && privacyAgreed && ageAgreed));
   const submit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail.includes("@")) {
@@ -1066,7 +1067,7 @@ function AuthScreen({
       setError("비밀번호가 서로 달라요.");
       return;
     }
-    if (mode === "signup" && (!termsAgreed || !privacyAgreed)) {
+    if (mode === "signup" && (!termsAgreed || !privacyAgreed || !ageAgreed)) {
       setError("필수 약관에 동의해 주세요.");
       return;
     }
@@ -1177,37 +1178,49 @@ function AuthScreen({
             <View style={[s.authConsentList, { borderColor: theme.border }]}>
               <Pressable
                 onPress={() => {
-                  const next = !(termsAgreed && privacyAgreed && marketingAgreed);
+                  const next = !(termsAgreed && privacyAgreed && ageAgreed);
                   setTermsAgreed(next);
                   setPrivacyAgreed(next);
-                  setMarketingAgreed(next);
+                  setAgeAgreed(next);
                 }}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: termsAgreed && privacyAgreed && marketingAgreed }}
+                accessibilityState={{ checked: termsAgreed && privacyAgreed && ageAgreed }}
                 style={[s.authConsentRow, s.authConsentAll, { borderBottomColor: theme.border }]}
               >
-                <View style={[s.authConsentCheck, { borderColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && marketingAgreed ? theme.primary : theme.surface }]}>
-                  {termsAgreed && privacyAgreed && marketingAgreed && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+                <View style={[s.authConsentCheck, { borderColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.surface }]}>
+                  {termsAgreed && privacyAgreed && ageAgreed && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
                 </View>
                 <Text style={[s.authConsentAllText, { color: theme.text }]}>모두 동의</Text>
               </Pressable>
+              {/* 광고·마케팅 알림은 보내지 않아서 선택 동의 칸을 두지 않는다(개인정보 처리방침 1항). */}
               {[
-                { label: "이용약관 동의 · 필수", checked: termsAgreed, toggle: setTermsAgreed },
-                { label: "개인정보 수집·이용 동의 · 필수", checked: privacyAgreed, toggle: setPrivacyAgreed },
-                { label: "여행 소식과 혜택 알림 · 선택", checked: marketingAgreed, toggle: setMarketingAgreed },
+                { label: "만 14세 이상이에요 · 필수", checked: ageAgreed, toggle: setAgeAgreed },
+                { label: "이용약관 동의 · 필수", checked: termsAgreed, toggle: setTermsAgreed, url: TERMS_URL },
+                { label: "개인정보 수집·이용 동의 · 필수", checked: privacyAgreed, toggle: setPrivacyAgreed, url: PRIVACY_URL },
               ].map((consent) => (
-                <Pressable
-                  key={consent.label}
-                  onPress={() => consent.toggle(!consent.checked)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: consent.checked }}
-                  style={s.authConsentRow}
-                >
-                  <View style={[s.authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
-                    {consent.checked && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
-                  </View>
-                  <Text style={[s.authConsentText, { color: theme.text }]}>{consent.label}</Text>
-                </Pressable>
+                <View key={consent.label} style={[s.authConsentRow, { justifyContent: "space-between" }]}>
+                  <Pressable
+                    onPress={() => consent.toggle(!consent.checked)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: consent.checked }}
+                    style={[s.authConsentRow, { flex: 1 }]}
+                  >
+                    <View style={[s.authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
+                      {consent.checked && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+                    </View>
+                    <Text style={[s.authConsentText, { color: theme.text }]}>{consent.label}</Text>
+                  </Pressable>
+                  {consent.url && (
+                    <Pressable
+                      onPress={() => void WebBrowser.openBrowserAsync(consent.url as string)}
+                      accessibilityRole="link"
+                      accessibilityLabel={`${consent.label.split(" · ")[0]} 보기`}
+                      hitSlop={8}
+                    >
+                      <Text style={[s.authConsentText, { color: theme.muted, textDecorationLine: "underline" }]}>보기</Text>
+                    </Pressable>
+                  )}
+                </View>
               ))}
             </View>
           )}
@@ -1251,6 +1264,11 @@ function AuthScreen({
             <Text style={[s.authDividerText, { color: theme.muted }]}>또는 소셜 계정으로</Text>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
           </View>
+          )}
+          {providers.length > 0 && (
+          <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, marginBottom: 8 }]}>
+            소셜 계정으로 처음 시작하면 이용약관과 개인정보 처리방침에 동의하고 만 14세 이상임을 확인한 것으로 봐요.
+          </Text>
           )}
           {providers.length > 0 && (
           <View style={s.oauthGrid}>
@@ -1298,7 +1316,7 @@ function AuthScreen({
           </Pressable>
         </View>
         )}
-        <Text style={[s.authPrivacy, { color: theme.muted }]}>Daymo 이용약관 · 개인정보 처리방침</Text>
+        <LegalLinks theme={theme} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -1580,6 +1598,20 @@ function AccountDeletionPanel({
         </Pressable>
       )}
     </>
+  );
+}
+
+/** 이용약관과 개인정보 처리방침을 브라우저로 연다. 로그인 화면과 내 프로필 아래에 둔다. */
+function LegalLinks({ theme }: { theme: AppTheme }) {
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 16 }}>
+      <Pressable onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} accessibilityRole="link" hitSlop={8}>
+        <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, textDecorationLine: "underline" }]}>이용약관</Text>
+      </Pressable>
+      <Pressable onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} accessibilityRole="link" hitSlop={8}>
+        <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, textDecorationLine: "underline" }]}>개인정보 처리방침</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -4456,6 +4488,7 @@ function Together({
             >
               <Text style={s.accountDeleteText}>계정 삭제</Text>
             </Pressable>
+            <LegalLinks theme={theme} />
           </>
         )}
         {panel === "deleteAccount" && (

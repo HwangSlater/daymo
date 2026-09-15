@@ -4,6 +4,9 @@ from sqlalchemy import select
 from app.models import User
 from app.services.mailer import get_outbox
 
+# 가입 화면의 약관 동의와 만 14세 이상 확인.
+동의 = {"agreedTermsVersion": "2026-09-15", "ageConfirmed": True}
+
 pytestmark = pytest.mark.anyio
 
 이메일 = "sky@example.com"
@@ -18,7 +21,7 @@ def 링크_token() -> str:
 
 async def 가입(api):
     응답 = await api.post(
-        "/v1/auth/signup", json={"email": 이메일, "password": 비밀번호, "displayName": "하늘"}
+        "/v1/auth/signup", json={"email": 이메일, "password": 비밀번호, "displayName": "하늘", **동의}
     )
     assert 응답.status_code == 202
 

@@ -64,6 +64,8 @@ async def sign_up(body: SignUpRequest, db: DbSession, ip: ClientIp) -> dict:
         email=body.email,
         password=body.password,
         display_name=body.display_name,
+        agreed_terms_version=body.agreed_terms_version,
+        age_confirmed=body.age_confirmed,
         ip=ip,
     )
     return ok(_같은_안내)

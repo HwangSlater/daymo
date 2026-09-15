@@ -6,6 +6,9 @@ from sqlalchemy import func, select
 from app.models import MembershipRole, Trip, TripDay, TripParticipant
 from app.services.trips import MAX_TRIP_DAYS, purge_deleted_trips
 
+# 가입 화면의 약관 동의와 만 14세 이상 확인.
+동의 = {"agreedTermsVersion": "2026-09-15", "ageConfirmed": True}
+
 pytestmark = pytest.mark.anyio
 
 비밀번호 = "산책하는 오후 7시"
@@ -17,7 +20,7 @@ async def 로그인한_사람(api, email: str, name: str = "하늘") -> dict:
 
     await api.post(
         "/v1/auth/signup",
-        json={"email": email, "password": 비밀번호, "displayName": name},
+        json={"email": email, "password": 비밀번호, "displayName": name, **동의},
     )
     토큰 = get_outbox().last.link.split("token=", 1)[1]
     await api.post("/v1/auth/email-verifications/confirm", json={"token": 토큰})

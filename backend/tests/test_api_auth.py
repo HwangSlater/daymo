@@ -4,6 +4,9 @@ from sqlalchemy import func, select
 from app.models import Device, RefreshToken, User
 from app.services.mailer import get_outbox
 
+# 가입 화면의 약관 동의와 만 14세 이상 확인.
+동의 = {"agreedTermsVersion": "2026-09-15", "ageConfirmed": True}
+
 pytestmark = pytest.mark.anyio
 
 # example.com 은 RFC 2606 이 문서용으로 예약한 도메인이라 실제로 닿지 않는다.
@@ -21,7 +24,7 @@ def 링크_토큰() -> str:
 
 async def 가입(api, email=이메일, password=비밀번호, name="하늘"):
     return await api.post(
-        "/v1/auth/signup", json={"email": email, "password": password, "displayName": name}
+        "/v1/auth/signup", json={"email": email, "password": password, "displayName": name, **동의}
     )
 
 
@@ -587,3 +590,18 @@ async def test_같은_IP의_다른_사람은_잇달아_가입할_수_있다(api,
     assert 첫째.status_code == 202
     assert 둘째.status_code == 202
     assert get_outbox().last.to == "second@example.com"
+
+
+async def test_약관_동의와_만_14세_확인이_없으면_가입하지_않고_있으면_기록한다(api, db):
+    기본 = {"email": "consent@example.com", "password": 비밀번호, "displayName": "하늘"}
+
+    동의_없음 = await api.post("/v1/auth/signup", json=기본)
+    옛_약관 = await api.post("/v1/auth/signup", json={**기본, "agreedTermsVersion": "2026-01-01", "ageConfirmed": True})
+    나이_확인_없음 = await api.post("/v1/auth/signup", json={**기본, "agreedTermsVersion": "2026-09-15"})
+    가입 = await api.post("/v1/auth/signup", json={**기본, **동의})
+
+    assert (동의_없음.status_code, 옛_약관.status_code, 나이_확인_없음.status_code) == (422, 422, 422)
+    assert "ageConfirmed" in 나이_확인_없음.text
+    assert 가입.status_code == 202
+    user = await db.scalar(select(User).where(User.email == "consent@example.com"))
+    assert user.terms_version == "2026-09-15" and user.terms_agreed_at is not None
