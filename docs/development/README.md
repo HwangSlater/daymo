@@ -88,7 +88,7 @@
 - **정기 백업이 돈다(2026-09-15).** 매일 04:00 KST에 DB dump와 사진 폴더를 restic으로
   암호화해 Google Drive에 올린다. 첫 snapshot을 받아 임시 DB에 복원까지 확인했고,
   매월 1일 같은 복원 검사가 자동으로 돈다. 실패하면 `support@daymo.xyz`로 메일이 온다.
-  **restic password 사본을 VPS 밖에 보관해야 한다**(06 문서 6장)
+  **restic password 사본을 VPS 밖에 보관해야 한다**(06 문서 8장)
 - **Android 시험 빌드가 된다.** EAS `preview` 프로필로 APK가 나왔다(versionCode 1). 서명
   키는 EAS가 만들어 보관한다
 - **개인정보 처리방침·이용약관 페이지.** 로그인 화면 아래 문구가 아직 링크가 아니다.
