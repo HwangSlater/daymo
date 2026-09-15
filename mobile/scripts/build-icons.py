@@ -52,20 +52,19 @@ SPLASH_PAPER_DARK = (13, 17, 26)  # #0D111A 앱 배경
 
 # --- 그림 좌표. 320 x 620 짜리 화면 하나를 기준으로 잡는다. -----------------
 
-# 궤적. 이름 왼쪽에서 들어와 글자 뒤를 가로지르고, 끝에서 비행기가 살짝 들린다.
+# 궤적. D 왼쪽 위에서 떠올라 이름 위를 둥글게 넘어가고, 비행기는 오른쪽 위로 솟는다.
 #
-# 그림을 가로로 납작하게 모은다. 대각선으로 두면(오른쪽 위 비행기, 왼쪽 아래 점)
-# 기기가 아이콘 모서리를 둥글게 자를 때 비행기와 궤적 끝이 잘린다. 실제 기기에
-# 깔아 보고 확인한 문제다. 가운데 띠에 모아 두면 둥근 사각형(iOS)에서도 원형
-# 런처(Android)에서도 온전히 보인다.
+# 모서리에 닿지 않게 그림 전체를 가운데 원 안에 맞춘다(fit_circle). 기기는 아이콘
+# 모서리를 둥글게(iOS) 또는 원으로(Android) 자른다. 예전에는 그림을 감싸는 상자로
+# 맞춰서, 대각선 끝에 있는 비행기와 궤적이 실제 기기에서 잘렸다.
 #
-# 점은 글자 뒤로 지나가 글자 사이 틈에서만 비친다. 점을 글자 위에 얹거나 글자를
-# 뚫어 보기도 했는데, 29px 에서 이름이 부서져 보였다.
+# 가로로 글자를 가로지르는 모양과 연기로 쓴 글씨도 시안으로 비교했고, 위로 솟는
+# 이 모양을 골랐다(2026-09-15).
 # 이름("Daymo")은 장면 좌표에서 x 71~250, 위 끝 y 352, 기준선 392 다.
-CURVE = ((40, 384), (156, 378), (274, 362))
-TRAIL_COUNT = 10
-TRAIL_FROM, TRAIL_TO = 0.0, 0.84
-TRAIL_RADIUS = 9.0
+CURVE = ((68.2, 345.3), (114.9, 289.3), (217.6, 280.0))
+TRAIL_COUNT = 7
+TRAIL_FROM, TRAIL_TO = 0.0, 0.80
+TRAIL_RADIUS = 9.6
 TRAIL_ALPHA = 0.36
 
 def _arc(cx, cy, r, start, end, steps=8):
@@ -101,15 +100,15 @@ PLANE_SHAPES = [
 # 궤적 위에 얹히는 점. 꼬리 쪽에 둔다. 몸통 한가운데를 얹으면 꼬리가 궤적의
 # 마지막 점을 덮어서 뒤쪽이 지저분해진다.
 PLANE_PIVOT = (12.0, 50.0)
-PLANE_HEADING = 0.0  # 상자 안의 그림이 보는 방향. 궤적의 진행 방향으로 돌린다.
-PLANE_AT = 1.0  # 궤적 끝. 이름 오른쪽에 붙어 날아간다.
-PLANE_SIZE = 66.0
+# 상자 안의 그림이 보는 방향. 궤적의 진행 방향에서 이만큼 덜 돌려 코를 12도 들어 올린다.
+PLANE_HEADING = 12.0
+PLANE_AT = 0.93  # 궤적 위의 자리. 마지막 점 바로 뒤.
+PLANE_SIZE = 71.6
 
 WORDMARK = "Daymo"
 WORDMARK_SIZE = 56
 WORDMARK_AT = (160, 392)
-# 예전에는 궤적이 글자에 붙어 보이지 않게 글자 둘레를 배경색으로 둘렀다. 이제는
-# 점이 글자 사이 틈으로 비쳐야 해서 두르지 않는다.
+# 궤적이 글자와 겹치지 않아 글자 둘레를 배경색으로 두르지 않는다.
 WORDMARK_HALO = 0.0
 
 TAGLINE = "우리의 여행 수첩"
@@ -118,17 +117,18 @@ TAGLINE_AT = (160, 418)
 TAGLINE_ALPHA = 0.55
 
 # 실행 화면이 담는 범위. app.json 의 imageWidth 와 비율이 맞아야 해서 예전
-# 모눈을 깔던 때의 크기(320 x 220)를 그대로 둔다. 가로 띠 그림과 한 줄 소개가
-# 한가운데 오게 맞췄다.
-SPLASH_BOX = (22, 268, 342, 488)
+# 모눈을 깔던 때의 크기(320 x 220)를 그대로 둔다. 그림과 한 줄 소개가 한가운데
+# 오게 맞췄다.
+SPLASH_BOX = (2, 222, 322, 442)
 SPLASH_PIXEL_WIDTH = 1024
 
 # 안드로이드 적응형 아이콘은 108dp 중 가운데 지름 66dp 원이 어떤 런처에서도
 # 보인다. 그림의 모든 점이 그 원 안에 들도록 맞춘다(반지름 비율). 상자로 맞추면
 # 상자 모서리가 원 밖으로 나가 잘린다.
 ADAPTIVE_SAFE_RADIUS = 0.30
-# 정사각 아이콘에서 그림 폭이 차지할 비율. 그림이 가로 띠라 모서리에 닿지 않는다.
-ICON_FIT = 0.84
+# 정사각 아이콘에서 그림이 들어갈 원의 반지름 비율. iOS 둥근 사각형(모서리 반지름
+# 22%)은 대각선으로 가운데에서 61% 까지 보이므로 44% 원이면 넉넉하다.
+ICON_RADIUS = 0.44
 # 파비콘. 아이콘과 같은 그림을 쓰되 이름을 1.3배 키우고 궤적을 넷으로 줄인다.
 # 32px 에서는 아이콘의 축소판으로 읽히고, 16px 에서는 이름이 막대가 되지만
 # 색과 비행기 자리가 같아 같은 앱으로 이어진다.
@@ -330,10 +330,10 @@ def favicon():
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
 
-    icon(1024, ICON_FIT, BACKGROUND).convert("RGB").save(OUT / "daymo-icon.png")
+    icon(1024, None, BACKGROUND, radius=ICON_RADIUS).convert("RGB").save(OUT / "daymo-icon.png")
     # 적응형 앞면은 안전 영역 안으로 줄인다. 배경은 app.json 이 깐다.
     icon(1024, None, BACKGROUND, transparent=True, radius=ADAPTIVE_SAFE_RADIUS).save(OUT / "daymo-icon-adaptive.png")
-    icon(512, ICON_FIT, BACKGROUND).convert("RGB").save(OUT / "daymo-icon-login.png")
+    icon(512, None, BACKGROUND, radius=ICON_RADIUS).convert("RGB").save(OUT / "daymo-icon-login.png")
 
     splash(SPLASH_INK_LIGHT, SPLASH_PAPER_LIGHT).save(OUT / "daymo-splash.png")
     splash(SPLASH_INK_DARK, SPLASH_PAPER_DARK).save(OUT / "daymo-splash-dark.png")
