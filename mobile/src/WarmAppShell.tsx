@@ -68,9 +68,11 @@ import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
   createSpace,
   createTrip,
+  getTrip,
   listMembers,
   listSpaces,
   listTrips,
+  setTripParticipants,
   updateSpace,
   updateTrip,
   type ServerSpace,
@@ -86,6 +88,7 @@ import {
   type SpaceChange,
 } from "./spaceMapping";
 import { mergeServerTripsByGroup } from "./tripMerge";
+import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt"> & { id?: string };
@@ -131,20 +134,44 @@ const spaceFromServer = (space: ServerSpace, members: ServerMemberInput[] = []):
   relationshipType: space.relationshipType,
   since: space.startedOn ?? "",
   myRole: roleFromServer(space.myRole),
+  myMembershipId: members.find((member) => member.isMe)?.id,
 });
 
-const tripFromServer = (trip: ServerTrip, tone = 0): Trip => ({
-  id: trip.id,
-  version: trip.version,
-  name: trip.title,
-  date: sampleDateRange(trip.startDate, trip.endDate),
-  note: trip.summary ?? "",
-  tone: tone % 6,
-  mark: trip.startDate.slice(5, 7),
-  region: trip.regionName ?? "지역 미정",
-  start: trip.startDate,
-  end: trip.endDate,
-});
+/** 이 공간에서 이름과 membership id 를 오가는 표. 나는 앱이 쓰는 이름으로 들어간다. */
+const rosterOfSpace = (space: Space, myName: string): RosterEntry[] =>
+  rosterOf({ name: myName, membershipId: space.myMembershipId }, space.members);
+
+// 서버에 참가자가 정해져 있으면 이름으로 바꿔 기록(planning)의 참가자 칸에 둔다.
+// 비어 있으면 서버 약속대로 "공간 멤버 전원" 이라 칸을 비워 둔다. 상세 화면이
+// 비어 있는 칸을 멤버 전원으로 읽는다.
+const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []): Trip => {
+  const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
+  return {
+    id: trip.id,
+    version: trip.version,
+    name: trip.title,
+    date: sampleDateRange(trip.startDate, trip.endDate),
+    note: trip.summary ?? "",
+    tone: tone % 6,
+    mark: trip.startDate.slice(5, 7),
+    region: trip.regionName ?? "지역 미정",
+    start: trip.startDate,
+    end: trip.endDate,
+    ...(participants.length ? { planning: { participants } } : {}),
+  };
+};
+
+const latestTripFrom = (trip: ServerTrip, roster: RosterEntry[]): LatestTrip => {
+  const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
+  return {
+    name: trip.title,
+    start: trip.startDate,
+    end: trip.endDate,
+    region: trip.regionName ?? "지역 미정",
+    note: trip.summary ?? "",
+    ...(participants.length ? { participants } : {}),
+  };
+};
 
 const sampleDate = (daysFromToday: number) => {
   const date = new Date();
@@ -549,6 +576,13 @@ export function WarmAppShell({
     };
   }, []);
 
+  // 서버 참가자 id 를 이름으로 바꿀 때 내 이름이 필요하다. 이름을 칠 때마다 공간을
+  // 새로 불러오면 안 되니 effect 의존성 대신 ref 로 읽는다.
+  const userNameRef = useRef(user?.name ?? "");
+  useEffect(() => {
+    userNameRef.current = user?.name ?? "";
+  }, [user?.name]);
+
   useEffect(() => {
     // 기기에 저장된 여행을 다 읽은 뒤에 서버 목록을 붙인다. 먼저 붙이면 뒤늦게
     // 읽힌 기기 목록이 서버 목록을 덮거나, 서버 목록이 아직 안 읽힌 기록을 버린다.
@@ -562,9 +596,11 @@ export function WarmAppShell({
         ]);
         if (!active) return;
         const nextSpaces = serverSpaces.map((space, index) => spaceFromServer(space, memberLists[index]));
+        const myName = userNameRef.current;
         const nextTrips: Record<string, Trip[]> = {};
         serverSpaces.forEach((space, index) => {
-          nextTrips[space.id] = tripLists[index].map((trip, tone) => tripFromServer(trip, tone));
+          const roster = rosterOfSpace(nextSpaces[index], myName);
+          nextTrips[space.id] = tripLists[index].map((trip, tone) => tripFromServer(trip, tone, roster));
         });
         setSpaces(nextSpaces);
         // 서버 목록으로 통째로 바꾸지 않는다. 일정·장소·비용 같은 기록은 아직
@@ -606,6 +642,32 @@ export function WarmAppShell({
     () => [user?.name ?? "나", ...activeSpace.members.map((member) => member.name)],
     [activeSpace.members, user?.name],
   );
+  const activeRoster = rosterOfSpace(activeSpace, user?.name ?? "");
+  /** 서버가 돌려준 여행으로 목록과 열린 여행을 바꾼다. 기기에만 있는 기록은 둔다. */
+  const applyServerTrip = (saved: ServerTrip) => {
+    const fromServer = tripFromServer(saved, selectedTrip.tone, activeRoster);
+    const updated: Trip = {
+      ...selectedTrip,
+      ...fromServer,
+      planning: fromServer.planning ? { ...selectedTrip.planning, ...fromServer.planning } : selectedTrip.planning,
+    };
+    setTripItems((current) => current.map((trip) => trip.id === saved.id ? updated : trip));
+    setSelectedTrip(updated);
+  };
+  /**
+   * 저장하다 버전이 어긋나면 최신 여행을 받아 반영하고 `TripConflictError` 로 알린다.
+   * 상세 화면은 이 오류를 받으면 고치던 값을 버리고 최신 내용을 보여 준다.
+   */
+  const withLatestOnConflict = async (tripId: string, save: () => Promise<ServerTrip>) => {
+    try {
+      return await save();
+    } catch (caught) {
+      if (!(caught instanceof DaymoApiError) || caught.code !== "VERSION_CONFLICT") throw caught;
+      const latest = await getTrip(tripId);
+      applyServerTrip(latest);
+      throw new TripConflictError(latestTripFrom(latest, activeRoster));
+    }
+  };
   const now = new Date();
 
   useEffect(() => {
@@ -709,21 +771,42 @@ export function WarmAppShell({
         me={user?.name ?? activeSpaceMembers[0]}
         appTheme={theme}
         onUpdateTrip={async (changes) => {
-          const saved = selectedTrip.id && selectedTrip.version !== undefined
-            ? await updateTrip(selectedTrip.id, {
-              version: selectedTrip.version,
+          if (!selectedTrip.id || selectedTrip.version === undefined) {
+            const updated = { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
+            setTripItems((current) => current.map((trip) => trip === selectedTrip ? updated : trip));
+            setSelectedTrip(updated);
+            return;
+          }
+          const tripId = selectedTrip.id;
+          const saved = await withLatestOnConflict(tripId, async () => {
+            let result = await updateTrip(tripId, {
+              version: selectedTrip.version!,
               title: changes.name,
               startDate: changes.start,
               endDate: changes.end,
               regionName: changes.region,
               summary: changes.note,
-            })
-            : null;
-          const updated = saved
-            ? { ...selectedTrip, ...tripFromServer(saved), planning: selectedTrip.planning }
-            : { ...selectedTrip, ...changes, mark: changes.start.slice(5, 7) };
-          setTripItems((current) => current.map((trip) => trip === selectedTrip ? updated : trip));
-          setSelectedTrip(updated);
+            });
+            if (changes.participants) {
+              const { ids } = idsFromNames(changes.participants, activeRoster);
+              if (ids.length && !sameIds(ids, result.participantMembershipIds ?? [])) {
+                result = await setTripParticipants(tripId, { version: result.version, membershipIds: ids });
+              }
+            }
+            return result;
+          });
+          applyServerTrip(saved);
+        }}
+        onUpdateParticipants={async (names) => {
+          if (!selectedTrip.id || selectedTrip.version === undefined) return names;
+          const tripId = selectedTrip.id;
+          const { ids } = idsFromNames(names, activeRoster);
+          if (!ids.length) return names;
+          const saved = await withLatestOnConflict(tripId, () =>
+            setTripParticipants(tripId, { version: selectedTrip.version!, membershipIds: ids }));
+          applyServerTrip(saved);
+          const confirmed = namesFromIds(saved.participantMembershipIds ?? [], activeRoster);
+          return confirmed.length ? confirmed : names;
         }}
         onSavePlanning={(planning) => {
           const updated = { ...selectedTrip, planning };
@@ -783,9 +866,16 @@ export function WarmAppShell({
             spaceMembers={activeSpaceMembers}
             openCreatorOnMount={openTripCreator}
             onCreatorOpened={() => setOpenTripCreator(false)}
-            onCreateTrip={async ({ title, startDate, endDate, regionName, summary }) => {
-              const created = await createTrip(activeSpace.id, { title, startDate, endDate, regionName, summary });
-              return tripFromServer(created, tripItems.length);
+            onCreateTrip={async ({ title, startDate, endDate, regionName, summary, participants }) => {
+              const created = await createTrip(activeSpace.id, {
+                title,
+                startDate,
+                endDate,
+                regionName,
+                summary,
+                participantMembershipIds: idsFromNames(participants, activeRoster).ids,
+              });
+              return tripFromServer(created, tripItems.length, activeRoster);
             }}
           />
         )}
@@ -1919,7 +2009,7 @@ function TripsExplorer({
   spaceMembers: string[];
   openCreatorOnMount?: boolean;
   onCreatorOpened?: () => void;
-  onCreateTrip: (input: { title: string; startDate: string; endDate: string; regionName: string; summary: string }) => Promise<Trip>;
+  onCreateTrip: (input: { title: string; startDate: string; endDate: string; regionName: string; summary: string; participants: string[] }) => Promise<Trip>;
 }) {
   const initialCalendarDate = new Date();
   const initialDateKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, "0")}-${String(initialCalendarDate.getDate()).padStart(2, "0")}`;
@@ -1992,6 +2082,7 @@ function TripsExplorer({
         endDate: tripEnd,
         regionName: newRegion,
         summary: note,
+        participants: newPeople,
       });
       const nextTrip = { ...serverTrip, planning: { participants: newPeople } };
       setItems((current) => [nextTrip, ...current]);

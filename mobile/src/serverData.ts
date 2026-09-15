@@ -48,11 +48,29 @@ export const listTrips = (spaceId: string) =>
 
 export const createTrip = (
   spaceId: string,
-  input: { title: string; startDate: string; endDate: string; regionName: string; summary: string },
+  input: {
+    title: string;
+    startDate: string;
+    endDate: string;
+    regionName: string;
+    summary: string;
+    /** 비우면 서버는 "공간 멤버 전원" 으로 읽는다. */
+    participantMembershipIds: string[];
+  },
 ) => authenticatedRequest<ServerTrip>(`/v1/spaces/${encodeURIComponent(spaceId)}/trips`, {
   method: "POST",
-  body: JSON.stringify({ ...input, participantMembershipIds: [] }),
+  body: JSON.stringify(input),
 });
+
+export const getTrip = (tripId: string) =>
+  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`);
+
+/** 참가자를 통째로 바꾼다. 서버는 `version` 이 어긋나면 409 를 준다. */
+export const setTripParticipants = (tripId: string, input: { version: number; membershipIds: string[] }) =>
+  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/participants`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
 
 export const updateTrip = (
   tripId: string,

@@ -47,6 +47,8 @@ export type Space = {
    * 가족·기타도 있어서, 이것을 들고 있어야 바꾸지 않은 관계를 덮어쓰지 않는다.
    */
   relationshipType?: string;
+  /** 이 공간에서 내 membership id. 여행 참가자에 나를 넣을 때 쓴다. */
+  myMembershipId?: string;
 };
 
 export const defaultSpaces: Space[] = [
@@ -128,6 +130,8 @@ function parseSpace(value: unknown, fallback: Space): Space {
   }
   const relationshipType = shortText(record.relationshipType, "", 20);
   if (relationshipType) space.relationshipType = relationshipType;
+  const myMembershipId = shortText(record.myMembershipId, "", 64);
+  if (myMembershipId) space.myMembershipId = myMembershipId;
   return space;
 }
 

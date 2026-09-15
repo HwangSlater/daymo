@@ -6,6 +6,8 @@ import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { NaverMapLink } from "./NaverMapLink";
 import { ParticipantPicker } from "./ParticipantPicker";
+import { DaymoApiError } from "./auth";
+import { TripConflictError } from "./tripSync";
 import {
   CURRENCIES,
   DEFAULT_CURRENCY,
@@ -115,6 +117,12 @@ export type PlaceItem = {
   tags: string[];
   status: "후보" | "일정";
 };
+/** 저장 실패 안내. 서버가 준 문구(권한 없음 같은)는 사람이 읽을 수 있게 쓰여 있어 그대로 쓴다. */
+const saveErrorMessage = (caught: unknown) =>
+  caught instanceof DaymoApiError && caught.status !== 0
+    ? caught.message
+    : "저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요";
+
 export type TripPlanningData = {
   // 셋 다 없을 수 있다. 예시 여행처럼 지출만 미리 심어 둔 경우가 있어서다.
   // 상세 화면을 한 번 열고 닫으면 그때 기본값으로 채워져 저장된다.
@@ -284,7 +292,14 @@ type Props = {
     end: string;
     region: string;
     note: string;
+    participants?: string[];
   }) => void | Promise<void>;
+  /**
+   * 참가자만 바꾼다. 서버가 받아 준 참가자를 돌려준다.
+   *
+   * 다른 곳에서 먼저 고쳤으면 `TripConflictError` 를 던진다.
+   */
+  onUpdateParticipants?: (participants: string[]) => Promise<string[]>;
   initialPlanning?: TripPlanningData;
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
@@ -775,6 +790,7 @@ export function WarmTripDetail({
   tripRegion = "전북",
   tripNote = "함께 천천히 걷는 여행",
   onUpdateTrip,
+  onUpdateParticipants,
   initialPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
@@ -824,6 +840,35 @@ export function WarmTripDetail({
   const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? []);
   const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
+  /**
+   * 다른 곳에서 먼저 고친 여행이면 최신 내용으로 화면을 되돌린다. 처리했으면 true.
+   *
+   * 고치던 값을 그대로 다시 저장하게 두면 남이 고친 것을 모른 채 덮어쓴다.
+   */
+  const showLatestTrip = (caught: unknown) => {
+    if (!(caught instanceof TripConflictError)) return false;
+    const { latest } = caught;
+    setTitle(latest.name);
+    setCurrentStart(latest.start);
+    setCurrentEnd(latest.end);
+    setRegion(latest.region);
+    setNote(latest.note);
+    if (latest.participants?.length) setParticipants(latest.participants);
+    setFeedback(caught.message);
+    return true;
+  };
+  /** 참가자를 바꾼다. 시트를 닫아도 되면 true(저장했거나 최신 내용으로 되돌렸다). */
+  const saveParticipants = async (next: Participant[]) => {
+    try {
+      const confirmed = await onUpdateParticipants?.(next);
+      setParticipants(confirmed ?? next);
+      return true;
+    } catch (caught) {
+      if (showLatestTrip(caught)) return true;
+      setFeedback(saveErrorMessage(caught));
+      return false;
+    }
+  };
   // 준비물 담당과 요리 재료 담당, 교통편 이용자, 지출의 몫이 모두 이 목록을 쓴다.
   // 한 군데서만 정하지 않으면 같은 여행 안에서 사람 목록이 서로 어긋난다.
   const [participants, setParticipants] = useState<Participant[]>(
@@ -1303,7 +1348,7 @@ export function WarmTripDetail({
               setSimplify={setSimplifySettlement}
               assignedSummary={assignedSummary}
               participants={participants}
-              setParticipants={setParticipants}
+              saveParticipants={saveParticipants}
               spaceMembers={spaceMembers}
               currency={currency}
               setCurrency={setCurrency}
@@ -1486,9 +1531,14 @@ export function WarmTripDetail({
                 end: draftEnd,
                 region: nextRegion,
                 note: nextNote,
+                participants: draftTripPeople,
               });
-            } catch {
-              setFeedback("저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요");
+            } catch (caught) {
+              if (showLatestTrip(caught)) {
+                setEditingTrip(false);
+                return;
+              }
+              setFeedback(saveErrorMessage(caught));
               return;
             }
             setSchedule((current) => current.map((item) => {
@@ -6755,7 +6805,7 @@ function Money({
   setSimplify,
   assignedSummary,
   participants,
-  setParticipants,
+  saveParticipants,
   spaceMembers,
   currency,
   setCurrency,
@@ -6780,7 +6830,8 @@ function Money({
   assignedSummary: (person: string) => string;
   /** 이번 여행에 가는 사람. 몫은 이 목록을 기준으로 나눈다. */
   participants: Participant[];
-  setParticipants: React.Dispatch<React.SetStateAction<Participant[]>>;
+  /** 참가자를 서버까지 저장한다. 시트를 닫아도 되면 true. 실패 안내는 저장하는 쪽이 띄운다. */
+  saveParticipants: (next: Participant[]) => Promise<boolean>;
   /** 공간 멤버 전원. 참가자를 고를 때의 후보다. */
   spaceMembers: Participant[];
   currency: string;
@@ -7214,13 +7265,13 @@ function Money({
     setDraftParticipants(participants);
     setPeopleSheetOpen(true);
   };
-  const savePeople = () => {
+  const savePeople = async () => {
     // 공간 멤버 순서를 지킨다. 뺐다 다시 넣었다고 목록 맨 뒤로 가면 화면마다
     // 사람 순서가 달라진다.
     const ordered = spaceMembers.filter((person) => draftParticipants.includes(person));
     const extra = draftParticipants.filter((person) => !spaceMembers.includes(person));
     const next = [...ordered, ...extra];
-    setParticipants(next);
+    if (!(await saveParticipants(next))) return;
     setPeopleSheetOpen(false);
     notify(`참가자 ${next.length}명으로 저장했어요`);
   };

@@ -9,7 +9,7 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-type WithPlanning = { id?: string; planning?: unknown };
+type WithPlanning = { id?: string; planning?: object };
 
 /**
  * 서버 목록을 기준으로 삼고, id 가 같은 여행에는 기기의 기록을 옮겨 붙인다.
@@ -19,7 +19,9 @@ type WithPlanning = { id?: string; planning?: unknown };
  * - 기기에만 있으면: 버린다. 여행 목록의 원본은 서버다. 다른 기기에서 지운
  *   여행이 되살아나면 안 된다.
  *
- * 서버가 기록을 들고 오는 날이 오면(할 일 3번) 서버 쪽 기록이 이긴다.
+ * 서버가 기록 일부를 들고 오면(지금은 참가자뿐이다) 그 칸만 서버 값으로 바꾸고
+ * 나머지 기록은 기기 것을 둔다. 통째로 바꾸면 참가자를 받는 순간 일정·비용이
+ * 사라진다.
  */
 export function mergeServerTrips<T extends WithPlanning>(serverTrips: T[], localTrips: T[]): T[] {
   const localById = new Map<string, T>();
@@ -27,9 +29,11 @@ export function mergeServerTrips<T extends WithPlanning>(serverTrips: T[], local
     if (trip.id) localById.set(trip.id, trip);
   }
   return serverTrips.map((trip) => {
-    if (trip.planning !== undefined || !trip.id) return trip;
+    if (!trip.id) return trip;
     const local = localById.get(trip.id);
-    return local?.planning === undefined ? trip : { ...trip, planning: local.planning };
+    if (local?.planning === undefined) return trip;
+    const planning = trip.planning === undefined ? local.planning : { ...local.planning, ...trip.planning };
+    return { ...trip, planning };
   });
 }
 

@@ -42,6 +42,14 @@ test("서버가 기록을 들고 오면 서버 쪽이 이긴다", () => {
   assert.equal(mergeServerTrips(server, local)[0].planning?.memo, "서버");
 });
 
+test("서버가 참가자만 들고 오면 참가자만 바뀌고 나머지 기록은 남는다", () => {
+  type Planned = { id: string; name: string; planning?: { memo?: string; participants?: string[] } };
+  const local: Planned[] = [{ id: "t1", name: "여행", planning: { memo: "주차는 뒤쪽", participants: ["하늘"] } }];
+  const server: Planned[] = [{ id: "t1", name: "여행", planning: { participants: ["하늘", "여울"] } }];
+
+  assert.deepEqual(mergeServerTrips(server, local)[0].planning, { memo: "주차는 뒤쪽", participants: ["하늘", "여울"] });
+});
+
 test("공간을 옮긴 여행도 기록을 잃지 않는다", () => {
   const local = { spaceA: [{ id: "t1", name: "여행", planning: { memo: "남아야 한다" } }] };
   const server = { spaceB: [{ id: "t1", name: "여행" }] };
