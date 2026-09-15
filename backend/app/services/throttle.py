@@ -73,6 +73,13 @@ RULES: dict[ThrottleScope, Rule] = {
         first_delay=timedelta(seconds=1),
         max_block=timedelta(minutes=15),
     ),
+    ThrottleScope.REAUTH: Rule(
+        window=timedelta(minutes=15),
+        allowance=5,
+        ip_allowance=50,
+        first_delay=timedelta(seconds=1),
+        max_block=timedelta(minutes=15),
+    ),
     ThrottleScope.SIGNUP: Rule(
         window=timedelta(hours=1),
         allowance=5,

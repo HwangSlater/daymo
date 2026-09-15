@@ -270,6 +270,9 @@ class ThrottleScope(StrEnum):
     """무엇을 세고 있는지. 종류마다 한도와 창 길이가 다르다."""
 
     LOGIN = "login"
+    # 로그인한 채로 비밀번호를 다시 확인하는 것. 따로 센다. 훔친 access token
+    # 으로 비밀번호를 맞혀 보는 길을 로그인과 같은 한도로 막는다.
+    REAUTH = "reauth"
     SIGNUP = "signup"
     EMAIL_VERIFICATION = "email_verification"
     PASSWORD_RESET = "password_reset"

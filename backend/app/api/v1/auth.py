@@ -197,7 +197,7 @@ async def end_other_session(session_id: uuid.UUID, caller: CurrentCaller, db: Db
 
 @router.post("/reauth", status_code=status.HTTP_201_CREATED)
 async def issue_reauth_proof(
-    body: ReauthRequest, caller: CurrentCaller, db: DbSession
+    body: ReauthRequest, caller: CurrentCaller, db: DbSession, ip: ClientIp
 ) -> dict:
     """
     민감한 작업 하나에 쓸 증표를 발급한다.
@@ -206,6 +206,6 @@ async def issue_reauth_proof(
     없다. 하나를 받아 여러 곳에 돌려 쓸 수 있으면 재인증을 요구한 의미가 없다.
     """
     증표 = await issue_proof(
-        db, user=caller.user, action=body.action, password=body.password
+        db, user=caller.user, action=body.action, password=body.password, ip=ip
     )
     return ok({"proof": 증표, "expiresIn": int(PROOF_TTL.total_seconds())})

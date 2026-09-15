@@ -532,7 +532,25 @@ async def test_틀린_비밀번호로는_증표를_받지_못한다(api, db):
         headers={"Authorization": f"Bearer {세션['accessToken']}"},
     )
 
-    assert 응답.status_code == 401
+    # 401 이면 앱이 토큰 만료로 읽고 로그아웃시킨다. 로그인은 그대로다.
+    assert 응답.status_code == 403
+    assert (await api.get("/v1/me", headers={"Authorization": f"Bearer {세션['accessToken']}"})).status_code == 200
+
+
+async def test_재인증_비밀번호를_계속_틀리면_막힌다(api, db):
+    await 확인된_계정(api)
+    세션 = (await 로그인(api)).json()["data"]
+    headers = {"Authorization": f"Bearer {세션['accessToken']}"}
+
+    for _ in range(6):
+        await api.post(
+            "/v1/auth/reauth", json={"action": "delete_account", "password": "틀린 비밀번호다"}, headers=headers
+        )
+    응답 = await api.post(
+        "/v1/auth/reauth", json={"action": "delete_account", "password": 비밀번호}, headers=headers
+    )
+
+    assert 응답.status_code == 429
 
 
 async def test_로그인하지_않으면_증표를_받을_수_없다(api, db):

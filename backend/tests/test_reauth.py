@@ -43,7 +43,7 @@ async def test_비밀번호가_틀리면_증표를_주지_않는다(db):
             db, user=user, action=SensitiveAction.DELETE_ACCOUNT, password="틀린 비밀번호다"
         )
 
-    assert 잡힌_것.value.code is ErrorCode.UNAUTHENTICATED
+    assert 잡힌_것.value.code is ErrorCode.FORBIDDEN
 
 
 async def test_비밀번호가_없는_계정은_증표를_받지_못한다(db):

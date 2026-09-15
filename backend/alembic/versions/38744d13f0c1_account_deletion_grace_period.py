@@ -21,6 +21,8 @@ _SENSITIVE_OLD = ('delete_account', 'change_email', 'change_password', 'link_pro
 _SENSITIVE_NEW = ('delete_account', 'cancel_deletion', 'change_email', 'change_password', 'link_provider', 'unlink_provider')
 _REVOKE_OLD = ('rotated', 'reuse_detected', 'logout', 'password_reset', 'device_limit', 'admin')
 _REVOKE_NEW = _REVOKE_OLD + ('account_deletion',)
+_THROTTLE_OLD = ('login', 'signup', 'email_verification', 'password_reset')
+_THROTTLE_NEW = ('login', 'reauth', 'signup', 'email_verification', 'password_reset')
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -37,9 +39,14 @@ def upgrade() -> None:
     op.create_check_constraint(op.f('ck_reauth_proofs_sensitiveaction'), 'reauth_proofs', _in('action', _SENSITIVE_NEW))
     op.drop_constraint(op.f('ck_refresh_tokens_revokereason'), 'refresh_tokens', type_='check')
     op.create_check_constraint(op.f('ck_refresh_tokens_revokereason'), 'refresh_tokens', _in('revoke_reason', _REVOKE_NEW))
+    op.drop_constraint(op.f('ck_throttle_counters_throttlescope'), 'throttle_counters', type_='check')
+    op.create_check_constraint(op.f('ck_throttle_counters_throttlescope'), 'throttle_counters', _in('scope', _THROTTLE_NEW))
 
 
 def downgrade() -> None:
+    op.execute("DELETE FROM throttle_counters WHERE scope = 'reauth'")
+    op.drop_constraint(op.f('ck_throttle_counters_throttlescope'), 'throttle_counters', type_='check')
+    op.create_check_constraint(op.f('ck_throttle_counters_throttlescope'), 'throttle_counters', _in('scope', _THROTTLE_OLD))
     op.execute("DELETE FROM reauth_proofs WHERE action = 'cancel_deletion'")
     op.execute("UPDATE refresh_tokens SET revoke_reason = 'admin' WHERE revoke_reason = 'account_deletion'")
     op.drop_constraint(op.f('ck_refresh_tokens_revokereason'), 'refresh_tokens', type_='check')

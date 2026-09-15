@@ -6,16 +6,22 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import passwords
+from app.services import throttle
 from app.core.errors import AppError, ErrorCode
 from app.core.tokens import hash_refresh_token, new_one_time_token
-from app.models import ReauthProof, SensitiveAction, User
+from app.models import ReauthProof, SensitiveAction, ThrottleScope, User
 
 # 증표는 짧게 산다. 화면을 열어 두고 자리를 비운 사이에 쓰이지 않게 한다.
 PROOF_TTL = timedelta(minutes=5)
 
 
 async def issue_proof(
-    session: AsyncSession, *, user: User, action: SensitiveAction, password: str | None
+    session: AsyncSession,
+    *,
+    user: User,
+    action: SensitiveAction,
+    password: str | None,
+    ip: str = "",
 ) -> str:
     """
     민감한 작업 하나에 쓸 증표를 발급한다.
@@ -31,10 +37,19 @@ async def issue_proof(
             message="이 계정은 아직 이 작업을 할 수 없어요. 비밀번호를 먼저 만들어 주세요.",
         )
 
+    # 로그인과 같은 한도로 센다. 없으면 access token 하나만 손에 넣어도
+    # 비밀번호를 끝없이 맞혀 볼 수 있다.
+    계정_열쇠 = (throttle.ACCOUNT, throttle.key_for("user", str(user.id)))
+    ip_열쇠 = (throttle.IP, throttle.key_for("ip", ip))
+    await throttle.check(ThrottleScope.REAUTH, 계정_열쇠, ip_열쇠)
+
     if not password or not passwords.verify(user.password_hash, password):
-        # 로그인과 같은 문구를 쓴다. 여기서만 다르게 답하면 비밀번호를
-        # 맞혀 보는 자리가 하나 더 생긴 것과 같다.
-        raise AppError(ErrorCode.UNAUTHENTICATED, message="비밀번호를 확인해 주세요.")
+        await throttle.record(ThrottleScope.REAUTH, 계정_열쇠, ip_열쇠)
+        # 401 이 아니라 403 이다. 로그인은 멀쩡하고 이 작업만 못 하는 것이다.
+        # 401 로 답하면 앱은 토큰이 만료된 줄 알고 갱신을 시도하다 로그아웃한다.
+        raise AppError(ErrorCode.FORBIDDEN, message="비밀번호를 확인해 주세요.")
+
+    await throttle.reset(ThrottleScope.REAUTH, 계정_열쇠[1])
 
     원문, 해시 = new_one_time_token()
     session.add(
