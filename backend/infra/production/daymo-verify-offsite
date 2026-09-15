@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly COMPOSE_FILE=/srv/daymo/current/backend/infra/production/compose.yml
+readonly RUNTIME_ENV=/etc/daymo/secrets/runtime.env
+readonly BACKUP_ENV=/etc/daymo/secrets/backup.env
+readonly WORK_ROOT=/srv/daymo/backup-staging
+
+# 매월 Google Drive 의 최신 snapshot 이 실제로 복원되는지 본다. 백업이 매일
+# 성공했다고 적혀 있어도 복원이 안 되면 없는 것과 같다.
+
+set -a
+# shellcheck disable=SC1090
+source "$BACKUP_ENV"
+set +a
+
+compose() {
+  docker compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" "$@"
+}
+
+# 컨테이너 안에서 psql 을 부른다. 비밀번호는 컨테이너 환경변수에서 읽는다.
+in_postgres() {
+  compose exec -T postgres sh -c "PGPASSWORD=\"\$POSTGRES_PASSWORD\" $1"
+}
+
+query() {
+  in_postgres "psql --username=\"\$POSTGRES_USER\" --dbname=daymo_restore_offsite --tuples-only --no-align --command=\"$1\""
+}
+
+work="$(mktemp -d "$WORK_ROOT/offsite-verify.XXXXXX")"
+drop_db() {
+  in_postgres 'dropdb --if-exists --force --username="$POSTGRES_USER" daymo_restore_offsite' >/dev/null 2>&1 || true
+}
+cleanup() {
+  rm -rf "$work"
+  drop_db
+}
+trap cleanup EXIT
+
+# 저장소 구조를 검사하고 실제 데이터 조각도 일부 내려받아 읽어 본다.
+restic check --read-data-subset=10%
+
+restic restore latest --target "$work" --include "$WORK_ROOT"
+dump="$(find "$work" -type f -name 'daymo-*.dump' -print | sort | tail -1)"
+test -n "$dump"
+test -s "$dump"
+
+drop_db
+in_postgres 'createdb --username="$POSTGRES_USER" daymo_restore_offsite'
+in_postgres 'pg_restore --exit-on-error --no-owner --no-privileges --username="$POSTGRES_USER" --dbname=daymo_restore_offsite' <"$dump"
+
+restored_schema="$(query 'select version_num from alembic_version')"
+restored_tables="$(query "select count(*) from information_schema.tables where table_schema = 'public'")"
+restored_users="$(query 'select count(*) from users')"
+
+# 스키마 버전은 운영과 같지 않을 수 있다. 백업 뒤에 배포가 있었을 수 있어서다.
+# 비어 있지 않고 표가 있는지만 막는다.
+test -n "$restored_schema"
+if [[ ! "$restored_tables" =~ ^[1-9][0-9]*$ ]]; then
+  echo "restored snapshot contains no application tables" >&2
+  exit 1
+fi
+
+echo "offsite restore verified: schema=$restored_schema tables=$restored_tables users=$restored_users"

@@ -2,6 +2,7 @@
 Description=Renew the Daymo TLS certificate
 After=docker.service
 Requires=docker.service
+OnFailure=daymo-alert@%n.service
 
 [Service]
 Type=oneshot

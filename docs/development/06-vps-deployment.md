@@ -239,6 +239,14 @@ schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 
 
 운영 파일은 `daymo-backup`, `daymo-backup.service`, `daymo-backup.timer`로 관리한다. `/etc/daymo/secrets/backup.env`, restic password 파일과 rclone 설정이 모두 준비되고 최초 원격 snapshot 복원까지 성공한 뒤에만 timer를 활성화한다.
 
+2026-09-15에 활성화했다. rclone은 Daymo 전용 Google 계정에 `drive.file` 권한으로만 연결했다(rclone이 만든 파일만 보인다). 토큰은 관리자 PC 브라우저에서 승인받아 화면에 출력하지 않고 `/etc/daymo/secrets/rclone.conf`(root `0600`)로 옮겼다. systemd에는 `$HOME`이 없어 `CacheDirectory=restic`으로 캐시를 `/var/cache/restic`에 둔다.
+
+**restic password를 잃으면 백업을 복원할 수 없다.** VPS가 사라지면 password 파일도 함께 사라지므로 `/etc/daymo/secrets/restic-password` 사본을 비밀번호 관리 도구에 따로 보관한다. rclone 토큰은 다시 승인받으면 되지만 password는 다시 만들 수 없다.
+
+`daymo-verify-offsite`(`.service`·`.timer`)는 매월 1일 05:10 Asia/Seoul에 `restic check --read-data-subset=10%`로 저장소와 데이터 일부를 읽고, 최신 snapshot의 DB dump를 임시 DB `daymo_restore_offsite`에 복원해 schema와 표 수를 확인한 뒤 지운다. 사진 표본 checksum 검사는 사진 업로드가 생긴 뒤에 더한다.
+
+백업·오프사이트 검사·정리·배포·인증서 갱신 unit은 실패하면 `OnFailure=daymo-alert@%n.service`로 `daymo-alert`를 부른다. api 이미지로 `python -m app.jobs.alert <unit>`을 한 번 실행해 `support@daymo.xyz`로 어느 작업이 언제 실패했는지만 보낸다. 로그 본문은 메일에 넣지 않는다.
+
 정리 작업은 `daymo-cleanup`, `daymo-cleanup.service`, `daymo-cleanup.timer`로 관리한다. 매일 04:40 Asia/Seoul, 백업이 끝난 뒤에 api 이미지로 `python -m app.jobs.cleanup`을 한 번 실행하고 컨테이너를 지운다. 유예가 지난 계정 비식별화, 삭제 기한이 지난 여행, 오래된 시도 횟수 표를 정리한다. 일마다 transaction이 따로라 하나가 실패해도 나머지는 끝나고, 실패가 있으면 종료 코드 1로 timer 실패가 남는다. 백업보다 뒤에 두는 이유는 지우기 직전 상태를 그날 snapshot에 남기기 위해서다. 백업에서 복원할 때 이미 정리한 계정이 되살아나지 않게 하는 deletion ledger는 아직 없다.
 
 매월 자동 검증은 최신 snapshot에서 DB를 격리된 임시 PostgreSQL container에 복원해 migration metadata와 주요 table count를 검사하고, 무작위 사진 표본의 checksum과 decode 가능 여부를 확인한 뒤 임시 data를 삭제한다. 분기마다 별도의 빈 local/staging 환경에서 DB와 전체 사진 경로를 수동 복원해 로그인·여행 조회·사진 열기 smoke test까지 수행한다.

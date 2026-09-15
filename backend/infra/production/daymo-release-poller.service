@@ -3,6 +3,7 @@ Description=Deploy the latest Daymo commit with a successful CI run
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
+OnFailure=daymo-alert@%n.service
 
 [Service]
 Type=oneshot

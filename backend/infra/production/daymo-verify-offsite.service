@@ -1,5 +1,5 @@
 [Unit]
-Description=Back up Daymo data to encrypted off-site storage
+Description=Restore the latest Daymo off-site snapshot into a scratch database
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
@@ -7,7 +7,6 @@ OnFailure=daymo-alert@%n.service
 
 [Service]
 Type=oneshot
-# systemd 에는 $HOME 이 없어 restic 이 캐시 없이 매번 Drive 에서 색인을 다시 읽는다.
 CacheDirectory=restic
 Environment=RESTIC_CACHE_DIR=/var/cache/restic
-ExecStart=/usr/local/sbin/daymo-backup
+ExecStart=/usr/local/sbin/daymo-verify-offsite

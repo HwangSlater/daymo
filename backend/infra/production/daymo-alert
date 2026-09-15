@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly COMPOSE_FILE=/srv/daymo/current/backend/infra/production/compose.yml
+readonly ENV_FILE=/etc/daymo/secrets/runtime.env
+
+# 실패한 unit 이름을 운영 메일로 알린다. api 가 멈춘 상태에서도 보내야 해서
+# 떠 있는 컨테이너에 붙지 않고 같은 이미지로 한 번 실행한다.
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" run --rm --no-deps -T api   python -m app.jobs.alert "${1:?unit name}"
