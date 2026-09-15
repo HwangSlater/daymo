@@ -19,7 +19,7 @@ import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { photoCodec } from "./photoSync";
 import { TripTrash } from "./TripTrash";
-import { downloadPhoto, uploadPhoto } from "./photoTransfer";
+import { downloadPhoto, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
 import type { ExpenseSettings, ReportReason, ReportTargetType } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
@@ -1599,7 +1599,7 @@ export function WarmTripDetail({
   const photoDownloads = useRef(new Set<string>());
   useEffect(() => {
     if (!serverTrip) return;
-    const missing = memories.photos.filter((photo) => !photo.uri && knownPhotoIds.has(photo.id) && !photoDownloads.current.has(photo.id));
+    const missing = memories.photos.filter((photo) => !isLivePhotoUri(photo.uri) && knownPhotoIds.has(photo.id) && !photoDownloads.current.has(photo.id));
     if (!missing.length) return;
     missing.forEach((photo) => photoDownloads.current.add(photo.id));
     void (async () => {
@@ -1609,7 +1609,7 @@ export function WarmTripDetail({
           if (!uri) continue;
           setMemories((current) => ({
             ...current,
-            photos: current.photos.map((item) => (item.id === photo.id && !item.uri ? { ...item, uri } : item)),
+            photos: current.photos.map((item) => (item.id === photo.id && !isLivePhotoUri(item.uri) ? { ...item, uri } : item)),
           }));
         } catch {
           // 연결이 없으면 다음에 목록이 바뀔 때 다시 받는다.
@@ -1638,7 +1638,7 @@ export function WarmTripDetail({
   const receiptDownloads = useRef(new Set<string>());
   useEffect(() => {
     if (!serverTrip) return;
-    const missing = expenses.filter((item) => item.receiptPhotoId && !item.receiptUri && !receiptDownloads.current.has(item.receiptPhotoId));
+    const missing = expenses.filter((item) => item.receiptPhotoId && !isLivePhotoUri(item.receiptUri) && !receiptDownloads.current.has(item.receiptPhotoId));
     for (const item of missing) {
       const photoId = item.receiptPhotoId as string;
       receiptDownloads.current.add(photoId);
@@ -1646,7 +1646,7 @@ export function WarmTripDetail({
         .then((uri) => {
           if (!uri) return;
           setExpenses((current) => current.map((expense) =>
-            expense.receiptPhotoId === photoId && !expense.receiptUri ? { ...expense, receiptUri: uri } : expense));
+            expense.receiptPhotoId === photoId && !isLivePhotoUri(expense.receiptUri) ? { ...expense, receiptUri: uri } : expense));
         })
         .catch(() => receiptDownloads.current.delete(photoId));
     }

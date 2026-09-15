@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -68,6 +69,17 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-Id"] = request_id
         return response
+
+    # 웹 버전이 다른 주소(www.daymo.xyz)에서 API 를 부른다. 가장 바깥에 둬야 오류 응답에도
+    # 헤더가 붙는다. 그래서 다른 미들웨어보다 나중에 등록한다.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
+        expose_headers=["X-Request-Id"],
+        max_age=600,
+    )
 
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:

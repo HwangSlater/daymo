@@ -86,6 +86,16 @@ class Settings(BaseSettings):
     # 가로챌 수 있다. 로컬에서 Expo Go 로 시험하려면 exp://.../--/oauth 를 더한다.
     oauth_app_redirect_uris: str = "daymo://oauth"
 
+    # 브라우저에서 API 를 부를 수 있는 웹 앱 주소. 쉼표로 여럿. 앱은 브라우저가 아니라
+    # 상관없고, 웹 버전(www.daymo.xyz/app)만 여기에 걸린다. 로컬 웹 미리보기는
+    # http://localhost:8081 처럼 더한다. 토큰은 쿠키가 아니라 Authorization 으로 보내서
+    # credentials 는 켜지 않는다.
+    cors_origins: str = "https://www.daymo.xyz,https://daymo.xyz"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [주소.strip() for 주소 in self.cors_origins.split(",") if 주소.strip()]
+
     @property
     def app_redirect_uris(self) -> frozenset[str]:
         return frozenset(주소.strip() for 주소 in self.oauth_app_redirect_uris.split(",") if 주소.strip())

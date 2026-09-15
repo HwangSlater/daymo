@@ -98,17 +98,42 @@ export async function uploadPhoto(
   return sendContent(photoId, uri);
 }
 
+// 웹에서 이번 탭이 만든 사진 주소. blob: 주소는 탭을 새로 열면 죽는다.
+const liveBlobUris = new Set<string>();
+
 /**
- * 서버 사진의 표시본을 기기에 받아 둔다. 받은 파일 자리를 돌려준다.
+ * 지금 화면에 띄울 수 있는 사진 주소인지. 웹은 사진을 브라우저 저장소에 넣지 않고
+ * blob: 주소로만 들고 있어서, 새로 연 탭에 남은 옛 blob: 주소는 다시 받아야 한다.
+ */
+export const isLivePhotoUri = (uri: string | undefined): uri is string =>
+  Boolean(uri) && (!uri!.startsWith("blob:") || liveBlobUris.has(uri!));
+
+/**
+ * 서버 사진의 표시본을 받아 둔다. 받은 자리를 돌려준다.
  *
- * 웹은 받지 않는다(undefined). 폰에서만 문서 폴더에 둔다.
+ * 폰은 문서 폴더에 파일로 둔다. 웹은 메모리에만 두고 blob: 주소를 준다. 브라우저 저장소는
+ * 몇 MB 뿐이라 사진을 넣으면 여행 기록 저장이 먼저 막힌다.
  */
 export async function downloadPhoto(photoId: string): Promise<string | undefined> {
-  if (Platform.OS === "web" || !FileSystem.documentDirectory) return undefined;
+  const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=display`);
+  if (Platform.OS === "web") {
+    return withAccessToken(async (accessToken) => {
+      let response: Response;
+      try {
+        response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      } catch {
+        throw new DaymoApiError("인터넷 연결을 확인하고 다시 시도해 주세요.", 0);
+      }
+      if (!response.ok) throw new DaymoApiError("사진을 받지 못했어요.", response.status);
+      const uri = URL.createObjectURL(await response.blob());
+      liveBlobUris.add(uri);
+      return uri;
+    });
+  }
+  if (!FileSystem.documentDirectory) return undefined;
   const folder = `${FileSystem.documentDirectory}${PHOTO_DIRECTORY}/`;
   await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
   const target = `${folder}server-${photoId}.jpg`;
-  const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=display`);
   return withAccessToken(async (accessToken) => {
     let status: number;
     try {
