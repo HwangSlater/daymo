@@ -54,6 +54,8 @@ class Rule:
     first_delay: timedelta
     max_block: timedelta
     # 요청 사이 최소 간격. 재전송처럼 연타를 막아야 하는 곳에만 쓴다.
+    # **계정 기준에만 건다.** IP 에 걸면 같은 와이파이나 통신사 NAT 뒤의
+    # 서로 다른 두 사람이 1분 안에 가입할 때 두 번째 사람이 막힌다.
     min_interval: timedelta | None = None
 
 
@@ -178,7 +180,8 @@ async def _한_열쇠를_본다(
         _막는다(줄.blocked_until, 지금)
 
     if (
-        rule.min_interval
+        종류 == ACCOUNT
+        and rule.min_interval
         and 줄.last_attempt_at
         and 지금 - 줄.last_attempt_at < rule.min_interval
     ):

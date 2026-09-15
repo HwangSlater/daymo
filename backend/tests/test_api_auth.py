@@ -553,3 +553,16 @@ async def test_모르는_작업_종류는_거부한다(api, db):
     )
 
     assert 응답.status_code == 422
+
+
+async def test_같은_IP의_다른_사람은_잇달아_가입할_수_있다(api, db):
+    """
+    재전송 간격은 계정 기준이다. IP 에 걸면 같은 와이파이나 통신사 NAT 뒤의
+    서로 다른 두 사람이 1분 안에 가입할 때 두 번째 사람이 막힌다.
+    """
+    첫째 = await 가입(api, email="first@example.com")
+    둘째 = await 가입(api, email="second@example.com")
+
+    assert 첫째.status_code == 202
+    assert 둘째.status_code == 202
+    assert get_outbox().last.to == "second@example.com"
