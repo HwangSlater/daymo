@@ -1,6 +1,7 @@
 import { authenticatedRequest } from "./auth";
 import type { PlaceBody, ServerPlace } from "./placeSync";
 import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./scheduleSync";
+import type { ReservationBody, ServerReservation, ServerTransport, TransportBody } from "./bookingSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 
 export type ServerSpace = {
@@ -128,6 +129,42 @@ export const updateStay = (id: string, version: number, body: StayBody) =>
 
 export const deleteStay = (id: string) =>
   authenticatedRequest<void>(`/v1/stays/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listTransports = (tripId: string) =>
+  authenticatedRequest<ServerTransport[]>(`/v1/trips/${encodeURIComponent(tripId)}/transports`);
+
+export const createTransport = (tripId: string, id: string, body: TransportBody) =>
+  authenticatedRequest<ServerTransport>(`/v1/trips/${encodeURIComponent(tripId)}/transports`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateTransport = (id: string, version: number, body: TransportBody) =>
+  authenticatedRequest<ServerTransport>(`/v1/transports/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteTransport = (id: string) =>
+  authenticatedRequest<void>(`/v1/transports/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const listReservations = (tripId: string) =>
+  authenticatedRequest<ServerReservation[]>(`/v1/trips/${encodeURIComponent(tripId)}/reservations`);
+
+export const createReservation = (tripId: string, id: string, body: ReservationBody) =>
+  authenticatedRequest<ServerReservation>(`/v1/trips/${encodeURIComponent(tripId)}/reservations`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateReservation = (id: string, version: number, body: ReservationBody) =>
+  authenticatedRequest<ServerReservation>(`/v1/reservations/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteReservation = (id: string) =>
+  authenticatedRequest<void>(`/v1/reservations/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export const updateTrip = (
   tripId: string,

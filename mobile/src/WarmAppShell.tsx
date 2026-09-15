@@ -761,6 +761,7 @@ export function WarmAppShell({
         done={done}
         initialDestination={tripDestination}
         tripId={selectedTrip.id}
+        spaceRoster={activeRoster}
         tripName={selectedTrip.name}
         tripDate={selectedTrip.date}
         tripStart={selectedTrip.start}

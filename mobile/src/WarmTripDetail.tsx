@@ -12,9 +12,19 @@ import { useListSync } from "./useListSync";
 import { isServerId, tripDateKeys } from "./listSync";
 import { legacyIdMap, placeCodec } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
+import { reservationCodec, transportCodec } from "./bookingSync";
+import type { RosterEntry } from "./tripSync";
 import {
+  createReservation,
   createScheduleItem,
   createStay,
+  createTransport,
+  deleteReservation,
+  deleteTransport,
+  listReservations,
+  listTransports,
+  updateReservation,
+  updateTransport,
   createTripPlace,
   deleteScheduleItem,
   deleteStay,
@@ -143,6 +153,26 @@ export type PlaceItem = {
 /** 새 장소·일정·숙소 id. 서버가 이 UUID 를 그대로 받아 쓴다(backend/app/api/v1/places.py). */
 const newPlaceId = () => Crypto.randomUUID();
 
+/** 교통편에서 만들어지는 일정 줄. 저장할 때와 목록을 다시 맞출 때 같은 모양이어야 한다. */
+const transportScheduleRow = (transportation: Transportation): ScheduleItem => ({
+  time: `${weekdayOf(transportation.date)} · ${transportation.departureTime}`,
+  date: transportation.date,
+  title: `${transportation.method} ${transportation.departure} 출발`,
+  note: `${transportation.arrival} ${transportation.arrivalTime} 도착 · ${transportation.owner} · ${transportation.direction}`,
+  mapUrl: "",
+  transportationId: transportation.id,
+});
+
+/** 예약에서 만들어지는 일정 줄. */
+const reservationScheduleRow = (reservation: ReservationInfo): ScheduleItem => ({
+  time: `${weekdayOf(reservation.date)} · ${reservation.time || "시간 미정"}`,
+  date: reservation.date,
+  title: reservation.name,
+  note: ["예약", reservation.status].filter(Boolean).join(" · "),
+  mapUrl: "",
+  reservationId: reservation.id,
+});
+
 /** 저장 실패 안내. 서버가 준 문구(권한 없음 같은)는 사람이 읽을 수 있게 쓰여 있어 그대로 쓴다. */
 const saveErrorMessage = (caught: unknown) =>
   caught instanceof DaymoApiError && caught.status !== 0
@@ -191,6 +221,10 @@ export type TripPlanningData = {
   scheduleSyncIds?: string[];
   /** 서버와 맞춘 적이 있는 숙소 id. */
   staySyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 교통편 id. */
+  transportSyncIds?: string[];
+  /** 서버와 맞춘 적이 있는 예약 id. */
+  reservationSyncIds?: string[];
   /** 여행에서 쓰는 통화 코드. 없으면 원이다. */
   currency?: string;
   /** 1 단위가 몇 원인지. 통화가 원이면 1 이다. */
@@ -337,6 +371,8 @@ type Props = {
   onUpdateParticipants?: (participants: string[]) => Promise<string[]>;
   /** 서버 여행 id. 있으면 장소를 서버와 맞춘다. 예시 여행에는 없다. */
   tripId?: string;
+  /** 공간 사람의 이름과 membership id. 교통편의 탈 사람을 서버에 보낼 때 쓴다. */
+  spaceRoster?: RosterEntry[];
   initialPlanning?: TripPlanningData;
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
@@ -829,6 +865,7 @@ export function WarmTripDetail({
   onUpdateTrip,
   onUpdateParticipants,
   tripId,
+  spaceRoster = [],
   initialPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
@@ -1054,6 +1091,21 @@ export function WarmTripDetail({
     setRegisteredStay((current) => current.name && (!isServerId(current.id) || (current.placeId && map.has(current.placeId)))
       ? { ...current, id: isServerId(current.id) ? current.id : newPlaceId(), placeId: rename(current.placeId) }
       : current);
+    // 교통편·예약의 옛 id 도 바꾸고, 그 id 로 만들어진 일정 줄이 따라가게 한다.
+    const bookingMap = new Map<string, string>();
+    for (const item of [...transportations, ...reservations]) {
+      if (!isServerId(item.id)) bookingMap.set(item.id, newPlaceId());
+    }
+    if (bookingMap.size) {
+      const renameBooking = (id: string) => bookingMap.get(id) ?? id;
+      setTransportations((current) => current.map((item) => ({ ...item, id: renameBooking(item.id) })));
+      setReservations((current) => current.map((item) => ({ ...item, id: renameBooking(item.id) })));
+      setSchedule((current) => current.map((item) => ({
+        ...item,
+        ...(item.transportationId ? { transportationId: renameBooking(item.transportationId) } : {}),
+        ...(item.reservationId ? { reservationId: renameBooking(item.reservationId) } : {}),
+      })));
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
     // 여는 순간 한 번만 본다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1123,6 +1175,79 @@ export function WarmTripDetail({
     refreshKey: `${placeSyncIds.join(",")}|${tripDateKeyList.join(",")}`,
     notify: setFeedback,
   });
+  const [transportSyncIds, setTransportSyncIds] = useState<string[]>(() => initialPlanning?.transportSyncIds ?? []);
+  const [reservationSyncIds, setReservationSyncIds] = useState<string[]>(() => initialPlanning?.reservationSyncIds ?? []);
+  const rosterKey = spaceRoster.map((entry) => `${entry.id}:${entry.name}`).join(",");
+  const transportSyncCodec = useMemo(
+    () => transportCodec(tripDateKeyList, spaceRoster),
+    // 사람 표는 렌더마다 새 배열이라 글자 키로 본다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosterKey, tripDateKeyList],
+  );
+  useListSync({
+    tripId,
+    label: "교통편",
+    items: transportations,
+    setItems: setTransportations,
+    codec: transportSyncCodec,
+    api: { list: listTransports, create: createTransport, update: updateTransport, remove: deleteTransport },
+    syncedIds: transportSyncIds,
+    setSyncedIds: setTransportSyncIds,
+    refreshKey: `${rosterKey}|${tripDateKeyList.join(",")}`,
+    notify: setFeedback,
+  });
+  const reservationSyncCodec = useMemo(() => reservationCodec(tripDateKeyList), [tripDateKeyList]);
+  useListSync({
+    tripId,
+    label: "예약",
+    items: reservations,
+    setItems: setReservations,
+    codec: reservationSyncCodec,
+    api: { list: listReservations, create: createReservation, update: updateReservation, remove: deleteReservation },
+    syncedIds: reservationSyncIds,
+    setSyncedIds: setReservationSyncIds,
+    refreshKey: tripDateKeyList.join(","),
+    notify: setFeedback,
+  });
+  useEffect(() => {
+    // 교통편·예약의 "일정에 표시" 줄을 목록에서 다시 만든다. 저장 버튼에서만 만들면
+    // 다른 기기에서 받은 교통편·예약은 일정에 보이지 않는다. 대표 숙소 줄과 같은 방식이다.
+    const wanted = new Map<string, ScheduleItem>();
+    for (const item of transportations) {
+      if (item.showInSchedule) wanted.set(`t:${item.id}`, transportScheduleRow(item));
+    }
+    for (const item of reservations) {
+      if (item.showInSchedule) wanted.set(`r:${item.id}`, reservationScheduleRow(item));
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSchedule((current) => {
+      let changed = false;
+      const seen = new Set<string>();
+      const next: ScheduleItem[] = [];
+      for (const item of current) {
+        const key = item.transportationId ? `t:${item.transportationId}` : item.reservationId ? `r:${item.reservationId}` : null;
+        if (!key) {
+          next.push(item);
+          continue;
+        }
+        const want = wanted.get(key);
+        if (!want || seen.has(key)) {
+          changed = true;
+          continue;
+        }
+        seen.add(key);
+        if (JSON.stringify(want) !== JSON.stringify(item)) changed = true;
+        next.push(want);
+      }
+      for (const [key, row] of wanted) {
+        if (!seen.has(key)) {
+          next.push(row);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [reservations, transportations]);
   const onSavePlanningRef = useRef(onSavePlanning);
   useEffect(() => {
     onSavePlanningRef.current = onSavePlanning;
@@ -1162,8 +1287,10 @@ export function WarmTripDetail({
       placeSyncIds,
       scheduleSyncIds,
       staySyncIds,
+      transportSyncIds,
+      reservationSyncIds,
     });
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
   const closeDetail = useCallback(() => {
     // 열어만 보고 닫으면 아무것도 남기지 않는다.
     if (!planningDirty.current) {
@@ -1193,9 +1320,11 @@ export function WarmTripDetail({
       placeSyncIds,
       scheduleSyncIds,
       staySyncIds,
+      transportSyncIds,
+      reservationSyncIds,
     });
     onClose();
-  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportations, tripNotes]);
+  }, [budget, cookingReadyIngredientIds, currency, exchangeRate, expenses, hasKitchen, memories, onClose, onSavePlanning, packingDone, packingItems, participants, payments, placeSyncIds, places, recipes, registeredStay, reservationSyncIds, reservations, schedule, scheduleSyncIds, simplifySettlement, staySyncIds, transportSyncIds, transportations, tripNotes]);
 
   useEffect(() => {
     // 홈의 바로가기 목적지가 바뀌면 이미 열린 상세 화면의 탭을 맞춘다.
@@ -1885,7 +2014,7 @@ function TripOverview({
   const [transportDraftBaseline, setTransportDraftBaseline] = useState(() =>
     JSON.stringify(transportDraft),
   );
-  const blankReservation = (id = `reservation-${Date.now()}`): ReservationInfo => ({
+  const blankReservation = (id = newPlaceId()): ReservationInfo => ({
     id,
     name: "",
     date: defaultPlanDay,
@@ -2145,14 +2274,7 @@ function TripOverview({
           ? current
           : current.filter((item) => item.transportationId !== transportation.id);
       }
-      const linked: ScheduleItem = {
-        time: `${weekdayOf(transportation.date)} · ${transportation.departureTime}`,
-        date: transportation.date,
-        title: `${transportation.method} ${transportation.departure} 출발`,
-        note: `${transportation.arrival} ${transportation.arrivalTime} 도착 · ${transportation.owner} · ${transportation.direction}`,
-        mapUrl: "",
-        transportationId: transportation.id,
-      };
+      const linked = transportScheduleRow(transportation);
       if (linkedIndex < 0) return [...current, linked];
       return current.map((item, index) => index === linkedIndex ? linked : item);
     });
@@ -2160,7 +2282,7 @@ function TripOverview({
   const addTransportation = () => {
     if (!transportFormValid) return;
     const next: Transportation = {
-      id: editingTransportId ?? `transport-${Date.now()}`,
+      id: editingTransportId ?? newPlaceId(),
       owner: transportOwner,
       direction: transportDirection,
       method: transportMethod,
@@ -2333,14 +2455,7 @@ function TripOverview({
     setSchedule((current) => {
       const withoutLinked = current.filter((item) => item.reservationId !== next.id);
       if (!next.showInSchedule) return withoutLinked;
-      const linked: ScheduleItem = {
-        time: `${weekdayOf(next.date)} · ${next.time || "시간 미정"}`,
-        date: next.date,
-        title: next.name,
-        note: ["예약", next.status].filter(Boolean).join(" · "),
-        mapUrl: "",
-        reservationId: next.id,
-      };
+      const linked = reservationScheduleRow(next);
       const previousIndex = current.findIndex((item) => item.reservationId === next.id);
       if (previousIndex < 0) return [...current, linked];
       return current.map((item, index) => index === previousIndex ? linked : item);
