@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_engine, get_session_factory
 from app.core.logging import configure_logging
 from app.core.runtime import use_selector_event_loop_on_windows
-from app.services import account_deletion, throttle, trips
+from app.services import account_deletion, places, throttle, trips
 
 logger = logging.getLogger("daymo.jobs.cleanup")
 
@@ -29,6 +29,8 @@ Job = Callable[[AsyncSession], Awaitable[int]]
 JOBS: list[tuple[str, Job]] = [
     ("accounts", lambda session: account_deletion.purge_deleted_accounts(session)),
     ("trips", lambda session: trips.purge_deleted_trips(session)),
+    # 여행 정리 뒤에 둔다. 여행이 지워져야 그 여행만 쓰던 손 장소가 남는다.
+    ("places", lambda session: places.purge_orphan_manual_places(session)),
     ("throttle", lambda session: throttle.purge_expired(session)),
 ]
 

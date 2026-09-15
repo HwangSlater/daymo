@@ -382,6 +382,16 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 }
 ```
 
+2026-09-15 구현(`backend/app/api/v1/places.py`):
+
+- `GET/POST /trips/{tripId}/places`, `PATCH/DELETE /trip-places/{tripPlaceId}`가 열려 있다. 일정 담기·숙소 등록·외부 링크 보강·명시적 태그 API는 아직 없다.
+- 요청 필드는 `id`(앱이 만든 UUID, 선택), `name`, `area`, `address`, `category`, `status(saved|scheduled|visited)`, `memo`, `tags`, `mapUrl`이다. 위 예시의 `externalLinks` 배열 대신 지도 링크 하나(`mapUrl`)만 받는다. 앱이 장소마다 링크를 하나만 쓰기 때문이다.
+- 같은 `id`로 다시 담으면 새로 만들지 않고 `200`으로 기존 장소를 돌려준다. 그 `id`가 다른 여행의 장소면 `422`다.
+- 응답에 `version`이 있고 `PATCH`는 `version`이 필수다. 어긋나면 `VERSION_CONFLICT(409)`.
+- `tags`는 가나다순으로 돌려준다. 태그 연결에 순서 칸이 없어서다. 클라이언트는 태그를 순서 없는 묶음으로 비교한다.
+- `mapUrl`은 http/https만 받는다. 호스트로 `naver_map`·`kakao_map`·`youtube`·`other`를 정한다.
+- `DELETE`는 되돌리기 기간 없이 바로 뺀다. 일정의 장소 연결은 비워지고 일정은 남는다. 태그 연결·링크·사진 연결을 떼고, 아무 여행도 쓰지 않는 손 장소 실체를 지운다.
+
 공유 텍스트의 이름·주소·URL 파싱은 기기에서 먼저 수행하며 API를 호출하지 않는다. 단축 URL redirect나 외부 장소 정보 보강이 필요할 때만 다음 요청을 사용한다.
 
 장소·준비물·재료 쓰기 요청의 `tags` 문자열은 서버가 공간과 scope 안에서 정규화해 기존 태그를 연결하거나 새 태그를 upsert한다. 명시적 태그 API는 이름·색 관리용이며 일반 추가 화면에서 태그 생성을 위해 별도 선행 호출하지 않는다.

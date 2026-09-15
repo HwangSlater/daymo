@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
 from app.models import Membership, Trip, TripDay, TripParticipant, TripStatus
+from app.services.space_purge import detach_trip_children, link_targets_of_trips
 
 # 여행 기간의 상한. 문서가 초기 60일로 정해 뒀다.
 #
@@ -225,14 +226,22 @@ async def restore_trip(session: AsyncSession, trip: Trip) -> Trip:
 
 
 async def purge_deleted_trips(session: AsyncSession, *, now: datetime | None = None) -> int:
-    """기한이 지난 여행을 실제로 지운다. 정기 작업에서 부른다."""
+    """
+    기한이 지난 여행을 실제로 지운다. 정기 작업에서 부른다.
+
+    지우기 전에 외래키가 없는 링크·태그 연결을 뗀다. 빠뜨리면 여행은 사라지고
+    그 여행 장소에 붙은 지도 링크와 태그 연결만 남는다.
+    """
     지금 = now or datetime.now(UTC)
-    지운_것 = await session.execute(
-        delete(Trip).where(
-            Trip.deleted_at.is_not(None),
-            Trip.deletion_scheduled_at.is_not(None),
-            Trip.deletion_scheduled_at <= 지금,
-        )
-    )
+    기한 = [
+        Trip.deleted_at.is_not(None),
+        Trip.deletion_scheduled_at.is_not(None),
+        Trip.deletion_scheduled_at <= 지금,
+    ]
+    여행_ids = (await session.execute(select(Trip.id).where(*기한))).scalars().all()
+    if not 여행_ids:
+        return 0
+    await detach_trip_children(session, await link_targets_of_trips(session, 여행_ids))
+    지운_것 = await session.execute(delete(Trip).where(Trip.id.in_(여행_ids)))
     await session.flush()
     return 지운_것.rowcount or 0

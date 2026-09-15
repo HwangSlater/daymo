@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String, Text
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -103,6 +103,10 @@ class TripPlace(Base, TimestampMixin, CreatedByMixin):
     # 지도에서 고른 시도. 앱의 지역 판정이 어림이라 값이 없을 수 있다.
     area: Mapped[str | None] = mapped_column(String(30), nullable=True)
     memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # 두 사람이 같은 장소를 동시에 고치면 나중 저장이 앞사람 것을 덮는다. 고칠
+    # 때마다 올려서 어긋나면 409 로 돌려준다(여행의 version 과 같은 규칙).
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<TripPlace {self.id}>"

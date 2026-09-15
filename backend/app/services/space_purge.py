@@ -42,11 +42,25 @@ async def purge_space(session: AsyncSession, space_id: uuid.UUID) -> None:
     **`LinkTargetType` 에 값을 더하면 여기도 함께 고쳐야 한다.** 빠뜨려도
     아무 오류가 나지 않고 조용히 남는 종류의 실수다.
     """
-    링크_대상 = await link_targets_of(session, space_id)
-    여행_ids = 링크_대상[LinkTargetType.TRIP]
-    여행_장소_ids = 링크_대상[LinkTargetType.PLACE]
+    await detach_trip_children(session, await link_targets_of(session, space_id))
 
-    # 외래키가 없어 따라 지워지지 않는 것들.
+    # 여행을 먼저. trip_days, trip_participants, trip_places, schedule_items,
+    # stays, transports, reservations 가 전부 딸려 간다.
+    await session.execute(delete(Trip).where(Trip.space_id == space_id))
+    # 이제 멤버를 잡고 있는 것이 없다.
+    await session.execute(delete(Membership).where(Membership.space_id == space_id))
+    # 마지막으로 공간. relationship_profiles 와 tags(그리고 그 taggings)가 딸려 간다.
+    await session.execute(delete(Space).where(Space.id == space_id))
+
+
+async def detach_trip_children(
+    session: AsyncSession, 링크_대상: dict[LinkTargetType, Sequence[uuid.UUID]]
+) -> None:
+    """
+    여행을 지우기 전에, 외래키가 없어 따라 지워지지 않는 링크와 태그 연결을 뗀다.
+
+    공간 정리와 기한이 지난 여행 정리가 함께 쓴다.
+    """
     for 종류, ids in 링크_대상.items():
         if ids:
             await session.execute(
@@ -55,6 +69,7 @@ async def purge_space(session: AsyncSession, space_id: uuid.UUID) -> None:
                 )
             )
 
+    여행_장소_ids = 링크_대상[LinkTargetType.PLACE]
     if 여행_장소_ids:
         # taggings 는 tag 를 거쳐 CASCADE 되지만, 다른 공간의 태그가 붙어
         # 있으면 남는다. 그런 일이 없어야 하나 DB 가 막지 못하므로 함께 지운다.
@@ -64,13 +79,26 @@ async def purge_space(session: AsyncSession, space_id: uuid.UUID) -> None:
             )
         )
 
-    # 여행을 먼저. trip_days, trip_participants, trip_places, schedule_items,
-    # stays, transports, reservations 가 전부 딸려 간다.
-    await session.execute(delete(Trip).where(Trip.space_id == space_id))
-    # 이제 멤버를 잡고 있는 것이 없다.
-    await session.execute(delete(Membership).where(Membership.space_id == space_id))
-    # 마지막으로 공간. relationship_profiles 와 tags(그리고 그 taggings)가 딸려 간다.
-    await session.execute(delete(Space).where(Space.id == space_id))
+
+async def link_targets_of_trips(
+    session: AsyncSession, 여행_ids: Sequence[uuid.UUID]
+) -> dict[LinkTargetType, Sequence[uuid.UUID]]:
+    """이 여행들을 지울 때 함께 사라지는, 바깥 링크가 붙을 수 있는 모든 것."""
+    if not 여행_ids:
+        return {종류: [] for 종류 in LinkTargetType}
+
+    return {
+        LinkTargetType.TRIP: list(여행_ids),
+        LinkTargetType.PLACE: await _ids(
+            session, select(TripPlace.id).where(TripPlace.trip_id.in_(여행_ids))
+        ),
+        LinkTargetType.STAY: await _ids(
+            session, select(Stay.id).where(Stay.trip_id.in_(여행_ids))
+        ),
+        LinkTargetType.SCHEDULE: await _ids(
+            session, select(ScheduleItem.id).where(ScheduleItem.trip_id.in_(여행_ids))
+        ),
+    }
 
 
 async def link_targets_of(
@@ -83,22 +111,9 @@ async def link_targets_of(
     종류의 링크가 공간을 지운 뒤에도 남는데, 오류가 나지 않아 알 수 없다.
     그래서 테스트가 이 dict 의 열쇠와 enum 을 맞춰 본다.
     """
-    여행_ids = await _ids(session, select(Trip.id).where(Trip.space_id == space_id))
-    if not 여행_ids:
-        return {종류: [] for 종류 in LinkTargetType}
-
-    return {
-        LinkTargetType.TRIP: 여행_ids,
-        LinkTargetType.PLACE: await _ids(
-            session, select(TripPlace.id).where(TripPlace.trip_id.in_(여행_ids))
-        ),
-        LinkTargetType.STAY: await _ids(
-            session, select(Stay.id).where(Stay.trip_id.in_(여행_ids))
-        ),
-        LinkTargetType.SCHEDULE: await _ids(
-            session, select(ScheduleItem.id).where(ScheduleItem.trip_id.in_(여행_ids))
-        ),
-    }
+    return await link_targets_of_trips(
+        session, await _ids(session, select(Trip.id).where(Trip.space_id == space_id))
+    )
 
 
 async def _ids(session: AsyncSession, 질의) -> Sequence[uuid.UUID]:
