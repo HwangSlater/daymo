@@ -11,9 +11,11 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.hwangslater.daymo",
-      "usesAppleSignIn": true
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.hwangslater.daymo",
@@ -48,7 +50,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "여행 사진을 기록에 추가하려면 사진 접근 권한이 필요합니다."
+          "photosPermission": "여행 사진을 기록에 추가하려면 사진 접근 권한이 필요합니다.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       "@react-native-community/datetimepicker",

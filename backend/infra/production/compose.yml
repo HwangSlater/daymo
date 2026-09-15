@@ -50,7 +50,7 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-resend}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
-      MAIL_FROM: ${MAIL_FROM:-Daymo <support@daymo.xyz>}
+      MAIL_FROM: ${MAIL_FROM:-Daymo <no-reply@daymo.xyz>}
     volumes:
       - /srv/daymo/uploads:/srv/daymo/uploads
     depends_on:

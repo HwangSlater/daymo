@@ -91,6 +91,11 @@ type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
 
 WebBrowser.maybeCompleteAuthSession();
 
+// 소셜 로그인은 서버 쪽이 아직 없다. 눌러도 되지 않는 버튼은 심사에서
+// 반려 사유이고(App Review 2.1), 지금의 콜백은 토큰 없이 주소에 실린
+// 이메일만 믿는다. 제공자를 하나씩 서버에 붙일 때 켠다.
+const SOCIAL_LOGIN_READY = false;
+
 type Trip = {
   id?: string;
   version?: number;
@@ -996,11 +1001,14 @@ function AuthScreen({
           >
             <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{loading ? "확인 중…" : mode === "login" ? "로그인" : "회원가입"}</Text>
           </Pressable>
+          {SOCIAL_LOGIN_READY && (
           <View style={s.authDivider}>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
             <Text style={[s.authDividerText, { color: theme.muted }]}>또는 소셜 계정으로</Text>
             <View style={[s.authDividerLine, { backgroundColor: theme.border }]} />
           </View>
+          )}
+          {SOCIAL_LOGIN_READY && (
           <View style={s.oauthGrid}>
             {/*
               심볼 자리는 비워 두었다. 예전에는 동그라미 안에 K·N·G·A 한 글자를
@@ -1035,6 +1043,7 @@ function AuthScreen({
               </Pressable>
             ))}
           </View>
+          )}
           <Pressable
             onPress={switchMode}
             accessibilityRole="button"

@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     smtp_username: str = "resend"
     smtp_password: str = ""
     smtp_starttls: bool = True
-    mail_from: str = "Daymo <support@daymo.xyz>"
+    mail_from: str = "Daymo <no-reply@daymo.xyz>"
 
     @property
     def database_url(self) -> str:
