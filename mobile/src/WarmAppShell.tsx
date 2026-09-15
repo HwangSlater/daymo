@@ -24,6 +24,7 @@ import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 import { useSheetDrag } from "./sheetDrag";
 import { type Expense, money } from "./tripExpenses";
 import { PaperPeel } from "./PaperPeel";
@@ -66,6 +67,13 @@ import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone
 import { cancelAccountDeletion, DaymoApiError, login, logout, requestAccountDeletion, requestPasswordReset, restoreSession, signUp, type AuthUser } from "./auth";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
 import {
+  acceptInvite,
+  changeMemberRole,
+  createInvite,
+  listInvites,
+  removeMember,
+  revokeInvite,
+  type ServerInvite,
   createSpace,
   createTrip,
   getTrip,
@@ -82,6 +90,7 @@ import {
 } from "./serverData";
 import {
   canEditSpace,
+  roleToServer,
   formerMembersFromServer,
   membersFromServer,
   relationshipFromServer,
@@ -93,6 +102,7 @@ import {
 import { mergeServerTripsByGroup } from "./tripMerge";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
+import { inviteTokenOf } from "./inviteLink";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt"> & { id?: string };
@@ -440,7 +450,7 @@ const appVersion = "0.1.0";
 const helpTopics = [
   {
     q: "적은 게 다른 사람에게도 보이나요?",
-    a: "공간과 여행의 이름·지역·기간은 계정에 저장돼요. 일정·준비물·비용·메모는 서버 연결을 진행 중이라 아직 이 기기에만 저장돼요.",
+    a: "네, 같은 공간 멤버에게 보여요. 여행의 일정·장소·준비물·요리·비용·메모·일기·사진이 계정에 저장돼 멤버와 함께 보고 고쳐요. 여행 상세를 열어 둔 동안 저장되고, 연결이 끊기면 다시 연결될 때 저장해요.",
   },
   {
     q: "준비물 담당과 지출의 몫은 누구 중에서 고르나요?",
@@ -451,8 +461,8 @@ const helpTopics = [
     a: "아니요. 실제 송금은 은행이나 송금 앱에서 하고, 여기에는 보냈다고 적어만 둬요. 적으면 남은 금액이 줄어들고 되돌릴 수도 있어요.",
   },
   {
-    q: "멤버 권한은 지금 작동하나요?",
-    a: "서버의 공간과 여행 권한 검사는 작동해요. 멤버 초대와 관리 화면 연결은 다음 단계에서 추가돼요.",
+    q: "멤버는 어떻게 초대하나요?",
+    a: "우리 → 멤버에서 초대 링크를 보내면 받은 사람이 로그인하고 이메일을 확인한 뒤 바로 함께해요. 권한 바꾸기와 내보내기는 관리자가 할 수 있어요.",
   },
 ];
 
@@ -477,11 +487,17 @@ export function WarmAppShell({
   // 목록에는 옛 이름이 남았다.
   const [spaces, setSpaces] = useState<Space[]>(storedSpaces);
   const [serverDataReady, setServerDataReady] = useState(false);
+  const [spacesReload, setSpacesReload] = useState(0);
+  const [pendingInvite, setPendingInvite] = useState<string | null>(null);
   const [serverDataError, setServerDataError] = useState(false);
   useSaveSpaces(spaces);
   const [activeGroupId, setActiveGroupId] = useState<GroupId>(
     settings.activeGroupId,
   );
+  const activeGroupRef = useRef(activeGroupId);
+  useEffect(() => {
+    activeGroupRef.current = activeGroupId;
+  }, [activeGroupId]);
   const activeSpace = spaces.find((space) => space.id === activeGroupId) ?? spaces[0] ?? {
     id: "pending",
     name: "첫 여행 공간",
@@ -622,7 +638,9 @@ export function WarmAppShell({
         // 기기에만 있어서, 바꾸면 앱을 켤 때마다 적어 둔 것이 사라진다.
         setTripsByGroup((current) =>
           mergeServerTripsByGroup(nextTrips, current) as Record<GroupId, Trip[]>);
-        if (nextSpaces[0] && !nextSpaces.some((space) => space.id === settings.activeGroupId)) {
+        // 지금 보고 있는 공간과 비교한다. 처음 읽은 설정 값과 비교하면, 초대로 들어간
+        // 공간으로 옮겨 가자마자 첫 공간으로 되돌아간다.
+        if (nextSpaces[0] && !nextSpaces.some((space) => space.id === activeGroupRef.current)) {
           setActiveGroupId(nextSpaces[0].id as GroupId);
         }
         setServerDataError(false);
@@ -636,7 +654,46 @@ export function WarmAppShell({
     return () => {
       active = false;
     };
-  }, [settings.activeGroupId, tripStorageReady, user?.id]);
+    // spacesReload 는 초대로 들어오거나 멤버가 바뀌었을 때 다시 받으려고 올린다.
+  }, [settings.activeGroupId, spacesReload, tripStorageReady, user?.id]);
+  /**
+   * 초대 링크로 앱이 열리면 token 을 받아 둔다. 로그인 전이면 로그인한 뒤에 묻는다.
+   * 참여는 사람이 한 번 더 눌러야 한다. 링크를 연 것만으로 공간에 들어가지 않는다.
+   */
+  useEffect(() => {
+    const take = (url: string | null) => {
+      const token = inviteTokenOf(url);
+      if (token) setPendingInvite(token);
+    };
+    Linking.getInitialURL().then(take).catch(() => undefined);
+    const subscription = Linking.addEventListener("url", ({ url }) => take(url));
+    return () => subscription.remove();
+  }, []);
+  const joinInvite = async (token: string) => {
+    const joined = await acceptInvite(token);
+    activeGroupRef.current = joined.spaceId as GroupId;
+    setActiveGroupId(joined.spaceId as GroupId);
+    setSpacesReload((value) => value + 1);
+    return joined;
+  };
+  useEffect(() => {
+    if (!pendingInvite || !user?.id || !serverDataReady) return;
+    const token = pendingInvite;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingInvite(null);
+    Alert.alert("여행 공간 초대", "초대받은 공간에 참여할까요? 참여하면 이 공간의 여행을 함께 보고 고칠 수 있어요.", [
+      { text: "나중에", style: "cancel" },
+      {
+        text: "참여하기",
+        onPress: () => {
+          joinInvite(token)
+            .then((joined) => Alert.alert(joined.alreadyMember ? "이미 함께하고 있는 공간이에요" : "공간에 참여했어요"))
+            .catch((error) => Alert.alert("참여하지 못했어요", error instanceof DaymoApiError ? error.message : "잠시 후 다시 시도해 주세요."));
+        },
+      },
+    ]);
+    // 받아 둔 token 이 생기거나 로그인이 끝났을 때만 묻는다.
+  }, [pendingInvite, serverDataReady, user?.id]);
   /**
    * 이 기기에 남은 것을 전부 지운다.
    *
@@ -938,6 +995,8 @@ export function WarmAppShell({
               setAuthOffline(false);
             }}
             onWipe={wipeDevice}
+            onMembersChanged={() => setSpacesReload((value) => value + 1)}
+            onJoinInvite={joinInvite}
             onAccountDeletionRequested={(scheduledAt) => {
               // 서버가 이미 모든 기기를 로그아웃시켰다. 여기서는 화면만 정리한다.
               setAuthNotice(deletionRequestedNotice(scheduledAt));
@@ -3729,6 +3788,8 @@ function Together({
   openTrip,
   onLogout,
   onWipe,
+  onMembersChanged,
+  onJoinInvite,
   onAccountDeletionRequested,
 }: {
   theme: AppTheme;
@@ -3751,6 +3812,10 @@ function Together({
   onLogout: () => void;
   /** 이 기기에 남은 것을 전부 지운다. 서버의 계정은 그대로다. */
   onWipe: () => void;
+  /** 멤버·권한이 바뀌었다. 공간 목록을 서버에서 다시 받는다. */
+  onMembersChanged: () => void;
+  /** 초대 링크로 참여한다. 들어간 공간으로 옮겨 간다. */
+  onJoinInvite: (token: string) => Promise<{ alreadyMember: boolean }>;
   /** 계정 삭제 요청이 받아들여졌다. 서버가 모든 기기를 로그아웃시킨 뒤다. */
   onAccountDeletionRequested: (scheduledAt: string | null) => void;
 }) {
@@ -3773,9 +3838,10 @@ function Together({
    * 내 권한을 아직 모르면(서버에서 못 받았으면) 관리자라고 적지 않는다.
    */
   const people = [
-    { key: "me", name: user.name, role: activeSpace.myRole ?? "권한 확인 중", me: true },
+    { key: "me", membershipId: activeSpace.myMembershipId, name: user.name, role: activeSpace.myRole ?? "권한 확인 중", me: true },
     ...activeSpace.members.map((member, index) => ({
       key: member.id ?? `${member.name}-${index}`,
+      membershipId: member.id,
       name: member.name,
       role: member.role as string,
       me: false,
@@ -4266,15 +4332,29 @@ function Together({
                 {roleExplain[selectedPerson.role] ?? "권한을 불러오지 못했어요. 인터넷에 연결되면 다시 확인해요."}
               </Text>
             </View>
-            {/* 초대·권한 변경·내보내기는 서버 API 가 생길 때 연다. 그 전까지 이름만
-                적어 넣는 멤버 추가는 막는다. 서버에 없는 사람이 담당과 정산에 들어가면
-                다른 기기에서는 그 사람이 보이지 않는다. */}
-            <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt }]}>
-              <Text style={[s.memberPermissionLabel, { color: theme.text }]}>멤버 초대는 준비 중이에요</Text>
-              <Text style={[s.memberRoleText, { color: theme.muted }]}>
-                초대 링크, 권한 변경, 내보내기는 곧 열려요. 지금은 이 공간에 들어와 있는 사람만 보여요.
-              </Text>
-            </View>
+            {activeSpace.myMembershipId && (
+              <MemberActions
+                theme={theme}
+                spaceId={activeSpace.id}
+                myRole={activeSpace.myRole}
+                person={selectedPerson}
+                alone={people.length === 1}
+                onChanged={() => {
+                  setSelectedMember(0);
+                  onMembersChanged();
+                }}
+              />
+            )}
+            {/* 이름만 적어 넣는 멤버 추가는 두지 않는다. 서버에 없는 사람이 담당과 정산에
+                들어가면 다른 기기에서는 그 사람이 보이지 않는다. 사람은 초대 링크로만 들어온다. */}
+            <InviteSection
+              theme={theme}
+              spaceId={activeSpace.myMembershipId ? activeSpace.id : undefined}
+              canInvite={activeSpace.myRole === "관리자" || activeSpace.myRole === "편집 가능"}
+              isOwner={activeSpace.myRole === "관리자"}
+              myMembershipId={activeSpace.myMembershipId}
+              onJoin={onJoinInvite}
+            />
           </>
         )}
         {panel === "relationship" && (
@@ -4898,6 +4978,273 @@ function SpaceSaveNote({
     >
       {copy}
     </Text>
+  );
+}
+
+/**
+ * 고른 멤버에게 할 수 있는 일. 서버가 권한을 다시 확인한다.
+ *
+ * - 관리자: 다른 멤버의 권한 바꾸기, 관리자 넘기기, 내보내기
+ * - 누구나: 나가기. 다른 멤버가 있는 관리자는 먼저 넘겨야 한다(서버가 409 로 알려 준다)
+ */
+function MemberActions({
+  theme,
+  spaceId,
+  myRole,
+  person,
+  alone,
+  onChanged,
+}: {
+  theme: AppTheme;
+  spaceId: string;
+  myRole?: string;
+  person: { membershipId?: string; name: string; role: string; me: boolean };
+  alone: boolean;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const run = async (work: () => Promise<unknown>) => {
+    setBusy(true);
+    setError("");
+    try {
+      await work();
+      onChanged();
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "잠시 후 다시 시도해 주세요.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const membershipId = person.membershipId;
+  if (!membershipId) return null;
+  const confirm = (title: string, message: string, action: string, work: () => Promise<unknown>) =>
+    Alert.alert(title, message, [
+      { text: "취소", style: "cancel" },
+      { text: action, style: "destructive", onPress: () => void run(work) },
+    ]);
+
+  if (person.me) {
+    if (alone) return null;
+    return (
+      <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt }]}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={busy}
+          onPress={() => confirm(
+            "이 공간에서 나갈까요?",
+            "내가 쓴 일정·지출·기록은 공간에 남아요. 다시 들어오려면 초대 링크를 받아야 해요.",
+            "나가기",
+            () => removeMember(spaceId, membershipId),
+          )}
+          style={s.accountDelete}
+        >
+          <Text style={s.accountDeleteText}>이 공간에서 나가기</Text>
+        </Pressable>
+        {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text> : null}
+      </View>
+    );
+  }
+  if (myRole !== "관리자") return null;
+  return (
+    <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt }]}>
+      <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{person.name}의 권한</Text>
+      <Choice
+        theme={theme}
+        label="편집 가능"
+        selected={person.role === "편집 가능"}
+        disabled={busy}
+        onPress={() => void run(() => changeMemberRole(spaceId, membershipId, roleToServer("편집 가능")))}
+      />
+      <Choice
+        theme={theme}
+        label="보기만"
+        selected={person.role === "보기만"}
+        disabled={busy}
+        onPress={() => void run(() => changeMemberRole(spaceId, membershipId, roleToServer("보기만")))}
+      />
+      <Pressable
+        accessibilityRole="button"
+        disabled={busy}
+        onPress={() => confirm(
+          `${person.name}에게 관리자를 넘길까요?`,
+          "공간은 관리자 한 명이 관리해요. 넘기면 나는 편집 가능한 멤버가 돼요.",
+          "넘기기",
+          () => changeMemberRole(spaceId, membershipId, "owner"),
+        )}
+        style={[s.accountLogout, { borderColor: theme.border }]}
+      >
+        <Text style={[s.accountLogoutText, { color: theme.text }]}>관리자 넘기기</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        disabled={busy}
+        onPress={() => confirm(
+          `${person.name}을(를) 내보낼까요?`,
+          "그 사람이 쓴 일정·지출·기록은 공간에 남아요. 다시 들어오려면 초대 링크가 필요해요.",
+          "내보내기",
+          () => removeMember(spaceId, membershipId),
+        )}
+        style={s.accountDelete}
+      >
+        <Text style={s.accountDeleteText}>공간에서 내보내기</Text>
+      </Pressable>
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const inviteDeadline = (iso: string) => {
+  const date = new Date(iso);
+  return `${date.getMonth() + 1}월 ${date.getDate()}일까지`;
+};
+
+/**
+ * 초대 링크 보내기와, 받은 링크로 참여하기.
+ *
+ * 링크 원문은 만든 순간에만 받을 수 있어서 바로 공유 창을 연다. 목록에는 남은 기간과
+ * 들어온 사람 수만 보인다.
+ */
+function InviteSection({
+  theme,
+  spaceId,
+  canInvite,
+  isOwner,
+  myMembershipId,
+  onJoin,
+}: {
+  theme: AppTheme;
+  /** 서버 공간일 때만. 예시 공간에서는 초대를 만들 수 없다. */
+  spaceId?: string;
+  canInvite: boolean;
+  isOwner: boolean;
+  myMembershipId?: string;
+  onJoin: (token: string) => Promise<{ alreadyMember: boolean }>;
+}) {
+  const [invites, setInvites] = useState<ServerInvite[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [link, setLink] = useState("");
+
+  useEffect(() => {
+    if (!spaceId || !canInvite) return;
+    let active = true;
+    listInvites(spaceId)
+      .then((found) => {
+        if (active) setInvites(found);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [canInvite, spaceId]);
+
+  const fail = (caught: unknown) =>
+    setError(caught instanceof DaymoApiError ? caught.message : "잠시 후 다시 시도해 주세요.");
+
+  const sendInvite = async () => {
+    if (!spaceId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const invite = await createInvite(spaceId);
+      setInvites((current) => [invite, ...current]);
+      setBusy(false);
+      const url = invite.inviteUrl ?? "";
+      // 공유 창이 닫힐 때까지 기다리지 않는다. 링크 원문은 지금만 받을 수 있어 먼저 복사해 둔다.
+      await Clipboard.setStringAsync(url).catch(() => undefined);
+      setMessage("초대 링크를 만들고 복사해 뒀어요. 7일 동안 10명까지 들어올 수 있어요.");
+      Share.share({ message: `Daymo 여행 공간에 초대해요. 7일 안에 열어 주세요.
+${url}` }).catch(() => undefined);
+    } catch (caught) {
+      fail(caught);
+      setBusy(false);
+    }
+  };
+
+  const revoke = async (invite: ServerInvite) => {
+    if (!spaceId) return;
+    setError("");
+    try {
+      await revokeInvite(spaceId, invite.id);
+      setInvites((current) => current.filter((item) => item.id !== invite.id));
+      setMessage("초대 링크를 폐기했어요. 이제 그 링크로는 들어올 수 없어요.");
+    } catch (caught) {
+      fail(caught);
+    }
+  };
+
+  const join = async () => {
+    const token = inviteTokenOf(link);
+    if (!token) {
+      setError("받은 초대 링크를 그대로 붙여 넣어 주세요.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const joined = await onJoin(token);
+      setLink("");
+      setMessage(joined.alreadyMember ? "이미 함께하고 있는 공간이에요." : "공간에 참여했어요.");
+    } catch (caught) {
+      fail(caught);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 8 }]}>
+      {spaceId && canInvite && (
+        <>
+          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>함께할 사람 초대</Text>
+          <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
+            링크를 받은 사람은 로그인하고 이메일을 확인한 뒤 편집 가능한 멤버로 들어와요.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => void sendInvite()}
+            style={[s.authSubmit, { backgroundColor: theme.primary }, busy && s.authSubmitDisabled]}
+          >
+            <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>초대 링크 보내기</Text>
+          </Pressable>
+          {invites.map((invite) => (
+            <View key={invite.id} style={s.inviteRow}>
+              <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0, flex: 1 }]}>
+                {inviteDeadline(invite.expiresAt)} · {invite.usedCount}/{invite.maxUses}명 참여
+              </Text>
+              {(isOwner || invite.createdByMembershipId === myMembershipId) && (
+                <Pressable accessibilityRole="button" accessibilityLabel="초대 링크 폐기" onPress={() => void revoke(invite)}>
+                  <Text style={s.accountDeleteText}>폐기</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </>
+      )}
+      <Field
+        theme={theme}
+        label="초대 링크로 참여"
+        value={link}
+        onChangeText={setLink}
+        placeholder="받은 초대 링크를 붙여 넣어 주세요"
+        autoCapitalize="none"
+      />
+      <Pressable
+        accessibilityRole="button"
+        disabled={busy || !link.trim()}
+        onPress={() => void join()}
+        style={[s.accountLogout, { borderColor: theme.border }, (busy || !link.trim()) && s.authSubmitDisabled]}
+      >
+        <Text style={[s.accountLogoutText, { color: theme.text }]}>참여하기</Text>
+      </Pressable>
+      {message ? <Text accessibilityLiveRegion="polite" style={[s.memberRoleText, { color: theme.primary, marginTop: 0 }]}>{message}</Text> : null}
+      {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text> : null}
+    </View>
   );
 }
 
@@ -6444,5 +6791,6 @@ const s = StyleSheet.create({
   helpQuestion: { fontSize: 14, fontFamily: typo.title.family },
   helpAnswer: { fontSize: 13, lineHeight: 20, marginTop: 4, fontFamily: typo.body.family },
   memberEditor: { borderRadius: 12, padding: 12 },
+  inviteRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 32 },
   memberEditorEyebrow: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 8 },
 });

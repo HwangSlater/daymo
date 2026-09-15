@@ -30,6 +30,11 @@ const roleNames: Record<ServerRole, AppRole> = {
   viewer: "보기만",
 };
 
+/** 화면의 권한 이름을 서버 값으로. */
+export function roleToServer(role: AppRole): ServerRole {
+  return role === "관리자" ? "owner" : role === "편집 가능" ? "editor" : "viewer";
+}
+
 /** 모르는 값은 가장 좁은 권한으로 읽는다. 넓게 읽으면 못 하는 일을 할 수 있는 것처럼 보인다. */
 export function roleFromServer(role: string | null | undefined): AppRole {
   return roleNames[role as ServerRole] ?? "보기만";

@@ -57,6 +57,46 @@ export const createSpace = (name: string, relationshipType: ServerSpace["relatio
 export const listMembers = (spaceId: string) =>
   authenticatedRequest<ServerMemberInput[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/members?includeLeft=true`);
 
+export type ServerInvite = {
+  id: string;
+  /** 만들 때만 온다. 서버에는 원문이 없다. */
+  inviteUrl?: string;
+  expiresAt: string;
+  maxUses: number;
+  usedCount: number;
+  createdByMembershipId?: string;
+};
+
+export const createInvite = (spaceId: string) =>
+  authenticatedRequest<ServerInvite>(`/v1/spaces/${encodeURIComponent(spaceId)}/invites`, { method: "POST" });
+
+export const listInvites = (spaceId: string) =>
+  authenticatedRequest<ServerInvite[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/invites`);
+
+export const revokeInvite = (spaceId: string, inviteId: string) =>
+  authenticatedRequest<void>(`/v1/spaces/${encodeURIComponent(spaceId)}/invites/${encodeURIComponent(inviteId)}`, {
+    method: "DELETE",
+  });
+
+/** token 은 주소가 아니라 본문으로 보낸다. 주소는 접속 기록에 남는다. */
+export const acceptInvite = (token: string) =>
+  authenticatedRequest<{ spaceId: string; membershipId: string; alreadyMember: boolean }>("/v1/invites/accept", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+
+export const changeMemberRole = (spaceId: string, membershipId: string, role: ServerRole) =>
+  authenticatedRequest<{ id: string; role: ServerRole; myRole: ServerRole }>(
+    `/v1/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(membershipId)}`,
+    { method: "PATCH", body: JSON.stringify({ role }) },
+  );
+
+/** 내 membership 이면 나가기, 남의 것이면 내보내기. */
+export const removeMember = (spaceId: string, membershipId: string) =>
+  authenticatedRequest<void>(`/v1/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(membershipId)}`, {
+    method: "DELETE",
+  });
+
 /** 공간 이름·관계·함께한 날을 바꾼다. 서버는 관리자만 받는다. */
 export const updateSpace = (spaceId: string, patch: SpacePatch) =>
   authenticatedRequest<ServerSpace>(`/v1/spaces/${encodeURIComponent(spaceId)}`, {
