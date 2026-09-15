@@ -84,6 +84,7 @@ import {
   type ServerMemberInput,
   type SpaceChange,
 } from "./spaceMapping";
+import { mergeServerTripsByGroup } from "./tripMerge";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email"> & { id?: string };
@@ -541,7 +542,9 @@ export function WarmAppShell({
   }, []);
 
   useEffect(() => {
-    if (!user?.id) return;
+    // 기기에 저장된 여행을 다 읽은 뒤에 서버 목록을 붙인다. 먼저 붙이면 뒤늦게
+    // 읽힌 기기 목록이 서버 목록을 덮거나, 서버 목록이 아직 안 읽힌 기록을 버린다.
+    if (!user?.id || !tripStorageReady) return;
     let active = true;
     listSpaces()
       .then(async (serverSpaces) => {
@@ -556,7 +559,10 @@ export function WarmAppShell({
           nextTrips[space.id] = tripLists[index].map((trip, tone) => tripFromServer(trip, tone));
         });
         setSpaces(nextSpaces);
-        setTripsByGroup(nextTrips as Record<GroupId, Trip[]>);
+        // 서버 목록으로 통째로 바꾸지 않는다. 일정·장소·비용 같은 기록은 아직
+        // 기기에만 있어서, 바꾸면 앱을 켤 때마다 적어 둔 것이 사라진다.
+        setTripsByGroup((current) =>
+          mergeServerTripsByGroup(nextTrips, current) as Record<GroupId, Trip[]>);
         if (nextSpaces[0] && !nextSpaces.some((space) => space.id === settings.activeGroupId)) {
           setActiveGroupId(nextSpaces[0].id as GroupId);
         }
@@ -571,7 +577,7 @@ export function WarmAppShell({
     return () => {
       active = false;
     };
-  }, [settings.activeGroupId, user?.id]);
+  }, [settings.activeGroupId, tripStorageReady, user?.id]);
   /**
    * 이 기기에 남은 것을 전부 지운다.
    *
