@@ -1,14 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth_pages import _form, _message
-from app.api.deps import ClientIp
+from app.api.deps import ClientIp, DbSession
 from app.api.v1.auth import _세션_응답
 from app.core.config import get_settings
-from app.core.db import get_session
 from app.core.errors import AppError
 from app.core.responses import error_response, ok
 from app.models import OAuthProvider
@@ -18,13 +17,10 @@ from app.services.oauth.providers import configured_providers
 
 router = APIRouter(prefix="/auth/oauth", tags=["auth"])
 
-# 이 장의 요청은 transaction 을 **응답을 보내기 전에** 끝낸다.
-#
-# FastAPI 는 yield 의존성의 뒷부분을 기본으로 응답을 보낸 뒤에 돌린다. 그러면
-# callback 이 앱으로 loginCode 를 보낸 순간에는 아직 commit 전이라, 앱이 곧바로
-# exchange 를 부르면 없는 코드가 된다. scope="function" 이면 handler 가 끝나고
-# 응답을 보내기 전에 commit 한다.
-OAuthDb = Annotated[AsyncSession, Depends(get_session, scope="function")]
+# 이 장의 요청은 transaction 을 응답을 보내기 전에 끝내야 한다. callback 이 앱으로
+# loginCode 를 보낸 순간 commit 전이면, 앱이 곧바로 exchange 를 부를 때 없는 코드가 된다.
+# 이제 모든 요청이 그렇게 돈다(app/api/deps.py 의 SessionDepends).
+OAuthDb = DbSession
 
 
 def _device(body) -> flow.DeviceArgs:

@@ -10,6 +10,7 @@
 - 표시 시간대: 공간의 `timezone`, 기본 `Asia/Seoul`
 - 페이지: `?limit=20&cursor=<opaque>`
 - 쓰기 재시도: 생성/일괄 API는 `Idempotency-Key` 헤더 지원
+- 저장 시점: 요청 하나가 transaction 하나이고, 성공 응답(2xx)은 commit이 끝난 뒤에만 나간다. commit이 실패하면 `500 INTERNAL_ERROR`다(2026-09-15부터, `backend/app/api/deps.py`의 `SessionDepends`)
 - 동시 수정: `version`을 요청에 포함하고 성공 시 증가된 값을 반환
 - 삭제: `204 No Content`; 복구 가능한 데이터는 soft delete
 - 캐시 가능한 GET은 `ETag`, `Cache-Control: private`, `Last-Modified`를 반환

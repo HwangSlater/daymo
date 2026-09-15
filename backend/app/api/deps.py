@@ -20,8 +20,22 @@ class Caller:
     device_id: uuid.UUID | None
 
 
+# 요청 transaction 은 **응답을 보내기 전에** 끝낸다.
+#
+# FastAPI 는 yield 의존성의 뒷부분(`get_session` 의 commit)을 기본으로 응답을 보낸
+# 뒤에 돌린다. 그러면 앱은 200 을 받았는데 commit 이 아직이거나 실패했을 수 있다.
+# 곧바로 다시 읽으면 방금 만든 것이 없고, commit 이 실패하면 저장되지 않은 것을
+# 저장됐다고 믿는다. scope="function" 이면 handler 가 끝나고 응답을 보내기 전에
+# commit 하고, 실패하면 500 이 나간다.
+#
+# 한 요청 안의 모든 자리가 같은 scope 로 `get_session` 을 불러야 한다. FastAPI 는
+# scope 가 다르면 다른 의존성으로 보고 세션을 하나 더 연다. 그래서 세션을 쓰는
+# `current_caller` 도 같은 scope 로 둔다.
+SessionDepends = Depends(get_session, scope="function")
+
+
 async def current_caller(
-    request: Request, session: Annotated[AsyncSession, Depends(get_session)]
+    request: Request, session: Annotated[AsyncSession, SessionDepends]
 ) -> Caller:
     """
     access token 을 풀어 누가 보냈는지 정한다.
@@ -69,8 +83,8 @@ async def current_caller(
     return Caller(user=user, device_id=device_id)
 
 
-CurrentCaller = Annotated[Caller, Depends(current_caller)]
-DbSession = Annotated[AsyncSession, Depends(get_session)]
+CurrentCaller = Annotated[Caller, Depends(current_caller, scope="function")]
+DbSession = Annotated[AsyncSession, SessionDepends]
 
 
 def client_ip(request: Request) -> str:
