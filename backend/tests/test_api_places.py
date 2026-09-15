@@ -74,6 +74,30 @@ async def test_장소를_담으면_목록에_태그와_링크까지_보인다(ap
     assert 링크.provider.value == "naver_map"
 
 
+@pytest.mark.parametrize(
+    ("url", "provider"),
+    [
+        ("https://naver.me/xAbCdEf", "naver_map"),
+        ("https://m.map.naver.com/p/search/달빛한옥", "naver_map"),
+        ("https://place.map.kakao.com/12345", "kakao_map"),
+        ("https://map.kakao.com/link/map/달빛한옥,35.8,127.1", "kakao_map"),
+        ("https://m.map.kakao.com/actions/searchView?q=달빛한옥", "kakao_map"),
+        ("https://kko.kakao.com/AbCdEf", "kakao_map"),
+        ("https://kko.to/xYz12", "kakao_map"),
+        ("https://map.kakao.com.example.com/x", "other"),
+        ("https://example.com/?u=map.kakao.com", "other"),
+    ],
+)
+async def test_지도_링크는_호스트로_제공사를_가른다(api, db, url, provider):
+    headers, _, trip = await 여행_하나(api)
+
+    장소 = (await 장소를_담는다(api, headers, trip["id"], mapUrl=url)).json()["data"]
+
+    assert 장소["mapUrl"] == url
+    링크 = await db.scalar(select(ExternalLink).where(ExternalLink.target_id == uuid.UUID(장소["id"])))
+    assert 링크.provider.value == provider
+
+
 async def 앱이_만든_id(api, headers, trip_id):
     id = str(uuid.uuid4())
     return id, await 장소를_담는다(api, headers, trip_id, id=id)
