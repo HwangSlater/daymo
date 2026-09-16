@@ -2064,7 +2064,7 @@ function NotebookHome({
         </View>
       </View>
       {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} open={open} />}
-      {trip ? (
+      {trip && (
         <>
       <View style={s.scrapTitleRow}>
         <View>
@@ -2106,6 +2106,8 @@ function NotebookHome({
         />
         <MemoRow theme={theme} color={theme.secondary} text="저장한 장소" meta={home.placeCount ? `식당 ${home.restaurantCount} · 카페 ${home.cafeCount}` : "아직 없어요"} onPress={() => open("places", trip)} last />
       </View>
+        </>
+      )}
       {trips.some((item) => item.end < todayKey) && (
         <View style={s.homeArchiveSection}>
           <View style={s.homeArchiveHead}>
@@ -2155,8 +2157,7 @@ function NotebookHome({
           </View>
         </View>
       )}
-        </>
-      ) : (
+      {!trip && (
         <View
           style={[
             s.homeEmptyTrip,
