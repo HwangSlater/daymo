@@ -3,7 +3,6 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
-  Alert,
   Modal,
   Image,
   Keyboard,
@@ -62,6 +61,7 @@ import {
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
+import { showAlert } from "./showAlert";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm } from "./auth";
@@ -715,14 +715,14 @@ export function WarmAppShell({
     const token = pendingInvite;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingInvite(null);
-    Alert.alert("여행 공간 초대", "초대받은 공간에 참여할까요? 참여하면 이 공간의 여행을 함께 보고 고칠 수 있어요.", [
+    showAlert("여행 공간 초대", "초대받은 공간에 참여할까요? 참여하면 이 공간의 여행을 함께 보고 고칠 수 있어요.", [
       { text: "나중에", style: "cancel" },
       {
         text: "참여하기",
         onPress: () => {
           joinInvite(token)
-            .then((joined) => Alert.alert(joined.alreadyMember ? "이미 함께하고 있는 공간이에요" : "공간에 참여했어요"))
-            .catch((error) => Alert.alert("참여하지 못했어요", error instanceof DaymoApiError ? error.message : "잠시 후 다시 시도해 주세요."));
+            .then((joined) => showAlert(joined.alreadyMember ? "이미 함께하고 있는 공간이에요" : "공간에 참여했어요"))
+            .catch((error) => showAlert("참여하지 못했어요", error instanceof DaymoApiError ? error.message : "잠시 후 다시 시도해 주세요."));
         },
       },
     ]);
@@ -1198,7 +1198,7 @@ function AuthScreen({
       const result = await login(normalizedEmail, password);
       onAuth(result.user);
       if (result.endedDevices.length > 0) {
-        Alert.alert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
+        showAlert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
       }
     } catch (caught) {
       setError(caught instanceof DaymoApiError ? caught.message : "로그인하지 못했어요. 잠시 후 다시 시도해 주세요.");
@@ -1216,7 +1216,7 @@ function AuthScreen({
   const signedIn = (result: { user: DaymoUser; endedDevices: unknown[] }) => {
     onAuth(result.user);
     if (result.endedDevices.length > 0) {
-      Alert.alert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
+      showAlert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
     }
   };
   const startOAuth = async (provider: SocialProvider) => {
@@ -3977,7 +3977,7 @@ function Search({
           </Text>
           {recentQueries.length > 0 && (
             <Pressable
-              onPress={() => Alert.alert(
+              onPress={() => showAlert(
                 "최근 검색을 모두 지울까요?",
                 `${recentQueries.length}개를 지워요. 되돌릴 수 없어요.`,
                 [
@@ -4812,7 +4812,7 @@ function Together({
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                Alert.alert("로그아웃할까요?", "기기에만 저장된 변경 내용이 있다면 동기화 후 로그아웃해 주세요.", [
+                showAlert("로그아웃할까요?", "기기에만 저장된 변경 내용이 있다면 동기화 후 로그아웃해 주세요.", [
                   { text: "취소", style: "cancel" },
                   { text: "로그아웃", style: "destructive", onPress: () => { setPanel(null); onLogout(); } },
                 ]);
@@ -4823,7 +4823,7 @@ function Together({
             </Pressable>
             <Pressable
               onPress={() => {
-                Alert.alert(
+                showAlert(
                   "이 기기의 데이터를 모두 지울까요?",
                   "이 기기에만 저장된 일정·준비물·비용·기록과 앱 설정이 사라져요. 계정과 서버에 저장된 공간·여행은 그대로예요. 되돌릴 수 없어요.",
                   [
@@ -5778,7 +5778,7 @@ function MemberActions({
   };
   if (!membershipId) return null;
   const confirm = (title: string, message: string, action: string, work: () => Promise<unknown>) =>
-    Alert.alert(title, message, [
+    showAlert(title, message, [
       { text: "취소", style: "cancel" },
       { text: action, style: "destructive", onPress: () => void run(work) },
     ]);
@@ -5890,16 +5890,16 @@ function MemberActions({
         accessibilityRole="button"
         disabled={busy}
         onPress={() => blocked
-          ? Alert.alert(`${person.name}의 차단을 풀까요?`, "다시 초대 링크로 같은 공간에 들어올 수 있어요.", [
+          ? showAlert(`${person.name}의 차단을 풀까요?`, "다시 초대 링크로 같은 공간에 들어올 수 있어요.", [
             { text: "취소", style: "cancel" },
             { text: "차단 해제", onPress: () => void changeBlock(() => unblock(membershipId)) },
           ])
-          : Alert.alert(`${person.name}을(를) 차단할까요?`, "차단하면 서로 새 공간에 초대로 함께 들어갈 수 없어요. 상대에게는 알리지 않아요.", [
+          : showAlert(`${person.name}을(를) 차단할까요?`, "차단하면 서로 새 공간에 초대로 함께 들어갈 수 없어요. 상대에게는 알리지 않아요.", [
             { text: "취소", style: "cancel" },
             {
               text: "차단하기",
               style: "destructive",
-              onPress: () => void changeBlock(() => blockMember(membershipId), () => Alert.alert(
+              onPress: () => void changeBlock(() => blockMember(membershipId), () => showAlert(
                 "차단했어요",
                 "이미 함께 있는 공간은 그대로예요. 불편하면 공간에서 나가거나 관리자에게 내보내 달라고 해 주세요.",
               )),

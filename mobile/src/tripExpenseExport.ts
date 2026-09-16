@@ -25,8 +25,11 @@ export async function shareExpenseCsv(fileName: string, csv: string): Promise<"s
     const link = document.createElement("a");
     link.href = url;
     link.download = name;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    link.remove();
+    // 바로 지우면 사파리가 내려받기를 시작하기 전에 주소가 사라진다. 잠시 두었다 지운다.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
     return "shared";
   }
   if (!(await Sharing.isAvailableAsync())) return "unavailable";

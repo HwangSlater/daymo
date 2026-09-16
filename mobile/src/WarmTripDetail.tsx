@@ -98,7 +98,6 @@ import {
 } from "./tripExpenses";
 import { shareExpenseCsv } from "./tripExpenseExport";
 import {
-  Alert,
   Animated,
   BackHandler,
   KeyboardAvoidingView,
@@ -120,6 +119,8 @@ import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
+import { showAlert } from "./showAlert";
+import { shrinkForWeb } from "./webImage";
 import { typo } from "./theme/typography";
 import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
@@ -320,6 +321,19 @@ export type TripNote = { id: string; author: string; body: string };
 
 /** 제목 없이 쓴 일기의 이름. 저장하지 않고 보여줄 때만 쓴다. */
 const DIARY_UNTITLED = "이번 여행 이야기";
+
+/**
+ * 클립보드를 읽는다. 브라우저는 사용자가 허락하지 않으면 거절하는데, 그때 화면이 아무 반응
+ * 없이 멈추면 안 된다. 읽지 못하면 빈 글자를 주고 부르는 쪽에서 안내한다.
+ */
+async function readClipboard(): Promise<string> {
+  try {
+    return await Clipboard.getStringAsync();
+  } catch {
+    return "";
+  }
+}
+
 export type TripMemoryData = {
   photos: MemoryPhoto[];
   diaries: TravelDiary[];
@@ -1582,7 +1596,16 @@ export function WarmTripDetail({
       create: async (serverTripId, id, body) => {
         const uri = photosRef.current.find((photo) => photo.id === id)?.uri;
         if (!uri) throw new DaymoApiError("사진 파일을 찾지 못했어요. 사진을 다시 골라 주세요.", 422, "VALIDATION_ERROR");
-        return uploadPhoto(serverTripId, id, uri, body);
+        const row = await uploadPhoto(serverTripId, id, uri, body);
+        // 웹은 사진을 브라우저 저장소에 넣지 않는다. 올린 뒤에는 비워 두고, 화면에 필요할 때
+        // 서버에서 다시 받아 blob 으로만 들고 있는다(photoTransfer.downloadPhoto).
+        if (Platform.OS === "web" && uri.startsWith("data:")) {
+          setMemories((current) => ({
+            ...current,
+            photos: current.photos.map((photo) => (photo.id === id ? { ...photo, uri: undefined } : photo)),
+          }));
+        }
+        return row;
       },
       update: updatePhoto,
       remove: deleteServerPhoto,
@@ -1630,7 +1653,9 @@ export function WarmTripDetail({
       receiptUploads.current.add(key);
       uploadPhoto(tripId, photoId, item.receiptUri as string, { caption: null, date: null, isReceipt: true })
         .then(() => setExpenses((current) => current.map((expense) =>
-          expense.id === item.id && expense.receiptUri === item.receiptUri ? { ...expense, receiptPhotoId: photoId } : expense)))
+          expense.id === item.id && expense.receiptUri === item.receiptUri
+            ? { ...expense, receiptPhotoId: photoId, ...(Platform.OS === "web" ? { receiptUri: undefined } : {}) }
+            : expense)))
         .catch(() => receiptUploads.current.delete(key));
     }
   }, [expenses, serverTrip, tripId]);
@@ -2258,7 +2283,7 @@ export function WarmTripDetail({
                       <Text style={[styles.tripMemoEdit, { color: memo.meta }]}>수정</Text>
                     </Pressable>
                     <Pressable
-                      accessibilityRole="button" onPress={() => Alert.alert(
+                      accessibilityRole="button" onPress={() => showAlert(
                       "메모를 삭제할까요?",
                       note.body,
                       [
@@ -2881,7 +2906,7 @@ function TripOverview({
     setTransportations((current) => [...current, next]);
     syncTransportationSchedule(next);
     if (transportDirection === "가는 편") {
-      Alert.alert(
+      showAlert(
         "가는 편을 저장했어요",
         "오는 편도 이어서 등록할까요?",
         [
@@ -3765,7 +3790,7 @@ function Places({
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
   };
   const pasteMapShare = async () => {
-    const clipboard = await Clipboard.getStringAsync();
+    const clipboard = await readClipboard();
     if (!clipboard.trim()) {
       notify("복사한 지도 정보가 없어요");
       return;
@@ -3929,8 +3954,10 @@ function Places({
     notify("장소 목록을 복사했어요");
   };
   const openImport = async () => {
-    setImportText(await Clipboard.getStringAsync());
+    const copied = await readClipboard();
+    setImportText(copied);
     setImporting(true);
+    if (!copied) notify("복사한 내용을 읽지 못했어요. 칸에 직접 붙여넣어 주세요");
   };
   const importPlaces = () => {
     const parsed = importText
@@ -4722,7 +4749,7 @@ function Preparation({
     const recipe = recipes.find((value) => value.ingredients.some((ingredient) => ingredient.id === ingredientId));
     const ingredient = recipe?.ingredients.find((value) => value.id === ingredientId);
     if (!recipe || !ingredient) return;
-    Alert.alert("요리 재료에서도 준비 완료로 표시할까요?", `${recipe.name} · ${ingredient.name}`, [
+    showAlert("요리 재료에서도 준비 완료로 표시할까요?", `${recipe.name} · ${ingredient.name}`, [
       { text: "취소", style: "cancel" },
       {
         text: "표시하기",
@@ -4773,8 +4800,10 @@ function Preparation({
     notify("준비물 목록을 복사했어요");
   };
   const openImport = async () => {
-    setImportText(await Clipboard.getStringAsync());
+    const copied = await readClipboard();
+    setImportText(copied);
     setImporting(true);
+    if (!copied) notify("복사한 내용을 읽지 못했어요. 칸에 직접 붙여넣어 주세요");
   };
   const importPacking = () => {
     // 참가자 이름은 그대로 받고, 옛 목록에서 복사해 온 자리 이름만 옮긴다.
@@ -6367,15 +6396,17 @@ function Cooking({
   // 복사한 뒤 브라우저까지 열어 준다. 앱을 나갔다 오는 건 그대로지만 사용자가
   // 직접 찾아 들어가는 한 단계가 줄고, 무엇을 하러 나가는지도 분명해진다.
   const copyPromptAndOpenGpt = async () => {
-    await Clipboard.setStringAsync(cookingPrompt);
-    const opened = await Linking.openURL("https://chatgpt.com/").then(
+    // 브라우저는 누른 직후에만 새 창을 열어 준다. 복사를 기다린 뒤에 열면 막힌다.
+    const opening = Linking.openURL("https://chatgpt.com/").then(
       () => true,
       () => false,
     );
+    await Clipboard.setStringAsync(cookingPrompt);
+    const opened = await opening;
     notify(opened ? "프롬프트를 복사했어요. 붙여넣고 결과를 다시 가져오세요" : "프롬프트를 복사했어요");
   };
   const pasteAiResult = async () => {
-    const text = await Clipboard.getStringAsync();
+    const text = await readClipboard();
     if (!text.trim()) {
       notify("복사한 내용이 없어요");
       return;
@@ -6428,7 +6459,7 @@ function Cooking({
     Linking.openURL(encodeURI(target));
   };
   const removeIngredient = (item: CookingItem) =>
-    Alert.alert("재료를 삭제할까요?", item.name, [
+    showAlert("재료를 삭제할까요?", item.name, [
       { text: "취소", style: "cancel" },
       {
         text: "삭제",
@@ -6462,8 +6493,10 @@ function Cooking({
     notify("요리 재료 목록을 복사했어요");
   };
   const openImport = async () => {
-    setImportText(await Clipboard.getStringAsync());
+    const copied = await readClipboard();
+    setImportText(copied);
     setImporting(true);
+    if (!copied) notify("복사한 내용을 읽지 못했어요. 칸에 직접 붙여넣어 주세요");
   };
   const importCooking = () => {
     const parsed = importText
@@ -7385,7 +7418,7 @@ function Memories({
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
       const picked = Platform.OS === "web" && asset.base64
-        ? `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`
+        ? await shrinkForWeb(`data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`)
         : asset.uri;
       // 고르기가 준 자리는 캐시 폴더라 OS 가 비울 수 있다. 남는 자리로 옮긴다.
       const uri = await keepTripPhoto(picked);
@@ -8184,7 +8217,7 @@ function Money({
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
       const picked = Platform.OS === "web" && asset.base64
-        ? `data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`
+        ? await shrinkForWeb(`data:${asset.mimeType ?? "image/jpeg"};base64,${asset.base64}`)
         : asset.uri;
       setDraftReceipt(await keepTripPhoto(picked));
     } catch {
@@ -9836,7 +9869,7 @@ function DetailSheet({
       closeAndReset();
       return;
     }
-    Alert.alert(
+    showAlert(
       "저장하지 않고 닫을까요?",
       "변경한 내용은 저장되지 않아요.",
       [
