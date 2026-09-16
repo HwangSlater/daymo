@@ -9,6 +9,11 @@ import {
   placeBody,
   placeFromServer,
   planPlaceSync,
+  planned,
+  scheduledCount,
+  toggleVisited,
+  unplanned,
+  visitScheduled,
   type AppPlace,
   type Confirmed,
   type ServerPlace,
@@ -64,10 +69,49 @@ test("서버가 거부할 값은 보내기 전에 고친다", () => {
 test("서버에서 받은 장소는 앱의 말로 바뀌고 되돌려도 같은 모습이다", () => {
   const fromServer = placeFromServer(server(A, { status: "visited", tags: ["예약", "저녁"], mapUrl: "https://map.naver.com/x" }));
 
-  assert.equal(fromServer.status, "일정");
+  assert.equal(fromServer.status, "다녀옴");
   assert.equal(bodyKey(placeBody(fromServer)), bodyKey({
-    name: "달빛한옥", area: "전북", address: null, category: "숙소", status: "scheduled", tags: ["저녁", "예약"], mapUrl: "https://map.naver.com/x", memo: null,
+    name: "달빛한옥", area: "전북", address: null, category: "숙소", status: "visited", tags: ["저녁", "예약"], mapUrl: "https://map.naver.com/x", memo: null,
   }));
+});
+
+test("세 상태가 서버 값과 하나씩 맞는다", () => {
+  assert.deepEqual(
+    (["saved", "scheduled", "visited"] as const).map((status) => placeFromServer(server(A, { status })).status),
+    ["후보", "일정", "다녀옴"],
+  );
+  assert.deepEqual(
+    (["후보", "일정", "다녀옴"] as const).map((status) => placeBody(place(A, { status })).status),
+    ["saved", "scheduled", "visited"],
+  );
+});
+
+test("다녀온 곳을 다시 열어도 서버 값이 되돌아가지 않는다", () => {
+  const visited = placeFromServer(server(A, { status: "visited" }));
+
+  assert.equal(hasWork(planPlaceSync([visited], confirmedOf(visited))), false);
+});
+
+test("일정에 담고 빼도 다녀온 기록은 남는다", () => {
+  assert.equal(planned("후보"), "일정");
+  assert.equal(planned("다녀옴"), "다녀옴");
+  assert.equal(unplanned("일정"), "후보");
+  assert.equal(unplanned("다녀옴"), "다녀옴");
+});
+
+test("다녀옴을 끄면 일정이 남아 있는 곳은 일정으로 돌아간다", () => {
+  assert.equal(toggleVisited("후보", false), "다녀옴");
+  assert.equal(toggleVisited("일정", true), "다녀옴");
+  assert.equal(toggleVisited("다녀옴", true), "일정");
+  assert.equal(toggleVisited("다녀옴", false), "후보");
+});
+
+test("한 번에 표시하면 일정에 담은 곳만 다녀옴이 된다", () => {
+  const places = [place(A), place(B, { status: "일정" }), place(C, { status: "다녀옴" })];
+
+  assert.equal(scheduledCount(places), 1);
+  assert.deepEqual(visitScheduled(places).map((item) => item.status), ["후보", "다녀옴", "다녀옴"]);
+  assert.equal(scheduledCount(visitScheduled(places)), 0);
 });
 
 test("메모를 적으면 서버로 가고, 서버 메모는 돌아와 그대로 남는다", () => {
