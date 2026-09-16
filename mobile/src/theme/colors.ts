@@ -141,6 +141,8 @@ export function paperCard(dark: boolean) {
         softLine: "rgba(180, 200, 215, .07)",
         tape: "rgba(218, 198, 157, .30)",
         divider: "rgba(190, 178, 150, .22)",
+        // 종이에 붙인 사진의 테두리. 인화지처럼 종이보다 한 겹 밝다.
+        snap: "#2E2A33",
       }
     : {
         surface: "#FFFEFC",
@@ -155,6 +157,8 @@ export function paperCard(dark: boolean) {
         softLine: "rgba(104, 139, 160, .10)",
         tape: "rgba(218, 198, 157, .68)",
         divider: "rgba(118, 107, 83, .22)",
+        // 종이에 붙인 사진의 테두리. 인화지처럼 종이보다 조금 더 희다.
+        snap: "#FFFFFF",
       };
 }
 
