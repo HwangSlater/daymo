@@ -73,7 +73,7 @@ import { useWebBackClose } from "./useWebBackClose";
 import { useWebKeyboardInset } from "./useWebKeyboardInset";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm } from "./auth";
+import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
 import { type SocialProvider, socialProviderName, socialProviderOrder } from "./socialLogin";
 import { SocialLoginButton } from "./SocialLoginButton";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
@@ -568,6 +568,14 @@ const helpTopics = [
   },
 ];
 
+/**
+ * 「찾기」의 미리 받기가 한 번에 고르는 여행 수.
+ *
+ * 한 묶음이 끝나면 다음 묶음을 이어 부른다. 여행이 많은 공간에서 스무 개를 한 번에
+ * 잡아 두면 요청 줄 맨 뒤가 길어져, 그동안 사용자가 연 화면이 그 뒤에 서게 된다.
+ */
+const PREFETCH_BATCH = 6;
+
 export function WarmAppShell({
   settings = defaultDeviceSettings,
   spaces: storedSpaces = defaultSpaces,
@@ -1036,29 +1044,45 @@ export function WarmAppShell({
       return { ...current, [spaceId]: next };
     });
   };
+  /**
+   * 여행 하나의 하위 목록 아홉 개를 받는다. 한꺼번에 부르지 않고 하나씩 이어 받는다.
+   *
+   * 예전에는 `Promise.all` 로 아홉 개를 한 번에 보냈다. 미리 받기가 여행 두셋을 동시에
+   * 돌리므로 그것만으로 스무 건이 한 순간에 나갔고, 앞단의 초당 제한에 걸린 몇 개가
+   * 브라우저에서는 CORS 오류로 보여 찾기가 조용히 비었다.
+   *
+   * `background` 로 줄 맨 뒤에 선다. 지금 보고 있는 화면의 요청이 먼저 나간다.
+   */
   const fetchTripLists = async (tripId: string): Promise<FetchedTripLists> => {
-    const [places, schedule, stays, packing, recipes, expenses, memos, diaries, photos] = await Promise.all([
-      listTripPlaces(tripId),
-      listScheduleItems(tripId),
-      listStays(tripId),
-      listChecklistItems(tripId),
-      listRecipes(tripId),
-      listExpenses(tripId),
-      listMemos(tripId),
-      listDiaries(tripId),
-      listPhotos(tripId),
-    ]);
-    return { places, schedule, stays, packing, recipes, expenses, memos, diaries, photos };
+    const 뒤로: RequestPace = { background: true };
+    return {
+      places: await listTripPlaces(tripId, 뒤로),
+      schedule: await listScheduleItems(tripId, 뒤로),
+      stays: await listStays(tripId, 뒤로),
+      packing: await listChecklistItems(tripId, 뒤로),
+      recipes: await listRecipes(tripId, 뒤로),
+      expenses: await listExpenses(tripId, 뒤로),
+      memos: await listMemos(tripId, 뒤로),
+      diaries: await listDiaries(tripId, 뒤로),
+      photos: await listPhotos(tripId, 뒤로),
+    };
   };
+  // 한 묶음을 다 받으면 올려서 다음 묶음을 부른다.
+  const [prefetchRound, setPrefetchRound] = useState(0);
   useEffect(() => {
     if (view !== "찾기" || !user || !serverDataReady) return;
     const { trips: waiting, spaceId, openTripId } = prefetchInputs.current;
-    const picked = pickTripsToPrefetch(waiting, { done: prefetchedTripIds.current, skipId: openTripId });
+    const picked = pickTripsToPrefetch(waiting, {
+      done: prefetchedTripIds.current,
+      skipId: openTripId,
+      limit: PREFETCH_BATCH,
+    });
     if (!picked.length) return;
     picked.forEach((id) => prefetchedTripIds.current.add(id));
     setSearchPrefetching(true);
-    // 여행이 많은 공간에서 한꺼번에 몰리지 않게 셋씩만 받는다.
-    void runWithLimit(picked, 3, async (tripId) => {
+    // 여행 둘씩만 돌린다. 목록은 여행마다 하나씩 이어 받으므로 미리 받기가 줄에 세우는
+    // 요청은 늘 둘이다. 나머지 자리는 화면이 쓴다.
+    void runWithLimit(picked, 2, async (tripId) => {
       try {
         const fetched = await fetchTripLists(tripId);
         if (prefetchAlive.current) storePrefetched(spaceId, tripId, fetched);
@@ -1067,11 +1091,15 @@ export function WarmAppShell({
         prefetchedTripIds.current.delete(tripId);
       }
     }).finally(() => {
-      if (prefetchAlive.current) setSearchPrefetching(false);
+      if (!prefetchAlive.current) return;
+      setSearchPrefetching(false);
+      // 이 묶음이 꽉 찼으면 남은 여행이 더 있을 수 있다. 한 묶음씩 이어 간다.
+      // 받은 여행은 `prefetchedTripIds` 에 남아 다시 고르지 않으므로 언젠가 멎는다.
+      if (picked.length === PREFETCH_BATCH) setPrefetchRound((round) => round + 1);
     });
     // 탭을 열 때와 공간·여행 목록이 바뀔 때만 본다. 나머지 값은 ref 로 읽는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, activeSpace.id, serverDataReady, tripItems.length, user?.id]);
+  }, [view, activeSpace.id, serverDataReady, tripItems.length, user?.id, prefetchRound]);
   /** 서버가 돌려준 여행으로 목록과 열린 여행을 바꾼다. 기기에만 있는 기록은 둔다. */
   const applyServerTrip = (saved: ServerTrip) => {
     const fromServer = tripFromServer(saved, activeRoster);

@@ -78,13 +78,29 @@ test("id 가 없는 줄은 세지 않는다", () => {
 });
 
 test("위쪽 한 줄은 못 올린 개수를 세고, 아무 일도 없으면 비어 있다", () => {
-  assert.equal(troubleHeadline({ blocked: 0, waiting: 0, offline: false }), "");
-  assert.equal(troubleHeadline({ blocked: 2, waiting: 1, offline: false }), "아직 저장하지 못한 3개");
+  assert.equal(troubleHeadline({ blocked: 0, waiting: 0, offline: false, busy: false }), "");
+  assert.equal(troubleHeadline({ blocked: 2, waiting: 1, offline: false, busy: false }), "아직 저장하지 못한 3개");
   assert.equal(
-    troubleHeadline({ blocked: 0, waiting: 2, offline: true }),
+    troubleHeadline({ blocked: 0, waiting: 2, offline: true, busy: false }),
     "아직 저장하지 못한 2개 · 연결되면 다시 저장할게요",
   );
-  assert.equal(troubleHeadline({ blocked: 0, waiting: 0, offline: true }), "연결이 끊겨 새 내용을 받지 못했어요");
+  assert.equal(
+    troubleHeadline({ blocked: 0, waiting: 0, offline: true, busy: false }),
+    "연결이 끊겨 새 내용을 받지 못했어요",
+  );
+});
+
+test("서버가 바빠 못 받은 것은 못 올린 줄과 연결 다음에 알린다", () => {
+  assert.equal(
+    troubleHeadline({ blocked: 0, waiting: 0, offline: false, busy: true }),
+    "서버가 잠시 바빠 일부를 받지 못했어요 · 잠시 뒤 새로고침해 주세요",
+  );
+  // 적은 것이 걸려 있거나 연결이 끊겼으면 그쪽이 먼저다.
+  assert.equal(troubleHeadline({ blocked: 1, waiting: 0, offline: false, busy: true }), "아직 저장하지 못한 1개");
+  assert.equal(
+    troubleHeadline({ blocked: 0, waiting: 0, offline: true, busy: true }),
+    "연결이 끊겨 새 내용을 받지 못했어요",
+  );
 });
 
 test("앞으로 돌아와도 방금 받았으면 다시 받지 않는다", () => {

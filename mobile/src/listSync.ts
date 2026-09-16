@@ -90,6 +90,8 @@ export type SyncTrouble = {
   waiting: number;
   /** 연결이 끊겨 보내지도 받지도 못하는 중. */
   offline: boolean;
+  /** 앞단이 "지금 바쁘다" 로 막아서, 다시 보내 봤는데도 못 받은 것이 있다. */
+  busy: boolean;
 };
 
 /**
@@ -127,15 +129,21 @@ export function listTrouble<L, B, S extends ServerRow>(
   return rows;
 }
 
-/** 화면 위쪽에 늘 두는 한 줄. 아무 일도 없으면 빈 글자라 자리도 차지하지 않는다. */
-export function troubleHeadline(trouble: Pick<SyncTrouble, "blocked" | "waiting" | "offline">): string {
+/**
+ * 화면 위쪽에 늘 두는 한 줄. 아무 일도 없으면 빈 글자라 자리도 차지하지 않는다.
+ *
+ * 못 올린 줄이 먼저다. 그다음이 연결, 마지막이 "서버가 바빴다" 다. 앞의 둘은 사용자가
+ * 적은 것이 걸려 있고, 마지막은 못 받은 것뿐이라 다시 열면 채워진다.
+ */
+export function troubleHeadline(trouble: Pick<SyncTrouble, "blocked" | "waiting" | "offline" | "busy">): string {
   const total = trouble.blocked + trouble.waiting;
   if (total > 0) {
     return trouble.offline
       ? `아직 저장하지 못한 ${total}개 · 연결되면 다시 저장할게요`
       : `아직 저장하지 못한 ${total}개`;
   }
-  return trouble.offline ? "연결이 끊겨 새 내용을 받지 못했어요" : "";
+  if (trouble.offline) return "연결이 끊겨 새 내용을 받지 못했어요";
+  return trouble.busy ? "서버가 잠시 바빠 일부를 받지 못했어요 · 잠시 뒤 새로고침해 주세요" : "";
 }
 
 /**
