@@ -1,7 +1,7 @@
 """trip cover card
 
 Revision ID: b6e1f70c9d25
-Revises: a2f9c6d08b14
+Revises: d7c5b31e08af
 Create Date: 2026-09-16 10:00:00.000000
 """
 from collections.abc import Sequence
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 
 revision: str = 'b6e1f70c9d25'
-down_revision: str | None = 'a2f9c6d08b14'
+down_revision: str | None = 'd7c5b31e08af'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

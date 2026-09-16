@@ -24,6 +24,7 @@ import { captureRef, releaseCapture } from "react-native-view-shot";
 
 import { Text } from "./AppText";
 import { CardDecorEditor } from "./CardDecorEditor";
+import { Glyph } from "./Glyph";
 import {
   CardStage,
   KeepsakeCardView,
