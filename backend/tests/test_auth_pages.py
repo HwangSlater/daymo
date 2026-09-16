@@ -165,3 +165,32 @@ async def test_비밀번호_찾기_페이지가_열린다(api, db):
     응답 = await api.get("/auth/forgot-password")
 
     assert 응답.status_code == 200 and "재설정 메일 받기" in 응답.text
+
+
+# ---------------------------------------------------------------------------
+# 공간 초대
+# ---------------------------------------------------------------------------
+
+초대_token = "Ab3_-cdEFghIJklMNopQRstUVwxYZ0123456789ab"
+
+
+async def test_초대_페이지는_웹과_앱_두_길을_준다(api, db):
+    """앱이 없는 사람도 브라우저에서 이어 갈 수 있어야 한다."""
+    응답 = await api.get("/auth/invite", params={"token": 초대_token})
+
+    assert 응답.status_code == 200
+    assert f"https://www.daymo.xyz/app?invite={초대_token}" in 응답.text
+    assert f"daymo://invite?token={초대_token}" in 응답.text
+    assert "웹에서 열기" in 응답.text
+    # 공간 이름도 초대한 사람도 드러내지 않고, 주소도 새지 않는다.
+    assert 응답.headers["referrer-policy"] == "no-referrer"
+    assert 응답.headers["cache-control"] == "no-store"
+
+
+async def test_초대_페이지는_이상한_token_을_그대로_막는다(api, db):
+    응답 = await api.get("/auth/invite", params={"token": "<script>x</script>"})
+
+    assert 응답.status_code == 400
+    assert "daymo://" not in 응답.text
+    assert "invite=" not in 응답.text
+    assert "<script>" not in 응답.text
