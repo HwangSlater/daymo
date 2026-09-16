@@ -36,6 +36,14 @@ import { reservationCodec, transportCodec } from "./bookingSync";
 import { expenseCodec, paymentCodec } from "./expenseSync";
 import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
 import {
+  DUPLICATE_TITLE,
+  dedupePackingNames,
+  duplicateLines,
+  findSimilarPacking,
+  ingredientOriginLabel,
+  packingKey,
+} from "./packingNames";
+import {
   importMessage,
   pastTripChoices,
   planPackingImport,
@@ -5316,18 +5324,16 @@ function Preparation({
     .map((tag) => tag.trim())
     .filter(Boolean)
     .filter((tag, index, tags) => tags.indexOf(tag) === index);
-  const parsedPackingNames = names
-    .split(/[\n,]/)
-    .map((name) => name.trim())
-    .filter(Boolean)
-    .filter((name, index, values) => values.findIndex((value) => value.toLowerCase() === name.toLowerCase()) === index);
-  const duplicateEditedPacking = Boolean(editingId) && items.some(
-    (item) => item.id !== editingId && item.owner === owner && item.name.trim().toLowerCase() === parsedPackingNames[0]?.toLowerCase(),
+  const parsedPackingNames = dedupePackingNames(
+    names.split(/[\n,]/).map((name) => name.trim()).filter(Boolean),
   );
-  const newPackingNames = parsedPackingNames.filter((name) =>
-    !items.some((item) => item.owner === owner && item.name.trim().toLowerCase() === name.toLowerCase()),
+  // 고칠 때는 첫 줄만 쓴다. 담당은 보지 않는다 — 둘이 나눠 챙기다 겹치는 게 알리고 싶은 일이다.
+  const packingHits = findSimilarPacking(
+    editingId ? parsedPackingNames.slice(0, 1) : parsedPackingNames,
+    items,
+    editingId ?? undefined,
   );
-  const newPackingCount = editingId ? Number(Boolean(parsedPackingNames[0]) && !duplicateEditedPacking) : newPackingNames.length;
+  const newPackingCount = editingId ? Number(Boolean(parsedPackingNames[0])) : parsedPackingNames.length;
   const availableTags = managementTags.slice(1);
   const quickTags = Array.from(
     new Set([
@@ -5364,8 +5370,7 @@ function Preparation({
     setTagText("");
     setAdding(true);
   };
-  const submit = () => {
-    if (!newPackingCount) return;
+  const applyPackingForm = () => {
     if (editingId) {
       const nextName = parsedPackingNames[0];
       setItems((current) => current.map((item) => item.id === editingId
@@ -5374,7 +5379,7 @@ function Preparation({
     } else {
       setItems((current) => [
         ...current,
-        ...newPackingNames.map((name) => ({ id: newPlaceId(), name, quantity: quantity.trim(), owner, tags: draftPackingTags })),
+        ...parsedPackingNames.map((name) => ({ id: newPlaceId(), name, quantity: quantity.trim(), owner, tags: draftPackingTags })),
       ]);
     }
     setNames("");
@@ -5382,40 +5387,76 @@ function Preparation({
     setTagText("");
     setEditingId(null);
     setAdding(false);
-    notify(editingId ? "준비물 정보를 수정했어요" : `준비물 ${newPackingNames.length}개를 추가했어요`);
+    notify(editingId ? "준비물 정보를 수정했어요" : `준비물 ${parsedPackingNames.length}개를 추가했어요`);
   };
-  const assignOwner = (item: PackingItem, nextOwner: string) => {
-    const duplicate = items.some(
-      (value) => value.id !== item.id && value.owner === nextOwner && value.name.trim().toLowerCase() === item.name.trim().toLowerCase(),
-    );
-    if (duplicate) {
-      notify(`${nextOwner}의 목록에 같은 준비물이 있어요`);
+  const submit = () => {
+    if (!newPackingCount) return;
+    // 이미 있는 것과 비슷하면 알리기만 한다. 같은 이름이라도 둘 다 챙겨야 할 때가 있다.
+    if (packingHits.length) {
+      showAlert(editingId ? "이미 있어요. 그래도 저장할까요?" : DUPLICATE_TITLE, duplicateLines(packingHits).join("\n"), [
+        { text: "취소", style: "cancel" },
+        { text: editingId ? "그래도 저장" : "그래도 추가", onPress: applyPackingForm },
+      ]);
       return;
     }
-    setItems((current) =>
-      current.map((value) =>
-        value.id === item.id ? { ...value, owner: nextOwner } : value,
-      ),
+    applyPackingForm();
+  };
+  const assignOwner = (item: PackingItem, nextOwner: string) => {
+    const move = () => {
+      setItems((current) =>
+        current.map((value) =>
+          value.id === item.id ? { ...value, owner: nextOwner } : value,
+        ),
+      );
+      setAssigningItem(null);
+      notify(`${item.name} 담당을 ${nextOwner}(으)로 변경했어요`);
+    };
+    const hits = findSimilarPacking(
+      [item.name],
+      items.filter((value) => value.owner === nextOwner),
+      item.id,
     );
-    setAssigningItem(null);
-    notify(`${item.name} 담당을 ${nextOwner}(으)로 변경했어요`);
+    if (hits.length) {
+      showAlert("이미 있어요. 그래도 옮길까요?", duplicateLines(hits).join("\n"), [
+        { text: "취소", style: "cancel" },
+        { text: "그래도 옮기기", onPress: move },
+      ]);
+      return;
+    }
+    move();
+  };
+  /**
+   * 재료에서 가져온 준비물이면 그 재료를 찾는다.
+   *
+   * 요리나 재료를 지우면 찾지 못한다. 그때도 준비물은 그대로 두고 연결만 잊는다
+   * (서버도 `sourceIngredientId` 만 비운다). 재료 이름을 바꾸면 id 로 찾으므로
+   * 연결은 그대로고, 바뀐 이름이 바로 보인다.
+   */
+  const findSource = (item: PackingItem) => {
+    const id = item.sourceIngredientId;
+    if (!id) return undefined;
+    const recipe = recipes.find((value) => value.ingredients.some((ingredient) => ingredient.id === id));
+    const ingredient = recipe?.ingredients.find((value) => value.id === id);
+    return recipe && ingredient ? { recipe, ingredient } : undefined;
+  };
+  const packingOrigin = (item: PackingItem) => {
+    const source = findSource(item);
+    return source ? ingredientOriginLabel(source.recipe.name, source.ingredient.name, item.name) : "";
   };
   const complete = (item: PackingItem) => {
     const checking = !done.includes(item.id);
     toggle(item.id);
     // 재료에서 가져온 준비물을 챙겼으면 재료 쪽도 준비 완료로 할지 묻는다. 여러 요리의
     // 같은 재료를 하나로 가져온 경우가 있어 스스로 바꾸지 않는다.
-    if (!checking || !item.sourceIngredientId || readyIngredientIds.includes(item.sourceIngredientId)) return;
-    const ingredientId = item.sourceIngredientId;
-    const recipe = recipes.find((value) => value.ingredients.some((ingredient) => ingredient.id === ingredientId));
-    const ingredient = recipe?.ingredients.find((value) => value.id === ingredientId);
-    if (!recipe || !ingredient) return;
+    const source = findSource(item);
+    if (!checking || !source || readyIngredientIds.includes(source.ingredient.id)) return;
+    const { recipe, ingredient } = source;
     showAlert("요리 재료에서도 준비 완료로 표시할까요?", `${recipe.name} · ${ingredient.name}`, [
       { text: "취소", style: "cancel" },
       {
         text: "표시하기",
         onPress: () => {
-          onMarkIngredientReady(ingredientId);
+          onMarkIngredientReady(ingredient.id);
           notify(`${ingredient.name}을(를) 요리 재료에서도 준비 완료로 표시했어요`);
         },
       },
@@ -5508,43 +5549,54 @@ function Preparation({
         : [...current, id],
     );
   const importCookingItems = () => {
-    const existingNames = new Set(items.map((item) => item.name));
     const selected = recipes.flatMap((recipe) =>
       recipe.ingredients
-        .filter(
-          (ingredient) =>
-            selectedCookingItems.includes(ingredient.id) &&
-            !existingNames.has(ingredient.name),
-        )
+        .filter((ingredient) => selectedCookingItems.includes(ingredient.id))
         .map((ingredient) => ({ recipe, ingredient })),
     );
+    // 여러 요리에 같은 재료가 있으면 준비물은 하나만 만든다.
     const uniqueSelected = selected.filter(({ ingredient }, index, values) =>
-      values.findIndex(({ ingredient: value }) => value.name.trim().toLowerCase() === ingredient.name.trim().toLowerCase()) === index,
+      values.findIndex(({ ingredient: value }) => packingKey(value.name) === packingKey(ingredient.name)) === index,
     );
     if (!uniqueSelected.length) {
       setCookingPicker(false);
       return;
     }
-    setItems((current) => [
-      ...current,
-      ...uniqueSelected.map(({ recipe, ingredient }) => ({
-        id: newPlaceId(),
-        name: ingredient.name,
-        quantity: ingredient.quantity,
-        // 재료의 담당도 같은 참가자 목록을 쓰므로 이름이 맞으면 그대로 가져온다.
-        // 현지에서 산다는 표시는 담당이 아니라 태그라 여기서는 미정이 된다.
-        owner: participants.includes(ingredient.owner) ? ingredient.owner : PACKING_UNASSIGNED,
-        tags: Array.from(new Set(["요리 재료", recipe.name, ingredient.group, ...(ingredient.owner === "구매" ? ["구매"] : [])])),
-        // 어느 재료에서 왔는지 남긴다. 체크할 때 재료 쪽도 표시할지 묻는 데 쓴다.
-        sourceIngredientId: ingredient.id,
-      })),
-    ]);
-    setSelectedCookingItems([]);
-    setCookingPicker(false);
-    notify(`요리 재료 ${uniqueSelected.length}개를 준비에 추가했어요`);
+    const take = () => {
+      setItems((current) => [
+        ...current,
+        ...uniqueSelected.map(({ recipe, ingredient }) => ({
+          id: newPlaceId(),
+          name: ingredient.name,
+          quantity: ingredient.quantity,
+          // 재료의 담당도 같은 참가자 목록을 쓰므로 이름이 맞으면 그대로 가져온다.
+          // 현지에서 산다는 표시는 담당이 아니라 태그라 여기서는 미정이 된다.
+          owner: participants.includes(ingredient.owner) ? ingredient.owner : PACKING_UNASSIGNED,
+          tags: Array.from(new Set(["요리 재료", recipe.name, ingredient.group, ...(ingredient.owner === "구매" ? ["구매"] : [])])),
+          // 어느 재료에서 왔는지 남긴다. 줄에 출처를 보이고, 체크할 때 재료 쪽도 표시할지 묻는 데 쓴다.
+          sourceIngredientId: ingredient.id,
+        })),
+      ]);
+      setSelectedCookingItems([]);
+      setCookingPicker(false);
+      notify(`요리 재료 ${uniqueSelected.length}개를 준비에 추가했어요`);
+    };
+    // 이미 챙기기로 한 것과 비슷하면 알리기만 한다. 요리 몫으로 더 필요할 수 있다.
+    const hits = findSimilarPacking(uniqueSelected.map(({ ingredient }) => ingredient.name), items);
+    if (hits.length) {
+      showAlert(DUPLICATE_TITLE, duplicateLines(hits).join("\n"), [
+        { text: "취소", style: "cancel" },
+        { text: "그래도 추가", onPress: take },
+      ]);
+      return;
+    }
+    take();
   };
   const renderPackingRow = (item: PackingItem, index: number) => {
     const completed = done.includes(item.id);
+    // 요리 재료에서 가져온 줄이면 어느 요리에서 왔는지 옅게 붙인다. 재료를 지우면
+    // 찾을 수 없으니 표시만 사라지고 준비물은 그대로 남는다.
+    const origin = packingOrigin(item);
     return (
       <Pressable
         key={item.id}
@@ -5552,7 +5604,7 @@ function Preparation({
         disabled={!canEdit}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: completed }}
-        accessibilityLabel={`${item.name} ${completed ? "완료 해제" : "완료"}`}
+        accessibilityLabel={`${item.name}${origin ? ` ${origin}` : ""} ${completed ? "완료 해제" : "완료"}`}
         style={({ pressed }) => [
           styles.packingV2Row,
           index > 0 && styles.packingV2RowBorder,
@@ -5590,6 +5642,11 @@ function Preparation({
               <Text style={[styles.packingV2Quantity, theme && { color: theme.muted }]}>{item.quantity}</Text>
             ) : null}
           </View>
+          {origin ? (
+            <Text numberOfLines={1} style={[styles.packingV2Origin, theme && { color: theme.muted }]}>
+              {origin}
+            </Text>
+          ) : null}
           {packingTags(item).slice(1).length > 0 && (
             <Text numberOfLines={1} style={[styles.packingV2SubTags, theme && { color: theme.muted }]}>
               {packingTags(item).slice(1).map((tag) => `# ${tag}`).join("  ")}
@@ -6315,7 +6372,7 @@ function Preparation({
         title={editingId ? "준비물 수정" : "준비물 추가"}
         subtitle={editingId ? "이름, 수량, 담당과 태그를 바꿀 수 있어요" : "한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"}
         submit={newPackingCount && !editingId ? `${newPackingCount}개 추가` : editingId ? "변경 저장" : "준비물 추가"}
-        disabledHint={!newPackingCount ? (duplicateEditedPacking ? "같은 담당자에게 이미 있는 준비물이에요" : "준비물을 입력해 주세요") : undefined}
+        disabledHint={!newPackingCount ? "준비물을 입력해 주세요" : undefined}
         submitDisabled={!newPackingCount}
         destructiveLabel={editingId ? "준비물 삭제" : undefined}
         destructiveMessage={editingId ? `${names || "이 준비물"}을 목록에서 삭제해요.` : undefined}
@@ -6330,6 +6387,11 @@ function Preparation({
           placeholder={"충전기, 안경, 갈아입을 옷"}
           multiline={!editingId}
         />
+        {packingHits.length > 0 && (
+          <Text accessibilityLiveRegion="polite" style={[styles.packingDuplicateHint, theme && { color: theme.muted }]}>
+            이미 있어요 · {duplicateLines(packingHits).join(", ")}
+          </Text>
+        )}
         <DetailField
           label="수량 · 선택 사항"
           value={quantity}
@@ -6541,14 +6603,12 @@ function Preparation({
             </View>
             {recipe.ingredients.map((ingredient) => {
               const selected = selectedCookingItems.includes(ingredient.id);
-              const alreadyAdded = items.some(
-                (item) => item.name === ingredient.name,
-              );
+              // 이미 비슷한 준비물이 있어도 고를 수 있게 둔다. 알리기만 한다.
+              const alreadyAdded = findSimilarPacking([ingredient.name], items).length > 0;
               return (
                 <Pressable
                   accessibilityRole="button"
                   key={ingredient.id}
-                  disabled={alreadyAdded}
                   onPress={() => toggleCookingItem(ingredient.id)}
                   style={[
                     styles.cookingImportRow,
@@ -6575,9 +6635,7 @@ function Preparation({
                     <Text
                       style={[
                         styles.cookingImportItemName,
-                        theme && {
-                          color: alreadyAdded ? theme.muted : theme.text,
-                        },
+                        theme && { color: theme.text },
                       ]}
                     >
                       {ingredient.name}
@@ -6589,7 +6647,7 @@ function Preparation({
                       ]}
                     >
                       {ingredient.quantity} · {ingredient.owner}
-                      {alreadyAdded ? " · 이미 추가됨" : ""}
+                      {alreadyAdded ? " · 이미 비슷한 준비물이 있어요" : ""}
                     </Text>
                   </View>
                 </Pressable>
@@ -13146,6 +13204,8 @@ const styles = StyleSheet.create({
   packingV2Name: { flexShrink: 1, fontSize: 14 },
   packingV2Quantity: { fontSize: 14, fontFamily: typo.data.family },
   packingV2SubTags: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
+  packingV2Origin: { fontSize: 11, fontFamily: typo.label.family, marginTop: 2, opacity: 0.8 },
+  packingDuplicateHint: { fontSize: 12, fontFamily: typo.label.family, marginTop: -4, marginBottom: 12 },
   packingV2Assignee: {
     minWidth: 38,
     borderRadius: 999,
