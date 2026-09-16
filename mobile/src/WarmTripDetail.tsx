@@ -124,7 +124,7 @@ import { shrinkForWeb } from "./webImage";
 import { typo } from "./theme/typography";
 import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
-import { parseKakaoPlaceShare } from "./kakaoPlaceShare";
+import { parseKakaoPlaceShare, resolveKakaoPlaceShare } from "./kakaoPlaceShare";
 import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } from "./mapLinks";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
@@ -3798,7 +3798,7 @@ function Places({
       notify("복사한 지도 정보가 없어요");
       return;
     }
-    // 네이버를 먼저 본다. 카카오맵은 짧은 링크를 풀어 줄 서버가 없어 공유 문구에 있는 만큼만 채운다.
+    // 네이버를 먼저 본다. 둘 다 같은 서버 함수가 짧은 링크를 풀어 준다.
     const parsed = parseNaverPlaceShare(clipboard);
     const kakao = parsed ? null : parseKakaoPlaceShare(clipboard);
     const shared = parsed ?? kakao;
@@ -3810,12 +3810,10 @@ function Places({
     if (shared.address) setAddress(shared.address);
     setMapUrl(shared.url);
     setPlaceDetailsOpen(true);
-    if (kakao) {
-      notify(kakao.name || kakao.address ? "장소 정보를 자동으로 채웠어요" : "카카오맵 링크를 연결했어요");
-      return;
-    }
     setResolvingNaver(true);
-    const resolved = await resolveNaverPlaceShare(clipboard);
+    const resolved = kakao
+      ? await resolveKakaoPlaceShare(clipboard)
+      : await resolveNaverPlaceShare(clipboard);
     setResolvingNaver(false);
     if (!resolved) return;
     if (resolved.name) setName(resolved.name);
@@ -3824,7 +3822,9 @@ function Places({
       setCategory(resolved.category);
     }
     setMapUrl(resolved.url);
-    notify(resolved.name || resolved.address ? "장소 정보를 자동으로 채웠어요" : "네이버 지도 링크를 연결했어요");
+    notify(resolved.name || resolved.address
+      ? "장소 정보를 자동으로 채웠어요"
+      : kakao ? "카카오맵 링크를 연결했어요" : "네이버 지도 링크를 연결했어요");
   };
   const resetForm = () => {
     setName("");

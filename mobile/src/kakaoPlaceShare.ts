@@ -1,6 +1,7 @@
 export type KakaoPlaceShare = {
   name: string;
   address: string;
+  category?: string;
   url: string;
 };
 
@@ -54,4 +55,34 @@ export const parseKakaoPlaceShare = (text: string): KakaoPlaceShare | null => {
     address: lines[1] ?? "",
     url,
   };
+};
+
+/**
+ * 짧은 링크만 있으면 서버에 풀어 달라고 한다.
+ *
+ * 공유 문구에 이름과 주소가 다 있으면 그대로 쓴다. 서버 주소가 없거나
+ * 서버가 못 풀면 읽은 만큼만 돌려준다.
+ */
+export const resolveKakaoPlaceShare = async (text: string): Promise<KakaoPlaceShare | null> => {
+  const parsed = parseKakaoPlaceShare(text);
+  if (!parsed) return null;
+  const endpoint = process.env.EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL?.trim();
+  if (!endpoint || (parsed.name && parsed.address)) return parsed;
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: parsed.url, hint: parsed.name }),
+    });
+    if (!response.ok) return parsed;
+    const result = await response.json() as Partial<KakaoPlaceShare>;
+    return {
+      name: result.name?.trim() || parsed.name,
+      address: result.address?.trim() || parsed.address,
+      category: result.category?.trim() || undefined,
+      url: result.url?.trim() || parsed.url,
+    };
+  } catch {
+    return parsed;
+  }
 };
