@@ -18,8 +18,46 @@ import {
 
 export { bodyKey, hasWork, isServerId, type Confirmed };
 
-export type AppPlaceStatus = "후보" | "일정";
+/**
+ * 장소가 이 여행에서 어디까지 왔는지. 서버의 `saved`·`scheduled`·`visited` 와 하나씩 맞는다.
+ *
+ * 서버도 한 장소에 상태 한 칸이라 「일정에 담김」과 「다녀옴」이 함께 켜지지
+ * 않는다. 둘 다인 곳은 다녀옴으로 둔다. 다녀왔다는 것이 나중에 일어난 일이고,
+ * 일정에 있었는지는 일정 탭이 그대로 보여 준다.
+ */
+export type AppPlaceStatus = "후보" | "일정" | "다녀옴";
 export type ServerPlaceStatus = "saved" | "scheduled" | "visited";
+
+/** 일정에 담겼을 때의 상태. 다녀온 곳은 그대로 둔다. */
+export const planned = (status: AppPlaceStatus): AppPlaceStatus =>
+  status === "다녀옴" ? "다녀옴" : "일정";
+
+/** 일정에서 빠졌을 때의 상태. 다녀온 기록까지 지우지는 않는다. */
+export const unplanned = (status: AppPlaceStatus): AppPlaceStatus =>
+  status === "일정" ? "후보" : status;
+
+/**
+ * 카드에서 「다녀옴」을 켜고 끈다.
+ *
+ * 끌 때는 일정에 그 장소를 가리키는 줄이 남아 있으면 일정으로, 없으면 후보로
+ * 돌아간다. 담아 둔 일정은 그대로인데 카드만 「저장」으로 보이면 안 된다.
+ */
+export const toggleVisited = (status: AppPlaceStatus, inSchedule: boolean): AppPlaceStatus =>
+  status === "다녀옴" ? (inSchedule ? "일정" : "후보") : "다녀옴";
+
+/**
+ * 지난 여행을 열었을 때 한 번에 표시하는 길.
+ *
+ * 일정에 담은 곳만 바꾼다. 담지 않고 후보로만 두고 간 곳은 갔는지 안 갔는지
+ * 앱이 알 수 없어서, 한꺼번에 다녀옴으로 만들면 틀린 기록이 남는다.
+ */
+export function visitScheduled<T extends { status: AppPlaceStatus }>(places: readonly T[]): T[] {
+  return places.map((place) => (place.status === "일정" ? { ...place, status: "다녀옴" as const } : place));
+}
+
+/** 한 번에 표시할 것이 몇 곳인지. 0 이면 권할 일이 없다. */
+export const scheduledCount = (places: readonly { status: AppPlaceStatus }[]) =>
+  places.filter((place) => place.status === "일정").length;
 
 /** 앱의 장소(WarmTripDetail 의 PlaceItem)와 같은 모양. */
 export type AppPlace = {
@@ -95,7 +133,7 @@ export function placeBody(place: AppPlace): PlaceBody {
     area: place.area.trim() === UNKNOWN_AREA ? null : blank(place.area, 30),
     address: blank(place.address, 300),
     category: blank(place.category, 30),
-    status: place.status === "일정" ? "scheduled" : "saved",
+    status: place.status === "다녀옴" ? "visited" : place.status === "일정" ? "scheduled" : "saved",
     tags,
     mapUrl: safeUrl(place.mapUrl),
     memo: blank(place.memo, 2000),
@@ -112,8 +150,7 @@ export function placeFromServer(place: ServerPlace): AppPlace {
     mapUrl: place.mapUrl ?? "",
     tags: [...place.tags],
     memo: place.memo ?? "",
-    // 앱에는 다녀옴이 없다. 다녀온 곳도 일정에 담긴 곳으로 보인다.
-    status: place.status === "saved" ? "후보" : "일정",
+    status: place.status === "visited" ? "다녀옴" : place.status === "scheduled" ? "일정" : "후보",
   };
 }
 

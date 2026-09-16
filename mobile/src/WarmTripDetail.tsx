@@ -11,7 +11,18 @@ import { TripConflictError } from "./tripSync";
 import { reloadOpenLists, useListSync } from "./useListSync";
 import { SyncMark, SyncNotice } from "./SyncMarks";
 import { dateKey, dateLabelOf, isServerId, tripDateKeys } from "./listSync";
-import { legacyIdMap, placeCodec, safeUrl } from "./placeSync";
+import {
+  legacyIdMap,
+  placeCodec,
+  planned,
+  safeUrl,
+  scheduledCount,
+  toggleVisited,
+  unplanned,
+  visitScheduled,
+  UNKNOWN_AREA,
+  type AppPlaceStatus,
+} from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
 import {
   ALL_DAYS,
@@ -216,7 +227,7 @@ export type PlaceItem = {
   category: string;
   mapUrl: string;
   tags: string[];
-  status: "후보" | "일정";
+  status: AppPlaceStatus;
   /** 그 자리에서 적어 두는 한 줄. `웨이팅 30분`, `숙소 근처`. 옛 기기 기록에는 없다. */
   memo?: string;
 };
@@ -570,6 +581,20 @@ const todayAmong = (dates: Date[]): string => {
       date.getDate() === now.getDate(),
   );
   return match ? dayLabel(match) : "";
+};
+
+/**
+ * 마지막 날이 지났으면 지난 여행이다.
+ *
+ * 오늘이 마지막 날이면 아직 여행 중이다. 장소 탭이 다녀옴을 한 번에 표시할지
+ * 물을 때만 쓴다.
+ */
+const tripIsOver = (dates: Date[]): boolean => {
+  const last = dates[dates.length - 1];
+  if (!last) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return last < today;
 };
 /** "24일(목)" 형태의 날짜 옵션에서 요일만 꺼낸다. */
 const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
@@ -1043,6 +1068,7 @@ export function WarmTripDetail({
   const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
   const tripDateOptions = tripDates.length ? tripDates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
   const todayTripDay = todayAmong(tripDates);
+  const tripEnded = tripIsOver(tripDates);
   const firstTripDate = tripDateOptions[0];
   const lastTripDate = tripDateOptions[tripDateOptions.length - 1];
   const currentTripDate = tripDates.length ? formatTripPeriod(currentStart, currentEnd) : tripDate;
@@ -2111,6 +2137,7 @@ export function WarmTripDetail({
               setPlaces={setPlaces}
               registeredStayName={registeredStay.name}
               dayOptions={tripDayOptions}
+              tripEnded={tripEnded}
               onRegisterStay={(place) => {
                 setRegisteredStay({
                   name: place.name,
@@ -2811,7 +2838,7 @@ function TripOverview({
     setSchedule(nextSchedule);
     setPlaces((current) => current.map((place) => ({
       ...place,
-      status: nextSchedule.some((item) => item.placeId === place.id) ? "일정" : place.status,
+      status: nextSchedule.some((item) => item.placeId === place.id) ? planned(place.status) : place.status,
     })));
     setNewPlanTitle("");
     setPlanPlace("");
@@ -2906,9 +2933,14 @@ function TripOverview({
     const linkedTransportationId = target?.transportationId;
     const linkedStayId = target?.stayId;
     setSchedule((current) => current.filter((_, index) => index !== editingScheduleIndex));
-    if (target?.placeId) {
+    // 같은 장소를 가리키는 줄이 또 있으면 그 장소는 아직 일정에 있다. 다녀온
+    // 곳은 일정에서 빠져도 다녀온 채로 둔다.
+    const stillPlanned = schedule.some(
+      (item, index) => index !== editingScheduleIndex && item.placeId === target?.placeId,
+    );
+    if (target?.placeId && !stillPlanned) {
       setPlaces((current) => current.map((place) =>
-        place.id === target.placeId ? { ...place, status: "후보" } : place,
+        place.id === target.placeId ? { ...place, status: unplanned(place.status) } : place,
       ));
     }
     if (linkedReservationId) {
@@ -3848,6 +3880,7 @@ function Places({
   onUpdateRegisteredStay,
   onRemoveRegisteredStay,
   dayOptions,
+  tripEnded,
 }: {
   schedule: ScheduleItem[];
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
@@ -3858,11 +3891,13 @@ function Places({
   onUpdateRegisteredStay: (place: PlaceItem) => void;
   onRemoveRegisteredStay: () => void;
   dayOptions: string[];
+  /** 마지막 날이 지난 여행. 일정에 담은 곳을 한 번에 다녀옴으로 바꿀 것을 권한다. */
+  tripEnded: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const canEdit = useContext(DetailEditableContext);
-  const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "숙소">("전체");
+  const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "다녀옴" | "숙소">("전체");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [placeFiltersOpen, setPlaceFiltersOpen] = useState(false);
@@ -4082,8 +4117,26 @@ function Places({
   };
   const choose = (index: number) => {
     const target = visible[index];
-    if (target.status === "일정") return;
+    if (target.status !== "후보") return;
     setPlanningPlace(target);
+  };
+  /**
+   * 카드에서 「다녀옴」을 켜고 끈다.
+   *
+   * 일정은 건드리지 않는다. 담아 둔 줄을 지우면 그날 뭘 했는지가 사라진다.
+   */
+  const markVisited = (target: PlaceItem) => {
+    const inSchedule = schedule.some((item) => item.placeId === target.id);
+    const next = toggleVisited(target.status, inSchedule);
+    setPlaces((current) =>
+      current.map((place) => (place.id === target.id ? { ...place, status: next } : place)),
+    );
+    notify(next === "다녀옴" ? `${target.name}을(를) 다녀온 곳으로 표시했어요` : "다녀옴 표시를 지웠어요");
+  };
+  const planCount = scheduledCount(places);
+  const visitAllPlanned = () => {
+    setPlaces((current) => visitScheduled(current));
+    notify(`일정에 담은 ${planCount}곳을 다녀옴으로 표시했어요`);
   };
   const confirmPlan = () => {
     if (!planningPlace) return;
@@ -4129,7 +4182,9 @@ function Places({
       .filter(Boolean)
       .map((line, index) => {
         const fields = line.split("|").map((value) => value.trim());
-        const [rawName, rawArea = "지역 미정"] = fields;
+        // 지역을 모르면 앱이 쓰는 말 그대로 둔다. 다른 말을 넣으면 서버에
+        // 진짜 지역인 것처럼 올라가고, 다른 기기에서 "카페 · 지역 미정" 이 된다.
+        const [rawName, rawArea = UNKNOWN_AREA] = fields;
         const isNewFormat = fields.length >= 6;
         const rawAddress = isNewFormat ? fields[2] : "";
         const rawCategory = fields[isNewFormat ? 3 : 2] || "장소";
@@ -4177,7 +4232,7 @@ function Places({
       <View style={[styles.placeControlPanel, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.placeToolbar}>
         <View style={styles.placeFilters}>
-          {(["전체", "후보", "일정", "숙소"] as const).map((item) => (
+          {(["전체", "후보", "일정", "다녀옴", "숙소"] as const).map((item) => (
             <Pressable
               key={item}
               onPress={() => setFilter(item)}
@@ -4295,17 +4350,40 @@ function Places({
       </>
       )}
       </View>
+      {/* 여행이 끝나면 일정에 담은 곳은 대개 다 다녀온 곳이다. 카드를 하나씩
+          누르게 두지 않는다. 후보로만 둔 곳은 갔는지 알 수 없어 건드리지 않는다. */}
+      {canEdit && tripEnded && planCount > 0 && (
+        <View style={[styles.placeVisitAll, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+          <View style={styles.packingListToolsCopy}>
+            <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>여행이 끝났어요</Text>
+            <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>
+              일정에 담은 {planCount}곳을 다녀옴으로 표시할까요?
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`일정에 담은 ${planCount}곳을 다녀옴으로 표시`}
+            onPress={visitAllPlanned}
+            style={[styles.placeVisitAllButton, theme && { borderColor: theme.border, backgroundColor: theme.surface }]}
+          >
+            <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>한 번에 표시</Text>
+          </Pressable>
+        </View>
+      )}
       <View style={styles.placeList}>
         {displayedPlaces.map((place, index) => {
           // 색은 순서가 아니라 상태를 뜻해야 한다. 예전에는 index % 3으로 돌려서
           // 아무 뜻 없이 카드마다 색이 달라졌다.
           const isStay = place.name === registeredStayName;
           const inPlan = place.status === "일정";
-          const statusTone = (isStay ? theme?.secondary : inPlan ? theme?.accent : theme?.primary) ?? "#3F4C8F";
-          const statusLabel = isStay ? "대표 숙소" : inPlan ? "일정에 담김" : "저장";
+          const visited = place.status === "다녀옴";
+          // 다녀온 것이 마지막에 일어난 일이라 배지에서 앞선다. 대표 숙소인지는
+          // 아래 버튼이 그대로 말해 준다.
+          const statusTone = (visited ? theme?.muted : isStay ? theme?.secondary : inPlan ? theme?.accent : theme?.primary) ?? "#3F4C8F";
+          const statusLabel = visited ? "다녀옴" : isStay ? "대표 숙소" : inPlan ? "일정에 담김" : "저장";
           // 이미 그 상태면 오른쪽 위 배지가 말해준다. 같은 말을 하는 비활성
-          // 버튼은 내지 않는다.
-          const settled = place.category === "숙소" ? isStay : inPlan;
+          // 버튼은 내지 않는다. 다녀온 곳은 이제 와 담을 일이 없다.
+          const settled = visited || (place.category === "숙소" ? isStay : inPlan);
           return (
           // 준비물 카드처럼 카드를 누르면 열린다. 카드마다 '수정' 버튼을
           // 따로 두면 같은 일을 하는 단추가 장소 수만큼 늘어난다.
@@ -4353,6 +4431,20 @@ function Places({
                   <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>＋ 링크</Text>
                 </Pressable>
               ) : null}
+              {canEdit && (
+                <Pressable
+                  onPress={(event) => { event.stopPropagation(); markVisited(place); }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: visited }}
+                  accessibilityLabel={visited ? `${place.name} 다녀옴 표시 지우기` : `${place.name} 다녀온 곳으로 표시`}
+                  style={[
+                    styles.placeMiniMapButton,
+                    theme && { backgroundColor: visited ? theme.primarySoft : theme.surfaceAlt },
+                  ]}
+                >
+                  <Text style={[styles.placeMiniMapText, theme && { color: visited ? theme.primary : theme.muted }]}>다녀옴</Text>
+                </Pressable>
+              )}
               {settled || !canEdit ? null : place.category === "숙소" ? (
                 <Pressable
                   onPress={(event) => { event.stopPropagation(); onRegisterStay(place); }}
@@ -4377,16 +4469,26 @@ function Places({
           );
         })}
         {visible.length === 0 && (
-          <EmptyState
-            title="조건에 맞는 장소가 없어요"
-            description="검색어나 선택한 상태·태그를 초기화해 보세요."
-            action="필터 초기화"
-            onPress={() => {
-              setQuery("");
-              setFilter("전체");
-              setTagFilter(null);
-            }}
-          />
+          // 저장한 것이 하나도 없는데 "필터 초기화" 를 권하면 눌러도 그대로다.
+          places.length === 0 ? (
+            <EmptyState
+              title="아직 저장한 장소가 없어요"
+              description="가 보고 싶은 곳을 먼저 담아 두세요."
+              action="장소 추가"
+              onPress={canEdit ? openCreate : undefined}
+            />
+          ) : (
+            <EmptyState
+              title="조건에 맞는 장소가 없어요"
+              description="검색어나 선택한 상태·태그를 초기화해 보세요."
+              action="필터 초기화"
+              onPress={() => {
+                setQuery("");
+                setFilter("전체");
+                setTagFilter(null);
+              }}
+            />
+          )
         )}
       </View>
       {visible.length > 6 && (
@@ -12940,7 +13042,8 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 6,
   },
-  placeFilters: { flex: 1, flexDirection: "row", gap: 4 },
+  // 칩이 다섯이라 좁은 화면에서는 한 줄에 다 들어가지 않는다. 밀려 잘리느니 접는다.
+  placeFilters: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 4 },
   placeFilter: {
     minHeight: 38,
     borderRadius: 999,
@@ -12957,6 +13060,23 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   placeFilterMoreText: { fontSize: 12, fontFamily: typo.label.family },
+  placeVisitAll: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  placeVisitAllButton: {
+    height: 34,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   placeAdd: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   placeSearch: {
     height: 39,
