@@ -5,6 +5,8 @@ declare namespace NodeJS {
   interface ProcessEnv {
     EXPO_PUBLIC_DAYMO_API_URL?: string;
     EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL?: string;
+    /** `off`(또는 `0`·`false`)면 오류를 서버로 보내지 않는다. 비어 있으면 보낸다. */
+    EXPO_PUBLIC_DAYMO_ERROR_REPORT?: string;
   }
 }
 declare const process: { env: NodeJS.ProcessEnv };

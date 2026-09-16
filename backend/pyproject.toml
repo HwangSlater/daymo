@@ -9,6 +9,9 @@ requires-python = ">=3.13"
 # 소셜 로그인은 Authlib 없이 httpx 로 제공자를 부른다. 네 곳이 주고받는 것이
 # 주소 셋과 폼 몇 칸뿐이라 직접 쓰는 편이 읽기 쉽다. pyjwt[crypto] 는 Google·
 # Apple 의 id_token(RS256) 검증과 Apple client secret(ES256) 서명에 쓴다.
+#
+# sentry-sdk 는 SENTRY_DSN 이 있을 때만 app/core/observability.py 가 들인다. 비어
+# 있으면 import 도 하지 않는다. 그래도 설치는 해 둬야 운영자가 값만 넣어 켤 수 있다.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
@@ -22,6 +25,7 @@ dependencies = [
     "tzdata>=2026.4",
     "pillow>=11.3",
     "httpx>=0.28",
+    "sentry-sdk>=2.20",
 ]
 
 [dependency-groups]

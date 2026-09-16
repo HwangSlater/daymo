@@ -137,13 +137,16 @@
 
 ## 5. 관측과 장애 처리
 
-- Sentry: crash, unhandled rejection, 최소 화면/API breadcrumb. 개인정보는 scrub하고 행동 분석에는 사용하지 않음. **아직 앱·서버 어디에도 넣지 않았다.** 지금 있는 것은 서버 요청 로그와 timer 실패 메일뿐이다
+- 오류 수집은 **서버에만** 넣었다(`backend/app/core/observability.py`). `SENTRY_DSN`이 비어 있으면 `sentry_sdk`를 import조차 하지 않는다. 기본은 꺼짐이고, 운영자가 값을 넣으면 그때 켜진다
+- **앱에는 오류 수집 SDK를 넣지 않는다.** `@sentry/react-native`는 네이티브 묶음이라 새 빌드를 해야 켜지고(웹 버전과 Expo Go로 도는 지금 구성이 깨진다), 앱 안에서 무엇을 가져가는지 우리가 고를 수 없다. 스토어에 신고할 제3자 SDK도 하나 는다. 대신 앱이 스스로 거른 한 줄(`mobile/src/errorReport.ts`)을 `POST /v1/client-errors`로 우리 서버에 보내고, 서버가 한 번 더 거른 뒤 로그에 남기거나 Sentry로 올린다
+- 앱이 보내는 것은 오류 종류·한 줄 설명·어느 화면인지·플랫폼·앱 버전 다섯 가지뿐이다. 스택은 보내지 않는다(웹 묶음은 이름이 뭉개져 읽을 수 없고, 남는 것은 파일 경로뿐이다). 같은 오류는 5분에 한 번, 한 시간에 열 번까지만 보낸다. `EXPO_PUBLIC_DAYMO_ERROR_REPORT=off`로 끌 수 있다
+- 서버가 이벤트를 보내기 전에 지우는 것: 사람 정보(`user` — 이메일·이름·계정 ID·IP) 통째로, 요청 본문·쿠키·환경값(`REMOTE_ADDR`), 주소의 물음표 뒤(초대·확인 링크의 토큰이 거기 있다), 정해 둔 것 말고의 모든 헤더, 그리고 글자에 섞인 이메일·`Bearer` 토큰·JWT·`token=`류 값·사진 파일 이름·32자 이상의 임의 문자열. 남기는 것은 예외 종류와 자리, 라우트 틀, 상태 코드, 요청 ID, UUID다
 - 첫 출시에는 화면 조회·버튼 클릭을 수집하는 제3자 행동 분석 SDK를 넣지 않음
-- Sentry event는 가명 설치 ID만 사용하고 30일 후 만료; 계정 ID·이메일·본문·사진 경로 미수집
+- Sentry event는 30일 후 만료; 계정 ID·이메일·본문·사진 경로 미수집. 누가 겪었는지는 이벤트가 아니라 서버 로그의 요청 ID·actor 해시로 잇는다
 - 잠금화면 push에 여행·멤버·장소·준비물 상세가 없고 앱 진입 후 membership 재검증
 - 생체 앱 잠금 opt-in/off 기본값, 실패·미등록·기기 변경 fallback과 서버 재인증 분리 테스트
 - 백그라운드 59초/60초 경계, 앱 재시작, OS 암호 fallback, app switcher cover와 스크린샷 허용 테스트
-- 서버: request ID, actor ID hash, endpoint, status, latency만 구조화 로그
+- 서버: request ID, actor ID hash, endpoint, status, latency만 구조화 로그. 앱이 보낸 오류 한 줄은 `daymo.client` logger로 따로 남기고, 누가 보냈는지는 적지 않는다
 - 지표: 로그인 성공률, API p95, 앱 시작 시간, 사진 실패율, 동기화 충돌률
 - 데이터 지표: endpoint별 압축 응답 byte, 304 비율, sync 변경 개수, 사진 품질별 전송량
 - 알림: 인증 장애, 5xx 급증, DB/Storage 용량, 백업 실패

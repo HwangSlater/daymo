@@ -96,6 +96,12 @@ class Settings(BaseSettings):
     # credentials 는 켜지 않는다.
     cors_origins: str = "https://www.daymo.xyz,https://daymo.xyz"
 
+    # 오류 수집. **비어 있으면 아무 데도 보내지 않는다(기본 꺼짐).** 값이 들어간
+    # 뒤에야 Sentry 가 켜진다. 보내기 전에 무엇을 지우는지는
+    # app/core/observability.py 첫 주석에 적어 뒀다. 운영 값은 서버에만 둔다
+    # (docs/development/11-owner-setup-guide.md 6장).
+    sentry_dsn: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [주소.strip() for 주소 in self.cors_origins.split(",") if 주소.strip()]

@@ -18,7 +18,9 @@ App Store의 App Privacy와 Google Play의 데이터 보안(Data safety) 답은 
 | 그 밖의 사용자 콘텐츠 | 앱에 입력 | 여행을 멤버와 함께 관리 | 예 | 공간·여행·일정·장소·숙소·교통·예약·준비물·요리·지출·정산 기록·메모·일기 |
 | 약관 동의 기록 | 가입 | 법적 증빙 | 예 | `User.terms_version`, `terms_agreed_at` |
 
-**보내지 않는 것:** 연락처, 위치(GPS 권한을 요청하지 않고, 사진 속 GPS는 서버가 저장 전에 원본에서도 지운다 — `backend/app/services/photo_metadata.py`), 결제 정보, 건강 정보, 광고 ID, 검색 기록, 앱 사용 분석, 비정상 종료 기록(오류 수집 SDK가 없다).
+| 앱 오류 한 줄 | 앱이 멈추거나 처리되지 않은 오류가 났을 때 | 오류를 찾아 고침 | **아니요** | `POST /v1/client-errors`. 오류 종류·한 줄 설명·어느 화면인지·플랫폼·앱 버전뿐이다. 계정·토큰을 함께 보내지 않아 누가 보냈는지 서버도 모른다. 보내기 전에 앱이 이메일·토큰·초대 링크·사진 파일 이름을 지운다(`mobile/src/errorReport.ts`), 서버가 한 번 더 지운다(`backend/app/core/observability.py`). `EXPO_PUBLIC_DAYMO_ERROR_REPORT=off` 로 끌 수 있다 |
+
+**보내지 않는 것:** 연락처, 위치(GPS 권한을 요청하지 않고, 사진 속 GPS는 서버가 저장 전에 원본에서도 지운다 — `backend/app/services/photo_metadata.py`), 결제 정보, 건강 정보, 광고 ID, 검색 기록, 앱 사용 분석.
 
 **서버가 스스로 남기는 기록:** 접속 IP·요청 경로(보안·장애 대응, 87일 안에 삭제 — `backend/infra/production/journald-daymo.conf`),
 로그인 시도 횟수(IP·이메일을 해시로만). 개인정보 처리방침에는 적혀 있다. 스토어에 신고할지는 각 스토어 문서의 판단을 따른다
@@ -26,7 +28,7 @@ App Store의 App Privacy와 Google Play의 데이터 보안(Data safety) 답은 
 
 ## 2. 앱에 들어 있는 SDK
 
-`mobile/package.json` 의 런타임 의존성 전부. 광고·분석·오류 수집 SDK는 없다.
+`mobile/package.json` 의 런타임 의존성 전부. **광고·분석·오류 수집 SDK는 없다.** 오류는 SDK 없이 위 1장의 한 줄로 Daymo 서버에만 보낸다. 서버가 그것을 Sentry로 올릴지는 서버 설정(`SENTRY_DSN`)이 정하고, 지금은 비어 있어 꺼져 있다. 켜면 오류 한 줄만 Sentry(국외)로 나가므로 이 문서와 두 스토어 답, 처리방침을 함께 고친다.
 
 | 패키지 | 하는 일 | 외부로 보내는 데이터 |
 | --- | --- | --- |

@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth,
     bookings,
+    client_errors,
     cooking,
     expenses,
     health,
@@ -35,3 +36,4 @@ api_router.include_router(memories.router)
 api_router.include_router(photos.router)
 api_router.include_router(reports.router)
 api_router.include_router(trash.router)
+api_router.include_router(client_errors.router)

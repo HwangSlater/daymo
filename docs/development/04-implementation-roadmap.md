@@ -189,7 +189,7 @@
 - 앱 시작/홈/대형 목록/이미지 성능 측정
 - API 권한/IDOR 보안 테스트, rate limit, 백업/복원 훈련
 - Sentry, 운영 로그, 알림, 상태 대시보드
-- 제3자 행동 분석 SDK 없이 출시하고 Sentry는 30일·가명 설치 ID·오류 진단 최소 정보·PII scrubbing만 사용
+- 제3자 행동 분석 SDK 없이 출시하고 Sentry는 30일·오류 진단 최소 정보·PII scrubbing만 사용. 앱에는 SDK를 넣지 않고 서버만 `SENTRY_DSN`으로 켠다
 - 같은 release의 TestFlight/Android 비공개 테스트와 실제 여행 파일럿
 - OTA는 내부 대상부터 검증해 단계적으로 확대하고 native 변경은 store build로 배포
 - 보안·API 비호환일 때만 최소 지원 버전을 올려 강제 업데이트

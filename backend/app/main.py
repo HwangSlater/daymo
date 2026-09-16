@@ -16,6 +16,7 @@ from app.core.context import get_request_id, sanitize_request_id, set_request_id
 from app.core.db import dispose_engine
 from app.core.errors import AppError, ErrorCode, code_for_status
 from app.core.logging import configure_logging
+from app.core.observability import capture_error, init_error_tracking
 from app.core.runtime import use_selector_event_loop_on_windows
 from app.core.responses import error_response, ok
 
@@ -34,6 +35,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging()
+    # DSN 이 비어 있으면 아무 일도 하지 않는다. 자세한 것은 app/core/observability.py.
+    init_error_tracking(settings)
     app = FastAPI(
         title="Daymo API",
         version="0.1.0",
@@ -119,8 +122,12 @@ def create_app() -> FastAPI:
         예상 못 한 것은 내용을 밖으로 내보내지 않는다.
 
         사용자에게는 requestId 만 주고, 원인은 서버 로그에서 그 id 로 찾는다.
+
+        오류 수집이 켜져 있으면 여기서 **한 번만** 올린다. 로그 한 줄이 그대로
+        이벤트가 되게 두면 access log 가 같은 것을 또 올려 같은 오류가 두 번 쌓인다.
         """
         logger.exception("unhandled error requestId=%s path=%s", get_request_id(), request.url.path)
+        capture_error(exc)
         return error_response(ErrorCode.INTERNAL_ERROR)
 
     @app.get("/health", include_in_schema=False)

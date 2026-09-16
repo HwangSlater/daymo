@@ -16,6 +16,7 @@ import {
   SafeAreaProvider,
 } from "react-native-safe-area-context";
 import { WarmAppShell } from "./src/WarmAppShell";
+import { installErrorReporter } from "./src/errorReporter";
 import { useStoredSettings } from "./src/deviceSettings";
 import { useStoredMe, useStoredSpaces } from "./src/spaces";
 import { fontAssets } from "./src/theme/typography";
@@ -26,6 +27,10 @@ const isWeb = Platform.OS === "web";
 // OS 기본 폰트와 기본 테마로 한 번 그렸다가 바뀌면서 글자와 색이 튄다.
 // 둘은 함께 시작해 기다리는 시간이 늘지 않는다. 웹에는 실행 화면이 없어 조용히 넘어간다.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// 앱이 멈춘 것을 서버에 한 줄 알린다. 화면을 그리기 전에 걸어야 첫 화면에서 난 오류도
+// 잡힌다. 무엇을 보내고 무엇을 지우는지는 src/errorReport.ts 첫 주석에 있다.
+installErrorReporter();
 
 // 손가락으로 쓰는 화면인지 본다. 휴대폰 브라우저에서 열면 프레임을 씌우면 안 된다.
 // 안 그러면 이미 작은 화면 안에 또 작은 화면이 생긴다.

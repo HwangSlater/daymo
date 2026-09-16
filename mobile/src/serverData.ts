@@ -1,4 +1,5 @@
 import { authenticatedRequest } from "./auth";
+import type { ServerDevice } from "./deviceSessions";
 import type { PlaceBody, ServerPlace } from "./placeSync";
 import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./scheduleSync";
 import type { ReservationBody, ServerReservation, ServerTransport, TransportBody } from "./bookingSync";
@@ -462,3 +463,14 @@ export const unblock = (membershipId: string) =>
 /** `spaceId` 를 주면 그 공간에 있는 사람은 그 공간의 membership id 로 온다. */
 export const listBlocks = (spaceId?: string) =>
   authenticatedRequest<ServerBlock[]>(spaceId ? `/v1/blocks?spaceId=${encodeURIComponent(spaceId)}` : "/v1/blocks");
+
+/** 로그인해 둔 기기. 마지막 사용이 최근인 것부터 온다. 지금 이 기기에는 `current` 가 붙는다. */
+export const listDevices = () => authenticatedRequest<ServerDevice[]>("/v1/auth/sessions");
+
+/**
+ * 기기 하나를 해지한다. 그 기기의 갱신 토큰까지 끊겨 다시 로그인해야 한다.
+ *
+ * 지금 이 기기도 해지할 수 있다. 그때는 로그아웃과 같으니 부르는 쪽에서 먼저 물어본다.
+ */
+export const endDeviceSession = (deviceId: string) =>
+  authenticatedRequest<void>(`/v1/auth/sessions/${encodeURIComponent(deviceId)}`, { method: "DELETE" });
