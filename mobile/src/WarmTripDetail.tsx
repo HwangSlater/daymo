@@ -121,6 +121,8 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import { shrinkForWeb } from "./webImage";
+import { useWebBackClose } from "./useWebBackClose";
+import { useWebKeyboardInset } from "./useWebKeyboardInset";
 import { typo } from "./theme/typography";
 import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
@@ -1854,6 +1856,10 @@ export function WarmTripDetail({
     });
     return () => subscription.remove();
   }, [closeDetail]);
+
+  // 웹에서 같은 자리. 이 화면은 열려 있을 때만 그려지므로 늘 켜 둔다.
+  // 브라우저 뒤로 가기가 페이지가 아니라 여행 목록으로 돌아가게 한다.
+  useWebBackClose(true, closeDetail);
 
   useEffect(() => {
     if (!feedback) return;
@@ -9879,6 +9885,10 @@ function DetailSheet({
     );
   };
   const drag = useSheetDrag(requestClose, visible, hasUnsavedChanges);
+  // 웹에서만 쓰는 두 가지. 키보드가 가린 만큼 시트를 밀어 올리고, 브라우저
+  // 뒤로 가기를 페이지가 아니라 이 시트가 받는다. 기기에서는 둘 다 아무 일도 없다.
+  const keyboardInset = useWebKeyboardInset(visible);
+  useWebBackClose(visible, requestClose);
   const submitLabel = locked ? "닫기" : submit;
   const submitBlocked = !locked && (submitDisabled || submitting);
   const sheetKind = title.includes("일정")
@@ -9936,7 +9946,7 @@ function DetailSheet({
       onRequestClose={requestClose}
     >
       <KeyboardAvoidingView
-        style={styles.modalBack}
+        style={[styles.modalBack, keyboardInset]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable
@@ -10155,6 +10165,10 @@ function InfoPanel({
 }) {
   const theme = useContext(DetailThemeContext);
   const drag = useSheetDrag(onClose, visible);
+  // 웹에서는 브라우저 뒤로 가기가 페이지가 아니라 이 패널을 닫는다. 키보드가
+  // 올라오는 칸은 없지만, 열어 둔 채 화면이 줄어드는 경우까지 같이 맞춘다.
+  const keyboardInset = useWebKeyboardInset(visible);
+  useWebBackClose(visible, onClose);
   return (
     <Modal
       visible={visible}
@@ -10162,7 +10176,7 @@ function InfoPanel({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.modalBack}>
+      <View style={[styles.modalBack, keyboardInset]}>
         <Pressable
           style={styles.modalDismiss}
           onPress={onClose}

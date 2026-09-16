@@ -4,7 +4,11 @@
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <!-- viewport-fit=cover 가 있어야 휴대폰 브라우저에서 env(safe-area-inset-*)가
-         실제 값을 돌려준다. 이게 없으면 노치와 홈 바 아래로 화면이 깔린다. -->
+         실제 값을 돌려준다. 이게 없으면 노치와 홈 바 아래로 화면이 깔린다.
+
+         maximum-scale=1 은 손가락으로 벌려 키우는 것만 막는다. 아이폰 사파리가
+         작은 입력칸에 포커스할 때 화면을 통째로 확대하는 건 이걸로 막히지 않는다.
+         그건 입력칸 글자를 16px 아래로 두지 않아서 막는다(src/AppText.tsx). -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, shrink-to-fit=no"
