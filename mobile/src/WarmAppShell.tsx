@@ -734,7 +734,7 @@ export function WarmAppShell({
   useSaveSettings({ themeId, appearance, activeGroupId, since: activeSpace.since });
   const [user, setUser] = useState<DaymoUser | null>({ name: "하늘", email: "sky@example.com", deletionScheduledAt: null, hasPassword: true, linkedProviders: [] });
   const [authReady, setAuthReady] = useState(false);
-  const [authOffline, setAuthOffline] = useState(false);
+  const [authOffline, setAuthOffline] = useState(true);
   // 로그아웃된 뒤 로그인 화면에 한 번 띄울 안내. 계정 삭제를 요청한 직후에 쓴다.
   const [authNotice, setAuthNotice] = useState("");
   useSaveMe(user);
@@ -744,7 +744,7 @@ export function WarmAppShell({
       .then((session) => {
         if (!active) return;
         setUser((지금) => session?.user ?? 지금);
-        setAuthOffline(session?.offline ?? false);
+        setAuthOffline(true);
       })
       .finally(() => {
         if (active) setAuthReady(true);
@@ -6036,13 +6036,7 @@ function FormSheet({
   useEffect(() => {
     if (visible) submitLocked.current = false;
   }, [visible]);
-  const sheetKind = title.includes("여행")
-    ? "여행"
-    : title.includes("공간")
-      ? "우리"
-      : "Daymo";
   const sheetAccent = theme?.primary ?? "#FF6B63";
-  const sheetAction = title.includes("수정") ? "수정" : title.includes("추가") || title.includes("만들") ? "추가" : "확인";
   return (
     <Modal
       visible={visible}
@@ -6066,31 +6060,18 @@ function FormSheet({
           <View {...drag.panHandlers} style={s.sheetDragHandleArea}>
             <View style={s.sheetHandle} />
           </View>
-          <View
-            style={[
-              s.sheetHead,
-              s.sheetHeadDecorated,
-              { backgroundColor: `${sheetAccent}0B`, borderColor: `${sheetAccent}30` },
-            ]}
-          >
+          {/* 머리는 제목과 닫기 한 줄이다. 예전에는 "장소 · 추가" 와 "장소 추가" 가
+              위아래로 겹쳐 있었고 그 둘을 테두리 상자로 묶어, 내용이 시작되기도 전에
+              화면 위쪽 98px 을 먹었다. 종류는 왼쪽 색 막대로만 남긴다. */}
+          <View style={s.sheetHead}>
             <View {...drag.panHandlers} style={s.sheetHeadMain}>
-              <View style={s.sheetHeadCopy}>
-                <View style={s.sheetKindRow}>
-                  <View style={[s.sheetKindDot, { backgroundColor: sheetAccent }]} />
-                  <Text style={[s.sheetKindText, { color: sheetAccent }]}>{sheetKind} · {sheetAction}</Text>
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[s.sheetTitle, theme && { color: theme.text }]}
-                >
-                  {title}
-                </Text>
-                {subtitle && (
-                  <Text numberOfLines={2} style={[s.sheetSubtitle, theme && { color: theme.muted }]}>
-                    {subtitle}
-                  </Text>
-                )}
-              </View>
+              <View style={[s.sheetKindBar, { backgroundColor: sheetAccent }]} />
+              <Text
+                numberOfLines={1}
+                style={[s.sheetTitle, theme && { color: theme.text }]}
+              >
+                {title}
+              </Text>
             </View>
             <Pressable
               onPress={onClose}
@@ -6117,6 +6098,11 @@ function FormSheet({
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             <View style={s.sheetFormBody}>
+              {/* 도움말은 머리에 박아 두지 않고 내용의 첫 줄로 둔다. 적기 시작하면
+                  같이 밀려 올라가, 다 읽은 안내가 입력 칸 자리를 계속 차지하지 않는다. */}
+              {subtitle && (
+                <Text style={[s.sheetSubtitle, theme && { color: theme.muted }]}>{subtitle}</Text>
+              )}
               {children}
             </View>
           </ScrollView>
@@ -7477,21 +7463,14 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
-  },
-  sheetHeadDecorated: {
-    minHeight: 82,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginTop: 2,
-    position: "relative",
+    marginBottom: 16,
   },
   sheetFormBody: {
     paddingHorizontal: 2,
   },
-  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
+  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
+  // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
+  sheetKindBar: { width: 3, height: 19, borderRadius: 2 },
   sheetHeadCopy: { flex: 1 },
   sheetKindRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   sheetKindDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
@@ -7499,11 +7478,14 @@ const s = StyleSheet.create({
   sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 4 },
   sheetRouteDot: { width: 6, height: 6, borderRadius: 999, borderWidth: 1.5 },
   sheetTitle: {
-    fontSize: 24,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 21,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
   },
-  sheetSubtitle: { fontSize: 11, marginTop: 4 },
+  // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
+  sheetSubtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
   sheetDisabledHint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },
   sheetCloseButton: {
     width: 34,
