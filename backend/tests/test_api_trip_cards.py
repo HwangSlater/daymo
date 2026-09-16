@@ -45,6 +45,40 @@ async def test_한_여행에_카드를_여러_장_모아_두고_상대에게도_
     # 고르지 않은 것은 기본값으로 채워져 저장된다. 앱이 무엇을 그릴지 늘 알 수 있다.
     assert 줄[1]["settings"]["frameColor"] == "검정"
     assert 줄[1]["settings"]["stickers"] == []
+    assert 줄[1]["settings"]["decor"] == []
+
+
+async def test_손으로_얹은_스티커는_비율_그대로_오간다(api, db):
+    """자리와 크기는 카드 크기에 대한 비율이다. 서버는 그대로 돌려주기만 한다."""
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    카드 = await 카드를_만든다(
+        api, headers, trip["id"],
+        style="네컷",
+        decor=[
+            {"id": "d1", "kind": "꽃", "x": 0.25, "y": 0.8, "size": 0.2, "angle": -15, "z": 0},
+            {"id": "d2", "kind": "글자", "text": "좋았다", "x": 0.5, "y": 0.1, "size": 0.1, "z": 1},
+        ],
+    )
+
+    assert 카드["settings"]["decor"][0] == {
+        "id": "d1", "kind": "꽃", "text": None,
+        "x": 0.25, "y": 0.8, "size": 0.2, "angle": -15.0, "z": 0,
+    }
+    assert 카드["settings"]["decor"][1]["text"] == "좋았다"
+
+    # 카드 밖으로 나간 자리, 모르는 스티커, 뒤집힌 각도는 받지 않는다.
+    for 나쁜_것 in (
+        {"kind": "하트", "x": 1.4, "y": 0.5},
+        {"kind": "무지개", "x": 0.5, "y": 0.5},
+        {"kind": "하트", "x": 0.5, "y": 0.5, "angle": 400},
+    ):
+        응답 = await api.post(
+            f"/v1/trips/{trip['id']}/cards", json={"settings": {"decor": [나쁜_것]}}, headers=headers
+        )
+        assert 응답.status_code == 422, 응답.text
 
 
 async def test_카드를_고치고_지운다(api, db):

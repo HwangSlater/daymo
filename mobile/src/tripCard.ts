@@ -10,7 +10,18 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
+import {
+  decorBodyOf,
+  decorOf,
+  legacyDecorOf,
+  KEEPSAKE_STICKERS,
+  type CardDecor,
+  type KeepsakeSticker,
+} from "./cardDecor.ts";
 import { safeFileName } from "./filenames.ts";
+
+export { KEEPSAKE_STICKERS };
+export type { CardDecor, KeepsakeSticker };
 
 export type KeepsakeStyle =
   | "필름" | "엽서" | "스크랩북"
@@ -23,10 +34,6 @@ export type KeepsakePart = "이름" | "기간" | "지역" | "사람" | "문구" 
 export type KeepsakeStatKind = "장소" | "사진" | "날" | "지출";
 /** 네컷 틀의 테두리 색. 앞의 셋은 사진관 색이고 뒤는 앱에서 쓰는 색이다. */
 export type KeepsakeFrameColor = "검정" | "흰색" | "크림" | "노을" | "바다" | "숲";
-/** 사진 모서리에 붙이는 작은 그림. 자리는 미리 정해져 있다. */
-export type KeepsakeSticker = "하트" | "별" | "비행기" | "필름" | "말풍선" | "체크";
-/** 스티커가 붙는 모서리. */
-export type KeepsakeCorner = "좌상" | "우상" | "좌하" | "우하";
 
 export const KEEPSAKE_STYLES: KeepsakeStyle[] = [
   "필름", "엽서", "스크랩북", "네컷", "네컷 격자", "네컷 가로", "세컷",
@@ -37,7 +44,6 @@ export const KEEPSAKE_RATIOS: KeepsakeRatio[] = ["세로", "정사각", "가로"
 export const KEEPSAKE_PARTS: KeepsakePart[] = ["이름", "기간", "지역", "사람", "문구", "통계"];
 export const KEEPSAKE_STAT_KINDS: KeepsakeStatKind[] = ["장소", "사진", "날", "지출"];
 export const KEEPSAKE_FRAME_COLORS: KeepsakeFrameColor[] = ["검정", "흰색", "크림", "노을", "바다", "숲"];
-export const KEEPSAKE_STICKERS: KeepsakeSticker[] = ["하트", "별", "비행기", "필름", "말풍선", "체크"];
 
 /** 네컷 틀인지. 틀이면 비율 대신 틀이 크기를 정한다. */
 export const isCutStyle = (style: KeepsakeStyle): boolean => KEEPSAKE_CUT_STYLES.includes(style);
@@ -69,9 +75,10 @@ export type KeepsakeCard = {
   caption: string;
   parts: KeepsakePart[];
   stats: KeepsakeStatKind[];
-  /** 아래는 네컷 틀에서만 쓴다. 다른 스타일에서는 저장만 되고 그려지지 않는다. */
+  /** 네컷 틀에서만 쓴다. 다른 스타일에서는 저장만 되고 그려지지 않는다. */
   frameColor: KeepsakeFrameColor;
-  stickers: KeepsakeSticker[];
+  /** 카드 위에 손으로 얹은 스티커와 글자. 어느 스타일에서든 그려진다. */
+  decor: CardDecor[];
   /** 필름 카메라가 찍어 주던 날짜 도장(`2026.09.15`). */
   dateStamp: boolean;
   /** 사진에 적어 둔 짧은 설명을 칸 아래에 넣을지. */
@@ -88,7 +95,9 @@ export type SavedKeepsake = {
   parts?: unknown;
   stats?: unknown;
   frameColor?: string | null;
+  /** 옛 판이 남긴 정해진 자리 스티커 목록. 읽기만 하고 새로 쓰지 않는다. */
   stickers?: unknown;
+  decor?: unknown;
   dateStamp?: boolean | null;
   photoCaptions?: boolean | null;
 };
@@ -118,16 +127,24 @@ export function keepsakeCardOf(
   const parts = saved?.parts === undefined || saved?.parts === null
     ? DEFAULT_PARTS
     : pickMany(KEEPSAKE_PARTS, saved.parts);
+  const style = pick(KEEPSAKE_STYLES, saved?.style, "필름");
+  const 쓸_사진 = 고른_사진.length ? [...new Set(고른_사진)] : photoIds.slice(0, 1);
   return {
-    style: pick(KEEPSAKE_STYLES, saved?.style, "필름"),
+    style,
     ratio: pick(KEEPSAKE_RATIOS, saved?.ratio, "세로"),
-    photoIds: 고른_사진.length ? [...new Set(고른_사진)] : photoIds.slice(0, 1),
+    photoIds: 쓸_사진,
     title: (saved?.title ?? "").trim() || tripName.trim(),
     caption: (saved?.caption ?? "").trim(),
     parts,
     stats: pickMany(KEEPSAKE_STAT_KINDS, saved?.stats),
     frameColor: pick(KEEPSAKE_FRAME_COLORS, saved?.frameColor, "검정"),
-    stickers: pickMany(KEEPSAKE_STICKERS, saved?.stickers),
+    // 새 형식이 있으면 그것을 읽고, 없으면 옛 판이 남긴 스티커를 옮겨 온다.
+    decor: Array.isArray(saved?.decor)
+      ? decorOf(saved.decor)
+      : legacyDecorOf(
+          pickMany(KEEPSAKE_STICKERS, saved?.stickers),
+          keepsakeFrameOf(style, 쓸_사진.length).rows,
+        ),
     dateStamp: saved?.dateStamp === true,
     photoCaptions: saved?.photoCaptions === true,
   };
@@ -145,7 +162,10 @@ export function keepsakeBodyOf(card: KeepsakeCard, tripName: string): Required<S
     parts: card.parts,
     stats: card.stats,
     frameColor: card.frameColor,
-    stickers: card.stickers,
+    // 옛 칸은 비워 보낸다. 옮긴 값이 `decor` 에 들어 있어서, 둘 다 보내면 새 앱이
+    // 같은 스티커를 두 번 그린다. 옛 앱에서는 스티커가 안 보인다.
+    stickers: [],
+    decor: decorBodyOf(card.decor),
     dateStamp: card.dateStamp,
     photoCaptions: card.photoCaptions,
   };
@@ -268,32 +288,6 @@ export function keepsakeRowSlots(rows: readonly number[]): { start: number; coun
     count,
     start: rows.slice(0, index).reduce((합, 앞줄) => 합 + 앞줄, 0),
   }));
-}
-
-/** 스티커를 놓을 모서리. 앞에서부터 차례로 쓴다. */
-const STICKER_CORNERS: KeepsakeCorner[] = ["우상", "좌하", "좌상", "우하"];
-
-/**
- * 켠 스티커를 어느 칸의 어느 모서리에 붙일지.
- *
- * 자리는 미리 정해 둔다. 손으로 끌어 옮기게 하면 웹과 앱에서 자리가 흔들리고,
- * 같은 카드를 둘이 열었을 때 다른 그림이 된다.
- *
- * 켠 차례가 아니라 `KEEPSAKE_STICKERS` 차례로 놓는다. 껐다 켜도 자리가 안 바뀐다.
- * 칸마다 모서리는 넷뿐이라 그보다 많이 켜면 뒤쪽은 붙지 않는다.
- */
-export function keepsakeStickerSpots(
-  stickers: readonly KeepsakeSticker[],
-  slotCount: number,
-): { sticker: KeepsakeSticker; slot: number; corner: KeepsakeCorner }[] {
-  const 칸 = Math.max(1, slotCount);
-  return KEEPSAKE_STICKERS.filter((sticker) => stickers.includes(sticker))
-    .slice(0, 칸 * STICKER_CORNERS.length)
-    .map((sticker, index) => {
-      const slot = index % 칸;
-      const 바퀴 = Math.floor(index / 칸);
-      return { sticker, slot, corner: STICKER_CORNERS[(slot + 바퀴) % STICKER_CORNERS.length] };
-    });
 }
 
 /** 날짜 도장에 찍을 글. `2026-09-15` → `2026.09.15`. 날짜를 모르면 빈 글자다. */
