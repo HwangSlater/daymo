@@ -166,6 +166,7 @@ test("장소는 지도 링크를 그대로 두고 대괄호 상태는 태그가 
     category: "장소",
     status: "saved",
     tags: ["담에 가용"],
+    memo: null,
     mapUrl: "https://map.naver.com/p/search/구름국수",
   });
 });
@@ -198,6 +199,7 @@ test("교통편은 가는 편이면 첫날, 오는 편이면 마지막 날로 �
     arrivalTime: "09:36",
     ownerMembershipId: "m-하늘",
     bookingStatus: "booked",
+    note: null,
     showInSchedule: true,
   });
 });

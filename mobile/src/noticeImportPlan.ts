@@ -138,6 +138,9 @@ export function duplicateKeys(draft: NoticeDraft, existing: ExistingTripContent)
 
 const PACKING_SHARED = "공용";
 
+/** 이보다 길면 태그가 아니라 메모로 본다. 태그는 서버에서 20자까지다. */
+const MAX_TAG_TEXT = 20;
+
 const messageOf = (caught: unknown) =>
   caught instanceof Error && caught.message ? caught.message : "알 수 없는 문제가 생겼어요";
 
@@ -147,7 +150,9 @@ const placeBodyOf = (name: string, address: string, mapUrl: string, note: string
   address: blank(address, 300),
   category: "장소",
   status: "saved",
-  tags: note ? tidyTags([note]) : [],
+  // 공지의 `[담에 가용]` 같은 짧은 표시는 태그로, 그 밖의 말은 장소 메모로 둔다.
+  tags: note && note.length <= MAX_TAG_TEXT ? tidyTags([note]) : [],
+  memo: note && note.length > MAX_TAG_TEXT ? blank(note, 2000) : null,
   mapUrl: safeUrl(mapUrl),
 });
 
@@ -219,6 +224,7 @@ export async function runNoticeImport(
         arrivalTime: date ? transport.arrivalTime : null,
         ownerMembershipId: options.roster.find((entry) => entry.name === transport.owner)?.id ?? null,
         bookingStatus: transport.booked ? "booked" : "not_booked",
+        note: null,
         showInSchedule: true,
       }));
   }
