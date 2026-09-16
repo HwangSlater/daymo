@@ -53,6 +53,20 @@ export function webSocialRedirectUri(pageUrl: string): string {
   return new URL("/oauth", pageUrl).href;
 }
 
+/** 제공자 창을 무엇 때문에 여는지. 로그인과 재확인은 안내 문구가 다르다. */
+export type SocialPurpose = "login" | "reauth";
+
+/**
+ * 웹에서 제공자 창이 열리지 않았을 때의 안내.
+ *
+ * 브라우저는 사용자가 누른 직후가 아니면 새 창을 막는다. 막혔다는 것을 알려 주지
+ * 않으면 아무 일도 일어나지 않은 것처럼 보인다.
+ */
+export function socialWindowBlockedMessage(purpose: SocialPurpose): string {
+  const 무엇 = purpose === "reauth" ? "확인" : "로그인";
+  return `${무엇} 창이 차단됐어요. 이 사이트의 팝업을 허용하고 다시 시도해 주세요.`;
+}
+
 export type SocialReturn =
   | { kind: "code"; loginCode: string }
   | { kind: "cancelled" }
