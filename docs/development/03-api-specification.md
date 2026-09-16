@@ -737,6 +737,8 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 - 지운 메모는 기한이 지나도 행이 남는다(휴지통과 목록에서만 빠진다). 메모 최종 삭제 작업은 아직 없다.
 - 앱은 메모 시트 아래 `휴지통`에서 목록을 받고 `되돌리기` 뒤 메모·사진 목록을 서버에서 다시 받는다(`mobile/src/TripTrash.tsx`, `useListSync`의 `reloadKey`).
 
+2026-09-16 메모 최종 삭제와 audit log 보유기간 파기 구현(`backend/app/jobs/cleanup.py`, `backend/app/services/memories.py`, `backend/app/services/audit.py`): 위 문단의 "메모 최종 삭제 작업은 아직 없다"와 "보유기간 파기는 아직 없다"를 대신한다. 정리 작업이 지운 지 7일이 지난 메모 행을 사진과 같이 실제로 지우고(한 번에 500줄), `audit_logs`는 생성 후 6개월이 지난 줄을 오래된 것부터 지운다(한 번에 2000줄, 08-privacy-and-release-compliance.md 10장). 메모를 지워도 그 메모를 가리키는 audit log와 신고 기록은 남긴다(둘 다 `target_id`에 외래키가 없다. audit log는 위 6개월 보유기간으로 따로 파기하고, 신고 기록의 1년 파기는 아직 없다). audit log 조회 API는 여전히 없고, 운영자는 `journalctl -u daymo-cleanup`의 `정리 끝:` 줄에서 항목별 건수를 본다.
+
 사진 업로드 순서:
 
 1. 앱에서 권한 확인, 선택/촬영, 원본 checksum·크기·MIME 확인

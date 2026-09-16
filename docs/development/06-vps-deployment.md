@@ -316,7 +316,7 @@ schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 
 
 백업·오프사이트 검사·정리·배포·인증서 갱신 unit은 실패하면 `OnFailure=daymo-alert@%n.service`로 `daymo-alert`를 부른다. api 이미지로 `python -m app.jobs.alert <unit>`을 한 번 실행해 `support@daymo.xyz`로 어느 작업이 언제 실패했는지만 보낸다. 로그 본문은 메일에 넣지 않는다.
 
-정리 작업은 `daymo-cleanup`, `daymo-cleanup.service`, `daymo-cleanup.timer`로 관리한다. 매일 04:40 Asia/Seoul, 백업이 끝난 뒤에 api 이미지로 `python -m app.jobs.cleanup`을 한 번 실행하고 컨테이너를 지운다. 유예가 지난 계정 비식별화, 삭제 기한이 지난 여행, 오래된 시도 횟수 표를 정리한다. 일마다 transaction이 따로라 하나가 실패해도 나머지는 끝나고, 실패가 있으면 종료 코드 1로 timer 실패가 남는다. 백업보다 뒤에 두는 이유는 지우기 직전 상태를 그날 snapshot에 남기기 위해서다. 백업에서 복원할 때 이미 정리한 계정이 되살아나지 않게 하는 deletion ledger는 아직 없다.
+정리 작업은 `daymo-cleanup`, `daymo-cleanup.service`, `daymo-cleanup.timer`로 관리한다. 매일 04:40 Asia/Seoul, 백업이 끝난 뒤에 api 이미지로 `python -m app.jobs.cleanup`을 한 번 실행하고 컨테이너를 지운다. 유예가 지난 계정 비식별화, 삭제 기한이 지난 여행, 오래된 시도 횟수 표를 정리한다. 일마다 transaction이 따로라 하나가 실패해도 나머지는 끝나고, 실패가 있으면 종료 코드 1로 timer 실패가 남는다. 백업보다 뒤에 두는 이유는 지우기 직전 상태를 그날 snapshot에 남기기 위해서다. 백업에서 복원할 때 이미 정리한 계정이 되살아나지 않게 하는 deletion ledger는 아직 없다. 휴지통 기한(7일)이 지난 메모 행과 생성 후 6개월이 지난 `audit_logs` 줄도 함께 파기하며(2026-09-16 추가), 둘 다 한 번에 지우는 줄 수에 상한이 있어 밀린 것은 다음 날 이어서 지운다. 무엇이 몇 건 지워졌는지는 `journalctl -u daymo-cleanup`의 `정리 끝: accounts=… memos=… audit=…` 한 줄에서 본다.
 
 매월 자동 검증은 최신 snapshot에서 DB를 격리된 임시 PostgreSQL container에 복원해 migration metadata와 주요 table count를 검사하고, 무작위 사진 표본의 checksum과 decode 가능 여부를 확인한 뒤 임시 data를 삭제한다. 분기마다 별도의 빈 local/staging 환경에서 DB와 전체 사진 경로를 수동 복원해 로그인·여행 조회·사진 열기 smoke test까지 수행한다.
 
