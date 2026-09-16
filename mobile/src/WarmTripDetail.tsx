@@ -12,6 +12,14 @@ import { useListSync } from "./useListSync";
 import { dateKey, dateLabelOf, isServerId, tripDateKeys } from "./listSync";
 import { legacyIdMap, placeCodec } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
+import {
+  ALL_DAYS,
+  defaultScheduleDay,
+  groupScheduleByDay,
+  highlightedGroupIndex,
+  scheduleDayCounts,
+  scheduleOfDay,
+} from "./scheduleDays";
 import { reservationCodec, transportCodec } from "./bookingSync";
 import { expenseCodec, paymentCodec } from "./expenseSync";
 import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
@@ -2054,6 +2062,7 @@ export function WarmTripDetail({
               packingRemaining={packingItems.filter((item) => !packingDone.includes(item.id)).length}
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
+              todayDay={todayTripDay}
               openScheduleOnMount={canEdit && initialDestination === "schedule-add"}
             />
           )}
@@ -2546,6 +2555,7 @@ function TripOverview({
   packingRemaining,
   dayOptions,
   dateOptions,
+  todayDay,
   openScheduleOnMount,
 }: {
   setMode: (mode: ViewMode) => void;
@@ -2568,6 +2578,8 @@ function TripOverview({
   packingRemaining: number;
   dayOptions: string[];
   dateOptions: string[];
+  /** 오늘이 여행 기간 안이면 그 날. 아니면 빈 문자열이다. */
+  todayDay: string;
   openScheduleOnMount?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -2577,6 +2589,8 @@ function TripOverview({
     "schedule" | "reservation" | "stay" | "transport" | null
   >(openScheduleOnMount ? "schedule" : null);
   const [fullSchedule, setFullSchedule] = useState(false);
+  // 전체 일정에서 보고 있는 날. 여행 중이면 오늘로 열린다.
+  const [scheduleDay, setScheduleDay] = useState(() => defaultScheduleDay(dayOptions, todayDay));
   const [editingScheduleIndex, setEditingScheduleIndex] = useState<number | null>(null);
   const defaultPlanDay = dayOptions[Math.min(1, dayOptions.length - 1)];
   const firstDay = dayOptions[0];
@@ -2668,23 +2682,26 @@ function TripOverview({
     () => orderedScheduleItems(schedule, dayOptions),
     [dayOptions, schedule],
   );
-  const scheduleGroups = useMemo(() => {
-    const groups: { date: string; items: ScheduleItem[] }[] = [];
-    orderedSchedule.forEach((item) => {
-      const date = item.date ?? "날짜 미정";
-      const current = groups.at(-1);
-      if (current?.date === date) current.items.push(item);
-      else groups.push({ date, items: [item] });
-    });
-    return groups;
-  }, [orderedSchedule]);
-  // 타임라인 카드가 실제로 그리는 개수. 첫 묶음의 앞 세 개다.
-  const shownScheduleCount = Math.min(3, scheduleGroups[0]?.items.length ?? 0);
-  // 일정이 있는 첫 묶음이 반드시 1일차는 아니다. 몇째 날인지 세어 적는다.
+  const scheduleGroups = useMemo(() => groupScheduleByDay(orderedSchedule), [orderedSchedule]);
+  // 여행 중이면 요약 카드도 오늘부터 보여 준다. 여행 중이 아니면 가장 빠른 날이다.
+  const leadSchedule = scheduleGroups[highlightedGroupIndex(scheduleGroups, dayOptions, todayDay)];
+  // 타임라인 카드가 실제로 그리는 개수. 앞 묶음의 앞 세 개다.
+  const shownScheduleCount = Math.min(3, leadSchedule?.items.length ?? 0);
+  // 앞에 보여 주는 묶음이 반드시 1일차는 아니다. 몇째 날인지 세어 적는다.
   const firstScheduleDayLabel = (() => {
-    const index = scheduleGroups[0] ? dayOptions.indexOf(scheduleGroups[0].date) : -1;
+    const index = leadSchedule ? dayOptions.indexOf(leadSchedule.date) : -1;
+    if (leadSchedule && leadSchedule.date === todayDay) return "오늘";
     return index < 0 ? "가장 빠른 일정" : `${["첫", "둘", "셋", "넷", "다섯"][index] ?? `${index + 1}`}째 날`;
   })();
+  const scheduleDayChips = useMemo(
+    () => scheduleDayCounts(orderedSchedule, dayOptions),
+    [dayOptions, orderedSchedule],
+  );
+  const visibleSchedule = useMemo(
+    () => scheduleOfDay(orderedSchedule, scheduleDay),
+    [orderedSchedule, scheduleDay],
+  );
+  const visibleScheduleGroups = useMemo(() => groupScheduleByDay(visibleSchedule), [visibleSchedule]);
   const scheduleFormValid = Boolean(newPlanTitle.trim());
   const transportRouteValid = Boolean(
     transportDeparture.trim() &&
@@ -3173,22 +3190,22 @@ function TripOverview({
           },
         ]}
       >
-        {scheduleGroups[0] && (
+        {leadSchedule && (
           <View style={[styles.travelTimelineHead, theme && { backgroundColor: theme.primarySoft }]}>
             <View>
               <Text style={[styles.travelTimelineEyebrow, theme && { color: theme.primary }]}>{firstScheduleDayLabel}</Text>
-              <Text style={[styles.travelTimelineDate, theme && { color: theme.text }]}>{scheduleGroups[0].date}</Text>
+              <Text style={[styles.travelTimelineDate, theme && { color: theme.text }]}>{leadSchedule.date}</Text>
             </View>
-            <Text style={[styles.travelTimelineCount, theme && { color: theme.primary }]}>{scheduleGroups[0].items.length}개 일정</Text>
+            <Text style={[styles.travelTimelineCount, theme && { color: theme.primary }]}>{leadSchedule.items.length}개 일정</Text>
           </View>
         )}
         <View style={styles.travelTimelineItems}>
-        {scheduleGroups[0]?.items.slice(0, 3).map((item, index) => (
+        {leadSchedule?.items.slice(0, 3).map((item, index) => (
           <Moment
             key={`${item.time}-${index}`}
             {...item}
             time={item.time.split("·").at(-1)?.trim() || item.time}
-            last={index === Math.min(scheduleGroups[0].items.length, 3) - 1}
+            last={index === Math.min(leadSchedule.items.length, 3) - 1}
             compact
             onPress={() => openScheduleEdit(item, schedule.indexOf(item))}
           />
@@ -3209,7 +3226,11 @@ function TripOverview({
         {schedule.length > shownScheduleCount && (
           <Pressable
             accessibilityRole="button"
-            onPress={() => setFullSchedule(true)}
+            onPress={() => {
+              // 열 때마다 다시 고른다. 여행 중이면 오늘, 아니면 전체다.
+              setScheduleDay(defaultScheduleDay(dayOptions, todayDay));
+              setFullSchedule(true);
+            }}
             style={[
               styles.fullScheduleButton,
               theme && { backgroundColor: theme.surfaceAlt },
@@ -3644,11 +3665,55 @@ function TripOverview({
       </DetailSheet>
       <InfoPanel
         visible={fullSchedule}
-        title={`전체 일정 · ${schedule.length}`}
+        title={scheduleDay === ALL_DAYS ? `전체 일정 · ${schedule.length}` : `${scheduleDay} 일정 · ${visibleSchedule.length}`}
         onClose={() => setFullSchedule(false)}
       >
+        {/* 날짜가 여럿이면 하루씩 골라 본다. 여행 중에는 오늘이 골라져 있다. */}
+        {dayOptions.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scheduleDayRow}>
+            {[{ day: ALL_DAYS, count: schedule.length }, ...scheduleDayChips].map(({ day, count }) => {
+              const active = scheduleDay === day;
+              return (
+                <Pressable
+                  key={day}
+                  onPress={() => setScheduleDay(day)}
+                  accessibilityRole="button"
+                  accessibilityLabel={day === ALL_DAYS ? `전체 일정 ${count}개` : `${day} 일정 ${count}개`}
+                  accessibilityState={{ selected: active }}
+                  style={[
+                    styles.scheduleDayChip,
+                    theme && { borderColor: active ? theme.primary : theme.border },
+                    active && theme && { backgroundColor: theme.primarySoft },
+                  ]}
+                >
+                  <Text style={[styles.scheduleDayChipText, theme && { color: active ? theme.primary : theme.muted }]}>
+                    {day}
+                  </Text>
+                  <Text style={[styles.scheduleDayChipCount, theme && { color: active ? theme.primary : theme.muted }]}>
+                    {count}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+        {visibleScheduleGroups.length === 0 && (
+          <EmptyState
+            title="아직 일정이 없어요"
+            description="첫 일정을 추가해 여행의 흐름을 만들어 보세요."
+            action="일정 추가"
+            onPress={
+              canEdit
+                ? () => {
+                    setFullSchedule(false);
+                    openScheduleCreate();
+                  }
+                : undefined
+            }
+          />
+        )}
         <View style={styles.fullScheduleList}>
-          {scheduleGroups.map((group) => (
+          {visibleScheduleGroups.map((group) => (
             <View
               key={group.date}
               style={[
@@ -11423,6 +11488,18 @@ const styles = StyleSheet.create({
   moneyExportTitle: { fontSize: 13, fontFamily: typo.title.family },
   moneyExportHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
   fullScheduleList: { maxHeight: 520 },
+  scheduleDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4, marginBottom: 10 },
+  scheduleDayChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    minHeight: 40,
+  },
+  scheduleDayChipText: { fontSize: 12, fontFamily: typo.label.family },
+  scheduleDayChipCount: { fontSize: 11, fontFamily: typo.data.family },
   scheduleDayGroup: {
     marginBottom: 18,
     borderRadius: 16,
