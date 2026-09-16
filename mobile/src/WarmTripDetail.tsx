@@ -55,6 +55,7 @@ import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { originalSaveHint, photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
 import { PhotoEditScreen, PhotoViewerScreen, confirmPhotoDelete } from "./PhotoViewer";
+import { photoUploadHeadline, photoUploads, usePhotoUploads, type PhotoUploadJob } from "./photoUploads";
 import { TripCardsSection, type CardPhoto, type CardTile, type DetailUi } from "./TripCards";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
@@ -653,6 +654,14 @@ const UNDATED = "날짜 미정";
  * 화면이 밀리지 않는다.
  */
 const PHOTO_PICK_LIMIT = 50;
+
+/**
+ * 사진 파일을 실제로 서버에 보내는 길. 앱 전역 대기열에 끼워 준다.
+ *
+ * 대기열(`photoUploads.ts`)은 expo 를 가져오지 않아야 `node --test` 로 바로 볼 수 있다.
+ * 그래서 보내는 길만 여기서 넘긴다. React 를 붙들지 않는 함수라 화면이 사라져도 산다.
+ */
+const sendPhotoFile = (job: PhotoUploadJob) => uploadPhoto(job.tripId, job.photoId, job.uri, job.body);
 
 /** 기기에서 막 고른 사진 한 장. 아직 기록에 들어가기 전이다. */
 type PickedPhoto = {
@@ -1726,10 +1735,13 @@ export function WarmTripDetail({
     codec: photoSyncCodec,
     api: {
       list: listPhotos,
+      // 파일은 이 훅이 아니라 앱 전역 대기열이 보낸다. 여기서는 그 한 장이 끝나기를
+      // 기다렸다가 서버 줄을 받아 갈 뿐이다. 화면이 사라지면 기다리던 쪽만 없어지고
+      // 대기열은 그대로 돈다(아래 「아직 못 올린 사진을 대기열에 넣는다」).
       create: async (serverTripId, id, body) => {
         const uri = photosRef.current.find((photo) => photo.id === id)?.uri;
         if (!uri) throw new DaymoApiError("사진 파일을 찾지 못했어요. 사진을 다시 골라 주세요.", 422, "VALIDATION_ERROR");
-        const row = await uploadPhoto(serverTripId, id, uri, body);
+        const row = await photoUploads.join({ tripId: serverTripId, photoId: id, uri, body }, sendPhotoFile);
         // 웹은 사진을 브라우저 저장소에 넣지 않는다. 올린 뒤에는 비워 두고, 화면에 필요할 때
         // 서버에서 다시 받아 blob 으로만 들고 있는다(photoTransfer.downloadPhoto).
         if (Platform.OS === "web" && uri.startsWith("data:")) {
@@ -1753,6 +1765,53 @@ export function WarmTripDetail({
     forbiddenMessage: canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined,
     notify: setFeedback,
   });
+  /**
+   * 아직 못 올린 사진을 앱 전역 대기열에 넣는다.
+   *
+   * 올리기를 이 화면이 끌면 시트를 닫거나 여행을 나가는 순간 멈춘다. 여행이 끝나고
+   * 마흔 장을 넣어 둔 사람이 잠깐 다른 화면에 다녀왔다고 처음부터 기다리는 셈이라,
+   * 줄을 React 바깥에 두고 여기서는 넣기만 한다(`photoUploads.ts`).
+   *
+   * 죽은 blob: 자리는 넣지 않는다. 웹에서 탭을 새로 열면 지난 탭이 만든 사진 자리는
+   * 이미 없어서, 보내 봐야 파일을 못 찾았다는 답만 돌아온다.
+   */
+  useEffect(() => {
+    if (!tripId) return;
+    const 보낼_것 = memories.photos
+      .filter((photo) => isServerId(photo.id) && isLivePhotoUri(photo.uri) && !knownPhotoIds.has(photo.id))
+      .map((photo) => ({
+        tripId,
+        photoId: photo.id,
+        uri: photo.uri as string,
+        body: photoSyncCodec.toBody(photo),
+      }));
+    if (보낼_것.length) photoUploads.add(보낼_것, sendPhotoFile);
+  }, [knownPhotoIds, memories.photos, photoSyncCodec, tripId]);
+  /**
+   * 올라간 사진의 `data:` 자리를 비운다(웹만).
+   *
+   * 브라우저 저장소는 몇 MB 뿐이라 고른 사진까지 적으면 기록 전체가 저장되지 않는다
+   * (`WarmAppShell` 의 `storableTrips`). 화면이 있을 때는 만들기가 곧바로 비우지만,
+   * 나가 있는 동안 올라간 것은 돌아와서 한 번에 비운다.
+   */
+  useEffect(() => {
+    if (Platform.OS !== "web" || !tripId) return;
+    const 비운다 = () => {
+      const 올라간_것 = new Set(photoUploads.uploadedIds(tripId));
+      if (!올라간_것.size) return;
+      setMemories((current) => {
+        if (!current.photos.some((photo) => 올라간_것.has(photo.id) && photo.uri?.startsWith("data:"))) return current;
+        return {
+          ...current,
+          photos: current.photos.map((photo) =>
+            올라간_것.has(photo.id) && photo.uri?.startsWith("data:") ? { ...photo, uri: undefined } : photo),
+        };
+      });
+    };
+    // 바뀐 것이 없으면 그대로 돌려주므로 다시 그리지 않는다.
+    비운다();
+    return photoUploads.subscribe(비운다);
+  }, [tripId]);
   // 다른 기기에서 올린 사진은 표시본을 받아 기기에 둔다. 한 번 받으면 다시 받지 않는다.
   const photoDownloads = useRef(new Set<string>());
   useEffect(() => {
@@ -8274,12 +8333,29 @@ function Memories({
     () => new Set(cardTripId ? photos.filter((photo) => !uploadedPhotoIds?.has(photo.id)).map((photo) => photo.id) : []),
     [cardTripId, photos, uploadedPhotoIds],
   );
-  // 서버가 거부해 멈춘 사진. 까닭은 줄마다 배지로 붙고(`SyncMark`) 여기서는 수만 센다.
   const syncTrouble = useSyncTrouble();
-  const blockedPhotoIds = useMemo(
-    () => photos.filter((photo) => syncTrouble.rows.get(photo.id)?.state === "막힘").map((photo) => photo.id),
-    [photos, syncTrouble],
-  );
+  /**
+   * 올리기 진행. 수는 앱 전역 대기열이 센다(`photoUploads.ts`).
+   *
+   * 화면이 들고 있으면 여행을 나갔다 들어올 때마다 전체 수를 잊어버려 「남은 12장」
+   * 밖에 못 쓴다. 대기열이 묶음 전체를 들고 있으니 「12/40」 으로 적을 수 있다.
+   */
+  const photoUploadState = usePhotoUploads(cardTripId);
+  /**
+   * 서버가 거부해 멈춘 사진. 까닭은 줄마다 배지로 붙고(`SyncMark`) 여기서는 수만 센다.
+   *
+   * 멈춘 사진은 두 곳에서 온다. 파일을 보내다 거부당한 것은 대기열이, 설명·날짜를
+   * 고치다 거부당한 것은 목록 동기화가 안다. 같은 사진이 두 번 세지지 않게 합친다.
+   */
+  const blockedPhotoIds = useMemo(() => {
+    const 멈춘_것 = new Set(photoUploadState.blocked);
+    photos.forEach((photo) => {
+      if (syncTrouble.rows.get(photo.id)?.state === "막힘") 멈춘_것.add(photo.id);
+    });
+    // 이미 지운 사진까지 세면 걷히지 않는 줄이 남는다.
+    return new Set(photos.filter((photo) => 멈춘_것.has(photo.id)).map((photo) => photo.id));
+  }, [photoUploadState.blocked, photos, syncTrouble]);
+  const uploadHeadline = photoUploadHeadline({ ...photoUploadState, blocked: [...blockedPhotoIds] });
   /** 크게 보고 있는 사진과 그 차례. 지우면 목록에서 사라지므로 창도 닫힌다. */
   const viewIndex = photos.findIndex((photo) => photo.id === viewingPhotoId);
   const viewing = viewIndex < 0 ? undefined : photos[viewIndex];
@@ -8634,16 +8710,21 @@ function Memories({
           </Pressable>
         )}
       </View>
-      {(uploadingPhotoIds.size > 0 || blockedPhotoIds.length > 0) && (
+      {Boolean(uploadHeadline) && (
         <View style={styles.uploadLine}>
           <Text accessibilityLiveRegion="polite" style={[styles.settingHint, theme && { color: theme.muted }]}>
-            {uploadingPhotoIds.size > blockedPhotoIds.length
-              ? `사진 ${uploadingPhotoIds.size - blockedPhotoIds.length}장 올리는 중이에요`
-              : "사진을 올리지 못했어요"}
-            {blockedPhotoIds.length > 0 ? ` · ${blockedPhotoIds.length}장 실패` : ""}
+            {uploadHeadline}
           </Text>
-          {blockedPhotoIds.length > 0 && (
-            <Pressable onPress={retryBlockedRows} accessibilityRole="button" hitSlop={8}>
+          {blockedPhotoIds.size > 0 && (
+            <Pressable
+              onPress={() => {
+                // 파일이 막힌 것과 설명·날짜가 막힌 것을 함께 푼다. 사용자에게는 한 가지 일이다.
+                if (cardTripId) photoUploads.retry(cardTripId);
+                retryBlockedRows();
+              }}
+              accessibilityRole="button"
+              hitSlop={8}
+            >
               <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>다시 시도</Text>
             </Pressable>
           )}
@@ -8665,7 +8746,7 @@ function Memories({
               {uploadingPhotoIds.has(tile.photo.id) && (
                 <View style={[styles.coverBadge, styles.uploadBadge]} pointerEvents="none">
                   <Text style={styles.coverBadgeText}>
-                    {syncTrouble.rows.get(tile.photo.id)?.state === "막힘" ? "저장 안 됨" : "올리는 중"}
+                    {blockedPhotoIds.has(tile.photo.id) ? "저장 안 됨" : "올리는 중"}
                   </Text>
                 </View>
               )}
@@ -8796,7 +8877,7 @@ function Memories({
         hintSoon={viewing ? originalSaveHint(viewing.originalUntil, todayKey).soon : false}
         toast={photoToast}
         waitingText={viewing && uploadingPhotoIds.has(viewing.id)
-          ? (syncTrouble.rows.get(viewing.id)?.state === "막힘" ? "아직 못 올린 사진이에요" : "올리는 중이에요")
+          ? (blockedPhotoIds.has(viewing.id) ? "아직 못 올린 사진이에요" : "올리는 중이에요")
           : undefined}
       />
       {/* 고치기도 전용 화면이다. 시트 안에서 사진을 작게 보며 고치던 자리를 옮겼다. */}
