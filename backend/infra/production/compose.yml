@@ -76,6 +76,9 @@ services:
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
       OAUTH_APP_REDIRECT_URIS: ${OAUTH_APP_REDIRECT_URIS:-daymo://oauth,https://www.daymo.xyz/oauth,https://daymo.xyz/oauth}
+      # 브라우저에서 API 를 부를 수 있는 웹 주소. 미리보기 주소를 잠시 더할 때는
+      # runtime.env 에 CORS_ORIGINS 를 적고 api 를 다시 띄운다.
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://www.daymo.xyz,https://daymo.xyz}
     volumes:
       - /srv/daymo/uploads:/srv/daymo/uploads
     depends_on:
