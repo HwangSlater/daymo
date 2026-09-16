@@ -626,7 +626,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 - 목록 조회·추가와 `PATCH/DELETE /checklist-items/{itemId}`만 있다. 체크와 담당 변경은 따로 두지 않고 `PATCH`에 `completed`(참/거짓)·`ownerMembershipId`·`isShared`로 보낸다. `id`(앱 UUID)와 `version`을 더했고 낡은 `version`은 `VERSION_CONFLICT(409)`다.
 - 여행마다 준비물 목록(`checklists`, kind `packing`)을 처음 쓸 때 하나 만든다. 응답의 `completed`는 참/거짓이고 `completedAt`·`completedBy`는 서버에만 남긴다. `quantity`는 60자까지다.
 - 담당자를 정하면 공용이 풀리고, 공용으로 바꾸면 담당자가 빈다. 둘을 함께 보내면 422다. 담당은 같은 공간의 membership이면 나간 멤버도 받는다.
-- `duplicateCandidate`와 일괄 API는 아직 없다. 준비물을 지우거나 여행이 정리되면 태그 연결도 뗀다.
+- 서버의 `duplicateCandidate`와 일괄 API는 아직 없다. 대신 앱이 저장하기 전에 기기의 목록만 보고 안내한다(`mobile/src/packingNames.ts`). 띄어쓰기·대소문자·문장부호·수량과 단위를 뺀 이름이 같으면 같은 것으로 보고, 담당은 보지 않는다. 막지 않고 "이미 있어요. 그래도 추가할까요?"로 묻는다. 준비물을 지우거나 여행이 정리되면 태그 연결도 뗀다.
 
 일괄 API는 `mode=append|replace`를 명시한다. `replace`는 온라인 전용이며 현재 version, 삭제/추가 preview token과 확인용 idempotency key를 요구하고 전체를 한 transaction으로 처리한다. 행별 validation 오류가 하나라도 있으면 원본 목록을 변경하지 않는다.
 
@@ -664,7 +664,8 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 - 요리를 고칠 때 `ingredients`를 보내면 보낸 목록대로 맞춘다. 같은 `id`의 재료는 고치고, 없는 `id`는 만들고, 빠진 재료는 지운다. 통째로 지우고 다시 만들지 않는 이유는 준비물의 `sourceIngredientId` 연결을 지키기 위해서다. 재료를 고쳐도 요리 `version`이 오른다.
 - 재료의 `ready`(참/거짓)는 앱의 `준비 완료` 체크다. `procurement`가 `bring`일 때만 `ownerMembershipId`를 받는다. `sourceUrl`은 http/https만 받는다.
 - 재료를 준비물로 가져오기는 별도 API 없이 기기에서 준비물을 만들고, 준비물 만들기/고치기(`POST /trips/{tripId}/checklist-items`, `PATCH /checklist-items/{itemId}`)에 `sourceIngredientId`를 함께 보낸다. 응답에도 같은 칸이 온다. 같은 여행 요리의 재료만 받고, 다른 여행이거나 없는 재료면 `422`(`fields.sourceIngredientId`)다. 고칠 때 `null`을 보내면 연결을 끊고, 보내지 않으면 그대로 둔다.
-- 요리나 재료를 지워도 가져온 준비물은 남고 `sourceIngredientId`만 `null`이 된다.
+- 요리나 재료를 지워도 가져온 준비물은 남고 `sourceIngredientId`만 `null`이 된다. 앱도 같다 — 준비물 줄에서 출처 표시만 사라진다.
+- 앱은 가져온 준비물 줄에 출처를 옅게 보여 준다(`버섯전골 재료`). 재료 이름을 바꾸면 연결은 id 라 그대로고 바뀐 이름이 바로 보이며, 준비물 이름과 달라졌으면 `버섯전골 · 알배추`처럼 재료 이름까지 보인다.
 - 준비물 `completed`와 재료 `ready`는 서로 바꾸지 않는다. 앱은 재료에서 가져온 준비물을 체크할 때 그 재료가 아직 준비 완료가 아니면 "요리 재료에서도 준비 완료로 표시할까요?"라고 묻고, `표시하기`를 고른 경우에만 요리 고치기로 `ready`를 보낸다. 반대 방향(재료 체크 → 준비물)은 아직 묻지 않는다.
 - 앱은 서버에 올라간 재료만 연결해 보낸다. 재료가 아직 안 올라갔으면 연결을 비워 보내고 기기에는 연결을 남겨 두었다가, 요리가 올라간 뒤 다시 보낸다. 그래서 여행을 열 때 요리 목록을 받은 다음에 준비물을 맞춘다.
 
