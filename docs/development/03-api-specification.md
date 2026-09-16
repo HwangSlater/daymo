@@ -428,7 +428,11 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 | POST | `/trips/{tripId}/unarchive` | 보관 해제 (owner·editor) |
 | POST | `/trips/{tripId}/restore` | 삭제 후 7일 이내 여행 복구 (owner) |
 
-여행 목록 query: 지금은 `status`, `trash`(owner만, 지운 여행), `limit`(1~100, 기본 20)뿐이다. `from`·`to`·`regionCode`·`q`·`cursor`·`sort`는 아직 없다. 지도·캘린더·검색은 받아 둔 목록을 기기에서 거른다.
+여행 목록 query: 지금은 `status`, `trash`(owner만, 지운 여행), `limit`(1~100, 기본 20), `cursor`뿐이다. `from`·`to`·`regionCode`·`q`·`sort`는 아직 없다. 지도·캘린더·검색은 받아 둔 목록을 기기에서 거른다.
+
+`cursor`는 목록을 이어 받는 자리다. 한 쪽에 다 담기지 않으면 `meta.nextCursor`가 오고(`meta.hasMore`도 `true`), 그 값을 그대로 `cursor`로 다시 보내면 다음 쪽이 온다. 우리가 준 것이 아닌 값은 `VALIDATION_ERROR(422)`다. 몇 번째 줄부터(offset)가 아니라 어느 줄 다음부터(keyset)이므로, 쪽을 넘기는 사이에 여행이 생기거나 지워져도 같은 줄이 두 번 오거나 빠지지 않는다. 그래서 정렬에는 마지막 차례로 `id`가 붙는다. 일반 목록은 `(startDate DESC, id DESC)`, `trash=true`는 `(deletedAt DESC, id DESC)`이고, cursor에는 그 정렬 값과 `id`가 담긴다(`backend/app/core/cursor.py`). 앱은 여행 목록 화면을 아래로 내릴 때 이어 받고(`mobile/src/WarmAppShell.tsx`), 보관·지운 여행도 같은 규칙이다. 목록 전체가 필요 없는 화면(지난 여행에서 가져오기)은 첫 쪽만 받는다.
+
+여행 카드의 색은 서버에 칸이 없다. 앱이 여행 `id`를 해시해 팔레트 자리를 고른다(`mobile/src/tripColor.ts`). 예전에는 목록에서 몇 번째인지로 골라서, 기기마다 그리고 목록을 다시 받을 때마다 같은 여행의 색이 달라졌다. 사람이 색을 직접 고르는 기능이 생기면 그때 칸을 만든다.
 
 홈을 한 번에 받는 `GET /spaces/{spaceId}/dashboard`와 지도용 `GET /spaces/{spaceId}/trip-regions`는 만들지 않았다. 홈이 필요한 숫자는 여행 응답의 `overview`(아래)로 대신하고 지역별 개수는 기기에서 센다.
 

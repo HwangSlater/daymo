@@ -58,7 +58,12 @@ type SessionResponse = {
   endedDevices: { displayName: string | null; lastSeenAt: string }[];
 };
 
-type ApiEnvelope<T> = { data: T };
+type ApiEnvelope<T> = { data: T; meta?: ApiMeta };
+/** 목록 봉투의 meta. `nextCursor` 가 있으면 그 값으로 다음 쪽을 이어 받는다. */
+type ApiMeta = { nextCursor?: string | null };
+
+/** 목록 한 쪽. 서버가 준 줄과, 더 있으면 다음 쪽을 가리키는 cursor. */
+export type ServerPage<T> = { items: T[]; nextCursor: string | null };
 type ApiErrorEnvelope = {
   error?: { code?: string; message?: string; fields?: Record<string, string>; details?: Record<string, string> };
 };
@@ -98,7 +103,7 @@ const storage = {
   },
 };
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function requestEnvelope<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
@@ -107,7 +112,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       headers: { "Content-Type": "application/json", ...init.headers },
       signal: controller.signal,
     });
-    if (response.status === 204) return undefined as T;
+    if (response.status === 204) return { data: undefined as T };
     const body = (await response.json().catch(() => ({}))) as ApiEnvelope<T> & ApiErrorEnvelope;
     if (!response.ok) {
       throw new DaymoApiError(
@@ -118,13 +123,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         body.error?.details,
       );
     }
-    return body.data;
+    return body;
   } catch (error) {
     if (error instanceof DaymoApiError) throw error;
     throw new DaymoApiError("인터넷 연결을 확인하고 다시 시도해 주세요.", 0);
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return (await requestEnvelope<T>(path, init)).data;
 }
 
 async function installationId() {
@@ -412,6 +421,20 @@ export async function authenticatedRequest<T>(path: string, init: RequestInit = 
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${accessToken}` },
   }));
+}
+
+/**
+ * 목록을 쪽 단위로 받는다. 줄과 함께 다음 쪽 cursor 도 돌려준다.
+ *
+ * 보통의 `authenticatedRequest` 는 봉투의 `data` 만 꺼내고 `meta` 를 버린다. 목록을
+ * 이어 받으려면 `meta.nextCursor` 가 필요해서 이 길을 따로 둔다.
+ */
+export async function authenticatedPage<T>(path: string, init: RequestInit = {}): Promise<ServerPage<T>> {
+  const 봉투 = await withAccessToken((accessToken) => requestEnvelope<T[]>(path, {
+    ...init,
+    headers: { ...init.headers, Authorization: `Bearer ${accessToken}` },
+  }));
+  return { items: 봉투.data ?? [], nextCursor: 봉투.meta?.nextCursor ?? null };
 }
 
 /** API 주소 앞부분. 사진 파일처럼 JSON 이 아닌 요청이 쓴다. */

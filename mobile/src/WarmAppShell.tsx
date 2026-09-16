@@ -83,7 +83,7 @@ import {
   restoreSpace,
   archiveTrip,
   deleteTrip,
-  listDeletedTrips,
+  listDeletedTripsPage,
   restoreTrip,
   acceptInvite,
   blockMember,
@@ -114,7 +114,7 @@ import {
   listSpaces,
   listStays,
   listTripPlaces,
-  listTrips,
+  listTripsPage,
   setTripParticipants,
   updateExpenseSettings,
   updateCoverPhoto,
@@ -136,7 +136,9 @@ import {
   type ServerMemberInput,
   type SpaceChange,
 } from "./spaceMapping";
-import { mergeServerTripsByGroup } from "./tripMerge";
+import { appendServerTrips, mergeServerTripsByGroup } from "./tripMerge";
+import { toneOfTripId } from "./tripColor";
+import { shouldLoadMore } from "./tripPaging";
 import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
 import type { SavedKeepsake } from "./tripCard";
 import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
@@ -166,7 +168,12 @@ type Trip = {
   name: string;
   date: string;
   note: string;
-  /** tripTone 팔레트의 자리. 색값이 아니라 자리를 저장한다. */
+  /**
+   * tripTone 팔레트의 자리. 색값이 아니라 자리를 저장한다.
+   *
+   * 서버에서 온 여행은 id 로 정한다(`tripColor.ts`). 그래야 기기가 달라도, 목록을
+   * 다시 받아도 그 여행은 늘 같은 색이다.
+   */
   tone: number;
   mark: string;
   region: string;
@@ -224,7 +231,7 @@ const rosterOfSpace = (space: Space, myName: string): RosterEntry[] =>
 // 서버에 참가자가 정해져 있으면 이름으로 바꿔 기록(planning)의 참가자 칸에 둔다.
 // 비어 있으면 서버 약속대로 "공간 멤버 전원" 이라 칸을 비워 둔다. 상세 화면이
 // 비어 있는 칸을 멤버 전원으로 읽는다.
-const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []): Trip => {
+const tripFromServer = (trip: ServerTrip, roster: RosterEntry[] = []): Trip => {
   const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
   const overview = parseTripOverview(trip.overview);
   return {
@@ -233,7 +240,9 @@ const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []):
     name: trip.title,
     date: sampleDateRange(trip.startDate, trip.endDate),
     note: trip.summary ?? "",
-    tone: tone % 6,
+    // 색은 목록의 몇 번째인지가 아니라 여행 id 로 정한다. 목록 차례로 정하면
+    // 기기마다, 목록을 다시 받을 때마다 같은 여행의 색이 달라진다.
+    tone: toneOfTripId(trip.id),
     mark: trip.startDate.slice(5, 7),
     region: trip.regionName ?? "지역 미정",
     start: trip.startDate,
@@ -672,6 +681,8 @@ export function WarmAppShell({
   // 저장이 막히면 조용히 넘어가지 않는다. 사용자는 적은 게 남았다고 믿는데
   // 앱을 다시 열면 사라진다. 가장 흔한 원인은 용량 초과다.
   const [tripStorageFailed, setTripStorageFailed] = useState(false);
+  // 공간마다 다음 쪽을 가리키는 cursor. 없으면 그 공간의 여행을 다 받았다는 뜻이다.
+  const [tripCursors, setTripCursors] = useState<Record<string, string | null>>({});
   const tripItems = tripsByGroup[activeSpace.id as GroupId] ?? [];
   const setTripItems: React.Dispatch<React.SetStateAction<Trip[]>> = (update) =>
     setTripsByGroup((current) => ({
@@ -784,23 +795,32 @@ export function WarmAppShell({
     let active = true;
     listSpaces()
       .then(async (serverSpaces) => {
-        const [tripLists, memberLists] = await Promise.all([
-          Promise.all(serverSpaces.map((space) => listTrips(space.id))),
+        const [tripPages, memberLists] = await Promise.all([
+          Promise.all(serverSpaces.map((space) => listTripsPage(space.id))),
           Promise.all(serverSpaces.map((space) => listMembers(space.id))),
         ]);
         if (!active) return;
         const nextSpaces = serverSpaces.map((space, index) => spaceFromServer(space, memberLists[index]));
         const myName = userNameRef.current;
         const nextTrips: Record<string, Trip[]> = {};
+        const nextCursors: Record<string, string | null> = {};
         serverSpaces.forEach((space, index) => {
           const roster = rosterOfSpace(nextSpaces[index], myName);
-          nextTrips[space.id] = tripLists[index].map((trip, tone) => tripFromServer(trip, tone, roster));
+          nextTrips[space.id] = tripPages[index].items.map((trip) => tripFromServer(trip, roster));
+          // 여행이 한 쪽에 다 들어가지 않았으면 여기서부터 이어 받는다.
+          nextCursors[space.id] = tripPages[index].nextCursor;
         });
+        setTripCursors(nextCursors);
         setSpaces(nextSpaces);
         // 서버 목록으로 통째로 바꾸지 않는다. 일정·장소·비용 같은 기록은 아직
         // 기기에만 있어서, 바꾸면 앱을 켤 때마다 적어 둔 것이 사라진다.
+        // 첫 쪽만 받았으면 아직 안 온 뒤쪽 여행을 버리지 않는다. 버리면 아래로 내려
+        // 받아 둔 여행이 새로고침 한 번에 기기 기록과 함께 사라진다.
+        const 더_있는_공간 = Object.fromEntries(
+          Object.entries(nextCursors).map(([space, cursor]) => [space, !!cursor]),
+        );
         setTripsByGroup((current) =>
-          mergeServerTripsByGroup(nextTrips, current) as Record<GroupId, Trip[]>);
+          mergeServerTripsByGroup(nextTrips, current, 더_있는_공간) as Record<GroupId, Trip[]>);
         // 지금 보고 있는 공간과 비교한다. 처음 읽은 설정 값과 비교하면, 초대로 들어간
         // 공간으로 옮겨 가자마자 첫 공간으로 되돌아간다.
         if (nextSpaces[0] && !nextSpaces.some((space) => space.id === activeGroupRef.current)) {
@@ -902,6 +922,43 @@ export function WarmAppShell({
     [activeSpace.members, user?.name],
   );
   const activeRoster = rosterOfSpace(activeSpace, user?.name ?? "");
+  /**
+   * 여행 목록의 다음 쪽을 이어 받는다.
+   *
+   * 서버는 한 번에 100 개까지만 준다. 그보다 많은 공간에서는 목록 화면을 아래로
+   * 내릴 때 이어 받는다. 예전에는 첫 100 개가 끝이어서 오래된 여행이 아예 없는
+   * 것처럼 보였다.
+   *
+   * 받은 쪽을 목록에 통째로 덮지 않고 뒤에 붙인다(`appendServerTrips`). 덮으면
+   * 먼저 받은 여행이 기기에만 있던 일정·비용 기록과 함께 사라진다.
+   */
+  const tripPageInFlight = useRef(false);
+  const [loadingMoreTrips, setLoadingMoreTrips] = useState(false);
+  const loadMoreTrips = async () => {
+    const spaceId = activeSpace.id;
+    const cursor = tripCursors[spaceId];
+    if (!cursor || tripPageInFlight.current) return;
+    tripPageInFlight.current = true;
+    setLoadingMoreTrips(true);
+    try {
+      const 다음_쪽 = await listTripsPage(spaceId, cursor);
+      const 더한_것 = 다음_쪽.items.map((trip) => tripFromServer(trip, activeRoster));
+      setTripsByGroup((current) => ({
+        ...current,
+        [spaceId]: appendServerTrips(
+          current[spaceId as GroupId] ?? [],
+          더한_것,
+          Object.values(current).flat(),
+        ) as Trip[],
+      }));
+      setTripCursors((current) => ({ ...current, [spaceId]: 다음_쪽.nextCursor }));
+    } catch {
+      // 연결이 끊겼거나 서버가 막았다. 다시 아래로 내리면 이 쪽부터 또 시도한다.
+    } finally {
+      tripPageInFlight.current = false;
+      setLoadingMoreTrips(false);
+    }
+  };
   /**
    * 「찾기」가 훑을 수 있게, 아직 받아 본 적 없는 여행의 하위 목록을 미리 받아 둔다.
    *
@@ -1014,7 +1071,7 @@ export function WarmAppShell({
   }, [view, activeSpace.id, serverDataReady, tripItems.length, user?.id]);
   /** 서버가 돌려준 여행으로 목록과 열린 여행을 바꾼다. 기기에만 있는 기록은 둔다. */
   const applyServerTrip = (saved: ServerTrip) => {
-    const fromServer = tripFromServer(saved, selectedTrip.tone, activeRoster);
+    const fromServer = tripFromServer(saved, activeRoster);
     const updated: Trip = {
       ...selectedTrip,
       ...fromServer,
@@ -1370,15 +1427,24 @@ export function WarmAppShell({
             spaceMembers={activeSpaceMembers}
             deletedTrips={activeSpace.myRole === "관리자" && activeSpace.myMembershipId
               ? {
-                load: async () => (await listDeletedTrips(activeSpace.id)).map((trip) => tripFromServer(trip, 0, activeRoster)),
+                load: async (cursor) => {
+                  const 쪽 = await listDeletedTripsPage(activeSpace.id, cursor);
+                  return {
+                    items: 쪽.items.map((trip) => tripFromServer(trip, activeRoster)),
+                    nextCursor: 쪽.nextCursor,
+                  };
+                },
                 restore: async (trip) => {
-                  const restored = tripFromServer(await restoreTrip(trip.id as string), tripItems.length, activeRoster);
+                  const restored = tripFromServer(await restoreTrip(trip.id as string), activeRoster);
                   setTripItems((current) => [restored, ...current.filter((item) => item.id !== restored.id)]);
                 },
               }
               : undefined}
             refreshing={refreshing}
             onRefresh={() => void refreshAll()}
+            hasMoreTrips={!!tripCursors[activeSpace.id]}
+            loadingMoreTrips={loadingMoreTrips}
+            loadMoreTrips={() => void loadMoreTrips()}
             openCreatorOnMount={openTripCreator}
             onCreatorOpened={() => setOpenTripCreator(false)}
             onPasteNotice={() => setOpenNoticeImport(true)}
@@ -1391,7 +1457,7 @@ export function WarmAppShell({
                 summary,
                 participantMembershipIds: idsFromNames(participants, activeRoster).ids,
               });
-              return tripFromServer(created, tripItems.length, activeRoster);
+              return tripFromServer(created, activeRoster);
             }}
           />
         )}
@@ -3038,14 +3104,24 @@ function TripsExplorer({
   spaceMembers,
   refreshing = false,
   onRefresh,
+  hasMoreTrips = false,
+  loadingMoreTrips = false,
+  loadMoreTrips,
   openCreatorOnMount = false,
   onCreatorOpened,
   onPasteNotice,
   onCreateTrip,
   deletedTrips,
 }: {
-  /** 공간 관리자에게만. 지운 여행을 불러오고 되돌린다. */
-  deletedTrips?: { load: () => Promise<Trip[]>; restore: (trip: Trip) => Promise<void> };
+  /**
+   * 공간 관리자에게만. 지운 여행을 한 쪽씩 불러오고 되돌린다.
+   *
+   * `load` 에 cursor 를 주면 그 다음 쪽을 준다. 비우면 첫 쪽이다.
+   */
+  deletedTrips?: {
+    load: (cursor?: string | null) => Promise<{ items: Trip[]; nextCursor: string | null }>;
+    restore: (trip: Trip) => Promise<void>;
+  };
   open: (trip: Trip) => void;
   theme: AppTheme;
   items: Trip[];
@@ -3055,6 +3131,10 @@ function TripsExplorer({
   /** 당겨서 새로고침. 옆 사람이 만든 새 여행은 이때 들어온다. */
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** 아직 받지 않은 여행이 서버에 더 있다. 아래로 내리면 이어 받는다. */
+  hasMoreTrips?: boolean;
+  loadingMoreTrips?: boolean;
+  loadMoreTrips?: () => void;
   openCreatorOnMount?: boolean;
   onCreatorOpened?: () => void;
   /** 카카오톡 공지를 붙여넣어 지난 여행을 채우는 시트를 연다. */
@@ -3066,13 +3146,18 @@ function TripsExplorer({
   const [display, setDisplay] = useState<TripView>("목록");
   const [filter, setFilter] = useState<"전체" | "예정" | "추억" | "보관">("전체");
   const [trash, setTrash] = useState<Trip[]>([]);
+  // 지운 여행의 다음 쪽. null 이면 다 받았다.
+  const [trashCursor, setTrashCursor] = useState<string | null>(null);
+  const [trashLoading, setTrashLoading] = useState(false);
   const [trashMessage, setTrashMessage] = useState("");
   useEffect(() => {
     if (filter !== "보관" || !deletedTrips) return;
     let alive = true;
     deletedTrips.load()
-      .then((found) => {
-        if (alive) setTrash(found);
+      .then((받은) => {
+        if (!alive) return;
+        setTrash(받은.items);
+        setTrashCursor(받은.nextCursor);
       })
       .catch(() => undefined);
     return () => {
@@ -3081,6 +3166,21 @@ function TripsExplorer({
     // 보관을 열 때마다 새로 받는다. deletedTrips 는 렌더마다 새 객체라 넣지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
+  /** 지운 여행도 100 개를 넘으면 한 쪽에 다 오지 않는다. 눌러서 이어 받는다. */
+  const loadMoreTrash = () => {
+    if (!deletedTrips || !trashCursor || trashLoading) return;
+    setTrashLoading(true);
+    deletedTrips.load(trashCursor)
+      .then((받은) => {
+        setTrash((current) => {
+          const 이미 = new Set(current.map((trip) => trip.id));
+          return [...current, ...받은.items.filter((trip) => !이미.has(trip.id))];
+        });
+        setTrashCursor(받은.nextCursor);
+      })
+      .catch(() => setTrashMessage("지운 여행을 더 불러오지 못했어요. 잠시 후 다시 시도해 주세요."))
+      .finally(() => setTrashLoading(false));
+  };
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [month, setMonth] = useState({
@@ -3277,6 +3377,18 @@ function TripsExplorer({
           style={{ backgroundColor: "transparent" }}
           contentContainerStyle={s.tripExplorerPage}
           showsVerticalScrollIndicator={false}
+          // 바닥에 닿기 한 화면 전에 다음 쪽을 부른다. 다 받았으면 아무 일도 하지 않는다.
+          scrollEventThrottle={160}
+          onScroll={({ nativeEvent }) => {
+            const 자리 = {
+              offsetY: nativeEvent.contentOffset.y,
+              viewportHeight: nativeEvent.layoutMeasurement.height,
+              contentHeight: nativeEvent.contentSize.height,
+            };
+            if (shouldLoadMore(자리, { hasMore: hasMoreTrips, loading: loadingMoreTrips })) {
+              loadMoreTrips?.();
+            }
+          }}
           refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
         >
           {/* 웹의 RefreshControl 은 빈 칸이라 당겨도 불리지 않는다. 그래서 작은 버튼을 둔다. */}
@@ -3315,6 +3427,14 @@ function TripsExplorer({
                 emptyAction={filter === "전체" ? undefined : () => setFilter("전체")}
                 emptyActionLabel="전체 여행 보기"
               />
+              {loadingMoreTrips ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={[s.memberRoleText, { color: theme.muted, marginTop: 12, textAlign: "center" }]}
+                >
+                  지난 여행을 더 불러오는 중이에요
+                </Text>
+              ) : null}
               {filter === "보관" && trash.length > 0 && (
                 <View style={{ marginTop: 20, gap: 8 }}>
                   <Text style={[s.memberPermissionLabel, { color: theme.text }]}>지운 여행</Text>
@@ -3347,6 +3467,18 @@ function TripsExplorer({
                       </Pressable>
                     </View>
                   ))}
+                  {trashCursor ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="지운 여행 더 보기"
+                      onPress={loadMoreTrash}
+                      hitSlop={8}
+                    >
+                      <Text style={[s.accountLogoutText, { color: theme.primary }]}>
+                        {trashLoading ? "불러오는 중이에요" : "더 보기"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               )}
               {filter === "보관" && trashMessage ? (

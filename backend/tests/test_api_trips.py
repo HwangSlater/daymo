@@ -890,3 +890,127 @@ async def test_지운_여행은_owner만_trash로_보고_되돌리면_목록에_
     assert editor_휴지통.status_code == 403
     assert 되돌림.status_code == 200 and 되돌림.json()["data"]["deletionScheduledAt"] is None
     assert [item["id"] for item in 다시_목록] == [trip["id"]]
+
+
+# ---------------------------------------------------------------------------
+# 여행 목록 이어 받기
+# ---------------------------------------------------------------------------
+
+
+async def 쪽마다_이어_받는다(api, headers, 주소: str, limit: int) -> list[str]:
+    """nextCursor 가 없어질 때까지 이어 받고 받은 차례대로 id 를 모은다."""
+    받은: list[str] = []
+    cursor = None
+    for _ in range(20):  # 끝나지 않으면 시험이 멈춰 서는 대신 여기서 끊는다.
+        이번 = f"{주소}&limit={limit}" + (f"&cursor={cursor}" if cursor else "")
+        응답 = await api.get(이번, headers=headers)
+        assert 응답.status_code == 200, 응답.text
+        봉투 = 응답.json()
+        받은 += [item["id"] for item in 봉투["data"]]
+        cursor = 봉투["meta"]["nextCursor"]
+        if cursor is None:
+            return 받은
+    raise AssertionError("cursor 가 끝나지 않는다")
+
+
+async def test_여행이_한_쪽보다_많으면_cursor로_이어_받는다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    만든 = [
+        await 여행을_만든다(
+            api,
+            headers,
+            space_id,
+            title=f"여행 {번호}",
+            startDate=f"2026-10-{번호:02d}",
+            endDate=f"2026-10-{번호:02d}",
+        )
+        for 번호 in range(1, 8)
+    ]
+
+    받은 = await 쪽마다_이어_받는다(api, headers, f"/v1/spaces/{space_id}/trips?", limit=3)
+
+    # 시작일 역순 그대로다. 겹치지도 빠지지도 않는다.
+    assert 받은 == [trip["id"] for trip in reversed(만든)]
+
+
+async def test_시작일이_같아도_겹치거나_빠지지_않는다(api, db):
+    """
+    시작일만으로 줄을 세우면 같은 날짜끼리의 차례가 질의마다 흔들린다. 그러면
+    쪽을 넘길 때 어떤 여행은 두 번 오고 어떤 여행은 영영 오지 않는다.
+    """
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    만든 = [await 여행을_만든다(api, headers, space_id, title=f"같은 날 {번호}") for 번호 in range(5)]
+
+    받은 = await 쪽마다_이어_받는다(api, headers, f"/v1/spaces/{space_id}/trips?", limit=2)
+
+    assert sorted(받은) == sorted(trip["id"] for trip in 만든)
+    assert len(받은) == len(set(받은))
+
+
+async def test_한_쪽에_다_들어가면_nextCursor가_없다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    await 여행을_만든다(api, headers, space_id)
+
+    봉투 = (await api.get(f"/v1/spaces/{space_id}/trips?limit=20", headers=headers)).json()
+
+    assert len(봉투["data"]) == 1
+    assert 봉투["meta"]["nextCursor"] is None and 봉투["meta"]["hasMore"] is False
+
+
+async def test_쪽을_넘기는_사이에_여행이_생겨도_받은_줄이_다시_오지_않는다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    for 번호 in range(1, 5):
+        await 여행을_만든다(
+            api,
+            headers,
+            space_id,
+            title=f"여행 {번호}",
+            startDate=f"2026-10-{번호:02d}",
+            endDate=f"2026-10-{번호:02d}",
+        )
+
+    첫_쪽 = (await api.get(f"/v1/spaces/{space_id}/trips?limit=2", headers=headers)).json()
+    # 첫 쪽보다 앞에 놓일 여행이 사이에 생긴다. 몇 번째 줄부터 세는 방식이면 이때
+    # 첫 쪽의 마지막 여행이 다음 쪽에 한 번 더 온다.
+    await 여행을_만든다(
+        api, headers, space_id, title="갑자기", startDate="2026-11-01", endDate="2026-11-01"
+    )
+    다음_쪽 = (
+        await api.get(
+            f"/v1/spaces/{space_id}/trips?limit=2&cursor={첫_쪽['meta']['nextCursor']}",
+            headers=headers,
+        )
+    ).json()
+
+    첫_ids = {item["id"] for item in 첫_쪽["data"]}
+    다음_ids = {item["id"] for item in 다음_쪽["data"]}
+    assert 첫_ids & 다음_ids == set()
+
+
+async def test_휴지통도_이어_받는다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    지운_것 = []
+    for 번호 in range(1, 6):
+        trip = await 여행을_만든다(api, headers, space_id, title=f"여행 {번호}")
+        assert (await api.delete(f"/v1/trips/{trip['id']}", headers=headers)).status_code == 204
+        지운_것.append(trip["id"])
+
+    받은 = await 쪽마다_이어_받는다(api, headers, f"/v1/spaces/{space_id}/trips?trash=true", limit=2)
+
+    assert sorted(받은) == sorted(지운_것)
+    assert len(받은) == len(set(받은))
+
+
+async def test_우리가_주지_않은_cursor는_422다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+
+    응답 = await api.get(f"/v1/spaces/{space_id}/trips?cursor=아무거나", headers=headers)
+
+    assert 응답.status_code == 422
+    assert 응답.json()["error"]["code"] == "VALIDATION_ERROR"

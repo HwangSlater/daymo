@@ -1,7 +1,8 @@
 import uuid
+from datetime import date, datetime
 
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, tuple_
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import (
@@ -11,6 +12,7 @@ from app.api.permissions import (
     membership_in_space,
     require,
 )
+from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok, page
 from app.models import (
@@ -328,6 +330,40 @@ async def create_trip(
     return ok(await _여행_응답(db, trip))
 
 
+def _cursor_뒤부터(질의, 정렬칸, cursor: str | None, *, 값을_읽는다):
+    """
+    cursor 가 가리키는 줄 다음부터 읽게 질의에 조건을 붙인다.
+
+    목록은 (정렬칸 DESC, id DESC) 차례라, 그 다음 줄은 (정렬칸, id) 쌍이 cursor 의
+    쌍보다 작은 줄이다. 두 칸을 한 쌍으로 비교해야 정렬칸이 같은 줄들 사이에서도
+    딱 한 줄만 건너뛴다.
+    """
+    if not cursor:
+        return 질의
+    정렬_값, 마지막_id = decode_cursor(cursor)
+    try:
+        기준 = 값을_읽는다(정렬_값)
+    except ValueError as 원인:
+        # 겉모양은 맞지만 이 목록의 cursor 가 아니다(지운 여행 cursor 를 일반 목록에 보낸 때).
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR,
+            fields={"cursor": "목록을 이어 받을 수 없어요. 처음부터 다시 받아 주세요."},
+        ) from 원인
+    return 질의.where(tuple_(정렬칸, Trip.id) < (기준, 마지막_id))
+
+
+def _한_쪽(여행들: list[Trip], limit: int) -> tuple[list[Trip], bool]:
+    """limit + 1 줄을 읽어 둔 결과에서 보여 줄 줄과 '더 있는지' 를 가른다."""
+    return 여행들[:limit], len(여행들) > limit
+
+
+def _다음_cursor(여행들: list[Trip], 더_있다: bool, *, 값을_뽑는다) -> str | None:
+    if not 더_있다 or not 여행들:
+        return None
+    마지막 = 여행들[-1]
+    return encode_cursor(값을_뽑는다(마지막), 마지막.id)
+
+
 @router.get("/spaces/{space_id}/trips")
 async def list_trips(
     space_id: uuid.UUID,
@@ -336,12 +372,17 @@ async def list_trips(
     status_filter: TripStatus | None = Query(default=None, alias="status"),
     trash: bool = Query(default=False),
     limit: int = Query(default=20, ge=1, le=100),
+    cursor: str | None = Query(default=None),
 ) -> dict:
     """
     여행 목록.
 
     지운 여행은 나오지 않는다. `trash=true` 면 아직 되돌릴 수 있는 지운 여행만 준다.
     지우고 되돌리는 것이 owner 만이라 이 목록도 owner 만 본다.
+
+    한 번에 `limit` 줄까지만 준다. 더 있으면 `meta.nextCursor` 가 오고, 그 값을
+    `cursor` 로 다시 보내면 이어서 받는다. 여행이 100 개를 넘는 공간에서도 오래된
+    여행이 목록에서 사라지지 않게 하려는 것이다. 보관한 여행도 지운 여행도 같다.
 
     여행마다 홈 카드가 보여 줄 요약(`overview`)이 붙는다(`services/trip_overview.py`).
     """
@@ -356,22 +397,35 @@ async def list_trips(
                 Trip.deleted_at.is_not(None),
                 Trip.deletion_scheduled_at > func.now(),
             )
-            .order_by(Trip.deleted_at.desc())
-            .limit(limit)
+            .order_by(Trip.deleted_at.desc(), Trip.id.desc())
         )
-        return page(await _여행들_응답(db, list((await db.execute(질의)).scalars().all())))
+        질의 = _cursor_뒤부터(질의, Trip.deleted_at, cursor, 값을_읽는다=datetime.fromisoformat)
+        읽은_것 = list((await db.execute(질의.limit(limit + 1))).scalars().all())
+        여행들, 더_있다 = _한_쪽(읽은_것, limit)
+        return page(
+            await _여행들_응답(db, 여행들),
+            next_cursor=_다음_cursor(
+                여행들, 더_있다, 값을_뽑는다=lambda trip: trip.deleted_at.isoformat()
+            ),
+        )
 
     질의 = (
         select(Trip)
         .where(Trip.space_id == space_id, Trip.deleted_at.is_(None))
-        .order_by(Trip.start_date.desc())
-        .limit(limit)
+        .order_by(Trip.start_date.desc(), Trip.id.desc())
     )
     if status_filter is not None:
         질의 = 질의.where(Trip.status == status_filter)
+    질의 = _cursor_뒤부터(질의, Trip.start_date, cursor, 값을_읽는다=date.fromisoformat)
 
-    여행들 = list((await db.execute(질의)).scalars().all())
-    return page(await _여행들_응답(db, 여행들))
+    읽은_것 = list((await db.execute(질의.limit(limit + 1))).scalars().all())
+    여행들, 더_있다 = _한_쪽(읽은_것, limit)
+    return page(
+        await _여행들_응답(db, 여행들),
+        next_cursor=_다음_cursor(
+            여행들, 더_있다, 값을_뽑는다=lambda trip: trip.start_date.isoformat()
+        ),
+    )
 
 
 @router.get("/trips/{trip_id}")
