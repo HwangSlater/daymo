@@ -290,6 +290,69 @@ async def _연결_토큰(api, db) -> tuple[str, dict]:
     return 오류["details"]["linkToken"], 오류
 
 
+async def _소셜_계정(db, 이메일="sky@example.com", provider=OAuthProvider.NAVER) -> User:
+    """다른 제공자로만 가입해 비밀번호가 없는 계정."""
+    user = User(email=이메일, display_name="원래", password_hash=None)
+    db.add(user)
+    await db.flush()
+    db.add(OAuthAccount(user_id=user.id, provider=provider, provider_subject="n-1", provider_email=이메일))
+    await db.flush()
+    return user
+
+
+async def test_비밀번호가_없는_계정은_이메일을_확인해_준_제공자면_그대로_붙인다(api, db):
+    기존 = await _소셜_계정(db)
+
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge)
+    응답 = await 교환(api, 값["loginCode"], verifier)
+
+    # 비밀번호를 물어보면 답할 수 없어 길이 막힌다. 카카오가 이메일 주인임을 확인해 줬고,
+    # 그 이메일함을 여는 사람은 재설정 링크로 이미 이 계정을 가져갈 수 있다.
+    assert 응답.status_code == 200, 응답.text
+    붙은 = await db.scalar(select(OAuthAccount).where(OAuthAccount.provider == OAuthProvider.KAKAO))
+    assert 붙은.user_id == 기존.id
+    # 계정이 새로 생기지 않는다.
+    assert await db.scalar(select(func.count()).select_from(User).where(User.email == 기존.email)) == 1
+
+
+async def test_이메일을_확인해_주지_않는_제공자는_비밀번호가_없어도_붙이지_않는다(api, db):
+    await _소셜_계정(db)
+
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge, 확인됨=False, 이메일="sky@example.com")
+    응답 = await 교환(api, 값["loginCode"], verifier)
+
+    # 이메일을 안 주는 제공자라 가입도 연결도 못 한다.
+    assert 응답.status_code == 422
+    assert await db.scalar(select(func.count()).select_from(OAuthAccount)) == 1
+
+
+async def test_비밀번호가_없는_계정에_이메일_미확인_제공자가_오면_원래_방법으로_보낸다(api, db, monkeypatch):
+    await _소셜_계정(db)
+    # 카카오 서버는 이메일을 주지만 제공자 쪽에서 확인된 것으로 치지 않는 경우
+    # (네이버가 이렇다). 물어볼 비밀번호가 없으니 연결 토큰을 주지 않는다.
+    monkeypatch.setattr(
+        providers.Kakao, "fetch_identity",
+        lambda self, **값: _확인되지_않은_신원(),
+    )
+
+    verifier, challenge = pkce()
+    값 = await 로그인_코드(api, challenge)
+    응답 = await 교환(api, 값["loginCode"], verifier)
+
+    assert 응답.status_code == 409
+    오류 = 응답.json()["error"]
+    assert 오류["code"] == "ACCOUNT_LINK_REQUIRED"
+    assert "전에 쓰던 로그인 방법" in 오류["message"]
+    # 있지도 않은 비밀번호를 묻지 않는다.
+    assert not (오류.get("details") or {}).get("linkToken")
+
+
+async def _확인되지_않은_신원():
+    return providers.Identity(subject="4242", email="sky@example.com", email_verified=False, name="확인안됨")
+
+
 async def test_같은_이메일이면_합치지_않고_연결을_요구한다(api, db):
     기존 = await _비밀번호_계정(db)
 
@@ -336,11 +399,13 @@ async def test_비밀번호가_틀리면_연결하지_않는다(api, db):
     assert await db.scalar(select(func.count()).select_from(OAuthAccount)) == 0
 
 
-async def test_비밀번호가_없는_계정도_같은_문구로_거절한다(api, db):
-    user = User(email="sky@example.com", display_name="구글로 가입")
-    db.add(user)
-    await db.flush()
+async def test_연결_토큰을_들고_와도_비밀번호가_없는_계정이면_같은_문구로_거절한다(api, db):
+    # 비밀번호가 있는 계정으로 토큰을 받은 뒤 그 계정의 비밀번호를 지운 경우다.
+    # 이제 이 길로 오는 계정은 모두 비밀번호가 있지만, 중간에 바뀌어도 새어 나갈 것이 없어야 한다.
+    기존 = await _비밀번호_계정(db)
     link_token, _ = await _연결_토큰(api, db)
+    기존.password_hash = None
+    await db.flush()
 
     응답 = await api.post(
         "/v1/auth/oauth/link", json={"linkToken": link_token, "password": 비밀번호, "device": 기기}

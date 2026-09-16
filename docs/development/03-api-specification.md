@@ -276,7 +276,11 @@ OAuth callback은 access/refresh token을 URL query에 넣지 않는다. 서버�
 4. 앱은 돌아온 `state`가 자기가 만든 것인지 확인하고 `POST /auth/oauth/exchange { loginCode, codeVerifier, device }`를 부른다. verifier가 틀리면 그 loginCode도 버린다. 성공 응답은 `/auth/login`과 같은 session 모양이다.
 5. 이 provider 계정이 처음이면 provider 이메일로 계정을 만든다. provider가 확인한 이메일만 `email_verified_at`을 채운다(네이버는 확인 여부를 주지 않아 채우지 않는다). 이메일을 주지 않으면 `VALIDATION_ERROR(422)`로 가입하지 않는다.
 
-provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하지 않는다. 서버는 `ACCOUNT_LINK_REQUIRED`와 짧게 유효한 연결 context를 반환하고, 사용자가 기존 계정으로 재인증한 뒤에만 provider subject를 연결한다.
+provider가 반환한 이메일이 기존 계정과 같으면 그 계정에 비밀번호가 있는지로 갈린다(2026-09-16).
+
+- **비밀번호가 있는 계정**: 자동 병합하지 않는다. 서버는 `ACCOUNT_LINK_REQUIRED`와 짧게 유효한 연결 context를 반환하고, 사용자가 기존 계정 비밀번호로 재인증한 뒤에만 provider subject를 연결한다.
+- **비밀번호가 없는 계정**(다른 provider로만 가입)에 **이메일을 확인해 주는 provider**(Google·Apple·Kakao)가 오면 그대로 연결하고 로그인시킨다. 물어볼 비밀번호가 없어 예전에는 길이 막혔다. 확인된 이메일을 믿어도 되는 이유는 그 이메일함을 여는 사람이 이미 `POST /auth/password-reset`으로 이 계정의 비밀번호를 새로 정할 수 있기 때문이다. 새로 열리는 문이 아니다.
+- **비밀번호도 없고 provider도 이메일을 확인해 주지 않으면**(Naver) 연결 토큰 없이 `ACCOUNT_LINK_REQUIRED(409)`에 "전에 쓰던 로그인 방법으로 들어와 주세요" 문구만 준다. 로그인한 뒤 설정에서 provider를 붙이는 길은 아직 없다.
 
 ```json
 { "error": { "code": "ACCOUNT_LINK_REQUIRED", "message": "...", "details": { "linkToken": "...", "provider": "kakao" }, "requestId": "uuid" } }

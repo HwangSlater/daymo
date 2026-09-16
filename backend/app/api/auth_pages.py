@@ -45,28 +45,65 @@ _HEADERS = {
     "X-Frame-Options": "DENY",
 }
 
+# 앱과 같은 종이 노트 결. 밖에서 아무것도 불러오지 않으므로(CSP `default-src 'none'`)
+# 글꼴도 그림도 쓰지 않는다. 종이·테이프·괘선은 모두 CSS 로 그린다.
 _STYLE = """
-:root { color-scheme: light dark; --bg:#F7F5F0; --card:#FFFFFF; --text:#17233D; --muted:#5B6474;
-  --line:#E2DED6; --accent:#3F4C8F; --on-accent:#FFFFFF; --danger:#C0392F; }
-@media (prefers-color-scheme: dark) { :root { --bg:#0D111A; --card:#161C28; --text:#EEF1F6;
-  --muted:#A3ABB9; --line:#2A3242; --accent:#9FAEF0; --on-accent:#0D111A; --danger:#F08A82; } }
+:root { color-scheme: light dark; --bg:#F2EDE3; --paper:#FFFDF8; --text:#283046; --muted:#6F6758;
+  --line:#E6DFD1; --rule:rgba(118,107,83,.14); --tape:rgba(214,189,146,.55);
+  --accent:#3F4C8F; --on-accent:#FFFFFF; --danger:#B93A30; --shadow:rgba(60,48,30,.30); }
+@media (prefers-color-scheme: dark) { :root { --bg:#111420; --paper:#1B202C; --text:#ECEEF4;
+  --muted:#A2A899; --line:#2E3442; --rule:rgba(190,178,150,.12); --tape:rgba(214,189,146,.20);
+  --accent:#A7B3EE; --on-accent:#131722; --danger:#F08A82; --shadow:rgba(0,0,0,.55); } }
 * { box-sizing: border-box; }
+/* 테이프가 종이 밖으로 나가 있어서 좁은 화면에서 가로 스크롤이 생긴다. */
+html { overflow-x:hidden; }
 body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-  padding:24px 16px; background:var(--bg); color:var(--text);
-  font:15px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
-main { width:100%; max-width:400px; background:var(--card); border:1px solid var(--line);
-  border-radius:16px; padding:28px 24px; }
-.brand { font-weight:800; letter-spacing:-0.5px; color:var(--accent); margin:0 0 18px; }
-h1 { font-size:21px; line-height:1.35; margin:0 0 8px; letter-spacing:-0.4px; }
+  padding:40px 18px; background:var(--bg); color:var(--text);
+  font:15px/1.65 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  -webkit-font-smoothing:antialiased; }
+main { position:relative; width:100%; max-width:392px; background:var(--paper);
+  border:1px solid var(--line); border-radius:6px; padding:30px 26px 26px 34px;
+  transform:rotate(-0.5deg);
+  box-shadow:0 1px 1px rgba(60,48,30,.05), 0 18px 34px -22px var(--shadow); }
+/* 공책의 세로 여백선. 이 한 줄이 흰 판을 종이로 보이게 한다. */
+main::after { content:""; position:absolute; top:0; bottom:0; left:18px; width:1px;
+  background:var(--rule); }
+/* 모서리에 붙인 테이프. 반쯤 종이 밖으로 나가 있어야 붙여 놓은 것처럼 보인다. */
+.tape { position:absolute; width:84px; height:21px; background:var(--tape);
+  border-left:1px dashed rgba(255,255,255,.4); border-right:1px dashed rgba(255,255,255,.4); }
+.tape.l { top:13px; left:-27px; transform:rotate(-41deg); }
+.tape.r { top:13px; right:-27px; transform:rotate(41deg); }
+.brand { position:relative; margin:0 0 20px; font-size:17px; font-weight:800; letter-spacing:-0.4px;
+  color:var(--accent); display:flex; align-items:center; gap:7px; }
+.brand svg { display:block; overflow:visible; }
+.brand::after { content:""; position:absolute; left:0; right:0; bottom:-10px; height:1px; background:var(--rule); }
+h1 { font-size:22px; line-height:1.4; margin:0 0 10px; letter-spacing:-0.5px; font-weight:700; }
 p { margin:0 0 14px; color:var(--muted); }
-label { display:block; font-size:13px; font-weight:600; margin:14px 0 6px; color:var(--text); }
-input { width:100%; height:48px; border-radius:10px; border:1px solid var(--line); padding:0 14px;
+label { display:block; font-size:13px; font-weight:700; margin:16px 0 7px; color:var(--text); }
+input { width:100%; height:48px; border-radius:8px; border:1px solid var(--line); padding:0 14px;
   font:inherit; background:var(--bg); color:var(--text); }
-button { width:100%; height:50px; margin-top:18px; border:0; border-radius:12px; background:var(--accent);
-  color:var(--on-accent); font:inherit; font-weight:700; cursor:pointer; }
-button.secondary { margin-top:10px; background:var(--card); color:var(--accent); border:1px solid var(--line); }
+input:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:transparent; }
+button { width:100%; height:50px; margin-top:18px; border:0; border-radius:10px; background:var(--accent);
+  color:var(--on-accent); font:inherit; font-size:15px; font-weight:700; letter-spacing:-0.2px; cursor:pointer; }
+button:active { transform:translateY(1px); }
+button.secondary { margin-top:10px; background:transparent; color:var(--accent); border:1px solid var(--line); }
+a { color:var(--accent); }
+a.plain { display:block; text-decoration:none; }
+.note { margin:22px 0 0; padding-top:16px; border-top:1px dashed var(--line); font-size:13px; line-height:1.6; }
 .error { color:var(--danger); font-weight:600; }
 """
+
+
+# 앱 아이콘의 비행기와 지나온 자국. 파일을 불러오지 않고 문서 안에 그린다.
+_MARK = (
+    '<svg width="26" height="14" viewBox="0 0 26 14" fill="none" aria-hidden="true">'
+    '<circle cx="2" cy="11.5" r="1.1" fill="currentColor" opacity=".35"/>'
+    '<circle cx="6.4" cy="9.6" r="1.25" fill="currentColor" opacity=".55"/>'
+    '<circle cx="11" cy="7.6" r="1.4" fill="currentColor" opacity=".75"/>'
+    '<path d="M24.6 1.1 15.2 6.2a1 1 0 0 1-.9.03l-2.1-1 12.4-4.13Z" fill="currentColor"/>'
+    '<path d="M24.6 1.1 17.4 9.9a1 1 0 0 1-.9.35l-2.3-.4L24.6 1.1Z" fill="currentColor" opacity=".8"/>'
+    "</svg>"
+)
 
 
 def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
@@ -75,7 +112,8 @@ def _page(title: str, body: str, status: int = 200) -> HTMLResponse:
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<meta name="robots" content="noindex">'
         f"<title>{escape(title)} · Daymo</title><style>{_STYLE}</style></head>"
-        f'<body><main><p class="brand">Daymo</p>{body}</main></body></html>'
+        '<body><main><span class="tape l"></span><span class="tape r"></span>'
+        f'<p class="brand">Daymo{_MARK}</p>{body}</main></body></html>'
     )
     return HTMLResponse(html, status_code=status, headers=_HEADERS)
 
@@ -312,12 +350,13 @@ async def invite_page(token: str | None = None) -> HTMLResponse:
     웹_주소 = _web_invite_url(usable)
     return _page(
         "공간 초대",
-        "<h1>Daymo 여행 공간에 초대받았어요</h1>"
-        "<p>로그인하면 바로 함께할 수 있어요. 계정이 없으면 가입해도 그대로 이어져요.</p>"
-        f'<a href="{escape(웹_주소)}" style="display:block;text-decoration:none">'
+        "<h1>같이 가자고 초대했어요</h1>"
+        "<p>일정도 준비물도 지출도 한곳에 모아 두는 여행 수첩이에요. "
+        "아래에서 열면 로그인이나 가입을 마치는 대로 바로 들어가요.</p>"
+        f'<a class="plain" href="{escape(웹_주소)}">'
         '<button type="button">웹에서 열기</button></a>'
-        f'<a href="{escape(앱_주소)}" style="display:block;text-decoration:none">'
-        '<button type="button" class="secondary">Daymo 앱에서 열기</button></a>'
-        '<p style="margin-top:18px">둘 다 열리지 않으면 이 페이지 주소를 복사해 Daymo 앱의 '
-        "<strong>우리 → 초대 링크로 참여</strong>에 붙여 넣어 주세요. 링크는 받은 날부터 7일 동안 쓸 수 있어요.</p>",
+        f'<a class="plain" href="{escape(앱_주소)}">'
+        '<button type="button" class="secondary">앱에서 열기</button></a>'
+        '<p class="note">이 링크는 받은 날부터 7일 동안 쓸 수 있어요. 둘 다 열리지 않으면 '
+        "이 페이지 주소를 복사해 앱의 <strong>우리 → 초대 링크로 참여</strong>에 붙여 넣어 주세요.</p>",
     )

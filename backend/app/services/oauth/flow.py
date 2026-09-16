@@ -330,15 +330,50 @@ async def exchange(
 
     기존 = await session.scalar(select(User).where(User.email == 대기.provider_email))
     if 기존 is not None:
-        # 3. 같은 이메일의 계정이 있다. 합치지 않고 그 계정으로 확인받는다.
-        #    무엇으로 가입한 계정인지는 알려 주지 않는다.
-        link_token = secrets.token_urlsafe(32)
-        대기.link_token_hash = _hash(link_token)
-        대기.link_expires_at = 지금 + LINK_TTL
-        await session.flush()
+        # 3. 같은 이메일의 계정이 있다.
+        if 기존.status is not UserStatus.ACTIVE:
+            return AppError(ErrorCode.UNAUTHENTICATED, message=_CODE_FAILED)
+
+        # 3-1. 비밀번호가 없는 계정(소셜로만 가입)인데, 이번 제공자가 이메일 소유를
+        #      확인해 줬다면 그대로 붙이고 들여보낸다.
+        #
+        #      비밀번호를 물어보면 답할 수 없어 길이 막힌다. 네이버로 가입한 사람이
+        #      나중에 카카오를 누르면 아무것도 할 수 없었다.
+        #
+        #      확인해 준 이메일을 믿어도 되는 이유는, 그 이메일함을 여는 사람이 지금도
+        #      비밀번호 재설정 링크로 이 계정을 가져갈 수 있어서다(`accounts.request_password_reset`).
+        #      새로 열리는 문이 아니라 이미 열려 있는 문과 같은 강도다. 이메일을 확인해
+        #      주지 않는 제공자(네이버)로는 이 길이 열리지 않는다.
+        if 대기.email_verified and not 기존.password_hash:
+            session.add(
+                OAuthAccount(
+                    user_id=기존.id,
+                    provider=대기.provider,
+                    provider_subject=대기.provider_subject,
+                    provider_email=대기.provider_email,
+                )
+            )
+            await session.flush()
+            return await _start(session, 기존, device)
+
+        # 3-2. 비밀번호가 있으면 그 비밀번호로 확인받는다. 무엇으로 가입한 계정인지는
+        #      알려 주지 않는다.
+        if 기존.password_hash:
+            link_token = secrets.token_urlsafe(32)
+            대기.link_token_hash = _hash(link_token)
+            대기.link_expires_at = 지금 + LINK_TTL
+            await session.flush()
+            return AppError(
+                ErrorCode.ACCOUNT_LINK_REQUIRED,
+                details={"linkToken": link_token, "provider": 대기.provider.value},
+            )
+
+        # 3-3. 비밀번호도 없고 이메일도 확인해 주지 않는 제공자다. 물어볼 것이 없으니
+        #      있지도 않은 비밀번호를 묻는 대신 원래 쓰던 방법으로 보낸다. 계정이 있다는
+        #      것은 어차피 위에서도 알려 주는 사실이다.
         return AppError(
             ErrorCode.ACCOUNT_LINK_REQUIRED,
-            details={"linkToken": link_token, "provider": 대기.provider.value},
+            message="이 이메일은 다른 방법으로 가입한 계정이에요. 전에 쓰던 로그인 방법으로 들어와 주세요.",
         )
 
     # 새 계정이 생기는 자리다. 이메일 가입과 같은 동의를 받았어야 한다.
