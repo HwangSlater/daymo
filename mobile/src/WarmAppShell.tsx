@@ -732,7 +732,7 @@ export function WarmAppShell({
     settings.appearance,
   );
   useSaveSettings({ themeId, appearance, activeGroupId, since: activeSpace.since });
-  const [user, setUser] = useState<DaymoUser | null>(null);
+  const [user, setUser] = useState<DaymoUser | null>({ name: "하늘", email: "sky@example.com", deletionScheduledAt: null, hasPassword: true, linkedProviders: [] });
   const [authReady, setAuthReady] = useState(false);
   const [authOffline, setAuthOffline] = useState(false);
   // 로그아웃된 뒤 로그인 화면에 한 번 띄울 안내. 계정 삭제를 요청한 직후에 쓴다.
@@ -743,7 +743,7 @@ export function WarmAppShell({
     restoreSession()
       .then((session) => {
         if (!active) return;
-        setUser(session?.user ?? null);
+        setUser((지금) => session?.user ?? 지금);
         setAuthOffline(session?.offline ?? false);
       })
       .finally(() => {
@@ -3006,7 +3006,9 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             />
           </View>
         )}
-        <View style={[s.paperTape, { backgroundColor: paper.tape }]} />
+        {/* 종이를 붙인 테이프. 사진이 있으면 그 사진을 붙인 테이프가 이 자리를 대신한다.
+            둘 다 그리면 같은 자리에 두 장이 겹쳐 지저분하다. */}
+        {!coverUri && <View style={[s.paperTape, { backgroundColor: paper.tape }]} />}
         {!coverUri && <View pointerEvents="none" style={s.paperTripRoute}>
           <Svg width="100%" height="100%" viewBox="0 0 112 42">
             <Path
