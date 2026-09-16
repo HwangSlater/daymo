@@ -8582,12 +8582,12 @@ function Memories({
         <Text style={[styles.memorySummaryText, theme && { color: theme.primary }]}>{new Set(photos.map((photo) => photo.date).filter((date) => date && date !== UNDATED)).size}일의 기록</Text>
       </View>
       {/* 「전부 저장」은 없앴다. 한 번 눌러 수십 장을 내려받는 버튼은 실수로 눌렀을 때
-          되돌릴 방법이 없다. 그 자리에는 훨씬 자주 쓰는 사진 추가를 둔다. */}
+          되돌릴 방법이 없다. 사진 추가는 탭 머리에 있는 것 하나면 된다. 다른 탭도
+          모두 탭 머리에 추가 버튼을 두고 있어, 여기에 하나 더 두면 같은 버튼이
+          한 화면에 둘이 된다. */}
       <SectionLabel
         label="사진과 기념 카드"
         count={`${photos.length + cardTiles.length}개`}
-        action={canEdit ? "사진 추가" : undefined}
-        onPress={openPhotoCreate}
       />
       <View style={styles.memoryFilterLine}>
         <View style={styles.memoryFilterRow}>
