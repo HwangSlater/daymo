@@ -395,11 +395,12 @@ export const createPhoto = (
   tripId: string,
   id: string,
   body: PhotoBody & { bytes: number; checksum: string; isReceipt?: boolean },
+  pace?: RequestPace,
 ) =>
   authenticatedRequest<ServerPhoto>(`/v1/trips/${encodeURIComponent(tripId)}/photos`, {
     method: "POST",
     body: JSON.stringify({ id, ...body }),
-  });
+  }, pace);
 
 export const updatePhoto = (id: string, version: number, body: PhotoBody) =>
   authenticatedRequest<ServerPhoto>(`/v1/photos/${encodeURIComponent(id)}`, {

@@ -840,7 +840,8 @@ export function TripCardsSection({
   const toggleCover = async () => {
     if (!onSaveHomeCover || !open) return;
     if (coverBlocked && !cover.on) {
-      showAlert("홈 화면에 담기지 않아요", `${coverBlocked}.`, [{ text: "알겠어요" }]);
+      // 버튼을 주지 않는다. 고를 것이 없는 안내라 확인창 대신 알림창이어야 한다.
+      showAlert("홈 화면에 담기지 않아요", `${coverBlocked}.`);
       return;
     }
     try {

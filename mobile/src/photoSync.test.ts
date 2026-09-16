@@ -7,6 +7,7 @@ import {
   PHOTO_PALETTE,
   PHOTO_UNDATED,
   photoCodec,
+  photoTakenDate,
   photosLinkedTo,
   photosOfStay,
   tidyLinks,
@@ -122,4 +123,14 @@ test("장소·일정은 붙은 사진만, 숙소는 묵는 동안의 사진까�
   // 붙인 사진이 먼저 오고 그날 사진이 뒤에 온다. 같은 사진이 두 번 오지 않는다.
   assert.deepEqual(photosOfStay(사진, STAY, ["2일(금)"]).map((photo) => photo.id), ["2", "3"]);
   assert.deepEqual(photosOfStay(사진, undefined, ["3일(토)"]).map((photo) => photo.id), ["4"]);
+});
+
+test("사진에 찍힌 날짜를 EXIF 에서 읽는다", () => {
+  assert.equal(photoTakenDate({ DateTimeOriginal: "2026:09:12 14:33:01" }), "2026-09-12");
+  // iOS 는 한 칸 안에 넣어 준다.
+  assert.equal(photoTakenDate({ "{Exif}": { DateTimeOriginal: "2026-09-12 08:00:00" } }), "2026-09-12");
+  assert.equal(photoTakenDate({ DateTime: "2026:01:02 00:00:00" }), "2026-01-02");
+  // 없거나 모양이 틀리면 빈 글자다. 엉뚱한 날짜를 지어내지 않는다.
+  assert.equal(photoTakenDate(undefined), "");
+  assert.equal(photoTakenDate({ DateTimeOriginal: "어제" }), "");
 });

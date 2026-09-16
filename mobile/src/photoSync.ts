@@ -97,6 +97,23 @@ export const PHOTO_UNDATED = "날짜 미정";
 /** 사진이 오기 전에 칸을 채우는 색. 기록 탭의 색과 같다. */
 export const PHOTO_PALETTE = ["#E7B4A6", "#DFC98A", "#AFC9C3", "#D4BDD4", "#C7D493", "#9CBBC6"];
 
+/**
+ * 사진에 찍힌 시각에서 날짜(`YYYY-MM-DD`)만 꺼낸다. 없거나 모양이 틀리면 빈 글자다.
+ *
+ * 여행이 끝나고 수십 장을 한꺼번에 올릴 때 날짜를 한 장씩 고르게 하면 고통스럽다.
+ * 사진에 적혀 있으면 그 날로 넣는다. EXIF 는 `2026:09:12 14:33:01` 처럼 적혀 있고,
+ * 기기마다 칸 이름이 조금씩 다르다(iOS 는 `{Exif}` 안에 둔다).
+ */
+export function photoTakenDate(exif: unknown): string {
+  const 상자 = (exif ?? {}) as Record<string, unknown>;
+  const 안쪽 = (상자["{Exif}"] ?? {}) as Record<string, unknown>;
+  const 값 = [상자.DateTimeOriginal, 안쪽.DateTimeOriginal, 상자.DateTimeDigitized, 상자.DateTime]
+    .find((하나) => typeof 하나 === "string");
+  const 찾은_것 = (값 as string | undefined)?.trim() ?? "";
+  const 맞는가 = 찾은_것.match(/^(\d{4})[:-](\d{2})[:-](\d{2})/);
+  return 맞는가 ? `${맞는가[1]}-${맞는가[2]}-${맞는가[3]}` : "";
+}
+
 /** 같은 사진은 어느 기기에서나 같은 색이 되게 id 로 고른다. */
 export function colorOfId(id: string): string {
   let sum = 0;

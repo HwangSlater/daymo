@@ -467,6 +467,30 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {
 
 const tripStorageKey = "daymo.trip-data.v1";
 
+/**
+ * 기기에 적어 둘 모양.
+ *
+ * 웹에서는 아직 못 올린 사진을 적지 않는다. 웹은 고른 사진을 `data:` 로 들고 있는데,
+ * 여행이 끝나고 수십 장을 한꺼번에 올리는 동안 그것까지 적으면 브라우저 저장소(몇 MB)가
+ * 금방 차서 기록 전체가 저장되지 않는다. 어차피 탭을 새로 열면 그 자리는 죽어 있어
+ * 적어 두어도 쓸 수 없다. 올라간 사진은 파일 자리가 비어 있어 그대로 적힌다.
+ */
+const storableTrips = (groups: Record<string, Trip[]>): Record<string, Trip[]> => {
+  if (Platform.OS !== "web") return groups;
+  const 덜어낸다 = (trip: Trip): Trip => {
+    const photos = trip.planning?.memories?.photos;
+    if (!photos?.some((photo) => photo.uri)) return trip;
+    return {
+      ...trip,
+      planning: {
+        ...trip.planning,
+        memories: { ...trip.planning!.memories!, photos: photos.filter((photo) => !photo.uri) },
+      },
+    };
+  };
+  return Object.fromEntries(Object.entries(groups).map(([id, trips]) => [id, trips.map(덜어낸다)]));
+};
+
 const isStoredTrip = (value: unknown): value is Trip => {
   if (!value || typeof value !== "object") return false;
   const trip = value as Partial<Trip>;
@@ -1236,7 +1260,7 @@ export function WarmAppShell({
 
   useEffect(() => {
     if (!tripStorageReady) return;
-    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup, done }))
+    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup: storableTrips(tripsByGroup), done }))
       .then(() => setTripStorageFailed(false))
       .catch(() => setTripStorageFailed(true));
   }, [done, tripStorageReady, tripsByGroup]);
