@@ -11952,7 +11952,10 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   transportGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
-  transportCard: { flexGrow: 1, flexBasis: "46%", minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
+  // 한 줄에 둘씩 놓는다. `maxWidth` 가 없으면 한 장뿐일 때 `flexGrow` 가 그 한 장을
+  // 화면 폭까지 늘려, 같은 카드가 상황에 따라 두 배로 커 보인다. 둘일 때의 크기를
+  // 그대로 지킨다.
+  transportCard: { flexGrow: 1, flexBasis: "46%", maxWidth: "48%", minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
   transportCardRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
   transportCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   transportOwner: { fontSize: 12, fontFamily: typo.label.family },
