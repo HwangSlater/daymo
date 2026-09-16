@@ -85,16 +85,6 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
         PgUUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True
     )
 
-    # 여행 기념 카드에서 고른 것 한 덩어리. 카드 그림은 기기가 그리고
-    # (docs/development/03-api-specification.md 10장) 서버는 고른 값만 들고 있는다.
-    # 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 보여야 해서 기기에만 두지 않는다.
-    #
-    # 칼럼을 여럿 두지 않고 JSONB 한 칸인 이유는, 카드에 무엇을 넣고 뺄지가 화면을
-    # 고칠 때마다 바뀌는 값이어서다. 서버는 이 값으로 계산하지 않고 그대로 돌려준다.
-    # 다만 고른 사진이 그 여행의 사진인지는 넣을 때 본다(`services/trips.card_settings`).
-    # 비어 있으면 앱의 기본값이다.
-    card_settings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deletion_scheduled_at: Mapped[datetime | None] = mapped_column(
@@ -103,6 +93,49 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<Trip {self.id}>"
+
+
+class TripCard(Base, TimestampMixin, CreatedByMixin):
+    """
+    여행 기념 카드 한 장.
+
+    카드 그림은 기기가 그리고(docs/development/03-api-specification.md 10장) 서버는
+    고른 값만 들고 있는다. 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 보여야
+    해서 기기에만 두지 않는다.
+
+    칼럼을 여럿 두지 않고 `settings` JSONB 한 칸인 이유는, 카드에 무엇을 넣고 뺄지가
+    화면을 고칠 때마다 바뀌는 값이어서다. 서버는 이 값으로 계산하지 않고 그대로
+    돌려준다. 다만 고른 사진이 그 여행의 사진인지는 넣을 때 본다
+    (`services/trip_cards.check_card_photos`).
+
+    한 여행에 여러 장이다. 바다 사진 넷으로 만든 네컷과 마지막 날 한 장으로 만든
+    엽서가 나란히 남는다. 예전에는 `trips.card_settings` 한 칸이라 새로 만들면
+    앞서 만든 카드가 조용히 덮였다.
+    """
+
+    __tablename__ = "trip_cards"
+    __table_args__ = (
+        # 목록은 여행별로 정렬 순서대로 읽는다.
+        Index("ix_trip_cards_trip_sort", "trip_id", "sort_order"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    trip_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("trips.id", ondelete="CASCADE"), nullable=False
+    )
+    # 누가 만들었는지. 남이 만든 카드를 지울 수 있는지를 이 값으로 가른다
+    # (사진의 `uploader_membership_id` 와 같은 규칙이다).
+    created_by_membership_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("memberships.id", ondelete="SET NULL"), nullable=True
+    )
+    settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # 만든 차례. 목록이 기기마다 다른 차례로 보이면 "세 번째 카드" 라는 말이 통하지 않는다.
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 함께 고치는 대상이라 수정 API 가 이 값을 받는다. 어긋나면 409 VERSION_CONFLICT 다.
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+
+    def __repr__(self) -> str:  # pragma: no cover - 디버깅용
+        return f"<TripCard {self.id}>"
 
 
 class TripDay(Base, TimestampMixin):
