@@ -1177,6 +1177,9 @@ export function WarmTripDetail({
       const linkedIndex = current.findIndex((item) =>
         item.stayId === "primary-stay" || (
           !item.stayId &&
+          // 서버에 있는 줄은 누가 직접 만든 일정이다. 흡수하면 이 기기가 남의 줄을 지운다.
+          // 숙소가 만든 줄과 겹쳐 보이더라도 그대로 둔다.
+          !isServerId(item.id ?? "") &&
           Boolean(registeredStay.placeId) &&
           item.placeId === registeredStay.placeId &&
           item.title.endsWith(" 체크인")
