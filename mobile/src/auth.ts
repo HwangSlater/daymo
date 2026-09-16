@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
+import { sendQueued } from "./requestQueue";
 import {
   orderedProviders,
   parseSocialReturn,
@@ -64,6 +65,15 @@ type ApiMeta = { nextCursor?: string | null };
 
 /** 목록 한 쪽. 서버가 준 줄과, 더 있으면 다음 쪽을 가리키는 cursor. */
 export type ServerPage<T> = { items: T[]; nextCursor: string | null };
+
+/** 이 요청이 줄의 어디에 설지. */
+export type RequestPace = {
+  /**
+   * 아무도 화면에서 기다리지 않는 요청(「찾기」의 미리 받기). 줄 맨 뒤에 선다.
+   * 보고 있는 화면의 요청이 미리 받기에 밀리면 안 된다.
+   */
+  background?: boolean;
+};
 type ApiErrorEnvelope = {
   error?: { code?: string; message?: string; fields?: Record<string, string>; details?: Record<string, string> };
 };
@@ -103,7 +113,13 @@ const storage = {
   },
 };
 
-async function requestEnvelope<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
+/**
+ * 요청 하나를 보낸다. 줄서기와 다시 보내기는 부르는 쪽(`requestEnvelope`)이 맡는다.
+ *
+ * 15초 시계는 여기서 센다. 줄에 서서 기다린 시간은 응답을 기다린 시간이 아니다.
+ * 줄 밖에서 재면 앞에 선 요청이 많을 때 나가 보지도 못하고 끊긴다.
+ */
+async function sendOnce<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
@@ -132,8 +148,27 @@ async function requestEnvelope<T>(path: string, init: RequestInit = {}): Promise
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  return (await requestEnvelope<T>(path, init)).data;
+/**
+ * 서버로 가는 요청은 모두 이 문을 지난다.
+ *
+ * 한꺼번에 나가는 수를 `requestQueue` 가 묶고, 앞단이 막으면(429·503) 잠깐 쉬었다
+ * 다시 보낸다. 왜 묶는지는 `requestQueue.ts` 의 머리글에 적어 두었다.
+ */
+async function requestEnvelope<T>(
+  path: string,
+  init: RequestInit = {},
+  options: RequestPace = {},
+): Promise<ApiEnvelope<T>> {
+  const method = (init.method ?? "GET").toUpperCase();
+  return sendQueued(() => sendOnce<T>(path, init), {
+    background: options.background,
+    // 연결이 끊겼을 때는 서버가 받았는지 알 수 없다. 두 번 보내도 같은 요청만 다시 보낸다.
+    safe: method === "GET" || method === "HEAD",
+  });
+}
+
+async function request<T>(path: string, init: RequestInit = {}, options: RequestPace = {}): Promise<T> {
+  return (await requestEnvelope<T>(path, init, options)).data;
 }
 
 async function installationId() {
@@ -416,11 +451,15 @@ export async function refreshMe(): Promise<AuthUser | null> {
   }
 }
 
-export async function authenticatedRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function authenticatedRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  options: RequestPace = {},
+): Promise<T> {
   return withAccessToken((accessToken) => request<T>(path, {
     ...init,
     headers: { ...init.headers, Authorization: `Bearer ${accessToken}` },
-  }));
+  }, options));
 }
 
 /**
@@ -445,6 +484,10 @@ export const apiUrlOf = (path: string) => `${apiUrl}${path}`;
  *
  * 사진 올리기·받기처럼 `fetch` 가 아닌 길로 보내는 요청도 같은 갱신 규칙을 쓰게 꺼냈다.
  * `send` 는 401 을 `DaymoApiError` 로 던져야 한다.
+ *
+ * 이 함수 자체를 요청 줄(`sendQueued`)에 넣으면 안 된다. 안에서 토큰 갱신이 다시 줄을
+ * 서는데, 줄이 다 차 있으면 서로를 기다리며 멎는다. 줄은 `send` 안쪽의 요청 하나에만
+ * 두른다.
  */
 export async function withAccessToken<T>(send: (accessToken: string) => Promise<T>): Promise<T> {
   const saved = parseSession(await storage.get(sessionKey));

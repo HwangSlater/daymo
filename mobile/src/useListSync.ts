@@ -15,6 +15,7 @@ import {
   type ServerRow,
   type SyncTrouble,
 } from "./listSync";
+import { onGiveUp } from "./requestQueue";
 
 // 글자를 칠 때마다 보내지 않는다. 잠깐 모았다가 한 번에 맞춘다.
 const SYNC_DELAY_MS = 800;
@@ -44,12 +45,19 @@ type Entry = { rows: Map<string, RowTrouble>; offline: boolean };
 const entries = new Map<number, Entry>();
 const troubleListeners = new Set<() => void>();
 let slots = 0;
-let snapshot: SyncTrouble = { rows: new Map(), blocked: 0, waiting: 0, offline: false };
+let snapshot: SyncTrouble = { rows: new Map(), blocked: 0, waiting: 0, offline: false, busy: false };
 let stamp = "";
+
+/**
+ * 요청 줄이 끝내 못 보낸 것. 목록 하나의 일이 아니라 앱 전체의 일이라 자리를 따로 둔다.
+ *
+ * 사진 받기처럼 지금까지 조용히 넘기던 길도 이 자리를 지나 화면 위 한 줄까지 온다.
+ */
+let queueTrouble = { busy: false, unreachable: false };
 
 function republish() {
   const rows = new Map<string, RowTrouble>();
-  let offline = false;
+  let offline = queueTrouble.unreachable;
   let blocked = 0;
   let waiting = 0;
   for (const entry of entries.values()) {
@@ -62,13 +70,33 @@ function republish() {
     else waiting += 1;
     marks.push(`${id}:${row.state}:${row.reason ?? ""}`);
   });
+  const busy = queueTrouble.busy;
   // 같은 모습이면 알리지 않는다. 목록이 바뀔 때마다 화면 전체가 다시 그려지면 안 된다.
-  const next = `${offline}|${marks.sort().join(",")}`;
+  const next = `${offline}|${busy}|${marks.sort().join(",")}`;
   if (next === stamp) return;
   stamp = next;
-  snapshot = { rows, blocked, waiting, offline };
+  snapshot = { rows, blocked, waiting, offline, busy };
   troubleListeners.forEach((listen) => listen());
 }
+
+/** 못 보낸 요청 한 줄을 얼마나 띄워 둘지. 이 시간이 지나면 스스로 걷힌다. */
+const GIVE_UP_NOTICE_MS = 8_000;
+let giveUpTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 줄이 포기한 요청을 화면 위 한 줄로 옮긴다. 앱이 켜져 있는 동안 계속 듣는다.
+onGiveUp(({ kind }) => {
+  queueTrouble = {
+    busy: queueTrouble.busy || kind === "congested",
+    unreachable: queueTrouble.unreachable || kind === "unreachable",
+  };
+  republish();
+  if (giveUpTimer) clearTimeout(giveUpTimer);
+  giveUpTimer = setTimeout(() => {
+    giveUpTimer = null;
+    queueTrouble = { busy: false, unreachable: false };
+    republish();
+  }, GIVE_UP_NOTICE_MS);
+});
 
 /** 열려 있는 모든 목록에서 아직 못 올린 줄. 배지와 위쪽 한 줄이 이것만 본다. */
 export function useSyncTrouble(): SyncTrouble {
@@ -131,6 +159,11 @@ type Options<L, B, S extends ServerRow> = {
  *
  * 연결이 없으면 기기에서는 계속 쓰고, 연결되면 다시 보낸다. 앱을 닫았다 열면
  * 1번에서 아직 못 올린 줄을 찾아 다시 올린다.
+ *
+ * 여행 상세 하나에 이 훅이 열세 개 붙는다. 열 때 열세 개가 한꺼번에 목록을 부르지만,
+ * 여기서 따로 묶지 않는다. 모든 요청이 `requestQueue` 를 지나며 다섯씩만 나가고,
+ * 막히면 그 안에서 쉬었다 다시 간다. 여기서 또 묶으면 두 겹으로 기다리게 되고, 목록
+ * 사이의 차례는 화면이 정할 일도 아니다(어느 탭을 먼저 여는지는 사용자가 정한다).
  */
 export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>) {
   const latest = useRef(options);

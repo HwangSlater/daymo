@@ -1,4 +1,4 @@
-import { authenticatedPage, authenticatedRequest } from "./auth";
+import { authenticatedPage, authenticatedRequest, type RequestPace } from "./auth";
 import type { ServerDevice } from "./deviceSessions";
 import type { PlaceBody, ServerPlace } from "./placeSync";
 import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./scheduleSync";
@@ -174,8 +174,8 @@ export const setTripParticipants = (tripId: string, input: { version: number; me
     body: JSON.stringify(input),
   });
 
-export const listTripPlaces = (tripId: string) =>
-  authenticatedRequest<ServerPlace[]>(`/v1/trips/${encodeURIComponent(tripId)}/places`);
+export const listTripPlaces = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerPlace[]>(`/v1/trips/${encodeURIComponent(tripId)}/places`, {}, pace);
 
 /** 앱이 만든 id 로 담는다. 같은 id 로 다시 보내도 하나만 생긴다. */
 export const createTripPlace = (tripId: string, id: string, body: PlaceBody) =>
@@ -193,8 +193,8 @@ export const updateTripPlace = (id: string, version: number, body: PlaceBody) =>
 export const deleteTripPlace = (id: string) =>
   authenticatedRequest<void>(`/v1/trip-places/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-export const listScheduleItems = (tripId: string) =>
-  authenticatedRequest<ServerScheduleItem[]>(`/v1/trips/${encodeURIComponent(tripId)}/schedule-items`);
+export const listScheduleItems = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerScheduleItem[]>(`/v1/trips/${encodeURIComponent(tripId)}/schedule-items`, {}, pace);
 
 export const createScheduleItem = (tripId: string, id: string, body: ScheduleBody) =>
   authenticatedRequest<ServerScheduleItem>(`/v1/trips/${encodeURIComponent(tripId)}/schedule-items`, {
@@ -211,8 +211,8 @@ export const updateScheduleItem = (id: string, version: number, body: ScheduleBo
 export const deleteScheduleItem = (id: string) =>
   authenticatedRequest<void>(`/v1/schedule-items/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-export const listStays = (tripId: string) =>
-  authenticatedRequest<ServerStay[]>(`/v1/trips/${encodeURIComponent(tripId)}/stays`);
+export const listStays = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerStay[]>(`/v1/trips/${encodeURIComponent(tripId)}/stays`, {}, pace);
 
 export const createStay = (tripId: string, id: string, body: StayBody) =>
   authenticatedRequest<ServerStay>(`/v1/trips/${encodeURIComponent(tripId)}/stays`, {
@@ -265,8 +265,8 @@ export const updateReservation = (id: string, version: number, body: Reservation
 export const deleteReservation = (id: string) =>
   authenticatedRequest<void>(`/v1/reservations/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-export const listExpenses = (tripId: string) =>
-  authenticatedRequest<ServerExpense[]>(`/v1/trips/${encodeURIComponent(tripId)}/expenses`);
+export const listExpenses = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerExpense[]>(`/v1/trips/${encodeURIComponent(tripId)}/expenses`, {}, pace);
 
 export const createExpense = (tripId: string, id: string, body: ExpenseBody) =>
   authenticatedRequest<ServerExpense>(`/v1/trips/${encodeURIComponent(tripId)}/expenses`, {
@@ -296,8 +296,8 @@ export const createPayment = (tripId: string, id: string, body: PaymentBody) =>
 export const undoPayment = (id: string) =>
   authenticatedRequest<void>(`/v1/payments/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-export const listChecklistItems = (tripId: string) =>
-  authenticatedRequest<ServerChecklistItem[]>(`/v1/trips/${encodeURIComponent(tripId)}/checklist-items`);
+export const listChecklistItems = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerChecklistItem[]>(`/v1/trips/${encodeURIComponent(tripId)}/checklist-items`, {}, pace);
 
 export const createChecklistItem = (tripId: string, id: string, body: ChecklistItemBody) =>
   authenticatedRequest<ServerChecklistItem>(`/v1/trips/${encodeURIComponent(tripId)}/checklist-items`, {
@@ -314,8 +314,8 @@ export const updateChecklistItem = (id: string, version: number, body: Checklist
 export const deleteChecklistItem = (id: string) =>
   authenticatedRequest<void>(`/v1/checklist-items/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-export const listRecipes = (tripId: string) =>
-  authenticatedRequest<ServerRecipe[]>(`/v1/trips/${encodeURIComponent(tripId)}/recipes`);
+export const listRecipes = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerRecipe[]>(`/v1/trips/${encodeURIComponent(tripId)}/recipes`, {}, pace);
 
 export const createRecipe = (tripId: string, id: string, body: RecipeBody) =>
   authenticatedRequest<ServerRecipe>(`/v1/trips/${encodeURIComponent(tripId)}/recipes`, {
@@ -333,8 +333,8 @@ export const updateRecipe = (id: string, version: number, body: RecipeBody) =>
 export const deleteRecipe = (id: string) =>
   authenticatedRequest<void>(`/v1/recipes/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-export const listMemos = (tripId: string) =>
-  authenticatedRequest<ServerMemo[]>(`/v1/trips/${encodeURIComponent(tripId)}/memos`);
+export const listMemos = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerMemo[]>(`/v1/trips/${encodeURIComponent(tripId)}/memos`, {}, pace);
 
 export const createMemo = (tripId: string, id: string, body: MemoBody) =>
   authenticatedRequest<ServerMemo>(`/v1/trips/${encodeURIComponent(tripId)}/memos`, {
@@ -352,8 +352,8 @@ export const updateMemo = (id: string, version: number, body: MemoBody) =>
 export const deleteMemo = (id: string) =>
   authenticatedRequest<void>(`/v1/memos/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-export const listDiaries = (tripId: string) =>
-  authenticatedRequest<ServerDiary[]>(`/v1/trips/${encodeURIComponent(tripId)}/diaries`);
+export const listDiaries = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerDiary[]>(`/v1/trips/${encodeURIComponent(tripId)}/diaries`, {}, pace);
 
 export const createDiary = (tripId: string, id: string, body: DiaryBody) =>
   authenticatedRequest<ServerDiary>(`/v1/trips/${encodeURIComponent(tripId)}/diaries`, {
@@ -381,8 +381,8 @@ export const restoreFromTrash = (type: ServerTrashItem["type"], id: string) =>
     { method: "POST" },
   );
 
-export const listPhotos = (tripId: string) =>
-  authenticatedRequest<ServerPhoto[]>(`/v1/trips/${encodeURIComponent(tripId)}/photos`);
+export const listPhotos = (tripId: string, pace?: RequestPace) =>
+  authenticatedRequest<ServerPhoto[]>(`/v1/trips/${encodeURIComponent(tripId)}/photos`, {}, pace);
 
 /** 사진 줄만 만든다. 파일은 `photoTransfer.ts` 가 따로 보낸다. */
 export const createPhoto = (

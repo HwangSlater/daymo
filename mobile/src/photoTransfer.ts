@@ -6,6 +6,9 @@
  * 받기: 표시본(긴 변 1440px)을 문서 폴더에 받아 둔다. 다시 열 때 서버에 묻지 않는다.
  *
  * 웹(개발용 빌드)은 파일 대신 data URI 를 쓴다. 받은 사진은 기기에 두지 않는다.
+ *
+ * 사진은 한 화면에도 수십 장이라 앞단 제한에 가장 먼저 걸린다. 그래서 파일 길도 목록과
+ * 같은 줄(`requestQueue`)을 탄다. 줄 밖으로 새는 요청이 하나라도 있으면 묶는 뜻이 없다.
  */
 
 import * as Crypto from "expo-crypto";
@@ -14,6 +17,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
 import { apiUrlOf, DaymoApiError, withAccessToken } from "./auth";
+import { sendQueued } from "./requestQueue";
 import { createPhoto } from "./serverData";
 import type { PhotoBody, ServerPhoto } from "./photoSync";
 
@@ -49,7 +53,8 @@ function errorOf(status: number, text: string): DaymoApiError {
 async function sendContent(photoId: string, uri: string): Promise<ServerPhoto> {
   const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content`);
   const contentType = contentTypeOf(uri);
-  return withAccessToken(async (accessToken) => {
+  // 같은 파일을 같은 주소에 다시 놓는 PUT 이라 다시 보내도 결과가 같다.
+  return withAccessToken((accessToken) => sendQueued(async () => {
     const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": contentType };
     let status: number;
     let text: string;
@@ -72,7 +77,7 @@ async function sendContent(photoId: string, uri: string): Promise<ServerPhoto> {
     }
     if (status < 200 || status >= 300) throw errorOf(status, text);
     return (JSON.parse(text) as { data: ServerPhoto }).data;
-  });
+  }, { safe: true }));
 }
 
 /**
@@ -125,7 +130,7 @@ export async function downloadPhoto(
 ): Promise<string | undefined> {
   const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=${variant}`);
   if (Platform.OS === "web") {
-    return withAccessToken(async (accessToken) => {
+    return withAccessToken((accessToken) => sendQueued(async () => {
       let response: Response;
       try {
         response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -136,13 +141,13 @@ export async function downloadPhoto(
       const uri = URL.createObjectURL(await response.blob());
       liveBlobUris.add(uri);
       return uri;
-    });
+    }, { safe: true }));
   }
   if (!FileSystem.documentDirectory) return undefined;
   const folder = `${FileSystem.documentDirectory}${PHOTO_DIRECTORY}/`;
   await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
   const target = `${folder}server-${photoId}${variant === "display" ? "" : `-${variant}`}.jpg`;
-  return withAccessToken(async (accessToken) => {
+  return withAccessToken((accessToken) => sendQueued(async () => {
     let status: number;
     try {
       status = (await FileSystem.downloadAsync(url, target, { headers: { Authorization: `Bearer ${accessToken}` } })).status;
@@ -154,5 +159,5 @@ export async function downloadPhoto(
       throw new DaymoApiError("사진을 받지 못했어요.", status);
     }
     return target;
-  });
+  }, { safe: true }));
 }
