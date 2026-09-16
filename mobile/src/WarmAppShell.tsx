@@ -88,6 +88,8 @@ import {
   type ServerBlock,
   unblock,
   createInvite,
+  endDeviceSession,
+  listDevices,
   listInvites,
   removeMember,
   revokeInvite,
@@ -123,6 +125,13 @@ import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type 
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
 import { forgetPageInvite, takePageInvite } from "./inviteHandoff";
+import {
+  deviceLimitNotice,
+  deviceLine,
+  deviceName,
+  revokePrompt,
+  type ServerDevice,
+} from "./deviceSessions";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasPassword" | "linkedProviders"> & { id?: string };
@@ -4929,6 +4938,13 @@ function Together({
               onPasswordSet={() => setUser((current) => (current ? { ...current, hasPassword: true } : current))}
               onEmailChangeRequested={onEmailChangeRequested}
             />
+            <DeviceSessionsSection
+              theme={theme}
+              onSignedOut={() => {
+                setPanel(null);
+                onLogout();
+              }}
+            />
             <Pressable
               accessibilityRole="button"
               onPress={() => {
@@ -6300,6 +6316,127 @@ ${url}` }).catch(() => undefined);
       </Pressable>
       {message ? <Text accessibilityLiveRegion="polite" style={[s.memberRoleText, { color: theme.primary, marginTop: 0 }]}>{message}</Text> : null}
       {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * 로그인해 둔 기기와 해지.
+ *
+ * 서버는 기기가 한도를 넘으면 가장 오래 쓰지 않은 것을 **말없이** 끊는다. 웹(사파리)·
+ * 웹(크롬)·폰을 오가면 금방 찬다. 지금까지는 끊긴 뒤에야 한 번 알려 줬다. 여기서는
+ * 차기 전에 몇 대를 쓰고 있는지 보여 주고, 쓰지 않는 기기를 스스로 끊게 한다.
+ *
+ * 지금 이 기기를 해지하면 로그아웃과 같은 뜻이라 다르게 묻고, 끝나면 바로 로그아웃한다.
+ */
+function DeviceSessionsSection({ theme, onSignedOut }: { theme: AppTheme; onSignedOut: () => void }) {
+  const [devices, setDevices] = useState<ServerDevice[]>([]);
+  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    listDevices()
+      .then((found) => {
+        if (!active) return;
+        setDevices(found);
+        setState("ready");
+      })
+      .catch(() => {
+        if (active) setState("failed");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const revoke = async (device: ServerDevice) => {
+    setBusyId(device.id);
+    setMessage("");
+    setError("");
+    try {
+      await endDeviceSession(device.id);
+      if (device.current) {
+        // 이 기기의 갱신 토큰이 이미 끊겼다. 남은 화면을 그대로 두면 다음 요청에서
+        // 알 수 없는 오류로 보인다. 바로 로그인 화면으로 보낸다.
+        onSignedOut();
+        return;
+      }
+      setDevices((current) => current.filter((item) => item.id !== device.id));
+      setMessage(`${deviceName(device)}를 해지했어요.`);
+    } catch (caught) {
+      setError(
+        caught instanceof DaymoApiError
+          ? caught.message
+          : "해지하지 못했어요. 연결을 확인하고 다시 해 주세요.",
+      );
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const ask = (device: ServerDevice) => {
+    const 물음 = revokePrompt(device);
+    showAlert(물음.title, 물음.message, [
+      { text: "취소", style: "cancel" },
+      { text: 물음.confirm, style: "destructive", onPress: () => void revoke(device) },
+    ]);
+  };
+
+  const 한도_안내 = deviceLimitNotice(devices.length);
+
+  return (
+    <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 8, marginTop: 8 }]}>
+      <Text style={[s.memberPermissionLabel, { color: theme.text }]}>로그인한 기기</Text>
+      {state === "loading" && (
+        <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
+          기기를 불러오는 중이에요.
+        </Text>
+      )}
+      {state === "failed" && (
+        <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
+          기기 목록을 불러오지 못했어요. 연결을 확인하고 이 화면을 다시 열어 주세요.
+        </Text>
+      )}
+      {state === "ready" &&
+        devices.map((device) => (
+          <View key={device.id} style={s.inviteRow}>
+            <Text
+              style={[
+                s.memberRoleText,
+                { color: device.current ? theme.text : theme.muted, marginTop: 0, flex: 1 },
+              ]}
+            >
+              {deviceLine(device)}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${deviceName(device)} 해지`}
+              disabled={busyId === device.id}
+              onPress={() => ask(device)}
+            >
+              <Text style={s.accountDeleteText}>해지</Text>
+            </Pressable>
+          </View>
+        ))}
+      {state === "ready" && 한도_안내 ? (
+        <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>{한도_안내}</Text>
+      ) : null}
+      {message ? (
+        <Text accessibilityLiveRegion="polite" style={[s.memberRoleText, { color: theme.primary, marginTop: 0 }]}>
+          {message}
+        </Text>
+      ) : null}
+      {error ? (
+        <Text
+          accessibilityLiveRegion="assertive"
+          style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}
+        >
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
