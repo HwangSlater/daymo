@@ -2,7 +2,7 @@
  * 여행 기념 카드를 어떻게 꾸몄는지와, 그것으로 무엇을 그릴지.
  *
  * 카드 그림은 기기가 그린다(docs/development/03-api-specification.md 10장). 서버는
- * 꾸민 값 한 덩어리(`trips.card_settings`)를 들고 있을 뿐이고, 숫자와 배치는 여기서 만든다.
+ * 꾸민 값 한 덩어리(`trip_cards.settings`)를 들고 있을 뿐이고, 숫자와 배치는 여기서 만든다.
  *
  * 아무것도 고르지 않아도 카드 한 장이 나와야 한다. 그래서 모든 값에 기본이 있고,
  * 모르는 값이 저장돼 있어도(앱이 더 옛 판이거나 손으로 고쳤거나) 기본으로 돌아간다.
@@ -78,7 +78,7 @@ export type KeepsakeCard = {
   photoCaptions: boolean;
 };
 
-/** 서버가 들고 있는 모양(`trips.cardSettings`). 모양이 틀리면 기본값으로 읽는다. */
+/** 서버가 들고 있는 모양(카드 한 줄의 `settings`). 모양이 틀리면 기본값으로 읽는다. */
 export type SavedKeepsake = {
   style?: string | null;
   ratio?: string | null;
