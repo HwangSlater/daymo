@@ -40,6 +40,7 @@ test("날짜 줄은 여행 날짜로 오가고 파일 자리와 색은 기기 �
   const back = codec.fromServer(row);
   assert.deepEqual(codec.keepLocal?.(back, local), {
     id: A, color: "#123456", date: "2일(금)", caption: "느린 점심", uri: "file:///p.jpg", links: [], uploaderMembershipId: null,
+    uploaderName: "하늘",
   });
   assert.equal(codec.fromServer({ ...row, date: "2026-12-25" }).date, PHOTO_UNDATED);
   const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(back)), version: 1 }]]);
@@ -55,6 +56,9 @@ test("올린 사람은 서버에서 받아 두지만 서버로 보내지 않는�
   };
   const back = codec.fromServer(row);
   assert.equal(back.uploaderMembershipId, B);
+  assert.equal(back.uploaderName, "여울");
+  // 이름이 비면 칸 자체를 만들지 않는다. 크게 보는 화면이 빈 `올림` 줄을 내지 않게 한다.
+  assert.equal("uploaderName" in codec.fromServer({ ...row, uploaderName: "" }), false);
   // 이 기기에서 막 올린 사진은 올린 사람이 비어 있다. 서버 줄과 합치면 서버 것을 따른다.
   const local: PhotoRow = { id: A, color: "#123456", date: "1일(목)", caption: "바다", uri: "file:///p.jpg" };
   assert.equal(codec.keepLocal?.(back, local).uploaderMembershipId, B);

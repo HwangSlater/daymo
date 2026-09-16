@@ -75,6 +75,23 @@ import { shareTripCard } from "./tripCardExport";
 
 export type { CardPhoto };
 
+/**
+ * 기록 탭의 사진 격자에 함께 놓을 카드 한 장.
+ *
+ * 카드를 격자 아래 따로 둔 구역에서 꺼내 사진과 같은 줄에 세웠다. 여행의 기록은
+ * 사진이든 카드든 한 덩어리라 두 군데를 훑게 할 까닭이 없다. 이 화면은 목록만
+ * 넘기고, 타일을 그리는 것은 기록 탭이 한다(사진 타일과 모양이 같아야 한다).
+ */
+export type CardTile = {
+  id: string;
+  label: string;
+  /** 대표 사진이 아직 없을 때 깔 색. */
+  color: string;
+  uri?: string;
+  /** 지금 홈 화면에 깔려 있는 카드인지. */
+  onHome: boolean;
+};
+
 /** 카드에 실을 숫자. 기록 탭이 세어 넘긴다. */
 export type CardCounts = {
   places: number;
@@ -369,6 +386,7 @@ export function TripCardsSection({
   coverCardId,
   onSaveHomeCover,
   onAddPhoto,
+  onInline,
   canEdit,
   theme,
   notify,
@@ -393,6 +411,13 @@ export function TripCardsSection({
     localUris?: Record<string, string | undefined>,
   ) => Promise<void>;
   onAddPhoto?: () => void;
+  /**
+   * 카드를 이 자리에 늘어놓지 않고 부르는 쪽(기록 탭)의 사진 격자에 함께 놓는다.
+   *
+   * 목록과 손잡이(열기·만들기)를 위로 넘기고 여기서는 시트만 그린다. 카드를 만들고
+   * 고치는 일은 전부 이 파일에 남아 있어야 해서 상태를 위로 올리지는 않았다.
+   */
+  onInline?: (것: { tiles: CardTile[]; open: (id: string) => void; create: () => void }) => void;
   canEdit: boolean;
   theme?: AppTheme;
   notify: (message: string) => void;
@@ -474,6 +499,7 @@ export function TripCardsSection({
   );
   const blocked = keepsakeAddBlockedReason(list.length, cardPhotos.length);
 
+
   const markDrawn = useCallback((key: string) => {
     if (drawn.current.has(key)) return;
     drawn.current.add(key);
@@ -488,21 +514,43 @@ export function TripCardsSection({
     setDraft((current) => (current ? { ...current, ...change } : current));
   }, []);
 
-  const openCard = (id: string, start: KeepsakeCard) => {
+  const openCard = useCallback((id: string, start: KeepsakeCard) => {
     drawn.current = new Set();
     setDrawnKeys([]);
     setDraft(start);
     setOpenId(id);
     setTuning(false);
     setDecorOpen(false);
-  };
-  const makeCard = () => {
+  }, []);
+  const makeCard = useCallback(() => {
     if (blocked) {
       notify(blocked);
       return;
     }
     openCard("새 카드", keepsakeCardOf(undefined, tripName, photoIds));
-  };
+  }, [blocked, notify, openCard, photoIds, tripName]);
+  // 사진 격자에 함께 놓을 타일. 대표 사진 한 장의 색과 썸네일만 실어 보낸다.
+  const tiles = useMemo<CardTile[]>(
+    () =>
+      list.map((줄) => ({
+        id: 줄.id,
+        label: 줄.label,
+        color: cardPhotos.find((photo) => photo.id === 줄.coverPhotoId)?.color ?? "#E7DFD2",
+        uri: thumbs[줄.coverPhotoId] ?? cardPhotos.find((photo) => photo.id === 줄.coverPhotoId)?.uri,
+        onHome: 줄.id === coverCardId,
+      })),
+    [cardPhotos, coverCardId, list, thumbs],
+  );
+  const openTile = useCallback(
+    (id: string) => {
+      const 줄 = list.find((하나) => 하나.id === id);
+      if (줄) openCard(줄.id, 줄.card);
+    },
+    [list, openCard],
+  );
+  useEffect(() => {
+    onInline?.({ tiles, open: openTile, create: makeCard });
+  }, [makeCard, onInline, openTile, tiles]);
   const closeCard = () => {
     setOpenId(null);
     setDraft(null);
@@ -643,48 +691,55 @@ export function TripCardsSection({
 
   return (
     <>
-      <Label label="여행 기념 카드" count={list.length ? `${list.length}장` : undefined} />
-      {cardPhotos.length === 0 ? (
-        <Empty
-          title="카드로 만들 사진이 없어요"
-          description="사진을 한 장 추가하면 그 사진으로 기념 카드를 만들 수 있어요."
-          action="사진 추가"
-          onPress={canEdit ? onAddPhoto : undefined}
-        />
-      ) : (
+      {/* 격자에 함께 놓기로 한 자리(`onInline`)에서는 목록도 만들기 버튼도 여기서
+          그리지 않는다. 기록 탭이 사진과 같은 격자에 세우고, 만들기는 필터 줄
+          옆의 작은 글씨가 맡는다. 시트만 여기 남는다. */}
+      {!onInline && (
         <>
-          {list.length > 0 && (
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={list}
-              keyExtractor={(줄) => 줄.id}
-              contentContainerStyle={styles.listRowGap}
-              initialNumToRender={4}
-              windowSize={3}
-              removeClippedSubviews
-              renderItem={({ item }) => (
-                <CardRow
-                  label={item.label}
-                  color={cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.color ?? "#E7DFD2"}
-                  uri={thumbs[item.coverPhotoId] ?? cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.uri}
-                  onHome={item.id === coverCardId}
-                  theme={theme}
-                  onPress={() => openCard(item.id, item.card)}
+          <Label label="여행 기념 카드" count={list.length ? `${list.length}장` : undefined} />
+          {cardPhotos.length === 0 ? (
+            <Empty
+              title="카드로 만들 사진이 없어요"
+              description="사진을 한 장 추가하면 그 사진으로 기념 카드를 만들 수 있어요."
+              action="사진 추가"
+              onPress={canEdit ? onAddPhoto : undefined}
+            />
+          ) : (
+            <>
+              {list.length > 0 && (
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={list}
+                  keyExtractor={(줄) => 줄.id}
+                  contentContainerStyle={styles.listRowGap}
+                  initialNumToRender={4}
+                  windowSize={3}
+                  removeClippedSubviews
+                  renderItem={({ item }) => (
+                    <CardRow
+                      label={item.label}
+                      color={cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.color ?? "#E7DFD2"}
+                      uri={thumbs[item.coverPhotoId] ?? cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.uri}
+                      onHome={item.id === coverCardId}
+                      theme={theme}
+                      onPress={() => openCard(item.id, item.card)}
+                    />
+                  )}
                 />
               )}
-            />
+              <Pressable
+                onPress={makeCard}
+                accessibilityRole="button"
+                accessibilityLabel="새 기념 카드 만들기"
+                style={[styles.add, theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft }]}
+              >
+                <Text style={[styles.addText, theme && { color: theme.primary }]}>
+                  {list.length ? "새 카드 만들기" : "한 장으로 만들기"}
+                </Text>
+              </Pressable>
+            </>
           )}
-          <Pressable
-            onPress={makeCard}
-            accessibilityRole="button"
-            accessibilityLabel="새 기념 카드 만들기"
-            style={[styles.add, theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft }]}
-          >
-            <Text style={[styles.addText, theme && { color: theme.primary }]}>
-              {list.length ? "새 카드 만들기" : "한 장으로 만들기"}
-            </Text>
-          </Pressable>
         </>
       )}
       <Sheet

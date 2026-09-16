@@ -54,7 +54,8 @@ import {
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { originalSaveHint, photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
-import { TripCardsSection, type CardPhoto, type DetailUi } from "./TripCards";
+import { PhotoEditScreen, PhotoViewerScreen, confirmPhotoDelete } from "./PhotoViewer";
+import { TripCardsSection, type CardPhoto, type CardTile, type DetailUi } from "./TripCards";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
 import { savePhotoFile } from "./photoSave";
@@ -356,6 +357,8 @@ export type MemoryPhoto = {
   links?: PhotoLink[];
   /** 올린 사람. 서버에서 받은 사진에만 있다. 비어 있으면 이 기기에서 올린 내 사진이다. */
   uploaderMembershipId?: string | null;
+  /** 올린 사람의 이름. 크게 보는 화면의 `하늘이 올림` 줄에 쓴다. */
+  uploaderName?: string;
   /** 원본을 받을 수 있는 기한. 지났으면 null, 서버가 말해 주지 않으면 없다(`photoSync`). */
   originalUntil?: string | null;
 };
@@ -8082,6 +8085,24 @@ function Cooking({
   );
 }
 
+/**
+ * 기록 탭 격자 위의 필터.
+ *
+ * 사진과 기념 카드를 한 격자에 놓았다. 여행의 기록은 한 덩어리인데 카드만 아래에
+ * 따로 두면 같은 여행을 두 군데서 훑게 된다. 대신 종류별로 보고 싶을 때가 있어
+ * 격자 위에 이 세 칩을 둔다.
+ */
+const PHOTO_FILTERS = ["전체", "사진", "기념 카드"] as const;
+type PhotoFilter = (typeof PHOTO_FILTERS)[number];
+
+/** 카드가 아직 오지 않았을 때. 렌더마다 새 배열을 만들면 격자가 매번 다시 계산된다. */
+const NO_CARDS: CardTile[] = [];
+
+/** 격자에 놓이는 칸 하나. 사진이거나 기념 카드다. */
+type MemoryTile =
+  | { kind: "photo"; key: string; photo: MemoryPhoto; index: number }
+  | { kind: "card"; key: string; card: CardTile };
+
 function Memories({
   tripName,
   tripDate,
@@ -8179,12 +8200,22 @@ function Memories({
   const [viewingPhotoId, setViewingPhotoId] = useState<string | null>(null);
   /** 오늘. 원본을 며칠까지 받을 수 있는지 셀 때 쓴다. */
   const todayKey = dateKey(new Date());
-  /** 기한이 얼마 안 남았을 때의 글자색. 라이트·다크 대비를 맞춰 둔 값을 쓴다. */
-  const warningInk = theme?.dark ? statusColor.warning.dark : statusColor.warning.light;
-  /** 사진을 기기에 저장하는 중인지와 몇 장째인지. 「전부 저장」은 한 장씩 차례로 간다. */
+  /** 사진 한 장을 기기에 저장하는 중인지. 「전부 저장」은 없앴다(아래 `saveOnePhoto`). */
   const [saving, setSaving] = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
-  const stopSaving = useRef(false);
+  /**
+   * 크게 보는 화면에 떴다 사라지는 한 줄.
+   *
+   * 저장했다고 알리는 자리다. 이 화면은 화면을 통째로 덮는 `Modal` 이라, 여행 화면
+   * 바닥에 깔린 토스트(`DetailFeedbackContext`)가 뒤에 가려 보이지 않는다.
+   */
+  const [photoToast, setPhotoToast] = useState("");
+  /** 크게 보는 화면의 ⋮ 에서 연 신고 폼. */
+  const [reporting, setReporting] = useState(false);
+  /** 격자 위의 필터. 사진과 기념 카드를 한 격자에 놓고 여기서 갈라 본다. */
+  const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("전체");
+  /** 기념 카드 목록과 손잡이. `TripCardsSection` 이 넘겨 준다. */
+  const [cards, setCards] = useState<{ tiles: CardTile[]; open: (id: string) => void; create: () => void }>();
+  const takeCards = useCallback((것: { tiles: CardTile[]; open: (id: string) => void; create: () => void }) => setCards(것), []);
   const [photoColor, setPhotoColor] = useState("#E7B4A6");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [photoDate, setPhotoDate] = useState(todayDay || dayOptions[0] || UNDATED);
@@ -8246,6 +8277,35 @@ function Memories({
   const viewing = viewIndex < 0 ? undefined : photos[viewIndex];
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showAllDiaries, setShowAllDiaries] = useState(false);
+  const cardTiles = cards?.tiles ?? NO_CARDS;
+  /**
+   * 격자에 놓을 것. 카드가 먼저고 사진이 뒤다.
+   *
+   * 격자는 처음에 여섯 칸만 펴 둔다. 사진을 앞에 세우면 카드가 「더 보기」 뒤로 숨어
+   * 만들어 둔 카드를 못 찾는다. 카드는 여행 하나에 몇 장뿐이고 일부러 만든 것이라
+   * 앞자리를 준다.
+   */
+  const tiles = useMemo<MemoryTile[]>(() => {
+    const 카드 = photoFilter === "사진"
+      ? []
+      : cardTiles.map((card): MemoryTile => ({ kind: "card", key: `card:${card.id}`, card }));
+    const 사진 = photoFilter === "기념 카드"
+      ? []
+      : photos.map((photo, index): MemoryTile => ({ kind: "photo", key: `photo:${photo.id}`, photo, index }));
+    return [...카드, ...사진];
+  }, [cardTiles, photoFilter, photos]);
+  const shownTiles = showAllPhotos ? tiles : tiles.slice(0, 6);
+  // 저장했다는 한 줄은 잠깐 뜨고 사라진다. 여행 화면 바닥의 토스트와 같은 시간을 쓴다.
+  useEffect(() => {
+    if (!photoToast) return;
+    const timer = setTimeout(() => setPhotoToast(""), 2200);
+    return () => clearTimeout(timer);
+  }, [photoToast]);
+  /** 사진을 넘기거나 창을 닫는다. 열어 둔 신고 폼도 함께 닫는다. */
+  const moveViewing = (photoId: string | null) => {
+    setReporting(false);
+    setViewingPhotoId(photoId);
+  };
   const photoPalette = ["#E7B4A6", "#DFC98A", "#AFC9C3", "#D4BDD4", "#C7D493", "#9CBBC6"];
   /**
    * 기기에서 사진을 고른다. 고른 자리를 남는 자리로 옮겨 돌려준다.
@@ -8379,45 +8439,25 @@ function Memories({
     const 이름 = `${tripName} ${photo.caption || `사진 ${차례 + 1}`}`;
     return savePhotoFile(받은_것.uri, 이름);
   };
+  /**
+   * ↓ 를 누르면 바로 저장한다.
+   *
+   * 원본이냐 표시본이냐를 묻지 않는다. 기한이 남았으면 원본, 지났으면 표시본이고
+   * 그 판단은 `originalSaveHint` 가 이미 한다. 고르게 해 봐야 답이 하나뿐이라
+   * 창만 하나 더 뜬다. 잘 끝나면 토스트 한 줄, 실패했을 때만 창으로 알린다.
+   */
   const saveOnePhoto = async (photo: MemoryPhoto, 차례: number) => {
     if (saving) return;
     setSaving(true);
     try {
       const 결과 = await savePhotoToDevice(photo, 차례);
-      notify(결과 === "saved" ? "사진을 저장했어요" : "이 기기에서는 사진을 저장할 수 없어요");
+      if (결과 === "saved") setPhotoToast("사진을 저장했어요");
+      else showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진을 내려받을 수 없어요.");
     } catch {
-      notify("사진을 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요");
+      showAlert("사진을 저장하지 못했어요", "잠시 뒤에 다시 시도해 주세요.");
     } finally {
       setSaving(false);
     }
-  };
-  /**
-   * 여행 사진을 한 장씩 차례로 저장한다.
-   *
-   * 한꺼번에 쏟지 않는다. 받는 길은 요청 줄을 지나지만, 저장하는 쪽(공유 시트·브라우저
-   * 내려받기)은 한 번에 하나씩이라야 한다. 중간에 그만둘 수 있게 둔다.
-   */
-  const saveAllPhotos = async () => {
-    if (saving || !photos.length) return;
-    setSaving(true);
-    stopSaving.current = false;
-    setSavedCount(0);
-    let 저장한_수 = 0;
-    let 못한_수 = 0;
-    for (const [차례, photo] of photos.entries()) {
-      if (stopSaving.current) break;
-      try {
-        if (await savePhotoToDevice(photo, 차례) === "saved") 저장한_수 += 1;
-        else 못한_수 += 1;
-      } catch {
-        못한_수 += 1;
-      }
-      setSavedCount(차례 + 1);
-    }
-    setSaving(false);
-    notify(못한_수
-      ? `사진 ${저장한_수}장을 저장했어요. ${못한_수}장은 저장하지 못했어요`
-      : `사진 ${저장한_수}장을 저장했어요`);
   };
   /** 사진에 적힌 촬영 날짜를 이번 여행의 날짜 칸으로. 여행 밖의 날이면 빈 글자다. */
   const photoDayOf = (takenOn: string) => {
@@ -8464,19 +8504,21 @@ function Memories({
   /**
    * 이 사진을 홈 화면의 여행 카드에 깐다. 누르는 그 자리에서 서버에 보낸다.
    *
-   * 시트의 「변경 저장」을 기다리지 않는다. 사진 설명과 달리 홈에 깔 사진은
+   * 고치기 화면의 「저장」을 기다리지 않는다. 사진 설명과 달리 홈에 깔 사진은
    * 여행에 붙는 값이라 저장 단추와 함께 보내면 무엇이 저장됐는지 흐려진다.
    */
-  const cover = coverToggleOf(viewingPhotoId ?? undefined, coverPhotoId, "photo");
-  const canSetCover = canEdit && Boolean(onSaveHomeCover) && coverPickable(viewingPhotoId, uploadedPhotoIds ?? new Set());
+  const cover = coverToggleOf(editingPhotoId ?? undefined, coverPhotoId, "photo");
+  const canSetCover = canEdit && Boolean(onSaveHomeCover) && coverPickable(editingPhotoId, uploadedPhotoIds ?? new Set());
   const toggleCover = async () => {
-    if (!onSaveHomeCover || !viewingPhotoId) return;
-    const uri = photos.find((photo) => photo.id === viewingPhotoId)?.uri;
+    if (!onSaveHomeCover || !editingPhotoId) return;
+    const uri = photos.find((photo) => photo.id === editingPhotoId)?.uri;
     try {
-      await onSaveHomeCover({ coverPhotoId: cover.next }, { [viewingPhotoId]: uri });
-      notify(cover.done);
+      await onSaveHomeCover({ coverPhotoId: cover.next }, { [editingPhotoId]: uri });
+      // 고치기 화면은 검은 바탕이라 여행 화면 바닥의 토스트가 가려진다. 같은 자리의
+      // 한 줄로 알린다.
+      setPhotoToast(cover.done);
     } catch {
-      notify(COVER_FAIL);
+      showAlert("홈 화면 사진을 바꾸지 못했어요", COVER_FAIL);
     }
   };
   const openDiaryCreate = () => {
@@ -8531,26 +8573,59 @@ function Memories({
         <Text style={[styles.memorySummaryText, theme && { color: theme.muted }]}>사진 {photos.length}장 · 일기 {diaries.length}편</Text>
         <Text style={[styles.memorySummaryText, theme && { color: theme.primary }]}>{new Set(photos.map((photo) => photo.date).filter((date) => date && date !== UNDATED)).size}일의 기록</Text>
       </View>
+      {/* 「전부 저장」은 없앴다. 한 번 눌러 수십 장을 내려받는 버튼은 실수로 눌렀을 때
+          되돌릴 방법이 없다. 그 자리에는 훨씬 자주 쓰는 사진 추가를 둔다. */}
       <SectionLabel
-        label="여행 사진"
-        count={`${photos.length}장`}
-        action={photos.length && !saving ? "전부 저장" : undefined}
-        onPress={() => void saveAllPhotos()}
+        label="사진과 기념 카드"
+        count={`${photos.length + cardTiles.length}개`}
+        action={canEdit ? "사진 추가" : undefined}
+        onPress={openPhotoCreate}
       />
-      {saving && (
-        <View style={styles.uploadLine}>
-          <Text accessibilityLiveRegion="polite" style={[styles.settingHint, theme && { color: theme.muted }]}>
-            사진 {savedCount}/{photos.length}장 저장하는 중이에요
-          </Text>
-          <Pressable
-            onPress={() => { stopSaving.current = true; }}
-            accessibilityRole="button"
-            hitSlop={8}
-          >
-            <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>그만두기</Text>
-          </Pressable>
+      <View style={styles.memoryFilterLine}>
+        <View style={styles.memoryFilterRow}>
+          {PHOTO_FILTERS.map((하나) => {
+            const on = photoFilter === 하나;
+            return (
+              <Pressable
+                key={하나}
+                onPress={() => setPhotoFilter(하나)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                style={({ pressed }) => [
+                  styles.photoLinkChip,
+                  theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                  on && styles.optionChipActive,
+                  on && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                  pressed && styles.controlPressed,
+                ]}
+              >
+                <Text style={[
+                  styles.optionText,
+                  theme && { color: theme.muted },
+                  on && styles.optionTextActive,
+                  on && theme && { color: theme.primary },
+                ]}>
+                  {하나}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-      )}
+        {/* 「기념 카드 만들어 보기」는 권하는 말이라 격자 아래 큰 버튼으로 두지 않는다.
+            큰 버튼은 해야 할 일처럼 보인다. 필터 줄 끝의 작은 글씨면 눈에는 들되
+            떠밀지는 않는다. */}
+        {Boolean(cards && canEdit) && (
+          <Pressable
+            onPress={() => cards?.create()}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="기념 카드 만들어 보기"
+            style={styles.memoryFilterLink}
+          >
+            <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>기념 카드 만들어 보기</Text>
+          </Pressable>
+        )}
+      </View>
       {(uploadingPhotoIds.size > 0 || blockedPhotoIds.length > 0) && (
         <View style={styles.uploadLine}>
           <Text accessibilityLiveRegion="polite" style={[styles.settingHint, theme && { color: theme.muted }]}>
@@ -8567,35 +8642,72 @@ function Memories({
         </View>
       )}
       <View style={styles.memoryGrid}>
-        {(showAllPhotos ? photos : photos.slice(0, 6)).map((photo, index) => (
+        {shownTiles.map((tile) => tile.kind === "photo" ? (
           <Pressable
-            key={photo.id}
-            onPress={() => setViewingPhotoId(photo.id)}
+            key={tile.key}
+            onPress={() => setViewingPhotoId(tile.photo.id)}
             accessibilityRole="button"
-            accessibilityLabel={`${photo.caption || photo.date} 사진 ${photo.id === coverPhotoId ? "· 홈 화면에 쓰는 중 " : ""}크게 보기`}
+            accessibilityLabel={`${tile.photo.caption || tile.photo.date} 사진 ${tile.photo.id === coverPhotoId ? "· 홈 화면에 쓰는 중 " : ""}크게 보기`}
             style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
           >
-            <View style={[styles.memoryTilePhoto, { backgroundColor: photo.color }]}>
-              {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+            <View style={[styles.memoryTilePhoto, { backgroundColor: tile.photo.color }]}>
+              {tile.photo.uri && <Image source={{ uri: tile.photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
               <View style={styles.memoryTileGlow} />
-              {photo.id === coverPhotoId && <CoverBadge />}
-              {uploadingPhotoIds.has(photo.id) && (
+              {tile.photo.id === coverPhotoId && <CoverBadge />}
+              {uploadingPhotoIds.has(tile.photo.id) && (
                 <View style={[styles.coverBadge, styles.uploadBadge]} pointerEvents="none">
                   <Text style={styles.coverBadgeText}>
-                    {syncTrouble.rows.get(photo.id)?.state === "막힘" ? "저장 안 됨" : "올리는 중"}
+                    {syncTrouble.rows.get(tile.photo.id)?.state === "막힘" ? "저장 안 됨" : "올리는 중"}
                   </Text>
                 </View>
               )}
             </View>
             <View style={styles.memoryTileCaption}>
-              <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{photo.caption || `사진 ${index + 1}`}</Text>
-              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{photo.date}</Text>
+              <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{tile.photo.caption || `사진 ${tile.index + 1}`}</Text>
+              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{tile.photo.date}</Text>
+            </View>
+          </Pressable>
+        ) : (
+          <Pressable
+            key={tile.key}
+            onPress={() => cards?.open(tile.card.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`${tile.card.label} 기념 카드 ${tile.card.onHome ? "· 홈 화면에 쓰는 중 " : ""}열기`}
+            style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
+          >
+            <View style={[styles.memoryTilePhoto, { backgroundColor: tile.card.color }]}>
+              {Boolean(tile.card.uri) && <Image source={{ uri: tile.card.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+              <View style={styles.memoryTileGlow} />
+              {tile.card.onHome && <CoverBadge />}
+              {/* 사진과 한 격자에 섞이니 무엇이 카드인지 한눈에 보여야 한다. 홈 표시와
+                  같은 모양으로 반대쪽 모서리에 단다. */}
+              <View style={[styles.coverBadge, styles.uploadBadge]} pointerEvents="none">
+                <Text style={styles.coverBadgeText}>카드</Text>
+              </View>
+            </View>
+            <View style={styles.memoryTileCaption}>
+              <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{tile.card.label}</Text>
+              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>카드</Text>
             </View>
           </Pressable>
         ))}
       </View>
-      {photos.length === 0 && <EmptyState title="아직 추가한 사진이 없어요" description="여행의 첫 장면을 기록에 추가해 보세요." action="사진 추가" onPress={canEdit ? openPhotoCreate : undefined} />}
-      {photos.length > 6 && <ListMoreButton expanded={showAllPhotos} hiddenCount={photos.length - 6} onPress={() => setShowAllPhotos((value) => !value)} />}
+      {tiles.length === 0 && (photoFilter === "기념 카드" ? (
+        <EmptyState
+          title="아직 만든 기념 카드가 없어요"
+          description="여행 사진 몇 장을 골라 한 장으로 묶어 보세요."
+          action="기념 카드 만들어 보기"
+          onPress={canEdit && cards ? cards.create : undefined}
+        />
+      ) : (
+        <EmptyState
+          title="아직 추가한 사진이 없어요"
+          description="여행의 첫 장면을 기록에 추가해 보세요."
+          action="사진 추가"
+          onPress={canEdit ? openPhotoCreate : undefined}
+        />
+      ))}
+      {tiles.length > 6 && <ListMoreButton expanded={showAllPhotos} hiddenCount={tiles.length - 6} onPress={() => setShowAllPhotos((value) => !value)} />}
       <SectionLabel
         label="여행 일기"
         action={canEdit ? "일기 쓰기" : undefined}
@@ -8650,176 +8762,91 @@ function Memories({
         coverCardId={coverCardId}
         onSaveHomeCover={onSaveHomeCover}
         onAddPhoto={openPhotoCreate}
+        onInline={takeCards}
         canEdit={canEdit}
         theme={theme}
         notify={notify}
         ui={CARD_UI}
       />
-      {/* 사진을 크게 보는 창. 누르면 먼저 이 창이 열리고, 고치기는 여기서 한 번 더 들어간다. */}
-      <DetailSheet
+      {/* 사진을 크게 보는 화면. 시트가 아니라 화면을 통째로 덮는다. 사진첩을 넘겨 보는
+          자리라 사진이 주인공이어야 한다(`PhotoViewer.tsx`). */}
+      <PhotoViewerScreen
         visible={Boolean(viewingPhotoId) && Boolean(viewing)}
-        title="사진"
-        subtitle={photos.length > 1 ? `${viewIndex + 1} / ${photos.length}장 · 화살표로 넘겨 봐요` : undefined}
-        submit="닫기"
-        onClose={() => setViewingPhotoId(null)}
-        onSubmit={() => setViewingPhotoId(null)}
-      >
-        {viewing && (
-          <>
-            <View style={[styles.photoViewer, { backgroundColor: theme?.surfaceAlt ?? "#F2EFEA", borderColor: theme?.border ?? "#E5E1DC" }]}>
-              {viewing.uri
-                ? <Image source={{ uri: viewing.uri }} resizeMode="contain" style={styles.memoryPhotoImage} />
-                : <Text style={[styles.settingHint, theme && { color: theme.muted }]}>사진을 받는 중이에요</Text>}
-              {photos.length > 1 && (
-                <>
-                  <Pressable
-                    onPress={() => setViewingPhotoId(photos[(viewIndex + photos.length - 1) % photos.length].id)}
-                    accessibilityRole="button"
-                    accessibilityLabel="이전 사진"
-                    style={[styles.photoStep, styles.photoStepLeft]}
-                  >
-                    <Glyph name="chevronLeft" size={18} color="#FFFFFF" />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setViewingPhotoId(photos[(viewIndex + 1) % photos.length].id)}
-                    accessibilityRole="button"
-                    accessibilityLabel="다음 사진"
-                    style={[styles.photoStep, styles.photoStepRight]}
-                  >
-                    <Glyph name="chevronRight" size={18} color="#FFFFFF" />
-                  </Pressable>
-                </>
-              )}
-            </View>
-            <View style={styles.photoViewerLine}>
-              <Text numberOfLines={2} style={[styles.photoViewerCaption, theme && { color: theme.text }]}>
-                {viewing.caption || "설명 없이 남긴 사진"}
-              </Text>
-              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{viewing.date}</Text>
-            </View>
-            {(canSetCover || cover.on) && (
-              <Pressable
-                onPress={toggleCover}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: cover.on }}
-                accessibilityLabel="이 사진을 홈 화면의 여행 카드에 쓰기"
-                style={[
-                  styles.coverRow,
-                  { borderColor: theme?.border ?? "#E5E1DC", backgroundColor: theme?.surface ?? "#FFFFFF" },
-                  cover.on && theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft },
-                ]}
-              >
-                <Glyph name="home" size={15} color={cover.on ? theme?.primary ?? "#3F4C8F" : theme?.muted ?? "#8C8378"} />
-                <Text style={[styles.coverRowText, { color: cover.on ? theme?.primary ?? "#3F4C8F" : theme?.muted ?? "#8C8378" }]}>
-                  {cover.label}
-                </Text>
-              </Pressable>
-            )}
-            {!canSetCover && !cover.on && uploadingPhotoIds.has(viewing.id) && (
-              <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-                {syncTrouble.rows.get(viewing.id)?.state === "막힘"
-                  ? `아직 못 올린 사진이에요. ${syncTrouble.rows.get(viewing.id)?.reason ?? ""} 올라가면 홈 화면에 쓸 수 있어요.`
-                  : "올라가는 중이라 아직 홈 화면에 쓸 수 없어요. 다 올라가면 여기에서 쓸 수 있어요."}
-              </Text>
-            )}
-            <Pressable
-              onPress={() => void saveOnePhoto(viewing, viewIndex)}
-              disabled={saving || uploadingPhotoIds.has(viewing.id)}
-              accessibilityRole="button"
-              accessibilityLabel="이 사진을 기기에 저장"
-              accessibilityState={{ disabled: saving || uploadingPhotoIds.has(viewing.id) }}
-              style={[
-                styles.coverRow,
-                { borderColor: theme?.border ?? "#E5E1DC", backgroundColor: theme?.surface ?? "#FFFFFF" },
-                (saving || uploadingPhotoIds.has(viewing.id)) && styles.coverRowWaiting,
-              ]}
-            >
-              <Glyph name="share" size={15} color={theme?.primary ?? "#3F4C8F"} />
-              <Text style={[styles.coverRowText, { color: theme?.primary ?? "#3F4C8F" }]}>
-                {saving ? "저장하는 중이에요" : "이 사진 저장"}
-              </Text>
-            </Pressable>
-            {Boolean(originalSaveHint(viewing.originalUntil, todayKey).text) && (
-              <Text style={[
-                styles.settingHint,
-                theme && { color: theme.muted },
-                originalSaveHint(viewing.originalUntil, todayKey).soon && { color: warningInk },
-              ]}>
-                {originalSaveHint(viewing.originalUntil, todayKey).text}
-              </Text>
-            )}
-            {canManagePhoto(viewing) && (
-              <Pressable
-                onPress={() => openPhotoEdit(viewing)}
-                accessibilityRole="button"
-                accessibilityLabel="이 사진 기록 수정"
-                style={[styles.coverRow, { borderColor: theme?.border ?? "#E5E1DC", backgroundColor: theme?.surface ?? "#FFFFFF" }]}
-              >
-                <Glyph name="chevronRight" size={15} color={theme?.primary ?? "#3F4C8F"} />
-                <Text style={[styles.coverRowText, { color: theme?.primary ?? "#3F4C8F" }]}>수정</Text>
-              </Pressable>
-            )}
-            {reportSpaceId && isServerId(viewing.id) && (
-              <ReportLink key={viewing.id} spaceId={reportSpaceId} targetType="photo" targetId={viewing.id} label="이 사진 신고하기" />
-            )}
-          </>
-        )}
-      </DetailSheet>
-      <DetailSheet
-        visible={photoEditing}
-        title={editingPhotoId ? "사진 기록 수정" : photoDrafts.length > 1 ? `사진 ${photoDrafts.length}장 추가` : "사진 추가"}
-        subtitle={editingPhotoId
-          ? "사진을 크게 보면서 날짜와 설명을 고쳐요"
-          : photoDrafts.length > 1
-            ? "고른 사진에 같은 날짜와 설명이 붙어요"
-            : "날짜와 짧은 설명을 함께 남겨보세요"}
-        submit={editingPhotoId ? "변경 저장" : photoDrafts.length > 1 ? `${photoDrafts.length}장 추가` : "사진 추가"}
-        disabledHint={!photoSelected && !photoDrafts.length ? "사진을 선택해 주세요" : undefined}
-        submitDisabled={!photoSelected && !photoDrafts.length}
-        destructiveLabel={editingPhotoId ? "사진 삭제" : undefined}
-        destructiveMessage="사진을 여행 기록에서 삭제해요."
+        photos={photos}
+        index={viewIndex}
+        onMove={moveViewing}
+        onClose={() => moveViewing(null)}
+        onSave={() => viewing && void saveOnePhoto(viewing, viewIndex)}
+        saving={saving}
+        saveBlocked={Boolean(viewing && uploadingPhotoIds.has(viewing.id))}
+        onEdit={viewing && canManagePhoto(viewing) ? () => openPhotoEdit(viewing) : undefined}
+        onReport={reportSpaceId && viewing && isServerId(viewing.id) ? () => setReporting(true) : undefined}
+        report={reporting && reportSpaceId && viewing && isServerId(viewing.id)
+          ? <ReportForm spaceId={reportSpaceId} targetType="photo" targetId={viewing.id} onClose={() => setReporting(false)} />
+          : undefined}
+        hint={viewing ? originalSaveHint(viewing.originalUntil, todayKey).text : undefined}
+        hintSoon={viewing ? originalSaveHint(viewing.originalUntil, todayKey).soon : false}
+        toast={photoToast}
+        waitingText={viewing && uploadingPhotoIds.has(viewing.id)
+          ? (syncTrouble.rows.get(viewing.id)?.state === "막힘" ? "아직 못 올린 사진이에요" : "올리는 중이에요")
+          : undefined}
+      />
+      {/* 고치기도 전용 화면이다. 시트 안에서 사진을 작게 보며 고치던 자리를 옮겼다. */}
+      <PhotoEditScreen
+        visible={photoEditing && Boolean(editingPhotoId)}
+        uri={photoUri}
+        color={photoColor}
+        caption={photoCaption}
+        onCaption={setPhotoCaption}
+        date={photoDate}
+        dateOptions={photoDayOptions}
+        onDate={setPhotoDate}
+        linkLabels={photoLinkOptions.map((option) => option.label)}
+        linkChosen={photoLinkOptions.map((option) => photoLinks.some((link) => sameLink(link, option)))}
+        onToggleLink={(차례) => {
+          const option = photoLinkOptions[차례];
+          setPhotoLinks((지금) => 지금.some((link) => sameLink(link, option))
+            ? 지금.filter((link) => !sameLink(link, option))
+            : [...지금, { targetType: option.targetType, targetId: option.targetId }]);
+        }}
+        cover={canSetCover || cover.on ? { on: cover.on, label: cover.label } : undefined}
+        onCover={canSetCover || cover.on ? toggleCover : undefined}
+        onRepick={choosePhoto}
+        onDelete={() => confirmPhotoDelete(deletePhoto)}
+        onClose={() => setPhotoEditing(false)}
+        onSubmit={() => void savePhoto()}
+        toast={photoToast}
         readOnly={!canManagePhoto(photos.find((photo) => photo.id === editingPhotoId))}
         readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined}
-        onDestructive={deletePhoto}
+        theme={theme}
+      />
+      {/* 새로 고른 사진을 기록에 넣는 시트. 고치기와 달리 여기는 그대로 둔다. 여러 장을
+          한꺼번에 고른 뒤 같은 날짜와 설명을 다는 자리라 사진 한 장이 주인공이 아니다. */}
+      <DetailSheet
+        visible={photoEditing && !editingPhotoId}
+        title={photoDrafts.length > 1 ? `사진 ${photoDrafts.length}장 추가` : "사진 추가"}
+        subtitle={photoDrafts.length > 1 ? "고른 사진에 같은 날짜와 설명이 붙어요" : "날짜와 짧은 설명을 함께 남겨보세요"}
+        submit={photoDrafts.length > 1 ? `${photoDrafts.length}장 추가` : "사진 추가"}
+        disabledHint={!photoDrafts.length ? "사진을 선택해 주세요" : undefined}
+        submitDisabled={!photoDrafts.length}
         onClose={() => setPhotoEditing(false)}
         onSubmit={savePhoto}
       >
-        {/* 고칠 때는 사진을 통째로 보여 준다. 세로로 긴 사진이 잘리면 무엇을 고치는지
-            알 수 없다. 높이는 막아 둔다. 사진이 화면을 다 먹으면 아래의 날짜·설명이
-            보이지 않는다. 추가할 때는 고른 사진들을 한 줄로 늘어놓는다. */}
-        {editingPhotoId ? (
-          <View style={[styles.photoViewer, { backgroundColor: theme?.surfaceAlt ?? "#F2EFEA", borderColor: theme?.border ?? "#E5E1DC" }]}>
-            {photoUri
-              ? <Image source={{ uri: photoUri }} resizeMode="contain" style={styles.memoryPhotoImage} />
-              : <Text style={[styles.settingHint, theme && { color: theme.muted }]}>사진을 받는 중이에요</Text>}
-          </View>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.photoDraftRow}
-          >
-            {photoDrafts.map((고른_것, 차례) => (
-              <View key={`${고른_것.uri}:${차례}`} style={[styles.photoDraft, { borderColor: theme?.border ?? "#E5E1DC" }]}>
-                <Image source={{ uri: 고른_것.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />
-              </View>
-            ))}
-          </ScrollView>
-        )}
+        {/* 고른 사진들을 한 줄로 늘어놓고 옆으로 밀어 본다. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.photoDraftRow}
+        >
+          {photoDrafts.map((고른_것, 차례) => (
+            <View key={`${고른_것.uri}:${차례}`} style={[styles.photoDraft, { borderColor: theme?.border ?? "#E5E1DC" }]}>
+              <Image source={{ uri: 고른_것.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />
+            </View>
+          ))}
+        </ScrollView>
         <OptionField label="여행 날짜" options={photoDayOptions} value={photoDate} onChange={setPhotoDate} />
         <PhotoLinkField options={photoLinkOptions} value={photoLinks} onChange={setPhotoLinks} />
         <DetailField label="사진 설명 · 선택 사항" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
-        {/* 사진 자체를 바꾸는 일은 드물어 아래에 둔다. */}
-        {editingPhotoId && (
-          <Pressable
-            onPress={choosePhoto}
-            accessibilityRole="button"
-            accessibilityLabel="이 사진 다시 고르기"
-            style={styles.photoRepick}
-          >
-            <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>이 사진 다시 고르기</Text>
-          </Pressable>
-        )}
       </DetailSheet>
       <DetailSheet
         visible={diaryWriting}
@@ -12103,6 +12130,10 @@ const styles = StyleSheet.create({
   diaryTitle: { fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
   diaryBody: { fontSize: 14, lineHeight: 20, marginTop: 6 },
   photoLinkRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  // 격자 위의 필터 줄. 칩은 왼쪽에 모으고, 권하는 말은 오른쪽 끝에 작게 붙인다.
+  memoryFilterLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  memoryFilterRow: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  memoryFilterLink: { paddingVertical: 4 },
   photoLinkChip: {
     height: 36,
     maxWidth: "100%",

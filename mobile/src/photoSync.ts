@@ -70,6 +70,8 @@ export type PhotoRow = {
    * 막 올린 내 사진이다. 사진은 올린 사람과 관리자만 고칠 수 있어 화면이 이 값으로 가린다.
    */
   uploaderMembershipId?: string | null;
+  /** 올린 사람의 이름. 크게 보는 화면의 `하늘이 올림` 줄에 쓴다. 서버 사진에만 있다. */
+  uploaderName?: string;
   /**
    * 원본을 언제까지 받을 수 있는지(ISO).
    *
@@ -187,6 +189,9 @@ export function photoCodec(
       links: tidyLinks(row.links),
       // 올린 사람과 원본 기한은 받아 두기만 한다. 서버로 보내는 칸(toBody)에는 없다.
       uploaderMembershipId: row.uploaderMembershipId,
+      // 이름이 빈 줄인 서버 사진이 있다(탈퇴한 멤버). 그때는 칸을 만들지 않아
+      // 크게 보는 화면이 `누가 올림` 줄을 아예 내지 않게 한다.
+      ...(row.uploaderName ? { uploaderName: row.uploaderName } : {}),
       // 서버가 말해 주지 않으면 칸을 만들지 않는다. 있는데 비어 있는 것과 다르다.
       ...(row.originalUntil === undefined ? {} : { originalUntil: row.originalUntil }),
     }),

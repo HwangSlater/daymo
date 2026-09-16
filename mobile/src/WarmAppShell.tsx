@@ -732,9 +732,9 @@ export function WarmAppShell({
     settings.appearance,
   );
   useSaveSettings({ themeId, appearance, activeGroupId, since: activeSpace.since });
-  const [user, setUser] = useState<DaymoUser | null>({ name: "하늘", email: "sky@example.com", deletionScheduledAt: null, hasPassword: true, linkedProviders: [] });
+  const [user, setUser] = useState<DaymoUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [authOffline, setAuthOffline] = useState(true);
+  const [authOffline, setAuthOffline] = useState(false);
   // 로그아웃된 뒤 로그인 화면에 한 번 띄울 안내. 계정 삭제를 요청한 직후에 쓴다.
   const [authNotice, setAuthNotice] = useState("");
   useSaveMe(user);
@@ -743,8 +743,8 @@ export function WarmAppShell({
     restoreSession()
       .then((session) => {
         if (!active) return;
-        setUser((지금) => session?.user ?? 지금);
-        setAuthOffline(true);
+        setUser(session?.user ?? null);
+        setAuthOffline(session?.offline ?? false);
       })
       .finally(() => {
         if (active) setAuthReady(true);
