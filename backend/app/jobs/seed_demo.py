@@ -574,9 +574,17 @@ async def _ongoing_trip(session, space, p: People, today: date) -> tuple[Trip, i
             ],
         },
     )
-    await _packing(session, trip, p.하늘, "보드게임", owner=p.하늘, done=True)
+    # 진행 중인 여행이라 챙긴 것과 남은 것이 섞여 있다. 다 체크해 두면 준비 탭이
+    # "남은 준비" 에서 빈 화면으로 열려, 이 탭이 무엇을 하는 곳인지 보이지 않는다.
+    await _packing(session, trip, p.하늘, "보드게임", owner=p.하늘, done=True, quantity="2개")
     await _packing(session, trip, p.여울, "선크림", shared=True, done=True)
     await _packing(session, trip, p.가람, "돗자리", owner=p.가람, done=True)
+    await _packing(session, trip, p.하늘, "보조배터리", owner=p.하늘, done=True, tags=["전자기기"])
+    await _packing(session, trip, p.여울, "카메라 충전기", owner=p.여울, tags=["전자기기"])
+    await _packing(session, trip, p.하늘, "수영복", owner=p.하늘)
+    await _packing(session, trip, p.가람, "슬리퍼", owner=p.가람, quantity="3켤레")
+    await _packing(session, trip, p.여울, "상비약", shared=True, tags=["비상"])
+    await _packing(session, trip, p.하늘, "돌아갈 때 먹을 간식", shared=True)
 
     await _expense(session, trip, p.여울, d1, "시외버스 왕복", 84000, ExpenseCategory.TRANSPORT, p.여울, _shares(*p.all))
     await _expense(session, trip, p.하늘, d1, "안목 카페 거리", 39000, ExpenseCategory.MEAL, p.하늘, _shares(*p.all))
