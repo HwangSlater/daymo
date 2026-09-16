@@ -100,6 +100,7 @@ import {
   listTrips,
   setTripParticipants,
   updateExpenseSettings,
+  updateKeepsake,
   updateSpace,
   updateTrip,
   type ExpenseSettings,
@@ -119,6 +120,7 @@ import {
 } from "./spaceMapping";
 import { mergeServerTripsByGroup } from "./tripMerge";
 import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
+import type { SavedKeepsake } from "./tripCard";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
@@ -149,6 +151,8 @@ type Trip = {
   overview?: ServerTripOverview;
   /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
   serverExpenseSettings?: ExpenseSettings;
+  /** 기념 카드를 어떻게 꾸몄는지. 함께 보는 사람에게 같은 카드가 보이도록 서버에 둔다. */
+  keepsake?: SavedKeepsake;
   /**
    * 앱이 처음부터 들고 있는 예시 여행.
    *
@@ -202,6 +206,7 @@ const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []):
     ...(participants.length ? { planning: { participants } } : {}),
     ...(overview ? { overview } : {}),
     serverExpenseSettings: expenseSettingsFrom(trip),
+    ...(trip.cardSettings ? { keepsake: trip.cardSettings } : {}),
     archived: trip.status === "archived",
     ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
   };
@@ -1040,6 +1045,21 @@ export function WarmAppShell({
           });
           applyServerTrip(saved);
         }}
+        serverKeepsake={selectedTrip.keepsake}
+        onUpdateKeepsake={selectedTrip.id && selectedTrip.version !== undefined ? async (settings) => {
+          const tripId = selectedTrip.id as string;
+          let saved: ServerTrip;
+          try {
+            saved = await updateKeepsake(tripId, selectedTrip.version!, settings);
+          } catch (caught) {
+            // 카드는 마지막에 꾸민 모습이 맞다. 다른 곳에서 여행을 먼저 고쳤으면
+            // 최신 버전으로 한 번 더 보낸다(통화·예산과 같은 규칙이다).
+            if (!(caught instanceof DaymoApiError) || caught.code !== "VERSION_CONFLICT") throw caught;
+            const latest = await getTrip(tripId);
+            saved = await updateKeepsake(tripId, latest.version, settings);
+          }
+          applyServerTrip(saved);
+        } : undefined}
         serverExpenseSettings={selectedTrip.serverExpenseSettings}
         onUpdateExpenseSettings={async (settings) => {
           if (!selectedTrip.id || selectedTrip.version === undefined) return;

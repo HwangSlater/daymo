@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import uuid
+from datetime import date as Date
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request, Response, status
@@ -12,8 +13,14 @@ from app.api.permissions import WRITERS, membership_for_trip, membership_for_tri
 from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok, page
-from app.models import Photo, PhotoStatus
-from app.schemas.photo import PhotoCreateRequest, PhotoOut, PhotoUpdateRequest
+from app.models import Photo, PhotoStatus, PhotoTargetType
+from app.schemas.photo import (
+    PhotoCreateRequest,
+    PhotoLinkOut,
+    PhotoLinkTarget,
+    PhotoOut,
+    PhotoUpdateRequest,
+)
 from app.services import audit, photo_files
 from app.services import photos as photo_service
 from app.services.memories import author_names, name_of
@@ -24,8 +31,11 @@ router = APIRouter(tags=["photos"])
 # 워커 하나에서 사진 변환은 한 번에 하나만. 큰 사진 여러 장이 겹치면 메모리가 모자란다.
 _변환_차례 = asyncio.Semaphore(1)
 
+# 사진이 붙어 있는 곳. 사진 id 마다 목록이고, 없으면 빈 목록이다.
+Links = dict[uuid.UUID, list[tuple[PhotoTargetType, uuid.UUID]]]
 
-def _사진_응답(photo: Photo, names: dict) -> dict:
+
+def _사진_응답(photo: Photo, names: dict, links: Links) -> dict:
     return PhotoOut(
         id=str(photo.id),
         trip_id=str(photo.trip_id),
@@ -41,11 +51,23 @@ def _사진_응답(photo: Photo, names: dict) -> dict:
         uploader_name=name_of(names, photo.uploader_membership_id),
         created_at=photo.created_at,
         version=photo.version,
+        links=[
+            PhotoLinkOut(target_type=target_type, target_id=str(target_id))
+            for target_type, target_id in links.get(photo.id, [])
+        ],
     ).model_dump(by_alias=True, mode="json")
 
 
+def _붙일_곳(links) -> list[tuple[PhotoTargetType, uuid.UUID]]:
+    return [(PhotoTargetType(link.target_type), link.target_id) for link in links]
+
+
 async def _한_장(db, photo: Photo) -> dict:
-    return _사진_응답(photo, await author_names(db, [photo.uploader_membership_id]))
+    return _사진_응답(
+        photo,
+        await author_names(db, [photo.uploader_membership_id]),
+        await photo_service.links_of(db, [photo.id]),
+    )
 
 
 async def _살아_있는_사진(db, caller, photo_id: uuid.UUID):
@@ -56,12 +78,31 @@ async def _살아_있는_사진(db, caller, photo_id: uuid.UUID):
 
 
 @router.get("/trips/{trip_id}/photos")
-async def list_photos(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
-    """다 올라온 여행 사진. 영수증은 지출이 가리키므로 여기 없다."""
+async def list_photos(
+    trip_id: uuid.UUID,
+    caller: CurrentCaller,
+    db: DbSession,
+    target_type: PhotoLinkTarget | None = Query(default=None, alias="targetType"),
+    target_id: uuid.UUID | None = Query(default=None, alias="targetId"),
+    date: Date | None = Query(default=None),
+) -> dict:
+    """
+    다 올라온 여행 사진. 영수증은 지출이 가리키므로 여기 없다.
+
+    `targetType`·`targetId` 를 함께 주면 그곳에 붙은 사진만, `date` 를 주면 그날로 고른
+    사진만 준다. 숙소 카드가 `targetType=stay` 로 한 번, `date` 로 한 번 물어서
+    "그 숙소 사진" 과 "그날 사진" 을 함께 보여 준다.
+    """
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
-    photos = await photo_service.list_photos(db, trip)
+    if (target_type is None) != (target_id is None):
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR, fields={"targetId": "붙은 곳으로 찾으려면 종류와 id 를 함께 주세요."}
+        )
+    target = (PhotoTargetType(target_type), target_id) if target_type and target_id else None
+    photos = await photo_service.list_photos(db, trip, target=target, on=date)
     names = await author_names(db, [photo.uploader_membership_id for photo in photos])
-    return page([_사진_응답(photo, names) for photo in photos])
+    links = await photo_service.links_of(db, [photo.id for photo in photos])
+    return page([_사진_응답(photo, names, links) for photo in photos])
 
 
 @router.post("/trips/{trip_id}/photos", status_code=status.HTTP_201_CREATED)
@@ -70,8 +111,10 @@ async def create_photo(
 ) -> dict:
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     require(membership, *WRITERS)
+    값 = body.model_dump(exclude={"id"})
+    값["links"] = _붙일_곳(body.links)
     photo, 만들었다 = await photo_service.create_photo(
-        db, trip=trip, actor=membership, photo_id=body.id, values=body.model_dump(exclude={"id"})
+        db, trip=trip, actor=membership, photo_id=body.id, values=값
     )
     if not 만들었다:
         response.status_code = status.HTTP_200_OK
@@ -179,12 +222,14 @@ async def photo_content(
 
 @router.patch("/photos/{photo_id}")
 async def update_photo(photo_id: uuid.UUID, body: PhotoUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
-    """설명과 날짜. 올린 사람과 owner 만 고친다."""
+    """설명·날짜와 붙은 곳. 올린 사람과 owner 만 고친다."""
     membership, _, photo = await _살아_있는_사진(db, caller, photo_id)
     require(membership, *WRITERS)
+    바꿀_것 = body.model_dump(exclude_unset=True, exclude={"version"})
+    if "links" in 바꿀_것:
+        바꿀_것["links"] = _붙일_곳(body.links or [])
     await photo_service.update_photo(
-        db, photo=photo, actor=membership, version=body.version,
-        changes=body.model_dump(exclude_unset=True, exclude={"version"}),
+        db, photo=photo, actor=membership, version=body.version, changes=바꿀_것
     )
     return ok(await _한_장(db, photo))
 

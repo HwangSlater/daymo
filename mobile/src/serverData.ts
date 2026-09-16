@@ -8,6 +8,7 @@ import type { DiaryBody, MemoBody, ServerDiary, ServerMemo, ServerTrashItem } fr
 import type { PhotoBody, ServerPhoto } from "./photoSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 import type { ServerTripOverview } from "./tripOverview";
+import type { SavedKeepsake } from "./tripCard";
 
 export type ServerSpace = {
   id: string;
@@ -36,6 +37,8 @@ export type ServerTrip = {
   exchangeRate?: number | string | null;
   budget?: number | string | null;
   simplifySettlement?: boolean;
+  /** 기념 카드를 어떻게 꾸몄는지. 아직 아무도 꾸미지 않았으면 없다. */
+  cardSettings?: SavedKeepsake | null;
   archivedAt?: string | null;
   /** 지운 여행일 때만. 이 시각이 지나면 되돌릴 수 없다. */
   deletionScheduledAt?: string | null;
@@ -382,6 +385,13 @@ export const updatePhoto = (id: string, version: number, body: PhotoBody) =>
 
 export const deletePhoto = (id: string) =>
   authenticatedRequest<void>(`/v1/photos/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+/** 기념 카드에서 꾸민 것. 통째로 바꾼다. */
+export const updateKeepsake = (tripId: string, version: number, settings: SavedKeepsake) =>
+  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, cardSettings: settings }),
+  });
 
 export const updateExpenseSettings = (tripId: string, version: number, settings: ExpenseSettings) =>
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/expense-settings`, {

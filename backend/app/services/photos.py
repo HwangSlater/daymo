@@ -11,19 +11,36 @@
 1번이 끝나고 2번이 끊기면 앱은 2번만 다시 보낸다. 하루 넘게 `uploading` 인 줄은
 정리 작업이 지운다.
 
-권한: 올리기는 owner·editor. 설명·날짜 고치기와 지우기는 올린 사람과 owner 만
+사진은 장소·일정·숙소에 붙을 수 있다(`photo_links`). 붙은 곳은 사진 줄의 `links` 로
+오간다. 따로 붙이고 떼는 주소를 두지 않는 이유는 앱이 목록 하나를 통째로 맞추는
+방식이라(`mobile/src/listSync.ts`) 사진 줄과 연결이 따로 오면 두 값이 어긋나서다.
+날짜는 연결이 아니라 사진 자신의 `taken_on` 이다. 여행 기간이 바뀌어도 사진이
+놓인 날은 그대로여야 해서 `trip_days` 를 가리키지 않는다.
+
+권한: 올리기는 owner·editor. 설명·날짜·연결 고치기와 지우기는 올린 사람과 owner 만
 (docs/development/03-api-specification.md 10장). 보기는 공간 멤버 전원.
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
-from app.models import Membership, MembershipRole, Photo, PhotoStatus, Trip
+from app.models import (
+    Membership,
+    MembershipRole,
+    Photo,
+    PhotoLink,
+    PhotoStatus,
+    PhotoTargetType,
+    ScheduleItem,
+    Stay,
+    Trip,
+    TripPlace,
+)
 from app.services import photo_files
 
 # 지운 사진을 되살릴 수 있는 기간. 지나면 파일과 줄을 함께 지운다.
@@ -57,22 +74,99 @@ async def check_quota(session: AsyncSession, trip: Trip, more_bytes: int) -> Non
         raise AppError(ErrorCode.STORAGE_QUOTA_EXCEEDED)
 
 
-async def list_photos(session: AsyncSession, trip: Trip) -> list[Photo]:
-    """다 올라온 여행 사진. 영수증과 지운 사진은 뺀다. 고른 날, 올린 순서다."""
-    return list(
-        (
-            await session.execute(
-                select(Photo)
-                .where(
-                    Photo.trip_id == trip.id,
-                    Photo.status == PhotoStatus.READY,
-                    Photo.deleted_at.is_(None),
-                    Photo.is_receipt.is_(False),
-                )
-                .order_by(Photo.taken_on.is_(None), Photo.taken_on, Photo.created_at, Photo.id)
-            )
-        ).scalars()
+async def list_photos(
+    session: AsyncSession,
+    trip: Trip,
+    *,
+    target: tuple[PhotoTargetType, uuid.UUID] | None = None,
+    on: date | None = None,
+) -> list[Photo]:
+    """
+    다 올라온 여행 사진. 영수증과 지운 사진은 뺀다. 고른 날, 올린 순서다.
+
+    `target` 은 그곳에 붙은 사진만, `on` 은 그날로 고른 사진만 고른다. 숙소 글을
+    눌렀을 때 그 숙소 사진과 그날 사진을 함께 보여 주려고 둘을 따로 뒀다.
+    """
+    query = select(Photo).where(
+        Photo.trip_id == trip.id,
+        Photo.status == PhotoStatus.READY,
+        Photo.deleted_at.is_(None),
+        Photo.is_receipt.is_(False),
     )
+    if target is not None:
+        query = query.join(PhotoLink, PhotoLink.photo_id == Photo.id).where(
+            PhotoLink.target_type == target[0], PhotoLink.target_id == target[1]
+        )
+    if on is not None:
+        query = query.where(Photo.taken_on == on)
+    query = query.order_by(Photo.taken_on.is_(None), Photo.taken_on, Photo.created_at, Photo.id)
+    return list((await session.execute(query)).scalars())
+
+
+# 사진을 붙일 수 있는 곳과 그 표. 날짜는 사진 자신의 `taken_on` 이라 여기 없고,
+# 여행 전체는 사진의 `trip_id` 라 따로 붙일 것이 없다.
+LINKABLE: dict[PhotoTargetType, type] = {
+    PhotoTargetType.PLACE: TripPlace,
+    PhotoTargetType.SCHEDULE: ScheduleItem,
+    PhotoTargetType.STAY: Stay,
+}
+
+
+async def links_of(
+    session: AsyncSession, photo_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[tuple[PhotoTargetType, uuid.UUID]]]:
+    """사진마다 붙은 곳. 목록을 한 번에 그리려고 사진 여러 장을 한 질의로 읽는다."""
+    붙은_곳: dict[uuid.UUID, list[tuple[PhotoTargetType, uuid.UUID]]] = {}
+    if not photo_ids:
+        return 붙은_곳
+    rows = (
+        await session.execute(
+            select(PhotoLink)
+            .where(PhotoLink.photo_id.in_(photo_ids))
+            .order_by(PhotoLink.target_type, PhotoLink.created_at, PhotoLink.id)
+        )
+    ).scalars()
+    for row in rows:
+        붙은_곳.setdefault(row.photo_id, []).append((row.target_type, row.target_id))
+    return 붙은_곳
+
+
+async def set_links(
+    session: AsyncSession, *, photo: Photo, targets: list[tuple[PhotoTargetType, uuid.UUID]]
+) -> None:
+    """
+    사진이 붙을 곳을 통째로 다시 정한다. 없어진 것은 떼고 새로 온 것만 붙인다.
+
+    같은 여행의 장소·일정·숙소만 받는다. 남의 여행 id 를 보내면 그 여행 사람이
+    아닌데도 사진이 그쪽에 걸리므로 막는다.
+    """
+    원하는: list[tuple[PhotoTargetType, uuid.UUID]] = []
+    for target_type, target_id in targets:
+        model = LINKABLE.get(target_type)
+        if model is None:
+            raise AppError(
+                ErrorCode.VALIDATION_ERROR,
+                fields={"links": "사진은 장소·일정·숙소에만 붙일 수 있어요. 날짜는 date 로 정해요."},
+            )
+        대상 = await session.get(model, target_id)
+        if 대상 is None or 대상.trip_id != photo.trip_id:
+            raise AppError(ErrorCode.VALIDATION_ERROR, fields={"links": "이 여행에 없는 곳이에요."})
+        if (target_type, target_id) not in 원하는:
+            원하는.append((target_type, target_id))
+
+    지금 = {
+        (link.target_type, link.target_id): link
+        for link in (
+            await session.execute(select(PhotoLink).where(PhotoLink.photo_id == photo.id))
+        ).scalars()
+    }
+    for key, link in 지금.items():
+        if key not in 원하는:
+            await session.delete(link)
+    for target_type, target_id in 원하는:
+        if (target_type, target_id) not in 지금:
+            session.add(PhotoLink(photo_id=photo.id, target_type=target_type, target_id=target_id))
+    await session.flush()
 
 
 async def create_photo(
@@ -101,6 +195,7 @@ async def create_photo(
     )
     session.add(photo)
     await session.flush()
+    await set_links(session, photo=photo, targets=values.get("links") or [])
     return photo, True
 
 
@@ -123,6 +218,8 @@ async def update_photo(session: AsyncSession, *, photo: Photo, actor: Membership
         photo.caption = _caption(changes["caption"])
     if "date" in changes:
         photo.taken_on = changes["date"]
+    if "links" in changes:
+        await set_links(session, photo=photo, targets=changes["links"] or [])
     photo.version += 1
     await session.flush()
     return photo

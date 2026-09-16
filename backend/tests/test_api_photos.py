@@ -8,14 +8,15 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from PIL import Image
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.config import get_settings
-from app.models import Membership, MembershipRole, Photo, PhotoStatus, Trip
+from app.models import Membership, MembershipRole, Photo, PhotoLink, PhotoStatus, Trip
 from app.services import photo_files
 from app.services.photos import purge_photos
 from app.services.trips import purge_deleted_trips
-from tests.test_api_places import 멤버로_넣는다, 여행_하나
+from tests.test_api_places import 멤버로_넣는다, 여행_하나, 장소를_담는다
+from tests.test_api_schedule import 일정을_넣는다
 from tests.test_api_trips import 로그인한_사람
 
 pytestmark = pytest.mark.anyio
@@ -318,3 +319,122 @@ def test_PNG과_WebP의_메타데이터_조각도_뺀다(tmp_path):
         with Image.open(파일) as 열림:
             assert 열림.tobytes() == 그림.tobytes()
             assert not 열림.getexif().get_ifd(0x8825)
+
+
+# ---------------------------------------------------------------------------
+# 붙은 곳(장소·일정·숙소)과 날짜로 찾기
+# ---------------------------------------------------------------------------
+
+
+async def 붙일_곳_셋(api, headers, trip_id):
+    """장소 하나, 그 장소를 쓰는 숙소 하나, 일정 하나."""
+    장소 = (await 장소를_담는다(api, headers, trip_id)).json()["data"]
+    숙소 = (
+        await api.post(
+            f"/v1/trips/{trip_id}/stays",
+            json={"tripPlaceId": 장소["id"], "checkInAt": "2026-10-01T15:00", "checkOutAt": "2026-10-03T11:00"},
+            headers=headers,
+        )
+    ).json()["data"]
+    일정 = (await 일정을_넣는다(api, headers, trip_id)).json()["data"]
+    return 장소, 숙소, 일정
+
+
+async def test_사진을_장소_일정_숙소에_붙이고_그곳으로_찾는다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    장소, 숙소, 일정 = await 붙일_곳_셋(api, headers, trip["id"])
+
+    만듦, 올림 = await 사진을_올린다(
+        api, headers, trip["id"], jpeg(400, 300), date="2026-10-02",
+        links=[{"targetType": "place", "targetId": 장소["id"]}, {"targetType": "stay", "targetId": 숙소["id"]}],
+    )
+    붙은_곳 = {(link["targetType"], link["targetId"]) for link in 올림.json()["data"]["links"]}
+    숙소로 = await api.get(f"/v1/trips/{trip['id']}/photos?targetType=stay&targetId={숙소['id']}", headers=headers)
+    일정으로 = await api.get(f"/v1/trips/{trip['id']}/photos?targetType=schedule&targetId={일정['id']}", headers=headers)
+    날짜로 = await api.get(f"/v1/trips/{trip['id']}/photos?date=2026-10-02", headers=headers)
+    다른_날짜로 = await api.get(f"/v1/trips/{trip['id']}/photos?date=2026-10-03", headers=headers)
+
+    assert 붙은_곳 == {("place", 장소["id"]), ("stay", 숙소["id"])}
+    assert [사진["id"] for 사진 in 숙소로.json()["data"]] == [만듦.json()["data"]["id"]]
+    assert 일정으로.json()["data"] == []
+    assert len(날짜로.json()["data"]) == 1
+    assert 다른_날짜로.json()["data"] == []
+
+
+async def test_붙은_곳은_보낸_목록으로_통째로_바뀌고_빈_목록이면_다_떨어진다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    장소, 숙소, 일정 = await 붙일_곳_셋(api, headers, trip["id"])
+    만듦, _ = await 사진을_올린다(
+        api, headers, trip["id"], jpeg(400, 300), links=[{"targetType": "place", "targetId": 장소["id"]}]
+    )
+    사진_id = 만듦.json()["data"]["id"]
+
+    바꿈 = await api.patch(
+        f"/v1/photos/{사진_id}",
+        json={"version": 1, "links": [{"targetType": "schedule", "targetId": 일정["id"]}]},
+        headers=headers,
+    )
+    뗌 = await api.patch(f"/v1/photos/{사진_id}", json={"version": 2, "links": []}, headers=headers)
+    설명만 = await api.patch(f"/v1/photos/{사진_id}", json={"version": 3, "caption": "노을"}, headers=headers)
+
+    assert [(link["targetType"], link["targetId"]) for link in 바꿈.json()["data"]["links"]] == [("schedule", 일정["id"])]
+    assert 뗌.json()["data"]["links"] == []
+    # 연결을 보내지 않은 수정은 붙은 곳을 건드리지 않는다.
+    assert 설명만.json()["data"]["links"] == []
+    assert await db.scalar(select(func.count()).select_from(PhotoLink).where(PhotoLink.photo_id == uuid.UUID(사진_id))) == 0
+
+
+async def test_다른_여행의_장소나_없는_곳에는_붙지_않고_날짜는_연결이_아니다(api, db):
+    headers, space_id, trip = await 여행_하나(api)
+    다른_여행 = (
+        await api.post(
+            f"/v1/spaces/{space_id}/trips",
+            json={"title": "다른 여행", "startDate": "2026-11-01", "endDate": "2026-11-02"},
+            headers=headers,
+        )
+    ).json()["data"]
+    남의_장소 = (await 장소를_담는다(api, headers, 다른_여행["id"], name="남의집")).json()["data"]
+    만듦, _ = await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300))
+    사진_id = 만듦.json()["data"]["id"]
+
+    남의_것 = await api.patch(
+        f"/v1/photos/{사진_id}",
+        json={"version": 1, "links": [{"targetType": "place", "targetId": 남의_장소["id"]}]},
+        headers=headers,
+    )
+    없는_것 = await api.patch(
+        f"/v1/photos/{사진_id}",
+        json={"version": 1, "links": [{"targetType": "place", "targetId": str(uuid.uuid4())}]},
+        headers=headers,
+    )
+    날짜로 = await api.patch(
+        f"/v1/photos/{사진_id}",
+        json={"version": 1, "links": [{"targetType": "day", "targetId": str(uuid.uuid4())}]},
+        headers=headers,
+    )
+    반쪽_질의 = await api.get(f"/v1/trips/{trip['id']}/photos?targetType=stay", headers=headers)
+
+    assert (남의_것.status_code, 없는_것.status_code, 날짜로.status_code) == (422, 422, 422)
+    assert 반쪽_질의.status_code == 422
+    # 막힌 요청은 version 을 올리지 않는다.
+    assert (await db.get(Photo, uuid.UUID(사진_id))).version == 1
+
+
+async def test_붙은_곳도_올린_사람과_owner만_고치고_장소를_빼면_연결이_떨어진다(api, db):
+    headers, space_id, trip = await 여행_하나(api)
+    장소, _, _ = await 붙일_곳_셋(api, headers, trip["id"])
+    만듦, _ = await 사진을_올린다(
+        api, headers, trip["id"], jpeg(400, 300), links=[{"targetType": "place", "targetId": 장소["id"]}]
+    )
+    사진_id = 만듦.json()["data"]["id"]
+    남 = await 멤버로_넣는다(api, db, space_id, "editor@example.com", MembershipRole.EDITOR)
+
+    남의_수정 = await api.patch(f"/v1/photos/{사진_id}", json={"version": 1, "links": []}, headers=남)
+    뺌 = await api.delete(f"/v1/trip-places/{장소['id']}", headers=headers)
+    남은_사진 = await api.get(f"/v1/trips/{trip['id']}/photos", headers=headers)
+
+    assert 남의_수정.status_code == 403
+    assert 뺌.status_code == 204
+    # 장소를 빼도 사진은 남고 연결만 떨어진다.
+    assert [사진["id"] for 사진 in 남은_사진.json()["data"]] == [사진_id]
+    assert 남은_사진.json()["data"][0]["links"] == []

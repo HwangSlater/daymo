@@ -382,6 +382,64 @@ async def test_수정하면_version이_오른다(api, db):
     assert 응답.json()["data"]["version"] == trip["version"] + 1
 
 
+async def test_기념_카드에서_꾸민_것은_여행에_남아_상대에게도_보인다(api, db):
+    from tests.test_api_photos import jpeg, 사진을_올린다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    assert trip["cardSettings"] is None
+    사진 = (await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+
+    꾸밈 = {
+        "style": "엽서", "ratio": "정사각", "photoIds": [사진],
+        "title": "우리의 가을", "caption": "또 가자",
+        "parts": ["이름", "기간", "문구"], "stats": ["사진", "날"],
+    }
+    응답 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "cardSettings": 꾸밈}, headers=headers
+    )
+    다시 = await api.get(f"/v1/trips/{trip['id']}", headers=headers)
+
+    assert 응답.status_code == 200, 응답.text
+    assert 다시.json()["data"]["cardSettings"] == 꾸밈
+
+
+async def test_카드_사진은_그_여행의_사진이어야_하고_모르는_값은_거부한다(api, db):
+    from tests.test_api_photos import jpeg, 사진을_올린다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    다른_여행 = (
+        await api.post(
+            f"/v1/spaces/{space_id}/trips",
+            json={"title": "다른 여행", "startDate": "2026-11-01", "endDate": "2026-11-02"},
+            headers=headers,
+        )
+    ).json()["data"]
+    남의_사진 = (await 사진을_올린다(api, headers, 다른_여행["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+
+    남의_것 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": trip["version"], "cardSettings": {"photoIds": [남의_사진]}},
+        headers=headers,
+    )
+    모르는_스타일 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": trip["version"], "cardSettings": {"style": "네컷"}},
+        headers=headers,
+    )
+    기본값 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "cardSettings": {}}, headers=headers
+    )
+
+    assert (남의_것.status_code, 모르는_스타일.status_code) == (422, 422)
+    # 아무것도 고르지 않은 것도 저장된다. 기본값 그대로 쓰겠다는 뜻이다.
+    assert 기본값.status_code == 200, 기본값.text
+    assert 기본값.json()["data"]["cardSettings"]["style"] == "필름"
+
+
 async def test_먼저_고친_사람이_있으면_막는다(api, db):
     """
     마지막에 저장한 쪽이 앞사람의 수정을 조용히 덮어쓰면, 무엇이 사라졌는지

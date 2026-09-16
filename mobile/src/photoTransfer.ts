@@ -15,7 +15,7 @@ import { Platform } from "react-native";
 
 import { apiUrlOf, DaymoApiError, withAccessToken } from "./auth";
 import { createPhoto } from "./serverData";
-import type { ServerPhoto } from "./photoSync";
+import type { PhotoBody, ServerPhoto } from "./photoSync";
 
 const PHOTO_DIRECTORY = "trip-photos";
 
@@ -84,7 +84,7 @@ export async function uploadPhoto(
   tripId: string,
   photoId: string,
   uri: string,
-  fields: { caption: string | null; date: string | null; isReceipt?: boolean },
+  fields: Partial<PhotoBody> & { caption: string | null; date: string | null; isReceipt?: boolean },
 ): Promise<ServerPhoto> {
   let buffer: ArrayBuffer;
   try {
@@ -93,7 +93,9 @@ export async function uploadPhoto(
     throw new DaymoApiError("사진 파일을 찾지 못했어요. 사진을 다시 골라 주세요.", 422, "VALIDATION_ERROR");
   }
   const checksum = hex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, buffer));
-  const reserved = await createPhoto(tripId, photoId, { ...fields, bytes: buffer.byteLength, checksum });
+  const reserved = await createPhoto(tripId, photoId, {
+    ...fields, links: fields.links ?? [], bytes: buffer.byteLength, checksum,
+  });
   if (reserved.status === "ready") return reserved;
   return sendContent(photoId, uri);
 }

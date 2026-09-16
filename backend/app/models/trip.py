@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -83,6 +84,16 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
     cover_photo_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True
     )
+
+    # 여행 기념 카드에서 고른 것 한 덩어리. 카드 그림은 기기가 그리고
+    # (docs/development/03-api-specification.md 10장) 서버는 고른 값만 들고 있는다.
+    # 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 보여야 해서 기기에만 두지 않는다.
+    #
+    # 칼럼을 여럿 두지 않고 JSONB 한 칸인 이유는, 카드에 무엇을 넣고 뺄지가 화면을
+    # 고칠 때마다 바뀌는 값이어서다. 서버는 이 값으로 계산하지 않고 그대로 돌려준다.
+    # 다만 고른 사진이 그 여행의 사진인지는 넣을 때 본다(`services/trips.card_settings`).
+    # 비어 있으면 앱의 기본값이다.
+    card_settings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
