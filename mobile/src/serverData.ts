@@ -38,8 +38,6 @@ export type ServerTrip = {
   exchangeRate?: number | string | null;
   budget?: number | string | null;
   simplifySettlement?: boolean;
-  /** 기념 카드를 어떻게 꾸몄는지. 아직 아무도 꾸미지 않았으면 없다. */
-  cardSettings?: SavedKeepsake | null;
   /** 홈의 여행 카드 바탕으로 쓸 사진. 고르지 않았으면 없다. */
   coverPhotoId?: string | null;
   archivedAt?: string | null;
@@ -406,12 +404,37 @@ export const updatePhoto = (id: string, version: number, body: PhotoBody) =>
 export const deletePhoto = (id: string) =>
   authenticatedRequest<void>(`/v1/photos/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-/** 기념 카드에서 꾸민 것. 통째로 바꾼다. */
-export const updateKeepsake = (tripId: string, version: number, settings: SavedKeepsake) =>
-  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`, {
-    method: "PATCH",
-    body: JSON.stringify({ version, cardSettings: settings }),
+/** 여행에 모아 둔 기념 카드 한 장. 꾸민 값은 `settings` 한 덩어리다. */
+export type ServerTripCard = {
+  id: string;
+  tripId: string;
+  settings: SavedKeepsake;
+  sortOrder: number;
+  createdByMembershipId: string | null;
+  /** 이 카드를 고치고 지울 수 있는지. 만든 사람과 owner 만 참이다. */
+  canManage: boolean;
+  createdAt: string;
+  version: number;
+};
+
+export const listTripCards = (tripId: string) =>
+  authenticatedRequest<ServerTripCard[]>(`/v1/trips/${encodeURIComponent(tripId)}/cards`);
+
+/** 카드를 한 장 더 만든다. 앱이 만든 id 를 보내 두 번 닿아도 한 장이게 한다. */
+export const createTripCard = (tripId: string, id: string, settings: SavedKeepsake) =>
+  authenticatedRequest<ServerTripCard>(`/v1/trips/${encodeURIComponent(tripId)}/cards`, {
+    method: "POST",
+    body: JSON.stringify({ id, settings }),
   });
+
+export const updateTripCard = (id: string, version: number, settings: SavedKeepsake) =>
+  authenticatedRequest<ServerTripCard>(`/v1/trip-cards/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, settings }),
+  });
+
+export const deleteTripCard = (id: string) =>
+  authenticatedRequest<void>(`/v1/trip-cards/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 /** 홈 카드 바탕으로 쓸 사진. `null` 이면 해제다. */
 export const updateCoverPhoto = (tripId: string, version: number, photoId: string | null) =>

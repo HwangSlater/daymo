@@ -57,7 +57,7 @@ from app.models.space import (
 )
 from app.models.throttle import ThrottleCounter
 from app.models.tag import ExternalLink, Tag, Tagging
-from app.models.trip import Trip, TripDay, TripParticipant
+from app.models.trip import Trip, TripCard, TripDay, TripParticipant
 from app.models.user import User
 
 # alembic 이 autogenerate 할 때 여기 없는 모델은 보지 못한다.
@@ -129,6 +129,7 @@ __all__ = [
     "TransportDirection",
     "TransportMethod",
     "Trip",
+    "TripCard",
     "TripDay",
     "TripParticipant",
     "TripPlace",

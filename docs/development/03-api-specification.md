@@ -771,7 +771,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 업로드는 처음에 `photo-uploads` session 표를 따로 두려 했으나 사진 줄이 그 역할을 하게 바꿨다(아래 2026-09-16 구현). `complete` 단계는 없다.
 
-여행 기념 카드의 조합과 이미지 렌더링은 P1에서 기기 기능으로 처리하므로 별도 API를 두지 않는다. 카드에 사용한 사진은 기존 권한 있는 사진 조회 API로 받는다. 다만 **무엇을 골랐는지는 서버가 들고 있다.** 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 같게 보여야 해서다. `trips.card_settings`(JSONB) 한 칸이고 여행 수정(`PATCH /trips/{tripId}`)의 `cardSettings`로 통째로 오간다(아래 2026-09-16 구현).
+여행 기념 카드의 이미지 렌더링은 기기가 한다. 카드에 사용한 사진은 기존 권한 있는 사진 조회 API로 받는다. 다만 **무엇을 골랐는지는 서버가 들고 있다.** 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 같게 보여야 해서다. 한 여행에 여러 장이라 `trip_cards` 표를 두고 `GET/POST /trips/{tripId}/cards`, `PATCH/DELETE /trip-cards/{cardId}` 로 오간다(아래 2026-09-16 구현).
 
 메모 생성:
 
@@ -816,7 +816,9 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 - 받는 형식은 JPEG·PNG·WebP다. HEIC는 앱이 JPEG로 바꿔 보낸다. 원본은 그림 데이터를 다시 인코딩하지 않고 메타데이터 조각만 뺀다(JPEG는 방향·찍은 시각만 남긴 EXIF를 새로 넣고, PNG·WebP는 EXIF·XMP·글 조각을 뺀다, 2026-09-15). 표시본·썸네일은 방향을 바로잡고 EXIF를 모두 뺀다. SHA-256은 앱이 보낸 원래 파일로 맞춘다. `takenAt`은 EXIF 촬영 시각이며 시간대가 없으면 공간 시간대로 읽는다. `date`는 앱에서 고른 날로 `trip_days`를 가리키지 않는다.
 - 사진은 장소·일정·숙소에 붙을 수 있다(`photo_links`). 붙은 곳은 사진 줄의 `links`(`[{targetType, targetId}]`)로 오간다. `targetType`은 `place|schedule|stay`이고 `targetId`는 각각 여행 장소·일정·숙소 id다. **날짜는 연결이 아니라 사진 자신의 `date`다**(여행 기간이 바뀌어도 사진이 놓인 날은 그대로여야 해서 `trip_days`를 가리키지 않는다). 붙이고 떼는 주소를 따로 두지 않고 `POST /trips/{tripId}/photos`·`PATCH /photos/{photoId}`가 보낸 목록으로 통째로 바꾼다. 앱이 목록 하나를 통째로 맞추는 방식이라(`mobile/src/listSync.ts`) 사진 줄과 연결이 따로 오면 두 값이 어긋난다. 같은 여행의 것만 받고 아니면 `422`다. 고치는 권한은 설명·날짜와 같다(올린 사람과 owner). 장소·일정·숙소를 지우면 `links.detach_all`이 연결만 뗀다. 사진은 남는다.
 - `GET /trips/{tripId}/photos`에 `targetType`·`targetId`를 함께 주면 그곳에 붙은 사진만, `date`를 주면 그날로 고른 사진만 준다. 둘 중 하나만 준 `targetType`/`targetId`는 `422`다. 숙소 카드가 `targetType=stay`로 한 번, `date`로 한 번 물어 "그 숙소 사진"과 "그날 사진"을 함께 보여 준다(요구사항 7, "숙소 글을 누르면 그날 사진이 보인다").
-- `PATCH /trips/{tripId}`의 `cardSettings`는 기념 카드에서 꾸민 것 한 덩어리다: `{style(필름|엽서|스크랩북), ratio(세로|정사각|가로), photoIds(최대 4장), title, caption, parts, stats}`. 값은 앱 화면에 보이는 말 그대로다(한국어만 쓰는 앱이라 영어 코드를 따로 두지 않는다). 서버는 이 값으로 아무것도 계산하지 않고 그대로 돌려주며, `photoIds`가 그 여행의 다 올라온 사진인지만 본다(아니면 `422`). 칼럼을 여럿 두지 않고 JSONB 한 칸인 이유는 카드에 무엇을 넣고 뺄지가 화면을 고칠 때마다 바뀌는 값이어서다.
+- 기념 카드는 여행마다 여러 장이다(`trip_cards`). `GET /trips/{tripId}/cards`(공간 멤버면 남이 만든 카드도 본다, 만든 차례대로), `POST /trips/{tripId}/cards`(`{id?, settings}`, 앱이 만든 `id`를 보내면 두 번 닿아도 한 장이다), `PATCH /trip-cards/{cardId}`(`{version, settings}`), `DELETE /trip-cards/{cardId}`. 고치고 지우는 것은 **만든 사람과 owner만** 한다(사진과 같은 규칙, 응답의 `canManage`). 한 여행에 20장까지고 넘으면 `422`다. 카드는 휴지통에 넣지 않는다 — 그림이 아니라 무엇으로 그릴지 고른 값이라 사진이 남아 있으면 다시 만들 수 있다.
+- `settings`는 카드에서 꾸민 것 한 덩어리다: `{style(필름|엽서|스크랩북|네컷|네컷 격자|네컷 가로|세컷), ratio(세로|정사각|가로), photoIds(최대 4장), title, caption, parts, stats, frameColor(검정|흰색|크림|노을|바다|숲), stickers(하트|별|비행기|필름|말풍선|체크), dateStamp, photoCaptions}`. 값은 앱 화면에 보이는 말 그대로다(한국어만 쓰는 앱이라 영어 코드를 따로 두지 않는다). 뒤의 넷은 네컷 틀에서만 그려지고 다른 스타일에서는 저장만 된다. 서버는 이 값으로 아무것도 계산하지 않고 그대로 돌려주며, `photoIds`가 그 여행의 다 올라온 사진인지만 본다(아니면 `422`). 칼럼을 여럿 두지 않고 JSONB 한 칸인 이유는 카드에 무엇을 넣고 뺄지가 화면을 고칠 때마다 바뀌는 값이어서다.
+- 예전에는 `trips.card_settings`(JSONB) 한 칸이라 새로 만들면 앞서 만든 카드가 조용히 덮였다. 마이그레이션 `a2f9c6d08b14`가 그 값을 여행마다 첫 카드 한 줄로 옮기고 칸을 지웠다.
 - `PATCH /trips/{tripId}`의 `coverPhotoId`는 홈의 여행 카드 바탕으로 쓸 사진이다(`trips.cover_photo_id`, 사진을 지우면 `SET NULL`). 그 여행의 다 올라온 사진만 받고(아니면 `422`) `null`이면 해제다. 홈은 이 사진의 썸네일(`variant=thumbnail`)만 받아 카드에 깔고, 못 받으면 예전 종이 카드 그대로 그린다.
 - `GET /photos/{photoId}/content?variant=`는 공간 멤버에게만 파일을 주고 `Cache-Control: private, max-age=31536000, immutable`이다. 운영에서 `PHOTO_ACCEL_PREFIX`를 넣으면 같은 권한 검사 뒤 본문 없이 `X-Accel-Redirect`로 Nginx에 넘기고 Nginx가 파일(Range 포함)을 보낸다. 앱이 받는 응답은 같다(06-vps-deployment.md 6장). 목록(`GET /trips/{tripId}/photos`)은 다 올라온 여행 사진만 주고 영수증은 뺀다.
 - 설명·날짜 수정(`PATCH`, `version` 필요)과 삭제는 올린 사람과 owner만 한다. 지우면 `deletedAt`·`deletedBy`를 채우고 7일 뒤 정리 작업이 파일과 줄을 지운다. 휴지통 조회·복원은 아래 휴지통 구현을 본다. 중복 후보 안내, 사용량 API, 삭제 ledger는 아직 없다.

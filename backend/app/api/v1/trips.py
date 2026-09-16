@@ -112,7 +112,6 @@ async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | 
         exchange_rate=trip.exchange_rate,
         budget=trip.budget,
         simplify_settlement=trip.simplify_settlement,
-        card_settings=trip.card_settings,
         cover_photo_id=str(trip.cover_photo_id) if trip.cover_photo_id else None,
         version=trip.version,
         archived_at=trip.archived_at.isoformat() if trip.archived_at else None,
@@ -443,9 +442,6 @@ async def update_trip(
     trip_service.check_version(trip, body.version)
 
     보낸_것 = body.model_dump(exclude_unset=True, exclude={"version"})
-    if body.card_settings is not None:
-        await trip_service.check_card_photos(db, trip, body.card_settings.photo_ids)
-        보낸_것["card_settings"] = body.card_settings.model_dump(by_alias=True)
     if 보낸_것.get("cover_photo_id"):
         await trip_service.check_card_photos(db, trip, [보낸_것["cover_photo_id"]], field="coverPhotoId")
         보낸_것["cover_photo_id"] = uuid.UUID(보낸_것["cover_photo_id"])

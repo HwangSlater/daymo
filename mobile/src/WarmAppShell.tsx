@@ -118,7 +118,6 @@ import {
   setTripParticipants,
   updateExpenseSettings,
   updateCoverPhoto,
-  updateKeepsake,
   updateSpace,
   updateTrip,
   type ExpenseSettings,
@@ -140,7 +139,6 @@ import { appendServerTrips, mergeServerTripsByGroup } from "./tripMerge";
 import { toneOfTripId } from "./tripColor";
 import { shouldLoadMore } from "./tripPaging";
 import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
-import type { SavedKeepsake } from "./tripCard";
 import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
@@ -187,8 +185,6 @@ type Trip = {
   overview?: ServerTripOverview;
   /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
   serverExpenseSettings?: ExpenseSettings;
-  /** 기념 카드를 어떻게 꾸몄는지. 함께 보는 사람에게 같은 카드가 보이도록 서버에 둔다. */
-  keepsake?: SavedKeepsake;
   /** 홈 카드 바탕으로 쓰는 사진. */
   coverPhotoId?: string;
   /** 받아 둔 바탕 사진 자리. 아직 못 받았으면 없고, 그러면 카드는 종이 그대로다. */
@@ -251,7 +247,6 @@ const tripFromServer = (trip: ServerTrip, roster: RosterEntry[] = []): Trip => {
     ...(overview ? { overview } : {}),
     serverExpenseSettings: expenseSettingsFrom(trip),
     // 해제한 것도 반영돼야 해서 없을 때도 싣는다(`...` 로 감추면 옛 값이 남는다).
-    keepsake: trip.cardSettings ?? undefined,
     coverPhotoId: trip.coverPhotoId ?? undefined,
     archived: trip.status === "archived",
     ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
@@ -1017,7 +1012,7 @@ export function WarmAppShell({
       const planning: TripPlanningData = {
         ...trip.planning,
         ...lists,
-        // 기념 카드 설정은 서버(여행의 cardSettings)에 있다. 여기서는 사진과 일기만 채운다.
+        // 기념 카드는 서버(`trip_cards`)에 있다. 여기서는 사진과 일기만 채운다.
         ...(diaries.length || photos.length
           ? {
             memories: {
@@ -1308,21 +1303,6 @@ export function WarmAppShell({
             if (!(caught instanceof DaymoApiError) || caught.code !== "VERSION_CONFLICT") throw caught;
             const latest = await getTrip(tripId);
             saved = await updateCoverPhoto(tripId, latest.version, photoId);
-          }
-          applyServerTrip(saved);
-        } : undefined}
-        serverKeepsake={selectedTrip.keepsake}
-        onUpdateKeepsake={selectedTrip.id && selectedTrip.version !== undefined ? async (settings) => {
-          const tripId = selectedTrip.id as string;
-          let saved: ServerTrip;
-          try {
-            saved = await updateKeepsake(tripId, selectedTrip.version!, settings);
-          } catch (caught) {
-            // 카드는 마지막에 꾸민 모습이 맞다. 다른 곳에서 여행을 먼저 고쳤으면
-            // 최신 버전으로 한 번 더 보낸다(통화·예산과 같은 규칙이다).
-            if (!(caught instanceof DaymoApiError) || caught.code !== "VERSION_CONFLICT") throw caught;
-            const latest = await getTrip(tripId);
-            saved = await updateKeepsake(tripId, latest.version, settings);
           }
           applyServerTrip(saved);
         } : undefined}

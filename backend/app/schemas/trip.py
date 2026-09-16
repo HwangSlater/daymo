@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -22,12 +23,18 @@ class TripCreateRequest(_Camel):
 
 # 기념 카드에서 고를 수 있는 것. 값은 앱 화면에 보이는 말 그대로다. 한국어만 쓰는
 # 앱이고, 영어 코드를 따로 두면 화면과 저장된 값을 견주어 볼 때 표를 한 번 더 거쳐야 한다.
-KeepsakeStyle = Literal["필름", "엽서", "스크랩북"]
+#
+# 뒤의 넷은 사진관에서 뽑는 네컷 틀이다. 비율 대신 틀이 크기를 정한다.
+KeepsakeStyle = Literal["필름", "엽서", "스크랩북", "네컷", "네컷 격자", "네컷 가로", "세컷"]
 KeepsakeRatio = Literal["세로", "정사각", "가로"]
 # 카드에 넣을 줄. 끄면 그 줄이 안 나온다.
 KeepsakePart = Literal["이름", "기간", "지역", "사람", "문구", "통계"]
 # 통계 줄에 넣을 숫자. `지출` 은 남에게 보여 주는 그림이라 앱이 기본으로 끈다.
 KeepsakeStat = Literal["장소", "사진", "날", "지출"]
+# 네컷 틀의 테두리 색. 앞의 셋은 사진관 색이고 뒤의 셋은 앱에서 쓰는 색이다.
+KeepsakeFrameColor = Literal["검정", "흰색", "크림", "노을", "바다", "숲"]
+# 사진 모서리에 붙이는 작은 그림. 자리는 앱이 미리 정해 둔다.
+KeepsakeSticker = Literal["하트", "별", "비행기", "필름", "말풍선", "체크"]
 
 
 class KeepsakeCardIn(_Camel):
@@ -46,6 +53,48 @@ class KeepsakeCardIn(_Camel):
     caption: str | None = Field(default=None, max_length=200)
     parts: list[KeepsakePart] = Field(default_factory=list, max_length=6)
     stats: list[KeepsakeStat] = Field(default_factory=list, max_length=4)
+    # 아래 넷은 네컷 틀에서만 그려진다. 다른 스타일에서는 저장만 된다.
+    frame_color: KeepsakeFrameColor = "검정"
+    stickers: list[KeepsakeSticker] = Field(default_factory=list, max_length=6)
+    # 필름 카메라가 찍어 주던 날짜 도장(`2026.09.15`).
+    date_stamp: bool = False
+    # 사진에 적어 둔 짧은 설명을 칸 아래에 넣을지.
+    photo_captions: bool = False
+
+
+class TripCardCreateRequest(_Camel):
+    """
+    새 기념 카드 한 장.
+
+    `id` 는 앱이 만들어 보낸다. 같은 요청이 두 번 닿아도 카드가 두 장이 되지 않는다
+    (메모·일기와 같은 규칙이다).
+    """
+
+    id: uuid.UUID | None = None
+    settings: KeepsakeCardIn = Field(default_factory=KeepsakeCardIn)
+
+
+class TripCardUpdateRequest(_Camel):
+    """꾸민 값을 통째로 바꾼다. 카드는 칸이 하나뿐이라 부분 수정이 없다."""
+
+    version: int
+    settings: KeepsakeCardIn
+
+
+class TripCardOut(_Camel):
+    """
+    `canManage` 는 이 카드를 고치고 지울 수 있는지다. 사진과 같은 규칙으로
+    만든 사람과 owner 만 참이다.
+    """
+
+    id: str
+    trip_id: str
+    settings: dict
+    sort_order: int
+    created_by_membership_id: str | None = None
+    can_manage: bool = False
+    created_at: datetime
+    version: int
 
 
 class TripUpdateRequest(_Camel):
@@ -71,8 +120,6 @@ class TripUpdateRequest(_Camel):
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = None
     budget: Decimal | None = None
-    # 여행 기념 카드에서 고른 것 한 덩어리. 보내면 통째로 바뀐다.
-    card_settings: KeepsakeCardIn | None = None
     # 홈의 여행 카드 바탕으로 쓸 사진. 그 여행의 사진이어야 하고, null 이면 해제다.
     cover_photo_id: str | None = None
 
@@ -130,8 +177,6 @@ class TripOut(_Camel):
     exchange_rate: Decimal | None
     budget: Decimal | None
     simplify_settlement: bool
-    # 아직 아무도 꾸미지 않았으면 없다. 앱이 기본값으로 그린다.
-    card_settings: dict | None = None
     cover_photo_id: str | None = None
     version: int
     archived_at: str | None = None
