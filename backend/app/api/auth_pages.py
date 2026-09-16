@@ -25,6 +25,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from app.api.deps import ClientIp, DbSession
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.services import account_changes, accounts
 
@@ -63,6 +64,7 @@ input { width:100%; height:48px; border-radius:10px; border:1px solid var(--line
   font:inherit; background:var(--bg); color:var(--text); }
 button { width:100%; height:50px; margin-top:18px; border:0; border-radius:12px; background:var(--accent);
   color:var(--on-accent); font:inherit; font-weight:700; cursor:pointer; }
+button.secondary { margin-top:10px; background:var(--card); color:var(--accent); border:1px solid var(--line); }
 .error { color:var(--danger); font-weight:600; }
 """
 
@@ -287,24 +289,35 @@ async def confirm_email_change(request: Request, db: DbSession) -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 
+def _web_invite_url(token: str) -> str:
+    """웹 앱 주소에 초대 token 을 붙인다. 웹 앱이 읽자마자 주소에서 지운다."""
+    기본 = get_settings().web_app_base.rstrip("/")
+    구분 = "&" if "?" in 기본 else "?"
+    return f"{기본}{구분}invite={token}"
+
+
 @router.get("/invite")
 async def invite_page(token: str | None = None) -> HTMLResponse:
     """
     초대 링크가 여는 페이지. 공간 이름도, 초대한 사람도 보여 주지 않는다.
 
-    참여는 앱에서만 한다. 로그인과 이메일 확인이 필요해서다. 이 페이지는 앱을 열고,
-    앱이 열리지 않으면 링크를 앱에 붙여 넣는 길을 알려 준다.
+    두 길을 준다. 앱이 있으면 앱으로(daymo://), 없으면 브라우저에서 웹 앱으로.
+    어느 쪽이든 로그인·가입을 마치면 그 자리에서 참여한다. 링크를 복사해 붙여
+    넣는 길은 둘 다 막혔을 때의 마지막 수단으로 남겨 둔다.
     """
     usable = _usable_token(token)
     if usable is None:
         return _message("초대 링크", "링크가 잘못되었어요. 초대한 사람에게 링크를 다시 받아 주세요.", 400)
     앱_주소 = f"daymo://invite?token={usable}"
+    웹_주소 = _web_invite_url(usable)
     return _page(
         "공간 초대",
         "<h1>Daymo 여행 공간에 초대받았어요</h1>"
-        "<p>앱에서 로그인하면 바로 함께할 수 있어요.</p>"
+        "<p>로그인하면 바로 함께할 수 있어요. 계정이 없으면 가입해도 그대로 이어져요.</p>"
+        f'<a href="{escape(웹_주소)}" style="display:block;text-decoration:none">'
+        '<button type="button">웹에서 열기</button></a>'
         f'<a href="{escape(앱_주소)}" style="display:block;text-decoration:none">'
-        '<button type="button">Daymo 앱에서 열기</button></a>'
-        '<p style="margin-top:18px">앱이 열리지 않으면 이 페이지 주소를 복사해 Daymo 앱의 '
+        '<button type="button" class="secondary">Daymo 앱에서 열기</button></a>'
+        '<p style="margin-top:18px">둘 다 열리지 않으면 이 페이지 주소를 복사해 Daymo 앱의 '
         "<strong>우리 → 초대 링크로 참여</strong>에 붙여 넣어 주세요. 링크는 받은 날부터 7일 동안 쓸 수 있어요.</p>",
     )

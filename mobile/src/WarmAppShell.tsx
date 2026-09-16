@@ -119,6 +119,7 @@ import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tri
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
+import { forgetPageInvite, takePageInvite } from "./inviteHandoff";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasPassword" | "linkedProviders"> & { id?: string };
@@ -522,7 +523,16 @@ export function WarmAppShell({
   const [spaces, setSpaces] = useState<Space[]>(storedSpaces);
   const [serverDataReady, setServerDataReady] = useState(false);
   const [spacesReload, setSpacesReload] = useState(0);
-  const [pendingInvite, setPendingInvite] = useState<string | null>(null);
+  /**
+   * 받아 둔 초대. `ask` 면 참여 전에 사람에게 한 번 더 묻는다(앱 링크로 열렸을 때).
+   *
+   * 웹에서 온 초대는 첫 렌더 전에 집는다. 주소에 token 이 있으면 꺼내면서 바로 지우고,
+   * 로그인 전이라 못 쓰고 지나간 것이 있으면 보관함에서 되찾는다(inviteHandoff.ts).
+   */
+  const [pendingInvite, setPendingInvite] = useState<{ token: string; ask: boolean } | null>(() => {
+    const token = takePageInvite();
+    return token ? { token, ask: false } : null;
+  });
   const [serverDataError, setServerDataError] = useState(false);
   useSaveSpaces(spaces);
   const [activeGroupId, setActiveGroupId] = useState<GroupId>(
@@ -691,13 +701,16 @@ export function WarmAppShell({
     // spacesReload 는 초대로 들어오거나 멤버가 바뀌었을 때 다시 받으려고 올린다.
   }, [settings.activeGroupId, spacesReload, tripStorageReady, user?.id]);
   /**
-   * 초대 링크로 앱이 열리면 token 을 받아 둔다. 로그인 전이면 로그인한 뒤에 묻는다.
-   * 참여는 사람이 한 번 더 눌러야 한다. 링크를 연 것만으로 공간에 들어가지 않는다.
+   * 초대 token 을 받아 둔다. 로그인 전이면 로그인·가입이 끝난 뒤에 이어서 참여한다.
+   *
+   * 두 갈래로 들어온다. 앱은 `daymo://invite?token=` 로 열리고, 이때는 링크를 연
+   * 것만으로 들어가지 않게 사람에게 한 번 더 묻는다(`ask`). 웹은 주소의 `?invite=`
+   * 로 오고, 이미 브라우저에서 링크를 누른 것이라 묻지 않고 바로 참여한다.
    */
   useEffect(() => {
     const take = (url: string | null) => {
       const token = inviteTokenOf(url);
-      if (token) setPendingInvite(token);
+      if (token) setPendingInvite({ token, ask: true });
     };
     Linking.getInitialURL().then(take).catch(() => undefined);
     const subscription = Linking.addEventListener("url", ({ url }) => take(url));
@@ -705,28 +718,46 @@ export function WarmAppShell({
   }, []);
   const joinInvite = async (token: string) => {
     const joined = await acceptInvite(token);
+    forgetPageInvite();
     activeGroupRef.current = joined.spaceId as GroupId;
     setActiveGroupId(joined.spaceId as GroupId);
     setSpacesReload((value) => value + 1);
     return joined;
   };
+  /** 초대로 참여하고 결과를 알린다. 앱에서 온 초대도 웹에서 온 초대도 여기로 모인다. */
+  const runInvite = (token: string) => {
+    joinInvite(token)
+      .then((joined) => showAlert(joined.alreadyMember ? "이미 함께하고 있는 공간이에요" : "공간에 참여했어요"))
+      .catch((error) => {
+        if (error instanceof DaymoApiError && error.code === "EMAIL_NOT_VERIFIED") {
+          // token 은 그대로 둔다. 메일을 확인하고 다시 누르면 바로 참여한다.
+          showAlert("메일을 확인하면 바로 참여해요", "받은 메일의 링크를 누른 뒤 아래 버튼을 눌러 주세요.", [
+            { text: "나중에", style: "cancel" },
+            { text: "확인했어요", onPress: () => setPendingInvite({ token, ask: false }) },
+          ]);
+          return;
+        }
+        // 만료·폐기된 링크는 다시 시도해도 같다. 연결이 끊긴 것뿐이면 남겨 둔다.
+        if (!(error instanceof DaymoApiError) || error.status !== 0) forgetPageInvite();
+        showAlert("참여하지 못했어요", error instanceof DaymoApiError ? error.message : "잠시 후 다시 시도해 주세요.");
+      });
+  };
   useEffect(() => {
     if (!pendingInvite || !user?.id || !serverDataReady) return;
-    const token = pendingInvite;
+    const { token, ask } = pendingInvite;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPendingInvite(null);
+    if (!ask) {
+      runInvite(token);
+      return;
+    }
     showAlert("여행 공간 초대", "초대받은 공간에 참여할까요? 참여하면 이 공간의 여행을 함께 보고 고칠 수 있어요.", [
       { text: "나중에", style: "cancel" },
-      {
-        text: "참여하기",
-        onPress: () => {
-          joinInvite(token)
-            .then((joined) => showAlert(joined.alreadyMember ? "이미 함께하고 있는 공간이에요" : "공간에 참여했어요"))
-            .catch((error) => showAlert("참여하지 못했어요", error instanceof DaymoApiError ? error.message : "잠시 후 다시 시도해 주세요."));
-        },
-      },
+      { text: "참여하기", onPress: () => runInvite(token) },
     ]);
-    // 받아 둔 token 이 생기거나 로그인이 끝났을 때만 묻는다.
+    // 받아 둔 token 이 생기거나 로그인이 끝났을 때만 묻는다. runInvite 는 렌더마다
+    // 새로 만들어져서 의존성에 넣으면 참여를 두 번 시도한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingInvite, serverDataReady, user?.id]);
   /**
    * 이 기기에 남은 것을 전부 지운다.
@@ -865,7 +896,7 @@ export function WarmAppShell({
     );
   }
   if (!user) {
-    return <AuthScreen theme={theme} notice={authNotice} onAuth={(nextUser) => { setAuthNotice(""); setServerDataReady(false); setUser(nextUser); setAuthOffline(false); }} />;
+    return <AuthScreen theme={theme} notice={authNotice} invited={Boolean(pendingInvite)} onAuth={(nextUser) => { setAuthNotice(""); setServerDataReady(false); setUser(nextUser); setAuthOffline(false); }} />;
   }
   if (user.deletionScheduledAt) {
     return (
@@ -1122,11 +1153,14 @@ export function WarmAppShell({
 function AuthScreen({
   theme,
   notice: initialNotice = "",
+  invited = false,
   onAuth,
 }: {
   theme: AppTheme;
   /** 로그인 화면에 처음부터 띄울 안내. 계정 삭제를 요청한 직후에 온다. */
   notice?: string;
+  /** 초대 링크로 들어왔는지. 로그인이 끝나면 바로 그 공간에 참여한다. 공간 이름은 모른다. */
+  invited?: boolean;
   onAuth: (user: DaymoUser) => void;
 }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -1277,6 +1311,12 @@ function AuthScreen({
         <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[s.authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
           <Text style={[s.authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
+          {/* 어느 공간인지는 링크를 연 사람에게도 알려 주지 않는다. 참여해야 보인다. */}
+          {invited && (
+            <Text accessibilityLiveRegion="polite" style={[s.authDescription, { color: theme.primary }]}>
+              {mode === "login" ? "초대를 받아 오셨어요. 로그인하면 바로 참여해요." : "초대를 받아 오셨어요. 가입하고 메일을 확인하면 바로 참여해요."}
+            </Text>
+          )}
           {mode === "signup" && (
             <Field theme={theme} label="이름 또는 별명 · 필수" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
           )}

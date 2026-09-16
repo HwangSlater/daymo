@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     mail_from: str = "Daymo <no-reply@daymo.xyz>"
     # 메일 속 링크가 여는 페이지의 주소. API 서버가 직접 보여 준다(app/api/auth_pages.py).
     auth_link_base: str = "https://api.daymo.xyz"
+    # 브라우저로 여는 웹 앱 주소. 초대 페이지의 "웹에서 열기" 가 여기로 보낸다.
+    # 앱이 없는 사람도 링크 하나로 이어 갈 수 있게 한다. 로컬 미리보기는
+    # http://localhost:8081 처럼 바꾼다.
+    web_app_base: str = "https://www.daymo.xyz/app"
 
     # 사진 파일을 두는 곳. 운영은 compose 가 /srv/daymo/uploads 를 넘긴다.
     upload_root: str = "uploads"
