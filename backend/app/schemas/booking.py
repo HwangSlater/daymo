@@ -3,7 +3,13 @@ from datetime import date as Date
 
 from pydantic import Field
 
-from app.models import BookingStatus, ReservationStatus, TransportDirection, TransportMethod
+from app.models import (
+    BookingStatus,
+    ReservationStatus,
+    ReservationTargetType,
+    TransportDirection,
+    TransportMethod,
+)
 from app.schemas.auth import _Camel
 from app.schemas.schedule import _HH_MM
 
@@ -63,10 +69,16 @@ class ReservationCreateRequest(_Camel):
 
     `partyLabel` 은 사람이 적은 인원 글자(`2명 + 아이`) 그대로다. 숫자로 셀 수
     있으면 `partySize` 에도 넣는다. 숫자만 남기면 적은 말이 잘린다.
+
+    `targetType`·`targetId` 는 이 예약이 붙은 곳이다. 가게 예약이면 그 여행의
+    장소, 숙소 예약이면 숙소다. 어디에도 안 붙으면 `other` 이고 `targetId` 는
+    비어 있어야 한다.
     """
 
     id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=60)
+    target_type: ReservationTargetType = ReservationTargetType.OTHER
+    target_id: uuid.UUID | None = None
     date: Date | None = None
     time: str | None = Field(default=None, pattern=_HH_MM)
     party_size: int | None = Field(default=None, gt=0, le=1000)
@@ -80,6 +92,8 @@ class ReservationCreateRequest(_Camel):
 class ReservationUpdateRequest(_Camel):
     version: int
     title: str | None = Field(default=None, min_length=1, max_length=60)
+    target_type: ReservationTargetType | None = None
+    target_id: uuid.UUID | None = None
     date: Date | None = None
     time: str | None = Field(default=None, pattern=_HH_MM)
     party_size: int | None = Field(default=None, gt=0, le=1000)
@@ -94,6 +108,8 @@ class ReservationOut(_Camel):
     id: str
     trip_id: str
     title: str
+    target_type: ReservationTargetType
+    target_id: str | None
     date: Date | None
     time: str | None
     party_size: int | None

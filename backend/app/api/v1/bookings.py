@@ -44,6 +44,8 @@ async def _예약_응답(db, trip, reservation: Reservation) -> dict:
         id=str(reservation.id),
         trip_id=str(reservation.trip_id),
         title=reservation.title,
+        target_type=reservation.target_type,
+        target_id=str(reservation.target_id) if reservation.target_id else None,
         date=reservation.reserved_on,
         time=await bookings.reservation_time(db, trip, reservation),
         party_size=reservation.party_size,

@@ -1,9 +1,18 @@
 import uuid
 
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ExternalLink, LinkTargetType, PhotoLink, PhotoTargetType, TagScope, Tagging
+from app.models import (
+    ExternalLink,
+    LinkTargetType,
+    PhotoLink,
+    PhotoTargetType,
+    Reservation,
+    ReservationTargetType,
+    TagScope,
+    Tagging,
+)
 
 
 async def detach_all(
@@ -12,14 +21,15 @@ async def detach_all(
     tag_scope: TagScope | None = None,
     link_target: LinkTargetType | None = None,
     photo_target: PhotoTargetType | None = None,
+    reservation_target: ReservationTargetType | None = None,
     target_id: uuid.UUID,
 ) -> None:
     """
     어떤 대상에 매달려 있던 태그 연결과 바깥 링크를 떼어 낸다.
 
-    `taggings`, `external_links`, `photo_links` 의 `target_id` 에는 외래키가 없다.
-    가리키는 곳이 장소일 수도 준비물일 수도 재료일 수도 있어서 한 칼럼으로는
-    외래키를 걸 수 없다. 그래서 **대상을 지워도 이 줄들은 그대로 남는다.**
+    `taggings`, `external_links`, `photo_links`, `reservations` 의 `target_id` 에는
+    외래키가 없다. 가리키는 곳이 장소일 수도 준비물일 수도 재료일 수도 있어서 한
+    칼럼으로는 외래키를 걸 수 없다. 그래서 **대상을 지워도 이 줄들은 그대로 남는다.**
 
     남으면 두 가지가 나빠진다. 쓰이지 않는 줄이 계속 쌓이고, 나중에 같은
     UUID 가 다시 쓰이면 남의 태그가 붙어 보인다. 두 번째가 진짜 문제다.
@@ -49,4 +59,16 @@ async def detach_all(
                 PhotoLink.target_type == photo_target,
                 PhotoLink.target_id == target_id,
             )
+        )
+    if reservation_target is not None:
+        # 예약은 지우지 않고 붙어 있던 곳만 뗀다. 예약 이름·시각·메모는 사람이
+        # 적은 것이라, 장소를 여행에서 뺐다고 사라지면 안 된다(일정 줄의
+        # `trip_place_id` 가 SET NULL 인 것과 같은 결이다).
+        await session.execute(
+            update(Reservation)
+            .where(
+                Reservation.target_type == reservation_target,
+                Reservation.target_id == target_id,
+            )
+            .values(target_type=ReservationTargetType.OTHER, target_id=None)
         )

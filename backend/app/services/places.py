@@ -25,6 +25,7 @@ from app.models import (
     PhotoTargetType,
     Place,
     PlaceProvider,
+    ReservationTargetType,
     Tag,
     TagScope,
     Tagging,
@@ -283,14 +284,15 @@ async def remove(session: AsyncSession, trip_place: TripPlace) -> None:
     여행에서 장소를 뺀다.
 
     일정·교통의 `trip_place_id` 는 외래키가 SET NULL 이라 일정은 남는다. 외래키가
-    없는 태그 연결·링크·사진 연결은 손으로 뗀다. 아무 여행도 쓰지 않게 된 손
-    장소 실체도 함께 지운다.
+    없는 태그 연결·링크·사진 연결은 손으로 뗀다. 이 장소에 붙어 있던 예약도 남기고
+    연결만 끊는다. 아무 여행도 쓰지 않게 된 손 장소 실체도 함께 지운다.
     """
     await detach_all(
         session,
         tag_scope=TagScope.PLACE,
         link_target=LinkTargetType.PLACE,
         photo_target=PhotoTargetType.PLACE,
+        reservation_target=ReservationTargetType.PLACE,
         target_id=trip_place.id,
     )
     place_id = trip_place.place_id

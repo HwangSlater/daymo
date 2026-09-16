@@ -115,7 +115,7 @@ test("시각을 비운 예약과 인원 글자 없는 서버 예약도 되돌려
   assert.equal(codec.toBody(reservation({ time: "" })).time, null);
 
   const back = codec.fromServer({
-    id: A, title: "x", date: "2026-10-02", time: null, partySize: 4, partyLabel: null, status: "needs_check", note: null, bookingUrl: null, showInSchedule: false, version: 1,
+    id: A, title: "x", date: "2026-10-02", time: null, partySize: 4, partyLabel: null, status: "needs_check", note: null, bookingUrl: null, showInSchedule: false, targetType: "other", targetId: null, version: 1,
   });
   assert.equal(back.people, "4명");
   assert.equal(back.time, "");
@@ -131,11 +131,40 @@ test("예약 링크는 http 링크만 보내고, 서버 링크는 돌아와 그�
 
   const back = codec.fromServer({
     id: A, title: "소나기식당", date: null, time: null, partySize: null, partyLabel: null, status: "confirmed",
-    note: null, bookingUrl: "https://example.com/r/1", showInSchedule: false, version: 1,
+    note: null, bookingUrl: "https://example.com/r/1", showInSchedule: false, targetType: "other", targetId: null, version: 1,
   });
 
   assert.equal(back.bookingUrl, "https://example.com/r/1");
   // 앱이 링크를 들고 있으니 다음 저장에서 지워지지 않는다.
   assert.equal(codec.toBody(back).bookingUrl, "https://example.com/r/1");
   assert.equal(stable(codec, back), true);
+});
+
+test("장소에 붙은 예약은 그 장소가 서버에 올라간 뒤에야 연결을 보낸다", () => {
+  const 아직 = reservationCodec(dates).toBody(reservation({ placeId: A }));
+  const 올라간_뒤 = reservationCodec(dates, new Set([A])).toBody(reservation({ placeId: A }));
+
+  // 서버에 없는 장소를 가리키면 거부당한다. 일정 줄과 같은 규칙이다.
+  assert.equal(아직.targetType, "other");
+  assert.equal(아직.targetId, null);
+  assert.equal(올라간_뒤.targetType, "place");
+  assert.equal(올라간_뒤.targetId, A);
+});
+
+test("서버가 준 붙은 곳은 되돌려도 그대로 남는다", () => {
+  const codec = reservationCodec(dates, new Set([A]));
+  const 장소_예약 = codec.fromServer({
+    id: A, title: "소나기식당", date: null, time: null, partySize: null, partyLabel: null, status: "confirmed",
+    note: null, bookingUrl: null, showInSchedule: true, targetType: "place", targetId: A, version: 1,
+  });
+  // 앱은 숙소 예약을 만들지 않는다. 그래도 서버에서 오면 연결을 끊지 않고 돌려보낸다.
+  const 숙소_예약 = codec.fromServer({
+    id: A, title: "달빛한옥", date: null, time: null, partySize: null, partyLabel: null, status: "confirmed",
+    note: null, bookingUrl: null, showInSchedule: true, targetType: "stay", targetId: "stay-1", version: 1,
+  });
+
+  assert.equal(장소_예약.placeId, A);
+  assert.equal(stable(codec, 장소_예약), true);
+  assert.equal(codec.toBody(숙소_예약).targetType, "stay");
+  assert.equal(codec.toBody(숙소_예약).targetId, "stay-1");
 });
