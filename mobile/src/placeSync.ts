@@ -30,6 +30,8 @@ export type AppPlace = {
   mapUrl: string;
   tags: string[];
   status: AppPlaceStatus;
+  /** 그 자리에서 적어 두는 한 줄. `웨이팅 30분`, `숙소 근처`. 옛 기기 기록에는 없다. */
+  memo?: string;
 };
 
 export type ServerPlace = {
@@ -54,6 +56,7 @@ export type PlaceBody = {
   status: ServerPlaceStatus;
   tags: string[];
   mapUrl: string | null;
+  memo: string | null;
 };
 
 /**
@@ -94,6 +97,7 @@ export function placeBody(place: AppPlace): PlaceBody {
     status: place.status === "일정" ? "scheduled" : "saved",
     tags,
     mapUrl: safeUrl(place.mapUrl),
+    memo: blank(place.memo, 2000),
   };
 }
 
@@ -106,6 +110,7 @@ export function placeFromServer(place: ServerPlace): AppPlace {
     category: place.category ?? "",
     mapUrl: place.mapUrl ?? "",
     tags: [...place.tags],
+    memo: place.memo ?? "",
     // 앱에는 다녀옴이 없다. 다녀온 곳도 일정에 담긴 곳으로 보인다.
     status: place.status === "saved" ? "후보" : "일정",
   };

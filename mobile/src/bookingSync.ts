@@ -33,6 +33,8 @@ export type AppTransport = {
   arrivalTime: string;
   status: "예매 완료" | "예매 전";
   showInSchedule: boolean;
+  /** 예매번호·좌석·정류장 안내 같은 것. 옛 기기 기록에는 없다. */
+  note?: string;
 };
 
 type ServerMethod = "ktx" | "srt" | "bus" | "flight" | "other";
@@ -53,7 +55,7 @@ export type ServerTransport = {
   version: number;
 };
 
-export type TransportBody = Omit<ServerTransport, "id" | "version" | "note">;
+export type TransportBody = Omit<ServerTransport, "id" | "version">;
 
 const METHOD_TO_SERVER: Record<AppTransport["method"], ServerMethod> = {
   KTX: "ktx", SRT: "srt", 버스: "bus", 항공: "flight", 기타: "other",
@@ -83,6 +85,7 @@ export function transportCodec(
         // 공간에 없는 이름(나간 멤버, 옛 기록의 "동행")은 정하지 않은 것으로 보낸다.
         ownerMembershipId: roster.find((entry) => entry.name === item.owner)?.id ?? null,
         bookingStatus: item.status === "예매 완료" ? "booked" : "not_booked",
+        note: blank(item.note, 2000),
         showInSchedule: item.showInSchedule,
       };
     },
@@ -97,6 +100,7 @@ export function transportCodec(
       arrival: row.arrivalName ?? "",
       arrivalTime: row.arrivalTime ?? NO_TIME,
       status: row.bookingStatus === "booked" ? "예매 완료" : "예매 전",
+      note: row.note ?? "",
       showInSchedule: row.showInSchedule,
     }),
   };
@@ -115,6 +119,8 @@ export type AppReservation = {
   status: "예약 확정" | "확인 필요" | "취소";
   place: string;
   showInSchedule: boolean;
+  /** 예약한 곳으로 바로 가는 링크. 옛 기기 기록에는 없다. */
+  bookingUrl?: string;
 };
 
 type ServerReservationStatus = "confirmed" | "needs_check" | "cancelled";
@@ -160,7 +166,7 @@ export function reservationCodec(tripDates: readonly string[]): Codec<AppReserva
         status: STATUS_TO_SERVER[item.status] ?? "needs_check",
         // 앱의 예약 장소는 자유 글자다. 서버 메모 칸에 둔다.
         note: blank(item.place, 2000),
-        bookingUrl: safeUrl(""),
+        bookingUrl: safeUrl(item.bookingUrl),
         showInSchedule: item.showInSchedule,
       };
     },
@@ -172,6 +178,7 @@ export function reservationCodec(tripDates: readonly string[]): Codec<AppReserva
       people: row.partyLabel ?? (row.partySize ? `${row.partySize}명` : ""),
       status: STATUS_TO_APP[row.status] ?? "확인 필요",
       place: row.note ?? "",
+      bookingUrl: row.bookingUrl ?? "",
       showInSchedule: row.showInSchedule,
     }),
   };

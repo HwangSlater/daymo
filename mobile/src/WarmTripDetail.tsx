@@ -10,7 +10,7 @@ import { DaymoApiError } from "./auth";
 import { TripConflictError } from "./tripSync";
 import { useListSync } from "./useListSync";
 import { dateKey, dateLabelOf, isServerId, tripDateKeys } from "./listSync";
-import { legacyIdMap, placeCodec } from "./placeSync";
+import { legacyIdMap, placeCodec, safeUrl } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
 import {
   ALL_DAYS,
@@ -194,6 +194,8 @@ export type ReservationInfo = {
   status: "예약 확정" | "확인 필요" | "취소";
   place: string;
   showInSchedule: boolean;
+  /** 예약한 곳으로 바로 가는 링크. 옛 기기 기록에는 없다. */
+  bookingUrl?: string;
 };
 export type PlaceItem = {
   id: string;
@@ -204,6 +206,8 @@ export type PlaceItem = {
   mapUrl: string;
   tags: string[];
   status: "후보" | "일정";
+  /** 그 자리에서 적어 두는 한 줄. `웨이팅 30분`, `숙소 근처`. 옛 기기 기록에는 없다. */
+  memo?: string;
 };
 /** 새 장소·일정·숙소 id. 서버가 이 UUID 를 그대로 받아 쓴다(backend/app/api/v1/places.py). */
 const newPlaceId = () => Crypto.randomUUID();
@@ -449,6 +453,8 @@ export type Transportation = {
   arrivalTime: string;
   status: "예매 완료" | "예매 전";
   showInSchedule: boolean;
+  /** 예매번호·좌석·정류장 안내 같은 것. 옛 기기 기록에는 없다. */
+  note?: string;
 };
 
 type Props = {
@@ -2616,6 +2622,7 @@ function TripOverview({
   const [transportArrivalTime, setTransportArrivalTime] = useState("");
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const [transportShowInSchedule, setTransportShowInSchedule] = useState(true);
+  const [transportNote, setTransportNote] = useState("");
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
   const transportDraft = {
@@ -2629,6 +2636,7 @@ function TripOverview({
     arrivalTime: transportArrivalTime,
     status: transportStatus,
     showInSchedule: transportShowInSchedule,
+    note: transportNote,
   };
   const [transportDraftBaseline, setTransportDraftBaseline] = useState(() =>
     JSON.stringify(transportDraft),
@@ -2641,6 +2649,7 @@ function TripOverview({
     people: "2명",
     status: "예약 확정",
     place: "",
+    bookingUrl: "",
     showInSchedule: true,
   });
   const [reservationDraft, setReservationDraft] = useState<ReservationInfo>(() =>
@@ -2915,6 +2924,7 @@ function TripOverview({
       arrivalTime: transportArrivalTime.trim() || "시간 미정",
       status: transportStatus,
       showInSchedule: transportShowInSchedule,
+      note: transportNote.trim(),
     };
     setTransportDraftBaseline(JSON.stringify(transportDraft));
     if (editingTransportId) {
@@ -2925,6 +2935,7 @@ function TripOverview({
       setTransportDepartureTime("");
       setTransportArrival("");
       setTransportArrivalTime("");
+      setTransportNote("");
       setSheet(null);
       notify("교통편을 수정했어요");
       return;
@@ -2944,6 +2955,7 @@ function TripOverview({
               setTransportDepartureTime("");
               setTransportArrival("");
               setTransportArrivalTime("");
+              setTransportNote("");
               setSheet(null);
             },
           },
@@ -2961,8 +2973,10 @@ function TripOverview({
                 arrivalTime: "",
                 status: next.status,
                 showInSchedule: next.showInSchedule,
+                note: "",
               }));
               setTransportDirection("오는 편");
+              setTransportNote("");
               setTransportDate(lastDay);
               setTransportDeparture(next.arrival);
               setTransportArrival(next.departure);
@@ -2978,6 +2992,7 @@ function TripOverview({
       setTransportDepartureTime("");
       setTransportArrival("");
       setTransportArrivalTime("");
+      setTransportNote("");
       setSheet(null);
       notify("오는 편을 저장했어요");
     }
@@ -3007,6 +3022,7 @@ function TripOverview({
       arrivalTime: "",
       status: "예매 완료" as const,
       showInSchedule: true,
+      note: "",
     };
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(null);
@@ -3020,6 +3036,7 @@ function TripOverview({
     setTransportArrivalTime("");
     setTransportStatus("예매 완료");
     setTransportShowInSchedule(true);
+    setTransportNote("");
     setTransportDetailsOpen(false);
     setSheet("transport");
   };
@@ -3035,6 +3052,7 @@ function TripOverview({
       arrivalTime: item.arrivalTime === "시간 미정" ? "" : item.arrivalTime,
       status: item.status,
       showInSchedule: item.showInSchedule,
+      note: item.note ?? "",
     };
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setSelectedTransport(null);
@@ -3049,7 +3067,10 @@ function TripOverview({
     setTransportArrivalTime(item.arrivalTime === "시간 미정" ? "" : item.arrivalTime);
     setTransportStatus(item.status);
     setTransportShowInSchedule(item.showInSchedule);
-    setTransportDetailsOpen(item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule);
+    setTransportNote(item.note ?? "");
+    setTransportDetailsOpen(
+      Boolean(item.note) || item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule,
+    );
     setSheet("transport");
   };
   const deleteTransportation = () => {
@@ -3334,6 +3355,8 @@ function TripOverview({
             meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people}`}
             badge={reservation.status}
             color={theme?.primary ?? "#FF6B63"}
+            link={safeUrl(reservation.bookingUrl) ?? undefined}
+            linkSubject={`${reservation.name} 예약 링크`}
             onPress={() => openReservation(reservation)}
           />
         ))}
@@ -3561,8 +3584,8 @@ function TripOverview({
           onChangeRight={setTransportArrivalTime}
         />
         <OptionalFormSection
-          label="이용자·예매 설정"
-          summary={`${transportOwner} · ${transportStatus}${transportShowInSchedule ? " · 일정 표시" : ""}`}
+          label="이용자·예매·메모"
+          summary={`${transportOwner} · ${transportStatus}${transportShowInSchedule ? " · 일정 표시" : ""}${transportNote.trim() ? " · 메모" : ""}`}
           open={transportDetailsOpen}
           onToggle={() => setTransportDetailsOpen((current) => !current)}
         >
@@ -3573,6 +3596,14 @@ function TripOverview({
             options={["일정에도 표시", "교통 정보만 저장"]}
             value={transportShowInSchedule ? "일정에도 표시" : "교통 정보만 저장"}
             onChange={(value) => setTransportShowInSchedule(value === "일정에도 표시")}
+          />
+          <DetailField
+            label="메모 · 선택 사항"
+            value={transportNote}
+            onChangeText={setTransportNote}
+            multiline
+            maxLength={2000}
+            placeholder="예매번호, 좌석, 타는 곳을 적어 두세요"
           />
         </OptionalFormSection>
       </DetailSheet>
@@ -3590,6 +3621,7 @@ function TripOverview({
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
               <InfoLine label="여행 일정" value={item.showInSchedule ? "일정에 표시 중" : "교통 정보만 저장"} />
+              {Boolean(item.note?.trim()) && <InfoLine label="메모" value={item.note ?? ""} />}
               {canEdit && (
               <Pressable
                 accessibilityRole="button" onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
@@ -3619,6 +3651,18 @@ function TripOverview({
         <DetailField label="인원 · 선택 사항" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
         <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))} />
         <DetailField label="장소 · 선택 사항" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
+        <DetailField
+          label="예약 링크 · 선택 사항"
+          value={reservationDraft.bookingUrl ?? ""}
+          onChangeText={(bookingUrl) => setReservationDraft((current) => ({ ...current, bookingUrl }))}
+          placeholder="https://"
+          keyboardType="url"
+          autoCapitalize="none"
+          maxLength={2048}
+        />
+        {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
+          <Text style={styles.linkState}>https:// 로 시작하는 링크만 저장돼요</Text>
+        )}
         <OptionField
           label="여행 일정 표시"
           options={["일정에도 표시", "예약 정보만 저장"]}
@@ -3794,6 +3838,7 @@ function Places({
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("식당");
   const [mapUrl, setMapUrl] = useState("");
+  const [memo, setMemo] = useState("");
   const [resolvingNaver, setResolvingNaver] = useState(false);
   const [tagText, setTagText] = useState("");
   const [placeDetailsOpen, setPlaceDetailsOpen] = useState(false);
@@ -3808,15 +3853,17 @@ function Places({
     draftCategory: string,
     draftMapUrl: string,
     draftTagText: string,
+    draftMemo: string,
   ) => JSON.stringify([
     draftName,
     draftAddress,
     draftCategory,
     draftMapUrl,
     draftTagText,
+    draftMemo,
   ]);
   const [placeDraftBaseline, setPlaceDraftBaseline] = useState(
-    placeDraftKey("", "", "식당", "", ""),
+    placeDraftKey("", "", "식당", "", "", ""),
   );
   const placeDraftChanged = placeDraftKey(
     name,
@@ -3824,6 +3871,7 @@ function Places({
     category,
     mapUrl,
     tagText,
+    memo,
   ) !== placeDraftBaseline;
   const allTags = useMemo(
     () => Array.from(new Set(places.flatMap((place) => place.tags))),
@@ -3903,11 +3951,12 @@ function Places({
     setCategory("식당");
     setMapUrl("");
     setTagText("");
+    setMemo("");
     setPlaceDetailsOpen(false);
     setEditingId(null);
   };
   const openCreate = () => {
-    setPlaceDraftBaseline(placeDraftKey("", "", "식당", "", ""));
+    setPlaceDraftBaseline(placeDraftKey("", "", "식당", "", "", ""));
     resetForm();
     setAdding(true);
   };
@@ -3918,6 +3967,7 @@ function Places({
       place.category,
       place.mapUrl,
       place.tags.join(", "),
+      place.memo ?? "",
     ));
     setEditingId(place.id);
     setName(place.name);
@@ -3925,6 +3975,7 @@ function Places({
     setCategory(place.category);
     setMapUrl(place.mapUrl);
     setTagText(place.tags.join(", "));
+    setMemo(place.memo ?? "");
     setPlaceDetailsOpen(Boolean(place.address || place.mapUrl || place.tags.length));
     setAdding(true);
   };
@@ -3941,6 +3992,7 @@ function Places({
       category,
       mapUrl: mapUrl.trim(),
       tags: draftTags,
+      memo: memo.trim(),
       status: editingId
         ? places.find((place) => place.id === editingId)?.status || "후보"
         : "후보",
@@ -4021,7 +4073,7 @@ function Places({
       places
         .map(
           (place) =>
-            `${place.name} | ${place.area} | ${place.address ?? ""} | ${place.category} | ${place.tags.map((tag) => `#${tag}`).join(" ")} | ${place.mapUrl}`,
+            `${place.name} | ${place.area} | ${place.address ?? ""} | ${place.category} | ${place.tags.map((tag) => `#${tag}`).join(" ")} | ${place.mapUrl} | ${place.memo ?? ""}`,
         )
         .join("\n"),
     );
@@ -4046,6 +4098,8 @@ function Places({
         const rawCategory = fields[isNewFormat ? 3 : 2] || "장소";
         const rawTags = fields[isNewFormat ? 4 : 3] || "";
         const rawUrl = fields[isNewFormat ? 5 : 4] || "";
+        // 메모는 나중에 붙은 칸이다. 없는 줄은 예전 그대로 읽는다.
+        const rawMemo = fields[6] ?? "";
         return {
           id: newPlaceId(),
           name: rawName,
@@ -4054,6 +4108,7 @@ function Places({
           category: rawCategory,
           tags: rawTags.split(/[# ,]+/).filter(Boolean),
           mapUrl: rawUrl,
+          memo: rawMemo,
           status: "후보" as const,
         };
       })
@@ -4237,6 +4292,9 @@ function Places({
                   </View>
                 </View>
                 <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.category} · {place.area}</Text>
+                {Boolean(place.memo?.trim()) && (
+                  <Text numberOfLines={1} style={[styles.placeMiniMemo, { color: theme?.text ?? "#17233D" }]}>{place.memo}</Text>
+                )}
               </View>
             </View>
             <View style={styles.placeMiniActions}>
@@ -4450,6 +4508,14 @@ function Places({
           options={["식당", "카페", "구경", "쇼핑", "숙소"]}
           value={category}
           onChange={setCategory}
+        />
+        <DetailField
+          label="메모 · 선택 사항"
+          value={memo}
+          onChangeText={setMemo}
+          multiline
+          maxLength={2000}
+          placeholder="예: 웨이팅 30분, 담에 가 보기"
         />
         <OptionalFormSection
           label="주소·태그·지도"
@@ -9319,6 +9385,8 @@ function TravelInfoRow({
   meta,
   badge,
   color,
+  link,
+  linkSubject,
   onPress,
 }: {
   label: string;
@@ -9328,6 +9396,9 @@ function TravelInfoRow({
   /** 예약 상태처럼 한눈에 봐야 하는 말. 메타 줄 끝에 묻히면 안 읽힌다. */
   badge?: string;
   color: string;
+  /** 예약 링크처럼 밖으로 나가는 주소. 줄을 누르면 수정이라, 링크는 따로 둔다. */
+  link?: string;
+  linkSubject?: string;
   onPress: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -9358,6 +9429,21 @@ function TravelInfoRow({
         </View>
         <Text numberOfLines={1} style={[styles.travelInfoMeta, theme && { color: theme.muted }]}>{meta}</Text>
       </View>
+      {Boolean(link) && (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`${linkSubject ?? title} 열기`}
+          hitSlop={8}
+          onPress={(event) => { event.stopPropagation(); if (link) void Linking.openURL(link); }}
+          style={({ pressed }) => [
+            styles.travelInfoLink,
+            { backgroundColor: `${color}18` },
+            pressed && styles.packingCardPressed,
+          ]}
+        >
+          <Text style={[styles.travelInfoLinkText, { color }]}>링크</Text>
+        </Pressable>
+      )}
       <View style={[styles.travelInfoArrowBox, { backgroundColor: `${color}18` }]}>
         <Glyph name="chevronRight" size={16} color={color} />
       </View>
@@ -9610,7 +9696,10 @@ function DetailField({
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: "default" | "numeric";
+  keyboardType?: "default" | "numeric" | "url";
+  /** 서버가 받는 한도. 넘겨 두면 저장할 때 잘리는 대신 처음부터 못 넘긴다. */
+  maxLength?: number;
+  autoCapitalize?: "none" | "sentences";
 }) {
   const theme = useContext(DetailThemeContext);
   return (
@@ -10775,6 +10864,15 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   travelInfoArrow: { fontSize: 18, lineHeight: 20, fontFamily: typo.label.family },
+  travelInfoLink: {
+    minHeight: 36,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  travelInfoLinkText: { fontSize: 13, fontFamily: typo.label.family },
   moment: { flexDirection: "row", minHeight: 67 },
   lastMoment: { minHeight: 46 },
   momentTime: { width: 82, flexDirection: "row" },
@@ -12605,6 +12703,7 @@ const styles = StyleSheet.create({
   placeMiniStatus: { height: 21, borderRadius: 8, paddingHorizontal: 6, alignItems: "center", justifyContent: "center", marginLeft: 6 },
   placeMiniStatusText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
+  placeMiniMemo: { fontSize: 12, fontFamily: typo.body.family, marginTop: 4 },
   placeMiniTags: { minHeight: 22, flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
   placeMiniTag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
   placeMiniTagText: { fontSize: 12, fontFamily: typo.label.family },

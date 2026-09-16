@@ -66,8 +66,20 @@ test("서버에서 받은 장소는 앱의 말로 바뀌고 되돌려도 같은 
 
   assert.equal(fromServer.status, "일정");
   assert.equal(bodyKey(placeBody(fromServer)), bodyKey({
-    name: "달빛한옥", area: "전북", address: null, category: "숙소", status: "scheduled", tags: ["저녁", "예약"], mapUrl: "https://map.naver.com/x",
+    name: "달빛한옥", area: "전북", address: null, category: "숙소", status: "scheduled", tags: ["저녁", "예약"], mapUrl: "https://map.naver.com/x", memo: null,
   }));
+});
+
+test("메모를 적으면 서버로 가고, 서버 메모는 돌아와 그대로 남는다", () => {
+  assert.equal(placeBody(place(A, { memo: "  웨이팅 30분  " })).memo, "웨이팅 30분");
+  assert.equal(placeBody(place(A, { memo: "가".repeat(2100) })).memo?.length, 2000);
+  assert.equal(placeBody(place(A)).memo, null);
+
+  const fromServer = placeFromServer(server(A, { memo: "담에 가용" }));
+  assert.equal(fromServer.memo, "담에 가용");
+  // 앱이 메모를 들고 있으니 다음 저장에서 지워지지 않는다.
+  assert.equal(placeBody(fromServer).memo, "담에 가용");
+  assert.equal(hasWork(planPlaceSync([fromServer], confirmedOf(fromServer))), false);
 });
 
 test("새 장소는 만들고, 바뀐 장소는 고치고, 사라진 장소는 지운다", () => {

@@ -43,14 +43,32 @@ test("교통편을 서버 모양으로 바꾸고 탈 사람은 membership id 로
     arrivalTime: null,
     ownerMembershipId: "m-yeoul",
     bookingStatus: "booked",
+    note: null,
     showInSchedule: true,
   });
+});
+
+test("교통편 메모를 적으면 서버로 가고, 서버 메모는 돌아와 그대로 남는다", () => {
+  const codec = transportCodec(dates, roster);
+  assert.equal(codec.toBody(transport({ note: "  예매번호 1234, 3호차 12A  " })).note, "예매번호 1234, 3호차 12A");
+  assert.equal(codec.toBody(transport({ note: "가".repeat(2100) })).note?.length, 2000);
+
+  const back = codec.fromServer({
+    id: A, direction: "outbound", method: "ktx", date: "2026-10-01", departureName: "서울역", departureTime: "08:00",
+    arrivalName: "전주역", arrivalTime: null, ownerMembershipId: "m-yeoul", bookingStatus: "booked",
+    note: "3호차 12A", showInSchedule: true, version: 1,
+  });
+
+  assert.equal(back.note, "3호차 12A");
+  // 앱이 메모를 들고 있으니 다음 저장에서 지워지지 않는다.
+  assert.equal(codec.toBody(back).note, "3호차 12A");
+  assert.equal(stable(codec, back), true);
 });
 
 test("공간에 없는 이름은 탈 사람을 비워 보내고, 서버에서 돌아와도 다시 보내지 않는다", () => {
   const codec = transportCodec(dates, roster);
   const body = codec.toBody(transport({ owner: "동행" }));
-  const back = codec.fromServer({ id: A, version: 1, note: null, ...body });
+  const back = codec.fromServer({ id: A, version: 1, ...body });
 
   assert.equal(body.ownerMembershipId, null);
   assert.equal(back.owner, "");
@@ -65,7 +83,7 @@ test("서버 교통편은 화면 글자로 돌아온다", () => {
 
   assert.deepEqual(back, {
     id: A, owner: "하늘", direction: "오는 편", method: "항공", date: "3일(토)", departure: "제주", departureTime: "21:40",
-    arrival: "김포", arrivalTime: "시간 미정", status: "예매 전", showInSchedule: false,
+    arrival: "김포", arrivalTime: "시간 미정", status: "예매 전", note: "", showInSchedule: false,
   });
 });
 
@@ -77,6 +95,7 @@ const reservation = (extra: Partial<AppReservation> = {}): AppReservation => ({
   people: "2명 + 아이",
   status: "예약 확정",
   place: "전주 완산구",
+  bookingUrl: "",
   showInSchedule: true,
   ...extra,
 });
@@ -100,5 +119,23 @@ test("시각을 비운 예약과 인원 글자 없는 서버 예약도 되돌려
   });
   assert.equal(back.people, "4명");
   assert.equal(back.time, "");
+  assert.equal(stable(codec, back), true);
+});
+
+test("예약 링크는 http 링크만 보내고, 서버 링크는 돌아와 그대로 남는다", () => {
+  const codec = reservationCodec(dates);
+  assert.equal(codec.toBody(reservation({ bookingUrl: " https://example.com/r/1 " })).bookingUrl, "https://example.com/r/1");
+  // 서버가 http·https 만 받는다. 보내기 전에 거른다.
+  assert.equal(codec.toBody(reservation({ bookingUrl: "javascript:alert(1)" })).bookingUrl, null);
+  assert.equal(codec.toBody(reservation({ bookingUrl: "" })).bookingUrl, null);
+
+  const back = codec.fromServer({
+    id: A, title: "소나기식당", date: null, time: null, partySize: null, partyLabel: null, status: "confirmed",
+    note: null, bookingUrl: "https://example.com/r/1", showInSchedule: false, version: 1,
+  });
+
+  assert.equal(back.bookingUrl, "https://example.com/r/1");
+  // 앱이 링크를 들고 있으니 다음 저장에서 지워지지 않는다.
+  assert.equal(codec.toBody(back).bookingUrl, "https://example.com/r/1");
   assert.equal(stable(codec, back), true);
 });
