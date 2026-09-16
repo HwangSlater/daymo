@@ -1518,7 +1518,7 @@ export function WarmAppShell({
           onClose={() => setOpenNoticeImport(false)}
           onFilled={async (tripId) => {
             setOpenNoticeImport(false);
-            const filled = tripFromServer(await getTrip(tripId), tripItems.length, activeRoster);
+            const filled = tripFromServer(await getTrip(tripId), activeRoster);
             setTripItems((current) => [filled, ...current.filter((item) => item.id !== filled.id)]);
             openTrip("overview", filled);
           }}
