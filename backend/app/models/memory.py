@@ -203,8 +203,9 @@ class AuditLog(Base):
 
     **공간이나 계정이 사라져도 이 줄은 남는다.** 둘 다 SET NULL 로 끊는다.
     공간을 지우면 감사 기록까지 사라지면, 공간을 지우는 것으로 흔적을 지울
-    수 있게 된다. 남은 줄은 자체 보유기간에 따라 파기한다
-    (docs/development/08-privacy-and-release-compliance.md).
+    수 있게 된다. 남은 줄은 자체 보유기간(6개월)에 따라 정리 작업이 파기한다
+    (`app.services.audit.purge_expired`,
+    docs/development/08-privacy-and-release-compliance.md).
 
     `TimestampMixin` 을 쓰지 않는다. 감사 기록은 고쳐지지 않으므로
     `updated_at` 이 있을 이유가 없고, 있으면 고쳐도 되는 것처럼 읽힌다.
@@ -214,6 +215,10 @@ class AuditLog(Base):
     __table_args__ = (
         Index("ix_audit_logs_space_time", "space_id", "created_at"),
         Index("ix_audit_logs_target", "target_type", "target_id"),
+        # 보유기간 파기는 공간을 가리지 않고 오래된 것부터 찾는다. 위의
+        # (space_id, created_at) 으로는 그 질의를 받을 수 없어서 따로 둔다.
+        # 이 표는 계속 자라기만 하므로 매일 전부 훑게 두면 안 된다.
+        Index("ix_audit_logs_created_at", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

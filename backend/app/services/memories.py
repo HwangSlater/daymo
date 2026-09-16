@@ -3,19 +3,27 @@
 
 메모는 지워도 행을 남긴다(`deleted_at`, `deleted_by`). 함께 쓰는 공간이라 누가 언제
 지웠는지가 남아야 한다. 7일 안에는 휴지통에서 되살린다(app/services/trash.py).
+기한이 지난 행은 정리 작업이 실제로 지운다(`purge_memos`). 사진과 같다.
 
 일기는 행을 지운다. 일기에는 사진이 붙지 않아 뗄 연결이 없다.
 """
 
+import logging
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
 from app.models import Diary, Membership, Memo, Trip, User
 from app.services.account_deletion import DELETED_DISPLAY_NAME
+from app.services.trash import TRASH_WINDOW
+
+logger = logging.getLogger("daymo.memories")
+
+# 한 번에 지우는 메모 수의 상한. 감사 기록과 같은 이유다(app/services/audit.py).
+PURGE_BATCH = 500
 
 
 async def author_names(session: AsyncSession, ids: list[uuid.UUID | None]) -> dict[uuid.UUID, str]:
@@ -102,6 +110,42 @@ async def remove_memo(session: AsyncSession, *, memo: Memo, actor: Membership) -
     memo.deleted_by = actor.id
     memo.version += 1
     await session.flush()
+
+
+async def purge_memos(
+    session: AsyncSession, *, now: datetime | None = None, limit: int = PURGE_BATCH
+) -> int:
+    """
+    되살릴 기한이 지난 메모를 실제로 지운다. 정기 작업에서 부른다.
+
+    **뗄 연결이 없다.** `taggings`·`external_links`·`photo_links` 의 대상 종류에
+    메모가 없고(app/models/enums.py), `memos.id` 를 가리키는 외래키도 없다.
+    새 표가 메모를 가리키게 되면 여기에 떼는 일을 더해야 한다.
+
+    **감사 기록과 신고는 남긴다.** `audit_logs.target_id` 와 `reports.target_id` 가
+    지운 메모를 가리키지만 둘 다 외래키가 아니다. 감사 기록을 함께 지우면
+    메모를 지운 뒤 일주일만 기다리면 지운 흔적까지 사라져서, 기록을 남기는
+    뜻이 없어진다. 감사 기록은 자기 보유기간(6개월)에 따로 파기하고
+    (app/services/audit.py), 신고는 운영자가 검토를 끝내야 하는 줄이라
+    여기서 건드리지 않는다.
+
+    본문은 이때 사라진다. 사진처럼 기한이 지나면 되살릴 수 없으므로
+    (app/services/trash.py) 화면에서 달라지는 것은 없다.
+    """
+    기한 = (now or datetime.now(UTC)) - TRASH_WINDOW
+    오래된 = (
+        select(Memo.id)
+        .where(Memo.deleted_at.is_not(None), Memo.deleted_at <= 기한)
+        .order_by(Memo.deleted_at)
+        .limit(limit)
+        .scalar_subquery()
+    )
+    지운_것 = await session.execute(delete(Memo).where(Memo.id.in_(오래된)))
+    await session.flush()
+    수 = 지운_것.rowcount or 0
+    if 수 >= limit:
+        logger.warning("메모 파기가 상한(%d)에 걸렸다. 남은 것은 다음 정리에서 지운다.", limit)
+    return 수
 
 
 # ---------------------------------------------------------------------------
