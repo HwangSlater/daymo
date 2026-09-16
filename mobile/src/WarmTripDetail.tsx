@@ -522,6 +522,10 @@ type Props = {
   serverKeepsake?: SavedKeepsake;
   /** 기념 카드에서 고른 것을 서버에 저장한다. 없으면 이 기기에만 남는다. */
   onUpdateKeepsake?: (card: SavedKeepsake) => Promise<void>;
+  /** 홈의 여행 카드 바탕으로 쓰는 사진. */
+  coverPhotoId?: string;
+  /** 홈 카드 바탕 사진을 바꾼다. `null` 이면 해제다. */
+  onUpdateCoverPhoto?: (photoId: string | null) => Promise<void>;
   initialPlanning?: TripPlanningData;
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
@@ -1032,6 +1036,8 @@ export function WarmTripDetail({
   onUpdateExpenseSettings,
   serverKeepsake,
   onUpdateKeepsake,
+  coverPhotoId,
+  onUpdateCoverPhoto,
   initialPlanning: savedPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
@@ -2218,6 +2224,8 @@ export function WarmTripDetail({
               spentTotal={money(expenses.reduce((sum, item) => sum + item.amount, 0), currency)}
               keepsake={serverKeepsake}
               onSaveKeepsake={onUpdateKeepsake}
+              coverPhotoId={coverPhotoId}
+              onSaveCoverPhoto={onUpdateCoverPhoto}
               reportSpaceId={reportSpaceId}
               isOwner={isOwner}
               myMembershipId={myMembershipId}
@@ -7484,6 +7492,8 @@ function Memories({
   spentTotal,
   keepsake,
   onSaveKeepsake,
+  coverPhotoId,
+  onSaveCoverPhoto,
   reportSpaceId,
   isOwner = false,
   myMembershipId,
@@ -7511,6 +7521,9 @@ function Memories({
   keepsake?: SavedKeepsake;
   /** 없으면 이 여행은 카드 설정을 저장할 곳이 없다(예시 여행). */
   onSaveKeepsake?: (card: SavedKeepsake) => Promise<void>;
+  /** 홈의 여행 카드 바탕으로 쓰는 사진. */
+  coverPhotoId?: string;
+  onSaveCoverPhoto?: (photoId: string | null) => Promise<void>;
   /** 서버 여행일 때만. 있으면 사진과 일기 수정 시트에 신고가 보인다. */
   reportSpaceId?: string;
   /** 공간 관리자인지. 남이 올린 사진도 고칠 수 있다. */
@@ -7621,6 +7634,18 @@ function Memories({
     tuneCard({ parts: cardDraft.parts.includes(part) ? cardDraft.parts.filter((item) => item !== part) : [...cardDraft.parts, part] });
   const toggleCardStat = (stat: KeepsakeStatKind) =>
     tuneCard({ stats: cardDraft.stats.includes(stat) ? cardDraft.stats.filter((item) => item !== stat) : [...cardDraft.stats, stat] });
+  // 홈 카드 바탕은 한 장이다. 카드에 여러 장을 골랐으면 맨 앞 사진을 쓴다.
+  const coverCandidate = cardDraft.photoIds[0] ?? "";
+  const coverOn = Boolean(coverCandidate) && coverCandidate === coverPhotoId;
+  const toggleCover = async () => {
+    if (!onSaveCoverPhoto || !coverCandidate) return;
+    try {
+      await onSaveCoverPhoto(coverOn ? null : coverCandidate);
+      notify(coverOn ? "홈 카드를 원래 모습으로 되돌렸어요" : "이 사진을 홈 카드에 깔았어요");
+    } catch {
+      notify("홈 카드 사진을 바꾸지 못했어요. 잠시 뒤에 다시 시도해 주세요");
+    }
+  };
   const saveCard = async () => {
     setMakingCard(false);
     if (!onSaveKeepsake) return;
@@ -7936,6 +7961,24 @@ function Memories({
                 : Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기"}
           </Text>
         </Pressable>
+        {Boolean(onSaveCoverPhoto && coverCandidate) && (
+          <Pressable
+            onPress={toggleCover}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: coverOn }}
+            accessibilityLabel="이 사진을 홈 카드에 쓰기"
+            style={({ pressed }) => [
+              styles.keepsakeExport,
+              theme && { borderColor: theme.border, backgroundColor: theme.surface },
+              coverOn && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <Text style={[styles.keepsakeExportText, theme && { color: coverOn ? theme.primary : theme.muted }]}>
+              {coverOn ? "홈 카드에 쓰는 중 · 누르면 해제" : "이 사진을 홈 카드에 쓰기"}
+            </Text>
+          </Pressable>
+        )}
         <Pressable
           onPress={() => setCardTuning((value) => !value)}
           accessibilityRole="button"

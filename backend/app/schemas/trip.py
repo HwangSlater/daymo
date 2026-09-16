@@ -73,6 +73,8 @@ class TripUpdateRequest(_Camel):
     budget: Decimal | None = None
     # 여행 기념 카드에서 고른 것 한 덩어리. 보내면 통째로 바뀐다.
     card_settings: KeepsakeCardIn | None = None
+    # 홈의 여행 카드 바탕으로 쓸 사진. 그 여행의 사진이어야 하고, null 이면 해제다.
+    cover_photo_id: str | None = None
 
 
 class ParticipantsRequest(_Camel):
@@ -130,6 +132,7 @@ class TripOut(_Camel):
     simplify_settlement: bool
     # 아직 아무도 꾸미지 않았으면 없다. 앱이 기본값으로 그린다.
     card_settings: dict | None = None
+    cover_photo_id: str | None = None
     version: int
     archived_at: str | None = None
     # 지운 여행일 때만 있다. 이 시각이 지나면 되돌릴 수 없다.

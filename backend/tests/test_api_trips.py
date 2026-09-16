@@ -440,6 +440,38 @@ async def test_카드_사진은_그_여행의_사진이어야_하고_모르는_�
     assert 기본값.json()["data"]["cardSettings"]["style"] == "필름"
 
 
+async def test_홈_카드_대표_사진은_그_여행의_사진만_되고_해제도_된다(api, db):
+    from tests.test_api_photos import jpeg, 사진을_올린다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    다른_여행 = (
+        await api.post(
+            f"/v1/spaces/{space_id}/trips",
+            json={"title": "다른 여행", "startDate": "2026-11-01", "endDate": "2026-11-02"},
+            headers=headers,
+        )
+    ).json()["data"]
+    사진 = (await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+    남의_사진 = (await 사진을_올린다(api, headers, 다른_여행["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+    assert trip["coverPhotoId"] is None
+
+    고름 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "coverPhotoId": 사진}, headers=headers
+    )
+    남의_것 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": 고름.json()["data"]["version"], "coverPhotoId": 남의_사진}, headers=headers
+    )
+    해제 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": 고름.json()["data"]["version"], "coverPhotoId": None}, headers=headers
+    )
+
+    assert 고름.json()["data"]["coverPhotoId"] == 사진
+    assert 남의_것.status_code == 422
+    assert 해제.json()["data"]["coverPhotoId"] is None
+
+
 async def test_먼저_고친_사람이_있으면_막는다(api, db):
     """
     마지막에 저장한 쪽이 앞사람의 수정을 조용히 덮어쓰면, 무엇이 사라졌는지

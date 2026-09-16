@@ -39,6 +39,8 @@ export type ServerTrip = {
   simplifySettlement?: boolean;
   /** 기념 카드를 어떻게 꾸몄는지. 아직 아무도 꾸미지 않았으면 없다. */
   cardSettings?: SavedKeepsake | null;
+  /** 홈의 여행 카드 바탕으로 쓸 사진. 고르지 않았으면 없다. */
+  coverPhotoId?: string | null;
   archivedAt?: string | null;
   /** 지운 여행일 때만. 이 시각이 지나면 되돌릴 수 없다. */
   deletionScheduledAt?: string | null;
@@ -391,6 +393,13 @@ export const updateKeepsake = (tripId: string, version: number, settings: SavedK
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`, {
     method: "PATCH",
     body: JSON.stringify({ version, cardSettings: settings }),
+  });
+
+/** 홈 카드 바탕으로 쓸 사진. `null` 이면 해제다. */
+export const updateCoverPhoto = (tripId: string, version: number, photoId: string | null) =>
+  authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, coverPhotoId: photoId }),
   });
 
 export const updateExpenseSettings = (tripId: string, version: number, settings: ExpenseSettings) =>

@@ -111,13 +111,19 @@ export const isLivePhotoUri = (uri: string | undefined): uri is string =>
   Boolean(uri) && (!uri!.startsWith("blob:") || liveBlobUris.has(uri!));
 
 /**
- * 서버 사진의 표시본을 받아 둔다. 받은 자리를 돌려준다.
+ * 서버 사진을 받아 둔다. 받은 자리를 돌려준다.
  *
  * 폰은 문서 폴더에 파일로 둔다. 웹은 메모리에만 두고 blob: 주소를 준다. 브라우저 저장소는
  * 몇 MB 뿐이라 사진을 넣으면 여행 기록 저장이 먼저 막힌다.
+ *
+ * `variant` 는 기본이 표시본(긴 변 1440px)이다. 홈의 여행 카드처럼 작게 깔리고 여러 장을
+ * 한꺼번에 받는 자리는 썸네일(480px)을 받는다. 표시본을 여럿 받으면 카드를 넘길 때 걸린다.
  */
-export async function downloadPhoto(photoId: string): Promise<string | undefined> {
-  const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=display`);
+export async function downloadPhoto(
+  photoId: string,
+  variant: "display" | "thumbnail" = "display",
+): Promise<string | undefined> {
+  const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=${variant}`);
   if (Platform.OS === "web") {
     return withAccessToken(async (accessToken) => {
       let response: Response;
@@ -135,7 +141,7 @@ export async function downloadPhoto(photoId: string): Promise<string | undefined
   if (!FileSystem.documentDirectory) return undefined;
   const folder = `${FileSystem.documentDirectory}${PHOTO_DIRECTORY}/`;
   await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
-  const target = `${folder}server-${photoId}.jpg`;
+  const target = `${folder}server-${photoId}${variant === "display" ? "" : `-${variant}`}.jpg`;
   return withAccessToken(async (accessToken) => {
     let status: number;
     try {

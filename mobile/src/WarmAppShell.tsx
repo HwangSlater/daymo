@@ -20,7 +20,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
@@ -100,6 +100,7 @@ import {
   listTrips,
   setTripParticipants,
   updateExpenseSettings,
+  updateCoverPhoto,
   updateKeepsake,
   updateSpace,
   updateTrip,
@@ -121,6 +122,7 @@ import {
 import { mergeServerTripsByGroup } from "./tripMerge";
 import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
 import type { SavedKeepsake } from "./tripCard";
+import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
@@ -153,6 +155,12 @@ type Trip = {
   serverExpenseSettings?: ExpenseSettings;
   /** 기념 카드를 어떻게 꾸몄는지. 함께 보는 사람에게 같은 카드가 보이도록 서버에 둔다. */
   keepsake?: SavedKeepsake;
+  /** 홈 카드 바탕으로 쓰는 사진. */
+  coverPhotoId?: string;
+  /** 받아 둔 바탕 사진 자리. 아직 못 받았으면 없고, 그러면 카드는 종이 그대로다. */
+  coverUri?: string;
+  /** `coverUri` 가 어느 사진의 것인지. 대표 사진을 바꾸면 옛 그림을 쓰지 않는다. */
+  coverUriFor?: string;
   /**
    * 앱이 처음부터 들고 있는 예시 여행.
    *
@@ -206,7 +214,9 @@ const tripFromServer = (trip: ServerTrip, tone = 0, roster: RosterEntry[] = []):
     ...(participants.length ? { planning: { participants } } : {}),
     ...(overview ? { overview } : {}),
     serverExpenseSettings: expenseSettingsFrom(trip),
-    ...(trip.cardSettings ? { keepsake: trip.cardSettings } : {}),
+    // 해제한 것도 반영돼야 해서 없을 때도 싣는다(`...` 로 감추면 옛 값이 남는다).
+    keepsake: trip.cardSettings ?? undefined,
+    coverPhotoId: trip.coverPhotoId ?? undefined,
     archived: trip.status === "archived",
     ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
   };
@@ -856,6 +866,34 @@ export function WarmAppShell({
     setSelectedTrip(updated);
   };
   /**
+   * 홈 카드 바탕 사진을 받아 둔다. 썸네일(480px)만 받는다.
+   *
+   * 여러 장을 표시본으로 받으면 카드를 넘길 때 걸린다. 못 받으면(연결 없음) 그대로
+   * 둔다. 카드는 사진 없이 종이 그대로 그려지므로 깨진 그림이 남지 않는다.
+   */
+  const coverDownloads = useRef(new Set<string>());
+  useEffect(() => {
+    const missing = tripItems.filter((trip) =>
+      trip.coverPhotoId && trip.coverUriFor !== trip.coverPhotoId && !coverDownloads.current.has(trip.coverPhotoId));
+    if (!missing.length) return;
+    missing.forEach((trip) => coverDownloads.current.add(trip.coverPhotoId as string));
+    void (async () => {
+      for (const trip of missing) {
+        const photoId = trip.coverPhotoId as string;
+        try {
+          const uri = await downloadPhoto(photoId, "thumbnail");
+          if (!uri) continue;
+          setTripItems((current) => current.map((item) =>
+            item.coverPhotoId === photoId ? { ...item, coverUri: uri, coverUriFor: photoId } : item));
+        } catch {
+          coverDownloads.current.delete(photoId);
+        }
+      }
+    })();
+    // setTripItems 는 렌더마다 새로 만들어지는 함수라 의존성에 넣지 않는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripItems]);
+  /**
    * 저장하다 버전이 어긋나면 최신 여행을 받아 반영하고 `TripConflictError` 로 알린다.
    * 상세 화면은 이 오류를 받으면 고치던 값을 버리고 최신 내용을 보여 준다.
    */
@@ -1045,6 +1083,19 @@ export function WarmAppShell({
           });
           applyServerTrip(saved);
         }}
+        coverPhotoId={selectedTrip.coverPhotoId}
+        onUpdateCoverPhoto={selectedTrip.id && selectedTrip.version !== undefined ? async (photoId) => {
+          const tripId = selectedTrip.id as string;
+          let saved: ServerTrip;
+          try {
+            saved = await updateCoverPhoto(tripId, selectedTrip.version!, photoId);
+          } catch (caught) {
+            if (!(caught instanceof DaymoApiError) || caught.code !== "VERSION_CONFLICT") throw caught;
+            const latest = await getTrip(tripId);
+            saved = await updateCoverPhoto(tripId, latest.version, photoId);
+          }
+          applyServerTrip(saved);
+        } : undefined}
         serverKeepsake={selectedTrip.keepsake}
         onUpdateKeepsake={selectedTrip.id && selectedTrip.version !== undefined ? async (settings) => {
           const tripId = selectedTrip.id as string;
@@ -2540,7 +2591,27 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
   todayKey: string;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
-  const paper = paperCard(theme.dark);
+  const 종이 = paperCard(theme.dark);
+  /**
+   * 대표 사진을 깐 카드인지. 아직 못 받았으면 종이 그대로다.
+   *
+   * 사진 위에서는 종이 색이 아니라 밝은 글자를 쓴다. 밝은 사진에서도 읽히도록
+   * 사진 위에 어두운 막을 한 겹 깐다. 종이 결·테이프·비행기 점선은 사진을 가리므로 뺀다.
+   */
+  const coverUri = isLivePhotoUri(trip.coverUri) && trip.coverUriFor === trip.coverPhotoId ? trip.coverUri : undefined;
+  const paper = coverUri
+    ? {
+      ...종이,
+      surface: "#1A1714",
+      border: "rgba(255,255,255,0.14)",
+      title: "#F8F5F0",
+      muted: "#D9D2C7",
+      rule: "rgba(255,255,255,0.18)",
+      divider: "rgba(255,255,255,0.18)",
+      iconBorder: "rgba(255,255,255,0.28)",
+      stampBorder: "rgba(255,255,255,0.32)",
+    }
+    : 종이;
   // 없으면 없다고 말한다. 그럴듯한 숫자를 채워 두면 눌러 보고 나서야 빈 줄
   // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다.
   // 서버 여행은 서버가 센 요약을, 없으면 기기의 기록을 쓴다(`tripOverview.ts`).
@@ -2561,19 +2632,36 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             { backgroundColor: paper.surface, borderColor: paper.border },
           ]}
         >
-        <View pointerEvents="none" style={s.paperTripTexture}>
-          {[63, 113, 163].map((top) => (
-            <View key={top} style={[s.paperTripSoftLine, { top, backgroundColor: paper.softLine }]} />
-          ))}
-          <View
-            style={[
-              s.paperTripMargin,
-              { backgroundColor: `${theme.primary}24` },
-            ]}
-          />
-        </View>
-        <View style={[s.paperTape, { backgroundColor: paper.tape }]} />
-        <View pointerEvents="none" style={s.paperTripRoute}>
+        {coverUri && (
+          <View pointerEvents="none" style={s.paperTripCover}>
+            <Image source={{ uri: coverUri }} resizeMode="cover" style={StyleSheet.absoluteFill} />
+            {/* 사진 한 장으로 밝기가 제각각이라 고정 막으로는 대비가 모자란다. 위는
+                옅게, 글자가 몰린 아래로 갈수록 짙게 깐다. */}
+            <Svg width="100%" height="100%">
+              <Defs><LinearGradient id="coverShade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#100D0A" stopOpacity="0.42" />
+                <Stop offset="0.45" stopColor="#100D0A" stopOpacity="0.58" />
+                <Stop offset="1" stopColor="#100D0A" stopOpacity="0.82" />
+              </LinearGradient></Defs>
+              <Rect width="100%" height="100%" fill="url(#coverShade)" />
+            </Svg>
+          </View>
+        )}
+        {!coverUri && (
+          <View pointerEvents="none" style={s.paperTripTexture}>
+            {[63, 113, 163].map((top) => (
+              <View key={top} style={[s.paperTripSoftLine, { top, backgroundColor: paper.softLine }]} />
+            ))}
+            <View
+              style={[
+                s.paperTripMargin,
+                { backgroundColor: `${theme.primary}24` },
+              ]}
+            />
+          </View>
+        )}
+        {!coverUri && <View style={[s.paperTape, { backgroundColor: paper.tape }]} />}
+        {!coverUri && <View pointerEvents="none" style={s.paperTripRoute}>
           <Svg width="100%" height="100%" viewBox="0 0 112 42">
             <Path
               // 점선 끝을 종이비행기 꼬리 홈(90,20) 앞에 맞춘다.
@@ -2593,7 +2681,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
               strokeLinejoin="round"
             />
           </Svg>
-        </View>
+        </View>}
         <Pressable
           accessibilityRole="button"
           onPress={() => open("overview", trip)}
@@ -6479,6 +6567,8 @@ const s = StyleSheet.create({
   },
   paperTripMain: { borderRadius: 2 },
   paperTripTexture: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 4 },
+  // 대표 사진을 깐 카드의 바탕. 종이 결과 같은 자리를 차지하고 모서리도 같다.
+  paperTripCover: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 4 },
   paperTripSoftLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(104, 139, 160, .10)" },
   paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .14)" },
   paperTripRoute: {
