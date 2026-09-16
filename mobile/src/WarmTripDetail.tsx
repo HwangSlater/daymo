@@ -53,10 +53,11 @@ import {
 } from "./pastTripImport";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
-import { photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
+import { originalSaveHint, photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
 import { TripCardsSection, type CardPhoto, type DetailUi } from "./TripCards";
 import { TripTrash } from "./TripTrash";
-import { downloadPhoto, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
+import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
+import { savePhotoFile } from "./photoSave";
 import type { ExpenseSettings, ReportReason, ReportTargetType, ServerTrip } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
@@ -355,6 +356,8 @@ export type MemoryPhoto = {
   links?: PhotoLink[];
   /** 올린 사람. 서버에서 받은 사진에만 있다. 비어 있으면 이 기기에서 올린 내 사진이다. */
   uploaderMembershipId?: string | null;
+  /** 원본을 받을 수 있는 기한. 지났으면 null, 서버가 말해 주지 않으면 없다(`photoSync`). */
+  originalUntil?: string | null;
 };
 export type TravelDiary = {
   id: string;
@@ -8174,6 +8177,14 @@ function Memories({
    * 누를 때마다 입력 칸이 뜨면 훑어볼 수가 없다. 고치기는 여기서 한 번 더 눌러 들어간다.
    */
   const [viewingPhotoId, setViewingPhotoId] = useState<string | null>(null);
+  /** 오늘. 원본을 며칠까지 받을 수 있는지 셀 때 쓴다. */
+  const todayKey = dateKey(new Date());
+  /** 기한이 얼마 안 남았을 때의 글자색. 라이트·다크 대비를 맞춰 둔 값을 쓴다. */
+  const warningInk = theme?.dark ? statusColor.warning.dark : statusColor.warning.light;
+  /** 사진을 기기에 저장하는 중인지와 몇 장째인지. 「전부 저장」은 한 장씩 차례로 간다. */
+  const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const stopSaving = useRef(false);
   const [photoColor, setPhotoColor] = useState("#E7B4A6");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [photoDate, setPhotoDate] = useState(todayDay || dayOptions[0] || UNDATED);
@@ -8356,6 +8367,58 @@ function Memories({
     setPhotoEditing(false);
     notify("사진 정보를 수정했어요");
   };
+  /**
+   * 사진을 기기에 저장한다. 원본이 아직 있으면 원본을, 없으면 화면 크기로 받는다.
+   *
+   * 폰은 OS 공유 시트로 넘어가고(거기 「이미지 저장」이 있다) 웹은 브라우저가 내려받는다.
+   */
+  const savePhotoToDevice = async (photo: MemoryPhoto, 차례: number) => {
+    const hint = originalSaveHint(photo.originalUntil, todayKey);
+    const 받은_것 = await downloadPhotoToSave(photo.id, hint.hasOriginal);
+    if (!받은_것) throw new DaymoApiError("사진을 받지 못했어요.", 0);
+    const 이름 = `${tripName} ${photo.caption || `사진 ${차례 + 1}`}`;
+    return savePhotoFile(받은_것.uri, 이름);
+  };
+  const saveOnePhoto = async (photo: MemoryPhoto, 차례: number) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const 결과 = await savePhotoToDevice(photo, 차례);
+      notify(결과 === "saved" ? "사진을 저장했어요" : "이 기기에서는 사진을 저장할 수 없어요");
+    } catch {
+      notify("사진을 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요");
+    } finally {
+      setSaving(false);
+    }
+  };
+  /**
+   * 여행 사진을 한 장씩 차례로 저장한다.
+   *
+   * 한꺼번에 쏟지 않는다. 받는 길은 요청 줄을 지나지만, 저장하는 쪽(공유 시트·브라우저
+   * 내려받기)은 한 번에 하나씩이라야 한다. 중간에 그만둘 수 있게 둔다.
+   */
+  const saveAllPhotos = async () => {
+    if (saving || !photos.length) return;
+    setSaving(true);
+    stopSaving.current = false;
+    setSavedCount(0);
+    let 저장한_수 = 0;
+    let 못한_수 = 0;
+    for (const [차례, photo] of photos.entries()) {
+      if (stopSaving.current) break;
+      try {
+        if (await savePhotoToDevice(photo, 차례) === "saved") 저장한_수 += 1;
+        else 못한_수 += 1;
+      } catch {
+        못한_수 += 1;
+      }
+      setSavedCount(차례 + 1);
+    }
+    setSaving(false);
+    notify(못한_수
+      ? `사진 ${저장한_수}장을 저장했어요. ${못한_수}장은 저장하지 못했어요`
+      : `사진 ${저장한_수}장을 저장했어요`);
+  };
   /** 사진에 적힌 촬영 날짜를 이번 여행의 날짜 칸으로. 여행 밖의 날이면 빈 글자다. */
   const photoDayOf = (takenOn: string) => {
     const 이름표 = takenOn && tripKeys.includes(takenOn) ? dayLabelOf(takenOn) : "";
@@ -8468,7 +8531,26 @@ function Memories({
         <Text style={[styles.memorySummaryText, theme && { color: theme.muted }]}>사진 {photos.length}장 · 일기 {diaries.length}편</Text>
         <Text style={[styles.memorySummaryText, theme && { color: theme.primary }]}>{new Set(photos.map((photo) => photo.date).filter((date) => date && date !== UNDATED)).size}일의 기록</Text>
       </View>
-      <SectionLabel label="여행 사진" count={`${photos.length}장`} />
+      <SectionLabel
+        label="여행 사진"
+        count={`${photos.length}장`}
+        action={photos.length && !saving ? "전부 저장" : undefined}
+        onPress={() => void saveAllPhotos()}
+      />
+      {saving && (
+        <View style={styles.uploadLine}>
+          <Text accessibilityLiveRegion="polite" style={[styles.settingHint, theme && { color: theme.muted }]}>
+            사진 {savedCount}/{photos.length}장 저장하는 중이에요
+          </Text>
+          <Pressable
+            onPress={() => { stopSaving.current = true; }}
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>그만두기</Text>
+          </Pressable>
+        </View>
+      )}
       {(uploadingPhotoIds.size > 0 || blockedPhotoIds.length > 0) && (
         <View style={styles.uploadLine}>
           <Text accessibilityLiveRegion="polite" style={[styles.settingHint, theme && { color: theme.muted }]}>
@@ -8638,6 +8720,32 @@ function Memories({
                 {syncTrouble.rows.get(viewing.id)?.state === "막힘"
                   ? `아직 못 올린 사진이에요. ${syncTrouble.rows.get(viewing.id)?.reason ?? ""} 올라가면 홈 화면에 쓸 수 있어요.`
                   : "올라가는 중이라 아직 홈 화면에 쓸 수 없어요. 다 올라가면 여기에서 쓸 수 있어요."}
+              </Text>
+            )}
+            <Pressable
+              onPress={() => void saveOnePhoto(viewing, viewIndex)}
+              disabled={saving || uploadingPhotoIds.has(viewing.id)}
+              accessibilityRole="button"
+              accessibilityLabel="이 사진을 기기에 저장"
+              accessibilityState={{ disabled: saving || uploadingPhotoIds.has(viewing.id) }}
+              style={[
+                styles.coverRow,
+                { borderColor: theme?.border ?? "#E5E1DC", backgroundColor: theme?.surface ?? "#FFFFFF" },
+                (saving || uploadingPhotoIds.has(viewing.id)) && styles.coverRowWaiting,
+              ]}
+            >
+              <Glyph name="share" size={15} color={theme?.primary ?? "#3F4C8F"} />
+              <Text style={[styles.coverRowText, { color: theme?.primary ?? "#3F4C8F" }]}>
+                {saving ? "저장하는 중이에요" : "이 사진 저장"}
+              </Text>
+            </Pressable>
+            {Boolean(originalSaveHint(viewing.originalUntil, todayKey).text) && (
+              <Text style={[
+                styles.settingHint,
+                theme && { color: theme.muted },
+                originalSaveHint(viewing.originalUntil, todayKey).soon && { color: warningInk },
+              ]}>
+                {originalSaveHint(viewing.originalUntil, todayKey).text}
               </Text>
             )}
             {canManagePhoto(viewing) && (
@@ -13791,6 +13899,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   coverRowText: { flex: 1, fontSize: 13, fontFamily: typo.label.family },
+  coverRowWaiting: { opacity: 0.5 },
   memoryTile: {
     width: "31.4%",
     aspectRatio: 1,

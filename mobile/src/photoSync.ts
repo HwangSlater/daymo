@@ -70,6 +70,13 @@ export type PhotoRow = {
    * 막 올린 내 사진이다. 사진은 올린 사람과 관리자만 고칠 수 있어 화면이 이 값으로 가린다.
    */
   uploaderMembershipId?: string | null;
+  /**
+   * 원본을 언제까지 받을 수 있는지(ISO).
+   *
+   * 원본은 올린 지 30일까지만 서버에 남고, 그 뒤에는 표시본(긴 변 1440px)과 썸네일만
+   * 영원히 남는다. 기한이 지났으면 `null`, 서버가 알려 주지 않으면 `undefined` 다.
+   */
+  originalUntil?: string | null;
 };
 
 export type ServerPhoto = {
@@ -87,6 +94,8 @@ export type ServerPhoto = {
   createdAt: string;
   version: number;
   links?: PhotoLink[];
+  /** 원본을 받을 수 있는 기한(ISO). 이미 지났으면 null 이다. */
+  originalUntil?: string | null;
 };
 
 export type PhotoBody = { caption: string | null; date: string | null; links: PhotoLink[] };
@@ -112,6 +121,33 @@ export function photoTakenDate(exif: unknown): string {
   const 찾은_것 = (값 as string | undefined)?.trim() ?? "";
   const 맞는가 = 찾은_것.match(/^(\d{4})[:-](\d{2})[:-](\d{2})/);
   return 맞는가 ? `${맞는가[1]}-${맞는가[2]}-${맞는가[3]}` : "";
+}
+
+/**
+ * 저장할 때 원본을 받을 수 있는지와, 크게 보는 창에 조용히 붙일 한 줄.
+ *
+ * 원본은 올린 지 30일까지만 서버에 남는다. 그 뒤로는 표시본만 남아서, 원본을 갖고
+ * 싶으면 그 안에 받아 가야 한다. 알림으로 재촉하지 않고 저장 버튼 옆에 한 줄로 적는다.
+ *
+ * @param originalUntil 서버가 준 기한. `null` 이면 이미 지났고, 없으면 서버가 말해 주지
+ *   않은 것이다(옛 서버). 모를 때는 원본을 달라고 해 보고 서버 답을 따른다.
+ * @param todayKey 오늘(`YYYY-MM-DD`). 며칠 남았는지 셀 때만 쓴다.
+ */
+export function originalSaveHint(
+  originalUntil: string | null | undefined,
+  todayKey: string,
+): { hasOriginal: boolean; text: string; soon: boolean } {
+  if (originalUntil === undefined) return { hasOriginal: true, text: "", soon: false };
+  if (originalUntil === null) return { hasOriginal: false, text: "원본 보관 기간이 지나 화면 크기로 저장돼요", soon: false };
+  const 날 = originalUntil.slice(0, 10);
+  const 맞는가 = 날.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!맞는가) return { hasOriginal: true, text: "", soon: false };
+  const 남은_날 = Math.round((Date.parse(`${날}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86_400_000);
+  return {
+    hasOriginal: true,
+    text: `원본은 ${Number(맞는가[2])}월 ${Number(맞는가[3])}일까지 받을 수 있어요`,
+    soon: Number.isFinite(남은_날) && 남은_날 <= 7,
+  };
 }
 
 /** 같은 사진은 어느 기기에서나 같은 색이 되게 id 로 고른다. */
@@ -149,8 +185,10 @@ export function photoCodec(
       date: row.date && tripDates.includes(row.date) ? dayLabelOf(row.date) : PHOTO_UNDATED,
       caption: row.caption ?? "",
       links: tidyLinks(row.links),
-      // 올린 사람은 받아 두기만 한다. 서버로 보내는 칸(toBody)에는 없다.
+      // 올린 사람과 원본 기한은 받아 두기만 한다. 서버로 보내는 칸(toBody)에는 없다.
       uploaderMembershipId: row.uploaderMembershipId,
+      // 서버가 말해 주지 않으면 칸을 만들지 않는다. 있는데 비어 있는 것과 다르다.
+      ...(row.originalUntil === undefined ? {} : { originalUntil: row.originalUntil }),
     }),
     // 받아 둔 파일과 기기에서 고른 색은 서버에 없다. 올린 사람은 서버 것을 따른다.
     keepLocal: (fromServer, local) => ({ ...fromServer, color: local.color, ...(local.uri ? { uri: local.uri } : {}) }),
