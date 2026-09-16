@@ -97,6 +97,7 @@ async def _여행들_응답(db, trips: list[Trip]) -> list[dict]:
 async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | None = None) -> dict:
     if overview is None:
         overview = (await trip_overview.overviews_of(db, [trip]))[trip.id]
+    홈_사진들, 홈_틀 = await trip_service.home_cover(db, trip)
     return TripOut(
         id=str(trip.id),
         space_id=str(trip.space_id),
@@ -113,6 +114,9 @@ async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | 
         budget=trip.budget,
         simplify_settlement=trip.simplify_settlement,
         cover_photo_id=str(trip.cover_photo_id) if trip.cover_photo_id else None,
+        cover_card_id=str(trip.cover_card_id) if trip.cover_card_id else None,
+        cover_photo_ids=홈_사진들,
+        cover_card_style=홈_틀,
         version=trip.version,
         archived_at=trip.archived_at.isoformat() if trip.archived_at else None,
         deletion_scheduled_at=trip.deletion_scheduled_at.isoformat() if trip.deleted_at and trip.deletion_scheduled_at else None,
@@ -442,9 +446,21 @@ async def update_trip(
     trip_service.check_version(trip, body.version)
 
     보낸_것 = body.model_dump(exclude_unset=True, exclude={"version"})
-    if 보낸_것.get("cover_photo_id"):
-        await trip_service.check_card_photos(db, trip, [보낸_것["cover_photo_id"]], field="coverPhotoId")
-        보낸_것["cover_photo_id"] = uuid.UUID(보낸_것["cover_photo_id"])
+    # 홈 화면의 여행 카드는 여행마다 하나다. 사진 한 장을 고르면 카드 쪽이 풀리고,
+    # 카드를 고르면 사진 쪽이 풀린다. 둘을 한 번에 보내면 무엇이 깔릴지 알 수 없어 막는다.
+    고른_사진, 고른_카드 = 보낸_것.get("cover_photo_id"), 보낸_것.get("cover_card_id")
+    if 고른_사진 and 고른_카드:
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR,
+            fields={"coverCardId": "홈 화면에는 사진 한 장이나 카드 하나만 쓸 수 있어요."},
+        )
+    if 고른_사진:
+        await trip_service.check_card_photos(db, trip, [고른_사진], field="coverPhotoId")
+        보낸_것["cover_photo_id"] = uuid.UUID(고른_사진)
+        보낸_것["cover_card_id"] = None
+    if 고른_카드:
+        보낸_것["cover_card_id"] = await trip_service.check_cover_card(db, trip, 고른_카드)
+        보낸_것["cover_photo_id"] = None
     for 이름, 값 in 보낸_것.items():
         setattr(trip, 이름, 값)
 

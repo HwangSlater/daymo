@@ -39,6 +39,18 @@ export function reloadOpenLists(): Promise<void> {
   return Promise.all([...reloadListeners].map((listen) => listen())).then(() => undefined);
 }
 
+/**
+ * 막혀 있던 줄을 한 번 더 보내 본다. 화면의 「다시 시도」가 부른다.
+ *
+ * 서버가 거부한 줄은 같은 모습으로 다시 보내면 또 거부되므로 평소에는 건너뛴다
+ * (`listSync` 의 failed). 사용자가 다시 시도를 누른 때만 그 기억을 지우고 보낸다.
+ * 잠깐 넘친 용량처럼 사용자가 고치지 않아도 풀리는 까닭이 있어서다.
+ */
+const retryListeners = new Set<() => void>();
+export function retryBlockedRows(): void {
+  retryListeners.forEach((보낸다) => 보낸다());
+}
+
 // ── 아직 못 올린 줄을 화면에 알리는 자리 ───────────────────────────────
 // 목록마다 훅이 하나씩이라 자리를 나눠 쓰고, 화면은 합친 모습 하나만 본다.
 type Entry = { rows: Map<string, RowTrouble>; offline: boolean };
@@ -146,6 +158,14 @@ type Options<L, B, S extends ServerRow> = {
    * 사진처럼 편집 멤버도 막히는 줄이 있어, 그때는 까닭을 따로 적는다.
    */
   forbiddenMessage?: string;
+  /**
+   * 새 줄을 한꺼번에 몇 개까지 보낼지. 기본은 하나씩이다.
+   *
+   * 사진만 올린다. 여행이 끝나면 수십 장을 한 번에 넣는데 한 장씩 보내면 그만큼 기다린다.
+   * 글줄은 한 번에 몇 개 생기지 않아 하나씩으로 충분하고, 차례대로 보내야 화면과 같은
+   * 차례로 서버에 쌓인다.
+   */
+  createBatch?: number;
   notify: (message: string) => void;
 };
 
@@ -236,7 +256,10 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
       await send();
       failed.current.delete(id);
     } catch (caught) {
-      if (caught instanceof DaymoApiError && caught.status === 422) {
+      // 413 은 사진이 너무 크거나 저장 공간이 찼을 때다(`PHOTO_TOO_LARGE`,
+      // `STORAGE_QUOTA_EXCEEDED`). 422 와 같이 다시 보내도 같은 답이 오는 거부라,
+      // 조용히 다시 보내지 않고 까닭을 그대로 알린다. 「다시 시도」로 한 번 더 보낸다.
+      if (caught instanceof DaymoApiError && (caught.status === 422 || caught.status === 413)) {
         // 같은 모습으로 다시 보내면 또 거부된다. 사용자가 고칠 때까지 건너뛴다.
         failed.current.set(id, { key: bodyKey(body as object), reason: caught.message });
         latest.current.notify(`${latest.current.label} 저장에 실패했어요. ${caught.message}`);
@@ -264,8 +287,12 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
       const plan = planListSync(latest.current.items, codec, confirmed.current, failed.current);
       if (!hasWork(plan)) return;
       try {
-        for (const item of plan.creates) {
-          await attempt(item.id, item.body, async () => remember(await api.create(id, item.id, item.body)));
+        // 몇 개씩 묶어 보낸다(기본은 하나씩). 묶어도 요청 줄이 다시 다섯으로 묶고
+        // 사진 올리기는 그 줄의 뒤 순위라, 보고 있는 화면이 밀리지는 않는다.
+        const 한_번에 = Math.max(1, latest.current.createBatch ?? 1);
+        for (let 앞 = 0; 앞 < plan.creates.length; 앞 += 한_번에) {
+          await Promise.all(plan.creates.slice(앞, 앞 + 한_번에).map((item) =>
+            attempt(item.id, item.body, async () => remember(await api.create(id, item.id, item.body)))));
         }
         for (const item of plan.updates) {
           await attempt(item.id, item.body, async () => remember(await api.update(item.id, item.version, item.body)));
@@ -360,10 +387,19 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
     };
     void open();
     reloadListeners.add(open);
+    // 「다시 시도」는 거부당한 기억만 지우고 곧바로 보낸다. 목록을 다시 받지는 않는다.
+    const 다시_보낸다 = () => {
+      if (!failed.current.size) return;
+      failed.current.clear();
+      publishTrouble();
+      void run();
+    };
+    retryListeners.add(다시_보낸다);
     const stale = setTimeout(() => void open(), STALE_MS);
     return () => {
       active = false;
       reloadListeners.delete(open);
+      retryListeners.delete(다시_보낸다);
       clearTimeout(stale);
       if (retry) clearTimeout(retry);
     };

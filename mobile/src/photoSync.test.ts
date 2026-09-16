@@ -6,7 +6,9 @@ import {
   colorOfId,
   PHOTO_PALETTE,
   PHOTO_UNDATED,
+  originalSaveHint,
   photoCodec,
+  photoTakenDate,
   photosLinkedTo,
   photosOfStay,
   tidyLinks,
@@ -122,4 +124,30 @@ test("장소·일정은 붙은 사진만, 숙소는 묵는 동안의 사진까�
   // 붙인 사진이 먼저 오고 그날 사진이 뒤에 온다. 같은 사진이 두 번 오지 않는다.
   assert.deepEqual(photosOfStay(사진, STAY, ["2일(금)"]).map((photo) => photo.id), ["2", "3"]);
   assert.deepEqual(photosOfStay(사진, undefined, ["3일(토)"]).map((photo) => photo.id), ["4"]);
+});
+
+test("사진에 찍힌 날짜를 EXIF 에서 읽는다", () => {
+  assert.equal(photoTakenDate({ DateTimeOriginal: "2026:09:12 14:33:01" }), "2026-09-12");
+  // iOS 는 한 칸 안에 넣어 준다.
+  assert.equal(photoTakenDate({ "{Exif}": { DateTimeOriginal: "2026-09-12 08:00:00" } }), "2026-09-12");
+  assert.equal(photoTakenDate({ DateTime: "2026:01:02 00:00:00" }), "2026-01-02");
+  // 없거나 모양이 틀리면 빈 글자다. 엉뚱한 날짜를 지어내지 않는다.
+  assert.equal(photoTakenDate(undefined), "");
+  assert.equal(photoTakenDate({ DateTimeOriginal: "어제" }), "");
+});
+
+test("원본은 기한까지만 받을 수 있고, 지났으면 화면 크기로 저장한다", () => {
+  const 남음 = originalSaveHint("2026-10-16T02:00:00Z", "2026-09-16");
+  assert.deepEqual(남음, { hasOriginal: true, text: "원본은 10월 16일까지 받을 수 있어요", soon: false });
+  // 일주일 안쪽이면 조금 더 눈에 띄게 둔다.
+  assert.equal(originalSaveHint("2026-09-20T02:00:00Z", "2026-09-16").soon, true);
+  assert.equal(originalSaveHint("2026-09-24T02:00:00Z", "2026-09-16").soon, false);
+  // 기한이 지났으면 서버가 null 을 준다.
+  assert.deepEqual(originalSaveHint(null, "2026-09-16"), {
+    hasOriginal: false,
+    text: "원본 보관 기간이 지나 화면 크기로 저장돼요",
+    soon: false,
+  });
+  // 서버가 말해 주지 않으면 아무 말도 하지 않고 원본을 달라고 해 본다.
+  assert.deepEqual(originalSaveHint(undefined, "2026-09-16"), { hasOriginal: true, text: "", soon: false });
 });

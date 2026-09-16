@@ -54,6 +54,8 @@ const filledPaths = {
   speech: "M4 4h16a1.6 1.6 0 0 1 1.6 1.6v9.1a1.6 1.6 0 0 1-1.6 1.6H10l-5.2 4v-4H4a1.6 1.6 0 0 1-1.6-1.6V5.6A1.6 1.6 0 0 1 4 4z",
   /** 체크 스티커. 목록의 가는 ✓ 와 달리 도장처럼 굵다. */
   checkSeal: "M9.6 18.6 3.2 12.2l2.4-2.4 4 4 8.8-8.8 2.4 2.4z",
+  /** 홈. 사진 모서리의 작은 표시라 선으로 그리면 뭉개진다. 면으로 그린다. */
+  home: "M12 2.8 1.8 11.3l1.5 1.8 1.2-1v9.1h5.1v-5.6h4.8v5.6h5.1v-9.1l1.2 1 1.5-1.8z",
 } as const;
 
 export type GlyphName = keyof typeof paths | keyof typeof filledPaths;

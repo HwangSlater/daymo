@@ -120,8 +120,11 @@ class TripUpdateRequest(_Camel):
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = None
     budget: Decimal | None = None
-    # 홈의 여행 카드 바탕으로 쓸 사진. 그 여행의 사진이어야 하고, null 이면 해제다.
+    # 홈 화면의 여행 카드에 깔 사진. 그 여행의 사진이어야 하고, null 이면 해제다.
     cover_photo_id: str | None = None
+    # 홈 화면의 여행 카드에 통째로 깔 기념 카드. 그 여행의 카드여야 하고, null 이면 해제다.
+    # 사진 한 장과 함께 보낼 수는 없다. 홈 카드는 여행마다 하나다.
+    cover_card_id: str | None = None
 
 
 class ParticipantsRequest(_Camel):
@@ -178,6 +181,12 @@ class TripOut(_Camel):
     budget: Decimal | None
     simplify_settlement: bool
     cover_photo_id: str | None = None
+    cover_card_id: str | None = None
+    # 홈 화면의 여행 카드에 그릴 사진들. 카드를 골랐으면 그 카드의 사진이 고른
+    # 차례대로, 사진 한 장을 골랐으면 그 한 장, 아무것도 고르지 않았으면 비어 있다.
+    cover_photo_ids: list[str] = Field(default_factory=list)
+    # 그 카드의 틀 이름. 사진을 어떻게 놓을지 앱이 이 값으로 정한다(카드 그림은 기기가 그린다).
+    cover_card_style: str | None = None
     version: int
     archived_at: str | None = None
     # 지운 여행일 때만 있다. 이 시각이 지나면 되돌릴 수 없다.

@@ -26,8 +26,8 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
     """
     여행 하나.
 
-    `cover_photo_id` 는 사진이 지워져도 여행이 남도록 SET NULL 이다. 대표
-    사진 한 장이 사라진다고 여행 전체가 사라지면 안 된다.
+    `cover_photo_id` 는 사진이 지워져도 여행이 남도록 SET NULL 이다. 홈에 깔린
+    사진 한 장이 사라진다고 여행 전체가 사라지면 안 된다. `cover_card_id` 도 같다.
     """
 
     __tablename__ = "trips"
@@ -83,6 +83,12 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
 
     cover_photo_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True
+    )
+    # 홈 화면에 카드 한 장을 통째로 깔았을 때 그 카드. 사진 한 장(`cover_photo_id`)과
+    # 둘 중 하나만 채워진다. 어느 쪽을 골랐든 홈 카드는 여행마다 하나다.
+    # 카드가 지워져도 여행은 남아야 해서 SET NULL 이다.
+    cover_card_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("trip_cards.id", ondelete="SET NULL"), nullable=True
     )
 
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

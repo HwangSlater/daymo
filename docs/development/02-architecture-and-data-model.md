@@ -133,7 +133,7 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 
 ### 여행
 
-- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `currency_code`, `exchange_rate`, `budget nullable`, `simplify_settlement`, `cover_photo_id`, `archived_at`, `deleted_at`, `deletion_scheduled_at`
+- `trips`: `space_id`, `title`, `region_code`, `region_name`, `start_date`, `end_date`, `status(planning|ongoing|completed|archived)`, `summary`, `cooking_enabled`, `currency_code`, `exchange_rate`, `budget nullable`, `simplify_settlement`, `cover_photo_id`, `cover_card_id`, `archived_at`, `deleted_at`, `deletion_scheduled_at`
 - `trip_days`: `trip_id`, `date`, `day_index`
 - `trip_participants`: `trip_id`, `membership_id`, `sort_order`, `removed_at`
 - `schedule_items`: `trip_id`, `trip_day_id`, `start_at`, `end_at`, `title`, `type`, `note`, `trip_place_id`, `sort_order`

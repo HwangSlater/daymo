@@ -54,6 +54,10 @@ async function sendContent(photoId: string, uri: string): Promise<ServerPhoto> {
   const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content`);
   const contentType = contentTypeOf(uri);
   // 같은 파일을 같은 주소에 다시 놓는 PUT 이라 다시 보내도 결과가 같다.
+  //
+  // 줄 맨 뒤에 선다(`background`). 여행이 끝나면 사진을 수십 장씩 한꺼번에 올리는데,
+  // 그동안 보고 있는 화면의 목록과 썸네일이 사진 파일 뒤에서 기다리면 앱이 멈춘 것처럼
+  // 보인다. 올리기는 아무도 화면에서 기다리지 않는 일이다.
   return withAccessToken((accessToken) => sendQueued(async () => {
     const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": contentType };
     let status: number;
@@ -77,7 +81,7 @@ async function sendContent(photoId: string, uri: string): Promise<ServerPhoto> {
     }
     if (status < 200 || status >= 300) throw errorOf(status, text);
     return (JSON.parse(text) as { data: ServerPhoto }).data;
-  }, { safe: true }));
+  }, { safe: true, background: true }));
 }
 
 /**
@@ -100,7 +104,7 @@ export async function uploadPhoto(
   const checksum = hex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, buffer));
   const reserved = await createPhoto(tripId, photoId, {
     ...fields, links: fields.links ?? [], bytes: buffer.byteLength, checksum,
-  });
+  }, { background: true });
   if (reserved.status === "ready") return reserved;
   return sendContent(photoId, uri);
 }
@@ -126,7 +130,7 @@ export const isLivePhotoUri = (uri: string | undefined): uri is string =>
  */
 export async function downloadPhoto(
   photoId: string,
-  variant: "display" | "thumbnail" = "display",
+  variant: "display" | "thumbnail" | "original" = "display",
 ): Promise<string | undefined> {
   const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=${variant}`);
   if (Platform.OS === "web") {
@@ -160,4 +164,26 @@ export async function downloadPhoto(
     }
     return target;
   }, { safe: true }));
+}
+
+/**
+ * 기기에 저장하려고 받는다. 원본이 아직 있으면 원본을, 없으면 표시본(긴 변 1440px)을 준다.
+ *
+ * 원본은 올린 지 30일까지만 서버에 남는다. 기한이 지나면 서버가 410 으로 답하는데,
+ * 그때 오류를 내지 않고 표시본으로 저장한다. 받을 수 있는 가장 큰 그림을 주는 것이 맞다.
+ */
+export async function downloadPhotoToSave(
+  photoId: string,
+  hasOriginal: boolean,
+): Promise<{ uri: string; original: boolean } | undefined> {
+  if (hasOriginal) {
+    try {
+      const uri = await downloadPhoto(photoId, "original");
+      if (uri) return { uri, original: true };
+    } catch (caught) {
+      if (!(caught instanceof DaymoApiError) || caught.status !== 410) throw caught;
+    }
+  }
+  const uri = await downloadPhoto(photoId, "display");
+  return uri ? { uri, original: false } : undefined;
 }
