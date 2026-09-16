@@ -2070,8 +2070,14 @@ export function WarmTripDetail({
           style={{ backgroundColor: "transparent" }}
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}
+          // 탭 줄(두 번째 자식)을 화면에 붙인다. 여행 이름과 메모지가 화면 위쪽
+          // 3분의 1을 차지해, 내리지 않으면 탭 내용이 몇 줄밖에 보이지 않았다.
+          // 머리를 내려 보내고도 지금 무슨 탭인지는 남아야 해서 붙여 둔다.
+          // 자리를 세는 값이라 머리는 조건과 상관없이 하나로 묶어 둔다.
+          stickyHeaderIndices={[1]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refreshLists()} />}
         >
+          <View style={styles.detailHead}>
           <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
             {currentTripDate}
           </Text>
@@ -2118,11 +2124,13 @@ export function WarmTripDetail({
               함께 {participants.join(" · ")}
             </Text>
           )}
+          </View>
 
           <View
             style={[
               styles.modeSwitch,
-              appTheme && { backgroundColor: appTheme.surface, borderColor: appTheme.border },
+              styles.modeSwitchPinned,
+              appTheme && { backgroundColor: appTheme.background, borderColor: appTheme.border },
             ]}
           >
             {(
@@ -13681,15 +13689,21 @@ const styles = StyleSheet.create({
   date: { fontSize: 11, fontFamily: typo.caption.family, letterSpacing: 0, marginBottom: 6 },
   title: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   subtitle: { fontSize: 11, marginTop: 6 },
+  // 여행 이름과 메모지 묶음. 위 여백을 여기 두어야 탭 줄이 화면에 붙었을 때
+  // 그 위로 아래 내용이 비쳐 보이는 틈이 생기지 않는다.
+  detailHead: { marginBottom: 18 },
   modeSwitch: {
     flexDirection: "row",
-    marginTop: 18,
     marginBottom: 12,
     padding: 3,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#DEDCD5",
   },
+  // 화면에 붙어 있는 동안 아래 내용이 테두리 밖으로 비쳐 보이지 않게 한다.
+  // 배경은 표면색이 아니라 화면 바탕색이다. 줄 바깥으로 삐져나온 여백까지
+  // 같이 덮어야 글자가 줄을 뚫고 지나가는 것처럼 보이지 않는다.
+  modeSwitchPinned: { zIndex: 2 },
   mode: {
     flex: 1,
     minHeight: 40,
