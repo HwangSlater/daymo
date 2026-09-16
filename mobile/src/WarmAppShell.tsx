@@ -2839,27 +2839,25 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
   todayKey: string;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
 }) {
-  const 종이 = paperCard(theme.dark);
+  const paper = paperCard(theme.dark);
   /**
    * 대표 사진을 깐 카드인지. 아직 못 받았으면 종이 그대로다.
    *
-   * 사진 위에서는 종이 색이 아니라 밝은 글자를 쓴다. 밝은 사진에서도 읽히도록
-   * 사진 위에 어두운 막을 한 겹 깐다. 종이 결·테이프·비행기 점선은 사진을 가리므로 뺀다.
+   * 사진이 있으면 위아래를 나눈다. 위는 사진만 두고 「지금 여행 중」 한 줄과 여행
+   * 이름만 흰 글자로 얹는다. 아래는 지금의 종이 그대로라 날짜·숙소·숫자의 읽기가
+   * 어떤 사진이 오든 흔들리지 않는다. 예전에는 사진을 카드 전체에 깔고 글자를
+   * 모두 그 위에 얹었는데, 얼굴과 하늘 위에 겹친 글자가 묻혀 읽히지 않았다.
+   *
+   * 종이 결·테이프·비행기 점선은 사진 카드에서 뺀다. 사진이 그 자리를 대신한다.
    */
   const coverUri = isLivePhotoUri(trip.coverUri) && trip.coverUriFor === trip.coverPhotoId ? trip.coverUri : undefined;
-  const paper = coverUri
-    ? {
-      ...종이,
-      surface: "#1A1714",
-      border: "rgba(255,255,255,0.14)",
-      title: "#F8F5F0",
-      muted: "#D9D2C7",
-      rule: "rgba(255,255,255,0.18)",
-      divider: "rgba(255,255,255,0.18)",
-      iconBorder: "rgba(255,255,255,0.28)",
-      stampBorder: "rgba(255,255,255,0.32)",
-    }
-    : 종이;
+  // 사진 위 날짜 도장만은 밝은 종이 위에 얹는다. 어두운 모드의 강조색은 그 밝은
+  // 바탕에서 흐려지니, 도장 안의 글자와 줄만 밝은 모드 값을 쓴다.
+  const stampInk = resolveTheme(theme.id, false).primary;
+  const stampTitleInk = paperCard(false).title;
+  const stage = trip.start <= todayKey && trip.end >= todayKey
+    ? "지금 여행 중"
+    : trip.end < todayKey ? "지난 여행" : "다음 여행";
   // 없으면 없다고 말한다. 그럴듯한 숫자를 채워 두면 눌러 보고 나서야 빈 줄
   // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다.
   // 서버 여행은 서버가 센 요약을, 없으면 기기의 기록을 쓴다(`tripOverview.ts`).
@@ -2877,22 +2875,45 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
         <View
           style={[
             s.paperTrip,
+            coverUri ? s.paperTripPhoto : null,
             { backgroundColor: paper.surface, borderColor: paper.border },
           ]}
         >
+        {/* 사진도 누르면 여행이 열린다. 카드에서 가장 큰 자리를 눌러도 아무 일이
+            없으면 고장으로 읽힌다. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={coverUri ? `${stage} ${trip.name}, ${trip.date}, 여행 전체 보기` : undefined}
+          onPress={() => open("overview", trip)}
+          style={({ pressed }) => [
+            s.paperTripMain,
+            pressed && s.pressed,
+          ]}
+        >
         {coverUri && (
-          <View pointerEvents="none" style={s.paperTripCover}>
+          <View style={s.paperTripShot}>
             <Image source={{ uri: coverUri }} resizeMode="cover" style={StyleSheet.absoluteFill} />
-            {/* 사진 한 장으로 밝기가 제각각이라 고정 막으로는 대비가 모자란다. 위는
-                옅게, 글자가 몰린 아래로 갈수록 짙게 깐다. */}
-            <Svg width="100%" height="100%">
-              <Defs><LinearGradient id="coverShade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#100D0A" stopOpacity="0.42" />
-                <Stop offset="0.45" stopColor="#100D0A" stopOpacity="0.58" />
-                <Stop offset="1" stopColor="#100D0A" stopOpacity="0.82" />
-              </LinearGradient></Defs>
-              <Rect width="100%" height="100%" fill="url(#coverShade)" />
-            </Svg>
+            {/* 아래쪽에만 옅은 막을 깐다. 흰 글자 두 줄이 밝은 하늘 위에 와도
+                읽히고, 사진의 나머지는 원래 밝기 그대로 남는다. */}
+            <View pointerEvents="none" style={s.paperTripShotShade}>
+              <Svg width="100%" height="100%">
+                <Defs><LinearGradient id="coverShade" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#0E0C08" stopOpacity="0" />
+                  <Stop offset="0.55" stopColor="#0E0C08" stopOpacity="0.34" />
+                  <Stop offset="1" stopColor="#0E0C08" stopOpacity="0.7" />
+                </LinearGradient></Defs>
+                <Rect width="100%" height="100%" fill="url(#coverShade)" />
+              </Svg>
+            </View>
+            <View pointerEvents="none" style={s.paperTripShotHead}>
+              <Text style={s.paperTripShotKicker}>{stage}</Text>
+              <Text numberOfLines={1} style={s.paperTripShotTitle}>{trip.name}</Text>
+            </View>
+            <View pointerEvents="none" style={[s.paperTripStamp, s.paperTripShotStamp]}>
+              <Text style={[s.paperTripStampMonth, { color: stampInk }]}>{Number(trip.start.slice(5, 7))}월</Text>
+              <Text style={[s.paperTripStampDay, { color: stampTitleInk }]}>{trip.start.slice(-2)}</Text>
+              <View style={[s.paperTripStampRule, { backgroundColor: stampInk }]} />
+            </View>
           </View>
         )}
         {!coverUri && (
@@ -2930,20 +2951,19 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             />
           </Svg>
         </View>}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => open("overview", trip)}
-          style={({ pressed }) => [
-            s.paperTripMain,
-            pressed && s.pressed,
-          ]}
-        >
+        {/* 사진이 있으면 이 묶음이 종이의 안쪽 여백을 대신 갖는다. 사진은 카드
+            모서리까지 닿아야 해서 종이에서 여백을 걷어냈기 때문이다. */}
+        <View style={coverUri ? s.paperTripBody : null}>
+        {coverUri ? (
+          // 이름과 「지금 여행 중」은 사진 위에 올라갔다. 종이에는 날짜만 남는다.
+          <Text style={[s.paperDate, s.paperTripBodyDate, { color: paper.muted }]}>
+            {trip.date}
+          </Text>
+        ) : (
         <View style={s.paperTripHead}>
           <View style={s.paperTripCopy}>
             <Text style={[s.paperKicker, { color: theme.primary }]}>
-              {trip.start <= todayKey && trip.end >= todayKey
-                ? "지금 여행 중"
-                : trip.end < todayKey ? "지난 여행" : "다음 여행"}
+              {stage}
             </Text>
             <Text style={[s.paperTitle, { color: paper.title }]}>
               {trip.name}
@@ -2966,6 +2986,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             <View style={[s.paperTripStampRule, { backgroundColor: theme.primary }]} />
           </View>
         </View>
+        )}
         <View style={[s.paperRule, { borderColor: paper.rule }]} />
         <View
           style={[
@@ -3015,7 +3036,9 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             </View>
           </View>
         </View>
+        </View>
         </Pressable>
+        <View style={coverUri ? s.paperTripActionsBox : null}>
         <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
           {[
             { label: "여행 일정", meta: scheduleCount ? `${scheduleCount}개` : "아직 없음", color: theme.primary, destination: "overview" as TripDetailDestination },
@@ -3042,6 +3065,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
               <View style={[s.paperTripActionUnderline, { backgroundColor: `${item.color}38` }]} />
             </Pressable>
           ))}
+        </View>
         </View>
         </View>
       </View>
@@ -7060,8 +7084,47 @@ const s = StyleSheet.create({
   },
   paperTripMain: { borderRadius: 2 },
   paperTripTexture: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 4 },
-  // 대표 사진을 깐 카드의 바탕. 종이 결과 같은 자리를 차지하고 모서리도 같다.
-  paperTripCover: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 4 },
+  // 대표 사진이 있는 카드. 사진이 위쪽 모서리까지 닿아야 해서 종이의 안쪽 여백을
+  // 걷어내고, 사진이 모서리 밖으로 삐져나가지 않게 잘라 낸다. 테이프가 없으니
+  // 카드 밖으로 나가야 할 것도 없다.
+  paperTripPhoto: { paddingHorizontal: 0, paddingTop: 0, overflow: "hidden" },
+  // 카드 높이의 55~60%. 폭을 따라가되 넓은 화면에서 혼자 커지지 않게 위를 막는다.
+  // 바탕은 어둡게 둔다. 사진이 깨져 안 그려져도 위에 얹은 흰 글자가 읽힌다.
+  paperTripShot: { width: "100%", aspectRatio: 1.5, maxHeight: 260, backgroundColor: "#2B2621" },
+  paperTripShotShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: "46%" },
+  // 오른쪽은 날짜 도장 자리만큼 비워 둔다. 이름이 길어도 도장을 밀지 않는다.
+  paperTripShotHead: { position: "absolute", left: 18, right: 82, bottom: 15 },
+  paperTripShotKicker: {
+    fontSize: 12,
+    fontFamily: typo.label.family,
+    marginBottom: 4,
+    color: "#EFE9DC",
+    textShadowColor: "rgba(12,10,8,.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  paperTripShotTitle: {
+    fontSize: 26,
+    fontFamily: typo.title.family,
+    letterSpacing: -0.5,
+    color: "#FFFDF8",
+    textShadowColor: "rgba(12,10,8,.45)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  // 사진 위에서는 테두리가 사진에 먹힌다. 밝은 종이 한 장을 깔고 그 위에 얹는다.
+  paperTripShotStamp: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    backgroundColor: "rgba(255,253,248,.93)",
+    borderColor: "rgba(40,48,70,.22)",
+  },
+  paperTripBody: { paddingHorizontal: 20, paddingTop: 14 },
+  // 네 칸은 자기 음수 여백으로 카드 끝까지 닿는다. 그 기준이 될 여백만 준다.
+  paperTripActionsBox: { paddingHorizontal: 20 },
+  // 이름이 사진 위로 올라가 날짜가 첫 줄이 됐다. 위로 띄울 것이 없다.
+  paperTripBodyDate: { marginTop: 0 },
   paperTripSoftLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(104, 139, 160, .10)" },
   paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .14)" },
   paperTripRoute: {
