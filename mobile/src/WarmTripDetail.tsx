@@ -23,12 +23,20 @@ import {
 import { reservationCodec, transportCodec } from "./bookingSync";
 import { expenseCodec, paymentCodec } from "./expenseSync";
 import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
+import {
+  importMessage,
+  pastTripChoices,
+  planPackingImport,
+  planRecipeImport,
+  type PackingDraft,
+  type RecipeDraft,
+} from "./pastTripImport";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { photoCodec } from "./photoSync";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
-import type { ExpenseSettings, ReportReason, ReportTargetType } from "./serverData";
+import type { ExpenseSettings, ReportReason, ReportTargetType, ServerTrip } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
   createReport,
@@ -49,6 +57,7 @@ import {
   deleteRecipe,
   listChecklistItems,
   listRecipes,
+  listTrips,
   updateChecklistItem,
   updateRecipe,
   createExpense,
@@ -2112,6 +2121,9 @@ export function WarmTripDetail({
                 setCookingReadyIngredientIds((current) => current.includes(id) ? current : [...current, id])}
               openCookingPickerOnMount={openCookingPicker}
               onCookingPickerOpened={() => setOpenCookingPicker(false)}
+              spaceId={spaceId}
+              tripId={tripId}
+              roster={spaceRoster}
             />
           )}
           {mode === "요리" && (
@@ -2122,6 +2134,9 @@ export function WarmTripDetail({
               setReadyIngredientIds={setCookingReadyIngredientIds}
               currency={currency}
               participants={participants}
+              spaceId={spaceId}
+              tripId={tripId}
+              roster={spaceRoster}
               onRecordShopping={(title, amount) => {
                 setExpenses((current) => [
                   ...current,
@@ -4687,6 +4702,295 @@ function Places({
   );
 }
 
+/** 지난 여행에서 가져올 수 있는 것. */
+type PastImportKind = "준비물" | "요리";
+
+/**
+ * 지난 여행에서 준비물이나 요리를 가져오는 단추와 시트.
+ *
+ * 여행을 고르면 그 여행의 목록만 그때 서버에서 받는다. 기기에는 지금 여행의
+ * 목록만 있어서(`useListSync`) 캐시로는 알 수 없고, 받아 온 것으로 지금 목록을
+ * 덮지도 않는다.
+ */
+function PastTripImport({
+  kind,
+  spaceId,
+  tripId,
+  roster,
+  participants,
+  existingNames,
+  onTakePacking,
+  onTakeRecipes,
+}: {
+  kind: PastImportKind;
+  spaceId: string;
+  /** 지금 보고 있는 여행. 고를 수 있는 목록에서 뺀다. */
+  tripId: string;
+  roster: RosterEntry[];
+  /** 이번 여행에 가는 사람. 담당은 이 안에 있는 이름만 남는다. */
+  participants: string[];
+  /** 이번 여행에 이미 있는 이름. 같은 이름은 가져오지 않는다. */
+  existingNames: string[];
+  onTakePacking?: (items: PackingDraft[]) => void;
+  onTakeRecipes?: (items: RecipeDraft[]) => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  const notify = useContext(DetailFeedbackContext);
+  const [open, setOpen] = useState(false);
+  const [trips, setTrips] = useState<ServerTrip[] | null>(null);
+  const [picked, setPicked] = useState<ServerTrip | null>(null);
+  const [packingRows, setPackingRows] = useState<PackingRow[]>([]);
+  const [recipeRows, setRecipeRows] = useState<RecipeRow[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const already = useMemo(
+    () => new Set(existingNames.map((name) => name.trim().toLowerCase())),
+    [existingNames],
+  );
+  const choices = pastTripChoices(trips ?? [], tripId);
+  const rows = kind === "준비물"
+    ? packingRows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        meta: [row.quantity, row.owner].map((value) => value.trim()).filter(Boolean).join(" · "),
+      }))
+    : recipeRows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        meta: [`재료 ${row.ingredients.length}개`, row.note.trim()].filter(Boolean).join(" · "),
+      }));
+  const newRows = rows.filter((row) => !already.has(row.name.trim().toLowerCase()));
+
+  const close = () => {
+    setOpen(false);
+    setPicked(null);
+    setSelected([]);
+    setPackingRows([]);
+    setRecipeRows([]);
+    setError("");
+  };
+  const openSheet = async () => {
+    setOpen(true);
+    setPicked(null);
+    setError("");
+    setLoading(true);
+    try {
+      setTrips(await listTrips(spaceId));
+    } catch {
+      setError("지난 여행을 불러오지 못했어요. 연결을 확인하고 다시 열어 주세요");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const pickTrip = async (trip: ServerTrip) => {
+    setPicked(trip);
+    setSelected([]);
+    setError("");
+    setLoading(true);
+    try {
+      if (kind === "준비물") {
+        const codec = packingCodec(roster, new Set());
+        const list = (await listChecklistItems(trip.id)).map(codec.fromServer);
+        setPackingRows(list);
+        setSelected(list.filter((row) => !already.has(row.name.trim().toLowerCase())).map((row) => row.id));
+      } else {
+        const codec = recipeCodec(roster);
+        const list = (await listRecipes(trip.id)).map(codec.fromServer);
+        setRecipeRows(list);
+        setSelected(list.filter((row) => !already.has(row.name.trim().toLowerCase())).map((row) => row.id));
+      }
+    } catch {
+      setError(`${trip.title}의 목록을 불러오지 못했어요. 연결을 확인해 주세요`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const toggleRow = (id: string) =>
+    setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  const toggleAll = () =>
+    setSelected((current) => current.length === newRows.length ? [] : newRows.map((row) => row.id));
+  const submit = () => {
+    if (kind === "준비물") {
+      const plan = planPackingImport(
+        packingRows.filter((row) => selected.includes(row.id)),
+        existingNames,
+        participants,
+        newPlaceId,
+      );
+      if (plan.taken.length) onTakePacking?.(plan.taken);
+      notify(importMessage("준비물", plan));
+    } else {
+      const plan = planRecipeImport(
+        recipeRows.filter((row) => selected.includes(row.id)),
+        existingNames,
+        participants,
+        newPlaceId,
+      );
+      if (plan.taken.length) onTakeRecipes?.(plan.taken);
+      notify(importMessage("요리", plan));
+    }
+    close();
+  };
+
+  return (
+    <>
+      <View style={[styles.packingListTools, theme && { borderTopColor: theme.border }]}>
+        <View style={styles.packingListToolsCopy}>
+          <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>
+            지난 여행에서 가져오기
+          </Text>
+          <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>
+            {kind === "준비물"
+              ? "전에 챙긴 준비물을 그대로 불러와요"
+              : "전에 해 먹은 요리를 재료까지 불러와요"}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`지난 여행에서 ${kind} 가져오기`}
+          onPress={openSheet}
+          style={[styles.packingToolButton, theme && { borderColor: theme.border }]}
+        >
+          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>여행 고르기</Text>
+        </Pressable>
+      </View>
+      <DetailSheet
+        visible={open}
+        title={picked ? `${picked.title}에서 가져오기` : `지난 여행에서 ${kind} 가져오기`}
+        subtitle={picked
+          ? `가져올 ${kind}${josa(kind, "을", "를")} 고르세요. 완료 표시는 꺼진 채로 들어와요`
+          : "같은 공간의 다른 여행에서 불러와요"}
+        submit={picked && selected.length ? `${selected.length}개 가져오기` : "닫기"}
+        submitDisabled={Boolean(picked) && !selected.length && newRows.length > 0}
+        disabledHint={picked && !selected.length && newRows.length > 0 ? `가져올 ${kind}${josa(kind, "을", "를")} 골라 주세요` : undefined}
+        onClose={close}
+        onSubmit={picked && selected.length ? submit : close}
+      >
+        {error ? (
+          <Text style={[styles.settingHint, theme && { color: theme.accent }]}>{error}</Text>
+        ) : null}
+        {loading ? (
+          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>불러오는 중이에요</Text>
+        ) : null}
+        {!picked && !loading && !error && choices.length === 0 ? (
+          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+            이 공간에는 아직 다른 여행이 없어요
+          </Text>
+        ) : null}
+        {!picked && choices.length > 0 && (
+          <View style={[styles.recipeList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {choices.map((trip, index) => (
+              <Pressable
+                key={trip.id}
+                onPress={() => void pickTrip(trip)}
+                accessibilityRole="button"
+                accessibilityLabel={`${trip.title}에서 가져오기`}
+                style={[
+                  styles.recipeListRow,
+                  index > 0 && styles.recipeListRowBorder,
+                  theme && index > 0 && { borderTopColor: theme.border },
+                ]}
+              >
+                <View style={[styles.recipeListNumber, theme && { backgroundColor: theme.surfaceAlt }]}>
+                  <Text style={[styles.recipeListNumberText, theme && { color: theme.muted }]}>{index + 1}</Text>
+                </View>
+                <View style={styles.recipeListCopy}>
+                  <Text numberOfLines={1} style={[styles.recipeListName, theme && { color: theme.text }]}>
+                    {trip.title}
+                  </Text>
+                  <Text numberOfLines={1} style={[styles.recipeListNote, theme && { color: theme.muted }]}>
+                    {trip.startDate.slice(0, 4)}년 {formatTripPeriod(trip.startDate, trip.endDate)}
+                  </Text>
+                </View>
+                <Glyph name="chevronRight" size={14} color={theme?.muted ?? "#646C7A"} />
+              </Pressable>
+            ))}
+          </View>
+        )}
+        {picked && (
+          <>
+            <View style={styles.myIngredientGroupHead}>
+              <Pressable
+                onPress={() => {
+                  setPicked(null);
+                  setSelected([]);
+                  setError("");
+                }}
+                accessibilityRole="button"
+                style={styles.inlineMore}
+              >
+                <Glyph name="chevronLeft" size={13} color={theme?.primary ?? "#3F4C8F"} />
+                <Text style={[styles.aiRecipeText, theme && { color: theme.primary }]}>다른 여행 고르기</Text>
+              </Pressable>
+              {newRows.length > 0 && (
+                <Pressable onPress={toggleAll} accessibilityRole="button">
+                  <Text style={[styles.aiRecipeText, theme && { color: theme.primary }]}>
+                    {selected.length === newRows.length ? "전체 해제" : "전체 선택"}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            {!loading && rows.length === 0 && !error ? (
+              <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+                이 여행에는 적어 둔 {kind}{josa(kind, "이", "가")} 없어요
+              </Text>
+            ) : null}
+            {rows.length > 0 && (
+              <View style={[styles.cookingImportGroup, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                {rows.map((row) => {
+                  const mine = already.has(row.name.trim().toLowerCase());
+                  const checked = selected.includes(row.id);
+                  return (
+                    <Pressable
+                      key={row.id}
+                      disabled={mine}
+                      onPress={() => toggleRow(row.id)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked, disabled: mine }}
+                      accessibilityLabel={`${row.name}${mine ? " 이미 있음" : ""}`}
+                      style={[
+                        styles.cookingImportRow,
+                        theme && { borderTopColor: theme.border },
+                        checked && theme && { backgroundColor: theme.primarySoft },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.cookingImportCheck,
+                          theme && { borderColor: checked ? theme.primary : theme.border },
+                          checked && theme && { backgroundColor: theme.primary },
+                        ]}
+                      >
+                        {checked && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+                      </View>
+                      <View style={styles.cookingImportItemCopy}>
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.cookingImportItemName, theme && { color: mine ? theme.muted : theme.text }]}
+                        >
+                          {row.name}
+                        </Text>
+                        <Text numberOfLines={1} style={[styles.cookingImportItemMeta, theme && { color: theme.muted }]}>
+                          {[row.meta, mine ? "이미 있어요" : ""].filter(Boolean).join(" · ")}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+            <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+              담당은 이번 여행에 가는 사람만 그대로 오고, 없으면 미정이 돼요.
+            </Text>
+          </>
+        )}
+      </DetailSheet>
+    </>
+  );
+}
+
 function Preparation({
   done,
   toggle,
@@ -4698,6 +5002,9 @@ function Preparation({
   onMarkIngredientReady,
   openCookingPickerOnMount,
   onCookingPickerOpened,
+  spaceId,
+  tripId,
+  roster,
 }: {
   done: string[];
   toggle: (item: string) => void;
@@ -4711,6 +5018,10 @@ function Preparation({
   onMarkIngredientReady: (ingredientId: string) => void;
   openCookingPickerOnMount?: boolean;
   onCookingPickerOpened?: () => void;
+  /** 지난 여행에서 가져오기에 쓴다. 서버에 올라간 여행일 때만 온다. */
+  spaceId?: string;
+  tripId?: string;
+  roster: RosterEntry[];
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -5537,7 +5848,12 @@ function Preparation({
       {visibleItems.length === 0 && (
         <EmptyState
           title={items.length === 0 ? "아직 준비물이 없어요" : "조건에 맞는 준비물이 없어요"}
-          description={items.length === 0 ? "여행에 필요한 준비물을 추가해 보세요." : "상태·담당·태그 필터를 초기화해 보세요."}
+          description={items.length === 0
+            ? spaceId && tripId
+              // 새 여행은 여기서 시작한다. 처음부터 다시 적지 않아도 된다는 걸 이 자리에서 알린다.
+              ? "하나씩 추가하거나, 아래에서 지난 여행 준비물을 그대로 가져올 수 있어요."
+              : "여행에 필요한 준비물을 추가해 보세요."
+            : "상태·담당·태그 필터를 초기화해 보세요."}
           action={items.length === 0 ? "준비물 추가" : "필터 초기화"}
           onPress={items.length === 0 && !canEdit ? undefined : () => {
             if (items.length === 0) openPackingCreate();
@@ -5547,6 +5863,17 @@ function Preparation({
               setTagFilter("전체 태그");
             }
           }}
+        />
+      )}
+      {canEdit && spaceId && tripId && (
+        <PastTripImport
+          kind="준비물"
+          spaceId={spaceId}
+          tripId={tripId}
+          roster={roster}
+          participants={participants}
+          existingNames={items.map((item) => item.name)}
+          onTakePacking={(taken) => setItems((current) => [...current, ...taken])}
         />
       )}
       {canEdit && (
@@ -6324,6 +6651,9 @@ function Cooking({
   onRecordShopping,
   currency,
   participants,
+  spaceId,
+  tripId,
+  roster,
 }: {
   recipes: Recipe[];
   setRecipes: React.Dispatch<React.SetStateAction<Recipe[]>>;
@@ -6335,6 +6665,10 @@ function Cooking({
   currency: string;
   /** 이번 여행에 가는 사람. 재료를 누가 챙기는지도 이 목록에서 고른다. */
   participants: string[];
+  /** 지난 여행에서 가져오기에 쓴다. 서버에 올라간 여행일 때만 온다. */
+  spaceId?: string;
+  tripId?: string;
+  roster: RosterEntry[];
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -7063,6 +7397,21 @@ function Cooking({
           </View>
           )}
         </>
+      )}
+      {canEdit && spaceId && tripId && (
+        <PastTripImport
+          kind="요리"
+          spaceId={spaceId}
+          tripId={tripId}
+          roster={roster}
+          participants={participants}
+          existingNames={recipes.map((recipe) => recipe.name)}
+          onTakeRecipes={(taken) => {
+            setRecipes((current) => [...current, ...taken]);
+            setCollapsedCookingGroups([]);
+            setActiveId(taken[0].id);
+          }}
+        />
       )}
       <DetailSheet
         visible={showAllRecipes}
