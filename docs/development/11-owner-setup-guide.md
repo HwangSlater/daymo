@@ -326,7 +326,7 @@ provider에 등록하는 redirect URI는 앱 주소가 아니라 API 주소다. 
 **Kakao** — Kakao Developers
 1. 앱을 만들고 카카오 로그인 사용 설정을 ON으로 둔다.
 2. 앱 → 플랫폼 키 → REST API 키에 Redirect URI를 등록한다. 같은 곳의 클라이언트 시크릿이 켜져 있으면 값을 `KAKAO_CLIENT_SECRET`에 넣는다(새 키는 기본으로 켜져 있다).
-3. REST API 키를 `KAKAO_REST_API_KEY`에 넣는다.
+3. REST API 키를 `KAKAO_REST_API_KEY`에 넣는다. 장소 조회용 Vercel 함수도 같은 이름을 쓰는데 다른 환경이다. 그쪽에도 넣으려면 앱 → 카카오맵(로컬) 사용 설정을 켠다. 안 넣어도 카카오맵 짧은 링크의 이름과 주소는 채워진다.
 4. 동의항목에서 닉네임을 켠다. **이메일(`account_email`)은 비즈 앱 전환과 추가 기능 신청(심사)을 거쳐야 설정할 수 있다.** 사업자 없는 개인 개발자도 본인인증 후 비즈 앱으로 전환해 신청할 수 있다. 이메일을 받지 못하면 Daymo는 카카오로 새 계정을 만들지 않는다.
 
 **Naver** — NAVER Developers

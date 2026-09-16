@@ -58,10 +58,60 @@ test("바다는 육지가 아니고 어느 시도에도 들지 않는다", () =>
   assert.equal(isOnLand(pin("제주").x, pin("제주").y), true);
 });
 
-test("이름표가 없는 섬 조각에서는 가장 가까운 중심점으로 고른다", () => {
-  // 인천 앞바다의 섬 조각. 육지지만 이름표가 든 다각형이 아니다.
-  assert.equal(isOnLand(80, 84), true);
-  assert.equal(regionContaining(80, 84), null);
-  assert.equal(regionAt(80, 84), "인천");
+// 이름표가 없는 섬 조각도 영역으로 가른다. 자리는 koreaOutlinePath 의 조각
+// 안에서 테두리와 한 칸 넘게 떨어진 곳으로 골랐다.
+const islands: [string, number, number, string][] = [
+  ["거제도", 161.4, 279.4, "경남"],
+  ["남해도", 132.3, 281.5, "경남"],
+  ["창선도", 136.7, 276.7, "경남"],
+  ["한산도", 152.2, 284.5, "경남"],
+  ["가덕도", 168.6, 267.5, "부산"],
+  ["울릉도", 243.6, 94.7, "경북"],
+  ["강화도", 78.8, 78.8, "인천"],
+  ["교동도", 71.9, 75.9, "인천"],
+  ["영종도", 79.6, 98.3, "인천"],
+  ["백령도", 13.5, 65.0, "인천"],
+  ["대청도", 14.6, 72.8, "인천"],
+  ["연평도", 51.3, 84.5, "인천"],
+  ["덕적도", 66.7, 113.8, "인천"],
+  ["안면도", 75.3, 162.5, "충남"],
+  ["진도", 71.4, 308.0, "전남"],
+  ["완도", 88.4, 313.9, "전남"],
+  ["보길도", 82.7, 328.8, "전남"],
+  ["흑산도", 40.9, 291.9, "전남"],
+  ["임자도", 67.7, 261.5, "전남"],
+];
+
+test("이름표가 없는 섬 조각도 제 시도로 간다", () => {
+  for (const [name, x, y, region] of islands) {
+    assert.equal(isOnLand(x, y), true, name);
+    assert.equal(regionContaining(x, y), region, name);
+    assert.equal(regionAt(x, y), region, name);
+  }
+});
+
+test("바다 건너 가까운 이름표에 끌려가지 않는다", () => {
+  // 예전에는 가장 가까운 이름표로 어림해 이 자리들이 다 틀렸다.
+  assert.equal(nearestRegion(161.4, 279.4, tripRegions), "부산");
+  assert.equal(regionAt(161.4, 279.4), "경남");
+  assert.equal(nearestRegion(132.3, 281.5, tripRegions), "전남");
+  assert.equal(regionAt(132.3, 281.5), "경남");
+  assert.equal(nearestRegion(82.7, 328.8, tripRegions), "제주");
+  assert.equal(regionAt(82.7, 328.8), "전남");
+  assert.equal(nearestRegion(67.7, 261.5, tripRegions), "광주");
+  assert.equal(regionAt(67.7, 261.5), "전남");
+  // 울릉도는 어느 이름표에서도 90칸 넘게 떨어져 아무 답도 못 냈다.
+  assert.equal(nearestRegion(243.6, 94.7, tripRegions), null);
+  assert.equal(regionAt(243.6, 94.7), "경북");
+});
+
+test("경로가 점으로 줄여 놓은 섬은 가장 가까운 중심점으로 고른다", () => {
+  // 우도·마라도 같은 제주 부속 섬은 경로에 넓이 없는 조각으로만 남아 있다.
+  // 영역으로는 못 고르지만 제주 이름표가 가까워 제주가 된다.
+  for (const [x, y] of [[96.6, 372.3], [73.1, 399.8]]) {
+    assert.equal(isOnLand(x, y), false);
+    assert.equal(regionContaining(x, y), null);
+    assert.equal(regionAt(x, y), "제주");
+  }
   assert.equal(nearestRegion(0, 0, tripRegions), null);
 });
