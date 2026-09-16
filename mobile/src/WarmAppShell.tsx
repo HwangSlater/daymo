@@ -95,8 +95,17 @@ import {
   createSpace,
   createTrip,
   getTrip,
+  listChecklistItems,
+  listDiaries,
+  listExpenses,
   listMembers,
+  listMemos,
+  listPhotos,
+  listRecipes,
+  listScheduleItems,
   listSpaces,
+  listStays,
+  listTripPlaces,
   listTrips,
   setTripParticipants,
   updateExpenseSettings,
@@ -122,6 +131,10 @@ import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tri
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
+import { tripDateKeys } from "./listSync";
+import { tripsToMarkdown } from "./tripExportText";
+import { shareTripArchive } from "./tripExpenseExport";
+import { mergePrefetchedLists, neverFetched, pickTripsToPrefetch, runWithLimit, type FetchedTripLists } from "./tripPrefetch";
 import { forgetPageInvite, takePageInvite } from "./inviteHandoff";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
@@ -839,6 +852,119 @@ export function WarmAppShell({
     [activeSpace.members, user?.name],
   );
   const activeRoster = rosterOfSpace(activeSpace, user?.name ?? "");
+  /**
+   * 「찾기」가 훑을 수 있게, 아직 받아 본 적 없는 여행의 하위 목록을 미리 받아 둔다.
+   *
+   * 기기 기록은 여행 상세를 이 기기에서 열어야 채워진다. 그래서 새 기기나 웹으로 처음
+   * 들어온 사람은 찾기가 텅 비었다. 서버에는 검색 API 가 없어 목록을 그대로 받아 채운다.
+   *
+   * 아직 못 올린 기기의 변경을 덮지 않는 것이 가장 중요하다. 세 겹으로 막는다.
+   *
+   * 1. `pickTripsToPrefetch` 가 이 기기에서 한 번도 받아 본 적 없는 여행만 고른다.
+   *    줄도 맞춘 적도 없는 여행이라 덮어쓸 것이 없다.
+   * 2. 넣기 직전에 그 조건을 한 번 더 본다(`neverFetched`). 받는 사이에 사용자가 그
+   *    여행을 열어 적었으면 받아 온 것을 버린다.
+   * 3. 합칠 때는 상세 화면과 같은 규칙을 쓴다(`mergeListOnOpen` + `syncedIds`).
+   *
+   * 실패하면 조용히 넘기고 표시를 지운다. 다음에 찾기를 다시 열 때 그 여행부터 받는다.
+   */
+  const [searchPrefetching, setSearchPrefetching] = useState(false);
+  // 이번에 받아 둔(또는 받고 있는) 여행. 같은 것을 두 번 받지 않는다.
+  const prefetchedTripIds = useRef(new Set<string>());
+  const prefetchAlive = useRef(true);
+  useEffect(() => {
+    prefetchAlive.current = true;
+    return () => {
+      prefetchAlive.current = false;
+    };
+  }, []);
+  // 받아 온 것을 넣을 때 읽는 최신 값들. 미리 받기가 도는 동안 바뀐다.
+  const prefetchInputs = useRef({
+    trips: tripItems,
+    roster: activeRoster,
+    spaceId: activeSpace.id,
+    openTripId: undefined as string | undefined,
+  });
+  // 미리 받기 효과보다 먼저 적어 둔다. 효과는 선언한 차례대로 돈다.
+  useEffect(() => {
+    prefetchInputs.current = {
+      trips: tripItems,
+      roster: activeRoster,
+      spaceId: activeSpace.id,
+      openTripId: isTripOpen ? selectedTrip.id : undefined,
+    };
+  });
+  const storePrefetched = (spaceId: string, tripId: string, fetched: FetchedTripLists) => {
+    const roster = prefetchInputs.current.roster;
+    setTripsByGroup((current) => {
+      const group = current[spaceId as GroupId];
+      const index = group?.findIndex((trip) => trip.id === tripId) ?? -1;
+      if (!group || index < 0) return current;
+      const trip = group[index];
+      // 상세 화면이 열려 있으면 그 여행의 주인은 상세다. 닫을 때 제 기록을 덮어쓴다.
+      if (tripId === prefetchInputs.current.openTripId || !neverFetched(trip.planning)) return current;
+      const { diaries, photos, ...lists } = mergePrefetchedLists(trip.planning, fetched, {
+        tripDates: tripDateKeys(trip.start, trip.end),
+        roster,
+      });
+      const planning: TripPlanningData = {
+        ...trip.planning,
+        ...lists,
+        // 기록 탭의 카드 문구는 서버에 없다. 상세 화면(initialMemoryData)과 같은 기본값을 둔다.
+        ...(diaries.length || photos.length
+          ? {
+            memories: {
+              cardStyle: "필름",
+              cardTitle: `우리의 ${trip.name} 여행`,
+              cardCaption: "함께 남긴 여행의 순간",
+              ...trip.planning?.memories,
+              diaries,
+              photos,
+            },
+          }
+          : {}),
+      };
+      const next = [...group];
+      next[index] = { ...trip, planning };
+      return { ...current, [spaceId]: next };
+    });
+  };
+  const fetchTripLists = async (tripId: string): Promise<FetchedTripLists> => {
+    const [places, schedule, stays, packing, recipes, expenses, memos, diaries, photos] = await Promise.all([
+      listTripPlaces(tripId),
+      listScheduleItems(tripId),
+      listStays(tripId),
+      listChecklistItems(tripId),
+      listRecipes(tripId),
+      listExpenses(tripId),
+      listMemos(tripId),
+      listDiaries(tripId),
+      listPhotos(tripId),
+    ]);
+    return { places, schedule, stays, packing, recipes, expenses, memos, diaries, photos };
+  };
+  useEffect(() => {
+    if (view !== "찾기" || !user || !serverDataReady) return;
+    const { trips: waiting, spaceId, openTripId } = prefetchInputs.current;
+    const picked = pickTripsToPrefetch(waiting, { done: prefetchedTripIds.current, skipId: openTripId });
+    if (!picked.length) return;
+    picked.forEach((id) => prefetchedTripIds.current.add(id));
+    setSearchPrefetching(true);
+    // 여행이 많은 공간에서 한꺼번에 몰리지 않게 셋씩만 받는다.
+    void runWithLimit(picked, 3, async (tripId) => {
+      try {
+        const fetched = await fetchTripLists(tripId);
+        if (prefetchAlive.current) storePrefetched(spaceId, tripId, fetched);
+      } catch {
+        // 연결이 없거나 서버가 막았다. 다음에 찾기를 열 때 다시 받는다.
+        prefetchedTripIds.current.delete(tripId);
+      }
+    }).finally(() => {
+      if (prefetchAlive.current) setSearchPrefetching(false);
+    });
+    // 탭을 열 때와 공간·여행 목록이 바뀔 때만 본다. 나머지 값은 ref 로 읽는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, activeSpace.id, serverDataReady, tripItems.length, user?.id]);
   /** 서버가 돌려준 여행으로 목록과 열린 여행을 바꾼다. 기기에만 있는 기록은 둔다. */
   const applyServerTrip = (saved: ServerTrip) => {
     const fromServer = tripFromServer(saved, selectedTrip.tone, activeRoster);
@@ -1160,7 +1286,7 @@ export function WarmAppShell({
             }}
           />
         )}
-        {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} />}
+        {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} loading={searchPrefetching} />}
         {view === "우리" && (
           <Together
             theme={theme}
@@ -3922,10 +4048,13 @@ function Search({
   open,
   theme,
   trips,
+  loading,
 }: {
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
   theme: AppTheme;
   trips: Trip[];
+  /** 아직 받아 본 적 없는 여행의 기록을 받아 오는 중인지. 받는 동안은 결과가 는다. */
+  loading: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("전체");
@@ -3970,7 +4099,9 @@ function Search({
         type: "요리",
         trip: trip.name,
         detail: `재료 ${recipe.ingredients.length}개${recipe.note ? ` · ${recipe.note}` : ""}`,
-        tags: recipe.ingredients.slice(0, 3).map((item) => item.name),
+        // 재료는 모두 찾을 수 있어야 한다. 앞 3개만 넣던 때는 "돼지고기" 로는
+        // 나오는데 "대파" 로는 안 나왔다.
+        tags: recipe.ingredients.map((item) => item.name),
       });
     }
     for (const item of plan?.packingItems ?? []) {
@@ -3981,6 +4112,18 @@ function Search({
         trip: trip.name,
         detail: [item.quantity, item.owner].filter(Boolean).join(" · "),
         tags: item.tags ?? [],
+      });
+    }
+    for (const item of plan?.expenses ?? []) {
+      rows.push({
+        id: `cost-${trip.start}-${item.id}`,
+        title: item.title,
+        type: "비용",
+        trip: trip.name,
+        detail: [item.day, money(item.amount, plan?.currency), item.category, item.payer && `${item.payer} 냄`]
+          .filter(Boolean)
+          .join(" · "),
+        tags: item.memo ? [item.memo] : [],
       });
     }
     for (const note of plan?.tripNotes ?? []) {
@@ -4017,7 +4160,7 @@ function Search({
   // 다 쏟으면 훑을 수가 없어서, 먼저 조금만 보여 주고 눌러서 펼치게 한다.
   const [showAllResults, setShowAllResults] = useState(false);
   const results = showAllResults ? matched : matched.slice(0, 12);
-  const searchFilters = ["전체", "장소", "일정", "요리", "준비", "기록"].map(
+  const searchFilters = ["전체", "장소", "일정", "요리", "준비", "비용", "기록"].map(
     (label) => ({
       label,
       count:
@@ -4045,6 +4188,12 @@ function Search({
       <Text style={[s.searchIntro, { color: theme.muted }]}>
         다녀온 여행과 준비 중인 기록을 한곳에서 찾아보세요
       </Text>
+      {/* 아직 받아 본 적 없는 여행을 받아 오는 중이다. 받는 대로 결과가 는다. */}
+      {loading && (
+        <Text accessibilityLiveRegion="polite" style={[s.searchIntro, { color: theme.primary }]}>
+          기록을 불러오는 중이에요
+        </Text>
+      )}
       <View
         style={[
           s.searchBoxNew,
@@ -4229,9 +4378,11 @@ function Search({
                     ? "preparation"
                     : item.type === "요리"
                       ? "cooking"
-                      : item.type === "기록"
-                        ? "memories"
-                        : "overview";
+                      : item.type === "비용"
+                        ? "expenses"
+                        : item.type === "기록"
+                          ? "memories"
+                          : "overview";
               open(destination, trip);
             }}
             accessibilityRole="button"
@@ -4329,10 +4480,12 @@ function Search({
             <Path d="m30 30 9 9M21 34a13 13 0 1 1 0-26 13 13 0 0 1 0 26Zm-5-14h10M21 15v10" fill="none" stroke={theme.primary} strokeWidth={1.6} strokeLinecap="round" />
           </Svg>
           <Text style={[s.searchEmptyTitle, { color: theme.text }]}>
-            찾는 기록이 없어요
+            {loading ? "기록을 불러오는 중이에요" : "찾는 기록이 없어요"}
           </Text>
           <Text style={[s.searchEmptyCopy, { color: theme.muted }]}>
-            다른 단어나 카테고리로 검색해 보세요.
+            {loading
+              ? "이 기기에서 아직 열어 보지 않은 여행을 받아 오고 있어요."
+              : "다른 단어나 카테고리로 검색해 보세요."}
           </Text>
           {(query || category !== "전체") && (
             <Pressable
@@ -4540,26 +4693,22 @@ function Together({
    *
    * 예전에는 여행 이름과 한 줄 메모만 담아서, 정작 남기고 싶은 일정·준비물·
    * 쓴 돈이 빠져 있었다. 앱을 지우기 전에 이걸로 남겨 둘 수 있어야 한다.
+   *
+   * 내보내는 길은 지출 표(CSV)와 같다. 웹은 파일 내려받기, 휴대폰은 공유 시트,
+   * 둘 다 안 되면 클립보드다. 예전에는 `Share.share` 만 불러서, 공유 창이 없는
+   * 데스크톱 브라우저에서는 눌러도 아무 일이 없었다.
    */
-  const exportData = () =>
-    Share.share({
-      title: "Daymo 여행 기록",
-      message: trips.map((trip) => {
-        const plan = trip.planning;
-        const spent = (plan?.expenses ?? []).reduce((sum, item) => sum + item.amount, 0);
-        const lines = [`■ ${trip.name} · ${trip.date}`];
-        if (trip.note) lines.push(trip.note);
-        for (const item of plan?.schedule ?? []) {
-          lines.push(`  · ${[item.date, item.time, item.title].filter(Boolean).join(" ")}`);
-        }
-        const packing = plan?.packingItems ?? [];
-        if (packing.length) {
-          lines.push(`  준비물 ${packing.length}개: ${packing.map((item) => item.name).join(", ")}`);
-        }
-        if (spent > 0) lines.push(`  쓴 돈 ${money(spent, plan?.currency)}`);
-        return lines.join("\n");
-      }).join("\n\n"),
-    });
+  const exportData = async () => {
+    const markdown = tripsToMarkdown(trips);
+    try {
+      if ((await shareTripArchive(`${activeSpace.name} 여행 기록`, markdown)) === "unavailable") {
+        await Clipboard.setStringAsync(markdown);
+        showAlert("여행 기록을 복사했어요", "메모 앱에 붙여넣으면 그대로 남아요.");
+      }
+    } catch {
+      showAlert("내보내기를 마치지 못했어요", "잠시 후 다시 시도해 주세요.");
+    }
+  };
   const panelTitle =
     panel === "groups"
       ? "여행 공간 바꾸기"
@@ -4698,7 +4847,7 @@ function Together({
               label: "멤버 관리",
               onPress: () => setPanel("members"),
             },
-            { icon: "share" as const, label: "여행 기록 내보내기", onPress: exportData },
+            { icon: "share" as const, label: "여행 기록 내보내기", onPress: () => void exportData() },
             {
               icon: "swap" as const,
               label: "공간 바꾸기",
