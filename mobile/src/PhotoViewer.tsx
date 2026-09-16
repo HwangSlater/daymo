@@ -6,7 +6,7 @@
  * 한다. 그래서 바탕을 검게 깔고 위아래에 옅은 그늘만 얹어 그 위에 아이콘을 놓았다.
  * 기념 카드 꾸미기 화면(`CardDecorEditor.tsx`)과 같은 결이다.
  *
- * 지키는 것 셋.
+ * 지키는 것 넷.
  *   1. 사진은 `contain` 이다. 어떤 비율이어도 잘리지 않는다. 사진첩에서 잘려 보이는
  *      것만큼 화나는 일이 없다.
  *   2. 검은 바탕 위라 글자와 아이콘 색은 테마 토큰이 아니라 흰색을 직접 쓴다. 테마의
@@ -14,24 +14,30 @@
  *      강조가 필요한 곳(고치기 화면의 저장·고른 칩)에만 테마의 `primary` 를 쓴다.
  *   3. 저장은 묻지 않는다. 누르면 바로 받고 한 줄만 떴다 사라진다. 원본을 받을지
  *      표시본을 받을지는 기한을 보고 부르는 쪽이 정한다(`photoSave.ts`).
+ *   4. 넘기는 길은 셋이다. 좌우로 밀기, 화살표, 필름 스트립. 미는 줄 모르는 사람이
+ *      있고 마우스로는 누르는 편이 빠르다. 어느 하나만 두면 누군가는 못 넘긴다.
  */
 
 import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Image,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import { Text } from "./AppText";
 import { Glyph, type GlyphName } from "./Glyph";
+import { swipeAxis, swipeCloses, swipeStep, type SwipeAxis } from "./photoSwipe";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
@@ -177,6 +183,84 @@ export function PhotoViewerScreen({
     onClose();
   };
   useWebBackClose(visible, close);
+
+  /**
+   * 좌우로 밀어 앞뒤 사진으로 넘기고, 아래로 끌어 닫는다.
+   *
+   * 시트로 열던 시절에는 창을 끌어내려 닫는 동작과 부딪혀 좌우를 넣지 못했다. 이제는
+   * 전체 화면이라 이 화면이 두 방향을 모두 가진다. 처음 크게 움직인 쪽으로 축을 잠가
+   * 가르고(`photoSwipe.ts`), 한 번 가로로 잡았으면 손가락이 떨어질 때까지 가로다.
+   * 매 순간 다시 판단하면 넘기던 도중에 창이 닫힌다.
+   *
+   * 판은 사진 위에만 깔린다. 위쪽 아이콘 줄과 화살표, 필름 스트립은 이 위에 놓여
+   * 누름을 먼저 가져가므로 밀기를 넣어도 그대로 눌린다.
+   */
+  const { width } = useWindowDimensions();
+  const [slide] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
+  const axis = useRef<SwipeAxis>(null);
+  // 손가락이 움직일 때 필요한 값. PanResponder 를 다시 만들지 않으려고 여기로 읽는다.
+  const latest = useRef({ photos, index, width, move, close });
+  useEffect(() => {
+    latest.current = { photos, index, width, move, close };
+  });
+  // 판은 한 번만 만든다. 끄는 도중에 다시 만들면 여태 끈 거리를 잊어버린다. 안에서
+  // 쓰는 값은 모두 위의 `latest` 에서 읽으므로 다시 만들 까닭도 없다.
+  //
+  // 아래 콜백들은 PanResponder 가 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
+  // eslint-disable-next-line react-hooks/refs
+  const [pan] = useState(() => {
+    const 제자리로 = () => {
+      Animated.spring(slide, { toValue: { x: 0, y: 0 }, bounciness: 2, useNativeDriver: true }).start();
+    };
+    const 잡을까 = (_: unknown, gesture: { dx: number; dy: number }) => {
+      if (axis.current) return true;
+      const 잡은_축 = swipeAxis(gesture.dx, gesture.dy);
+      // 사진이 한 장뿐이면 좌우로 밀어도 갈 곳이 없다. 닫기만 받는다.
+      axis.current = 잡은_축 === "가로" && latest.current.photos.length < 2 ? null : 잡은_축;
+      return axis.current !== null;
+    };
+    return PanResponder.create({
+      onMoveShouldSetPanResponder: 잡을까,
+      onPanResponderMove: (_, gesture) => {
+        if (axis.current === "가로") slide.setValue({ x: gesture.dx, y: 0 });
+        // 아래로 끄는 만큼만 따라간다. 위로 끌어도 사진은 꿈쩍하지 않는다.
+        else if (axis.current === "세로") slide.setValue({ x: 0, y: Math.max(0, gesture.dy) });
+      },
+      onPanResponderRelease: (_, gesture) => {
+        const 축 = axis.current;
+        axis.current = null;
+        const { photos: 목록, index: 지금, width: 폭, move: 옮긴다, close: 닫는다 } = latest.current;
+        if (축 === "세로") {
+          if (!swipeCloses(gesture.dy, gesture.vy)) return 제자리로();
+          slide.setValue({ x: 0, y: 0 });
+          닫는다();
+          return;
+        }
+        const 걸음 = 축 === "가로" ? swipeStep(gesture.dx, gesture.vx, 폭) : 0;
+        if (!걸음) return 제자리로();
+        // 민 쪽으로 마저 빠져나간 뒤 다음 사진이 제자리에 나타난다. 손이 놓은 방향을
+        // 눈이 따라갈 수 있어야 앞으로 갔는지 뒤로 갔는지 안다.
+        Animated.timing(slide, {
+          toValue: { x: 걸음 > 0 ? -폭 : 폭, y: 0 },
+          duration: 130,
+          useNativeDriver: true,
+        }).start(() => {
+          slide.setValue({ x: 0, y: 0 });
+          옮긴다(목록[(지금 + 걸음 + 목록.length) % 목록.length].id);
+        });
+      },
+      onPanResponderTerminate: () => {
+        axis.current = null;
+        제자리로();
+      },
+      onPanResponderTerminationRequest: () => false,
+    });
+  });
+  // 창을 새로 열 때는 늘 제자리에서 시작한다. 밀다 만 자리가 남아 있으면 안 된다.
+  useEffect(() => {
+    if (visible) slide.setValue({ x: 0, y: 0 });
+  }, [slide, visible]);
+
   // 필름 스트립이 지금 보는 사진을 늘 화면에 두게 한다. 스무 장쯤 되면 화살표로
   // 넘길수록 지금 사진이 줄 밖으로 밀려나 어디쯤인지 알 수 없다.
   useEffect(() => {
@@ -192,11 +276,14 @@ export function PhotoViewerScreen({
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={close} statusBarTranslucent>
       <View style={styles.screen}>
-        <View style={styles.stage}>
+        <Animated.View
+          {...pan.panHandlers}
+          style={[styles.stage, { transform: slide.getTranslateTransform() }]}
+        >
           {photo.uri
             ? <Image source={{ uri: photo.uri }} resizeMode="contain" style={styles.fill} accessibilityLabel={photo.caption || "여행 사진"} />
             : <Text style={styles.waiting}>{waitingText ?? "사진을 받는 중이에요"}</Text>}
-        </View>
+        </Animated.View>
         <Scrim place="top" />
         <Scrim place="bottom" />
 
@@ -561,7 +648,8 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.65 },
   faded: { opacity: 0.4 },
   // 사진은 화면을 다 쓰되 `contain` 이라 절대 잘리지 않는다.
-  stage: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" },
+  // 웹에서 마우스로 밀 때 사진이 선택되거나 브라우저의 그림 끌기가 먼저 잡지 않게 막는다.
+  stage: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", userSelect: "none" },
   waiting: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
   scrimTop: { position: "absolute", top: 0, left: 0, right: 0, height: 150 },
   scrimBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 230 },
