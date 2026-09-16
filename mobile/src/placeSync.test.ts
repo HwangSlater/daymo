@@ -107,7 +107,7 @@ test("옛 id 장소는 올리지 않는다. 먼저 id 를 바꿔야 한다", () 
 
 test("서버가 거부한 모습 그대로면 다시 보내지 않고, 고치면 다시 보낸다", () => {
   const rejected = place(A, { name: "거부된 이름" });
-  const failed = new Map([[A, bodyKey(placeBody(rejected))]]);
+  const failed = new Map([[A, { key: bodyKey(placeBody(rejected)), reason: "이름이 너무 길어요." }]]);
 
   assert.equal(hasWork(planPlaceSync([rejected], new Map(), failed)), false);
   assert.equal(planPlaceSync([{ ...rejected, name: "고친 이름" }], new Map(), failed).creates.length, 1);

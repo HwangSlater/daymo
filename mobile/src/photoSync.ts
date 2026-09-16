@@ -64,6 +64,8 @@ export function photoCodec(tripDates: readonly string[], knownIds: ReadonlySet<s
   const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
   return {
     syncable: (photo) => isServerId(photo.id) && (Boolean(photo.uri) || knownIds.has(photo.id)),
+    // blockReason 은 두지 않는다. 웹은 올린 직후 파일을 비우는데, 서버 id 가 syncedIds
+    // 에 적히기 전 한순간 "파일 없음" 으로 보여 배지가 깜빡인다.
     idOf: (photo) => photo.id,
     toBody: (photo) => ({
       caption: blank(photo.caption, 200),
