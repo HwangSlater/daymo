@@ -47,7 +47,7 @@ import {
 } from "./spaces";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
-import { shouldRefetch } from "./listSync";
+import { shouldRefetch, tripDateKeys } from "./listSync";
 import { SyncNotice } from "./SyncMarks";
 import { reloadOpenLists } from "./useListSync";
 import { koreaAdminPath } from "./koreaAdminPath";
@@ -143,7 +143,6 @@ import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
-import { tripDateKeys } from "./listSync";
 import { tripsToMarkdown } from "./tripExportText";
 import { shareTripArchive } from "./tripExpenseExport";
 import { mergePrefetchedLists, neverFetched, pickTripsToPrefetch, runWithLimit, type FetchedTripLists } from "./tripPrefetch";
@@ -961,13 +960,10 @@ export function WarmAppShell({
       const planning: TripPlanningData = {
         ...trip.planning,
         ...lists,
-        // 기록 탭의 카드 문구는 서버에 없다. 상세 화면(initialMemoryData)과 같은 기본값을 둔다.
+        // 기념 카드 설정은 서버(여행의 cardSettings)에 있다. 여기서는 사진과 일기만 채운다.
         ...(diaries.length || photos.length
           ? {
             memories: {
-              cardStyle: "필름",
-              cardTitle: `우리의 ${trip.name} 여행`,
-              cardCaption: "함께 남긴 여행의 순간",
               ...trip.planning?.memories,
               diaries,
               photos,
