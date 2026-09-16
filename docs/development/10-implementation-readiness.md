@@ -14,8 +14,8 @@
 | Node | 루트 `.nvmrc` 24, `engines` `>=24 <25` | — |
 | Python | 3.13 + uv | — |
 | iOS·Android ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
-| 자동 검사 | CI가 앱 `typecheck`·`lint`·`test`(196개)와 서버 `pytest`(580개, PostgreSQL 컨테이너)를 돌린다 | **E2E와 migration 리허설 남음** |
-| 오류 수집 | 없음. 문서 곳곳의 Sentry는 계획일 뿐이다 | 넣을 때 08 문서 4장·12장을 함께 고친다 |
+| 자동 검사 | CI가 앱 `typecheck`·`lint`·`test`(243개)와 서버 `pytest`(609개, PostgreSQL 컨테이너)를 돌린다 | **E2E와 migration 리허설 남음** |
+| 오류 수집 | 서버에 Sentry(`SENTRY_DSN`이 비면 꺼짐). 앱은 SDK 없이 `POST /v1/client-errors`로 한 줄 | 운영자가 DSN을 넣으면 켜진다. 08 문서 4장·12장 반영 완료 |
 | 개인정보/인프라 | iwinv 한국 리전 VPS 운영 중(데이터센터 국가 2026-09-15 확인), 매일 백업과 정리 작업이 돈다 | — |
 | 공개 주소 | `api.daymo.xyz`(API), `www.daymo.xyz`(소개 사이트와 `/app` 웹 빌드) | — |
 

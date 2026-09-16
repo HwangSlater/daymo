@@ -145,6 +145,8 @@ uv run python dev.py
 ```dotenv
 EXPO_PUBLIC_DAYMO_API_URL=https://api.daymo.xyz
 EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL=
+# 비우면 앱이 멈췄을 때 오류 한 줄을 서버로 보낸다. off 면 보내지 않는다
+EXPO_PUBLIC_DAYMO_ERROR_REPORT=
 ```
 
 서버:

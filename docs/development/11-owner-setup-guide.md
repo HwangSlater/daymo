@@ -24,9 +24,9 @@
 
 사용자는 앱에서 내 데이터 export를 요청할 수 있다. 서버는 내 계정·동의·참여 이력·본인 작성 콘텐츠·본인 사진 원본만 비동기로 만들고 24시간 유효한 1회용 링크로 제공한다. 다운로드나 만료 후 archive를 삭제한다.
 
-첫 출시에는 제3자 행동 분석 SDK를 넣지 않는다. Sentry 오류 추적만 PII scrubbing과 최소 기술 정보로 운영하며 화면 조회·버튼 클릭 분석에는 사용하지 않는다.
+첫 출시에는 제3자 행동 분석 SDK를 넣지 않는다. Sentry 오류 추적만 PII scrubbing과 최소 기술 정보로 운영하며 화면 조회·버튼 클릭 분석에는 사용하지 않는다. 앱에는 Sentry SDK를 넣지 않았고, 서버만 `SENTRY_DSN`이 들어갔을 때 켜진다(9장).
 
-Sentry 보존기간은 30일이고 가명 설치 ID만 사용한다. 잠금화면 push는 상세 여행 정보를 숨긴 일반 문구로 보내며, 생체 앱 잠금은 기기별 선택 기능·기본 꺼짐으로 제공한다. 생체 원본은 앱이나 서버에서 수집하지 않는다.
+Sentry 보존기간은 30일이고 누가 겪었는지는 보내지 않는다. 잠금화면 push는 상세 여행 정보를 숨긴 일반 문구로 보내며, 생체 앱 잠금은 기기별 선택 기능·기본 꺼짐으로 제공한다. 생체 원본은 앱이나 서버에서 수집하지 않는다.
 
 생체 앱 잠금을 켜면 백그라운드 1분 후 잠그고 실패 시 OS 기기 암호·PIN을 허용한다. 앱 전환 화면은 항상 privacy cover로 가리지만 사용자의 일반 스크린샷은 막지 않는다.
 
@@ -239,7 +239,7 @@ Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 - Expo/EAS
 - App Store Connect
 - Google Play Console
-- Sentry 또는 결정한 오류 수집 서비스 — 아직 쓰지 않는다
+- Sentry — 코드는 들어갔고 `SENTRY_DSN`이 비어 있어 꺼져 있다. 켜는 절차는 9장
 
 외부 사진 저장소는 VPS 로컬 저장을 선택하면 초기에는 필요 없다.
 
@@ -247,7 +247,7 @@ Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 
 앱 번들에서 읽을 수 있으므로 공개되어도 되는 설정만 넣는다.
 
-실제로 앱 코드가 읽는 것은 둘뿐이다(`mobile/.env.example`).
+실제로 앱 코드가 읽는 것은 셋뿐이다(`mobile/.env.example`).
 
 ```dotenv
 # 비우면 운영 API인 https://api.daymo.xyz 를 쓴다
@@ -255,6 +255,9 @@ EXPO_PUBLIC_DAYMO_API_URL=https://api.daymo.xyz
 
 # 네이버 지도 단축 링크의 장소명·주소를 받아 오는 주소. 비우면 앱이 기기에서 읽을 수 있는 만큼만 채운다
 EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL=
+
+# 앱이 멈췄을 때 오류 한 줄을 Daymo 서버로 보낼지. 비우면 보내고, off(또는 0·false)면 보내지 않는다
+EXPO_PUBLIC_DAYMO_ERROR_REPORT=
 ```
 
 소셜 로그인도 위 API가 맡는다. 앱에 넣을 제공자 키는 없다. 웹 빌드는 `site/build.mjs`가 `EXPO_PUBLIC_DAYMO_API_URL=https://api.daymo.xyz`와 `DAYMO_WEB_BASE_URL=/app`을 넣어 내보낸다.
@@ -410,16 +413,43 @@ SMTP_STARTTLS=true
 
 인증 메일 재전송은 60초 간격과 계정/IP별 하루 5회로 제한한다. 로그인은 15분 내 5회 실패부터 점진적으로 지연하고 최대 15분만 일시 제한한다. 정상 가입에는 CAPTCHA를 넣지 않고 실제 자동화 위험 신호가 있을 때만 challenge를 요구한다. 모든 인증 응답은 계정 존재 여부를 드러내지 않는다.
 
-Sentry를 사용할 경우:
+### 오류 수집(Sentry) 켜기
+
+코드는 이미 들어가 있다. **`SENTRY_DSN`이 비어 있으면 아무 일도 하지 않는다.** 서버가 `sentry_sdk`를 import조차 하지 않는다. 지금은 꺼진 상태이고, 아래를 하면 켜진다.
+
+앱에는 Sentry SDK를 넣지 않았다. 앱은 오류 한 줄을 `POST /v1/client-errors`로 Daymo 서버에만 보내고, 그것이 바깥으로 나갈지는 서버의 이 값 하나가 정한다. 그래서 앱을 새로 빌드하지 않아도 켜고 끌 수 있다.
+
+**켜기 전에 반드시 할 일.** DSN을 넣는 순간 오류 정보의 국외 이전이 시작된다. 아래 넷을 먼저 고친다.
+
+1. [08-privacy-and-release-compliance.md](./08-privacy-and-release-compliance.md) 4장 위탁 표의 Sentry 줄을 "쓰는 중"으로
+2. 처리방침 `site/src/privacy.html`의 6장 위탁 표와 7장 국외 이전 표. **줄은 이미 써 뒀고 주석으로 막혀 있다.** 주석을 풀고 조직 리전에 맞춰 국가를 적은 뒤 개정일을 고친다
+3. `release/shared/data-inventory.md`
+4. App Store의 "진단", Play의 "비정상 종료 로그·진단" 답변(`release/app-store/app-store-connect.md` 6장, `release/play-store/play-console.md` 5장)
+
+**받는 곳과 순서.**
+
+1. <https://sentry.io> 에서 계정을 만든다. 무료 plan으로 시작한다
+2. 조직을 만들 때 **데이터 저장 리전을 고른다.** 한 번 정하면 못 바꾼다. 유럽(EU)과 미국(US) 중 하나이고, 어느 쪽이든 국외 이전이라 처리방침에 그 나라를 적는다
+3. 새 프로젝트를 만든다. 플랫폼은 **Python → FastAPI**. 이름은 `daymo-backend`
+4. 만들고 나면 나오는 **Client Keys(DSN)** 값을 복사한다. `Settings → Projects → daymo-backend → Client Keys (DSA)` 에서 다시 볼 수 있다. `https://<키>@o<번호>.ingest.sentry.io/<번호>` 모양이다
+5. `Settings → Projects → daymo-backend → General → Event Retention`을 **30일**로 맞춘다
+6. `Settings → Security & Privacy`에서 `Data Scrubber`와 `Use Default Scrubbers`를 켜 둔다. 서버가 이미 지우고 보내지만 두 번 막는 편이 낫다
+7. VPS의 `/etc/daymo/secrets/runtime.env`에 아래 한 줄을 더하고 API 컨테이너를 다시 띄운다
 
 ```dotenv
+# 비어 있으면 오류 수집이 꺼진다. 값을 넣으면 켜진다.
 SENTRY_DSN=
-SENTRY_AUTH_TOKEN=
-SENTRY_ORG=
-SENTRY_PROJECT=
 ```
 
-앱에는 공개 DSN만 넣고 build token은 CI에만 둔다. 이메일, 주소, 메모 본문, 인증 token과 사진 경로를 오류 로그에서 제거한다.
+8. 앱에서 일부러 오류를 내 보거나 서버 로그에 `error tracking enabled` 한 줄이 찍혔는지 본다
+
+DSN은 비밀값은 아니지만(이벤트를 보낼 수만 있다) 저장소에 넣지 않는다. 다른 secret과 같은 자리에 둔다.
+
+**무엇이 올라가는지.** 예외 종류와 난 자리, 라우트 틀(`/v1/trips/{trip_id}`), 상태 코드, 요청 ID, UUID, 그리고 앱에서 온 것이면 플랫폼·앱 버전·어느 화면인지. 이메일·이름·여행 내용·장소명·사진·토큰·초대 링크·비밀번호·IP·요청 본문·쿠키는 `backend/app/core/observability.py`의 `scrub_event`가 보내기 전에 지운다. 무엇을 지우는지는 `backend/tests/test_observability.py`가 고정하고 있어서, 거르는 규칙을 건드리면 시험이 먼저 깨진다.
+
+**끄기.** `SENTRY_DSN`을 비우고 다시 띄우면 된다. 앱 쪽까지 멈추려면 `EXPO_PUBLIC_DAYMO_ERROR_REPORT=off`로 웹 빌드를 다시 내보낸다.
+
+소스맵 업로드(`SENTRY_AUTH_TOKEN`·`SENTRY_ORG`·`SENTRY_PROJECT`)는 쓰지 않는다. 앱 스택을 보내지 않아서 풀 것이 없다.
 
 ## 10. 푸시 알림 자격 증명
 
