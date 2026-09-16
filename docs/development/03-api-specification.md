@@ -1,14 +1,22 @@
 # API 명세서
 
+> **읽는 법.** 각 장의 표와 설명은 처음에 정한 계약이고, 그 아래 `구현`으로 시작하는 문단이 지금 서버에
+> 있는 것이다. 둘이 다르면 `구현` 쪽이 사실이다. 지금 열려 있는 경로는 `/v1` 아래 68개(동작 102개)이고
+> 전체 목록은 local·beta에서 `/docs`로 볼 수 있다. 운영에서는 문서 경로를 열지 않는다.
+
 ## 1. 공통 규칙
 
-- Base URL: `/v1`
+- Base URL: `/v1`. 메일·초대 링크 HTML 페이지만 `/v1` 밖의 `/auth/...`에 있다(`backend/app/api/auth_pages.py`)
 - 본문: `application/json; charset=utf-8`
 - 인증: `Authorization: Bearer <access_token>`
 - ID: UUID 문자열
 - 시간: ISO 8601 UTC (`2026-08-21T06:00:00Z`), 날짜는 `YYYY-MM-DD`
 - 표시 시간대: 공간의 `timezone`, 기본 `Asia/Seoul`
 - 페이지: `?limit=20&cursor=<opaque>`
+- 브라우저: 웹 빌드가 API를 부를 수 있게 `CORS_ORIGINS`(기본 `https://www.daymo.xyz,https://daymo.xyz`)에
+  있는 출처만 허용한다. 토큰을 쿠키가 아니라 `Authorization`으로 보내므로 credentials는 켜지 않는다.
+  허용 method는 `GET·POST·PUT·PATCH·DELETE`, 허용 헤더는 `Authorization`·`Content-Type`·`X-Request-Id`다
+- 요청 ID: `X-Request-Id`를 보내면 UUID 모양일 때만 쓰고 아니면 서버가 만든다. 응답 헤더로 돌려준다
 - 쓰기 재시도: 생성/일괄 API는 `Idempotency-Key` 헤더 지원
 - 저장 시점: 요청 하나가 transaction 하나이고, 성공 응답(2xx)은 commit이 끝난 뒤에만 나간다. commit이 실패하면 `500 INTERNAL_ERROR`다(2026-09-15부터, `backend/app/api/deps.py`의 `SessionDepends`)
 - 동시 수정: `version`을 요청에 포함하고 성공 시 증가된 값을 반환
@@ -17,6 +25,8 @@
 - 클라이언트는 `If-None-Match`를 보내고 변경이 없으면 서버는 body 없는 `304` 반환
 - JSON 응답은 Nginx에서 gzip 압축하며 HTTPS를 사용
 - `X-Client-Mutation-Id`는 기기에서 생성한 UUID로, 동일 쓰기의 중복 처리를 막음
+
+**아직 없는 공통 규칙 셋.** `Idempotency-Key`, `X-Client-Mutation-Id`, JSON 응답의 `ETag`·`If-None-Match`·`304`를 서버가 읽거나 만들지 않는다. 지금은 앱이 만든 UUID를 `id`로 그대로 받아(같은 `id`로 다시 만들면 새로 만들지 않고 `200`으로 기존 줄을 돌려준다) 중복 생성을 막고, 동시 수정은 `version`으로 막는다. 목록 cursor도 없고 `limit`만 받는다. 사진 파일 응답에만 `Cache-Control: private, max-age=31536000, immutable`이 붙는다.
 
 성공 응답:
 
@@ -46,9 +56,14 @@
 }
 ```
 
-`details`는 앱이 다음 단계로 가는 데 값이 필요한 오류에만 붙는다. 지금은 `ACCOUNT_LINK_REQUIRED`의 `linkToken`·`provider`뿐이다.
+`fields`와 `details`는 값이 있을 때만 붙는다. `details`는 앱이 다음 단계로 가는 데 값이 필요한 오류에만 쓴다. 지금은 `ACCOUNT_LINK_REQUIRED`의 `linkToken`·`provider`뿐이다. `RATE_LIMITED`는 `fields.retryAfterSeconds`를 준다.
 
-주요 오류 코드는 `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `OWNER_TRANSFER_REQUIRED(409)`, `ACCOUNT_LINK_REQUIRED(409)`, `SPACE_MEMBER_LIMIT_REACHED(409)`, `EMAIL_NOT_VERIFIED(403)`, `SYNC_CURSOR_EXPIRED(410)`, `VALIDATION_ERROR(422)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `RATE_LIMITED(429)`다.
+오류 코드 전부(`backend/app/core/errors.py`): `UNAUTHENTICATED(401)`, `FORBIDDEN(403)`, `EMAIL_NOT_VERIFIED(403)`, `NOT_FOUND(404)`, `VERSION_CONFLICT(409)`, `TAG_IN_USE(409)`, `SETTLEMENT_IN_PROGRESS(409)`, `OWNER_TRANSFER_REQUIRED(409)`, `SPACE_MEMBER_LIMIT_REACHED(409)`, `ACCOUNT_LINK_REQUIRED(409)`, `SYNC_CURSOR_EXPIRED(410)`, `GONE(410)`, `PHOTO_TOO_LARGE(413)`, `STORAGE_QUOTA_EXCEEDED(413)`, `VALIDATION_ERROR(422)`, `PASSWORD_TOO_COMMON(422)`, `RATE_LIMITED(429)`, `INTERNAL_ERROR(500)`, `SERVICE_UNAVAILABLE(503)`. `message`는 모두 한국어 사용자 문구다.
+
+두 가지를 기억한다.
+
+- **없는 것과 권한 없는 것을 같은 `404`로 답한다**(`backend/app/api/permissions.py`). `403`은 그 공간의 멤버임이 확인된 뒤에만 나온다. 멤버가 아닌 사람에게 `403`을 주면 그 id가 있다는 뜻이 되어 남의 공간·여행 id를 찍어 볼 수 있다.
+- 틀린 method(`405`)도 `NOT_FOUND`로 바꿔 답한다. 요청 본문에 모르는 칸이 있으면 `VALIDATION_ERROR(422)`다(스키마가 `extra="forbid"`).
 
 ### 캐시 유효성 기본값
 
@@ -66,6 +81,8 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 ### 앱 호환성과 기능 설정
 
+**아직 없다.** 스토어에 낸 버전이 없어 강제 업데이트를 판단할 기준이 없다. 첫 출시 전에 만든다.
+
 | Method | Path | 용도 |
 | --- | --- | --- |
 | GET | `/app-config?platform=ios&appVersion=1.0.0&runtimeVersion=1` | 최소 지원 버전, 업데이트 안내와 공개 가능한 feature flag 조회 |
@@ -76,34 +93,54 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 ## 2. 인증과 프로필
 
+지금 열려 있는 것:
+
 | Method | Path | 용도 |
 | --- | --- | --- |
-| POST | `/auth/signup` | 이메일 회원가입 |
+| POST | `/auth/signup` | 이메일 회원가입. 이미 있는 이메일도 같은 `202`를 준다 |
 | POST | `/auth/email-verifications` | 가입 이메일 인증 링크 발송/재전송 |
 | POST | `/auth/email-verifications/confirm` | 링크의 일회용 token으로 이메일 확인 |
 | POST | `/auth/login` | 이메일 로그인 |
-| POST | `/auth/logout` | 현재 세션 종료 |
-| POST | `/auth/refresh` | 세션 갱신 |
+| POST | `/auth/logout` | 현재 세션 종료 (모르는 token도 `204`) |
+| POST | `/auth/refresh` | 세션 갱신(회전) |
 | POST | `/auth/password/forgot` | 30분·1회용 비밀번호 재설정 링크 요청 |
-| POST | `/auth/password/reset` | 링크 token으로 비밀번호 변경·기존 세션 종료 |
+| POST | `/auth/password/reset` | 링크 token으로 비밀번호 변경·기존 세션 전부 종료 |
 | GET | `/auth/sessions` | 로그인된 기기/세션 목록 |
 | DELETE | `/auth/sessions/{sessionId}` | 특정 기기 세션 폐기 |
+| POST | `/auth/reauth` | 민감 작업용 1회용 증표 발급(현재 비밀번호) |
 | GET | `/auth/oauth/providers` | 서버에 키가 들어가 켜진 provider 목록 |
 | GET | `/auth/oauth/{provider}/start` | OAuth 시작 (`apple/google/kakao/naver`) |
 | GET/POST | `/auth/oauth/{provider}/callback` | provider code 교환 후 앱으로 복귀 (Apple은 POST 폼) |
 | POST | `/auth/oauth/exchange` | 일회용 앱 로그인 code를 session token으로 교환 |
 | POST | `/auth/oauth/link` | 같은 이메일의 기존 계정 비밀번호로 확인하고 provider 연결 후 로그인 |
-| GET | `/me/auth-methods` | 연결된 이메일·OAuth 로그인 방식 조회 |
-| POST | `/me/auth-methods/{provider}/link` | 재인증 후 provider 연결 시작 |
-| DELETE | `/me/auth-methods/{provider}` | provider 연결 해제, 마지막 수단은 차단 |
+| POST | `/auth/oauth/reauth` | 연결된 provider 재로그인으로 증표 발급(비밀번호 없는 계정용) |
 | GET | `/me` | 내 프로필·참여 공간 목록 |
-| PATCH | `/me` | 이름/프로필 사진 수정 |
+| PATCH | `/me` | 표시 이름 수정 |
 | POST | `/me/password` | 재인증 후 비밀번호 변경(소셜 전용 계정은 처음 설정)·다른 기기 세션 종료 |
 | POST | `/me/email` | 재인증 후 새 주소로 30분·1회용 변경 확인 링크 발송 |
-| GET/POST | `/auth/confirm-email-change` | 이메일 변경 링크 페이지(GET은 확인 버튼만, POST가 변경) |
 | DELETE | `/me` | 7일 유예 계정 삭제 요청 |
 | POST | `/me/deletion/cancel` | 유예기간 안에 재인증 후 삭제 취소 |
 | GET | `/me/deletion` | 삭제 상태와 최종 삭제 예정일 조회 |
+| POST | `/reports` | 사용자 또는 콘텐츠 신고 |
+| GET/POST | `/blocks` | 차단 목록/추가 |
+| DELETE | `/blocks/{membershipId}` | 차단 해제 |
+
+`/v1` 밖의 HTML 페이지(메일·초대 링크가 가리키는 곳, 문서에는 안 나온다):
+
+| Method | Path | 용도 |
+| --- | --- | --- |
+| GET/POST | `/auth/verify-email`, `/auth/verify-email/resend` | 이메일 확인과 재전송 |
+| GET/POST | `/auth/forgot-password`, `/auth/reset-password` | 비밀번호 찾기·재설정 |
+| GET/POST | `/auth/confirm-email-change` | 이메일 변경 확인 |
+| GET | `/auth/invite` | 초대 링크. 공간을 드러내지 않고 `daymo://invite`로 앱을 연다 |
+
+아직 만들지 않은 것. 설계는 이 문서에 남겨 두고 필요한 단계에서 만든다.
+
+| Method | Path | 용도 |
+| --- | --- | --- |
+| GET | `/me/auth-methods` | 연결된 이메일·OAuth 로그인 방식 조회 |
+| POST | `/me/auth-methods/{provider}/link` | 재인증 후 provider 연결 시작 |
+| DELETE | `/me/auth-methods/{provider}` | provider 연결 해제, 마지막 수단은 차단 |
 | GET | `/legal/documents?context=signup` | 현재 약관/고지와 필수·선택 구분 |
 | POST | `/legal/acceptances` | 문서 version별 동의/확인 기록 |
 | GET | `/me/legal-acceptances` | 내 동의 내역 |
@@ -114,11 +151,10 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 | GET | `/me/data-exports/{exportId}` | 생성 상태·만료 시각 조회 |
 | GET | `/me/data-exports/{exportId}/download` | 24시간·1회용 token으로 다운로드 |
 | POST | `/privacy/photo-requests` | 비회원 포함 사진 등장 당사자의 삭제·처리정지 요청 |
-| POST | `/reports` | 사용자 또는 콘텐츠 신고 |
 | GET | `/me/reports` | 내가 제출한 신고와 처리 상태 |
 | POST | `/reports/{reportId}/appeals` | 결과 통지 후 14일 이내 이의 제기 |
-| GET/POST | `/me/blocks` | 차단 사용자 목록/추가 |
-| DELETE | `/me/blocks/{blockedUserId}` | 사용자 차단 해제 |
+
+약관 동의는 지금 별도 표 없이 `users.terms_version`·`terms_agreed_at` 한 쌍으로만 남긴다(아래 참고). 선택 동의·철회·마케팅 구분은 그 표가 생길 때 함께 만든다.
 
 `POST /auth/signup`
 
@@ -134,7 +170,20 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 
 가입 이메일에는 `https://api.daymo.xyz/auth/verify-email?token=...` 형식의 인증 링크를 보낸다. 2026-09-15부터 이 페이지는 API 서버가 HTML로 직접 보여 준다(`backend/app/api/auth_pages.py`). 웹 앱 배포와 CORS 없이 동작하게 하려는 것이고, 앱 바로 열기(Universal Link/App Link)는 나중에 `daymo.xyz`에서 따로 붙인다. 이메일 확인은 로그인 조건이 아니다. 확인 전에도 로그인할 수 있고, 초대 참여처럼 이메일 소유가 필요한 곳에서 확인 여부를 본다. token은 원문을 저장하지 않고 hash와 30분 만료 시각만 저장하며 성공 시 즉시 폐기한다. 링크의 최초 GET은 메일 보안 스캐너의 자동 방문에 대비해 인증 상태를 변경하지 않는다. Universal Link/App Link로 앱이 열리거나 웹 완료 화면이 로드된 뒤 클라이언트가 token을 `POST /auth/email-verifications/confirm`으로 보내 인증을 완료한다. 앱이 없거나 연결에 실패해도 웹에서 완료할 수 있고, 앱은 다음 활성화 때 인증 상태를 다시 조회한다.
 
-재전송은 요청 사이 60초, 정규화한 계정과 IP 각각 하루 최대 5회로 제한한다. 허용된 재전송에서는 이전 미사용 token을 모두 폐기하고 새 링크만 유효하게 한다. 제한된 요청은 `429 RATE_LIMITED`와 재시도 가능 시각을 반환하되 계정 존재 여부는 노출하지 않는다. 만료·이미 사용·교체된 token은 같은 일반 오류 화면을 보여주고 재전송 동작을 제공한다. 인증 완료 여부와 관계없이 발송 API 응답은 같은 일반 안내를 사용한다.
+구현된 시도 제한(`backend/app/services/throttle.py`). 계정 키와 IP 키를 따로 세고 성공하면 계정 키만 푼다. 초과분마다 지연이 두 배씩 늘고 최대 차단에서 멈춘다. 키는 pepper를 섞은 해시로만 저장한다.
+
+| scope | 창 | 계정 | IP | 첫 지연 | 최대 차단 | 최소 간격 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `login` | 15분 | 5 | 50 | 1초 | 15분 | — |
+| `reauth` | 15분 | 5 | 50 | 1초 | 15분 | — |
+| `signup` | 1시간 | — | 20 | 30초 | 30분 | — |
+| `email_verification` | 1일 | 5 | 50 | 10분 | 6시간 | 60초 |
+| `password_reset` | 1일 | 5 | 50 | 10분 | 6시간 | 60초 |
+| `email_change` | 1일 | 5 | 50 | 10분 | 6시간 | 60초 |
+
+가입은 IP 기준으로만 센다. 이메일로 세면 그 응답 자체가 계정이 있다는 뜻이 된다. 신고는 이 표와 별도로 한 사람당 한 시간 10건이다.
+
+재전송은 요청 사이 60초, 정규화한 계정 하루 최대 5회로 제한한다. 허용된 재전송에서는 이전 미사용 token을 모두 폐기하고 새 링크만 유효하게 한다. 제한된 요청은 `429 RATE_LIMITED`와 재시도 가능 시각을 반환하되 계정 존재 여부는 노출하지 않는다. 만료·이미 사용·교체된 token은 같은 일반 오류 화면을 보여주고 재전송 동작을 제공한다. 인증 완료 여부와 관계없이 발송 API 응답은 같은 일반 안내를 사용한다.
 
 비밀번호 재설정도 `https://api.daymo.xyz/auth/reset-password?token=...` 형식의 30분·1회용 링크로 제공한다. 앱 로그인 화면의 `비밀번호를 잊었어요`가 `POST /auth/password/forgot`을 부르고, 브라우저의 `/auth/forgot-password` 페이지에서도 요청할 수 있다. 링크 페이지는 `no-referrer`·`no-store`·외부 자원 없는 CSP를 쓰고, nginx는 `/auth/` 접속 기록에서 주소의 `?` 뒤를 지운다. token 원문은 저장하지 않으며 새 링크 발급 시 기존 미사용 token을 모두 폐기한다. 링크의 GET은 상태를 변경하지 않고 앱 또는 웹의 새 비밀번호 화면이 `POST /auth/password/reset`을 호출한다. 새 비밀번호에는 가입과 같은 규칙을 적용하고, 성공 transaction에서 해당 사용자의 모든 refresh token과 로그인 세션을 폐기한 뒤 다시 로그인하도록 안내한다. 요청·응답과 오류 화면은 계정 존재 여부를 노출하지 않는다.
 
@@ -180,7 +229,7 @@ TTL은 데이터를 화면에서 지우는 시간이 아니라 재검증 주기�
 - 신고자는 그 공간의 지금 멤버여야 하고 대상도 그 공간의 것이어야 한다. 아니면 둘 다 404다. 지운 메모·사진과 지운 여행 안의 것도 404, 나를 멤버로 신고하면 422다.
 - 응답은 `201 {id, receivedAt, reviewDueAt(접수 후 24시간)}`이다. 같은 사람이 같은 대상을 다시 신고하면 열린 신고가 있는 동안 `200`과 처음 `id`를 준다. 새 신고는 한 사람당 1시간에 10건까지이고 넘으면 `RATE_LIMITED(429)`다.
 - 새 신고마다 `support@daymo.xyz`로 접수 번호·대상 종류·사유·검토 기한만 담은 메일을 보낸다. 신고 설명, 대상 본문·사진, 신고자 이메일은 넣지 않는다. 메일이 실패해도 신고는 남는다. 긴급도 구분, 1시간 요약, `/me/reports`, 이의 제기, 임시 `restricted`, 관리자 웹은 아직 없어 운영자가 DB에서 직접 처리한다.
-- 차단은 문서의 `/me/blocks/{blockedUserId}` 대신 `/blocks`를 쓴다. 앱은 다른 사람의 사용자 id를 모르므로 membership id로 가리킨다. `POST /blocks {userMembershipId}`는 지금 함께 있는 공간의 멤버만 받고(아니면 404, 나면 422) 이미 차단했으면 `200`이다. `GET /blocks?spaceId=`는 `{id, membershipId, displayName, blockedAt}` 목록이고, `spaceId`를 주면 그 공간에 있는 사람은 그 공간의 membership id로 준다. `DELETE /blocks/{membershipId}`는 어느 공간의 membership이든 같은 사람의 차단을 푼다. 차단한 공간이 지워져 `membershipId`가 비면 차단 줄 `id`로 푼다.
+- 차단 경로는 `/blocks`다. 앱은 다른 사람의 사용자 id를 모르므로 membership id로 가리킨다. `POST /blocks {userMembershipId}`는 지금 함께 있는 공간의 멤버만 받고(아니면 404, 나면 422) 이미 차단했으면 `200`이다. `GET /blocks?spaceId=`는 `{id, membershipId, displayName, blockedAt}` 목록이고, `spaceId`를 주면 그 공간에 있는 사람은 그 공간의 membership id로 준다. `DELETE /blocks/{membershipId}`는 어느 공간의 membership이든 같은 사람의 차단을 푼다. 차단한 공간이 지워져 `membershipId`가 비면 차단 줄 `id`로 푼다.
 - 차단 효과는 지금 초대 수락에만 건다. 받는 사람과 공간의 지금 멤버 사이에 어느 쪽으로든 차단이 있으면 `FORBIDDEN(403)`이고, 문구에 차단 사실을 드러내지 않으며 초대 사용 횟수를 올리지 않는다. 초대 링크는 받는 사람을 정해 만들지 않아서 초대 생성은 막지 않는다. 알림은 아직 기능이 없다.
 - 계정을 최종 정리하면 그 사람이 한 차단과 당한 차단을 지우고, 낸 신고는 남기되 신고자 연결을 끊는다.
 
@@ -212,7 +261,11 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 
 앱은 기존 계정 비밀번호를 받아 `POST /auth/oauth/link { linkToken, password, device }`로 보낸다. 연결 토큰은 10분·1회용이고, 비밀번호 확인은 로그인과 같은 시도 제한을 받는다. 틀린 비밀번호와 비밀번호가 없는 계정(다른 provider로만 가입)은 같은 `FORBIDDEN(403)` 문구로 거절해 가입 방식을 드러내지 않는다. 연결에 성공하면 provider가 확인한 이메일로 기존 계정의 이메일 확인도 끝낸다.
 
-아직 없는 것: OAuth로만 가입한 계정의 재인증(provider 재로그인으로 `reauthProof` 발급), `/me/auth-methods` 연결·해제, 탈퇴 시 Apple token revoke와 카카오 unlink, iOS 네이티브 Apple 로그인.
+운영 상태(2026-09-16): **Google·Kakao·Naver가 켜져 있고 Apple은 꺼져 있다.** provider는 설정값이 다 들어간 것만 켜지고(`google_client_id`+`secret`, `kakao_rest_api_key`, `naver_client_id`+`secret`, Apple은 `APPLE_CLIENT_ID`·`APPLE_TEAM_ID`·`APPLE_KEY_ID`·`APPLE_PRIVATE_KEY` 넷), 꺼진 provider는 `GET /auth/oauth/providers` 목록에서 빠지고 `start`도 `404`다. 앱과 웹은 이 목록에 있는 버튼만 보여 준다.
+
+웹 빌드도 같은 서버 코드를 쓴다. 다른 것은 `redirectUri`뿐이다. 앱은 `daymo://oauth`, 웹은 같은 출처의 `/oauth`(예: `https://www.daymo.xyz/oauth`)로 돌아오고 그 주소가 `OAUTH_APP_REDIRECT_URIS`에 없으면 `start`가 `422`다. 웹은 사용자가 버튼을 누른 그 순간 팝업 창을 열어 두고 거기서 provider 화면을 띄운다(나중에 열면 Safari가 막는다). `/oauth`에는 서버 페이지가 없고 웹 앱 번들 자체가 그 주소로 리라이트된다(`site/build.mjs`). 번들이 `maybeCompleteAuthSession()`으로 원래 창에 결과를 넘기고 팝업을 닫는다.
+
+아직 없는 것: `/me/auth-methods` 연결·해제, 탈퇴 시 Apple token revoke와 카카오 unlink, iOS 네이티브 Apple 로그인.
 
 - 서비스 이용약관 동의와 개인정보 처리 관련 고지/동의는 문서 종류와 법적 근거를 구분한다.
 - 계약 이행에 필요한 개인정보까지 관행적으로 모두 ‘필수 동의’로 만들지 않는다.
@@ -234,10 +287,14 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
     "displayName": "하늘",
     "avatarUrl": null,
     "spaces": [{ "id": "uuid", "name": "주말 여행", "relationshipType": "friends", "role": "owner" }],
-    "deletionScheduledAt": null
+    "deletionScheduledAt": null,
+    "hasPassword": true,
+    "linkedProviders": ["kakao"]
   }
 }
 ```
+
+`avatarUrl`은 프로필 사진이 없어 늘 `null`이다. `hasPassword`·`linkedProviders`로 앱이 민감 작업의 확인 방식(비밀번호냐 provider 재로그인이냐)을 고른다.
 
 `deletionScheduledAt`이 있으면 삭제를 요청해 둔 계정이다. 앱은 다른 화면보다 먼저 삭제 예정일과 취소 버튼을 보여준다.
 
@@ -273,18 +330,21 @@ provider가 반환한 이메일이 기존 계정과 같아도 자동 병합하�
 
 | Method | Path | 용도 |
 | --- | --- | --- |
-| POST | `/spaces` | 공간 생성 |
-| GET | `/spaces/{spaceId}` | 공간/관계 정보 |
-| PATCH | `/spaces/{spaceId}` | 이름·관계 정보 수정 |
-| DELETE | `/spaces/{spaceId}` | 공간 삭제 요청 |
-| POST | `/spaces/{spaceId}/restore` | 7일 유예 중 공간 복구 |
-| GET | `/spaces/{spaceId}/members` | 멤버 목록 |
-| PATCH | `/spaces/{spaceId}/members/{membershipId}` | 별명·권한 변경 |
+| POST | `/spaces` | 공간 생성(만든 사람이 owner) |
+| GET | `/spaces` | 내 공간 목록 |
+| GET | `/spaces/deleted` | 되돌릴 수 있는 지운 공간(내가 owner인 것만) |
+| PATCH | `/spaces/{spaceId}` | 이름·관계 정보 수정 (owner) |
+| DELETE | `/spaces/{spaceId}` | 공간 삭제 요청 (owner) |
+| POST | `/spaces/{spaceId}/restore` | 7일 유예 중 공간 복구 (owner) |
+| GET | `/spaces/{spaceId}/members` | 멤버 목록 (`?includeLeft=true`) |
+| PATCH | `/spaces/{spaceId}/members/{membershipId}` | 권한 변경 (owner) |
 | DELETE | `/spaces/{spaceId}/members/{membershipId}` | 내보내기/나가기 |
-| POST | `/spaces/{spaceId}/invites` | 초대 링크 생성 |
+| POST | `/spaces/{spaceId}/invites` | 초대 링크 생성 (owner·editor) |
 | GET | `/spaces/{spaceId}/invites` | 활성 초대 링크 목록·사용 현황 |
 | DELETE | `/spaces/{spaceId}/invites/{inviteId}` | 초대 링크 즉시 폐기 |
-| POST | `/invites/{token}/accept` | 초대 참여 |
+| POST | `/invites/accept` | 초대 참여 (token을 본문으로) |
+
+공간 하나만 따로 받는 `GET /spaces/{spaceId}`는 두지 않았다. 앱이 `GET /spaces`로 목록째 받아 쓰기 때문이다. 별명(`nickname`) 변경 API도 아직 없다.
 
 공간 생성 요청:
 
@@ -315,7 +375,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 2026-09-16 구현(`backend/app/api/v1/members.py`):
 
 - 초대 링크는 `https://api.daymo.xyz/auth/invite?token=...`이다. 이메일 링크와 같은 이유로 API 서버가 페이지를 직접 보여 주고, 페이지는 공간 이름 없이 `daymo://invite?token=...`으로 앱을 연다. token은 주소의 query에 있어 접속 기록에 남지 않는다.
-- 참여는 `POST /invites/accept`에 `{token}`을 본문으로 보낸다(문서의 `/invites/{token}/accept`와 같은 일). 응답은 `{spaceId, membershipId, alreadyMember}`. 모르는 token은 404, 폐기·만료·횟수 소진은 410, 이메일 미확인은 `EMAIL_NOT_VERIFIED(403)`, 정원 초과는 `SPACE_MEMBER_LIMIT_REACHED(409)`다. 초대 줄과 공간 줄을 잠그고 센다.
+- 참여는 `POST /invites/accept`에 `{token}`을 본문으로 보낸다. 주소에 token을 넣지 않아야 접속 기록에 남지 않는다. 응답은 `{spaceId, membershipId, alreadyMember}`. 모르는 token은 404, 폐기·만료·횟수 소진은 410, 이메일 미확인은 `EMAIL_NOT_VERIFIED(403)`, 정원 초과는 `SPACE_MEMBER_LIMIT_REACHED(409)`다. 초대 줄과 공간 줄을 잠그고 센다.
 - 초대 만들기·목록은 owner·editor, 폐기는 owner 또는 만든 사람이다. 목록에는 링크 원문이 없다.
 - `PATCH /spaces/{spaceId}/members/{membershipId}`는 `{role: owner|editor|viewer}`를 받고 owner만 한다. `owner`로 바꾸면 관리자를 넘기고 나는 `editor`가 된다. 별명 변경은 아직 없다.
 - `DELETE /spaces/{spaceId}/members/{membershipId}`는 내 membership이면 나가기, 남의 것이면 내보내기(owner만)다. 다른 멤버가 있는 owner는 `OWNER_TRANSFER_REQUIRED`, 혼자 남은 owner는 422다. SSE ticket·알림·사진 URL 폐기와 `MEMBERSHIP_REVOKED`는 그 기능이 생길 때 붙인다. 지금은 membership 검사에서 404가 된다.
@@ -336,18 +396,18 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 | Method | Path | 용도 |
 | --- | --- | --- |
-| GET | `/spaces/{spaceId}/dashboard` | 홈 한 번에 조회 |
 | GET | `/spaces/{spaceId}/trips` | 목록/캘린더용 여행 조회 |
-| GET | `/spaces/{spaceId}/trip-regions` | 지도 지역별 여행 수 |
-| POST | `/spaces/{spaceId}/trips` | 여행 생성 |
+| POST | `/spaces/{spaceId}/trips` | 여행 생성 (owner·editor) |
 | GET | `/trips/{tripId}` | 여행 기본 정보 |
-| PATCH | `/trips/{tripId}` | 여행 수정 |
-| DELETE | `/trips/{tripId}` | 보관함 관리 메뉴에서 여행 삭제 요청 |
-| POST | `/trips/{tripId}/archive` | 여행 보관 |
-| POST | `/trips/{tripId}/unarchive` | 보관 해제 |
-| POST | `/trips/{tripId}/restore` | 삭제 후 7일 이내 여행 복구 |
+| PATCH | `/trips/{tripId}` | 여행 수정 (owner·editor) |
+| DELETE | `/trips/{tripId}` | 보관함 관리 메뉴에서 여행 삭제 요청 (owner) |
+| POST | `/trips/{tripId}/archive` | 여행 보관 (owner·editor) |
+| POST | `/trips/{tripId}/unarchive` | 보관 해제 (owner·editor) |
+| POST | `/trips/{tripId}/restore` | 삭제 후 7일 이내 여행 복구 (owner) |
 
-여행 목록 query: `status`, `from`, `to`, `regionCode`, `q`, `limit`, `cursor`, `sort`.
+여행 목록 query: 지금은 `status`, `trash`(owner만, 지운 여행), `limit`(1~100, 기본 20)뿐이다. `from`·`to`·`regionCode`·`q`·`cursor`·`sort`는 아직 없다. 지도·캘린더·검색은 받아 둔 목록을 기기에서 거른다.
+
+홈을 한 번에 받는 `GET /spaces/{spaceId}/dashboard`와 지도용 `GET /spaces/{spaceId}/trip-regions`는 만들지 않았다. 홈이 필요한 숫자는 여행 응답의 `overview`(아래)로 대신하고 지역별 개수는 기기에서 센다.
 
 일반 여행 상세에는 삭제 동작을 노출하지 않고 `보관`만 제공한다. owner와 editor는 보관·보관 해제를 할 수 있다. 보관은 목록 정리 상태이므로 보관된 여행의 일정·장소·준비물·요리·비용·기록·사진 CRUD API를 차단하지 않는다. 실제 삭제와 복구는 owner만 보관함의 관리 메뉴에서 수행할 수 있으며, 삭제 전에 영향 범위와 7일 복구 기한을 확인한다. 삭제된 여행은 일반 목록·검색·지도·캘린더·알림에서 즉시 제외하고 `status=trash` 관리 조회에서만 보여준다. 7일 안에 복구하면 기존 상태와 종속 콘텐츠를 되살리고, 권한이 없으면 `403 FORBIDDEN`, 기한이 지났으면 `410 GONE`을 반환한다.
 
@@ -374,7 +434,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 `cookingEnabled`는 요리 탭 표시의 서버 원본이다. 숙소의 `hasKitchen`이 `true`이고 탭이 꺼져 있으면 켜기를, `false`이고 탭이 켜져 있으면 끄기를 제안한다. 제안은 자동 적용하지 않으며 탭을 꺼도 기존 요리·재료를 삭제하지 않는다.
 
-대시보드 응답:
+처음에 그렸던 대시보드 응답(만들지 않았다. 바로 아래 `overview`가 이 자리를 대신한다):
 
 ```json
 {
@@ -390,7 +450,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 }
 ```
 
-2026-09-15 구현(`backend/app/api/v1/trips.py`, `backend/app/services/trip_overview.py`): 대시보드 API는 아직 없다. 대신 여행 응답(`GET /spaces/{spaceId}/trips`, `GET /trips/{tripId}`와 여행을 돌려주는 다른 응답)에 홈 여행 카드와 "출발 전 확인할 것"이 보여 주는 요약 `overview`를 붙였다. 앱은 이 숫자를 기기에 저장된 기록에서만 셌는데, 기록은 여행 상세를 그 기기에서 열어야 채워져 새로 로그인했거나 다른 멤버가 채운 여행이 홈에서 비어 보였다.
+2026-09-15 구현(`backend/app/api/v1/trips.py`, `backend/app/services/trip_overview.py`): 여행 응답(`GET /spaces/{spaceId}/trips`, `GET /trips/{tripId}`와 여행을 돌려주는 다른 응답)에 홈 여행 카드와 "출발 전 확인할 것"이 보여 주는 요약 `overview`를 붙였다. 앱은 이 숫자를 기기에 저장된 기록에서만 셌는데, 기록은 여행 상세를 그 기기에서 열어야 채워져 새로 로그인했거나 다른 멤버가 채운 여행이 홈에서 비어 보였다.
 
 ```json
 "overview": {
@@ -416,7 +476,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 | --- | --- | --- |
 | GET/POST | `/trips/{tripId}/schedule-items` | 일정 목록/추가 |
 | PATCH/DELETE | `/schedule-items/{itemId}` | 일정 수정/삭제 |
-| POST | `/schedule-items/reorder` | 같은 날짜 안 정렬 |
+| POST | `/schedule-items/reorder` | 같은 날짜 안 정렬 — **없음** |
 | GET/POST | `/trips/{tripId}/transports` | 교통 목록/추가 |
 | PATCH/DELETE | `/transports/{transportId}` | 교통 수정/삭제 |
 | GET/POST | `/trips/{tripId}/stays` | 숙소 목록/등록 |
@@ -458,15 +518,15 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 | Method | Path | 용도 |
 | --- | --- | --- |
 | GET/POST | `/trips/{tripId}/places` | 저장한 장소 목록/추가 |
-| GET | `/trip-places/{tripPlaceId}` | 장소 상세 |
+| GET | `/trip-places/{tripPlaceId}` | 장소 상세 — **없음**(목록으로 받는다) |
 | PATCH/DELETE | `/trip-places/{tripPlaceId}` | 수정/삭제 |
-| POST | `/trip-places/{tripPlaceId}/schedule` | 장소를 일정에 담기 |
-| POST | `/trip-places/{tripPlaceId}/register-stay` | 숙소로 등록 |
-| POST | `/places/resolve-external-link` | 선택적으로 단축 URL 확인/장소 정보 보강 |
-| GET | `/spaces/{spaceId}/tags?scope={scope}` | 범위별 사용 중인 태그 (`place|packing|ingredient`) |
-| POST | `/spaces/{spaceId}/tags` | 명시적으로 사용자 태그 생성 |
-| PATCH | `/tags/{tagId}` | 태그 이름·색 수정 |
-| DELETE | `/tags/{tagId}` | 사용 중이 아닌 태그 삭제 |
+| POST | `/trip-places/{tripPlaceId}/schedule` | 장소를 일정에 담기 — **없음**(앱이 일정 줄을 만든다) |
+| POST | `/trip-places/{tripPlaceId}/register-stay` | 숙소로 등록 — **없음**(앱이 숙소 줄을 만든다) |
+| POST | `/places/resolve-external-link` | 단축 URL 확인/장소 정보 보강 — **없음**(`mobile/api/naver-place.js`가 대신한다) |
+| GET | `/spaces/{spaceId}/tags?scope={scope}` | 범위별 사용 중인 태그 — **없음** |
+| POST | `/spaces/{spaceId}/tags` | 명시적으로 사용자 태그 생성 — **없음** |
+| PATCH | `/tags/{tagId}` | 태그 이름·색 수정 — **없음** |
+| DELETE | `/tags/{tagId}` | 사용 중이 아닌 태그 삭제 — **없음** |
 
 장소 추가 요청:
 
@@ -521,10 +581,10 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 | GET | `/trips/{tripId}/checklist-items` | 준비물 조회/필터 |
 | POST | `/trips/{tripId}/checklist-items` | 준비물 추가 |
 | PATCH/DELETE | `/checklist-items/{itemId}` | 내용/담당/완료 수정, 삭제 |
-| POST | `/checklist-items/bulk` | 일괄 추가·교체 |
-| POST | `/checklist-items/{itemId}/complete` | 체크 |
-| DELETE | `/checklist-items/{itemId}/complete` | 체크 해제 |
-| POST | `/checklist-items/{itemId}/assign` | 멤버/공용/미정 담당 변경 |
+| POST | `/checklist-items/bulk` | 일괄 추가·교체 — **없음** |
+| POST | `/checklist-items/{itemId}/complete` | 체크 — **없음**(`PATCH`의 `completed`) |
+| DELETE | `/checklist-items/{itemId}/complete` | 체크 해제 — **없음**(위와 같다) |
+| POST | `/checklist-items/{itemId}/assign` | 담당 변경 — **없음**(`PATCH`의 `ownerMembershipId`·`isShared`) |
 
 ```json
 {
@@ -552,10 +612,10 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 | Method | Path | 용도 |
 | --- | --- | --- |
 | GET/POST | `/trips/{tripId}/recipes` | 요리 목록/추가 |
-| GET/PATCH/DELETE | `/recipes/{recipeId}` | 요리 상세/수정/삭제 |
-| POST | `/recipes/{recipeId}/ingredients` | 재료 추가 |
-| PATCH/DELETE | `/ingredients/{ingredientId}` | 재료 수정/삭제 |
-| POST | `/ingredients/to-checklist` | 선택 재료를 준비물로 추가 |
+| PATCH/DELETE | `/recipes/{recipeId}` | 요리 수정/삭제 (상세 `GET`은 없다) |
+| POST | `/recipes/{recipeId}/ingredients` | 재료 추가 — **없음**(요리의 `ingredients` 배열) |
+| PATCH/DELETE | `/ingredients/{ingredientId}` | 재료 수정/삭제 — **없음**(위와 같다) |
+| POST | `/ingredients/to-checklist` | 선택 재료를 준비물로 추가 — **없음**(준비물의 `sourceIngredientId`) |
 
 요리 요청:
 
@@ -589,7 +649,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 | Method | Path | 용도 |
 | --- | --- | --- |
-| GET | `/trips/{tripId}/participants` | 이번 여행 참가자 목록 |
+| GET | `/trips/{tripId}/participants` | 참가자 목록 — **없음**(여행 응답에 들어 있다) |
 | PUT | `/trips/{tripId}/participants` | 참가자 목록 교체 |
 | GET/POST | `/trips/{tripId}/expenses` | 지출 목록/추가 |
 | PATCH/DELETE | `/expenses/{expenseId}` | 지출 수정/삭제 |
@@ -671,16 +731,17 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 | PATCH/DELETE | `/memos/{memoId}` | 메모 수정/삭제 |
 | GET/POST | `/trips/{tripId}/diaries` | 일기 조회/작성 |
 | PATCH/DELETE | `/diaries/{diaryId}` | 일기 수정/삭제 |
-| POST | `/trips/{tripId}/photo-uploads` | 업로드 session 생성 |
-| PUT | `/photo-uploads/{uploadId}/content` | 압축한 사진을 VPS로 stream 업로드 |
-| POST | `/photo-uploads/{uploadId}/complete` | checksum 검증 후 사진 확정 |
+| POST | `/trips/{tripId}/photos` | 사진 줄 만들기(한도 먼저 검사) |
+| PUT | `/photos/{photoId}/content` | 파일 byte를 그대로 stream 업로드 |
 | GET | `/trips/{tripId}/photos` | 사진 목록 |
-| GET | `/spaces/{spaceId}/photo-storage` | 공간 사진 사용량·한도·정리용 집계 |
-| PATCH/DELETE | `/photos/{photoId}` | 캡션/연결 수정, 삭제 |
+| PATCH/DELETE | `/photos/{photoId}` | 설명·날짜 수정, 삭제 |
+| GET | `/photos/{photoId}/content?variant=thumbnail\|display\|original` | 권한 검사 후 사진 응답 |
 | GET | `/trips/{tripId}/trash` | 7일 안의 삭제된 메모·사진 조회 |
 | POST | `/trash/{targetType}/{targetId}/restore` | 항목 종류와 작성자에 따른 권한으로 복원 |
-| GET | `/photos/{photoId}/content?variant=thumbnail|display|original` | 권한 검사 후 사진 응답 |
-| GET | `/spaces/{spaceId}/stats` | 여행·지역·기록 통계 |
+| GET | `/spaces/{spaceId}/photo-storage` | 공간 사진 사용량·한도 — **없음** |
+| GET | `/spaces/{spaceId}/stats` | 여행·지역·기록 통계 — **없음**(기기에서 센다) |
+
+업로드는 처음에 `photo-uploads` session 표를 따로 두려 했으나 사진 줄이 그 역할을 하게 바꿨다(아래 2026-09-16 구현). `complete` 단계는 없다.
 
 여행 기념 카드의 조합과 이미지 렌더링은 P1에서 기기 기능으로 처리하므로 별도 API를 두지 않는다. 카드에 사용한 사진은 기존 권한 있는 사진 조회 API로 받는다.
 
@@ -739,14 +800,15 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 2026-09-16 메모 최종 삭제와 audit log 보유기간 파기 구현(`backend/app/jobs/cleanup.py`, `backend/app/services/memories.py`, `backend/app/services/audit.py`): 위 문단의 "메모 최종 삭제 작업은 아직 없다"와 "보유기간 파기는 아직 없다"를 대신한다. 정리 작업이 지운 지 7일이 지난 메모 행을 사진과 같이 실제로 지우고(한 번에 500줄), `audit_logs`는 생성 후 6개월이 지난 줄을 오래된 것부터 지운다(한 번에 2000줄, 08-privacy-and-release-compliance.md 10장). 메모를 지워도 그 메모를 가리키는 audit log와 신고 기록은 남긴다(둘 다 `target_id`에 외래키가 없다. audit log는 위 6개월 보유기간으로 따로 파기하고, 신고 기록의 1년 파기는 아직 없다). audit log 조회 API는 여전히 없고, 운영자는 `journalctl -u daymo-cleanup`의 `정리 끝:` 줄에서 항목별 건수를 본다.
 
-사진 업로드 순서:
+사진 업로드 순서(실제):
 
 1. 앱에서 권한 확인, 선택/촬영, 원본 checksum·크기·MIME 확인
-2. `photo-uploads`에서 최대 크기·MIME·checksum과 임시 upload ID 확정; 같은 여행의 동일 checksum은 `duplicateCandidate`로 알리되 업로드를 막지 않음
-3. `content` 요청 body를 서버 메모리에 적재하지 않고 임시 파일로 stream 저장
-4. `complete`에 크기, MIME, 촬영일과 연결 대상을 전달
-5. 서버가 실제 signature·checksum을 검증한 뒤 private volume으로 원자 이동하고 Photo 생성
-6. EXIF 촬영일을 `takenAt`으로 추출하고 방향을 보정한 뒤 긴 변 1440px JPEG 표시본과 480px JPEG 썸네일 생성; 파생본의 GPS·기기 EXIF 제거, 작업 동시 실행 수 1로 제한
+2. `POST /trips/{tripId}/photos`가 `status=uploading` 줄을 만들고 한 장·공간·서버 한도를 먼저 본다
+3. `PUT /photos/{photoId}/content`의 body를 서버 메모리에 모으지 않고 `uploads/tmp/`에 stream 저장하며 크기를 센다. 선언한 크기나 한도를 넘는 순간 멈춘다
+4. SHA-256을 맞추고(틀리면 `422`) signature로 형식을 확인한다
+5. 원본에서 위치·기기 메타데이터를 뺀 뒤, 방향을 바로잡고 EXIF를 모두 지운 긴 변 1440px JPEG 표시본과 480px JPEG 썸네일을 만든다. 변환은 워커당 동시 1건이다
+6. `{photoId}.building` 폴더에 다 만든 뒤 한 번에 이름을 바꿔 옮기고 `status=ready`로 바꾼다. 끊기면 `PUT`만 다시 보낸다
+7. 같은 여행의 동일 checksum을 `duplicateCandidate`로 알리는 것은 아직 없다
 
 초기 업로드 제한:
 
@@ -757,13 +819,15 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 앱은 선택 직후 예상 크기를 안내하지만 서버가 실제 byte와 quota를 최종 검증한다. 공간 사용량이 80%에 도달하면 사진 화면과 업로드 완료 화면에서 한 번 사전 경고하고, 100%에 도달하면 기존 사진의 조회·다운로드·삭제·복구는 유지한 채 새 업로드만 차단한다. 서버와 앱은 원본·표시본·썸네일을 자동 압축하거나 자동 삭제하지 않는다.
 
-HEIC·HEIF 등 지원하는 기기 원본은 원래 byte와 MIME으로 private storage에 보관한다. 앱 목록과 상세는 호환 가능한 JPEG 파생본을 사용한다. 중복 후보 안내에서는 기존 사진의 촬영일·작은 썸네일만 보여주고 사용자가 `그래도 추가`를 선택할 수 있게 한다.
+받는 형식은 JPEG·PNG·WebP다. HEIC·HEIF는 앱이 JPEG로 바꿔 보낸다. 원본은 그림 데이터를 다시 인코딩하지 않고 그대로 두되 위치·기기 메타데이터만 빼서 보관한다. 앱 목록과 상세는 JPEG 파생본을 사용한다. 중복 후보 안내에서는 기존 사진의 촬영일·작은 썸네일만 보여주고 사용자가 `그래도 추가`를 선택할 수 있게 한다(아직 없다).
 
 저장 공간 관리 화면은 전체 사용량, 남은 용량, 여행별 사용량과 큰 사진 순서를 보여준다. 일반 멤버는 본인이 올린 사진만 정리할 수 있고 owner는 공간 전체 사진을 관리할 수 있다. 서버 전체 10GB 한도 접근은 운영 경고 대상이며 사용자의 기존 사진을 임의로 지우지 않고 신규 업로드를 제한한 뒤 미니PC·NAS로 이관한다.
 
 다운로드는 파일 시스템 경로를 공개하지 않는다. API가 사용자의 공간 membership을 확인한 뒤 Nginx `X-Accel-Redirect` 또는 제한된 내부 경로로 파일을 전달한다. Range 요청과 적절한 private cache header를 지원한다.
 
 ## 11. 통합 검색과 실시간 이벤트
+
+**아직 하나도 만들지 않았다.** 지금 `찾기` 탭은 기기에 받아 둔 여행·기록을 훑고, 다른 멤버의 변경은 화면을 다시 열 때 목록을 받아 반영한다. 아래는 서버로 옮길 때의 계약이다.
 
 `GET /spaces/{spaceId}/search?q=소나기식당&types=trip,place,schedule,recipe,packing,diary,photo,memo&limit=20`
 
@@ -786,6 +850,8 @@ HEIC·HEIF 등 지원하는 기기 원본은 원래 byte와 MIME으로 private s
 모바일 SSE 구현이 표준 `EventSource`에서 Bearer header를 안정적으로 전달하지 못하는 경우를 대비해 `POST /spaces/{spaceId}/events/ticket`에서 60초 이내 만료되는 1회용 연결 ticket을 발급한다. 장기 access token을 URL에 넣지 않는다. SSE는 변경 신호일 뿐 데이터 원본이 아니며 수신 뒤 증분 sync 또는 대상 GET으로 최신 상태를 확인한다. 연결이 불안정하면 foreground polling으로 자동 전환한다.
 
 ## 12. 알림 설정과 기기
+
+**푸시 알림은 아직 없다.** 표와 아래 규칙은 만들 때의 계약이다. 기기 목록과 세션 폐기는 2장의 `/auth/sessions`로 이미 된다.
 
 | Method | Path | 용도 |
 | --- | --- | --- |
@@ -812,6 +878,8 @@ OS에 전달하는 title/body는 `Daymo에 새 알림이 있어요`처럼 일반
 여행 임박 알림은 공간의 timezone을 기준으로 출발 7일 전과 1일 전, 사용자 현지 시각 오전 9시에 각각 한 번 보낸다. 여행 생성 또는 날짜 변경 시 이미 지난 알림은 소급 발송하지 않고 아직 남은 알림만 예약한다. 여행이 취소·삭제되거나 시작일이 바뀌면 기존 작업은 무효화하며, `(tripId, userId, reminderType, startDate)`를 idempotency key로 사용해 중복 발송을 막는다.
 
 ## 13. 증분 동기화 API
+
+**아직 없다.** 지금은 목록마다 전체를 받아 마지막으로 맞춘 모습과 비교해 만들기·고치기·지우기를 보낸다(`mobile/src/listSync.ts`). 아래는 4단계에서 만들 계약이고, `version` 낙관적 잠금과 앱이 만든 UUID는 이미 그 방향으로 맞춰 두었다.
 
 | Method | Path | 용도 |
 | --- | --- | --- |
@@ -877,7 +945,7 @@ pending mutation 요청:
 
 ## 14. 사진 전송 최적화
 
-사진 응답은 권한이 필요한 `thumbnailUrl`, `displayUrl`, `originalUrl`, 각 byte 크기와 checksum을 분리한다. Daymo에 추가가 완료된 사진은 원본을 반드시 보유한다.
+구현은 URL 세 개 대신 `GET /photos/{photoId}/content?variant=thumbnail|display|original` 하나를 쓴다. 매 요청 권한을 다시 보고, `Cache-Control: private, max-age=31536000, immutable`을 준다. 아래는 어느 상황에 어느 `variant`를 요청하는지의 기준이다. Daymo에 추가가 완료된 사진은 원본을 반드시 보유한다.
 
 - 목록: 긴 변 최대 480px JPEG 썸네일만 요청
 - 상세: 긴 변 최대 1440px JPEG 표시본 요청, 사용자가 원본 보기를 선택할 때만 원본 요청

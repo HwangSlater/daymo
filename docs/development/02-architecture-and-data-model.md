@@ -4,7 +4,7 @@
 
 | 현재 UI | 핵심 도메인 | 서버 연결 시 유지할 동작 |
 | --- | --- | --- |
-| 로그인/회원가입 | Auth, User | 이메일과 Apple/Google/Kakao/Naver 로그인 |
+| 로그인/회원가입 | Auth, User | 이메일과 Apple/Google/Kakao/Naver 로그인 (지금 켜진 것은 Google·Kakao·Naver) |
 | 홈 | Dashboard | 다음 여행, 숙소, 일정·장소·준비 개수, 빠른 이동, 지난 여행 기록 |
 | 여행 목록/지도/캘린더 | Trip | 같은 여행 데이터를 세 가지 표현으로 조회 |
 | 여행 상세 `여행` | TripDay, Schedule, Stay, Transport, Reservation, TripParticipant | 날짜별 전체 일정과 여행 정보, 이번 여행 참가자 |
@@ -21,21 +21,23 @@
 
 ```text
 React Native UI
-  ├─ local UI state (Zustand / form)
-  ├─ server cache (TanStack Query)
-  └─ feature repositories
-       └─ HTTPS REST/SSE
+  ├─ local UI state (화면 컴포넌트의 useState)
+  ├─ 기기 저장 (SecureStore: 세션 / AsyncStorage: 공간·여행·설정)
+  └─ 목록 동기화 (listSync + 목록별 코덱)
+       └─ HTTPS REST
             └─ FastAPI modular monolith
-                 ├─ PostgreSQL: 도메인 데이터·검색
+                 ├─ PostgreSQL: 도메인 데이터
                  ├─ private VPS volume: 사진
-                 └─ background jobs: 썸네일·정리
+                 └─ 하루 한 번 도는 정리 작업
 ```
 
-- 화면은 서버 테이블 구조를 직접 알지 않고 feature repository와 REST API를 거친다.
+- 화면은 서버 테이블 구조를 직접 알지 않고 `serverData.ts`와 목록별 코덱을 거친다.
 - 모든 데이터 조회는 활성 `space_id`와 `trip_id` 범위로 제한한다.
-- 홈은 여러 테이블을 연속 호출하지 않고 집계 RPC/API 하나로 받는다.
-- 앱 시작 시 세션과 마지막 공간/홈 캐시를 먼저 그린 뒤 백그라운드 갱신한다.
+- 홈은 여러 테이블을 연속 호출하지 않고 여행 응답의 `overview` 요약을 쓴다.
+- 앱 시작 시 세션과 마지막 공간/여행 캐시를 먼저 그린 뒤 백그라운드 갱신한다.
 - 체크, 담당 변경, 태그 지정은 낙관적으로 반영하고 실패 시 되돌린다.
+
+목표 구조와 다른 점(`01` 2장·6장): Expo Router, TanStack Query, Zustand, SQLite는 아직 들이지 않았다. 화면은 `WarmAppShell.tsx`·`WarmTripDetail.tsx` 두 파일이고 조회본은 AsyncStorage에 둔다. SSE도 없다. 4단계에서 SQLite·outbox와 함께 정리한다.
 
 ### 기기와 서버의 책임
 
@@ -48,7 +50,7 @@ React Native UI
 | 사진 업로드 네트워크 설정 | 기기 | 요금제와 연결 환경이 기기마다 다르므로 기기별 적용 |
 | 생체 앱 잠금 설정 | 기기 보안 저장소 | 기기별 선택 기능이며 서버 계정 인증을 대체하지 않음 |
 | 지도 path, 앱 그림·아이콘 | 앱 bundle | 네트워크 없이 즉시 표시 |
-| 홈/여행/일정/장소/준비/요리/비용 조회본 | SQLite 캐시 | 즉시 표시하고 변경분만 수신 |
+| 홈/여행/일정/장소/준비/요리/비용 조회본 | SQLite 캐시(목표). 지금은 AsyncStorage | 즉시 표시하고 변경분만 수신 |
 | 여행·일정·담당·체크·태그·공동 메모 원본 | 서버 | 멤버 간 동일한 결과와 백업 필요 |
 | 여행 참가자, 지출과 몫, 정산 송금 기록 | 서버 | 같은 여행을 여러 명이 보고 잔액이 사람마다 갈리면 안 됨 |
 | 여행 통화·환율·예산, 정산 묶기 여부 | 서버 | 여행마다 하나뿐인 값이고 화면을 여는 사람마다 다른 금액이 나오면 안 됨 |
@@ -84,6 +86,9 @@ React Native UI
 
 모든 주요 테이블은 `id uuid`, `created_at`, `updated_at`, `created_by`를 공통으로 가진다. 공동 편집 대상은 `version int`를 추가한다.
 
+> **지금 만들어진 표는 41개, migration은 22개다**(2026-09-16). 아래 목록 가운데 아직 없는 것은 각 절 끝에 적었다.
+> 열거형은 PostgreSQL native enum이 아니라 `VARCHAR(20) + CHECK`로 저장한다. 값을 더할 때 migration이 가벼워진다.
+
 ### 계정과 공간
 
 - `users`: `id`, `email`, `email_verified_at nullable`, `password_hash nullable`, `display_name`, `avatar_path`, `timezone`, `status`
@@ -93,6 +98,9 @@ React Native UI
 - `refresh_tokens`: `user_id`, `device_id`, `token_family_id`, `token_hash`, `last_used_at`, `expires_at`, `replaced_by`, `revoked_at`, `revoke_reason`
 - `email_verification_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`
 - `password_reset_tokens`: `user_id`, `token_hash`, `expires_at`, `used_at`, `revoked_at`
+- `email_change_tokens`: `user_id`, `new_email`, `token_hash`, `expires_at`, `used_at`, `revoked_at` — 링크를 누르기 전에는 `users.email`을 바꾸지 않는다
+- `reauth_proofs`: `user_id`, `action`, `proof_hash`, `expires_at`, `used_at` — 작업 하나에 5분·1회용
+- `throttle_counters`: `scope`, `key_hash`, `window_started_at`, `count`, `blocked_until` — 계정 키와 IP 키를 따로 센다
 - `devices`: `user_id`, `installation_id`, `platform`, `app_version`, `last_seen_at`, `revoked_at`
 - `notification_preferences`: `user_id`, `space_id nullable`, `invite_joined`, `assignment_changes`, `trip_reminders`, `marketing`, `updated_at`
 - `push_tokens`: `device_id`, `provider`, `token_ciphertext`, `last_validated_at`, `revoked_at`
@@ -100,18 +108,14 @@ React Native UI
 - `legal_acceptances`: `user_id`, `document_id`, `accepted`, `accepted_at`, `withdrawn_at`, `evidence_hash`
 - `privacy_requests`: `user_id nullable`, `requester_email`, `type(access|correction|deletion|restriction|withdrawal)`, `target_type nullable`, `target_id nullable`, `status`, `requested_at`, `verified_at`, `completed_at`
 - `data_export_jobs`: `user_id`, `status(queued|processing|ready|downloaded|expired|failed)`, `archive_path`, `download_token_hash`, `ready_at`, `expires_at`, `downloaded_at`, `error_code`
-- `content_reports`: `reporter_id`, `space_id`, `target_type(user|trip|memo|diary|photo|other)`, `target_id`, `reason`, `details`, `status`, `reviewed_by`, `reviewed_at`, `resolved_at`, `appeal_deadline`, `resolution`, `purge_at`
-- `report_appeals`: `report_id`, `appellant_id`, `reason`, `status`, `submitted_at`, `reviewed_by`, `reviewed_at`, `resolution`
-- `user_blocks`: `blocker_id`, `blocked_user_id`, `created_at`, `revoked_at`
-- `admin_users`: `email`, `password_hash nullable`, `status`, `mfa_method`, `mfa_enrolled_at`, `last_login_at`
-- `admin_mfa_credentials`: `admin_user_id`, `type(totp)`, `secret_ciphertext`, `key_version`, `verified_at`, `revoked_at`
-- `admin_recovery_codes`: `admin_user_id`, `code_hash`, `used_at`, `created_at`
-- `admin_audit_logs`: `admin_user_id`, `action`, `target_type`, `target_id`, `reason`, `metadata`, `created_at`
+- `reports`: `reporter_user_id nullable`, `space_id nullable`, `target_type(memo|diary|photo|member|trip|other)`, `target_id`, `reason(spam|harassment|sexual|violence|privacy|copyright|other)`, `detail`, `status(open|resolved)`, `created_at`, `resolved_at` — `member`의 `target_id`는 사용자 id가 아니라 그 공간의 membership id다
+- `user_blocks`: `blocker_user_id`, `blocked_user_id`, `blocked_membership_id nullable`, `created_at`
 - `spaces`: `name`, `relationship_type(couple|friends|family|other)`, `owner_id`, `timezone`, `deletion_requested_at`, `deletion_scheduled_at`, `deleted_at`
 - `memberships`: `space_id`, `user_id`, `role(owner|editor|viewer)`, `nickname`, `joined_at`, `left_at`, `removed_by`
 - `space_invites`: `space_id`, `token_hash`, `role`, `max_uses(10)`, `used_count`, `expires_at`, `revoked_at`, `created_by`
-- `space_invite_acceptances`: `invite_id`, `membership_id`, `accepted_by`, `accepted_at`
 - `relationship_profiles`: `space_id`, `started_on nullable`
+
+아직 만들지 않은 표: `notification_preferences`, `push_tokens`(알림 기능이 없다), `legal_documents`, `legal_acceptances`(약관 동의는 `users.terms_version`·`terms_agreed_at` 한 쌍으로만 남긴다), `privacy_requests`, `data_export_jobs`, `report_appeals`, `space_invite_acceptances`, 그리고 관리자 웹용 `admin_users`·`admin_mfa_credentials`·`admin_recovery_codes`·`admin_audit_logs`. 신고 처리 화면이 생길 때 `reports`에 검토자·처리 결과·이의 기한 칸을 더한다.
 
 앱이 다루는 공간 한 덩이는 이름, 멤버 목록, 관계, 함께하기 시작한 날이다. 각각 `spaces.name`, 해당 공간의 `memberships`, `spaces.relationship_type`, `relationship_profiles.started_on`에 해당한다. 멤버 하나는 표시 이름과 권한이며 각각 `memberships.nickname`과 `memberships.role`이다. 화면의 권한 이름표 `관리자`·`편집 가능`·`보기만`이 곧 `owner`·`editor`·`viewer`다. 서버가 붙기 전까지 이 값은 표시용 이름표일 뿐이고 실제 차단은 아래 서버 권한 검증에서만 이뤄진다.
 
@@ -192,9 +196,9 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 
 - `memos`: `trip_id`, `body`, `author_id`, `edited_at`, `deleted_at`, `deleted_by`
 - `diaries`: `trip_id`, `author_id`, `title nullable`, `body`, `written_on`
-- `photos`: `trip_id`, `uploader_id`, `original_path`, `display_path`, `thumbnail_path`, `taken_at`, `caption`, `width`, `height`, `original_bytes`, `checksum`, `status(uploading|ready|restricted|deleted|failed)`
-- `photo_links`: `photo_id`, `target_type(trip|day|place|schedule|stay)`, `target_id`
-- `audit_logs`: `space_id`, `actor_id`, `action`, `target_type`, `target_id`, `metadata`
+- `photos`: `trip_id`, `uploader_membership_id`, `original_path`, `display_path`, `thumbnail_path`, `taken_at`, `caption`, `date`, `mime`, `width`, `height`, `original_bytes`, `stored_bytes`, `checksum`, `is_receipt`, `status(uploading|ready|restricted|deleted|failed)`, `deleted_at`, `deleted_by`, `version`
+- `photo_links`: `photo_id`, `target_type(trip|day|place|schedule|stay)`, `target_id` — 표는 있지만 아직 쓰지 않는다. 영수증은 `expenses.receipt_photo_id`로 잇는다
+- `audit_logs`: `space_id`, `actor_membership_id`, `action`, `target_type`, `target_id`, `log_metadata` — 지금 남기는 `action`은 `memo.delete`·`memo.restore`·`photo.delete`·`photo.restore`·`payment.undo`·`member.remove`·`member.leave`·`member.role_change`·`invite.revoke`·`trip.delete`·`trip.restore`다. 공간을 지워도 이 줄은 남으므로 본문·이름·이메일은 `log_metadata`에 넣지 않는다
 
 기념 카드는 별도 공동 원본을 만들지 않는다. 선택한 사진 ID, 제목과 스타일은 기기 draft로 유지하고 렌더링 결과를 사용자가 저장·공유한다. 향후 멤버 간 카드 구성을 공유해야 할 때만 `keepsakes` 도메인을 추가한다.
 
@@ -212,18 +216,24 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 | 여행 참가자 변경 | 가능 | 가능 | 불가 |
 | 지출 추가·수정·삭제 | 가능 | 가능 | 불가 |
 | 정산 송금 기록 추가·되돌리기 | 가능 | 가능 | 불가 |
-| 본인/타인 메모 수정 | 가능 | 본인만 수정 | 불가 |
-| 본인/타인 메모 삭제 | 가능 | 가능 | 불가 |
-| 본인/타인 사진 설명·연결 수정 | 가능 | 본인 사진만 가능 | 불가 |
+| 본인/타인 메모 수정·삭제 | 가능 | 가능 | 불가 |
+| 본인/타인 사진 설명·날짜 수정 | 가능 | 본인 사진만 가능 | 불가 |
 | 본인/타인 사진 삭제·복구 | 가능 | 본인 사진만 가능 | 불가 |
+| 휴지통 보기·되돌리기 | 가능 | 가능(사진은 본인 것만) | 불가 |
+| 초대 링크 만들기·목록 | 가능 | 가능 | 불가 |
+| 초대 링크 폐기 | 가능 | 본인이 만든 것만 | 불가 |
+| 신고·차단 | 가능 | 가능 | 가능 |
 | 조회 | 가능 | 가능 | 가능 |
 
-Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한다. viewer는 삭제할 수 없다. 모든 메모 삭제는 soft delete하고 삭제자·시각과 대상 ID를 감사 로그에 남긴다.
+Daymo는 같은 공간의 editor가 타인의 메모도 고치고 삭제할 수 있게 한다. viewer는 할 수 없다. 모든 메모 삭제는 soft delete하고 삭제자·시각과 대상 ID를 감사 로그에 남긴다.
+
+구현에서는 권한 묶음이 `owner·editor`(쓰기)와 `owner`(공간·여행 관리) 둘뿐이고, **viewer는 "그 둘에 들지 않는 멤버"로만 정의된다**(`backend/app/api/permissions.py`). 초대로 들어오는 사람은 늘 `editor`이고 viewer는 owner가 권한을 내려야 생긴다. 앱 화면은 아직 viewer에게도 입력을 열어 두고 저장만 거부된다.
 
 서버 권한 검증 원칙:
 
 - 모든 API application service가 인증 사용자 membership을 확인한다.
-- repository 조회 자체에 `space_id` 또는 권한 조건을 포함해 IDOR를 차단한다.
+- repository 조회 자체에 `space_id` 또는 권한 조건을 포함해 IDOR를 차단한다. 줄을 먼저 찾고 권한을 나중에 보지 않고, 한 질의에서 공간을 거쳐 membership까지 확인한다.
+- **없는 것과 권한 없는 것을 같은 `404`로 답한다.** `403`은 그 공간의 멤버임이 확인된 뒤에만 나온다.
 - 하위 엔티티의 `trip_id`가 속한 공간을 서버에서 역참조한다.
 - 클라이언트가 전달한 작성자와 완료자는 신뢰하지 않고 SecurityContext 사용자 ID를 사용한다.
 - 삭제는 기본적으로 soft delete하고 audit log를 남긴다.
@@ -264,6 +274,6 @@ Daymo는 같은 공간의 editor가 타인의 메모도 삭제할 수 있게 한
 - 여행 상세은 탭별 지연 조회하되 상단 여행 정보와 첫 탭은 한 번에 받는다.
 - 목록 응답은 cursor pagination, 기본 20개다.
 - 사진은 썸네일을 먼저 표시하고 화면 크기에 맞는 표시본을 요청한다.
-- 원본 MIME과 EXIF는 private original에 그대로 보존하되 `taken_at`만 별도 추출한다. 표시본·썸네일에서는 GPS와 기기 식별 EXIF를 제거한다.
+- 원본은 그림 데이터를 다시 인코딩하지 않고 MIME 그대로 보존하되, 저장 전에 **원본에서도** 위치·기기 메타데이터를 뺀다(2026-09-15). JPEG는 방향과 찍은 시각만 남긴 EXIF를 새로 넣고, PNG·WebP는 EXIF·XMP·글 조각을 뺀다. `taken_at`은 그 전에 읽어 둔다. 표시본·썸네일에는 EXIF가 아예 없다.
 - 표시본은 긴 변 최대 1440px JPEG, 썸네일은 긴 변 최대 480px JPEG로 생성하며 작은 원본을 확대하지 않는다.
 - 홈 캐시는 stale-while-revalidate로 즉시 표시한다.

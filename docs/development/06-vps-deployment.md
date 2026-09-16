@@ -49,16 +49,29 @@ Lightsail이 나은 점도 적어 둔다. 스냅샷 가격, 재위탁자 목록,
 
 ```text
 Internet
-  └─ iwinv 방화벽: 22(제한), 80, 443
+  ├─ www.daymo.xyz (Vercel 정적 배포)
+  │    ├─ /             소개·약관·처리방침·계정 삭제 안내
+  │    ├─ /app          앱 웹 빌드
+  │    └─ /oauth        소셜 로그인 팝업 복귀 (앱 번들로 rewrite)
+  └─ api.daymo.xyz → iwinv 방화벽: 22(제한), 80, 443
        └─ Nginx :80/:443
-            ├─ /v1/health → 내부 health check만
+            ├─ /health → 외부 상태 감시용 공개 확인
+            ├─ /auth/* → 메일·초대 링크 HTML 페이지
             ├─ /v1/* → FastAPI(uvicorn) :8000
+            ├─ /_protected_uploads/ → internal. X-Accel-Redirect 로만 닿는다
             └─ TLS termination / rate limit / upload limit
 
 Docker private network
   ├─ api:8000
   └─ postgres:5432 (외부 미공개)
 ```
+
+- **웹 빌드가 API를 부르므로 `CORS_ORIGINS`를 맞춰야 한다.** 기본값은 `https://www.daymo.xyz,https://daymo.xyz`이고
+  쉼표로 여럿 적는다. 토큰을 쿠키가 아니라 `Authorization`으로 보내므로 credentials는 켜지 않는다. 미리보기
+  도메인은 자동으로 허용되지 않는다. 소셜 로그인 복귀 주소는 이것과 별개로 `OAUTH_APP_REDIRECT_URIS`에 넣는다
+  (`site/README.md`).
+- 사이트와 웹 앱은 `node site/build.mjs` 뒤 `npx vercel deploy --prod --cwd site/dist`로 사람이 올린다.
+  저장소 push로는 배포되지 않는다.
 
 - SSH 22번은 가능하면 관리자 IP로 제한하고 key 인증만 허용한다. `PasswordAuthentication no`, `PermitRootLogin no`를 적용한다.
 - PostgreSQL은 외부에 공개하지 않는다.
@@ -316,7 +329,7 @@ schema 변경의 크기와 관계없이 migration이 포함된 모든 배포는 
 
 백업·오프사이트 검사·정리·배포·인증서 갱신 unit은 실패하면 `OnFailure=daymo-alert@%n.service`로 `daymo-alert`를 부른다. api 이미지로 `python -m app.jobs.alert <unit>`을 한 번 실행해 `support@daymo.xyz`로 어느 작업이 언제 실패했는지만 보낸다. 로그 본문은 메일에 넣지 않는다.
 
-정리 작업은 `daymo-cleanup`, `daymo-cleanup.service`, `daymo-cleanup.timer`로 관리한다. 매일 04:40 Asia/Seoul, 백업이 끝난 뒤에 api 이미지로 `python -m app.jobs.cleanup`을 한 번 실행하고 컨테이너를 지운다. 유예가 지난 계정 비식별화, 삭제 기한이 지난 여행, 오래된 시도 횟수 표를 정리한다. 일마다 transaction이 따로라 하나가 실패해도 나머지는 끝나고, 실패가 있으면 종료 코드 1로 timer 실패가 남는다. 백업보다 뒤에 두는 이유는 지우기 직전 상태를 그날 snapshot에 남기기 위해서다. 백업에서 복원할 때 이미 정리한 계정이 되살아나지 않게 하는 deletion ledger는 아직 없다. 휴지통 기한(7일)이 지난 메모 행과 생성 후 6개월이 지난 `audit_logs` 줄도 함께 파기하며(2026-09-16 추가), 둘 다 한 번에 지우는 줄 수에 상한이 있어 밀린 것은 다음 날 이어서 지운다. 무엇이 몇 건 지워졌는지는 `journalctl -u daymo-cleanup`의 `정리 끝: accounts=… memos=… audit=…` 한 줄에서 본다.
+정리 작업은 `daymo-cleanup`, `daymo-cleanup.service`, `daymo-cleanup.timer`로 관리한다. 매일 04:40 Asia/Seoul, 백업이 끝난 뒤에 api 이미지로 `python -m app.jobs.cleanup`을 한 번 실행하고 컨테이너를 지운다. 일곱 가지를 이 순서로 한다: 유예가 지난 계정 비식별화 → 유예가 지난 공간 purge → 삭제 기한이 지난 여행 purge → 아무 여행도 쓰지 않는 손 장소 → 지운 지 7일 지난 사진과 하루 넘게 멈춘 올리기(파일까지) → 창이 지나고 차단이 풀린 시도 횟수 줄 → 만료된 OAuth state·대기 로그인(이메일·이름이 들어 있다). 일마다 transaction이 따로라 하나가 실패해도 나머지는 끝나고, 실패가 있으면 종료 코드 1로 timer 실패가 남는다. 백업보다 뒤에 두는 이유는 지우기 직전 상태를 그날 snapshot에 남기기 위해서다. 백업에서 복원할 때 이미 정리한 계정이 되살아나지 않게 하는 deletion ledger는 아직 없다. 휴지통 기한(7일)이 지난 메모 행과 생성 후 6개월이 지난 `audit_logs` 줄도 함께 파기하며(2026-09-16 추가), 둘 다 한 번에 지우는 줄 수에 상한이 있어 밀린 것은 다음 날 이어서 지운다. 무엇이 몇 건 지워졌는지는 `journalctl -u daymo-cleanup`의 `정리 끝: accounts=… memos=… audit=…` 한 줄에서 본다.
 
 매월 자동 검증은 최신 snapshot에서 DB를 격리된 임시 PostgreSQL container에 복원해 migration metadata와 주요 table count를 검사하고, 무작위 사진 표본의 checksum과 decode 가능 여부를 확인한 뒤 임시 data를 삭제한다. 분기마다 별도의 빈 local/staging 환경에서 DB와 전체 사진 경로를 수동 복원해 로그인·여행 조회·사진 열기 smoke test까지 수행한다.
 
@@ -335,14 +348,14 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 
 ## 9. 모니터링
 
-- API: `GET /v1/health`가 프로세스와 DB 연결 상태를 확인한다. 이 endpoint는 직접 만든다
+- API: `GET /v1/health`가 프로세스와 DB 연결 상태를 확인한다. DB에 닿지 않으면 `503 SERVICE_UNAVAILABLE`이다
 - 서버: CPU, RAM, swap, disk, load average
 - 요청 기록: API가 요청 하나에 JSON 한 줄을 stdout으로 남긴다. 남기는 항목은 `requestId`, `method`, `endpoint`, `status`, `durationMs`, `actor` 여섯 개다. `endpoint`는 실제 경로가 아니라 라우트 틀(`/v1/trips/{trip_id}/expenses`)이라 같은 API의 요청이 한 줄로 모이고 여행 ID가 로그에 흩어지지 않는다. `actor`는 계정 ID가 아니라 pepper를 섞은 해시 앞 16자다. 요청 본문, 질의 문자열, 헤더는 남기지 않는다. 여행 제목·메모·검색어가 거기 들어 있다
 - 로그를 모아 검색하는 도구(Loki, ELK)는 VPS 단계에서 올리지 않는다. 2GB에 들어가지 않는다. 찾는 수단은 `docker compose logs`와 `jq`다
 - **API 프로세스 메모리, HTTP latency 분포, DB pool 사용량 같은 내부 지표는 미니PC 단계로 미룬다(11장).** 수집기와 저장소가 VPS 예산에 들어가지 않는다
 - PostgreSQL: connection, slow query, DB size, backup 성공
-- 앱/API 오류: Sentry
-- UptimeRobot 무료 외부 monitor가 공개용 `/health`를 5분마다 확인
+- 앱/API 오류: Sentry를 쓰기로 했으나 **아직 앱·서버 어디에도 넣지 않았다.** 지금은 요청 로그와 timer 실패 메일뿐이다
+- UptimeRobot 무료 외부 monitor가 공개용 `/health`를 5분마다 확인. 이 경로는 `/v1/health`와 달리 DB를 보지 않는다
 
 인증 전체 실패, readiness 실패, 지속적인 5xx 급증, DB/사진 volume 임계치와 복원 불가 수준의 백업 실패는 Daymo 운영 이메일로 즉시 알린다. 경고·회복 이력은 하루 한 번 요약한다. 알림 본문에는 token, 이메일, 사용자 입력, 사진 경로 같은 개인정보·secret을 넣지 않는다.
 
