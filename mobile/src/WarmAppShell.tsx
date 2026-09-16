@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   AccessibilityInfo,
   Animated,
+  AppState,
   Easing,
   Modal,
   Image,
@@ -64,7 +65,7 @@ import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm } from "./auth";
+import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm } from "./auth";
 import { type SocialProvider, socialProviderName, socialProviderOrder } from "./socialLogin";
 import { SocialLoginButton } from "./SocialLoginButton";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
@@ -481,6 +482,16 @@ const parseStoredTripData = (raw: string | null) => {
 /** 화면에 적는 버전. package.json 과 app.json 의 version 과 같이 올린다. */
 const appVersion = "0.1.0";
 
+/**
+ * 이메일 바꾸기를 요청한 뒤 얼마 동안, 얼마마다 서버에 다시 물을지.
+ *
+ * 링크를 누르기 전에는 서버도 바뀌지 않아서 미리 물어봐야 할 것이 없다. 링크가 사는
+ * 30분을 다 두드리는 대신 사람이 메일함을 다녀올 만한 10분만 본다. 그 뒤로는 앱이
+ * 다시 앞으로 올 때와 계정 화면을 열 때 맞춰진다.
+ */
+const EMAIL_CHANGE_WATCH_MS = 10 * 60_000;
+const EMAIL_CHANGE_CHECK_MS = 20_000;
+
 const helpTopics = [
   {
     q: "적은 게 다른 사람에게도 보이나요?",
@@ -640,6 +651,51 @@ export function WarmAppShell({
       active = false;
     };
   }, []);
+
+  /**
+   * 서버의 내 정보를 다시 받아 화면을 맞춘다.
+   *
+   * 이메일은 새 주소로 간 링크를 눌러야 바뀐다. 링크는 메일함이 있는 다른 기기나
+   * 다른 탭에서 눌리기 때문에, 열어 둔 이 화면은 스스로 알아차리지 못한다.
+   *
+   * 이름은 서버 값으로 덮지 않는다. 계정 화면에서 고치는 중이면 조금 뒤에 저장되는데,
+   * 그 사이에 덮으면 치던 글자가 눈앞에서 되돌아간다(저장된 세션에는 서버 값이 적힌다).
+   */
+  const syncMe = useCallback(async () => {
+    const fresh = await refreshMe();
+    if (!fresh) return null;
+    setUser((current) => (current ? { ...current, ...fresh, name: current.name } : current));
+    return fresh;
+  }, []);
+  // 앱이 다시 앞으로 올 때. 웹에서는 탭으로 돌아올 때다. 메일의 링크를 누르고
+  // 돌아오는 길이 대개 이쪽이라, 따로 두드리지 않아도 여기서 맞춰진다.
+  useEffect(() => {
+    if (!user?.id) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void syncMe();
+    });
+    return () => subscription?.remove();
+  }, [syncMe, user?.id]);
+  /**
+   * 이메일 바꾸기를 요청한 직후에만 조금 더 자주 확인한다.
+   *
+   * 앞으로 오는 것만으로는 부족한 때가 있다. 링크를 옆 기기에서 누르고 이 화면은
+   * 그대로 두는 경우다. 그렇다고 늘 두드리지는 않는다. 바뀌었거나 링크가 죽으면 멈춘다.
+   */
+  const [emailWatch, setEmailWatch] = useState<{ since: number; from: string } | null>(null);
+  useEffect(() => {
+    if (!emailWatch) return;
+    const timer = setInterval(() => {
+      if (Date.now() - emailWatch.since > EMAIL_CHANGE_WATCH_MS) {
+        setEmailWatch(null);
+        return;
+      }
+      void syncMe().then((fresh) => {
+        if (fresh && fresh.email !== emailWatch.from) setEmailWatch(null);
+      });
+    }, EMAIL_CHANGE_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [emailWatch, syncMe]);
 
   // 서버 참가자 id 를 이름으로 바꿀 때 내 이름이 필요하다. 이름을 칠 때마다 공간을
   // 새로 불러오면 안 되니 effect 의존성 대신 ref 로 읽는다.
@@ -1088,6 +1144,8 @@ export function WarmAppShell({
             setActiveGroupId={setActiveGroupId}
             user={user}
             setUser={setUser}
+            syncUser={syncMe}
+            onEmailChangeRequested={() => setEmailWatch({ since: Date.now(), from: user.email })}
             openTrip={(trip) => openTrip("overview", trip)}
             onLogout={() => {
               void logout();
@@ -1774,10 +1832,13 @@ function AccountChangeSection({
   theme,
   user,
   onPasswordSet,
+  onEmailChangeRequested,
 }: {
   theme: AppTheme;
   user: DaymoUser;
   onPasswordSet: () => void;
+  /** 확인 메일을 보냈다. 링크를 누르면 바뀌므로, 위에서 한동안 더 자주 확인한다. */
+  onEmailChangeRequested: () => void;
 }) {
   const [open, setOpen] = useState<"password" | "email" | null>(null);
   const [notice, setNotice] = useState("");
@@ -1808,7 +1869,11 @@ function AccountChangeSection({
       )}
       {button("email", "이메일 바꾸기")}
       {open === "email" && (
-        <EmailChangeForm theme={theme} user={user} onSent={(message) => { setOpen(null); setNotice(message); }} />
+        <EmailChangeForm
+          theme={theme}
+          user={user}
+          onSent={(message) => { setOpen(null); setNotice(message); onEmailChangeRequested(); }}
+        />
       )}
       {notice ? <Text accessibilityLiveRegion="polite" style={[s.authError, { color: theme.primary, marginTop: 8 }]}>{notice}</Text> : null}
     </>
@@ -4303,6 +4368,8 @@ function Together({
   setActiveGroupId,
   user,
   setUser,
+  syncUser,
+  onEmailChangeRequested,
   openTrip,
   onLogout,
   onWipe,
@@ -4327,6 +4394,10 @@ function Together({
   setActiveGroupId: (group: GroupId) => void;
   user: DaymoUser;
   setUser: React.Dispatch<React.SetStateAction<DaymoUser | null>>;
+  /** 서버의 내 정보를 다시 받아 화면을 맞춘다. 계정 화면을 열 때 부른다. */
+  syncUser: () => Promise<AuthUser | null>;
+  /** 이메일 바꾸기 확인 메일을 보냈다. 한동안 바뀌었는지 조금 더 자주 본다. */
+  onEmailChangeRequested: () => void;
   openTrip: (trip: Trip) => void;
   onLogout: () => void;
   /** 이 기기에 남은 것을 전부 지운다. 서버의 계정은 그대로다. */
@@ -4416,6 +4487,11 @@ function Together({
     | "deleteSpace"
     | null
   >(null);
+  // 계정 화면을 열 때 서버에 내 정보를 다시 묻는다. 이메일은 새 주소로 간 링크를
+  // 눌러야 바뀌어서, 이 화면이 옛 주소를 보여 주는 일이 없어야 한다.
+  useEffect(() => {
+    if (panel === "account") void syncUser();
+  }, [panel, syncUser]);
   /**
    * 여행 기록을 글로 내보낸다.
    *
@@ -4808,6 +4884,7 @@ function Together({
               theme={theme}
               user={user}
               onPasswordSet={() => setUser((current) => (current ? { ...current, hasPassword: true } : current))}
+              onEmailChangeRequested={onEmailChangeRequested}
             />
             <Pressable
               accessibilityRole="button"

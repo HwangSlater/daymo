@@ -10,7 +10,9 @@ import {
   parseSocialReturn,
   randomToken,
   type SocialProvider,
+  type SocialPurpose,
   socialStartPath,
+  socialWindowBlockedMessage,
   toBase64Url,
   webSocialRedirectUri,
 } from "./socialLogin";
@@ -295,9 +297,22 @@ export async function socialLogin(provider: SocialProvider): Promise<SocialLogin
   }
 }
 
-/** 제공자 로그인 창을 열고 돌아온 loginCode 와 그 짝인 verifier 를 받는다. 세션은 받지 않는다. */
+/** 웹에서 제공자 창이 열리지 않았을 때. 팝업 차단 말고는 거의 이유가 없다. */
+const popupBlocked = (purpose: SocialPurpose) =>
+  new DaymoApiError(socialWindowBlockedMessage(purpose), 0, "OAUTH_POPUP_BLOCKED");
+
+/**
+ * 제공자 로그인 창을 열고 돌아온 loginCode 와 그 짝인 verifier 를 받는다. 세션은 받지 않는다.
+ *
+ * 로그인과 재확인(`reauthProof`)이 같은 길을 쓴다. 웹에서는 둘 다 팝업으로 열고
+ * 같은 출처의 `/oauth` 로 돌아온다. `purpose` 는 막혔을 때의 안내 문구만 가른다.
+ *
+ * 브라우저는 사용자가 누른 직후에만 창을 열어 준다. 그래서 부르는 쪽은 누른 그 자리에서
+ * 이 함수까지 기다리지 않고 내려와야 한다(중간에 await 를 끼우면 창이 막힌다).
+ */
 async function openSocialLogin(
   provider: SocialProvider,
+  purpose: SocialPurpose = "login",
 ): Promise<{ kind: "code"; loginCode: string; verifier: string } | { kind: "cancelled" }> {
   // Expo Go 에서는 exp://.../--/oauth 가 된다. 서버의 OAUTH_APP_REDIRECT_URIS 에 있어야 한다.
   const redirectUri = Platform.OS === "web"
@@ -307,9 +322,7 @@ async function openSocialLogin(
   // 팝업 차단을 피하고 Expo가 같은 이름의 창을 재사용하게 한다.
   const popupName = "daymo-oauth";
   const popup = Platform.OS === "web" ? window.open("about:blank", popupName, "popup,width=500,height=720") : null;
-  if (Platform.OS === "web" && !popup) {
-    throw new DaymoApiError("로그인 창이 차단됐어요. 팝업을 허용하고 다시 시도해 주세요.", 0, "OAUTH_POPUP_BLOCKED");
-  }
+  if (Platform.OS === "web" && !popup) throw popupBlocked(purpose);
   try {
     const state = randomToken(Crypto.getRandomBytes(32));
     const verifier = randomToken(Crypto.getRandomBytes(64));
@@ -319,11 +332,19 @@ async function openSocialLogin(
       }),
     );
 
-    const result = await WebBrowser.openAuthSessionAsync(
-      `${apiUrl}${socialStartPath(provider, { redirectUri, state, codeChallenge: challenge })}`,
-      redirectUri,
-      Platform.OS === "web" ? { windowName: popupName } : undefined,
-    );
+    let result: WebBrowser.WebBrowserAuthSessionResult;
+    try {
+      result = await WebBrowser.openAuthSessionAsync(
+        `${apiUrl}${socialStartPath(provider, { redirectUri, state, codeChallenge: challenge })}`,
+        redirectUri,
+        Platform.OS === "web" ? { windowName: popupName } : undefined,
+      );
+    } catch (error) {
+      // 위에서 확보한 창을 사용자가 먼저 닫으면, Expo 가 클릭과 멀어진 자리에서
+      // 창을 다시 열다 막힌다(ERR_WEB_BROWSER_BLOCKED). 같은 안내로 모은다.
+      if (Platform.OS === "web") throw popupBlocked(purpose);
+      throw error;
+    }
     if (result.type !== "success") return { kind: "cancelled" };
 
     const back = parseSocialReturn(result.url, state);
@@ -361,6 +382,27 @@ export async function restoreSession(): Promise<{ user: AuthUser; offline: boole
       return { user: saved.user, offline: true };
     }
     await storage.remove(sessionKey);
+    return null;
+  }
+}
+
+/**
+ * 서버에 있는 내 정보를 다시 받아 화면과 저장해 둔 세션을 맞춘다.
+ *
+ * 이메일은 새 주소로 간 링크를 눌러야 바뀐다. 그 링크는 메일함이 있는 다른 기기에서
+ * 눌릴 수도 있어서, 열어 둔 앱은 스스로 알아차리지 못하고 옛 주소를 계속 보여 준다.
+ * 계정 화면을 열 때처럼 알맞은 때에 불러 준다.
+ *
+ * 값을 읽기만 하므로 실패는 그냥 넘긴다(연결이 없거나 로그인이 풀린 때). 그때는
+ * null 이고, 부르는 쪽은 지금 보고 있는 것을 그대로 둔다.
+ */
+export async function refreshMe(): Promise<AuthUser | null> {
+  try {
+    const user = await withAccessToken(getMe);
+    const saved = parseSession(await storage.get(sessionKey));
+    if (saved) await storage.set(sessionKey, JSON.stringify({ ...saved, user }));
+    return user;
+  } catch {
     return null;
   }
 }
@@ -410,6 +452,9 @@ export async function withAccessToken<T>(send: (accessToken: string) => Promise<
  *
  * 비밀번호가 틀리면 서버는 403 을 준다. 401 이 아니라서 위의 토큰 갱신이
  * 끼어들지 않고, 로그인도 풀리지 않는다.
+ *
+ * 제공자로 확인할 때는 창부터 연다. 웹에서는 이 첫 줄이 사용자가 누른 그 순간에
+ * 돌아야 팝업이 열리므로, 부르는 쪽도 그 앞에 await 를 두지 않는다.
  */
 async function reauthProof(
   action: "delete_account" | "cancel_deletion" | "change_password" | "change_email",
@@ -417,7 +462,8 @@ async function reauthProof(
 ) {
   if ("provider" in confirm) {
     // 비밀번호가 없는 계정. 연결된 제공자로 다시 로그인한 결과로 확인받는다.
-    const back = await openSocialLogin(confirm.provider);
+    // 웹도 같다. 같은 출처의 /oauth 로 돌아온 loginCode 를 그대로 서버에 낸다.
+    const back = await openSocialLogin(confirm.provider, "reauth");
     if (back.kind === "cancelled") throw new ReconfirmCancelled();
     const { proof } = await authenticatedRequest<{ proof: string }>("/v1/auth/oauth/reauth", {
       method: "POST",
@@ -486,8 +532,8 @@ export async function changePassword(confirm: Reconfirm, newPassword: string) {
 /**
  * 새 주소로 이메일 변경 확인 메일을 보낸다. 링크를 누르기 전에는 바뀌지 않는다.
  *
- * 새 주소에 이미 계정이 있어도 서버는 같은 답을 준다. 바뀐 주소는 다음에 앱을 열 때
- * `GET /v1/me` 에서 받는다.
+ * 새 주소에 이미 계정이 있어도 서버는 같은 답을 준다. 바뀐 주소는 `refreshMe` 로 받는다.
+ * 링크를 누른 뒤 앱이 다시 앞으로 오거나 계정 화면을 열면 화면도 새 주소가 된다.
  */
 export async function requestEmailChange(confirm: Reconfirm, newEmail: string) {
   const proof = await reauthProof("change_email", confirm);

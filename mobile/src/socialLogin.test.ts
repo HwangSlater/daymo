@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { orderedProviders, parseSocialReturn, randomToken, socialStartPath, toBase64Url, webSocialRedirectUri } from "./socialLogin.ts";
+import { orderedProviders, parseSocialReturn, randomToken, socialStartPath, socialWindowBlockedMessage, toBase64Url, webSocialRedirectUri } from "./socialLogin.ts";
 
 test("웹 복귀 주소는 앱 경로와 쿼리 대신 같은 출처의 고정 페이지를 쓴다", () => {
   assert.equal(webSocialRedirectUri("https://www.daymo.xyz/app/?next=trip#home"), "https://www.daymo.xyz/oauth");
   assert.equal(webSocialRedirectUri("http://localhost:8081/app"), "http://localhost:8081/oauth");
+});
+
+test("웹 복귀 주소는 서버가 허락한 주소 그대로다", () => {
+  // 계정 삭제·비밀번호 정하기·이메일 바꾸기 앞의 재확인도 로그인과 같은 길을 쓴다.
+  // 어느 화면에서 눌렀든 서버의 OAUTH_APP_REDIRECT_URIS 에 있는 주소여야 시작된다.
+  const 허용 = ["daymo://oauth", "https://www.daymo.xyz/oauth", "https://daymo.xyz/oauth"];
+  assert.ok(허용.includes(webSocialRedirectUri("https://www.daymo.xyz/app?panel=account")));
+  assert.ok(허용.includes(webSocialRedirectUri("https://daymo.xyz/app#account")));
+});
+
+test("팝업이 막히면 무엇이 막혔는지 말해 준다", () => {
+  assert.ok(socialWindowBlockedMessage("login").startsWith("로그인 창이 차단됐어요"));
+  assert.ok(socialWindowBlockedMessage("reauth").startsWith("확인 창이 차단됐어요"));
+  assert.ok(socialWindowBlockedMessage("reauth").includes("팝업을 허용"));
 });
 
 test("웹 복귀도 state가 맞아야 일회용 코드를 쓸 수 있다", () => {
