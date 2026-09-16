@@ -5,7 +5,16 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.models import Membership, Photo, PhotoStatus, Trip, TripDay, TripParticipant, TripStatus
+from app.models import (
+    Membership,
+    Photo,
+    PhotoStatus,
+    Trip,
+    TripCard,
+    TripDay,
+    TripParticipant,
+    TripStatus,
+)
 from app.services import photo_files
 from app.services.space_purge import detach_trip_children, link_targets_of_trips
 
@@ -48,6 +57,44 @@ async def check_card_photos(
     )
     if any(값 not in 있는_것 for 값 in 고른_것):
         raise 안_된다
+
+
+async def check_cover_card(session: AsyncSession, trip: Trip, card_id: str) -> uuid.UUID:
+    """
+    홈 화면에 통째로 깔 기념 카드. 그 여행의 카드여야 한다.
+
+    남의 여행 카드 id 를 보내면 그 공간 사람이 아닌데도 홈에 걸리므로 막는다
+    (사진 한 장을 고를 때와 같은 규칙이다).
+    """
+    안_된다 = AppError(ErrorCode.VALIDATION_ERROR, fields={"coverCardId": "이 여행의 카드가 아니에요."})
+    try:
+        고른_것 = uuid.UUID(card_id)
+    except ValueError as 원인:
+        raise 안_된다 from 원인
+    카드 = await session.get(TripCard, 고른_것)
+    if 카드 is None or 카드.trip_id != trip.id:
+        raise 안_된다
+    return 고른_것
+
+
+async def home_cover(session: AsyncSession, trip: Trip) -> tuple[list[str], str | None]:
+    """
+    홈 화면의 여행 카드에 그릴 사진들과, 그 사진을 놓을 틀 이름.
+
+    카드를 골랐으면 그 카드에서 읽는다. 고를 때 사진을 베껴 두지 않는 이유는, 카드를
+    고쳐 사진을 바꾸면 홈도 함께 바뀌어야 해서다. 사진 한 장을 골랐으면 그 한 장이고
+    틀은 없다(앱이 한 장짜리 배치로 그린다).
+    """
+    if trip.cover_card_id is not None:
+        카드 = await session.get(TripCard, trip.cover_card_id)
+        if 카드 is not None:
+            설정 = 카드.settings or {}
+            사진들 = [값 for 값 in (설정.get("photoIds") or []) if isinstance(값, str)]
+            style = 설정.get("style")
+            return 사진들, style if isinstance(style, str) else None
+    if trip.cover_photo_id is not None:
+        return [str(trip.cover_photo_id)], None
+    return [], None
 
 
 def _기간을_본다(start: date, end: date) -> int:

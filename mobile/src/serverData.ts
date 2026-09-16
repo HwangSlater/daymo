@@ -38,8 +38,14 @@ export type ServerTrip = {
   exchangeRate?: number | string | null;
   budget?: number | string | null;
   simplifySettlement?: boolean;
-  /** 홈의 여행 카드 바탕으로 쓸 사진. 고르지 않았으면 없다. */
+  /** 홈 화면의 여행 카드에 깐 사진 한 장. 고르지 않았으면 없다. */
   coverPhotoId?: string | null;
+  /** 홈 화면의 여행 카드에 통째로 깐 기념 카드. 사진 한 장과 둘 중 하나만 있다. */
+  coverCardId?: string | null;
+  /** 홈에 그릴 사진들. 카드를 깔았으면 그 카드의 사진이 고른 차례대로 온다. */
+  coverPhotoIds?: string[];
+  /** 그 카드의 틀 이름. 사진을 어떻게 놓을지 앱이 이 값으로 정한다. */
+  coverCardStyle?: string | null;
   archivedAt?: string | null;
   /** 지운 여행일 때만. 이 시각이 지나면 되돌릴 수 없다. */
   deletionScheduledAt?: string | null;
@@ -436,11 +442,19 @@ export const updateTripCard = (id: string, version: number, settings: SavedKeeps
 export const deleteTripCard = (id: string) =>
   authenticatedRequest<void>(`/v1/trip-cards/${encodeURIComponent(id)}`, { method: "DELETE" });
 
-/** 홈 카드 바탕으로 쓸 사진. `null` 이면 해제다. */
-export const updateCoverPhoto = (tripId: string, version: number, photoId: string | null) =>
+/**
+ * 홈 화면의 여행 카드에 깔 것. 사진 한 장이거나 기념 카드 하나고, 둘 다 `null` 이면 해제다.
+ *
+ * 한쪽을 고르면 서버가 다른 쪽을 푼다. 홈 카드는 여행마다 하나다.
+ */
+export const updateHomeCover = (
+  tripId: string,
+  version: number,
+  고른_것: { coverPhotoId: string | null } | { coverCardId: string | null },
+) =>
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`, {
     method: "PATCH",
-    body: JSON.stringify({ version, coverPhotoId: photoId }),
+    body: JSON.stringify({ version, ...고른_것 }),
   });
 
 export const updateExpenseSettings = (tripId: string, version: number, settings: ExpenseSettings) =>

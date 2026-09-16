@@ -34,7 +34,9 @@ import {
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import { typo } from "./theme/typography";
+import { COVER_BADGE, COVER_FAIL, coverToggleOf } from "./coverPhoto";
 import {
+  homeCardBlockedReason,
   isCutStyle,
   keepsakeAddBlockedReason,
   keepsakeBodyOf,
@@ -507,12 +509,15 @@ const CardRow = memo(function CardRow({
   label,
   color,
   uri,
+  onHome,
   theme,
   onPress,
 }: {
   label: string;
   color: string;
   uri?: string;
+  /** 지금 홈 화면에 깔려 있는 카드인지. 목록에서 바로 보이게 표시를 단다. */
+  onHome?: boolean;
   theme?: AppTheme;
   onPress: () => void;
 }) {
@@ -520,11 +525,17 @@ const CardRow = memo(function CardRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label} 카드 열기`}
+      accessibilityLabel={`${label} 카드 ${onHome ? "· 홈 화면에 쓰는 중 " : ""}열기`}
       style={[styles.listRow, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
     >
       <View style={[styles.listThumb, { backgroundColor: color }]}>
         {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
+        {onHome && (
+          <View style={styles.homeBadge} pointerEvents="none">
+            <Glyph name="home" size={9} color="#FFFFFF" />
+            <Text style={styles.homeBadgeText}>{COVER_BADGE}</Text>
+          </View>
+        )}
       </View>
       <Text numberOfLines={1} style={[styles.listLabel, theme && { color: theme.text }]}>{label}</Text>
     </Pressable>
@@ -587,8 +598,8 @@ export function TripCardsSection({
   photos,
   participants,
   counts,
-  coverPhotoId,
-  onSaveCoverPhoto,
+  coverCardId,
+  onSaveHomeCover,
   onAddPhoto,
   canEdit,
   theme,
@@ -606,8 +617,13 @@ export function TripCardsSection({
   photos: CardPhoto[];
   participants: string[];
   counts: CardCounts;
-  coverPhotoId?: string;
-  onSaveCoverPhoto?: (photoId: string | null) => Promise<void>;
+  /** 홈 화면의 여행 카드에 통째로 깔린 카드. */
+  coverCardId?: string;
+  /** 홈 화면에 깔 것을 바꾼다. `localUris` 는 기기가 들고 있는 사진 자리(사진 id → 자리)다. */
+  onSaveHomeCover?: (
+    고른_것: { coverPhotoId: string | null } | { coverCardId: string | null },
+    localUris?: Record<string, string | undefined>,
+  ) => Promise<void>;
   onAddPhoto?: () => void;
   canEdit: boolean;
   theme?: AppTheme;
@@ -802,16 +818,39 @@ export function TripCardsSection({
     }
   };
 
-  // 홈 카드 바탕은 한 장이다. 카드에 여러 장을 골랐으면 맨 앞 사진을 쓴다.
-  const coverCandidate = card?.photoIds[0] ?? "";
-  const coverOn = Boolean(coverCandidate) && coverCandidate === coverPhotoId;
+  /**
+   * 홈 화면에는 이 카드가 통째로 깔린다. 홈은 사진 배치만 따르고 틀 색·스티커·
+   * 날짜 도장은 그리지 않는다(`WarmAppShell` 의 홈 카드).
+   *
+   * 저장한 카드만 깔 수 있다. 아직 저장하지 않은 카드는 서버에 없어서 다른 기기와
+   * 상대에게 보일 것이 없다.
+   */
+  const cover = coverToggleOf(open?.id, coverCardId, "card");
+  // 세로로 쌓은 카드는 홈의 가로로 넓은 자리에 담기지 않는다. 눕히거나 격자로 바꾸면
+  // 만든 사람이 고른 모양과 달라지므로, 담기지 않는다고 알리고 막는다.
+  //
+  // 고치는 중인 값이 아니라 저장된 값으로 본다. 홈에 깔리는 것은 서버에 저장된 카드다.
+  const savedSettings = open ? rows.find((줄) => 줄.id === open.id)?.settings : undefined;
+  const coverBlocked = savedSettings
+    ? homeCardBlockedReason(
+        KEEPSAKE_STYLES.find((이름) => 이름 === savedSettings.style) ?? "필름",
+        Array.isArray(savedSettings.photoIds) ? savedSettings.photoIds.length : 1,
+      )
+    : "";
   const toggleCover = async () => {
-    if (!onSaveCoverPhoto || !coverCandidate) return;
+    if (!onSaveHomeCover || !open) return;
+    if (coverBlocked && !cover.on) {
+      showAlert("홈 화면에 담기지 않아요", `${coverBlocked}.`, [{ text: "알겠어요" }]);
+      return;
+    }
     try {
-      await onSaveCoverPhoto(coverOn ? null : coverCandidate);
-      notify(coverOn ? "홈 카드를 원래 모습으로 되돌렸어요" : "이 사진을 홈 카드에 깔았어요");
+      await onSaveHomeCover(
+        { coverCardId: cover.next },
+        Object.fromEntries(chosen.map((photo) => [photo.id, thumbs[photo.id] ?? photo.uri])),
+      );
+      notify(cover.on ? "홈 화면에서 이 카드를 내렸어요" : "홈 화면에 이 카드를 깔았어요");
     } catch {
-      notify("홈 카드 사진을 바꾸지 못했어요. 잠시 뒤에 다시 시도해 주세요");
+      notify(COVER_FAIL);
     }
   };
 
@@ -842,6 +881,7 @@ export function TripCardsSection({
                   label={item.label}
                   color={cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.color ?? "#E7DFD2"}
                   uri={thumbs[item.coverPhotoId] ?? cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.uri}
+                  onHome={item.id === coverCardId}
                   theme={theme}
                   onPress={() => openCard(item.id, item.card)}
                 />
@@ -907,23 +947,33 @@ export function TripCardsSection({
                     : Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기"}
               </Text>
             </Pressable>
-            {Boolean(onSaveCoverPhoto && coverCandidate) && (
+            {Boolean(onSaveHomeCover && canEdit) && (open ? (
               <Pressable
                 onPress={toggleCover}
                 accessibilityRole="switch"
-                accessibilityState={{ checked: coverOn }}
-                accessibilityLabel="이 카드의 사진을 홈 카드에 쓰기"
+                accessibilityState={{ checked: cover.on, disabled: Boolean(coverBlocked) && !cover.on }}
+                accessibilityLabel="이 카드를 홈 화면의 여행 카드에 쓰기"
                 style={[
-                  styles.export,
+                  styles.cover,
                   theme && { borderColor: theme.border, backgroundColor: theme.surface },
-                  coverOn && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                  cover.on && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                  Boolean(coverBlocked) && !cover.on && styles.coverBlocked,
                 ]}
               >
-                <Text style={[styles.exportText, theme && { color: coverOn ? theme.primary : theme.muted }]}>
-                  {coverOn ? "홈 카드에 쓰는 중 · 누르면 해제" : "이 카드의 사진을 홈 카드에 쓰기"}
+                <Glyph
+                  name="home"
+                  size={15}
+                  color={cover.on ? theme?.primary ?? "#3F4C8F" : theme?.muted ?? "#8C8378"}
+                />
+                <Text style={[styles.coverText, theme && { color: cover.on ? theme.primary : theme.muted }]}>
+                  {cover.label}
                 </Text>
               </Pressable>
-            )}
+            ) : (
+              <Text style={[styles.notice, theme && { color: theme.muted }]}>
+                카드를 저장하면 홈 화면에 쓸 수 있어요
+              </Text>
+            ))}
             {!readOnly && (
               <Pressable
                 onPress={() => setTuning((value) => !value)}
@@ -1057,6 +1107,36 @@ const styles = StyleSheet.create({
   },
   exportText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   exportWaiting: { opacity: 0.5 },
+  // 홈 화면에 쓰는 줄. 켜지면 테두리·글자 색과 집 모양이 함께 바뀐다.
+  cover: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E5E1DC",
+  },
+  // 담기지 않는 카드. 눌러도 되지만 왜 안 되는지 알려 줄 뿐이다.
+  coverBlocked: { opacity: 0.55 },
+  coverText: { flex: 1, fontSize: 13, color: "#8C8378", fontFamily: typo.label.family },
+  // 목록에서 홈에 쓰는 카드에 다는 표시. 사진 위에 얹히니 어두운 바탕을 깐다.
+  homeBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    height: 16,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(17,16,15,0.72)",
+  },
+  homeBadgeText: { fontSize: 9, color: "#FFFFFF", fontFamily: typo.label.family },
   more: { alignItems: "center", paddingVertical: 6, marginBottom: 8 },
   moreText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   hint: { fontSize: 12, lineHeight: 17, color: "#8C8378", marginTop: 4 },

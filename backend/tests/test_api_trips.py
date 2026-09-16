@@ -410,8 +410,94 @@ async def test_홈_카드_대표_사진은_그_여행의_사진만_되고_해제
     )
 
     assert 고름.json()["data"]["coverPhotoId"] == 사진
+    assert 고름.json()["data"]["coverPhotoIds"] == [사진]
     assert 남의_것.status_code == 422
     assert 해제.json()["data"]["coverPhotoId"] is None
+    assert 해제.json()["data"]["coverPhotoIds"] == []
+
+
+async def test_홈_카드는_사진_한_장이거나_기념_카드_하나고_둘이_서로_해제된다(api, db):
+    """홈 화면의 여행 카드는 여행마다 하나다. 사진과 카드가 함께 깔리면 무엇이 보일지 알 수 없다."""
+    from tests.test_api_photos import jpeg, 사진을_올린다
+    from tests.test_api_trip_cards import 카드를_만든다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    다른_여행 = (
+        await api.post(
+            f"/v1/spaces/{space_id}/trips",
+            json={"title": "다른 여행", "startDate": "2026-11-01", "endDate": "2026-11-02"},
+            headers=headers,
+        )
+    ).json()["data"]
+    사진들 = [
+        (await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+        for _ in range(2)
+    ]
+    카드 = await 카드를_만든다(api, headers, trip["id"], style="네컷 격자", photoIds=사진들)
+    남의_카드 = await 카드를_만든다(api, headers, 다른_여행["id"], style="필름")
+
+    사진_먼저 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "coverPhotoId": 사진들[0]}, headers=headers
+    )
+    카드로 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 사진_먼저.json()["data"]["version"], "coverCardId": 카드["id"]},
+        headers=headers,
+    )
+    남의_것 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 카드로.json()["data"]["version"], "coverCardId": 남의_카드["id"]},
+        headers=headers,
+    )
+    둘_다 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={
+            "version": 카드로.json()["data"]["version"],
+            "coverCardId": 카드["id"],
+            "coverPhotoId": 사진들[0],
+        },
+        headers=headers,
+    )
+    다시_사진 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 카드로.json()["data"]["version"], "coverPhotoId": 사진들[1]},
+        headers=headers,
+    )
+
+    # 카드를 고르면 그 카드의 사진이 고른 차례대로, 틀 이름과 함께 나온다.
+    assert 카드로.json()["data"]["coverCardId"] == 카드["id"]
+    assert 카드로.json()["data"]["coverPhotoId"] is None
+    assert 카드로.json()["data"]["coverPhotoIds"] == 사진들
+    assert 카드로.json()["data"]["coverCardStyle"] == "네컷 격자"
+    assert 남의_것.status_code == 422
+    assert 둘_다.status_code == 422
+    # 사진 한 장을 고르면 카드 쪽이 풀린다.
+    assert 다시_사진.json()["data"]["coverCardId"] is None
+    assert 다시_사진.json()["data"]["coverPhotoIds"] == [사진들[1]]
+
+
+async def test_홈에_깐_카드를_지우면_여행은_남고_홈만_비워진다(api, db):
+    from tests.test_api_photos import jpeg, 사진을_올린다
+    from tests.test_api_trip_cards import 카드를_만든다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    사진 = (await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+    카드 = await 카드를_만든다(api, headers, trip["id"], style="필름", photoIds=[사진])
+    깔았다 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "coverCardId": 카드["id"]}, headers=headers
+    )
+    assert 깔았다.json()["data"]["coverCardId"] == 카드["id"]
+
+    await api.delete(f"/v1/trip-cards/{카드['id']}", headers=headers)
+    남은_것 = await api.get(f"/v1/trips/{trip['id']}", headers=headers)
+
+    assert 남은_것.status_code == 200
+    assert 남은_것.json()["data"]["coverCardId"] is None
+    assert 남은_것.json()["data"]["coverPhotoIds"] == []
 
 
 async def test_먼저_고친_사람이_있으면_막는다(api, db):

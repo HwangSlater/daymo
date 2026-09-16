@@ -117,7 +117,7 @@ import {
   listTripsPage,
   setTripParticipants,
   updateExpenseSettings,
-  updateCoverPhoto,
+  updateHomeCover,
   updateSpace,
   updateTrip,
   type ExpenseSettings,
@@ -140,6 +140,7 @@ import { toneOfTripId } from "./tripColor";
 import { shouldLoadMore } from "./tripPaging";
 import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
 import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
+import { homeCoverRows, keepsakeRowSlots } from "./tripCard";
 import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
@@ -185,12 +186,16 @@ type Trip = {
   overview?: ServerTripOverview;
   /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
   serverExpenseSettings?: ExpenseSettings;
-  /** 홈 카드 바탕으로 쓰는 사진. */
+  /** 홈 화면의 여행 카드에 깐 사진 한 장. */
   coverPhotoId?: string;
-  /** 받아 둔 바탕 사진 자리. 아직 못 받았으면 없고, 그러면 카드는 종이 그대로다. */
-  coverUri?: string;
-  /** `coverUri` 가 어느 사진의 것인지. 대표 사진을 바꾸면 옛 그림을 쓰지 않는다. */
-  coverUriFor?: string;
+  /** 홈 화면의 여행 카드에 통째로 깐 기념 카드. 사진 한 장과 둘 중 하나만 있다. */
+  coverCardId?: string;
+  /** 홈에 그릴 사진들. 카드를 깔았으면 그 카드의 사진이 고른 차례대로다. */
+  coverPhotoIds?: string[];
+  /** 그 카드의 틀 이름. 사진을 어떻게 놓을지 이 값으로 정한다(`homeCoverRows`). */
+  coverCardStyle?: string;
+  /** 받아 둔 바탕 사진 자리(사진 id → 자리). 못 받은 사진은 없고, 그러면 카드는 종이 그대로다. */
+  coverUris?: Record<string, string>;
   /**
    * 앱이 처음부터 들고 있는 예시 여행.
    *
@@ -248,6 +253,9 @@ const tripFromServer = (trip: ServerTrip, roster: RosterEntry[] = []): Trip => {
     serverExpenseSettings: expenseSettingsFrom(trip),
     // 해제한 것도 반영돼야 해서 없을 때도 싣는다(`...` 로 감추면 옛 값이 남는다).
     coverPhotoId: trip.coverPhotoId ?? undefined,
+    coverCardId: trip.coverCardId ?? undefined,
+    coverPhotoIds: trip.coverPhotoIds ?? [],
+    coverCardStyle: trip.coverCardStyle ?? undefined,
     archived: trip.status === "archived",
     ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
   };
@@ -1082,19 +1090,41 @@ export function WarmAppShell({
    * 둔다. 카드는 사진 없이 종이 그대로 그려지므로 깨진 그림이 남지 않는다.
    */
   const coverDownloads = useRef(new Set<string>());
+  // 받아 둔 바탕 사진(사진 id → 자리). 껐다 켜거나 예전 사진으로 되돌려도 다시 받지 않는다.
+  const coverPhotoUris = useRef(new Map<string, string>());
+  /** 이 여행이 홈에 그릴 사진 가운데 아직 자리를 모르는 것. */
+  const 모자란_사진 = (trip: Trip) =>
+    (trip.coverPhotoIds ?? []).filter((id) => !isLivePhotoUri(trip.coverUris?.[id]));
   useEffect(() => {
-    const missing = tripItems.filter((trip) =>
-      trip.coverPhotoId && trip.coverUriFor !== trip.coverPhotoId && !coverDownloads.current.has(trip.coverPhotoId));
+    if (!tripItems.some((trip) => 모자란_사진(trip).length)) return;
+    // 이미 받아 둔 사진이면 바로 얹는다. 받으러 가지 않는다.
+    const 받아_둔 = (id: string) => {
+      const uri = coverPhotoUris.current.get(id);
+      return isLivePhotoUri(uri) ? uri : undefined;
+    };
+    if (tripItems.some((trip) => 모자란_사진(trip).some(받아_둔))) {
+      setTripItems((current) => current.map((item) => {
+        const 채울_것 = 모자란_사진(item).filter(받아_둔);
+        if (!채울_것.length) return item;
+        const coverUris = { ...item.coverUris };
+        채울_것.forEach((id) => { coverUris[id] = 받아_둔(id) as string; });
+        return { ...item, coverUris };
+      }));
+    }
+    const missing = [...new Set(tripItems.flatMap((trip) =>
+      모자란_사진(trip).filter((id) => !받아_둔(id) && !coverDownloads.current.has(id))))];
     if (!missing.length) return;
-    missing.forEach((trip) => coverDownloads.current.add(trip.coverPhotoId as string));
+    missing.forEach((id) => coverDownloads.current.add(id));
     void (async () => {
-      for (const trip of missing) {
-        const photoId = trip.coverPhotoId as string;
+      for (const photoId of missing) {
         try {
           const uri = await downloadPhoto(photoId, "thumbnail");
           if (!uri) continue;
+          coverPhotoUris.current.set(photoId, uri);
           setTripItems((current) => current.map((item) =>
-            item.coverPhotoId === photoId ? { ...item, coverUri: uri, coverUriFor: photoId } : item));
+            (item.coverPhotoIds ?? []).includes(photoId)
+              ? { ...item, coverUris: { ...item.coverUris, [photoId]: uri } }
+              : item));
         } catch {
           coverDownloads.current.delete(photoId);
         }
@@ -1294,17 +1324,29 @@ export function WarmAppShell({
           applyServerTrip(saved);
         }}
         coverPhotoId={selectedTrip.coverPhotoId}
-        onUpdateCoverPhoto={selectedTrip.id && selectedTrip.version !== undefined ? async (photoId) => {
+        coverCardId={selectedTrip.coverCardId}
+        onUpdateHomeCover={selectedTrip.id && selectedTrip.version !== undefined ? async (고른_것, localUris) => {
           const tripId = selectedTrip.id as string;
           let saved: ServerTrip;
           try {
-            saved = await updateCoverPhoto(tripId, selectedTrip.version!, photoId);
+            saved = await updateHomeCover(tripId, selectedTrip.version!, 고른_것);
           } catch (caught) {
             if (!(caught instanceof DaymoApiError) || caught.code !== "VERSION_CONFLICT") throw caught;
             const latest = await getTrip(tripId);
-            saved = await updateCoverPhoto(tripId, latest.version, photoId);
+            saved = await updateHomeCover(tripId, latest.version, 고른_것);
           }
           applyServerTrip(saved);
+          // 홈이 바로 바뀌게, 고른 쪽이 기기에 들고 있는 사진을 그대로 얹는다. 없으면
+          // 홈이 썸네일을 받아 채울 때까지(대개 한 박자) 종이 카드로 보인다.
+          const 얹을_것 = Object.entries(localUris ?? {})
+            .filter((줄): 줄 is [string, string] => isLivePhotoUri(줄[1]));
+          if (얹을_것.length) {
+            얹을_것.forEach(([id, uri]) => coverPhotoUris.current.set(id, uri));
+            const 얹는다 = (trip: Trip) =>
+              trip.id === tripId ? { ...trip, coverUris: { ...trip.coverUris, ...Object.fromEntries(얹을_것) } } : trip;
+            setTripItems((current) => current.map(얹는다));
+            setSelectedTrip(얹는다);
+          }
         } : undefined}
         serverExpenseSettings={selectedTrip.serverExpenseSettings}
         onUpdateExpenseSettings={async (settings) => {
@@ -2830,7 +2872,14 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
    *
    * 종이 결·테이프·비행기 점선은 사진 카드에서 뺀다. 사진이 그 자리를 대신한다.
    */
-  const coverUri = isLivePhotoUri(trip.coverUri) && trip.coverUriFor === trip.coverPhotoId ? trip.coverUri : undefined;
+  // 기념 카드를 깔았으면 그 카드와 같은 배치로 여러 장을 놓는다. 한 장이라도 아직
+  // 받지 못했으면 반쯤 빈 자리가 남으니 그때는 종이 카드 그대로 그린다.
+  const coverIds = trip.coverPhotoIds ?? [];
+  const coverRows = homeCoverRows(trip.coverCardStyle, coverIds.length);
+  const coverSlots = coverRows.reduce((합, 칸) => 합 + 칸, 0);
+  const coverUris = coverIds.slice(0, coverSlots).map((id) => trip.coverUris?.[id]);
+  const covers = coverUris.length === coverSlots && coverUris.every(isLivePhotoUri) ? (coverUris as string[]) : [];
+  const coverUri = covers.length ? covers[0] : undefined;
   // 사진 위 날짜 도장만은 밝은 종이 위에 얹는다. 어두운 모드의 강조색은 그 밝은
   // 바탕에서 흐려지니, 도장 안의 글자와 줄만 밝은 모드 값을 쓴다.
   const stampInk = resolveTheme(theme.id, false).primary;
@@ -2875,7 +2924,20 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
           <View style={s.paperTripSnap}>
             <View style={[s.paperTripSnapTape, { backgroundColor: paper.tape }]} />
             <View style={[s.paperTripSnapFrame, { backgroundColor: paper.snap, borderColor: paper.border }]}>
-              <Image source={{ uri: coverUri }} resizeMode="cover" style={s.paperTripSnapImage} />
+              <View style={s.paperTripSnapImage}>
+                {keepsakeRowSlots(coverRows).map((줄, 줄번호) => (
+                  <View key={줄번호} style={s.paperTripSnapRow}>
+                    {Array.from({ length: 줄.count }, (_, 칸) => (
+                      <Image
+                        key={칸}
+                        source={{ uri: covers[줄.start + 칸] }}
+                        resizeMode="cover"
+                        style={s.paperTripSnapCell}
+                      />
+                    ))}
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         )}
@@ -7058,7 +7120,12 @@ const s = StyleSheet.create({
     elevation: 3,
     transform: [{ rotate: "-1.1deg" }],
   },
-  paperTripSnapImage: { width: "100%", aspectRatio: 1.62, borderRadius: 2 },
+  // 사진 자리. 카드를 깔면 이 안을 카드와 같은 배치로 나눈다(`homeCoverRows`).
+  // 틀 색·스티커·날짜 도장은 그리지 않는다. 이만한 자리에 꾸밈까지 넣으면 지저분해지고,
+  // 무엇이 찍힌 사진인지가 먼저 보여야 한다.
+  paperTripSnapImage: { width: "100%", aspectRatio: 1.62, borderRadius: 2, overflow: "hidden", gap: 2 },
+  paperTripSnapRow: { flex: 1, flexDirection: "row", gap: 2 },
+  paperTripSnapCell: { flex: 1, minWidth: 0, height: "100%" },
   paperTripSnapTape: {
     position: "absolute",
     zIndex: 2,

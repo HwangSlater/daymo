@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  homeCardBlockedReason,
+  homeCoverRows,
   keepsakeBodyOf,
   keepsakeCardOf,
   keepsakeDateStamp,
@@ -257,4 +259,27 @@ test("카드를 더 만들 수 없을 때만 까닭이 나온다", () => {
   assert.equal(keepsakeAddBlockedReason(19, 3), "");
   assert.equal(keepsakeAddBlockedReason(20, 3), "카드는 여행마다 20장까지 모아 둘 수 있어요");
   assert.equal(keepsakeAddBlockedReason(0, 0), "사진을 한 장 추가하면 기념 카드를 만들 수 있어요");
+});
+
+test("세로로 쌓은 카드만 홈 화면에 담기지 않는다", () => {
+  // 사진관 스트립은 줄이 칸보다 많다. 홈의 가로로 넓은 자리에 넣으면 손톱만 해진다.
+  assert.ok(homeCardBlockedReason("네컷", 4).includes("세로로 길어서"));
+  assert.ok(homeCardBlockedReason("세컷", 3).includes("세로로 길어서"));
+  // 격자·가로 스트립과 한 장짜리 틀은 그대로 담긴다.
+  assert.equal(homeCardBlockedReason("네컷 격자", 4), "");
+  assert.equal(homeCardBlockedReason("네컷 가로", 4), "");
+  assert.equal(homeCardBlockedReason("필름", 1), "");
+  assert.equal(homeCardBlockedReason("엽서", 3), "");
+  // 스트립이라도 한 장만 고르면 한 칸짜리라 담긴다.
+  assert.equal(homeCardBlockedReason("네컷", 1), "");
+});
+
+test("홈 화면은 고른 카드와 같은 배치로 사진을 놓는다", () => {
+  assert.deepEqual(homeCoverRows("네컷 격자", 4), [2, 2]);
+  assert.deepEqual(homeCoverRows("네컷 가로", 4), [4]);
+  assert.deepEqual(homeCoverRows("필름", 3), [1, 2]);
+  // 카드 없이 사진 한 장만 골랐을 때와, 모르는 틀 이름이 왔을 때.
+  assert.deepEqual(homeCoverRows(undefined, 1), [1]);
+  assert.deepEqual(homeCoverRows("폴라로이드", 2), [2]);
+  assert.deepEqual(homeCoverRows(null, 0), []);
 });

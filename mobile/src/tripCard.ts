@@ -211,6 +211,34 @@ export function keepsakeFrameOf(style: KeepsakeStyle, photoCount: number): {
 }
 
 /**
+ * 홈 화면의 여행 카드에 이 카드를 그대로 담을 수 있는지. 담기지 않으면 그 까닭을 돌려준다.
+ *
+ * 홈의 사진 자리는 가로로 넓다. 사진관 스트립처럼 사진을 세로로 쌓은 배치는 그 자리에
+ * 넣으면 손톱만 해진다. 눕히거나 격자로 바꿔 담지는 않는다. 만든 사람이 고른 모양과
+ * 달라지기 때문이다. 담기지 않는 카드는 홈에 쓰지 못하게 막고 무엇을 하면 되는지 알린다.
+ *
+ * 보는 것은 카드의 겉 비율이 아니라 사진을 놓은 모양이다. 홈은 사진만 그리고 틀 색·
+ * 스티커·글자는 그리지 않아서, 세로로 긴 4:5 카드라도 사진이 2×2 면 잘 담긴다.
+ */
+export function homeCardBlockedReason(style: KeepsakeStyle, photoCount: number): string {
+  const rows = keepsakeFrameOf(style, photoCount).rows;
+  if (rows.length <= Math.max(...rows, 1)) return "";
+  return "이 카드는 세로로 길어서 홈 화면에 담기지 않아요. 가로나 정사각 카드를 만들거나, 사진 한 장을 홈에 쓰세요";
+}
+
+/**
+ * 홈 화면의 여행 카드에 사진을 어떻게 놓을지. 줄마다 몇 칸인지로 돌려준다.
+ *
+ * 카드를 골랐으면 그 카드와 같은 배치고, 사진 한 장만 골랐으면 한 칸이다. 모르는 틀
+ * 이름이 오면(앱이 더 옛 판이다) 사진 수에 맞는 기본 배치로 그린다.
+ */
+export function homeCoverRows(style: string | undefined | null, photoCount: number): number[] {
+  if (photoCount <= 0) return [];
+  const 아는_틀 = KEEPSAKE_STYLES.find((이름) => 이름 === style);
+  return 아는_틀 ? keepsakeFrameOf(아는_틀, photoCount).rows : keepsakeLayoutOf(Math.min(photoCount, KEEPSAKE_MAX_PHOTOS));
+}
+
+/**
  * 미리보기에 그릴 크기와 내보낼 크기. 내보내기는 화면의 다섯 배 넘게 잡는다.
  *
  * 네컷 틀은 비율 대신 틀이 크기를 정한다. 사진관 스트립은 길쭉해야 스트립처럼 보인다.
