@@ -63,8 +63,9 @@ writeFileSync(
   JSON.stringify(
     {
       cleanUrls: true,
-      // 로그인 팝업도 앱 번들을 열되 주소는 /oauth로 유지한다.
-      rewrites: [{ source: "/oauth", destination: "/app/index.html" }],
+      // 로그인 팝업도 앱 번들을 열되 주소는 /oauth 로 둔다. cleanUrls 가 /app/index.html 을
+      // /app 으로 되돌리므로 목적지는 /app 이어야 한다.
+      rewrites: [{ source: "/oauth", destination: "/app" }],
       headers: [
         {
           // 새로 배포하면 바로 새 번들을 받게 한다. 번들 파일은 이름에 해시가 붙어 오래 둬도 된다.
