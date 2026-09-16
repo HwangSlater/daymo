@@ -5,8 +5,8 @@ import pytest
 from sqlalchemy import select
 
 from app.models import Membership, MembershipRole, Transport
-from tests.test_api_places import 멤버로_넣는다, 여행_하나
-from tests.test_api_trips import 로그인한_사람
+from tests.test_api_places import 멤버로_넣는다, 여행_하나, 장소를_담는다
+from tests.test_api_trips import 로그인한_사람, 여행을_만든다
 
 pytestmark = pytest.mark.anyio
 
@@ -150,3 +150,107 @@ async def test_예약_링크는_http만_받고_남의_예약은_404다(api, db):
 
     assert 위험.status_code == 422
     assert (await api.delete(f"/v1/reservations/{예약['id']}", headers=남)).status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# 예약이 붙은 곳
+# ---------------------------------------------------------------------------
+
+
+async def test_예약을_장소에_붙여_만들고_장소를_지우면_예약은_남는다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    장소 = (await 장소를_담는다(api, headers, trip["id"], name="소나기식당", category="식당")).json()["data"]
+
+    예약 = (
+        await api.post(
+            f"/v1/trips/{trip['id']}/reservations",
+            json={
+                "title": "소나기식당",
+                "targetType": "place",
+                "targetId": 장소["id"],
+                "date": "2026-10-02",
+                "time": "19:00",
+            },
+            headers=headers,
+        )
+    ).json()["data"]
+    뺐다 = await api.delete(f"/v1/trip-places/{장소['id']}", headers=headers)
+    남은_예약 = (await api.get(f"/v1/trips/{trip['id']}/reservations", headers=headers)).json()["data"][0]
+
+    assert (예약["targetType"], 예약["targetId"]) == ("place", 장소["id"])
+    assert 뺐다.status_code == 204
+    # 예약 이름·시각은 사람이 적은 것이라 장소를 빼도 남는다. 붙어 있던 자리만 끊는다.
+    assert (남은_예약["id"], 남은_예약["title"], 남은_예약["time"]) == (예약["id"], "소나기식당", "19:00")
+    assert (남은_예약["targetType"], 남은_예약["targetId"]) == ("other", None)
+
+
+async def test_다른_여행의_장소에는_예약을_붙일_수_없다(api, db):
+    headers, space_id, trip = await 여행_하나(api)
+    다음_여행 = await 여행을_만든다(
+        api, headers, space_id, title="다음 여행", startDate="2026-11-01", endDate="2026-11-02"
+    )
+    남의_장소 = (await 장소를_담는다(api, headers, 다음_여행["id"], name="남의 가게")).json()["data"]
+
+    응답 = await api.post(
+        f"/v1/trips/{trip['id']}/reservations",
+        json={"title": "x", "targetType": "place", "targetId": 남의_장소["id"]},
+        headers=headers,
+    )
+
+    assert 응답.status_code == 422
+    assert 응답.json()["error"]["fields"]["targetId"] == "이 여행의 장소가 아니에요."
+
+
+async def test_붙는_곳_없는_예약에_대상을_주면_거부한다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    장소 = (await 장소를_담는다(api, headers, trip["id"])).json()["data"]
+
+    대상만 = await api.post(
+        f"/v1/trips/{trip['id']}/reservations", json={"title": "x", "targetId": 장소["id"]}, headers=headers
+    )
+    대상_없이 = await api.post(
+        f"/v1/trips/{trip['id']}/reservations", json={"title": "x", "targetType": "place"}, headers=headers
+    )
+
+    assert 대상만.status_code == 422
+    assert 대상_없이.status_code == 422
+
+
+async def test_예약을_장소에_붙였다_떼면_대상도_함께_비운다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    장소 = (await 장소를_담는다(api, headers, trip["id"])).json()["data"]
+    예약 = (
+        await api.post(f"/v1/trips/{trip['id']}/reservations", json={"title": "x"}, headers=headers)
+    ).json()["data"]
+
+    붙임 = await api.patch(
+        f"/v1/reservations/{예약['id']}",
+        json={"version": 1, "targetType": "place", "targetId": 장소["id"]},
+        headers=headers,
+    )
+    뗌 = await api.patch(
+        f"/v1/reservations/{예약['id']}", json={"version": 2, "targetType": "other"}, headers=headers
+    )
+
+    assert (붙임.json()["data"]["targetType"], 붙임.json()["data"]["targetId"]) == ("place", 장소["id"])
+    assert (뗌.json()["data"]["targetType"], 뗌.json()["data"]["targetId"]) == ("other", None)
+
+
+async def test_숙소를_지워도_거기_붙은_예약은_남는다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    숙소 = (
+        await api.post(
+            f"/v1/trips/{trip['id']}/stays", json={"checkInAt": "2026-10-01T15:00"}, headers=headers
+        )
+    ).json()["data"]
+    await api.post(
+        f"/v1/trips/{trip['id']}/reservations",
+        json={"title": "달빛한옥", "targetType": "stay", "targetId": 숙소["id"]},
+        headers=headers,
+    )
+
+    지움 = await api.delete(f"/v1/stays/{숙소['id']}", headers=headers)
+    남은_예약 = (await api.get(f"/v1/trips/{trip['id']}/reservations", headers=headers)).json()["data"][0]
+
+    assert 지움.status_code == 204
+    assert (남은_예약["title"], 남은_예약["targetType"], 남은_예약["targetId"]) == ("달빛한옥", "other", None)

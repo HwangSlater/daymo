@@ -17,8 +17,10 @@ from app.models import (
     Membership,
     Reservation,
     ReservationTargetType,
+    Stay,
     Transport,
     Trip,
+    TripPlace,
 )
 from app.services.places import check_map_url
 from app.services.schedule import local_clock, to_instant, zone_of
@@ -184,6 +186,47 @@ def _booking_url(value: str | None) -> str | None:
     return 링크[0] if 링크 else None
 
 
+# 예약이 붙을 수 있는 곳과 그 표. 사진의 `links` 와 같은 구조다(app/services/photos.py).
+_붙는_곳: dict[ReservationTargetType, tuple[type, str]] = {
+    ReservationTargetType.PLACE: (TripPlace, "장소"),
+    ReservationTargetType.STAY: (Stay, "숙소"),
+}
+
+
+async def _target_for(
+    session: AsyncSession,
+    trip: Trip,
+    target_type: ReservationTargetType,
+    target_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """
+    예약이 붙은 곳을 확인한다. 같은 여행의 장소·숙소만 받는다.
+
+    `reservations.target_id` 에는 외래키가 없다(장소일 수도 숙소일 수도 있다).
+    DB 가 막아 주지 못하므로 남의 여행 id 를 보내면 그 여행 사람이 아닌데도
+    예약이 그쪽 장소에 걸린다. 넣는 쪽에서 확인한다.
+    """
+    붙을_곳 = _붙는_곳.get(target_type)
+    if 붙을_곳 is None:
+        # other 는 어디에도 안 붙는 예약이다. 대상이 남아 있으면 지운 뒤에도
+        # 그 id 를 다시 쓰는 줄에 남의 예약이 붙어 보인다.
+        if target_id is not None:
+            raise AppError(
+                ErrorCode.VALIDATION_ERROR,
+                fields={"targetId": "어디에도 붙지 않는 예약이라 대상을 비워 주세요."},
+            )
+        return None
+    model, 이름 = 붙을_곳
+    같은_여행 = (
+        await session.scalar(select(model.id).where(model.id == target_id, model.trip_id == trip.id))
+        if target_id is not None
+        else None
+    )
+    if 같은_여행 is None:
+        raise AppError(ErrorCode.VALIDATION_ERROR, fields={"targetId": f"이 여행의 {이름}가 아니에요."})
+    return 같은_여행
+
+
 async def create_reservation(
     session: AsyncSession, *, trip: Trip, actor: Membership, reservation_id: uuid.UUID | None, values: dict
 ) -> tuple[Reservation, bool]:
@@ -195,10 +238,12 @@ async def create_reservation(
             return 기존, False
     zone = await zone_of(session, trip)
     day = _in_trip(trip, values.get("date"))
+    붙는_종류 = values.get("target_type") or ReservationTargetType.OTHER
     reservation = Reservation(
         id=reservation_id or uuid.uuid4(),
         trip_id=trip.id,
-        target_type=ReservationTargetType.OTHER,
+        target_type=붙는_종류,
+        target_id=await _target_for(session, trip, 붙는_종류, values.get("target_id")),
         title=values["title"].strip(),
         reserved_on=day,
         reserved_at=to_instant(day, values["time"], zone) if day and values.get("time") else None,
@@ -230,6 +275,17 @@ async def update_reservation(
         if not (changes["title"] or "").strip():
             raise AppError(ErrorCode.VALIDATION_ERROR, fields={"title": "예약 이름을 적어 주세요."})
         reservation.title = changes["title"].strip()
+    if {"target_type", "target_id"} & changes.keys():
+        종류 = changes.get("target_type") or reservation.target_type
+        # other 로 되돌리면 대상도 함께 지운다. 붙는 곳을 뗀 사람에게 대상까지
+        # 따로 비워 보내라고 하면 잊는 쪽이 기본이 된다.
+        대상 = (
+            changes["target_id"]
+            if "target_id" in changes
+            else (None if 종류 is ReservationTargetType.OTHER else reservation.target_id)
+        )
+        reservation.target_id = await _target_for(session, trip, 종류, 대상)
+        reservation.target_type = 종류
     if "party_size" in changes:
         reservation.party_size = changes["party_size"]
     for 칸 in ("party_label", "note"):

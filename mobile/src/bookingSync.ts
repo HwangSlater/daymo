@@ -121,6 +121,15 @@ export type AppReservation = {
   showInSchedule: boolean;
   /** 예약한 곳으로 바로 가는 링크. 옛 기기 기록에는 없다. */
   bookingUrl?: string;
+  /**
+   * 이 예약이 붙은 장소. 장소 시트에서 함께 적은 예약이다.
+   *
+   * 없으면 장소에 붙지 않은 예약이다(서버의 `other`). 예전에 예약 시트에서만
+   * 적던 것들이 그렇고, 그대로 목록에 남아 있어야 한다.
+   */
+  placeId?: string;
+  /** 숙소에 붙은 예약. 앱은 만들지 않지만 서버에서 오면 그대로 돌려보낸다. */
+  stayId?: string;
 };
 
 type ServerReservationStatus = "confirmed" | "needs_check" | "cancelled";
@@ -136,6 +145,9 @@ export type ServerReservation = {
   note: string | null;
   bookingUrl: string | null;
   showInSchedule: boolean;
+  /** 예약이 붙은 곳. 앱은 장소만 붙인다. 숙소 예약은 서버에서 만들어진 것이다. */
+  targetType: "place" | "stay" | "other";
+  targetId: string | null;
   version: number;
 };
 
@@ -148,7 +160,11 @@ const STATUS_TO_APP: Record<ServerReservationStatus, AppReservation["status"]> =
   confirmed: "예약 확정", needs_check: "확인 필요", cancelled: "취소",
 };
 
-export function reservationCodec(tripDates: readonly string[]): Codec<AppReservation, ReservationBody, ServerReservation> {
+export function reservationCodec(
+  tripDates: readonly string[],
+  /** 서버와 맞춘 장소 id. 아직 안 올라간 장소를 가리키면 서버가 거부하므로 그때는 연결을 비워 보낸다. */
+  serverPlaceIds: ReadonlySet<string> = new Set(),
+): Codec<AppReservation, ReservationBody, ServerReservation> {
   const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
   return {
     syncable: (item) => isServerId(item.id),
@@ -156,6 +172,7 @@ export function reservationCodec(tripDates: readonly string[]): Codec<AppReserva
     toBody: (item) => {
       const date = keyByDayLabel.get(item.date) ?? null;
       const count = Number(item.people.match(/\d+/)?.[0] ?? NaN);
+      const 붙은_장소 = item.placeId && serverPlaceIds.has(item.placeId) ? item.placeId : null;
       return {
         title: item.name.trim().slice(0, 60) || "이름 없는 예약",
         date,
@@ -164,10 +181,13 @@ export function reservationCodec(tripDates: readonly string[]): Codec<AppReserva
         // 적은 글자 그대로 둔다. 숫자만 남기면 "2명 + 아이" 가 "2명" 이 된다.
         partyLabel: blank(item.people, 20),
         status: STATUS_TO_SERVER[item.status] ?? "needs_check",
-        // 앱의 예약 장소는 자유 글자다. 서버 메모 칸에 둔다.
+        // 장소에 붙은 예약이면 이 칸은 예약 메모다. 장소에 붙지 않은 옛 예약은
+        // 여기에 장소 이름을 적어 두었고, 그 글자를 잃지 않게 그대로 둔다.
         note: blank(item.place, 2000),
         bookingUrl: safeUrl(item.bookingUrl),
         showInSchedule: item.showInSchedule,
+        targetType: 붙은_장소 ? "place" : item.stayId ? "stay" : "other",
+        targetId: 붙은_장소 ?? item.stayId ?? null,
       };
     },
     fromServer: (row) => ({
@@ -180,6 +200,8 @@ export function reservationCodec(tripDates: readonly string[]): Codec<AppReserva
       place: row.note ?? "",
       bookingUrl: row.bookingUrl ?? "",
       showInSchedule: row.showInSchedule,
+      ...(row.targetType === "place" && row.targetId ? { placeId: row.targetId } : {}),
+      ...(row.targetType === "stay" && row.targetId ? { stayId: row.targetId } : {}),
     }),
   };
 }

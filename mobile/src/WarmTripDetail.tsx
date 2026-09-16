@@ -229,6 +229,15 @@ export type ReservationInfo = {
   showInSchedule: boolean;
   /** 예약한 곳으로 바로 가는 링크. 옛 기기 기록에는 없다. */
   bookingUrl?: string;
+  /**
+   * 이 예약이 붙은 장소. 장소 시트의 예약 칸에서 함께 적은 것이다.
+   *
+   * 없으면 장소에 붙지 않은 예약이다. 예약 시트에서만 적던 옛 기록이 그렇고,
+   * 그대로 목록에 남아 눌러서 고칠 수 있어야 한다.
+   */
+  placeId?: string;
+  /** 숙소에 붙은 예약. 앱은 만들지 않지만 서버에서 오면 그대로 들고 있는다. */
+  stayId?: string;
 };
 export type PlaceItem = {
   id: string;
@@ -1244,6 +1253,18 @@ export function WarmTripDetail({
       : initialMemoryData(currentTripDate),
   );
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
+  /**
+   * 장소 탭에 열어 달라고 부탁한 장소 시트.
+   *
+   * 예약은 장소 안에서 적는다. 여행 탭의 「예약 추가」가 장소를 먼저 고르게 하고,
+   * 고른 장소의 시트를 예약 칸이 펼쳐진 채로 연다. 두 탭은 서로 다른 컴포넌트라
+   * 화면 위에서 한 번 건네 준다. `placeId` 가 없으면 새 장소부터 만든다.
+   */
+  const [placeSheetRequest, setPlaceSheetRequest] = useState<{ placeId: string | null } | null>(null);
+  const openPlaceForReservation = (placeId: string | null) => {
+    setPlaceSheetRequest({ placeId });
+    showMode("장소");
+  };
   const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
     initialPlanning?.stay
       ? { ...initialPlanning.stay, showInSchedule: initialPlanning.stay.showInSchedule ?? true }
@@ -1494,7 +1515,10 @@ export function WarmTripDetail({
     refreshKey: `${rosterKey}|${tripDateKeyList.join(",")}`,
     notify: setFeedback,
   });
-  const reservationSyncCodec = useMemo(() => reservationCodec(tripDateKeyList), [tripDateKeyList]);
+  const reservationSyncCodec = useMemo(
+    () => reservationCodec(tripDateKeyList, serverPlaceIds),
+    [serverPlaceIds, tripDateKeyList],
+  );
   useListSync({
     tripId,
     label: "예약",
@@ -1504,7 +1528,8 @@ export function WarmTripDetail({
     api: { list: listReservations, create: createReservation, update: updateReservation, remove: deleteReservation },
     syncedIds: reservationSyncIds,
     setSyncedIds: setReservationSyncIds,
-    refreshKey: tripDateKeyList.join(","),
+    // 장소가 서버에 올라가야 예약을 그 장소에 붙일 수 있다. 일정 줄과 같은 규칙이다.
+    refreshKey: `${placeSyncIds.join(",")}|${tripDateKeyList.join(",")}`,
     notify: setFeedback,
   });
   const [expenseSyncIds, setExpenseSyncIds] = useState<string[]>(() => initialPlanning?.expenseSyncIds ?? []);
@@ -2186,6 +2211,7 @@ export function WarmTripDetail({
               dateOptions={tripDateOptions}
               todayDay={todayTripDay}
               openScheduleOnMount={canEdit && initialDestination === "schedule-add"}
+              onOpenPlaceForReservation={openPlaceForReservation}
             />
           )}
           {mode === "장소" && (
@@ -2195,6 +2221,10 @@ export function WarmTripDetail({
               setSchedule={setSchedule}
               places={places}
               setPlaces={setPlaces}
+              reservations={reservations}
+              setReservations={setReservations}
+              sheetRequest={placeSheetRequest}
+              onSheetRequestHandled={() => setPlaceSheetRequest(null)}
               registeredStayName={registeredStay.name}
               dayOptions={tripDayOptions}
               tripEnded={tripEnded}
@@ -2700,6 +2730,7 @@ function TripOverview({
   dateOptions,
   todayDay,
   openScheduleOnMount,
+  onOpenPlaceForReservation,
 }: {
   setMode: (mode: ViewMode) => void;
   schedule: ScheduleItem[];
@@ -2726,12 +2757,19 @@ function TripOverview({
   /** 오늘이 여행 기간 안이면 그 날. 아니면 빈 문자열이다. */
   todayDay: string;
   openScheduleOnMount?: boolean;
+  /**
+   * 장소 탭의 장소 시트를 예약 칸이 펼쳐진 채로 열어 달라고 부탁한다.
+   *
+   * 예약은 장소 안에서 적으니 「예약 추가」는 장소를 먼저 고르는 일이 된다.
+   * `null` 을 주면 새 장소부터 만든다.
+   */
+  onOpenPlaceForReservation: (placeId: string | null) => void;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const canEdit = useContext(DetailEditableContext);
   const [sheet, setSheet] = useState<
-    "schedule" | "reservation" | "stay" | "transport" | null
+    "schedule" | "reservation" | "reservationPlace" | "stay" | "transport" | null
   >(openScheduleOnMount ? "schedule" : null);
   const [fullSchedule, setFullSchedule] = useState(false);
   // 전체 일정에서 보고 있는 날. 여행 중이면 오늘로 열린다.
@@ -3245,6 +3283,20 @@ function TripOverview({
     setReservationDraftBaseline(JSON.stringify(nextDraft));
     setSheet("reservation");
   };
+  /**
+   * 목록에서 예약 한 줄을 연다.
+   *
+   * 장소에 붙은 예약은 그 장소 시트에서 고친다. 같은 예약을 두 곳에서 고칠 수
+   * 있게 두면 어느 쪽이 참인지 헷갈린다. 장소에 붙지 않은 옛 예약만 예약
+   * 시트로 연다. 그 기록도 잃지 않고 고칠 수 있어야 한다.
+   */
+  const openLinkedReservation = (reservation: ReservationInfo) => {
+    if (reservation.placeId && places.some((place) => place.id === reservation.placeId)) {
+      onOpenPlaceForReservation(reservation.placeId);
+      return;
+    }
+    openReservation(reservation);
+  };
   const saveReservation = () => {
     if (!reservationDraft.name.trim()) return;
     const next = { ...reservationDraft, name: reservationDraft.name.trim() };
@@ -3497,11 +3549,13 @@ function TripOverview({
         )}
       </View>
 
+      {/* 목록은 그대로 둔다. 예약을 장소 안에서 적더라도, 놓치면 안 되는 것들을
+          한자리에 모아 보여 주는 일은 여전히 이 구역이 한다. */}
       <SectionLabel
         label="예약"
         count={`${reservations.length}건`}
         action={canEdit ? "예약 추가" : undefined}
-        onPress={() => openReservation()}
+        onPress={() => setSheet("reservationPlace")}
       />
       <View style={styles.travelInfoList}>
         {reservations.map((reservation) => (
@@ -3515,11 +3569,11 @@ function TripOverview({
             color={theme?.primary ?? "#FF6B63"}
             link={safeUrl(reservation.bookingUrl) ?? undefined}
             linkSubject={`${reservation.name} 예약 링크`}
-            onPress={() => openReservation(reservation)}
+            onPress={() => openLinkedReservation(reservation)}
           />
         ))}
         {reservations.length === 0 && (
-          <EmptyState title="예약한 곳이 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={canEdit ? () => openReservation() : undefined} />
+          <EmptyState title="예약한 곳이 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={canEdit ? () => setSheet("reservationPlace") : undefined} />
         )}
       </View>
 
@@ -3789,6 +3843,61 @@ function TripOverview({
             </View>
           ))}
       </InfoPanel>
+      {/* 예약을 적기 전에 어디를 예약했는지부터 고른다. 담아 둔 장소에 붙여야
+          그날 일정과 장소 카드에서 같은 예약이 함께 보인다. */}
+      <DetailSheet
+        visible={sheet === "reservationPlace"}
+        title="어디를 예약했나요?"
+        subtitle="예약은 장소에 붙여 둬요. 담아 둔 곳에서 고르거나 새로 만들 수 있어요"
+        submit="새 장소 만들기"
+        onClose={() => setSheet(null)}
+        onSubmit={() => {
+          setSheet(null);
+          onOpenPlaceForReservation(null);
+        }}
+      >
+        {places.length > 0 ? (
+          <View style={styles.savedPlacePicker}>
+            <View style={styles.savedPlacePickerHead}>
+              <View>
+                <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>저장한 장소에서 선택</Text>
+                <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>고르면 그 장소의 예약 칸이 열려요</Text>
+              </View>
+            </View>
+            <View style={styles.savedPlaceChoiceList}>
+              {places.map((place) => {
+                const booked = reservations.find((item) => item.placeId === place.id);
+                return (
+                  <Pressable
+                    key={place.id}
+                    onPress={() => {
+                      setSheet(null);
+                      onOpenPlaceForReservation(place.id);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${place.name} 예약 적기`}
+                    style={({ pressed }) => [
+                      styles.savedPlaceChoice,
+                      styles.savedPlaceChoiceWide,
+                      theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                      pressed && styles.controlPressed,
+                    ]}
+                  >
+                    <Text numberOfLines={1} style={[styles.savedPlaceChoiceName, theme && { color: theme.text }]}>{place.name}</Text>
+                    <Text numberOfLines={1} style={[styles.savedPlaceChoiceMeta, theme && { color: theme.muted }]}>
+                      {booked ? `${booked.time || "시간 미정"} 예약 있음` : `${place.category} · ${place.area}`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>
+            아직 담아 둔 장소가 없어요. 새 장소를 만들면서 예약도 함께 적을 수 있어요.
+          </Text>
+        )}
+      </DetailSheet>
       <DetailSheet
         visible={sheet === "reservation"}
         title={editingReservation ? "예약 정보 수정" : "예약 정보 추가"}
@@ -3971,6 +4080,10 @@ function Places({
   setSchedule,
   places,
   setPlaces,
+  reservations,
+  setReservations,
+  sheetRequest,
+  onSheetRequestHandled,
   registeredStayName,
   onRegisterStay,
   onUpdateRegisteredStay,
@@ -3983,6 +4096,12 @@ function Places({
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
   places: PlaceItem[];
   setPlaces: React.Dispatch<React.SetStateAction<PlaceItem[]>>;
+  /** 여행 전체의 예약. 장소 시트가 자기에게 붙은 것을 여기서 찾아 채운다. */
+  reservations: ReservationInfo[];
+  setReservations: React.Dispatch<React.SetStateAction<ReservationInfo[]>>;
+  /** 여행 탭의 「예약 추가」가 열어 달라고 한 장소. `placeId` 가 없으면 새로 만든다. */
+  sheetRequest: { placeId: string | null } | null;
+  onSheetRequestHandled: () => void;
   registeredStayName: string;
   onRegisterStay: (place: PlaceItem) => void;
   onUpdateRegisteredStay: (place: PlaceItem) => void;
@@ -4036,6 +4155,31 @@ function Places({
   const [placeDraftBaseline, setPlaceDraftBaseline] = useState(
     placeDraftKey("", "", "식당", "", "", ""),
   );
+  // 이 장소에 붙은 예약. 장소마다 하나만 둔다. 한 가게를 두 번 예약하는 일은
+  // 드물고, 여러 개를 허용하면 시트에서 어느 것을 고칠지부터 물어야 한다.
+  const reservationOf = (placeId: string | undefined) =>
+    placeId ? reservations.find((item) => item.placeId === placeId) : undefined;
+  const blankPlaceReservation = (): ReservationInfo => ({
+    // 저장할 때가 아니라 시트를 열 때 만든다. 켜고 끄기를 되풀이해도 id 가
+    // 흔들리지 않아야 서버에 같은 예약이 두 번 만들어지지 않는다.
+    id: newPlaceId(),
+    name: "",
+    date: dayOptions[Math.min(1, dayOptions.length - 1)] ?? "",
+    time: "19:00",
+    people: "2명",
+    status: "예약 확정",
+    place: "",
+    bookingUrl: "",
+    // 기본은 켬. 그날 일정 사이에 `19:00 저녁 예약` 으로 떠야 놓치지 않는다.
+    showInSchedule: true,
+  });
+  const [reservationOn, setReservationOn] = useState(false);
+  const [reservationDraft, setReservationDraft] = useState<ReservationInfo>(blankPlaceReservation);
+  const reservationDraftKey = (on: boolean, draft: ReservationInfo) =>
+    JSON.stringify([on, draft.date, draft.time, draft.people, draft.status, draft.place, draft.bookingUrl ?? "", draft.showInSchedule]);
+  const [reservationBaseline, setReservationBaseline] = useState(() =>
+    reservationDraftKey(false, blankPlaceReservation()),
+  );
   const placeDraftChanged = placeDraftKey(
     name,
     address,
@@ -4043,11 +4187,17 @@ function Places({
     mapUrl,
     tagText,
     memo,
-  ) !== placeDraftBaseline;
+  ) !== placeDraftBaseline || reservationDraftKey(reservationOn, reservationDraft) !== reservationBaseline;
   const allTags = useMemo(
     () => Array.from(new Set(places.flatMap((place) => place.tags))),
     [places],
   );
+  // 목록을 그릴 때마다 예약을 훑지 않으려고 한 번에 표로 만든다.
+  const reservationByPlace = useMemo(() => {
+    const 표 = new Map<string, ReservationInfo>();
+    for (const item of reservations) if (item.placeId) 표.set(item.placeId, item);
+    return 표;
+  }, [reservations]);
   useEffect(() => {
     // 목록 교체로 사라진 태그가 필터에 남지 않게 한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -4126,12 +4276,22 @@ function Places({
     setPlaceDetailsOpen(false);
     setEditingId(null);
   };
-  const openCreate = () => {
+  /** 시트를 열면서 예약 칸을 채운다. 이미 붙은 예약이 있으면 그 값으로 펼친다. */
+  const loadReservationDraft = (place: PlaceItem | undefined, openReservation: boolean) => {
+    const 붙은 = reservationOf(place?.id);
+    const 초안 = 붙은 ?? blankPlaceReservation();
+    const 켬 = Boolean(붙은) || openReservation;
+    setReservationDraft(초안);
+    setReservationOn(켬);
+    setReservationBaseline(reservationDraftKey(켬, 초안));
+  };
+  const openCreate = (withReservation = false) => {
     setPlaceDraftBaseline(placeDraftKey("", "", "식당", "", "", ""));
     resetForm();
+    loadReservationDraft(undefined, withReservation);
     setAdding(true);
   };
-  const openEdit = (place: PlaceItem) => {
+  const openEdit = (place: PlaceItem, withReservation = false) => {
     setPlaceDraftBaseline(placeDraftKey(
       place.name,
       place.address ?? "",
@@ -4148,8 +4308,22 @@ function Places({
     setTagText(place.tags.join(", "));
     setMemo(place.memo ?? "");
     setPlaceDetailsOpen(Boolean(place.address || place.mapUrl || place.tags.length));
+    loadReservationDraft(place, withReservation);
     setAdding(true);
   };
+  useEffect(() => {
+    // 여행 탭에서 장소를 고르고 온 길. 고른 장소의 시트를 예약 칸이 펼쳐진 채로 연다.
+    if (!sheetRequest) return;
+    const target = sheetRequest.placeId
+      ? places.find((place) => place.id === sheetRequest.placeId)
+      : undefined;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (target) openEdit(target, true);
+    else openCreate(true);
+    onSheetRequestHandled();
+    // 부탁이 들어올 때만 연다. 장소 목록이 바뀔 때마다 다시 열면 안 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetRequest]);
   const savePlace = () => {
     if (!name.trim()) return;
     const wasEditing = Boolean(editingId);
@@ -4194,9 +4368,47 @@ function Places({
       if (next.category === "숙소") onUpdateRegisteredStay(next);
       else onRemoveRegisteredStay();
     }
+    const 있던_예약 = reservationOf(next.id);
+    if (reservationOn) {
+      // 예약 이름은 장소 이름을 따른다. 같은 것을 두 번 적게 하지 않는다.
+      const 예약: ReservationInfo = { ...reservationDraft, id: 있던_예약?.id ?? reservationDraft.id, name: next.name, placeId: next.id };
+      setReservations((current) =>
+        있던_예약
+          ? current.map((item) => (item.id === 예약.id ? 예약 : item))
+          : [...current, 예약],
+      );
+    } else if (있던_예약) {
+      // 끌 때 이미 물어봤다. 여기서는 그대로 지운다. 일정 줄은 `showInSchedule`
+      // 을 다시 훑는 자리에서 함께 걷힌다.
+      setReservations((current) => current.filter((item) => item.id !== 있던_예약.id));
+    }
     resetForm();
     setAdding(false);
-    notify(wasEditing ? "장소 정보를 수정했어요" : "장소를 저장했어요");
+    notify(
+      reservationOn
+        ? "장소와 예약을 저장했어요"
+        : wasEditing ? "장소 정보를 수정했어요" : "장소를 저장했어요",
+    );
+  };
+  /**
+   * 예약 칸을 켜고 끈다. 끄면 붙어 있던 예약이 사라지므로 한 번 묻는다.
+   *
+   * 웹에서는 `Alert.alert` 이 아무 일도 하지 않아 `showAlert` 를 쓴다.
+   */
+  const toggleReservation = () => {
+    if (!reservationOn) {
+      setReservationOn(true);
+      return;
+    }
+    const 있던_예약 = reservationOf(editingId ?? undefined);
+    if (!있던_예약) {
+      setReservationOn(false);
+      return;
+    }
+    showAlert("이 장소의 예약을 지울까요?", `${있던_예약.date} ${있던_예약.time || "시간 미정"} 예약 기록이 사라져요.`, [
+      { text: "취소", style: "cancel" },
+      { text: "지우기", style: "destructive", onPress: () => setReservationOn(false) },
+    ]);
   };
   const deletePlace = () => {
     if (!editingId) return;
@@ -4209,6 +4421,13 @@ function Places({
     if (linkedScheduleCount) {
       setSchedule((current) => current.filter((item) => item.placeId !== target.id));
     }
+    // 예약은 지우지 않고 연결만 끊는다. 예약 이름·시각은 사람이 적은 것이라
+    // 장소를 뺐다고 사라지면 안 된다. 서버도 같게 정리한다(app/services/links.py).
+    setReservations((current) =>
+      current.map((item) =>
+        item.placeId === target.id ? { ...item, placeId: undefined } : item,
+      ),
+    );
     if (target.name === registeredStayName) onRemoveRegisteredStay();
     setAdding(false);
     resetForm();
@@ -4326,7 +4545,7 @@ function Places({
         label="저장한 장소"
         count={`${places.length}개`}
         action="장소 추가"
-        onPress={openCreate}
+        onPress={() => openCreate()}
       />
       <View style={[styles.placeControlPanel, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.placeToolbar}>
@@ -4483,6 +4702,9 @@ function Places({
           // 이미 그 상태면 오른쪽 위 배지가 말해준다. 같은 말을 하는 비활성
           // 버튼은 내지 않는다. 다녀온 곳은 이제 와 담을 일이 없다.
           const settled = visited || (place.category === "숙소" ? isStay : inPlan);
+          // 예약을 해 둔 곳인지는 카드에서 바로 보여야 한다. 시각까지 붙여야
+          // 그날 몇 시에 가야 하는지가 목록만 훑어도 잡힌다.
+          const booked = reservationByPlace.get(place.id);
           return (
           // 준비물 카드처럼 카드를 누르면 열린다. 카드마다 '수정' 버튼을
           // 따로 두면 같은 일을 하는 단추가 장소 수만큼 늘어난다.
@@ -4506,6 +4728,13 @@ function Places({
                   </View>
                 </View>
                 <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.category} · {place.area}</Text>
+                {booked && (
+                  <View style={[styles.placeMiniBooking, { backgroundColor: `${theme?.primary ?? "#FF6B63"}1E` }]}>
+                    <Text style={[styles.placeMiniBookingText, { color: theme?.primary ?? "#FF6B63" }]}>
+                      {booked.time ? `${booked.time} 예약` : "예약"}
+                    </Text>
+                  </View>
+                )}
                 {Boolean(place.memo?.trim()) && (
                   <Text numberOfLines={1} style={[styles.placeMiniMemo, { color: theme?.text ?? "#17233D" }]}>{place.memo}</Text>
                 )}
@@ -4575,7 +4804,7 @@ function Places({
               title="아직 저장한 장소가 없어요"
               description="가 보고 싶은 곳을 먼저 담아 두세요."
               action="장소 추가"
-              onPress={canEdit ? openCreate : undefined}
+              onPress={canEdit ? () => openCreate() : undefined}
             />
           ) : (
             <EmptyState
@@ -4703,7 +4932,7 @@ function Places({
         submit={editingId ? "변경 저장" : "장소 추가"}
         disabledHint={!placeFormValid ? (duplicatePlace ? "이미 저장한 장소예요" : "장소 이름을 입력해 주세요") : undefined}
         destructiveLabel={editingId ? "장소 삭제" : undefined}
-        destructiveMessage={editingId ? "연결된 일정과 대표 숙소 설정도 함께 정리돼요." : undefined}
+        destructiveMessage={editingId ? "연결된 일정과 대표 숙소 설정도 함께 정리돼요. 예약 기록은 예약 목록에 남아요." : undefined}
         submitDisabled={!placeFormValid}
         hasUnsavedChanges={placeDraftChanged}
         onDestructive={deletePlace}
@@ -4888,6 +5117,73 @@ function Places({
               ))}
             </View>
           </View>
+        </OptionalFormSection>
+        {/* 예약은 결국 "어디를 몇 시에 가느냐" 라 장소와 한 몸이다. 따로 적게
+            두면 같은 가게를 장소로 한 번, 예약으로 또 한 번 쓰게 된다. */}
+        <OptionalFormSection
+          label="예약"
+          summary={
+            reservationOn
+              ? [reservationDraft.date, reservationDraft.time || "시간 미정", reservationDraft.people]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "예약해 둔 곳이면 여기에 함께 적어 두세요"
+          }
+          open={reservationOn}
+          onToggle={toggleReservation}
+          switchLabel={(open) => (open ? "예약 있어요" : "예약 없어요")}
+        >
+          <OptionField
+            label="예약 날짜"
+            options={dayOptions}
+            value={reservationDraft.date}
+            onChange={(date) => setReservationDraft((current) => ({ ...current, date }))}
+          />
+          <TimePickerField
+            label="예약 시간 · 선택 사항"
+            value={reservationDraft.time}
+            onChange={(time) => setReservationDraft((current) => ({ ...current, time }))}
+            fallback="19:00"
+            optional
+          />
+          <DetailField
+            label="인원 · 선택 사항"
+            value={reservationDraft.people}
+            onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))}
+            placeholder="예: 2명"
+          />
+          <OptionField
+            label="예약 상태"
+            options={["예약 확정", "확인 필요", "취소"]}
+            value={reservationDraft.status}
+            onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))}
+          />
+          <DetailField
+            label="예약 링크 · 선택 사항"
+            value={reservationDraft.bookingUrl ?? ""}
+            onChangeText={(bookingUrl) => setReservationDraft((current) => ({ ...current, bookingUrl }))}
+            placeholder="https://"
+            keyboardType="url"
+            autoCapitalize="none"
+            maxLength={2048}
+          />
+          {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
+            <Text style={styles.linkState}>https:// 로 시작하는 링크만 저장돼요</Text>
+          )}
+          <DetailField
+            label="예약 메모 · 선택 사항"
+            value={reservationDraft.place}
+            onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))}
+            multiline
+            maxLength={2000}
+            placeholder="예: 창가 자리로 부탁드림"
+          />
+          <OptionField
+            label="여행 일정 표시"
+            options={["일정에도 표시", "예약 정보만 저장"]}
+            value={reservationDraft.showInSchedule ? "일정에도 표시" : "예약 정보만 저장"}
+            onChange={(value) => setReservationDraft((current) => ({ ...current, showInSchedule: value === "일정에도 표시" }))}
+          />
         </OptionalFormSection>
       </DetailSheet>
       <DetailSheet
@@ -10898,12 +11194,20 @@ function OptionalFormSection({
   summary,
   open: openProp,
   onToggle,
+  switchLabel,
   children,
 }: {
   label: string;
   summary: string;
   open: boolean;
   onToggle: () => void;
+  /**
+   * 켜고 끄는 뜻이 담긴 칸일 때 오른쪽 버튼에 함께 적는 말.
+   *
+   * 접었다 펴기만 하는 칸은 ＋/－ 만으로 충분하다. 그런데 예약처럼 펴는 것이
+   * 곧 "있어요" 인 칸은 그 기호만 보고는 무엇이 생기는지 알 수 없다.
+   */
+  switchLabel?: (open: boolean) => string;
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -10920,7 +11224,7 @@ function OptionalFormSection({
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`${label} ${open ? "접기" : "펼치기"}`}
+        accessibilityLabel={switchLabel ? switchLabel(open) : `${label} ${open ? "접기" : "펼치기"}`}
         style={({ pressed }) => [
           styles.optionalSectionHead,
           pressed && styles.controlPressed,
@@ -10930,7 +11234,17 @@ function OptionalFormSection({
           <Text style={[styles.optionalSectionLabel, theme && { color: theme.text }]}>{label}</Text>
           <Text numberOfLines={1} style={[styles.optionalSectionSummary, theme && { color: theme.muted }]}>{summary}</Text>
         </View>
-        <View style={[styles.optionalSectionAction, theme && { backgroundColor: theme.surface }]}>
+        <View
+          style={[
+            switchLabel ? styles.optionalSectionSwitch : styles.optionalSectionAction,
+            theme && { backgroundColor: theme.surface },
+          ]}
+        >
+          {switchLabel && (
+            <Text numberOfLines={1} style={[styles.optionalSectionSwitchText, theme && { color: theme.primary }]}>
+              {switchLabel(open)}
+            </Text>
+          )}
           <Glyph name={open ? "minus" : "plus"} size={16} color={theme?.primary ?? "#6556D8"} />
         </View>
       </Pressable>
@@ -12289,6 +12603,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // 말이 붙은 스위치는 네모 버튼보다 넓다. 너비를 글자가 정하도록 자리를 따로 만든다.
+  optionalSectionSwitch: {
+    height: 32,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    // 왼쪽 설명이 flex:1 이라 이쪽을 눌러 줄인다. 줄어들면 글자가 세로로 쌓인다.
+    flexShrink: 0,
+  },
+  optionalSectionSwitchText: { fontSize: 12, fontFamily: typo.label.family },
   optionalSectionBody: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#DDD9D1",
@@ -12462,6 +12789,10 @@ const styles = StyleSheet.create({
   },
   savedPlaceChoiceName: { fontSize: 13, fontFamily: typo.label.family },
   savedPlaceChoiceMeta: { fontSize: 12, marginTop: 4 },
+  // 예약할 곳 고르기는 옆으로 미는 줄이 아니라 위아래 목록이다. 몇 곳뿐이어도
+  // 옆으로 밀게 하면 뒤쪽에 둔 장소를 못 보고 지나친다.
+  savedPlaceChoiceList: { gap: 8 },
+  savedPlaceChoiceWide: { width: "100%" },
   naverField: {
     backgroundColor: "#E6F5ED",
     borderRadius: 16,
@@ -13954,6 +14285,9 @@ const styles = StyleSheet.create({
   placeMiniStatusText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   placeMiniMemo: { fontSize: 12, fontFamily: typo.body.family, marginTop: 4 },
+  // 예약 배지는 줄 하나를 통째로 쓰지 않는다. 글자만큼만 차지하게 왼쪽에 붙인다.
+  placeMiniBooking: { alignSelf: "flex-start", height: 21, borderRadius: 8, paddingHorizontal: 6, justifyContent: "center", marginTop: 4 },
+  placeMiniBookingText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniTags: { minHeight: 22, flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
   placeMiniTag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
   placeMiniTagText: { fontSize: 12, fontFamily: typo.label.family },

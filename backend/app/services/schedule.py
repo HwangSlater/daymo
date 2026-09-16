@@ -19,6 +19,7 @@ from app.models import (
     LinkTargetType,
     Membership,
     PhotoTargetType,
+    ReservationTargetType,
     ScheduleItem,
     Space,
     Stay,
@@ -300,7 +301,14 @@ async def update_stay(
 
 
 async def remove_stay(session: AsyncSession, stay: Stay) -> None:
-    await detach_all(session, link_target=LinkTargetType.STAY, photo_target=PhotoTargetType.STAY, target_id=stay.id)
+    # 숙소에 붙어 있던 예약은 남기고 연결만 끊는다(app/services/links.py).
+    await detach_all(
+        session,
+        link_target=LinkTargetType.STAY,
+        photo_target=PhotoTargetType.STAY,
+        reservation_target=ReservationTargetType.STAY,
+        target_id=stay.id,
+    )
     await session.delete(stay)
     await session.flush()
 
