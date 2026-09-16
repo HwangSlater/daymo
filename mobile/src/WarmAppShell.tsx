@@ -34,6 +34,8 @@ import { PEEL_CANCEL_MS, PEEL_FINISH_MS, peelDistance, peelDragProgress, shouldC
 import { MapLink } from "./MapLink";
 import { naverMapSearchUrl } from "./mapLinks";
 import { ParticipantPicker } from "./ParticipantPicker";
+import { NoticeImportSheet } from "./NoticeImportSheet";
+import { NOTICE_IMPORT_ENABLED } from "./features";
 import {
   clearDevice,
   defaultMe,
@@ -553,6 +555,8 @@ export function WarmAppShell({
   const [view, setView] = useState<MainView>("홈");
   const [isTripOpen, setTripOpen] = useState(false);
   const [openTripCreator, setOpenTripCreator] = useState(false);
+  // 카카오톡 공지를 통째로 붙여넣어 지난 여행을 채우는 시트. 「여행」 탭에서 연다.
+  const [openNoticeImport, setOpenNoticeImport] = useState(false);
   const [tripDestination, setTripDestination] =
     useState<TripDetailDestination>("overview");
   const [done, setDone] = useState<string[]>(["charger", "toiletries"]);
@@ -1310,6 +1314,7 @@ export function WarmAppShell({
             onRefresh={() => void refreshAll()}
             openCreatorOnMount={openTripCreator}
             onCreatorOpened={() => setOpenTripCreator(false)}
+            onPasteNotice={() => setOpenNoticeImport(true)}
             onCreateTrip={async ({ title, startDate, endDate, regionName, summary, participants }) => {
               const created = await createTrip(activeSpace.id, {
                 title,
@@ -1368,6 +1373,24 @@ export function WarmAppShell({
           />
         )}
       </View>
+      {/* 아직 열지 않은 기능. 꺼져 있으면 여는 버튼도 없어서 이 시트는 뜨지 않는다. */}
+      {NOTICE_IMPORT_ENABLED && (
+        <NoticeImportSheet
+          theme={theme}
+          visible={openNoticeImport}
+          trips={tripItems
+            .filter((trip) => !trip.archived && typeof trip.id === "string")
+            .map((trip) => ({ id: String(trip.id), name: trip.name, date: trip.date, start: trip.start, end: trip.end }))}
+          roster={activeRoster}
+          onClose={() => setOpenNoticeImport(false)}
+          onFilled={async (tripId) => {
+            setOpenNoticeImport(false);
+            const filled = tripFromServer(await getTrip(tripId), tripItems.length, activeRoster);
+            setTripItems((current) => [filled, ...current.filter((item) => item.id !== filled.id)]);
+            openTrip("overview", filled);
+          }}
+        />
+      )}
       <BottomBar active={view} setActive={setView} theme={theme} />
     </SafeAreaView>
   );
@@ -2913,6 +2936,7 @@ function TripsExplorer({
   onRefresh,
   openCreatorOnMount = false,
   onCreatorOpened,
+  onPasteNotice,
   onCreateTrip,
   deletedTrips,
 }: {
@@ -2929,6 +2953,8 @@ function TripsExplorer({
   onRefresh?: () => void;
   openCreatorOnMount?: boolean;
   onCreatorOpened?: () => void;
+  /** 카카오톡 공지를 붙여넣어 지난 여행을 채우는 시트를 연다. */
+  onPasteNotice: () => void;
   onCreateTrip: (input: { title: string; startDate: string; endDate: string; regionName: string; summary: string; participants: string[] }) => Promise<Trip>;
 }) {
   const initialCalendarDate = new Date();
@@ -3053,18 +3079,35 @@ function TripsExplorer({
           <Text style={[s.overline, { color: theme.primary }]}>함께 만든 여행</Text>
           <Text style={[s.screenTitle, { color: theme.text }]}>여행</Text>
         </View>
-        <Pressable
-          onPress={openCreator}
-          accessibilityRole="button"
-          accessibilityLabel="새 여행 만들기"
-          style={({ pressed }) => [
-            s.newTrip,
-            { backgroundColor: theme.primary },
-            pressed && s.pressed,
-          ]}
-        >
-          <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>＋ 새 여행</Text>
-        </Pressable>
+        <View style={s.tripHeadActions}>
+          {/* 카카오톡 공지를 통째로 옮겨 지난 여행을 채우는 길. 아직 열지 않은 기능이다. */}
+          {NOTICE_IMPORT_ENABLED && (
+            <Pressable
+              onPress={onPasteNotice}
+              accessibilityRole="button"
+              accessibilityLabel="공지 붙여넣기로 지난 여행 채우기"
+              style={({ pressed }) => [
+                s.pasteNotice,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+                pressed && s.pressed,
+              ]}
+            >
+              <Text style={[s.newTripText, { color: theme.primary }]}>공지 붙여넣기</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={openCreator}
+            accessibilityRole="button"
+            accessibilityLabel="새 여행 만들기"
+            style={({ pressed }) => [
+              s.newTrip,
+              { backgroundColor: theme.primary },
+              pressed && s.pressed,
+            ]}
+          >
+            <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>＋ 새 여행</Text>
+          </Pressable>
+        </View>
       </View>
       <View
         style={[
@@ -7489,6 +7532,15 @@ const s = StyleSheet.create({
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
     marginTop: 2,
+  },
+  tripHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  pasteNotice: {
+    borderRadius: 12,
+    minHeight: 40,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    transform: [{ rotate: "-0.5deg" }],
   },
   newTrip: {
     borderRadius: 12,
