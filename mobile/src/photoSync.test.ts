@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { bodyKey, hasWork, planListSync, tripDateKeys, type Confirmed } from "./listSync.ts";
-import { colorOfId, PHOTO_PALETTE, PHOTO_UNDATED, photoCodec, type PhotoRow } from "./photoSync.ts";
+import {
+  colorOfId,
+  PHOTO_PALETTE,
+  PHOTO_UNDATED,
+  photoCodec,
+  photosLinkedTo,
+  photosOfStay,
+  tidyLinks,
+  type PhotoRow,
+} from "./photoSync.ts";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const dates = tripDateKeys("2026-10-01", "2026-10-03");
@@ -21,14 +30,14 @@ test("날짜 줄은 여행 날짜로 오가고 파일 자리와 색은 기기 �
   const codec = photoCodec(dates, new Set([A]));
   const local: PhotoRow = { id: A, color: "#123456", date: "2일(금)", caption: " 느린 점심 ", uri: "file:///p.jpg" };
 
-  assert.deepEqual(codec.toBody(local), { caption: "느린 점심", date: "2026-10-02" });
+  assert.deepEqual(codec.toBody(local), { caption: "느린 점심", date: "2026-10-02", links: [] });
   const row = {
     id: A, status: "ready" as const, caption: "느린 점심", date: "2026-10-02", takenAt: null, width: 10, height: 10, bytes: 100,
     isReceipt: false, uploaderMembershipId: null, uploaderName: "하늘", createdAt: "2026-10-02T03:00:00Z", version: 1,
   };
   const back = codec.fromServer(row);
   assert.deepEqual(codec.keepLocal?.(back, local), {
-    id: A, color: "#123456", date: "2일(금)", caption: "느린 점심", uri: "file:///p.jpg", uploaderMembershipId: null,
+    id: A, color: "#123456", date: "2일(금)", caption: "느린 점심", uri: "file:///p.jpg", links: [], uploaderMembershipId: null,
   });
   assert.equal(codec.fromServer({ ...row, date: "2026-12-25" }).date, PHOTO_UNDATED);
   const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(back)), version: 1 }]]);
@@ -55,4 +64,62 @@ test("올린 사람은 서버에서 받아 두지만 서버로 보내지 않는�
 test("색은 id 로 정해져 기기마다 같다", () => {
   assert.equal(colorOfId(A), colorOfId(A));
   assert.ok(PHOTO_PALETTE.includes(colorOfId("22222222-2222-4222-8222-222222222222")));
+});
+
+// ---------------------------------------------------------------------------
+// 사진을 장소·일정·숙소에 붙이기
+// ---------------------------------------------------------------------------
+
+const PLACE = "33333333-3333-4333-8333-333333333333";
+const STAY = "44444444-4444-4444-8444-444444444444";
+
+test("붙은 곳은 늘 같은 차례로 오가고 아직 못 올린 곳은 보내지 않는다", () => {
+  const codec = photoCodec(dates, new Set([A]), new Set([PLACE]));
+  const local: PhotoRow = {
+    id: A, color: "#fff", date: "2일(금)", caption: "", uri: "file:///p.jpg",
+    links: [{ targetType: "stay", targetId: STAY }, { targetType: "place", targetId: PLACE }],
+  };
+
+  // 서버에 없는 숙소는 빠진다. 그 숙소가 올라가면 다시 맞추면서 붙는다.
+  assert.deepEqual(codec.toBody(local).links, [{ targetType: "place", targetId: PLACE }]);
+  // 같은 곳이 두 번 와도 한 번만, 차례는 늘 같다.
+  assert.deepEqual(
+    tidyLinks([
+      { targetType: "stay", targetId: STAY },
+      { targetType: "place", targetId: PLACE },
+      { targetType: "stay", targetId: STAY },
+    ]),
+    [{ targetType: "place", targetId: PLACE }, { targetType: "stay", targetId: STAY }],
+  );
+});
+
+test("서버가 준 차례가 달라도 다시 보내지 않는다", () => {
+  const codec = photoCodec(dates, new Set([A]), new Set([PLACE, STAY]));
+  const local: PhotoRow = {
+    id: A, color: "#fff", date: "2일(금)", caption: "", uri: "file:///p.jpg",
+    links: [{ targetType: "stay", targetId: STAY }, { targetType: "place", targetId: PLACE }],
+  };
+  const row = {
+    id: A, status: "ready" as const, caption: "", date: "2026-10-02", takenAt: null, width: 10, height: 10, bytes: 100,
+    isReceipt: false, uploaderMembershipId: null, uploaderName: "하늘", createdAt: "2026-10-02T03:00:00Z", version: 1,
+    links: [{ targetType: "place" as const, targetId: PLACE }, { targetType: "stay" as const, targetId: STAY }],
+  };
+  const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(codec.fromServer(row))), version: 1 }]]);
+
+  assert.equal(hasWork(planListSync([local], codec, confirmed)), false);
+});
+
+test("장소·일정은 붙은 사진만, 숙소는 묵는 동안의 사진까지 본다", () => {
+  const 사진 = [
+    { id: "1", date: "1일(목)", links: [{ targetType: "place" as const, targetId: PLACE }] },
+    { id: "2", date: "2일(금)", links: [{ targetType: "stay" as const, targetId: STAY }] },
+    { id: "3", date: "2일(금)" },
+    { id: "4", date: "3일(토)" },
+  ];
+
+  assert.deepEqual(photosLinkedTo(사진, "place", PLACE).map((photo) => photo.id), ["1"]);
+  assert.deepEqual(photosLinkedTo(사진, "place", undefined), []);
+  // 붙인 사진이 먼저 오고 그날 사진이 뒤에 온다. 같은 사진이 두 번 오지 않는다.
+  assert.deepEqual(photosOfStay(사진, STAY, ["2일(금)"]).map((photo) => photo.id), ["2", "3"]);
+  assert.deepEqual(photosOfStay(사진, undefined, ["3일(토)"]).map((photo) => photo.id), ["4"]);
 });

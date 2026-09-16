@@ -34,7 +34,28 @@ import {
 } from "./pastTripImport";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
-import { photoCodec } from "./photoSync";
+import { photoCodec, photosLinkedTo, photosOfStay, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
+import {
+  KEEPSAKE_PARTS,
+  KEEPSAKE_RATIOS,
+  KEEPSAKE_STAT_KINDS,
+  KEEPSAKE_STYLES,
+  keepsakeBodyOf,
+  keepsakeCardOf,
+  keepsakeFileName,
+  keepsakeLayoutOf,
+  keepsakeSizeOf,
+  keepsakeStatLines,
+  keepsakeTextOf,
+  toggleKeepsakePhoto,
+  type KeepsakeCard,
+  type KeepsakePart,
+  type KeepsakeRatio,
+  type KeepsakeStatKind,
+  type KeepsakeStyle,
+  type SavedKeepsake,
+} from "./tripCard";
+import { shareTripCard } from "./tripCardExport";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
 import type { ExpenseSettings, ReportReason, ReportTargetType, ServerTrip } from "./serverData";
@@ -131,6 +152,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { captureRef, releaseCapture } from "react-native-view-shot";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
@@ -330,6 +352,8 @@ export type MemoryPhoto = {
   date: string;
   caption: string;
   uri?: string;
+  /** 이 사진을 붙인 장소·일정·숙소. 날짜는 연결이 아니라 위의 `date` 다. */
+  links?: PhotoLink[];
   /** 올린 사람. 서버에서 받은 사진에만 있다. 비어 있으면 이 기기에서 올린 내 사진이다. */
   uploaderMembershipId?: string | null;
 };
@@ -359,22 +383,24 @@ async function readClipboard(): Promise<string> {
   }
 }
 
+/**
+ * 기록 탭이 기기에 들고 있는 것.
+ *
+ * 기념 카드에서 고른 스타일·제목·문구는 여기 없다. 함께 쓰는 공간이라 한쪽이
+ * 고른 제목이 상대에게도 보여야 해서 여행에 붙여 서버가 들고 있는다.
+ */
 export type TripMemoryData = {
   photos: MemoryPhoto[];
   diaries: TravelDiary[];
-  cardStyle: string;
-  cardTitle: string;
-  cardCaption: string;
 };
 
 /**
  * 기록 탭의 처음 모습.
  *
  * `withSamples` 는 예시 여행에만 준다. 내가 만든 여행이 남의 사진과 일기로
- * 차 있으면 내 기록이 아니게 된다. 카드 제목과 말투는 빈 여행에도 쓸모가
- * 있어서 사진과 일기만 갈라 낸다.
+ * 차 있으면 내 기록이 아니게 된다.
  */
-const initialMemoryData = (tripName: string, tripDate = "여행 기간", withSamples = false): TripMemoryData => ({
+const initialMemoryData = (tripDate = "여행 기간", withSamples = false): TripMemoryData => ({
   photos: withSamples ? [
     { id: "photo-1", color: "#E7B4A6", date: "1일차", caption: "도착한 날" },
     { id: "photo-2", color: "#DFC98A", date: "1일차", caption: "느린 점심" },
@@ -389,9 +415,6 @@ const initialMemoryData = (tripName: string, tripDate = "여행 기간", withSam
     body: "계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.",
     date: tripDate,
   }] : [],
-  cardStyle: "필름",
-  cardTitle: `우리의 ${tripName} 여행`,
-  cardCaption: "함께 남긴 여행의 순간",
 });
 
 const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
@@ -514,6 +537,14 @@ type Props = {
   serverExpenseSettings?: ExpenseSettings;
   /** 통화·환율·예산·정산 묶기를 서버에 저장한다. */
   onUpdateExpenseSettings?: (settings: ExpenseSettings) => Promise<void>;
+  /** 서버에 저장된 기념 카드 값. 없으면 아직 아무도 고르지 않은 것이다. */
+  serverKeepsake?: SavedKeepsake;
+  /** 기념 카드에서 고른 것을 서버에 저장한다. 없으면 이 기기에만 남는다. */
+  onUpdateKeepsake?: (card: SavedKeepsake) => Promise<void>;
+  /** 홈의 여행 카드 바탕으로 쓰는 사진. */
+  coverPhotoId?: string;
+  /** 홈 카드 바탕 사진을 바꾼다. `null` 이면 해제다. */
+  onUpdateCoverPhoto?: (photoId: string | null) => Promise<void>;
   initialPlanning?: TripPlanningData;
   onSavePlanning?: (planning: TripPlanningData) => void;
   /** 이 여행이 속한 공간의 멤버 전원. 참가자를 고를 때의 후보다. */
@@ -987,7 +1018,7 @@ export function sampleTripPlanning(
       })),
     })),
     memories: (() => {
-      const seed = initialMemoryData(tripName, `${first} — ${last}`, true);
+      const seed = initialMemoryData(`${first} — ${last}`, true);
       // 예시 사진도 여행의 실제 날짜 칸을 쓴다. "1일차" 로 두면 날짜를 고르는
       // 자리에 없는 값이라 처음부터 목록 밖에 붙는다.
       return { ...seed, photos: seed.photos.map((photo) => ({ ...photo, date: matchTripDay(photo.date, dayOptions) })) };
@@ -1023,6 +1054,10 @@ export function WarmTripDetail({
   spaceRoster = [],
   serverExpenseSettings,
   onUpdateExpenseSettings,
+  serverKeepsake,
+  onUpdateKeepsake,
+  coverPhotoId,
+  onUpdateCoverPhoto,
   initialPlanning: savedPlanning,
   onSavePlanning,
   spaceMembers = ["하늘", "여울"],
@@ -1168,7 +1203,7 @@ export function WarmTripDetail({
           date: matchTripDay(photo.date, tripDayOptions),
         })),
       }
-      : initialMemoryData(tripName, currentTripDate),
+      : initialMemoryData(currentTripDate),
   );
   const [openCookingPicker, setOpenCookingPicker] = useState(false);
   const [registeredStay, setRegisteredStay] = useState<StayInfo>(() =>
@@ -1627,7 +1662,16 @@ export function WarmTripDetail({
   });
   const [photoSyncIds, setPhotoSyncIds] = useState<string[]>(() => initialPlanning?.photoSyncIds ?? []);
   const knownPhotoIds = useMemo(() => new Set(photoSyncIds), [photoSyncIds]);
-  const photoSyncCodec = useMemo(() => photoCodec(tripDateKeyList, knownPhotoIds), [knownPhotoIds, tripDateKeyList]);
+  // 사진을 붙일 수 있는 곳은 서버에 올라간 장소·일정·숙소뿐이다. 아직 못 올린 곳에
+  // 붙은 사진은 그곳이 올라간 뒤에 붙는다(일정이 장소를 잇는 것과 같은 규칙이다).
+  const serverLinkTargetIds = useMemo(
+    () => new Set([...placeSyncIds, ...scheduleSyncIds, ...staySyncIds]),
+    [placeSyncIds, scheduleSyncIds, staySyncIds],
+  );
+  const photoSyncCodec = useMemo(
+    () => photoCodec(tripDateKeyList, knownPhotoIds, serverLinkTargetIds),
+    [knownPhotoIds, serverLinkTargetIds, tripDateKeyList],
+  );
   // 새 사진을 올릴 때 파일 자리를 찾는다. 서버로 가는 칸(설명·날짜)에는 자리가 없다.
   const photosRef = useRef(memories.photos);
   useEffect(() => {
@@ -1660,7 +1704,7 @@ export function WarmTripDetail({
     },
     syncedIds: photoSyncIds,
     setSyncedIds: setPhotoSyncIds,
-    refreshKey: tripDateKeyList.join(","),
+    refreshKey: `${tripDateKeyList.join(",")}|${[...serverLinkTargetIds].join(",")}`,
     reloadKey: trashReload.photo,
     // 편집 멤버도 남이 올린 사진은 못 고친다. 보기만 하는 멤버에게는 기본 안내가 맞다.
     forbiddenMessage: canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined,
@@ -2083,6 +2127,7 @@ export function WarmTripDetail({
             <TripOverview
               key={initialDestination}
               setMode={showMode}
+              photos={memories.photos}
               schedule={schedule}
               setSchedule={setSchedule}
               places={places}
@@ -2105,6 +2150,7 @@ export function WarmTripDetail({
           )}
           {mode === "장소" && (
             <Places
+              photos={memories.photos}
               schedule={schedule}
               setSchedule={setSchedule}
               places={places}
@@ -2206,12 +2252,23 @@ export function WarmTripDetail({
           )}
           {mode === "기록" && (
             <Memories
+              tripName={title}
               tripDate={currentTripDate}
+              tripRegion={region}
               tripDateKeys={tripDateKeyList}
               dayOptions={tripDayOptions}
               todayDay={todayTripDay}
               memories={memories}
               setMemories={setMemories}
+              places={places}
+              schedule={schedule}
+              stay={registeredStay}
+              participants={participants}
+              spentTotal={money(expenses.reduce((sum, item) => sum + item.amount, 0), currency)}
+              keepsake={serverKeepsake}
+              onSaveKeepsake={onUpdateKeepsake}
+              coverPhotoId={coverPhotoId}
+              onSaveCoverPhoto={onUpdateCoverPhoto}
               reportSpaceId={reportSpaceId}
               isOwner={isOwner}
               myMembershipId={myMembershipId}
@@ -2596,6 +2653,7 @@ function TripOverview({
   participants,
   recipes,
   packingRemaining,
+  photos,
   dayOptions,
   dateOptions,
   todayDay,
@@ -2619,6 +2677,8 @@ function TripOverview({
   recipes: Recipe[];
   /** 아직 안 챙긴 준비물 수. 0 이면 재촉할 것이 없다. */
   packingRemaining: number;
+  /** 기록 탭의 사진. 일정 줄과 숙소가 자기 사진을 여기서 고른다. */
+  photos: MemoryPhoto[];
   dayOptions: string[];
   dateOptions: string[];
   /** 오늘이 여행 기간 안이면 그 날. 아니면 빈 문자열이다. */
@@ -2699,6 +2759,18 @@ function TripOverview({
   const editingReservation = editingReservationId !== null;
   const [stayDraft, setStayDraft] = useState(registeredStay);
   const hasStay = Boolean(registeredStay.name);
+  // 묵는 동안의 날 이름표. 숙소는 `10월 1일 15:00` 로 날을 들고 있어 날짜 칸에서 자리를 찾는다.
+  const stayDayLabels = useMemo(() => {
+    const first = dateOptions.findIndex((date) => registeredStay.checkin.startsWith(date));
+    if (first < 0) return [];
+    const last = dateOptions.findIndex((date) => registeredStay.checkout.startsWith(date));
+    return dayOptions.slice(first, last < 0 ? dayOptions.length : last + 1);
+  }, [dateOptions, dayOptions, registeredStay.checkin, registeredStay.checkout]);
+  // 숙소에 붙인 사진과 그동안 찍은 사진. "숙소 글을 누르면 그날 사진이 보인다"(요구사항 7).
+  const stayPhotos = useMemo(
+    () => photosOfStay(photos, registeredStay.id, stayDayLabels),
+    [photos, registeredStay.id, stayDayLabels],
+  );
   const scheduleDraftKey = (
     day: string,
     type: string,
@@ -3265,6 +3337,7 @@ function TripOverview({
             time={item.time.split("·").at(-1)?.trim() || item.time}
             last={index === Math.min(leadSchedule.items.length, 3) - 1}
             compact
+            photos={photosLinkedTo(photos, "schedule", item.id)}
             onPress={() => openScheduleEdit(item, schedule.indexOf(item))}
           />
         ))}
@@ -3371,6 +3444,7 @@ function TripOverview({
             />
           )}
         </View>
+        {hasStay && <PhotoStrip photos={stayPhotos} label={registeredStay.name} />}
         {!hasStay && (
           <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 등록" onPress={canEdit ? () => openStay(true) : undefined} />
         )}
@@ -3743,6 +3817,12 @@ function TripOverview({
           value={stayDraft.showInSchedule === false ? "숙소 정보만 저장" : "체크인 일정 표시"}
           onChange={(value) => setStayDraft((current) => ({ ...current, showInSchedule: value === "체크인 일정 표시" }))}
         />
+        {stayPhotos.length > 0 && (
+          <>
+            <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>이 숙소의 사진</Text>
+            <PhotoStrip photos={stayPhotos} label={registeredStay.name} />
+          </>
+        )}
       </DetailSheet>
       <InfoPanel
         visible={fullSchedule}
@@ -3823,6 +3903,7 @@ function TripOverview({
                     {...item}
                     time={item.time.split("·").at(-1)?.trim() || item.time}
                     last={index === group.items.length - 1}
+                    photos={photosLinkedTo(photos, "schedule", item.id)}
                     onPress={() => {
                       setFullSchedule(false);
                       openScheduleEdit(item, schedule.indexOf(item));
@@ -3847,6 +3928,7 @@ function Places({
   onRegisterStay,
   onUpdateRegisteredStay,
   onRemoveRegisteredStay,
+  photos,
   dayOptions,
 }: {
   schedule: ScheduleItem[];
@@ -3857,6 +3939,8 @@ function Places({
   onRegisterStay: (place: PlaceItem) => void;
   onUpdateRegisteredStay: (place: PlaceItem) => void;
   onRemoveRegisteredStay: () => void;
+  /** 기록 탭의 사진. 장소 카드가 자기에게 붙은 사진을 여기서 고른다. */
+  photos: MemoryPhoto[];
   dayOptions: string[];
 }) {
   const theme = useContext(DetailThemeContext);
@@ -4333,6 +4417,7 @@ function Places({
                   <Text numberOfLines={1} style={[styles.placeMiniMemo, { color: theme?.text ?? "#17233D" }]}>{place.memo}</Text>
                 )}
                 <SyncMark id={place.id} />
+                <PhotoStrip photos={photosLinkedTo(photos, "place", place.id)} label={place.name} />
               </View>
             </View>
             <View style={styles.placeMiniActions}>
@@ -7831,17 +7916,30 @@ function Cooking({
 }
 
 function Memories({
+  tripName,
   tripDate,
+  tripRegion,
   tripDateKeys: tripKeys,
   dayOptions,
   todayDay,
   memories,
   setMemories,
+  places,
+  schedule,
+  stay,
+  participants,
+  spentTotal,
+  keepsake,
+  onSaveKeepsake,
+  coverPhotoId,
+  onSaveCoverPhoto,
   reportSpaceId,
   isOwner = false,
   myMembershipId,
 }: {
+  tripName: string;
   tripDate: string;
+  tripRegion: string;
   /** 여행 날짜 키(YYYY-MM-DD). 여행 중에 쓴 일기를 그날에 둔다. */
   tripDateKeys: string[];
   /** 여행 날짜 칸. 비용 탭과 같은 목록에서 고르게 해야 손놀림이 같다. */
@@ -7850,6 +7948,21 @@ function Memories({
   todayDay: string;
   memories: TripMemoryData;
   setMemories: React.Dispatch<React.SetStateAction<TripMemoryData>>;
+  /** 사진을 붙일 수 있는 곳. 기념 카드의 숫자도 여기서 센다. */
+  places: PlaceItem[];
+  schedule: ScheduleItem[];
+  stay: StayInfo;
+  /** 이번 여행에 간 사람. 기념 카드의 `함께 간 사람` 줄에 쓴다. */
+  participants: string[];
+  /** 통화까지 붙인 지출 합. 기념 카드의 `쓴 돈` 통계에 쓴다. */
+  spentTotal: string;
+  /** 서버에 저장된 기념 카드 값. */
+  keepsake?: SavedKeepsake;
+  /** 없으면 이 여행은 카드 설정을 저장할 곳이 없다(예시 여행). */
+  onSaveKeepsake?: (card: SavedKeepsake) => Promise<void>;
+  /** 홈의 여행 카드 바탕으로 쓰는 사진. */
+  coverPhotoId?: string;
+  onSaveCoverPhoto?: (photoId: string | null) => Promise<void>;
   /** 서버 여행일 때만. 있으면 사진과 일기 수정 시트에 신고가 보인다. */
   reportSpaceId?: string;
   /** 공간 관리자인지. 남이 올린 사진도 고칠 수 있다. */
@@ -7866,7 +7979,7 @@ function Memories({
    */
   const canManagePhoto = (photo?: MemoryPhoto) =>
     canEdit && (!photo || isOwner || photo.uploaderMembershipId === undefined || photo.uploaderMembershipId === myMembershipId);
-  const { photos, diaries, cardStyle, cardTitle, cardCaption } = memories;
+  const { photos, diaries } = memories;
   const setPhotos: React.Dispatch<React.SetStateAction<MemoryPhoto[]>> = (update) =>
     setMemories((current) => ({
       ...current,
@@ -7877,9 +7990,6 @@ function Memories({
       ...current,
       diaries: typeof update === "function" ? update(current.diaries) : update,
     }));
-  const setCardStyle = (value: string) => setMemories((current) => ({ ...current, cardStyle: value }));
-  const setCardTitle = (value: string) => setMemories((current) => ({ ...current, cardTitle: value }));
-  const setCardCaption = (value: string) => setMemories((current) => ({ ...current, cardCaption: value }));
   const [photoEditing, setPhotoEditing] = useState(false);
   const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
   const [photoSelected, setPhotoSelected] = useState(false);
@@ -7893,11 +8003,123 @@ function Memories({
     return [...known, ...extra];
   }, [dayOptions, photos]);
   const [photoCaption, setPhotoCaption] = useState("");
+  const [photoLinks, setPhotoLinks] = useState<PhotoLink[]>([]);
+  /**
+   * 사진을 붙일 수 있는 곳.
+   *
+   * 일정은 고른 날의 것만 보인다. 사흘치 일정을 한 줄로 늘어놓으면 고를 수가 없고,
+   * 사진의 날짜를 이미 고른 뒤라 그날 밖의 일정에 붙일 일이 드물다.
+   */
+  const photoLinkOptions = useMemo<PhotoLinkOption[]>(() => {
+    const 숙소 = stay.id && stay.name
+      ? [{ targetType: "stay" as const, targetId: stay.id, label: `숙소 · ${stay.name}` }]
+      : [];
+    const 일정 = schedule
+      .filter((item) => item.id && (!item.date || item.date === photoDate))
+      .map((item) => ({ targetType: "schedule" as const, targetId: item.id as string, label: `일정 · ${item.title}` }));
+    const 장소 = places.map((place) => ({ targetType: "place" as const, targetId: place.id, label: place.name }));
+    return [...숙소, ...일정, ...장소];
+  }, [places, photoDate, schedule, stay.id, stay.name]);
   const [diaryWriting, setDiaryWriting] = useState(false);
   const [diaryTitle, setDiaryTitle] = useState("");
   const [diaryBody, setDiaryBody] = useState("");
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
   const [makingCard, setMakingCard] = useState(false);
+  // 카드에 쓸 수 있는 사진은 파일이 기기에 있는 것뿐이다. 웹의 blob: 주소는 탭을
+  // 새로 열면 죽어서, 그 사진을 고르면 빈 칸이 찍힌다.
+  const cardPhotos = useMemo(() => photos.filter((photo) => isLivePhotoUri(photo.uri)), [photos]);
+  const cardPhotoIds = useMemo(() => cardPhotos.map((photo) => photo.id), [cardPhotos]);
+  // 서버에 저장된 값이 카드의 원본이다. 시트를 열면 그 값에서 시작해 고친다.
+  const savedCard = useMemo(
+    () => keepsakeCardOf(keepsake, tripName, cardPhotoIds),
+    [cardPhotoIds, keepsake, tripName],
+  );
+  const [cardDraft, setCardDraft] = useState<KeepsakeCard>(savedCard);
+  const [savingCard, setSavingCard] = useState(false);
+  // 꾸미기는 접어 둔다. 귀찮은 사람은 열자마자 나온 카드를 그대로 내보내면 된다.
+  const [cardTuning, setCardTuning] = useState(false);
+  // 사진이 다 그려지기 전에 찍으면 웹에서 빈 칸이 나온다. 그린 사진의 id 를 센다.
+  const [drawnPhotos, setDrawnPhotos] = useState<string[]>([]);
+  const cardShot = useRef<View>(null);
+  const chosenPhotos = useMemo(
+    () => cardDraft.photoIds.map((id) => cardPhotos.find((photo) => photo.id === id)).filter((photo) => photo !== undefined),
+    [cardDraft.photoIds, cardPhotos],
+  );
+  const cardText = useMemo(
+    () => keepsakeTextOf(cardDraft, { name: tripName, period: tripDate, region: tripRegion, people: participants }),
+    [cardDraft, participants, tripDate, tripName, tripRegion],
+  );
+  const cardStats = useMemo(
+    () => keepsakeStatLines(cardDraft, {
+      places: places.length,
+      photos: photos.length,
+      days: dayOptions.length,
+      spent: spentTotal,
+    }),
+    [cardDraft, dayOptions.length, photos.length, places.length, spentTotal],
+  );
+  const openCard = () => {
+    setCardDraft(savedCard);
+    setCardTuning(false);
+    setDrawnPhotos([]);
+    setMakingCard(true);
+  };
+  const tuneCard = (change: Partial<KeepsakeCard>) => {
+    // 사진이 바뀌면 다시 그려질 때까지 기다린다.
+    if (change.photoIds) setDrawnPhotos([]);
+    setCardDraft((current) => ({ ...current, ...change }));
+  };
+  const toggleCardPart = (part: KeepsakePart) =>
+    tuneCard({ parts: cardDraft.parts.includes(part) ? cardDraft.parts.filter((item) => item !== part) : [...cardDraft.parts, part] });
+  const toggleCardStat = (stat: KeepsakeStatKind) =>
+    tuneCard({ stats: cardDraft.stats.includes(stat) ? cardDraft.stats.filter((item) => item !== stat) : [...cardDraft.stats, stat] });
+  // 홈 카드 바탕은 한 장이다. 카드에 여러 장을 골랐으면 맨 앞 사진을 쓴다.
+  const coverCandidate = cardDraft.photoIds[0] ?? "";
+  const coverOn = Boolean(coverCandidate) && coverCandidate === coverPhotoId;
+  const toggleCover = async () => {
+    if (!onSaveCoverPhoto || !coverCandidate) return;
+    try {
+      await onSaveCoverPhoto(coverOn ? null : coverCandidate);
+      notify(coverOn ? "홈 카드를 원래 모습으로 되돌렸어요" : "이 사진을 홈 카드에 깔았어요");
+    } catch {
+      notify("홈 카드 사진을 바꾸지 못했어요. 잠시 뒤에 다시 시도해 주세요");
+    }
+  };
+  const saveCard = async () => {
+    setMakingCard(false);
+    if (!onSaveKeepsake) return;
+    try {
+      await onSaveKeepsake(keepsakeBodyOf(cardDraft, tripName));
+      notify("기념 카드를 저장했어요");
+    } catch {
+      notify("기념 카드를 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요");
+    }
+  };
+  // 고른 사진이 다 그려진 뒤에만 찍는다. 파일이 없는 사진은 색만 깔리므로 기다릴 것이 없다.
+  const cardReady = chosenPhotos.every((photo) => !photo.uri || drawnPhotos.includes(photo.id));
+  /** 화면에 그려 둔 카드를 그대로 찍어 내보낸다. 웹은 내려받고 폰은 공유 시트로 간다. */
+  const exportCard = async () => {
+    if (savingCard || !cardReady) return;
+    setSavingCard(true);
+    let shot: string | undefined;
+    try {
+      const size = keepsakeSizeOf(cardDraft.ratio);
+      shot = await captureRef(cardShot, {
+        format: "png",
+        result: Platform.OS === "web" ? "data-uri" : "tmpfile",
+        width: size.exportWidth,
+        height: size.exportHeight,
+      });
+      const 결과 = await shareTripCard(keepsakeFileName(cardText.title || tripName), shot);
+      if (결과 === "unavailable") notify("이 기기에서는 카드를 내보낼 수 없어요");
+      else notify(Platform.OS === "web" ? "기념 카드를 내려받았어요" : "기념 카드를 공유했어요");
+    } catch {
+      notify("기념 카드를 만들지 못했어요");
+    } finally {
+      if (shot) releaseCapture(shot);
+      setSavingCard(false);
+    }
+  };
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showAllDiaries, setShowAllDiaries] = useState(false);
   const photoPalette = ["#E7B4A6", "#DFC98A", "#AFC9C3", "#D4BDD4", "#C7D493", "#9CBBC6"];
@@ -7908,6 +8130,7 @@ function Memories({
     setPhotoUri(undefined);
     setPhotoDate(todayDay || dayOptions[0] || UNDATED);
     setPhotoCaption("");
+    setPhotoLinks([]);
     setPhotoEditing(true);
   };
   const openPhotoEdit = (photo: MemoryPhoto) => {
@@ -7917,6 +8140,7 @@ function Memories({
     setPhotoUri(photo.uri);
     setPhotoDate(matchTripDay(photo.date, dayOptions));
     setPhotoCaption(photo.caption);
+    setPhotoLinks(tidyLinks(photo.links));
     setPhotoEditing(true);
   };
   const choosePhoto = async () => {
@@ -7974,6 +8198,7 @@ function Memories({
       date: photoDate.trim() || UNDATED,
       caption: photoCaption.trim(),
       uri: savedUri,
+      links: tidyLinks(photoLinks),
       // 같은 사진의 설명만 고치면 올린 사람은 그대로다. 사진을 바꾸면 내가 새로 올린다.
       ...(sameFile && previous?.uploaderMembershipId !== undefined ? { uploaderMembershipId: previous.uploaderMembershipId } : {}),
     };
@@ -8110,53 +8335,182 @@ function Memories({
         />
       )}
       <SectionLabel label="여행 기념 카드" />
-      <Pressable
-        onPress={() => setMakingCard(true)}
-        accessibilityRole="button"
-        accessibilityLabel="여행 기념 카드 꾸미기"
-        style={[styles.keepsakeCompact, theme && { backgroundColor: theme.surfaceAlt }]}
-      >
-        <View style={styles.keepsakeStrip}>
-          {photos.slice(0, 3).map((photo) => (
-            <View key={`${photo.id}-strip`} style={[styles.keepsakeThumb, { backgroundColor: photo.color }]}>
-              {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
-            </View>
-          ))}
-        </View>
-        <View style={styles.keepsakeCopy}>
-          <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{cardStyle} · {tripDate}</Text>
-          <Text numberOfLines={1} style={[styles.keepsakeCompactTitle, theme && { color: theme.text }]}>{cardTitle}</Text>
-          <Text style={[styles.keepsakeCompactAction, theme && { color: theme.primary }]}>한 장으로 꾸미기</Text>
-        </View>
-        <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
-      </Pressable>
+      {cardPhotos.length === 0 ? (
+        <EmptyState
+          title="카드로 만들 사진이 없어요"
+          description="사진을 한 장 추가하면 그 사진으로 기념 카드를 만들 수 있어요."
+          action="사진 추가"
+          onPress={canEdit ? openPhotoCreate : undefined}
+        />
+      ) : (
+        <Pressable
+          onPress={openCard}
+          accessibilityRole="button"
+          accessibilityLabel="여행 기념 카드 만들기"
+          style={[styles.keepsakeCompact, theme && { backgroundColor: theme.surfaceAlt }]}
+        >
+          <View style={styles.keepsakeStrip}>
+            {cardPhotos.slice(0, 3).map((photo) => (
+              <View key={`${photo.id}-strip`} style={[styles.keepsakeThumb, { backgroundColor: photo.color }]}>
+                {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+              </View>
+            ))}
+          </View>
+          <View style={styles.keepsakeCopy}>
+            <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{savedCard.style} · {tripDate}</Text>
+            <Text numberOfLines={1} style={[styles.keepsakeCompactTitle, theme && { color: theme.text }]}>{savedCard.title}</Text>
+            <Text style={[styles.keepsakeCompactAction, theme && { color: theme.primary }]}>한 장으로 만들기</Text>
+          </View>
+          <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
+        </Pressable>
+      )}
       <DetailSheet
         visible={makingCard}
-        title="여행 기념 카드 꾸미기"
-        subtitle="사진과 문구를 골라 여행을 한 장으로 간직하세요"
-        submit="변경 저장"
+        title="여행 기념 카드"
+        subtitle="이대로 저장해도 되고, 아래에서 하나하나 고쳐도 돼요"
+        submit={onSaveKeepsake ? "이 카드로 저장" : "닫기"}
         onClose={() => setMakingCard(false)}
-        onSubmit={() => {
-          setMakingCard(false);
-          notify("여행 기념 카드를 저장했어요");
-        }}
+        onSubmit={saveCard}
       >
-        <OptionField
-          label="카드 스타일"
-          options={["필름", "엽서", "스크랩북"]}
-          value={cardStyle}
-          onChange={setCardStyle}
+        <KeepsakeCardView
+          shotRef={cardShot}
+          card={cardDraft}
+          photos={chosenPhotos}
+          text={cardText}
+          stats={cardStats}
+          onPhotoReady={(id) => setDrawnPhotos((current) => (current.includes(id) ? current : [...current, id]))}
         />
-        <View style={styles.cardMiniPreview}>
-          {photos.slice(0, 3).map((photo) => (
-            <View key={`${photo.id}-preview`} style={[styles.cardMiniPhoto, { backgroundColor: photo.color }]}>
-              {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+        <Pressable
+          onPress={exportCard}
+          disabled={savingCard || !cardReady}
+          accessibilityRole="button"
+          accessibilityLabel="기념 카드를 이미지로 내보내기"
+          style={({ pressed }) => [
+            styles.keepsakeExport,
+            theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+            (savingCard || !cardReady) && styles.keepsakeExportWaiting,
+            pressed && styles.controlPressed,
+          ]}
+        >
+          <Text style={[styles.keepsakeExportText, theme && { color: theme.primary }]}>
+            {savingCard
+              ? "카드를 만드는 중이에요"
+              : !cardReady
+                ? "사진을 불러오는 중이에요"
+                : Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기"}
+          </Text>
+        </Pressable>
+        {Boolean(onSaveCoverPhoto && coverCandidate) && (
+          <Pressable
+            onPress={toggleCover}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: coverOn }}
+            accessibilityLabel="이 사진을 홈 카드에 쓰기"
+            style={({ pressed }) => [
+              styles.keepsakeExport,
+              theme && { borderColor: theme.border, backgroundColor: theme.surface },
+              coverOn && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <Text style={[styles.keepsakeExportText, theme && { color: coverOn ? theme.primary : theme.muted }]}>
+              {coverOn ? "홈 카드에 쓰는 중 · 누르면 해제" : "이 사진을 홈 카드에 쓰기"}
+            </Text>
+          </Pressable>
+        )}
+        <Pressable
+          onPress={() => setCardTuning((value) => !value)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: cardTuning }}
+          style={styles.keepsakeMore}
+        >
+          <Text style={[styles.keepsakeMoreText, theme && { color: theme.primary }]}>
+            {cardTuning ? "꾸미기 접기" : "직접 꾸미기"}
+          </Text>
+        </Pressable>
+        {cardTuning && (
+          <>
+            <View style={styles.optionField}>
+              <View style={styles.fieldLabelRow}>
+                <View style={[styles.fieldLabelDot, requiredDot("카드에 쓸 사진", theme)]} />
+                <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
+                  카드에 쓸 사진 · {cardDraft.photoIds.length}장
+                </Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.keepsakePickRow}>
+                {cardPhotos.map((photo) => {
+                  const 차례 = cardDraft.photoIds.indexOf(photo.id);
+                  return (
+                    <Pressable
+                      key={`${photo.id}-pick`}
+                      onPress={() => tuneCard({ photoIds: toggleKeepsakePhoto(cardDraft.photoIds, photo.id) })}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: 차례 >= 0 }}
+                      accessibilityLabel={`${photo.caption || photo.date} 사진을 카드에 넣기`}
+                      style={[
+                        styles.keepsakePick,
+                        { backgroundColor: photo.color },
+                        차례 >= 0 && styles.keepsakePickChosen,
+                        차례 >= 0 && theme && { borderColor: theme.primary },
+                      ]}
+                    >
+                      {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+                      {차례 >= 0 && cardDraft.photoIds.length > 1 && (
+                        <View style={styles.keepsakePickOrder}>
+                          <Text style={styles.keepsakePickOrderText}>{차례 + 1}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
             </View>
-          ))}
-        </View>
-        <DetailField label="카드 제목 · 선택 사항" value={cardTitle} onChangeText={setCardTitle} placeholder="예: 우리의 서울 주말" />
-        <DetailField label="짧은 문구 · 선택 사항" value={cardCaption} onChangeText={setCardCaption} placeholder="사진과 함께 남길 말을 적어보세요" multiline />
-        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>현재 여행 기록에 저장되며 언제든 다시 꾸밀 수 있어요.</Text>
+            <OptionField
+              label="카드 스타일"
+              options={KEEPSAKE_STYLES}
+              value={cardDraft.style}
+              onChange={(value) => tuneCard({ style: value as KeepsakeStyle })}
+            />
+            <OptionField
+              label="방향과 비율"
+              options={KEEPSAKE_RATIOS}
+              value={cardDraft.ratio}
+              onChange={(value) => tuneCard({ ratio: value as KeepsakeRatio })}
+            />
+            <ToggleChips
+              label="카드에 넣을 것"
+              options={KEEPSAKE_PARTS}
+              chosen={cardDraft.parts}
+              onToggle={(value) => toggleCardPart(value as KeepsakePart)}
+            />
+            {cardDraft.parts.includes("통계") && (
+              <ToggleChips
+                label="어떤 숫자를 넣을까요"
+                options={KEEPSAKE_STAT_KINDS}
+                chosen={cardDraft.stats}
+                onToggle={(value) => toggleCardStat(value as KeepsakeStatKind)}
+              />
+            )}
+            <DetailField
+              label="카드 제목 · 선택 사항"
+              value={cardDraft.title}
+              onChangeText={(value) => tuneCard({ title: value })}
+              placeholder="예: 우리의 서울 주말"
+            />
+            <DetailField
+              label="짧은 문구 · 선택 사항"
+              value={cardDraft.caption}
+              onChangeText={(value) => tuneCard({ caption: value })}
+              placeholder="사진과 함께 남길 말을 적어보세요"
+              multiline
+            />
+          </>
+        )}
+        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+          {onSaveKeepsake
+            ? "꾸민 것은 여행에 저장돼 함께 보는 사람에게도 같은 카드가 보여요."
+            : "예시 여행이라 꾸민 것이 저장되지 않아요. 카드는 지금 바로 내보낼 수 있어요."}
+        </Text>
       </DetailSheet>
       <DetailSheet
         visible={photoEditing}
@@ -8186,6 +8540,7 @@ function Memories({
         </Pressable>
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>사진을 선택하면 이곳에서 미리 확인할 수 있어요.</Text>
         <OptionField label="여행 날짜" options={photoDayOptions} value={photoDate} onChange={setPhotoDate} />
+        <PhotoLinkField options={photoLinkOptions} value={photoLinks} onChange={setPhotoLinks} />
         <DetailField label="사진 설명 · 선택 사항" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
         {reportSpaceId && editingPhotoId && isServerId(editingPhotoId) && (
           <ReportLink key={editingPhotoId} spaceId={reportSpaceId} targetType="photo" targetId={editingPhotoId} label="이 사진 신고하기" />
@@ -8213,6 +8568,266 @@ function Memories({
           <ReportLink key={editingDiaryId} spaceId={reportSpaceId} targetType="diary" targetId={editingDiaryId} label="이 일기 신고하기" />
         )}
       </DetailSheet>
+    </View>
+  );
+}
+
+/** 사진을 붙일 수 있는 곳 하나. 화면에 보일 이름과 무엇인지를 함께 들고 있다. */
+type PhotoLinkOption = { targetType: PhotoLinkTarget; targetId: string; label: string };
+
+const sameLink = (left: PhotoLink, right: { targetType: PhotoLinkTarget; targetId: string }) =>
+  left.targetType === right.targetType && left.targetId === right.targetId;
+
+/**
+ * 이 사진을 어디에 붙일지. 여러 곳을 고를 수 있다.
+ *
+ * 숙소 사진이 그 날의 사진이기도 한 경우가 흔해서 하나만 고르게 하지 않는다.
+ * 날짜는 여기서 고르지 않는다. 바로 위의 `여행 날짜` 가 그 몫이다.
+ */
+function PhotoLinkField({ options, value, onChange }: {
+  options: PhotoLinkOption[];
+  value: PhotoLink[];
+  onChange: (next: PhotoLink[]) => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  if (!options.length) return null;
+  const label = "사진을 붙일 곳 · 선택 사항";
+  const toggle = (option: PhotoLinkOption) =>
+    onChange(value.some((link) => sameLink(link, option))
+      ? value.filter((link) => !sameLink(link, option))
+      : [...value, { targetType: option.targetType, targetId: option.targetId }]);
+  return (
+    <View style={styles.optionField}>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
+        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
+      </View>
+      <View style={styles.photoLinkRow}>
+        {options.map((option) => {
+          const chosen = value.some((link) => sameLink(link, option));
+          return (
+            <Pressable
+              key={`${option.targetType}:${option.targetId}`}
+              onPress={() => toggle(option)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: chosen }}
+              style={({ pressed }) => [
+                styles.photoLinkChip,
+                theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                chosen && styles.optionChipActive,
+                chosen && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                pressed && styles.controlPressed,
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.optionText,
+                  theme && { color: theme.muted },
+                  chosen && styles.optionTextActive,
+                  chosen && theme && { color: theme.primary },
+                ]}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** 여럿을 켜고 끄는 칩 줄. 하나만 고르는 `OptionField` 와 손놀림이 같아야 해서 모양을 맞춘다. */
+function ToggleChips({ label, options, chosen, onToggle }: {
+  label: string;
+  options: readonly string[];
+  chosen: readonly string[];
+  onToggle: (value: string) => void;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={styles.optionField}>
+      <View style={styles.fieldLabelRow}>
+        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
+        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
+      </View>
+      <View style={styles.photoLinkRow}>
+        {options.map((option) => {
+          const on = chosen.includes(option);
+          return (
+            <Pressable
+              key={option}
+              onPress={() => onToggle(option)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              style={({ pressed }) => [
+                styles.photoLinkChip,
+                theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                on && styles.optionChipActive,
+                on && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                pressed && styles.controlPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  theme && { color: theme.muted },
+                  on && styles.optionTextActive,
+                  on && theme && { color: theme.primary },
+                ]}
+              >
+                {option}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** 어딘가에 붙은 사진 몇 장. 붙은 사진이 없으면 아무것도 그리지 않는다. */
+function PhotoStrip({ photos, label }: { photos: MemoryPhoto[]; label: string }) {
+  const theme = useContext(DetailThemeContext);
+  if (!photos.length) return null;
+  return (
+    <View style={styles.photoStrip} accessibilityLabel={`${label} 사진 ${photos.length}장`}>
+      {photos.slice(0, 5).map((photo) => (
+        <View key={photo.id} style={[styles.photoStripThumb, { backgroundColor: photo.color }]}>
+          {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+        </View>
+      ))}
+      {photos.length > 5 && (
+        <Text style={[styles.photoStripMore, theme && { color: theme.muted }]}>+{photos.length - 5}</Text>
+      )}
+    </View>
+  );
+}
+
+/** 카드 스타일마다의 색. 사진 위에 글씨가 얹힐 수 있어 어느 스타일이든 대비가 세야 한다. */
+const KEEPSAKE_LOOK: Record<KeepsakeStyle, { paper: string; ink: string; sub: string; accent: string; frame: string }> = {
+  필름: { paper: "#171615", ink: "#F6F1E7", sub: "#B5AB9E", accent: "#E7B4A6", frame: "#33302C" },
+  엽서: { paper: "#FFFFFF", ink: "#2C2A28", sub: "#7C7266", accent: "#3F4C8F", frame: "#E7DFD2" },
+  스크랩북: { paper: "#F1E9DA", ink: "#33302B", sub: "#7E756A", accent: "#C0693F", frame: "#E0D1B8" },
+};
+
+/**
+ * 내보낼 카드 그 자체. 미리보기와 내보내기가 이 하나를 같이 쓴다. 보이는 대로 저장된다.
+ *
+ * 너비를 고정한다. 기기 폭에 따라 카드가 늘어나면 같은 여행이 기기마다 다른 그림이
+ * 되고, 웹에서 찍은 것과 폰에서 찍은 것이 달라진다. 내보낼 때만 `captureRef` 가
+ * 1080px 쪽으로 키운다.
+ *
+ * 가로 카드는 글을 사진 아래에 두면 사진이 띠처럼 얇아져서, 사진 위에 얹는다.
+ */
+function KeepsakeCardView({ shotRef, card, photos, text, stats, onPhotoReady }: {
+  shotRef: React.RefObject<View | null>;
+  card: KeepsakeCard;
+  /** 고른 차례대로의 사진. 파일을 아직 못 받았으면 색만 깔린다. */
+  photos: MemoryPhoto[];
+  text: { title: string; meta: string; caption: string; people: string };
+  stats: { label: string; value: string }[];
+  /** 사진 한 장이 다 그려졌을 때. 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. */
+  onPhotoReady?: (id: string) => void;
+}) {
+  const look = KEEPSAKE_LOOK[card.style];
+  const size = keepsakeSizeOf(card.ratio);
+  const 위에_얹는다 = card.ratio === "가로";
+  const 줄 = keepsakeLayoutOf(photos.length || 1);
+  let 자리 = 0;
+  const copy = (
+    <View style={[styles.keepsakeCardCopy, 위에_얹는다 && styles.keepsakeCopyOver]}>
+      {Boolean(text.title) && (
+        <Text numberOfLines={2} style={[styles.keepsakeCardTitle, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}>
+          {text.title}
+        </Text>
+      )}
+      {Boolean(text.meta) && (
+        <Text numberOfLines={1} style={[styles.keepsakeCardMeta, { color: 위에_얹는다 ? "#E7DFD2" : look.accent }]}>
+          {text.meta}
+        </Text>
+      )}
+      {Boolean(text.people) && (
+        <Text numberOfLines={1} style={[styles.keepsakeCardMeta, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>
+          {text.people}
+        </Text>
+      )}
+      {Boolean(text.caption) && (
+        <Text
+          numberOfLines={2}
+          style={[
+            styles.keepsakeCardCaption,
+            card.style === "스크랩북" && styles.keepsakeCardHand,
+            { color: 위에_얹는다 ? "#E7DFD2" : look.sub },
+          ]}
+        >
+          {text.caption}
+        </Text>
+      )}
+      {stats.length > 0 && (
+        <View style={styles.keepsakeCardStats}>
+          {stats.map((stat) => (
+            <View key={stat.label}>
+              <Text style={[styles.keepsakeCardStatValue, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}>{stat.value}</Text>
+              <Text style={[styles.keepsakeCardStatLabel, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>{stat.label}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+  return (
+    <View style={styles.keepsakeStage}>
+      <View
+        ref={shotRef}
+        collapsable={false}
+        style={[styles.keepsakeCard, { width: size.width, height: size.height, backgroundColor: look.paper }]}
+      >
+        {card.style === "필름" && (
+          <View style={styles.keepsakeFilmHoles}>
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((hole) => (
+              <View key={hole} style={[styles.keepsakeFilmHole, { backgroundColor: look.frame }]} />
+            ))}
+          </View>
+        )}
+        <View
+          style={[
+            styles.keepsakePhotoArea,
+            card.style === "스크랩북" && styles.keepsakePhotoAreaTilt,
+            { borderColor: look.frame },
+          ]}
+        >
+          {줄.map((칸, index) => (
+            <View key={`row-${index}`} style={styles.keepsakePhotoRow}>
+              {Array.from({ length: 칸 }, () => photos[자리++]).map((photo, slot) => (
+                <View
+                  key={photo?.id ?? `blank-${index}-${slot}`}
+                  style={[styles.keepsakePhotoCell, { backgroundColor: photo?.color ?? look.frame }]}
+                >
+                  {photo?.uri && (
+                    <Image
+                      source={{ uri: photo.uri }}
+                      resizeMode="cover"
+                      style={styles.memoryPhotoImage}
+                      onLoad={() => onPhotoReady?.(photo.id)}
+                    />
+                  )}
+                </View>
+              ))}
+            </View>
+          ))}
+          {card.style === "엽서" && (
+            <View style={[styles.keepsakeStamp, { borderColor: look.frame, backgroundColor: look.paper }]}>
+              <Text style={[styles.keepsakeStampText, { color: look.accent }]}>DAYMO</Text>
+            </View>
+          )}
+          {card.style === "스크랩북" && <View style={styles.keepsakeTape} />}
+          {위에_얹는다 && <View style={styles.keepsakeScrim} />}
+          {위에_얹는다 && copy}
+        </View>
+        {!위에_얹는다 && copy}
+      </View>
     </View>
   );
 }
@@ -9937,6 +10552,7 @@ function Moment({
   mapUrl,
   last,
   compact,
+  photos = [],
   onPress,
   id,
 }: {
@@ -9946,6 +10562,8 @@ function Moment({
   mapUrl?: string;
   last?: boolean;
   compact?: boolean;
+  /** 이 일정에 붙인 사진. 없으면 아무것도 그리지 않는다. */
+  photos?: MemoryPhoto[];
   onPress?: () => void;
   /** 일정 줄의 id. 아직 못 올린 줄이면 여기에 표시가 붙는다. */
   id?: string;
@@ -9997,6 +10615,7 @@ function Moment({
             />
           </View>
         ) : null}
+        <PhotoStrip photos={photos} label={title} />
       </View>
     </Pressable>
   );
@@ -11317,16 +11936,94 @@ const styles = StyleSheet.create({
   diaryDate: { fontSize: 11, fontFamily: typo.caption.family },
   diaryTitle: { fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
   diaryBody: { fontSize: 14, lineHeight: 20, marginTop: 6 },
-  cardMiniPreview: {
-    height: 105,
+  // 카드는 기기 폭을 따르지 않는다. 같은 여행이 기기마다 다른 그림이 되면 안 된다.
+  keepsakeStage: { alignItems: "center", marginBottom: 16 },
+  keepsakeCard: { borderRadius: 14, padding: 12, overflow: "hidden" },
+  keepsakeFilmHoles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
+  keepsakeFilmHole: { width: 18, height: 7, borderRadius: 2 },
+  keepsakePhotoArea: { flex: 1, borderRadius: 8, overflow: "hidden", gap: 3 },
+  // 스크랩북은 사진을 살짝 기울여 붙인다. 붙인 종이처럼 보이게 하는 것이 전부다.
+  keepsakePhotoAreaTilt: { transform: [{ rotate: "-1.2deg" }], borderWidth: 5, borderColor: "#FFFFFF" },
+  keepsakePhotoRow: { flex: 1, flexDirection: "row", gap: 3 },
+  keepsakePhotoCell: { flex: 1, overflow: "hidden" },
+  // 엽서의 우표 자리. 실제 우표가 아니라 엽서라는 것을 알려 주는 표시다.
+  keepsakeStamp: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 34,
+    height: 42,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  keepsakeStampText: { fontSize: 8, fontFamily: typo.label.family },
+  // 마스킹 테이프. 사진 위쪽 가운데에 비스듬히.
+  keepsakeTape: {
+    position: "absolute",
+    top: -8,
+    alignSelf: "center",
+    width: 74,
+    height: 20,
+    backgroundColor: "rgba(226,206,160,0.75)",
+    transform: [{ rotate: "-4deg" }],
+  },
+  // 가로 카드는 글이 사진 위에 얹힌다. 밝은 사진에서도 읽히도록 아래를 어둡게 깐다.
+  keepsakeScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "62%", backgroundColor: "rgba(12,11,10,0.55)" },
+  keepsakeCardCopy: { paddingTop: 10, gap: 2 },
+  keepsakeCopyOver: { position: "absolute", left: 10, right: 10, bottom: 10, paddingTop: 0 },
+  keepsakeCardTitle: { fontSize: 17, lineHeight: 24, fontFamily: typo.title.family },
+  keepsakeCardMeta: { fontSize: 11, lineHeight: 16, fontFamily: typo.label.family },
+  keepsakeCardCaption: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  keepsakeCardHand: { fontStyle: "italic" },
+  keepsakeCardStats: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 6 },
+  keepsakeCardStatValue: { fontSize: 14, fontFamily: typo.title.family },
+  keepsakeCardStatLabel: { fontSize: 10, fontFamily: typo.label.family },
+  keepsakeExport: {
+    height: 44,
     borderRadius: 12,
-    backgroundColor: "#F4EFE8",
-    padding: 8,
-    flexDirection: "row",
-    gap: 6,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EEF1FA",
+    borderColor: "#3F4C8F",
     marginBottom: 16,
   },
-  cardMiniPhoto: { flex: 1, borderRadius: 8, overflow: "hidden" },
+  keepsakeExportText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
+  keepsakeExportWaiting: { opacity: 0.5 },
+  keepsakePickRow: { gap: 8, paddingRight: 6, paddingVertical: 2 },
+  keepsakePick: { width: 56, height: 56, borderRadius: 10, borderWidth: 2, borderColor: "transparent", overflow: "hidden" },
+  keepsakePickChosen: { borderColor: "#3F4C8F" },
+  // 고른 차례. 두 장 이상일 때만 보인다.
+  keepsakePickOrder: {
+    position: "absolute",
+    top: 3,
+    left: 3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#17233D",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  keepsakePickOrderText: { fontSize: 10, color: "#FFFFFF", fontFamily: typo.label.family },
+  keepsakeMore: { alignSelf: "flex-start", paddingVertical: 8, marginBottom: 8 },
+  keepsakeMoreText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
+  photoLinkRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  photoLinkChip: {
+    height: 36,
+    maxWidth: "100%",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  photoStrip: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 },
+  photoStripThumb: { width: 34, height: 34, borderRadius: 6, overflow: "hidden" },
+  photoStripMore: { fontSize: 11, fontFamily: typo.label.family, color: "#6F7888" },
   memoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   memoryTilePhoto: { flex: 1, borderRadius: 4, overflow: "hidden" },
   memoryPhotoImage: { position: "absolute", inset: 0, width: "100%", height: "100%" },

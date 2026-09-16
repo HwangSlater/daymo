@@ -5,7 +5,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.models import Membership, Trip, TripDay, TripParticipant, TripStatus
+from app.models import Membership, Photo, PhotoStatus, Trip, TripDay, TripParticipant, TripStatus
 from app.services import photo_files
 from app.services.space_purge import detach_trip_children, link_targets_of_trips
 
@@ -17,6 +17,37 @@ MAX_TRIP_DAYS = 60
 
 # 지운 뒤 되돌릴 수 있는 기간.
 RESTORE_WINDOW = timedelta(days=7)
+
+
+async def check_card_photos(
+    session: AsyncSession, trip: Trip, photo_ids: list[str], *, field: str = "photoIds"
+) -> None:
+    """
+    기념 카드나 홈 카드에 쓸 사진. 그 여행에 올라온 살아 있는 사진이어야 한다.
+
+    남의 여행 사진 id 를 보내면 그 공간 사람이 아닌데도 카드에 걸리므로 막는다.
+    """
+    안_된다 = AppError(ErrorCode.VALIDATION_ERROR, fields={field: "이 여행의 사진이 아니에요."})
+    try:
+        고른_것 = [uuid.UUID(값) for 값 in photo_ids]
+    except ValueError as 원인:
+        raise 안_된다 from 원인
+    if not 고른_것:
+        return
+    있는_것 = set(
+        (
+            await session.execute(
+                select(Photo.id).where(
+                    Photo.id.in_(고른_것),
+                    Photo.trip_id == trip.id,
+                    Photo.deleted_at.is_(None),
+                    Photo.status == PhotoStatus.READY,
+                )
+            )
+        ).scalars().all()
+    )
+    if any(값 not in 있는_것 for 값 in 고른_것):
+        raise 안_된다
 
 
 def _기간을_본다(start: date, end: date) -> int:

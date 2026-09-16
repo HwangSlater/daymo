@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import Field
 
@@ -17,6 +18,34 @@ class TripCreateRequest(_Camel):
     cooking_enabled: bool = False
     # 생략하면 빈 목록이다. 앱이 그것을 공간 멤버 전원으로 읽는다.
     participant_membership_ids: list[str] = Field(default_factory=list, max_length=10)
+
+
+# 기념 카드에서 고를 수 있는 것. 값은 앱 화면에 보이는 말 그대로다. 한국어만 쓰는
+# 앱이고, 영어 코드를 따로 두면 화면과 저장된 값을 견주어 볼 때 표를 한 번 더 거쳐야 한다.
+KeepsakeStyle = Literal["필름", "엽서", "스크랩북"]
+KeepsakeRatio = Literal["세로", "정사각", "가로"]
+# 카드에 넣을 줄. 끄면 그 줄이 안 나온다.
+KeepsakePart = Literal["이름", "기간", "지역", "사람", "문구", "통계"]
+# 통계 줄에 넣을 숫자. `지출` 은 남에게 보여 주는 그림이라 앱이 기본으로 끈다.
+KeepsakeStat = Literal["장소", "사진", "날", "지출"]
+
+
+class KeepsakeCardIn(_Camel):
+    """
+    기념 카드를 어떻게 꾸몄는지.
+
+    서버는 이 값으로 아무것도 계산하지 않고 그대로 돌려준다. 카드 그림은 기기가
+    그린다. `photoIds` 만 그 여행의 사진인지 따로 본다.
+    """
+
+    style: KeepsakeStyle = "필름"
+    ratio: KeepsakeRatio = "세로"
+    # 고른 차례가 카드에 놓이는 차례다. 비어 있으면 앱이 가장 최근 사진을 쓴다.
+    photo_ids: list[str] = Field(default_factory=list, max_length=4)
+    title: str | None = Field(default=None, max_length=60)
+    caption: str | None = Field(default=None, max_length=200)
+    parts: list[KeepsakePart] = Field(default_factory=list, max_length=6)
+    stats: list[KeepsakeStat] = Field(default_factory=list, max_length=4)
 
 
 class TripUpdateRequest(_Camel):
@@ -42,6 +71,10 @@ class TripUpdateRequest(_Camel):
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = None
     budget: Decimal | None = None
+    # 여행 기념 카드에서 고른 것 한 덩어리. 보내면 통째로 바뀐다.
+    card_settings: KeepsakeCardIn | None = None
+    # 홈의 여행 카드 바탕으로 쓸 사진. 그 여행의 사진이어야 하고, null 이면 해제다.
+    cover_photo_id: str | None = None
 
 
 class ParticipantsRequest(_Camel):
@@ -97,6 +130,9 @@ class TripOut(_Camel):
     exchange_rate: Decimal | None
     budget: Decimal | None
     simplify_settlement: bool
+    # 아직 아무도 꾸미지 않았으면 없다. 앱이 기본값으로 그린다.
+    card_settings: dict | None = None
+    cover_photo_id: str | None = None
     version: int
     archived_at: str | None = None
     # 지운 여행일 때만 있다. 이 시각이 지나면 되돌릴 수 없다.
