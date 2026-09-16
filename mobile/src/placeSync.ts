@@ -12,6 +12,7 @@ import {
   planListSync,
   type Codec,
   type Confirmed,
+  type Failed,
   type ListPlan,
 } from "./listSync.ts";
 
@@ -123,7 +124,7 @@ export type PlacePlan = ListPlan<PlaceBody>;
 export const planPlaceSync = (
   places: readonly AppPlace[],
   confirmed: ReadonlyMap<string, Confirmed>,
-  failed: ReadonlyMap<string, string> = new Map(),
+  failed: ReadonlyMap<string, Failed> = new Map(),
 ) => planListSync(places, placeCodec, confirmed, failed);
 
 export const mergeOnOpen = (local: readonly AppPlace[], server: readonly ServerPlace[], syncedIds: ReadonlySet<string>) =>

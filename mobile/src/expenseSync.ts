@@ -59,6 +59,12 @@ export function expenseCodec(
       && item.amount > 0
       && Boolean(idOfName(item.payer))
       && Object.keys(item.shares ?? {}).every((name) => Boolean(idOfName(name))),
+    blockReason: (item) => {
+      if (!isServerId(item.id)) return undefined;
+      if (item.amount <= 0) return "금액이 0원이에요";
+      const names = [item.payer, ...Object.keys(item.shares ?? {})];
+      return names.some((name) => !idOfName(name)) ? "이 여행에 없는 사람이 들어 있어요" : undefined;
+    },
     idOf: (item) => item.id,
     toBody: (item) => ({
       date: keyByDayLabel.get(item.day) ?? null,
@@ -118,6 +124,12 @@ export function paymentCodec(roster: readonly RosterEntry[]): Codec<Payment, Pay
   return {
     syncable: (item) =>
       isServerId(item.id) && item.amount > 0 && item.from !== item.to && Boolean(idOfName(item.from) && idOfName(item.to)),
+    blockReason: (item) => {
+      if (!isServerId(item.id)) return undefined;
+      if (item.amount <= 0) return "금액이 0원이에요";
+      if (item.from === item.to) return "보낸 사람과 받은 사람이 같아요";
+      return idOfName(item.from) && idOfName(item.to) ? undefined : "이 여행에 없는 사람이 들어 있어요";
+    },
     idOf: (item) => item.id,
     toBody: (item) => ({
       fromMembershipId: idOfName(item.from) ?? "",

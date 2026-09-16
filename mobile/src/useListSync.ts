@@ -1,21 +1,88 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { DaymoApiError } from "./auth";
 import {
   bodyKey,
   hasWork,
   isServerId,
+  listTrouble,
   mergeListOnOpen,
   planListSync,
   type Codec,
   type Confirmed,
+  type Failed,
+  type RowTrouble,
   type ServerRow,
+  type SyncTrouble,
 } from "./listSync";
 
 // 글자를 칠 때마다 보내지 않는다. 잠깐 모았다가 한 번에 맞춘다.
 const SYNC_DELAY_MS = 800;
 // 연결이 끊겼을 때 다시 해 보는 간격.
 const RETRY_MS = 20_000;
+/**
+ * 화면을 오래 열어 뒀을 때 스스로 한 번 다시 받는 시각.
+ *
+ * 폴링은 하지 않는다. 앞으로 돌아올 때와 당겨서 새로고침이 평소의 길이고, 여행 상세를
+ * 켠 채로 오래 앉아 이야기하는 경우만 이 한 번이 메운다. 한 번 울리고 끝이라 화면이
+ * 열려 있는 동안 늘어나는 요청은 목록마다 딱 하나다.
+ */
+const STALE_MS = 10 * 60_000;
+
+/**
+ * 열려 있는 목록을 다시 받으라는 신호. 앱이 앞으로 오거나 당겨서 새로고침할 때 부른다.
+ * 다 받을 때까지 기다릴 수 있어 새로고침 표시를 언제 내릴지 화면이 안다.
+ */
+const reloadListeners = new Set<() => Promise<void>>();
+export function reloadOpenLists(): Promise<void> {
+  return Promise.all([...reloadListeners].map((listen) => listen())).then(() => undefined);
+}
+
+// ── 아직 못 올린 줄을 화면에 알리는 자리 ───────────────────────────────
+// 목록마다 훅이 하나씩이라 자리를 나눠 쓰고, 화면은 합친 모습 하나만 본다.
+type Entry = { rows: Map<string, RowTrouble>; offline: boolean };
+const entries = new Map<number, Entry>();
+const troubleListeners = new Set<() => void>();
+let slots = 0;
+let snapshot: SyncTrouble = { rows: new Map(), blocked: 0, waiting: 0, offline: false };
+let stamp = "";
+
+function republish() {
+  const rows = new Map<string, RowTrouble>();
+  let offline = false;
+  let blocked = 0;
+  let waiting = 0;
+  for (const entry of entries.values()) {
+    if (entry.offline) offline = true;
+    entry.rows.forEach((row, id) => rows.set(id, row));
+  }
+  const marks: string[] = [];
+  rows.forEach((row, id) => {
+    if (row.state === "막힘") blocked += 1;
+    else waiting += 1;
+    marks.push(`${id}:${row.state}:${row.reason ?? ""}`);
+  });
+  // 같은 모습이면 알리지 않는다. 목록이 바뀔 때마다 화면 전체가 다시 그려지면 안 된다.
+  const next = `${offline}|${marks.sort().join(",")}`;
+  if (next === stamp) return;
+  stamp = next;
+  snapshot = { rows, blocked, waiting, offline };
+  troubleListeners.forEach((listen) => listen());
+}
+
+/** 열려 있는 모든 목록에서 아직 못 올린 줄. 배지와 위쪽 한 줄이 이것만 본다. */
+export function useSyncTrouble(): SyncTrouble {
+  return useSyncExternalStore(
+    (listen) => {
+      troubleListeners.add(listen);
+      return () => {
+        troubleListeners.delete(listen);
+      };
+    },
+    () => snapshot,
+    () => snapshot,
+  );
+}
 
 export type ListApi<B, S extends ServerRow> = {
   list: (tripId: string) => Promise<S[]>;
@@ -72,15 +139,33 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
   });
 
   const confirmed = useRef(new Map<string, Confirmed>());
-  const failed = useRef(new Map<string, string>());
+  const failed = useRef(new Map<string, Failed>());
   const loaded = useRef(false);
   const running = useRef(false);
+  const opening = useRef(false);
   const again = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warnedOffline = useRef(false);
   const warnedForbidden = useRef(false);
+  // 연결이 없어 보내지도 받지도 못하는 중.
+  const offline = useRef(false);
+  // 목록마다 자리를 하나씩 쓴다. 훅이 몇 번째로 불렸는지에 기대지 않으려고 번호를 붙인다.
+  const slot = useRef<number | null>(null);
+  if (slot.current == null) slot.current = ++slots;
 
   const tripId = options.tripId && isServerId(options.tripId) ? options.tripId : undefined;
+
+  /** 지금 이 목록에서 못 올린 줄을 화면 쪽에 알린다. */
+  const publishTrouble = () => {
+    const { items, codec } = latest.current;
+    entries.set(slot.current ?? 0, {
+      // 첫 목록을 아직 못 받았으면 무엇이 서버에 있는지 모른다. 그때 대기로 세면
+      // 이미 올라간 줄까지 저장 안 됨으로 보인다.
+      rows: listTrouble(items, codec, confirmed.current, failed.current, offline.current && loaded.current),
+      offline: offline.current,
+    });
+    republish();
+  };
 
   const remember = (row: S) => {
     const { codec } = latest.current;
@@ -120,7 +205,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
     } catch (caught) {
       if (caught instanceof DaymoApiError && caught.status === 422) {
         // 같은 모습으로 다시 보내면 또 거부된다. 사용자가 고칠 때까지 건너뛴다.
-        failed.current.set(id, bodyKey(body as object));
+        failed.current.set(id, { key: bodyKey(body as object), reason: caught.message });
         latest.current.notify(`${latest.current.label} 저장에 실패했어요. ${caught.message}`);
         return;
       }
@@ -162,6 +247,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
           confirmed.current.delete(item.id);
         }
         warnedOffline.current = false;
+        offline.current = false;
       } catch (caught) {
         if (caught instanceof DaymoApiError && caught.code === "VERSION_CONFLICT") {
           await reload(id, new Set(confirmed.current.keys()));
@@ -174,6 +260,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
             );
           }
         } else if (!(caught instanceof DaymoApiError) || caught.status === 0 || caught.status >= 500) {
+          offline.current = true;
           if (!warnedOffline.current) {
             warnedOffline.current = true;
             latest.current.notify(`${label} 변경을 아직 저장하지 못했어요. 연결되면 다시 저장할게요`);
@@ -185,6 +272,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
       }
       publishSyncedIds();
     } finally {
+      publishTrouble();
       running.current = false;
       if (again.current) {
         again.current = false;
@@ -193,12 +281,20 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
     }
   };
 
-  // 열 때 한 번 서버 목록을 받는다.
+  // 열 때 한 번 서버 목록을 받는다. 그 뒤로는 앞으로 돌아오거나 당겨서 새로고침할 때,
+  // 그리고 오래 열어 뒀을 때 한 번 더 받는다.
   useEffect(() => {
-    if (!tripId) return;
+    if (!tripId) {
+      entries.delete(slot.current ?? 0);
+      republish();
+      return;
+    }
     let active = true;
     let retry: ReturnType<typeof setTimeout> | null = null;
     const open = async () => {
+      // 이미 받는 중이면 겹쳐 받지 않는다. 앞으로 오자마자 당겨서 새로고침하는 경우다.
+      if (opening.current) return;
+      opening.current = true;
       try {
         // 다시 받는 경우에는 기다리던 변경을 먼저 보낸다. 그러지 않으면 방금 지운 줄이 되살아나 보인다.
         if (loaded.current && timer.current) {
@@ -215,27 +311,47 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
         // 받는 동안 화면에서 바뀐 것까지 합치도록 그때의 목록에 합친다.
         current.setItems((now) => mergeListOnOpen(now, server, syncedIds, current.codec));
         loaded.current = true;
+        offline.current = false;
         publishSyncedIds();
+        publishTrouble();
         schedule(SYNC_DELAY_MS);
       } catch {
-        if (active) retry = setTimeout(open, RETRY_MS);
+        if (!active) return;
+        // 첫 목록도 못 받았으면 조용히 다시 해 보되, 못 받고 있다는 사실은 알린다.
+        offline.current = true;
+        publishTrouble();
+        retry = setTimeout(open, RETRY_MS);
+      } finally {
+        opening.current = false;
       }
     };
     void open();
+    reloadListeners.add(open);
+    const stale = setTimeout(() => void open(), STALE_MS);
     return () => {
       active = false;
+      reloadListeners.delete(open);
+      clearTimeout(stale);
       if (retry) clearTimeout(retry);
     };
     // 여행이 바뀌거나 다시 받으라고 할 때만 받는다. 나머지 값은 latest 로 읽는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId, options.reloadKey]);
 
-  // 목록이 바뀌면 잠깐 기다렸다가 맞춘다.
+  // 목록이 바뀌면 잠깐 기다렸다가 맞춘다. 고친 줄의 배지는 보내기 전에 바로 걷힌다.
   useEffect(() => {
-    if (!tripId || !loaded.current) return;
+    if (!tripId) return;
+    publishTrouble();
+    if (!loaded.current) return;
     schedule(SYNC_DELAY_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.items, options.refreshKey, tripId]);
+
+  // 화면을 닫으면 이 목록의 배지도 거둔다.
+  useEffect(() => () => {
+    entries.delete(slot.current ?? 0);
+    republish();
+  }, []);
 
   // 화면을 닫을 때 기다리던 것이 있으면 바로 보낸다.
   useEffect(() => () => {

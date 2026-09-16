@@ -15,6 +15,12 @@ export type ServerRow = { id: string; version: number };
 export type Codec<L, B, S extends ServerRow> = {
   /** 서버와 맞출 줄인지. 서버 id 가 없거나 다른 줄에서 만들어진 파생 줄은 아니다. */
   syncable: (local: L) => boolean;
+  /**
+   * `syncable` 이 false 일 때 왜 못 올리는지 한 줄로. 값이 있으면 "올려야 하는데 지금은
+   * 못 올린다" 는 뜻이라 화면에 저장 안 됨으로 알린다. 파생 줄처럼 애초에 안 올리는
+   * 줄은 undefined 로 둔다.
+   */
+  blockReason?: (local: L) => string | undefined;
   idOf: (local: L) => string;
   toBody: (local: L) => B;
   fromServer: (server: S) => L;
@@ -24,6 +30,9 @@ export type Codec<L, B, S extends ServerRow> = {
    */
   keepLocal?: (fromServer: L, local: L) => L;
 };
+
+/** 서버가 거부한 줄. 같은 모습이면 다시 보내지 않고, 까닭은 그대로 화면에 쓴다. */
+export type Failed = { key: string; reason: string };
 
 export type ListPlan<B> = {
   creates: { id: string; body: B }[];
@@ -44,7 +53,7 @@ export function planListSync<L, B, S extends ServerRow>(
   items: readonly L[],
   codec: Codec<L, B, S>,
   confirmed: ReadonlyMap<string, Confirmed>,
-  failed: ReadonlyMap<string, string> = new Map(),
+  failed: ReadonlyMap<string, Failed> = new Map(),
 ): ListPlan<B> {
   const plan: ListPlan<B> = { creates: [], updates: [], deletes: [] };
   const present = new Set<string>();
@@ -56,7 +65,7 @@ export function planListSync<L, B, S extends ServerRow>(
     if (!codec.syncable(item)) continue;
     const body = codec.toBody(item);
     const key = bodyKey(body as object);
-    if (failed.get(id) === key) continue;
+    if (failed.get(id)?.key === key) continue;
     const known = confirmed.get(id);
     if (!known) plan.creates.push({ id, body });
     else if (known.key !== key) plan.updates.push({ id, body, version: known.version });
@@ -69,6 +78,72 @@ export function planListSync<L, B, S extends ServerRow>(
 
 export const hasWork = (plan: ListPlan<unknown>) =>
   plan.creates.length + plan.updates.length + plan.deletes.length > 0;
+
+/** 아직 서버에 남지 않은 줄 하나. `막힘` 은 까닭이 있어 못 보내고, `대기` 는 연결을 기다린다. */
+export type RowTrouble = { state: "막힘" | "대기"; reason?: string };
+
+/** 열려 있는 목록 전부를 합친 모습. 화면은 이것만 보고 그린다. */
+export type SyncTrouble = {
+  /** 줄 id → 상태. 여기에 없는 줄은 서버에 남았거나 곧 올라간다. */
+  rows: ReadonlyMap<string, RowTrouble>;
+  blocked: number;
+  waiting: number;
+  /** 연결이 끊겨 보내지도 받지도 못하는 중. */
+  offline: boolean;
+};
+
+/**
+ * 못 올린 줄을 찾는다. 화면에 배지를 붙일 자리를 정하는 순수 계산이다.
+ *
+ * `waiting` 은 지금 연결이 끊겨 보내기가 밀려 있을 때만 켠다. 평소에는 800ms 뒤면
+ * 올라가는데, 그동안 모든 줄에 "대기 중" 을 띄우면 글자를 칠 때마다 깜빡인다.
+ */
+export function listTrouble<L, B, S extends ServerRow>(
+  items: readonly L[],
+  codec: Codec<L, B, S>,
+  confirmed: ReadonlyMap<string, Confirmed>,
+  failed: ReadonlyMap<string, Failed>,
+  waiting: boolean,
+): Map<string, RowTrouble> {
+  const rows = new Map<string, RowTrouble>();
+  for (const item of items) {
+    const id = codec.idOf(item);
+    if (!id) continue;
+    if (!codec.syncable(item)) {
+      const reason = codec.blockReason?.(item);
+      if (reason) rows.set(id, { state: "막힘", reason });
+      continue;
+    }
+    const key = bodyKey(codec.toBody(item) as object);
+    const stopped = failed.get(id);
+    if (stopped?.key === key) {
+      rows.set(id, { state: "막힘", reason: stopped.reason });
+      continue;
+    }
+    if (!waiting) continue;
+    const known = confirmed.get(id);
+    if (!known || known.key !== key) rows.set(id, { state: "대기" });
+  }
+  return rows;
+}
+
+/** 화면 위쪽에 늘 두는 한 줄. 아무 일도 없으면 빈 글자라 자리도 차지하지 않는다. */
+export function troubleHeadline(trouble: Pick<SyncTrouble, "blocked" | "waiting" | "offline">): string {
+  const total = trouble.blocked + trouble.waiting;
+  if (total > 0) {
+    return trouble.offline
+      ? `아직 저장하지 못한 ${total}개 · 연결되면 다시 저장할게요`
+      : `아직 저장하지 못한 ${total}개`;
+  }
+  return trouble.offline ? "연결이 끊겨 새 내용을 받지 못했어요" : "";
+}
+
+/**
+ * 앞으로 돌아왔을 때 다시 받을지. 방금 받았으면 건너뛴다.
+ *
+ * 탭을 자주 오가는 사람이 옮길 때마다 목록을 통째로 받게 두면 폴링과 다를 게 없다.
+ */
+export const shouldRefetch = (lastAt: number, now: number, gapMs = 15_000) => now - lastAt >= gapMs;
 
 /**
  * 처음 열 때 서버 목록과 기기 목록을 합친다.

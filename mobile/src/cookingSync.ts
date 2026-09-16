@@ -72,6 +72,10 @@ export function packingCodec(
   const isPerson = (owner: string) => owner !== PACKING_SHARED && owner !== PACKING_UNASSIGNED;
   return {
     syncable: (item) => isServerId(item.id) && (!isPerson(item.owner) || Boolean(idOfName(item.owner))),
+    blockReason: (item) =>
+      isServerId(item.id) && isPerson(item.owner) && !idOfName(item.owner)
+        ? "담당이 이 공간에 없는 사람이에요"
+        : undefined,
     idOf: (item) => item.id,
     toBody: (item) => ({
       name: item.name.trim().slice(0, 60) || "이름 없는 준비물",
@@ -157,6 +161,12 @@ export function recipeCodec(roster: readonly RosterEntry[]): Codec<RecipeRow, Re
       isServerId(recipe.id)
       && recipe.ingredients.length <= 100
       && recipe.ingredients.every((item) => isServerId(item.id) && (!isPerson(item.owner) || Boolean(idOfName(item.owner)))),
+    blockReason: (recipe) => {
+      if (!isServerId(recipe.id)) return undefined;
+      if (recipe.ingredients.length > 100) return "재료가 100개를 넘어요";
+      const owner = recipe.ingredients.some((item) => isPerson(item.owner) && !idOfName(item.owner));
+      return owner ? "담당이 이 공간에 없는 사람이에요" : undefined;
+    },
     idOf: (recipe) => recipe.id,
     toBody: (recipe) => ({
       name: recipe.name.trim().slice(0, 60) || "이름 없는 요리",

@@ -8,7 +8,8 @@ import { MapLink } from "./MapLink";
 import { ParticipantPicker } from "./ParticipantPicker";
 import { DaymoApiError } from "./auth";
 import { TripConflictError } from "./tripSync";
-import { useListSync } from "./useListSync";
+import { reloadOpenLists, useListSync } from "./useListSync";
+import { SyncMark, SyncNotice } from "./SyncMarks";
 import { dateKey, dateLabelOf, isServerId, tripDateKeys } from "./listSync";
 import { legacyIdMap, placeCodec } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
@@ -115,6 +116,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -477,6 +479,8 @@ type Props = {
    * 다른 곳에서 먼저 고쳤으면 `TripConflictError` 를 던진다.
    */
   onUpdateParticipants?: (participants: string[]) => Promise<string[]>;
+  /** 당겨서 새로고침할 때 여행 자체(제목·기간·참가자)를 서버에서 다시 받는다. */
+  onRefreshTrip?: () => Promise<void>;
   /** 보관한 여행인지. 보관은 목록 정리일 뿐이라 기록을 고치는 데는 영향이 없다. */
   archived?: boolean;
   /** 보관하거나 보관을 푼다. 서버 여행에만 있다. */
@@ -994,6 +998,7 @@ export function WarmTripDetail({
   tripNote = "함께 천천히 걷는 여행",
   onUpdateTrip,
   onUpdateParticipants,
+  onRefreshTrip,
   archived = false,
   onArchiveTrip,
   onDeleteTrip,
@@ -1036,6 +1041,21 @@ export function WarmTripDetail({
     destinationMode(initialDestination),
   );
   const detailScrollRef = useRef<ScrollView>(null);
+  /**
+   * 당겨서 새로고침. 열려 있는 목록을 전부 다시 받고, 여행 제목·기간도 서버 것으로 맞춘다.
+   *
+   * 웹의 RefreshControl 은 빈 칸이라 당겨도 불리지 않는다. 그래서 SyncNotice 가 웹에서만
+   * 작은 새로고침 버튼을 같이 둔다.
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshLists = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([reloadOpenLists(), onRefreshTrip?.().catch(() => undefined)]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [onRefreshTrip]);
   const showMode = (nextMode: ViewMode) => {
     setMode(nextMode);
     detailScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -1942,11 +1962,13 @@ export function WarmTripDetail({
             <View style={styles.headerSpacer} />
           )}
         </View>
+        <SyncNotice theme={appTheme} refreshing={refreshing} onRefresh={() => void refreshLists()} />
         <ScrollView
           ref={detailScrollRef}
           style={{ backgroundColor: "transparent" }}
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refreshLists()} />}
         >
           <Text style={[styles.date, appTheme && { color: appTheme.primary }]}>
             {currentTripDate}
@@ -4237,6 +4259,7 @@ function Places({
                   </View>
                 </View>
                 <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.category} · {place.area}</Text>
+                <SyncMark id={place.id} />
               </View>
             </View>
             <View style={styles.placeMiniActions}>
@@ -5008,6 +5031,7 @@ function Preparation({
               {packingTags(item).slice(1).map((tag) => `# ${tag}`).join("  ")}
             </Text>
           )}
+          <SyncMark id={item.id} />
         </View>
         <Pressable
           onPress={(event) => {
@@ -8781,6 +8805,7 @@ function Money({
                     {item.shares ? ` · ${shareLabel(item, participants)} 몫` : ""}
                     {item.receiptUri ? " · 영수증" : ""}
                   </Text>
+                  <SyncMark id={item.id} />
                 </View>
                 <Text style={[styles.moneyRowAmount, theme && { color: theme.text }]}>{show(item.amount)}</Text>
               </Pressable>
@@ -9478,6 +9503,7 @@ function Moment({
   last,
   compact,
   onPress,
+  id,
 }: {
   time: string;
   title: string;
@@ -9486,6 +9512,8 @@ function Moment({
   last?: boolean;
   compact?: boolean;
   onPress?: () => void;
+  /** 일정 줄의 id. 아직 못 올린 줄이면 여기에 표시가 붙는다. */
+  id?: string;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
@@ -9523,6 +9551,7 @@ function Moment({
         <Text style={[styles.momentNote, theme && { color: theme.muted }]}>
           {note}
         </Text>
+        <SyncMark id={id} />
         {mapUrl ? (
           <View style={styles.mapLinkRow}>
             <MapLink

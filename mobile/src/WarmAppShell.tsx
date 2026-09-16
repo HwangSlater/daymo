@@ -12,6 +12,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -44,6 +45,9 @@ import {
 } from "./spaces";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
+import { shouldRefetch } from "./listSync";
+import { SyncNotice } from "./SyncMarks";
+import { reloadOpenLists } from "./useListSync";
 import { koreaAdminPath } from "./koreaAdminPath";
 import { koreaLandPath, koreaOutlinePath } from "./koreaOutlinePath";
 import { isOnLand, regionAt } from "./koreaHitTest";
@@ -679,15 +683,32 @@ export function WarmAppShell({
     setUser((current) => (current ? { ...current, ...fresh, name: current.name } : current));
     return fresh;
   }, []);
+  /**
+   * 서버에서 다시 받는다. 공간·여행 목록과, 열려 있는 여행 상세의 목록들까지.
+   *
+   * 폴링은 하지 않는다. 옆 사람이 넣은 일정은 이 세 순간에 들어온다.
+   * 앞으로 돌아왔을 때 · 당겨서 새로고침(웹은 버튼) · 상세를 오래 열어 뒀을 때 한 번.
+   */
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshedAt = useRef(0);
+  const refreshAll = useCallback(() => {
+    refreshedAt.current = Date.now();
+    setRefreshing(true);
+    setSpacesReload((value) => value + 1);
+    return reloadOpenLists();
+  }, []);
   // 앱이 다시 앞으로 올 때. 웹에서는 탭으로 돌아올 때다. 메일의 링크를 누르고
   // 돌아오는 길이 대개 이쪽이라, 따로 두드리지 않아도 여기서 맞춰진다.
   useEffect(() => {
     if (!user?.id) return;
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void syncMe();
+      if (state !== "active") return;
+      void syncMe();
+      // 탭을 자주 오가는 사람이 옮길 때마다 다 받으면 폴링과 다를 게 없다.
+      if (shouldRefetch(refreshedAt.current, Date.now())) void refreshAll();
     });
     return () => subscription?.remove();
-  }, [syncMe, user?.id]);
+  }, [refreshAll, syncMe, user?.id]);
   /**
    * 이메일 바꾸기를 요청한 직후에만 조금 더 자주 확인한다.
    *
@@ -751,7 +772,9 @@ export function WarmAppShell({
         if (active) setServerDataError(true);
       })
       .finally(() => {
-        if (active) setServerDataReady(true);
+        if (!active) return;
+        setServerDataReady(true);
+        setRefreshing(false);
       });
     return () => {
       active = false;
@@ -1066,6 +1089,9 @@ export function WarmAppShell({
           setTripItems((current) => current.filter((trip) => trip.id !== tripId));
           setTripOpen(false);
         } : undefined}
+        onRefreshTrip={selectedTrip.id
+          ? async () => applyServerTrip(await getTrip(selectedTrip.id as string))
+          : undefined}
         onUpdateParticipants={async (names) => {
           if (!selectedTrip.id || selectedTrip.version === undefined) return names;
           const tripId = selectedTrip.id;
@@ -1145,6 +1171,8 @@ export function WarmAppShell({
                 },
               }
               : undefined}
+            refreshing={refreshing}
+            onRefresh={() => void refreshAll()}
             openCreatorOnMount={openTripCreator}
             onCreatorOpened={() => setOpenTripCreator(false)}
             onCreateTrip={async ({ title, startDate, endDate, regionName, summary, participants }) => {
@@ -2746,6 +2774,8 @@ function TripsExplorer({
   items,
   setItems,
   spaceMembers,
+  refreshing = false,
+  onRefresh,
   openCreatorOnMount = false,
   onCreatorOpened,
   onCreateTrip,
@@ -2759,6 +2789,9 @@ function TripsExplorer({
   setItems: React.Dispatch<React.SetStateAction<Trip[]>>;
   /** 이 공간의 멤버 전원. 여행을 만들 때 이 중에서 참가자를 고른다. */
   spaceMembers: string[];
+  /** 당겨서 새로고침. 옆 사람이 만든 새 여행은 이때 들어온다. */
+  refreshing?: boolean;
+  onRefresh?: () => void;
   openCreatorOnMount?: boolean;
   onCreatorOpened?: () => void;
   onCreateTrip: (input: { title: string; startDate: string; endDate: string; regionName: string; summary: string; participants: string[] }) => Promise<Trip>;
@@ -2962,7 +2995,10 @@ function TripsExplorer({
           style={{ backgroundColor: "transparent" }}
           contentContainerStyle={s.tripExplorerPage}
           showsVerticalScrollIndicator={false}
+          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> : undefined}
         >
+          {/* 웹의 RefreshControl 은 빈 칸이라 당겨도 불리지 않는다. 그래서 작은 버튼을 둔다. */}
+          <SyncNotice theme={theme} refreshing={refreshing} onRefresh={onRefresh} />
           {explorerHead}
           {display === "목록" && (
             <>

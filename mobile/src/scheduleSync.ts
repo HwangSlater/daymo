@@ -156,6 +156,8 @@ export function stayCodec(
   };
   return {
     syncable: (stay) => isServerId(stay.id) && Boolean(stay.name.trim()),
+    blockReason: (stay) =>
+      isServerId(stay.id) && !stay.name.trim() ? "숙소 이름을 적어야 저장돼요" : undefined,
     idOf: (stay) => stay.id ?? "",
     toBody: (stay) => ({
       tripPlaceId: stay.placeId && serverPlaceIds.has(stay.placeId) ? stay.placeId : null,
