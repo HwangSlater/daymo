@@ -1,4 +1,4 @@
-import { authenticatedRequest } from "./auth";
+import { authenticatedPage, authenticatedRequest } from "./auth";
 import type { ServerDevice } from "./deviceSessions";
 import type { PlaceBody, ServerPlace } from "./placeSync";
 import type { ScheduleBody, ServerScheduleItem, ServerStay, StayBody } from "./scheduleSync";
@@ -125,8 +125,25 @@ export const updateSpace = (spaceId: string, patch: SpacePatch) =>
     body: JSON.stringify(patch),
   });
 
-export const listTrips = (spaceId: string) =>
-  authenticatedRequest<ServerTrip[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/trips?limit=100`);
+/**
+ * 여행 목록을 한 번에 받는 수. 서버 상한과 같다.
+ *
+ * 더 있으면 `nextCursor` 가 온다. 예전에는 이 수가 곧 끝이어서, 여행이 100 개를
+ * 넘는 공간에서는 오래된 여행이 목록에서 통째로 사라졌다.
+ */
+export const TRIP_PAGE_SIZE = 100;
+
+const 여행_목록_주소 = (spaceId: string, trash: boolean, cursor?: string | null) =>
+  `/v1/spaces/${encodeURIComponent(spaceId)}/trips?limit=${TRIP_PAGE_SIZE}`
+  + (trash ? "&trash=true" : "")
+  + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : "");
+
+/** 여행 목록 한 쪽. `cursor` 를 주면 그 다음부터 이어 받는다. */
+export const listTripsPage = (spaceId: string, cursor?: string | null) =>
+  authenticatedPage<ServerTrip>(여행_목록_주소(spaceId, false, cursor));
+
+/** 첫 쪽만 받는다. 목록 전체가 필요 없는 곳(지난 여행에서 가져오기)이 쓴다. */
+export const listTrips = async (spaceId: string) => (await listTripsPage(spaceId)).items;
 
 export const createTrip = (
   spaceId: string,
@@ -402,9 +419,9 @@ export const deleteTrip = (tripId: string) =>
 export const restoreTrip = (tripId: string) =>
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}/restore`, { method: "POST" });
 
-/** 아직 되돌릴 수 있는 지운 여행. owner 만 받는다. */
-export const listDeletedTrips = (spaceId: string) =>
-  authenticatedRequest<ServerTrip[]>(`/v1/spaces/${encodeURIComponent(spaceId)}/trips?trash=true&limit=100`);
+/** 아직 되돌릴 수 있는 지운 여행 한 쪽. owner 만 받는다. */
+export const listDeletedTripsPage = (spaceId: string, cursor?: string | null) =>
+  authenticatedPage<ServerTrip>(여행_목록_주소(spaceId, true, cursor));
 
 export const updateTrip = (
   tripId: string,

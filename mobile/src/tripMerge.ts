@@ -9,7 +9,7 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-type WithPlanning = { id?: string; planning?: object };
+type WithPlanning = { id?: string; planning?: object; start?: string };
 
 /**
  * 서버 목록을 기준으로 삼고, id 가 같은 여행에는 기기의 기록을 옮겨 붙인다.
@@ -37,15 +37,66 @@ export function mergeServerTrips<T extends WithPlanning>(serverTrips: T[], local
   });
 }
 
-/** 공간마다 나뉜 목록에 같은 규칙을 적용한다. 여행이 다른 공간으로 옮겨 가도 기록을 잃지 않게 전부 모아 찾는다. */
+/**
+ * 이미 가지고 있는 목록 뒤에 서버가 준 다음 쪽을 이어 붙인다.
+ *
+ * 목록을 쪽으로 나눠 받으면 `mergeServerTrips` 로 통째로 바꿀 수 없다. 그 함수는
+ * 받은 목록에 없는 여행을 버리므로, 두 번째 쪽만 넣는 순간 첫 쪽의 여행이 기기에만
+ * 있던 기록과 함께 사라진다.
+ *
+ * 이미 있던 여행은 서버 값으로 바꾸되 있던 자리에 그대로 두고(차례가 흔들리면 보던
+ * 곳이 튄다), 처음 보는 여행만 뒤에 붙인다. 서버가 같은 여행을 두 쪽에 걸쳐 주더라도
+ * 목록에는 한 번만 남는다.
+ */
+export function appendServerTrips<T extends WithPlanning>(
+  current: T[],
+  nextPage: T[],
+  localTrips: T[],
+): T[] {
+  const 이어받은 = mergeServerTrips(nextPage, [...localTrips, ...current]);
+  const 새_값 = new Map<string, T>();
+  for (const trip of 이어받은) {
+    if (trip.id) 새_값.set(trip.id, trip);
+  }
+  const 이미_있던 = new Set(current.map((trip) => trip.id).filter((id): id is string => !!id));
+  return [
+    ...current.map((trip) => (trip.id && 새_값.has(trip.id) ? (새_값.get(trip.id) as T) : trip)),
+    ...이어받은.filter((trip) => !trip.id || !이미_있던.has(trip.id)),
+  ];
+}
+
+/**
+ * 첫 쪽에 오지 않았을 뿐인 여행을 골라 낸다.
+ *
+ * 목록은 시작일 내림차순이라, 받은 쪽의 마지막 여행보다 이른 여행은 아직 안 온
+ * 것이다. 그 앞에 서야 하는데 오지 않은 여행만 서버에서 지워진 것으로 본다.
+ */
+function 아직_안_온_여행<T extends WithPlanning>(받은: T[], 기기_목록: T[]): T[] {
+  const 경계 = 받은[받은.length - 1]?.start;
+  if (!경계) return [];
+  const 받은_ids = new Set(받은.map((trip) => trip.id).filter((id): id is string => !!id));
+  return 기기_목록.filter((trip) => !!trip.id && !받은_ids.has(trip.id) && (trip.start ?? "") < 경계);
+}
+
+/**
+ * 공간마다 나뉜 목록에 같은 규칙을 적용한다. 여행이 다른 공간으로 옮겨 가도 기록을 잃지 않게 전부 모아 찾는다.
+ *
+ * `hasMoreByGroup` 이 그 공간에 대해 참이면 받은 것이 목록의 첫 쪽일 뿐이다. 그때는
+ * 아직 안 온 뒤쪽 여행을 버리지 않고 남긴다. 버리면 아래로 내려 받아 둔 여행이
+ * 당겨서 새로고침 한 번에 기기에만 있던 기록과 함께 사라진다.
+ */
 export function mergeServerTripsByGroup<T extends WithPlanning>(
   serverByGroup: Record<string, T[]>,
   localByGroup: Record<string, T[]>,
+  hasMoreByGroup: Record<string, boolean> = {},
 ): Record<string, T[]> {
   const allLocal = Object.values(localByGroup).flat();
   const merged: Record<string, T[]> = {};
   for (const [group, trips] of Object.entries(serverByGroup)) {
-    merged[group] = mergeServerTrips(trips, allLocal);
+    const 받은 = mergeServerTrips(trips, allLocal);
+    merged[group] = hasMoreByGroup[group]
+      ? [...받은, ...아직_안_온_여행(받은, localByGroup[group] ?? [])]
+      : 받은;
   }
   return merged;
 }
