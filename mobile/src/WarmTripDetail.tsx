@@ -54,27 +54,7 @@ import {
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { photoCodec, photosLinkedTo, photosOfStay, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
-import {
-  KEEPSAKE_PARTS,
-  KEEPSAKE_RATIOS,
-  KEEPSAKE_STAT_KINDS,
-  KEEPSAKE_STYLES,
-  keepsakeBodyOf,
-  keepsakeCardOf,
-  keepsakeFileName,
-  keepsakeLayoutOf,
-  keepsakeSizeOf,
-  keepsakeStatLines,
-  keepsakeTextOf,
-  toggleKeepsakePhoto,
-  type KeepsakeCard,
-  type KeepsakePart,
-  type KeepsakeRatio,
-  type KeepsakeStatKind,
-  type KeepsakeStyle,
-  type SavedKeepsake,
-} from "./tripCard";
-import { shareTripCard } from "./tripCardExport";
+import { TripCardsSection, type CardPhoto, type DetailUi } from "./TripCards";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
 import type { ExpenseSettings, ReportReason, ReportTargetType, ServerTrip } from "./serverData";
@@ -171,7 +151,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { captureRef, releaseCapture } from "react-native-view-shot";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
@@ -556,10 +535,6 @@ type Props = {
   serverExpenseSettings?: ExpenseSettings;
   /** 통화·환율·예산·정산 묶기를 서버에 저장한다. */
   onUpdateExpenseSettings?: (settings: ExpenseSettings) => Promise<void>;
-  /** 서버에 저장된 기념 카드 값. 없으면 아직 아무도 고르지 않은 것이다. */
-  serverKeepsake?: SavedKeepsake;
-  /** 기념 카드에서 고른 것을 서버에 저장한다. 없으면 이 기기에만 남는다. */
-  onUpdateKeepsake?: (card: SavedKeepsake) => Promise<void>;
   /** 홈의 여행 카드 바탕으로 쓰는 사진. */
   coverPhotoId?: string;
   /** 홈 카드 바탕 사진을 바꾼다. `null` 이면 해제다. */
@@ -1087,8 +1062,6 @@ export function WarmTripDetail({
   spaceRoster = [],
   serverExpenseSettings,
   onUpdateExpenseSettings,
-  serverKeepsake,
-  onUpdateKeepsake,
   coverPhotoId,
   onUpdateCoverPhoto,
   initialPlanning: savedPlanning,
@@ -2300,8 +2273,7 @@ export function WarmTripDetail({
               stay={registeredStay}
               participants={participants}
               spentTotal={money(expenses.reduce((sum, item) => sum + item.amount, 0), currency)}
-              keepsake={serverKeepsake}
-              onSaveKeepsake={onUpdateKeepsake}
+              cardTripId={serverTrip ? tripId : undefined}
               coverPhotoId={coverPhotoId}
               onSaveCoverPhoto={onUpdateCoverPhoto}
               reportSpaceId={reportSpaceId}
@@ -8089,8 +8061,7 @@ function Memories({
   stay,
   participants,
   spentTotal,
-  keepsake,
-  onSaveKeepsake,
+  cardTripId,
   coverPhotoId,
   onSaveCoverPhoto,
   reportSpaceId,
@@ -8116,10 +8087,8 @@ function Memories({
   participants: string[];
   /** 통화까지 붙인 지출 합. 기념 카드의 `쓴 돈` 통계에 쓴다. */
   spentTotal: string;
-  /** 서버에 저장된 기념 카드 값. */
-  keepsake?: SavedKeepsake;
-  /** 없으면 이 여행은 카드 설정을 저장할 곳이 없다(예시 여행). */
-  onSaveKeepsake?: (card: SavedKeepsake) => Promise<void>;
+  /** 서버 여행 id. 없으면 예시 여행이라 기념 카드가 이 화면에서만 산다. */
+  cardTripId?: string;
   /** 홈의 여행 카드 바탕으로 쓰는 사진. */
   coverPhotoId?: string;
   onSaveCoverPhoto?: (photoId: string | null) => Promise<void>;
@@ -8184,102 +8153,15 @@ function Memories({
   const [diaryTitle, setDiaryTitle] = useState("");
   const [diaryBody, setDiaryBody] = useState("");
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
-  const [makingCard, setMakingCard] = useState(false);
-  // 카드에 쓸 수 있는 사진은 파일이 기기에 있는 것뿐이다. 웹의 blob: 주소는 탭을
-  // 새로 열면 죽어서, 그 사진을 고르면 빈 칸이 찍힌다.
-  const cardPhotos = useMemo(() => photos.filter((photo) => isLivePhotoUri(photo.uri)), [photos]);
-  const cardPhotoIds = useMemo(() => cardPhotos.map((photo) => photo.id), [cardPhotos]);
-  // 서버에 저장된 값이 카드의 원본이다. 시트를 열면 그 값에서 시작해 고친다.
-  const savedCard = useMemo(
-    () => keepsakeCardOf(keepsake, tripName, cardPhotoIds),
-    [cardPhotoIds, keepsake, tripName],
+  // 기념 카드에 올릴 사진. 색과 설명만 넘긴다(`TripCards.tsx` 가 나머지를 한다).
+  const cardPhotos = useMemo<CardPhoto[]>(
+    () => photos.map(({ id, color, caption, uri }) => ({ id, color, caption, uri })),
+    [photos],
   );
-  const [cardDraft, setCardDraft] = useState<KeepsakeCard>(savedCard);
-  const [savingCard, setSavingCard] = useState(false);
-  // 꾸미기는 접어 둔다. 귀찮은 사람은 열자마자 나온 카드를 그대로 내보내면 된다.
-  const [cardTuning, setCardTuning] = useState(false);
-  // 사진이 다 그려지기 전에 찍으면 웹에서 빈 칸이 나온다. 그린 사진의 id 를 센다.
-  const [drawnPhotos, setDrawnPhotos] = useState<string[]>([]);
-  const cardShot = useRef<View>(null);
-  const chosenPhotos = useMemo(
-    () => cardDraft.photoIds.map((id) => cardPhotos.find((photo) => photo.id === id)).filter((photo) => photo !== undefined),
-    [cardDraft.photoIds, cardPhotos],
+  const cardCounts = useMemo(
+    () => ({ places: places.length, photos: photos.length, days: dayOptions.length, spent: spentTotal }),
+    [dayOptions.length, photos.length, places.length, spentTotal],
   );
-  const cardText = useMemo(
-    () => keepsakeTextOf(cardDraft, { name: tripName, period: tripDate, region: tripRegion, people: participants }),
-    [cardDraft, participants, tripDate, tripName, tripRegion],
-  );
-  const cardStats = useMemo(
-    () => keepsakeStatLines(cardDraft, {
-      places: places.length,
-      photos: photos.length,
-      days: dayOptions.length,
-      spent: spentTotal,
-    }),
-    [cardDraft, dayOptions.length, photos.length, places.length, spentTotal],
-  );
-  const openCard = () => {
-    setCardDraft(savedCard);
-    setCardTuning(false);
-    setDrawnPhotos([]);
-    setMakingCard(true);
-  };
-  const tuneCard = (change: Partial<KeepsakeCard>) => {
-    // 사진이 바뀌면 다시 그려질 때까지 기다린다.
-    if (change.photoIds) setDrawnPhotos([]);
-    setCardDraft((current) => ({ ...current, ...change }));
-  };
-  const toggleCardPart = (part: KeepsakePart) =>
-    tuneCard({ parts: cardDraft.parts.includes(part) ? cardDraft.parts.filter((item) => item !== part) : [...cardDraft.parts, part] });
-  const toggleCardStat = (stat: KeepsakeStatKind) =>
-    tuneCard({ stats: cardDraft.stats.includes(stat) ? cardDraft.stats.filter((item) => item !== stat) : [...cardDraft.stats, stat] });
-  // 홈 카드 바탕은 한 장이다. 카드에 여러 장을 골랐으면 맨 앞 사진을 쓴다.
-  const coverCandidate = cardDraft.photoIds[0] ?? "";
-  const coverOn = Boolean(coverCandidate) && coverCandidate === coverPhotoId;
-  const toggleCover = async () => {
-    if (!onSaveCoverPhoto || !coverCandidate) return;
-    try {
-      await onSaveCoverPhoto(coverOn ? null : coverCandidate);
-      notify(coverOn ? "홈 카드를 원래 모습으로 되돌렸어요" : "이 사진을 홈 카드에 깔았어요");
-    } catch {
-      notify("홈 카드 사진을 바꾸지 못했어요. 잠시 뒤에 다시 시도해 주세요");
-    }
-  };
-  const saveCard = async () => {
-    setMakingCard(false);
-    if (!onSaveKeepsake) return;
-    try {
-      await onSaveKeepsake(keepsakeBodyOf(cardDraft, tripName));
-      notify("기념 카드를 저장했어요");
-    } catch {
-      notify("기념 카드를 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요");
-    }
-  };
-  // 고른 사진이 다 그려진 뒤에만 찍는다. 파일이 없는 사진은 색만 깔리므로 기다릴 것이 없다.
-  const cardReady = chosenPhotos.every((photo) => !photo.uri || drawnPhotos.includes(photo.id));
-  /** 화면에 그려 둔 카드를 그대로 찍어 내보낸다. 웹은 내려받고 폰은 공유 시트로 간다. */
-  const exportCard = async () => {
-    if (savingCard || !cardReady) return;
-    setSavingCard(true);
-    let shot: string | undefined;
-    try {
-      const size = keepsakeSizeOf(cardDraft.ratio);
-      shot = await captureRef(cardShot, {
-        format: "png",
-        result: Platform.OS === "web" ? "data-uri" : "tmpfile",
-        width: size.exportWidth,
-        height: size.exportHeight,
-      });
-      const 결과 = await shareTripCard(keepsakeFileName(cardText.title || tripName), shot);
-      if (결과 === "unavailable") notify("이 기기에서는 카드를 내보낼 수 없어요");
-      else notify(Platform.OS === "web" ? "기념 카드를 내려받았어요" : "기념 카드를 공유했어요");
-    } catch {
-      notify("기념 카드를 만들지 못했어요");
-    } finally {
-      if (shot) releaseCapture(shot);
-      setSavingCard(false);
-    }
-  };
   const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [showAllDiaries, setShowAllDiaries] = useState(false);
   const photoPalette = ["#E7B4A6", "#DFC98A", "#AFC9C3", "#D4BDD4", "#C7D493", "#9CBBC6"];
@@ -8494,184 +8376,23 @@ function Memories({
           onPress={() => setShowAllDiaries((value) => !value)}
         />
       )}
-      <SectionLabel label="여행 기념 카드" />
-      {cardPhotos.length === 0 ? (
-        <EmptyState
-          title="카드로 만들 사진이 없어요"
-          description="사진을 한 장 추가하면 그 사진으로 기념 카드를 만들 수 있어요."
-          action="사진 추가"
-          onPress={canEdit ? openPhotoCreate : undefined}
-        />
-      ) : (
-        <Pressable
-          onPress={openCard}
-          accessibilityRole="button"
-          accessibilityLabel="여행 기념 카드 만들기"
-          style={[styles.keepsakeCompact, theme && { backgroundColor: theme.surfaceAlt }]}
-        >
-          <View style={styles.keepsakeStrip}>
-            {cardPhotos.slice(0, 3).map((photo) => (
-              <View key={`${photo.id}-strip`} style={[styles.keepsakeThumb, { backgroundColor: photo.color }]}>
-                {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
-              </View>
-            ))}
-          </View>
-          <View style={styles.keepsakeCopy}>
-            <Text style={[styles.keepsakeStyle, theme && { color: theme.primary }]}>{savedCard.style} · {tripDate}</Text>
-            <Text numberOfLines={1} style={[styles.keepsakeCompactTitle, theme && { color: theme.text }]}>{savedCard.title}</Text>
-            <Text style={[styles.keepsakeCompactAction, theme && { color: theme.primary }]}>한 장으로 만들기</Text>
-          </View>
-          <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
-        </Pressable>
-      )}
-      <DetailSheet
-        visible={makingCard}
-        title="여행 기념 카드"
-        subtitle="이대로 저장해도 되고, 아래에서 하나하나 고쳐도 돼요"
-        submit={onSaveKeepsake ? "이 카드로 저장" : "닫기"}
-        onClose={() => setMakingCard(false)}
-        onSubmit={saveCard}
-      >
-        <KeepsakeCardView
-          shotRef={cardShot}
-          card={cardDraft}
-          photos={chosenPhotos}
-          text={cardText}
-          stats={cardStats}
-          onPhotoReady={(id) => setDrawnPhotos((current) => (current.includes(id) ? current : [...current, id]))}
-        />
-        <Pressable
-          onPress={exportCard}
-          disabled={savingCard || !cardReady}
-          accessibilityRole="button"
-          accessibilityLabel="기념 카드를 이미지로 내보내기"
-          style={({ pressed }) => [
-            styles.keepsakeExport,
-            theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-            (savingCard || !cardReady) && styles.keepsakeExportWaiting,
-            pressed && styles.controlPressed,
-          ]}
-        >
-          <Text style={[styles.keepsakeExportText, theme && { color: theme.primary }]}>
-            {savingCard
-              ? "카드를 만드는 중이에요"
-              : !cardReady
-                ? "사진을 불러오는 중이에요"
-                : Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기"}
-          </Text>
-        </Pressable>
-        {Boolean(onSaveCoverPhoto && coverCandidate) && (
-          <Pressable
-            onPress={toggleCover}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: coverOn }}
-            accessibilityLabel="이 사진을 홈 카드에 쓰기"
-            style={({ pressed }) => [
-              styles.keepsakeExport,
-              theme && { borderColor: theme.border, backgroundColor: theme.surface },
-              coverOn && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-              pressed && styles.controlPressed,
-            ]}
-          >
-            <Text style={[styles.keepsakeExportText, theme && { color: coverOn ? theme.primary : theme.muted }]}>
-              {coverOn ? "홈 카드에 쓰는 중 · 누르면 해제" : "이 사진을 홈 카드에 쓰기"}
-            </Text>
-          </Pressable>
-        )}
-        <Pressable
-          onPress={() => setCardTuning((value) => !value)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: cardTuning }}
-          style={styles.keepsakeMore}
-        >
-          <Text style={[styles.keepsakeMoreText, theme && { color: theme.primary }]}>
-            {cardTuning ? "꾸미기 접기" : "직접 꾸미기"}
-          </Text>
-        </Pressable>
-        {cardTuning && (
-          <>
-            <View style={styles.optionField}>
-              <View style={styles.fieldLabelRow}>
-                <View style={[styles.fieldLabelDot, requiredDot("카드에 쓸 사진", theme)]} />
-                <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
-                  카드에 쓸 사진 · {cardDraft.photoIds.length}장
-                </Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.keepsakePickRow}>
-                {cardPhotos.map((photo) => {
-                  const 차례 = cardDraft.photoIds.indexOf(photo.id);
-                  return (
-                    <Pressable
-                      key={`${photo.id}-pick`}
-                      onPress={() => tuneCard({ photoIds: toggleKeepsakePhoto(cardDraft.photoIds, photo.id) })}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: 차례 >= 0 }}
-                      accessibilityLabel={`${photo.caption || photo.date} 사진을 카드에 넣기`}
-                      style={[
-                        styles.keepsakePick,
-                        { backgroundColor: photo.color },
-                        차례 >= 0 && styles.keepsakePickChosen,
-                        차례 >= 0 && theme && { borderColor: theme.primary },
-                      ]}
-                    >
-                      {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
-                      {차례 >= 0 && cardDraft.photoIds.length > 1 && (
-                        <View style={styles.keepsakePickOrder}>
-                          <Text style={styles.keepsakePickOrderText}>{차례 + 1}</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-            <OptionField
-              label="카드 스타일"
-              options={KEEPSAKE_STYLES}
-              value={cardDraft.style}
-              onChange={(value) => tuneCard({ style: value as KeepsakeStyle })}
-            />
-            <OptionField
-              label="방향과 비율"
-              options={KEEPSAKE_RATIOS}
-              value={cardDraft.ratio}
-              onChange={(value) => tuneCard({ ratio: value as KeepsakeRatio })}
-            />
-            <ToggleChips
-              label="카드에 넣을 것"
-              options={KEEPSAKE_PARTS}
-              chosen={cardDraft.parts}
-              onToggle={(value) => toggleCardPart(value as KeepsakePart)}
-            />
-            {cardDraft.parts.includes("통계") && (
-              <ToggleChips
-                label="어떤 숫자를 넣을까요"
-                options={KEEPSAKE_STAT_KINDS}
-                chosen={cardDraft.stats}
-                onToggle={(value) => toggleCardStat(value as KeepsakeStatKind)}
-              />
-            )}
-            <DetailField
-              label="카드 제목 · 선택 사항"
-              value={cardDraft.title}
-              onChangeText={(value) => tuneCard({ title: value })}
-              placeholder="예: 우리의 서울 주말"
-            />
-            <DetailField
-              label="짧은 문구 · 선택 사항"
-              value={cardDraft.caption}
-              onChangeText={(value) => tuneCard({ caption: value })}
-              placeholder="사진과 함께 남길 말을 적어보세요"
-              multiline
-            />
-          </>
-        )}
-        <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-          {onSaveKeepsake
-            ? "꾸민 것은 여행에 저장돼 함께 보는 사람에게도 같은 카드가 보여요."
-            : "예시 여행이라 꾸민 것이 저장되지 않아요. 카드는 지금 바로 내보낼 수 있어요."}
-        </Text>
-      </DetailSheet>
+      <TripCardsSection
+        tripId={cardTripId}
+        tripName={tripName}
+        tripDate={tripDate}
+        tripRegion={tripRegion}
+        tripStartKey={tripKeys[0]}
+        photos={cardPhotos}
+        participants={participants}
+        counts={cardCounts}
+        coverPhotoId={coverPhotoId}
+        onSaveCoverPhoto={onSaveCoverPhoto}
+        onAddPhoto={openPhotoCreate}
+        canEdit={canEdit}
+        theme={theme}
+        notify={notify}
+        ui={CARD_UI}
+      />
       <DetailSheet
         visible={photoEditing}
         title={editingPhotoId ? "사진 기록 수정" : "사진 추가"}
@@ -8865,132 +8586,22 @@ function PhotoStrip({ photos, label }: { photos: MemoryPhoto[]; label: string })
   );
 }
 
-/** 카드 스타일마다의 색. 사진 위에 글씨가 얹힐 수 있어 어느 스타일이든 대비가 세야 한다. */
-const KEEPSAKE_LOOK: Record<KeepsakeStyle, { paper: string; ink: string; sub: string; accent: string; frame: string }> = {
-  필름: { paper: "#171615", ink: "#F6F1E7", sub: "#B5AB9E", accent: "#E7B4A6", frame: "#33302C" },
-  엽서: { paper: "#FFFFFF", ink: "#2C2A28", sub: "#7C7266", accent: "#3F4C8F", frame: "#E7DFD2" },
-  스크랩북: { paper: "#F1E9DA", ink: "#33302B", sub: "#7E756A", accent: "#C0693F", frame: "#E0D1B8" },
-};
-
 /**
- * 내보낼 카드 그 자체. 미리보기와 내보내기가 이 하나를 같이 쓴다. 보이는 대로 저장된다.
+ * 기념 카드 화면이 쓰는 시트·칩 모양.
  *
- * 너비를 고정한다. 기기 폭에 따라 카드가 늘어나면 같은 여행이 기기마다 다른 그림이
- * 되고, 웹에서 찍은 것과 폰에서 찍은 것이 달라진다. 내보낼 때만 `captureRef` 가
- * 1080px 쪽으로 키운다.
- *
- * 가로 카드는 글을 사진 아래에 두면 사진이 띠처럼 얇아져서, 사진 위에 얹는다.
+ * 카드 코드는 `TripCards.tsx` 에 있다. 이 파일이 이미 아주 커서다. 새 디자인
+ * 언어를 들이지 않으려고 여기 있는 것을 그대로 넘긴다. 매 렌더마다 새 객체를
+ * 만들면 카드가 통째로 다시 그려지므로 모듈에 한 번만 만든다.
  */
-function KeepsakeCardView({ shotRef, card, photos, text, stats, onPhotoReady }: {
-  shotRef: React.RefObject<View | null>;
-  card: KeepsakeCard;
-  /** 고른 차례대로의 사진. 파일을 아직 못 받았으면 색만 깔린다. */
-  photos: MemoryPhoto[];
-  text: { title: string; meta: string; caption: string; people: string };
-  stats: { label: string; value: string }[];
-  /** 사진 한 장이 다 그려졌을 때. 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. */
-  onPhotoReady?: (id: string) => void;
-}) {
-  const look = KEEPSAKE_LOOK[card.style];
-  const size = keepsakeSizeOf(card.ratio);
-  const 위에_얹는다 = card.ratio === "가로";
-  const 줄 = keepsakeLayoutOf(photos.length || 1);
-  let 자리 = 0;
-  const copy = (
-    <View style={[styles.keepsakeCardCopy, 위에_얹는다 && styles.keepsakeCopyOver]}>
-      {Boolean(text.title) && (
-        <Text numberOfLines={2} style={[styles.keepsakeCardTitle, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}>
-          {text.title}
-        </Text>
-      )}
-      {Boolean(text.meta) && (
-        <Text numberOfLines={1} style={[styles.keepsakeCardMeta, { color: 위에_얹는다 ? "#E7DFD2" : look.accent }]}>
-          {text.meta}
-        </Text>
-      )}
-      {Boolean(text.people) && (
-        <Text numberOfLines={1} style={[styles.keepsakeCardMeta, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>
-          {text.people}
-        </Text>
-      )}
-      {Boolean(text.caption) && (
-        <Text
-          numberOfLines={2}
-          style={[
-            styles.keepsakeCardCaption,
-            card.style === "스크랩북" && styles.keepsakeCardHand,
-            { color: 위에_얹는다 ? "#E7DFD2" : look.sub },
-          ]}
-        >
-          {text.caption}
-        </Text>
-      )}
-      {stats.length > 0 && (
-        <View style={styles.keepsakeCardStats}>
-          {stats.map((stat) => (
-            <View key={stat.label}>
-              <Text style={[styles.keepsakeCardStatValue, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}>{stat.value}</Text>
-              <Text style={[styles.keepsakeCardStatLabel, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-  return (
-    <View style={styles.keepsakeStage}>
-      <View
-        ref={shotRef}
-        collapsable={false}
-        style={[styles.keepsakeCard, { width: size.width, height: size.height, backgroundColor: look.paper }]}
-      >
-        {card.style === "필름" && (
-          <View style={styles.keepsakeFilmHoles}>
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((hole) => (
-              <View key={hole} style={[styles.keepsakeFilmHole, { backgroundColor: look.frame }]} />
-            ))}
-          </View>
-        )}
-        <View
-          style={[
-            styles.keepsakePhotoArea,
-            card.style === "스크랩북" && styles.keepsakePhotoAreaTilt,
-            { borderColor: look.frame },
-          ]}
-        >
-          {줄.map((칸, index) => (
-            <View key={`row-${index}`} style={styles.keepsakePhotoRow}>
-              {Array.from({ length: 칸 }, () => photos[자리++]).map((photo, slot) => (
-                <View
-                  key={photo?.id ?? `blank-${index}-${slot}`}
-                  style={[styles.keepsakePhotoCell, { backgroundColor: photo?.color ?? look.frame }]}
-                >
-                  {photo?.uri && (
-                    <Image
-                      source={{ uri: photo.uri }}
-                      resizeMode="cover"
-                      style={styles.memoryPhotoImage}
-                      onLoad={() => onPhotoReady?.(photo.id)}
-                    />
-                  )}
-                </View>
-              ))}
-            </View>
-          ))}
-          {card.style === "엽서" && (
-            <View style={[styles.keepsakeStamp, { borderColor: look.frame, backgroundColor: look.paper }]}>
-              <Text style={[styles.keepsakeStampText, { color: look.accent }]}>DAYMO</Text>
-            </View>
-          )}
-          {card.style === "스크랩북" && <View style={styles.keepsakeTape} />}
-          {위에_얹는다 && <View style={styles.keepsakeScrim} />}
-          {위에_얹는다 && copy}
-        </View>
-        {!위에_얹는다 && copy}
-      </View>
-    </View>
-  );
-}
+const CARD_UI: DetailUi = {
+  Sheet: DetailSheet,
+  Field: DetailField,
+  Option: OptionField,
+  Chips: ToggleChips,
+  Empty: EmptyState,
+  Label: SectionLabel,
+  requiredDot,
+};
 
 function SectionLabel({
   label,
@@ -12052,20 +11663,6 @@ const styles = StyleSheet.create({
   },
   checkName: { color: "#593934", fontSize: 14, fontFamily: typo.title.family },
   checkNameDone: { color: "#B29B92", textDecorationLine: "line-through" },
-  keepsakeCopy: { flex: 1, minWidth: 0 },
-  keepsakeStyle: { fontSize: 12, fontFamily: typo.label.family },
-  keepsakeCompact: {
-    minHeight: 76,
-    borderRadius: 16,
-    padding: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  keepsakeStrip: { width: 82, height: 52, flexDirection: "row", gap: 2, marginRight: 10 },
-  keepsakeThumb: { flex: 1, borderRadius: 4, overflow: "hidden" },
-  keepsakeCompactTitle: { fontSize: 13, fontFamily: typo.title.family, marginTop: 2 },
-  keepsakeCompactAction: { fontSize: 11, fontFamily: typo.label.family, marginTop: 3 },
   diaryCard: {
     borderRadius: 12,
     borderWidth: 1,
@@ -12096,82 +11693,6 @@ const styles = StyleSheet.create({
   diaryDate: { fontSize: 11, fontFamily: typo.caption.family },
   diaryTitle: { fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
   diaryBody: { fontSize: 14, lineHeight: 20, marginTop: 6 },
-  // 카드는 기기 폭을 따르지 않는다. 같은 여행이 기기마다 다른 그림이 되면 안 된다.
-  keepsakeStage: { alignItems: "center", marginBottom: 16 },
-  keepsakeCard: { borderRadius: 14, padding: 12, overflow: "hidden" },
-  keepsakeFilmHoles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  keepsakeFilmHole: { width: 18, height: 7, borderRadius: 2 },
-  keepsakePhotoArea: { flex: 1, borderRadius: 8, overflow: "hidden", gap: 3 },
-  // 스크랩북은 사진을 살짝 기울여 붙인다. 붙인 종이처럼 보이게 하는 것이 전부다.
-  keepsakePhotoAreaTilt: { transform: [{ rotate: "-1.2deg" }], borderWidth: 5, borderColor: "#FFFFFF" },
-  keepsakePhotoRow: { flex: 1, flexDirection: "row", gap: 3 },
-  keepsakePhotoCell: { flex: 1, overflow: "hidden" },
-  // 엽서의 우표 자리. 실제 우표가 아니라 엽서라는 것을 알려 주는 표시다.
-  keepsakeStamp: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 34,
-    height: 42,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  keepsakeStampText: { fontSize: 8, fontFamily: typo.label.family },
-  // 마스킹 테이프. 사진 위쪽 가운데에 비스듬히.
-  keepsakeTape: {
-    position: "absolute",
-    top: -8,
-    alignSelf: "center",
-    width: 74,
-    height: 20,
-    backgroundColor: "rgba(226,206,160,0.75)",
-    transform: [{ rotate: "-4deg" }],
-  },
-  // 가로 카드는 글이 사진 위에 얹힌다. 밝은 사진에서도 읽히도록 아래를 어둡게 깐다.
-  keepsakeScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "62%", backgroundColor: "rgba(12,11,10,0.55)" },
-  keepsakeCardCopy: { paddingTop: 10, gap: 2 },
-  keepsakeCopyOver: { position: "absolute", left: 10, right: 10, bottom: 10, paddingTop: 0 },
-  keepsakeCardTitle: { fontSize: 17, lineHeight: 24, fontFamily: typo.title.family },
-  keepsakeCardMeta: { fontSize: 11, lineHeight: 16, fontFamily: typo.label.family },
-  keepsakeCardCaption: { fontSize: 12, lineHeight: 17, marginTop: 2 },
-  keepsakeCardHand: { fontStyle: "italic" },
-  keepsakeCardStats: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 6 },
-  keepsakeCardStatValue: { fontSize: 14, fontFamily: typo.title.family },
-  keepsakeCardStatLabel: { fontSize: 10, fontFamily: typo.label.family },
-  keepsakeExport: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EEF1FA",
-    borderColor: "#3F4C8F",
-    marginBottom: 16,
-  },
-  keepsakeExportText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
-  keepsakeExportWaiting: { opacity: 0.5 },
-  keepsakePickRow: { gap: 8, paddingRight: 6, paddingVertical: 2 },
-  keepsakePick: { width: 56, height: 56, borderRadius: 10, borderWidth: 2, borderColor: "transparent", overflow: "hidden" },
-  keepsakePickChosen: { borderColor: "#3F4C8F" },
-  // 고른 차례. 두 장 이상일 때만 보인다.
-  keepsakePickOrder: {
-    position: "absolute",
-    top: 3,
-    left: 3,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#17233D",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  keepsakePickOrderText: { fontSize: 10, color: "#FFFFFF", fontFamily: typo.label.family },
-  keepsakeMore: { alignSelf: "flex-start", paddingVertical: 8, marginBottom: 8 },
-  keepsakeMoreText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   photoLinkRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   photoLinkChip: {
     height: 36,
