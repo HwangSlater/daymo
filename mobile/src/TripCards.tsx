@@ -4,9 +4,11 @@
  * `WarmTripDetail.tsx` 가 이미 아주 커서 여기로 뺐다. 시트·칩 모양은 그 파일의
  * 것을 그대로 가져다 쓴다(새 디자인 언어를 들이지 않는다).
  *
- * 무엇을 어떻게 그릴지 정하는 계산은 전부 `tripCard.ts` 에 있다. 여기서는 그것이
- * 돌려준 값을 그린다. 미리보기와 내보내기가 같은 컴포넌트(`KeepsakeCardView`)를
- * 쓴다. 보이는 그대로 저장돼야 해서다.
+ * 무엇을 어떻게 그릴지 정하는 계산은 전부 `tripCard.ts`·`cardDecor.ts` 에 있다.
+ * 카드 그림 자체는 `KeepsakeCardView.tsx` 에 있고, 미리보기·내보내기·꾸미기 화면이
+ * 그 하나를 같이 쓴다. 보이는 그대로 저장돼야 해서다.
+ *
+ * 스티커와 글자를 손으로 얹는 것은 전용 화면(`CardDecorEditor.tsx`)에서 한다.
  *
  * 무거워지기 쉬운 화면이라 몇 가지를 지킨다.
  * - 미리보기는 썸네일(480px)을 쓰고 내보낼 때만 표시본(1440px)으로 바꿔 찍는다.
@@ -21,8 +23,14 @@ import * as Crypto from "expo-crypto";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
 import { Text } from "./AppText";
-import { Glyph, type GlyphName } from "./Glyph";
+import { CardDecorEditor } from "./CardDecorEditor";
+import {
+  CardStage,
+  KeepsakeCardView,
+  type CardPhoto,
+} from "./KeepsakeCardView";
 import { DaymoApiError } from "./auth";
+import type { CardDecor } from "./cardDecor";
 import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
 import {
   createTripCard,
@@ -43,11 +51,8 @@ import {
   keepsakeFileName,
   keepsakeFrameOf,
   keepsakeListOf,
-  keepsakeRowSlots,
   keepsakeSizeOf,
-  keepsakeSlotCaption,
   keepsakeStatLines,
-  keepsakeStickerSpots,
   keepsakeTextOf,
   suggestedStyleOf,
   toggleKeepsakePhoto,
@@ -55,26 +60,17 @@ import {
   KEEPSAKE_PARTS,
   KEEPSAKE_RATIOS,
   KEEPSAKE_STAT_KINDS,
-  KEEPSAKE_STICKERS,
   KEEPSAKE_STYLES,
   type KeepsakeCard,
-  type KeepsakeCorner,
   type KeepsakeFrameColor,
   type KeepsakePart,
   type KeepsakeRatio,
   type KeepsakeStatKind,
-  type KeepsakeSticker,
   type KeepsakeStyle,
 } from "./tripCard";
 import { shareTripCard } from "./tripCardExport";
 
-/** 카드에 올릴 수 있는 사진 한 장. 기록 탭의 사진에서 필요한 것만 가려 받는다. */
-export type CardPhoto = {
-  id: string;
-  color: string;
-  caption: string;
-  uri?: string;
-};
+export type { CardPhoto };
 
 /** 카드에 실을 숫자. 기록 탭이 세어 넘긴다. */
 export type CardCounts = {
@@ -84,52 +80,6 @@ export type CardCounts = {
   /** 통화까지 붙인 지출 합. */
   spent: string;
 };
-
-type KeepsakeLook = { paper: string; ink: string; sub: string; accent: string; frame: string };
-
-/** 카드 스타일마다의 색. 사진 위에 글씨가 얹힐 수 있어 어느 스타일이든 대비가 세야 한다. */
-const KEEPSAKE_LOOK: Record<"필름" | "엽서" | "스크랩북", KeepsakeLook> = {
-  필름: { paper: "#171615", ink: "#F6F1E7", sub: "#B5AB9E", accent: "#E7B4A6", frame: "#33302C" },
-  엽서: { paper: "#FFFFFF", ink: "#2C2A28", sub: "#7C7266", accent: "#3F4C8F", frame: "#E7DFD2" },
-  스크랩북: { paper: "#F1E9DA", ink: "#33302B", sub: "#7E756A", accent: "#C0693F", frame: "#E0D1B8" },
-};
-
-/**
- * 네컷 틀의 색. 테두리와 사진 사이 좁은 간격, 아래 여백이 모두 `paper` 색이다.
- *
- * 앞의 셋은 사진관에서 뽑는 색이고, 뒤의 셋은 앱에서 쓰는 색을 가져왔다.
- */
-const KEEPSAKE_FRAME_LOOK: Record<KeepsakeFrameColor, KeepsakeLook> = {
-  검정: { paper: "#111110", ink: "#F7F3EA", sub: "#A79D90", accent: "#E7B4A6", frame: "#2A2724" },
-  흰색: { paper: "#FFFFFF", ink: "#23211F", sub: "#8C8378", accent: "#3F4C8F", frame: "#EDE8E0" },
-  크림: { paper: "#F3EADA", ink: "#33302B", sub: "#847A6D", accent: "#C0693F", frame: "#E4D7C0" },
-  노을: { paper: "#7A3B2E", ink: "#FDF3EA", sub: "#E0BBA9", accent: "#F0C27A", frame: "#93503F" },
-  바다: { paper: "#26405E", ink: "#F0F5FA", sub: "#AEC1D4", accent: "#8FC8D8", frame: "#35536F" },
-  숲: { paper: "#2C4433", ink: "#F0F5EE", sub: "#AFC2B1", accent: "#C7D493", frame: "#3B5743" },
-};
-
-/** 스티커마다의 그림과 색. 사진 위에 찍히므로 색은 진하게 둔다. */
-const STICKER_LOOK: Record<KeepsakeSticker, { glyph: GlyphName; color: string }> = {
-  하트: { glyph: "heart", color: "#E2665C" },
-  별: { glyph: "star", color: "#F0B93F" },
-  비행기: { glyph: "plane", color: "#F8F5F0" },
-  필름: { glyph: "film", color: "#F8F5F0" },
-  말풍선: { glyph: "speech", color: "#8FC8D8" },
-  체크: { glyph: "checkSeal", color: "#7FBF6A" },
-};
-
-/** 스티커가 붙는 모서리. 사진 안쪽으로 살짝 들여 붙인다. */
-const CORNER_SPOT: Record<KeepsakeCorner, { top?: number; bottom?: number; left?: number; right?: number }> = {
-  좌상: { top: 4, left: 4 },
-  우상: { top: 4, right: 4 },
-  좌하: { bottom: 4, left: 4 },
-  우하: { bottom: 4, right: 4 },
-};
-
-const lookOf = (card: KeepsakeCard): KeepsakeLook =>
-  isCutStyle(card.style)
-    ? KEEPSAKE_FRAME_LOOK[card.frameColor]
-    : KEEPSAKE_LOOK[card.style as "필름" | "엽서" | "스크랩북"];
 
 /**
  * 사진 썸네일을 받아 둔다.
@@ -163,177 +113,6 @@ function usePhotoThumbs(ids: readonly string[]): Record<string, string> {
   }, [열쇠]);
   return thumbs;
 }
-
-/**
- * 내보낼 카드 그 자체. 미리보기와 내보내기가 이 하나를 같이 쓴다. 보이는 대로 저장된다.
- *
- * 너비를 고정한다. 기기 폭에 따라 카드가 늘어나면 같은 여행이 기기마다 다른 그림이
- * 되고, 웹에서 찍은 것과 폰에서 찍은 것이 달라진다. 내보낼 때만 `captureRef` 가
- * 1080px 쪽으로 키운다.
- *
- * 가로 카드는 글을 사진 아래에 두면 사진이 띠처럼 얇아져서, 사진 위에 얹는다.
- * 네컷 틀은 사진관에서 뽑는 그것이라 아래 여백에 이름·날짜·`Daymo` 를 둔다.
- */
-const KeepsakeCardView = memo(function KeepsakeCardView({
-  shotRef,
-  card,
-  photos,
-  text,
-  stats,
-  stamp,
-  big,
-  onPhotoReady,
-}: {
-  shotRef: React.RefObject<View | null>;
-  card: KeepsakeCard;
-  /** 고른 차례대로의 사진. 파일을 아직 못 받았으면 색만 깔린다. */
-  photos: { id: string; color: string; caption: string; uri?: string }[];
-  text: { title: string; meta: string; caption: string; people: string };
-  stats: { label: string; value: string }[];
-  /** 날짜 도장에 찍을 글. 껐으면 빈 글자다. */
-  stamp: string;
-  /** 내보내는 중인지. 그때만 표시본을 그린다. 미리보기는 썸네일이다. */
-  big: boolean;
-  /** 사진 한 장이 다 그려졌을 때. 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. */
-  onPhotoReady?: (key: string) => void;
-}) {
-  const look = lookOf(card);
-  const size = keepsakeSizeOf(card.ratio, card.style);
-  const 네컷 = isCutStyle(card.style);
-  const 위에_얹는다 = !네컷 && card.ratio === "가로";
-  const frame = useMemo(() => keepsakeFrameOf(card.style, photos.length), [card.style, photos.length]);
-  const spots = useMemo(
-    () => (네컷 ? keepsakeStickerSpots(card.stickers, frame.slots) : []),
-    [네컷, card.stickers, frame.slots],
-  );
-  const 좁은_띠 = card.style === "네컷 가로";
-  // 줄마다 몇 번째 사진부터인지. 그리면서 세면 같은 사진이 두 칸에 들어간다.
-  const 줄 = useMemo(() => keepsakeRowSlots(frame.rows), [frame.rows]);
-
-  const 칸 = (photo: (typeof photos)[number] | undefined, 내_자리: number) => {
-    const 설명 = 네컷 ? keepsakeSlotCaption(photo?.caption, card.photoCaptions) : "";
-    const 마지막_칸 = 내_자리 === frame.slots - 1;
-    return (
-      <View key={photo?.id ?? `blank-${내_자리}`} style={styles.cell}>
-        <View style={[styles.cellPhoto, { backgroundColor: photo?.color ?? look.frame }]}>
-          {photo?.uri && (
-            <Image
-              source={{ uri: photo.uri }}
-              resizeMode="cover"
-              style={styles.fill}
-              onLoad={() => onPhotoReady?.(`${photo.id}:${big ? "d" : "t"}`)}
-            />
-          )}
-          {네컷 && spots.filter((자리표) => 자리표.slot === 내_자리).map((자리표) => (
-            <View key={자리표.sticker} style={[styles.sticker, CORNER_SPOT[자리표.corner]]}>
-              <Glyph name={STICKER_LOOK[자리표.sticker].glyph} size={좁은_띠 ? 12 : 16} color={STICKER_LOOK[자리표.sticker].color} />
-            </View>
-          ))}
-          {네컷 && Boolean(stamp) && 마지막_칸 && (
-            <Text style={[styles.stamp, 좁은_띠 && styles.stampSmall]}>{stamp}</Text>
-          )}
-        </View>
-        {Boolean(설명) && (
-          <Text numberOfLines={1} style={[styles.cellCaption, { color: look.sub }]}>{설명}</Text>
-        )}
-      </View>
-    );
-  };
-
-  const copy = (
-    <View style={[styles.copy, 위에_얹는다 && styles.copyOver, 네컷 && styles.copyBand, 좁은_띠 && styles.copyBandNarrow]}>
-      <View style={좁은_띠 ? styles.bandLine : undefined}>
-        {Boolean(text.title) && (
-          <Text
-            numberOfLines={좁은_띠 ? 1 : 2}
-            style={[styles.title, 네컷 && styles.titleCut, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}
-          >
-            {text.title}
-          </Text>
-        )}
-        {Boolean(text.meta) && (
-          <Text numberOfLines={1} style={[styles.meta, { color: 위에_얹는다 ? "#E7DFD2" : look.accent }]}>
-            {text.meta}
-          </Text>
-        )}
-      </View>
-      {Boolean(text.people) && !좁은_띠 && (
-        <Text numberOfLines={1} style={[styles.meta, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>
-          {text.people}
-        </Text>
-      )}
-      {Boolean(text.caption) && (
-        <Text
-          numberOfLines={2}
-          style={[
-            styles.caption,
-            // 손글씨 느낌 한 줄. 스크랩북과 네컷 틀에서 기울여 적는다.
-            (card.style === "스크랩북" || 네컷) && styles.hand,
-            { color: 위에_얹는다 ? "#E7DFD2" : look.sub },
-          ]}
-        >
-          {text.caption}
-        </Text>
-      )}
-      {stats.length > 0 && !좁은_띠 && (
-        <View style={styles.statRow}>
-          {stats.map((stat) => (
-            <View key={stat.label}>
-              <Text style={[styles.statValue, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}>{stat.value}</Text>
-              <Text style={[styles.statLabel, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      {네컷 && <Text style={[styles.brand, { color: look.sub }]}>Daymo</Text>}
-    </View>
-  );
-
-  return (
-    <View style={styles.stage}>
-      <View
-        ref={shotRef}
-        collapsable={false}
-        style={[
-          styles.card,
-          네컷 && styles.cardCut,
-          { width: size.width, height: size.height, backgroundColor: look.paper },
-        ]}
-      >
-        {card.style === "필름" && (
-          <View style={styles.filmHoles}>
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((hole) => (
-              <View key={hole} style={[styles.filmHole, { backgroundColor: look.frame }]} />
-            ))}
-          </View>
-        )}
-        <View
-          style={[
-            styles.photoArea,
-            card.style === "스크랩북" && styles.photoAreaTilt,
-            네컷 && styles.photoAreaCut,
-            { borderColor: look.frame },
-          ]}
-        >
-          {줄.map((한_줄, index) => (
-            <View key={`row-${index}`} style={[styles.photoRow, 네컷 && styles.photoRowCut]}>
-              {Array.from({ length: 한_줄.count }, (_, slot) => 칸(photos[한_줄.start + slot], 한_줄.start + slot))}
-            </View>
-          ))}
-          {card.style === "엽서" && (
-            <View style={[styles.postStamp, { borderColor: look.frame, backgroundColor: look.paper }]}>
-              <Text style={[styles.postStampText, { color: look.accent }]}>DAYMO</Text>
-            </View>
-          )}
-          {card.style === "스크랩북" && <View style={styles.tape} />}
-          {위에_얹는다 && <View style={styles.scrim} />}
-          {위에_얹는다 && copy}
-        </View>
-        {!위에_얹는다 && copy}
-      </View>
-    </View>
-  );
-});
 
 /**
  * 꾸미기 목록.
@@ -436,18 +215,6 @@ const CardTuner = memo(function CardTuner({
             options={KEEPSAKE_FRAME_COLORS}
             value={card.frameColor}
             onChange={(value) => tune({ frameColor: value as KeepsakeFrameColor })}
-          />
-          <Chips
-            label="스티커"
-            options={KEEPSAKE_STICKERS}
-            chosen={card.stickers}
-            onToggle={(value) =>
-              tune({
-                stickers: card.stickers.includes(value as KeepsakeSticker)
-                  ? card.stickers.filter((item) => item !== value)
-                  : [...card.stickers, value as KeepsakeSticker],
-              })
-            }
           />
           <Chips
             label="도장과 설명"
@@ -624,6 +391,9 @@ export function TripCardsSection({
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState<KeepsakeCard | null>(null);
   const [tuning, setTuning] = useState(false);
+  // 전용 꾸미기 화면이 떠 있는지. 시트 위에 창을 하나 더 띄우는 대신 시트는 그대로 두고
+  // 그 위를 덮는다. 나가면 시트가 다시 보인다.
+  const [decorOpen, setDecorOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const shot = useRef<View>(null);
@@ -707,6 +477,7 @@ export function TripCardsSection({
     setDraft(start);
     setOpenId(id);
     setTuning(false);
+    setDecorOpen(false);
   };
   const makeCard = () => {
     if (blocked) {
@@ -719,12 +490,12 @@ export function TripCardsSection({
     setOpenId(null);
     setDraft(null);
     setExporting(false);
+    setDecorOpen(false);
   };
 
-  const saveCard = async () => {
-    const 지금 = draft;
+  /** 꾸민 값을 서버에 올린다. 시트의 저장과 꾸미기 화면의 저장이 같이 쓴다. */
+  const persist = async (지금: KeepsakeCard | null) => {
     const 고칠_수_있다 = canManage && canEdit;
-    closeCard();
     if (!지금 || !tripId || !고칠_수_있다) return;
     const body = keepsakeBodyOf(지금, tripName);
     try {
@@ -743,6 +514,20 @@ export function TripCardsSection({
           : "기념 카드를 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요",
       );
     }
+  };
+
+  const saveCard = async () => {
+    const 지금 = draft;
+    closeCard();
+    await persist(지금);
+  };
+
+  /** 꾸미기 화면에서 저장. 시트는 그대로 두고 꾸민 카드가 미리보기에 바로 보인다. */
+  const saveDecor = async (decor: CardDecor[]) => {
+    const 지금 = draft ? { ...draft, decor } : null;
+    setDraft(지금);
+    setDecorOpen(false);
+    await persist(지금);
   };
 
   const removeCard = () => {
@@ -863,7 +648,7 @@ export function TripCardsSection({
       <Sheet
         visible={Boolean(openId)}
         title="여행 기념 카드"
-        subtitle="이대로 저장해도 되고, 아래에서 하나하나 고쳐도 돼요"
+        subtitle="이대로 저장해도 되고, 스티커를 손으로 얹어도 돼요"
         submit={tripId && !readOnly ? "이 카드로 저장" : "닫기"}
         destructiveLabel={open && tripId && !readOnly ? "카드 삭제" : undefined}
         destructiveMessage="이 카드를 지워요. 사진은 그대로예요."
@@ -875,18 +660,35 @@ export function TripCardsSection({
       >
         {card && (
           <>
-            <KeepsakeCardView
-              shotRef={shot}
-              card={card}
-              photos={drawPhotos}
-              text={text}
-              stats={stats}
-              stamp={stamp}
-              big={exporting}
-              onPhotoReady={markDrawn}
-            />
+            <CardStage>
+              <KeepsakeCardView
+                shotRef={shot}
+                card={card}
+                photos={drawPhotos}
+                text={text}
+                stats={stats}
+                stamp={stamp}
+                big={exporting}
+                onPhotoReady={markDrawn}
+              />
+            </CardStage>
             {Boolean(frame?.notice) && (
               <Text style={[styles.notice, theme && { color: theme.muted }]}>{frame?.notice}</Text>
+            )}
+            {!readOnly && (
+              <Pressable
+                onPress={() => setDecorOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="스티커와 글자로 카드 꾸미기"
+                style={[
+                  styles.export,
+                  theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                ]}
+              >
+                <Text style={[styles.exportText, theme && { color: theme.primary }]}>
+                  {card.decor.length ? `스티커 꾸미기 · ${card.decor.length}개` : "스티커로 꾸미기"}
+                </Text>
+              </Pressable>
             )}
             <Pressable
               onPress={exportCard}
@@ -928,11 +730,12 @@ export function TripCardsSection({
               <Pressable
                 onPress={() => setTuning((value) => !value)}
                 accessibilityRole="button"
+                accessibilityLabel={tuning ? "카드 설정 접기" : "카드 설정 고치기"}
                 accessibilityState={{ expanded: tuning }}
                 style={styles.more}
               >
                 <Text style={[styles.moreText, theme && { color: theme.primary }]}>
-                  {tuning ? "꾸미기 접기" : "직접 꾸미기"}
+                  {tuning ? "카드 설정 접기" : "카드 설정 고치기"}
                 </Text>
               </Pressable>
             )}
@@ -957,6 +760,20 @@ export function TripCardsSection({
           </>
         )}
       </Sheet>
+      {/* 열 때만 만든다. 나가면 사라져서, 다시 열면 저장된 카드에서 다시 시작한다. */}
+      {card && decorOpen && !readOnly && (
+        <CardDecorEditor
+          visible
+          card={card}
+          photos={drawPhotos}
+          text={text}
+          stats={stats}
+          stamp={stamp}
+          theme={theme}
+          onClose={() => setDecorOpen(false)}
+          onSave={saveDecor}
+        />
+      )}
     </>
   );
 }
@@ -974,76 +791,6 @@ const 그려질_때까지 = async (다_그렸나: () => boolean) => {
 
 const styles = StyleSheet.create({
   fill: { width: "100%", height: "100%" },
-  // 카드는 기기 폭을 따르지 않는다. 같은 여행이 기기마다 다른 그림이 되면 안 된다.
-  stage: { alignItems: "center", marginBottom: 12 },
-  card: { borderRadius: 14, padding: 12, overflow: "hidden" },
-  // 사진관에서 뽑는 네컷은 테두리가 얇고 모서리가 각지다.
-  cardCut: { borderRadius: 6, padding: 8 },
-  filmHoles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  filmHole: { width: 18, height: 7, borderRadius: 2 },
-  photoArea: { flex: 1, borderRadius: 8, overflow: "hidden", gap: 3 },
-  // 네컷은 사진 사이 간격이 좁고, 그 틈으로 틀 색이 보인다.
-  photoAreaCut: { borderRadius: 0, overflow: "visible", gap: 4 },
-  // 스크랩북은 사진을 살짝 기울여 붙인다. 붙인 종이처럼 보이게 하는 것이 전부다.
-  photoAreaTilt: { transform: [{ rotate: "-1.2deg" }], borderWidth: 5, borderColor: "#FFFFFF" },
-  photoRow: { flex: 1, flexDirection: "row", gap: 3 },
-  photoRowCut: { gap: 4 },
-  cell: { flex: 1, minWidth: 0 },
-  cellPhoto: { flex: 1, overflow: "hidden" },
-  cellCaption: { fontSize: 7, lineHeight: 10, marginTop: 1, textAlign: "center" },
-  sticker: { position: "absolute" },
-  // 필름 카메라가 찍어 주던 날짜. 마지막 칸 오른쪽 아래에 주황색으로.
-  stamp: {
-    position: "absolute",
-    right: 5,
-    bottom: 4,
-    fontSize: 9,
-    color: "#F2A03D",
-    letterSpacing: 0.4,
-    fontFamily: typo.label.family,
-  },
-  stampSmall: { fontSize: 6, right: 3, bottom: 2 },
-  // 엽서의 우표 자리. 실제 우표가 아니라 엽서라는 것을 알려 주는 표시다.
-  postStamp: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 34,
-    height: 42,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  postStampText: { fontSize: 8, fontFamily: typo.label.family },
-  // 마스킹 테이프. 사진 위쪽 가운데에 비스듬히.
-  tape: {
-    position: "absolute",
-    top: -8,
-    alignSelf: "center",
-    width: 74,
-    height: 20,
-    backgroundColor: "rgba(226,206,160,0.75)",
-    transform: [{ rotate: "-4deg" }],
-  },
-  // 가로 카드는 글이 사진 위에 얹힌다. 밝은 사진에서도 읽히도록 아래를 어둡게 깐다.
-  scrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "62%", backgroundColor: "rgba(12,11,10,0.55)" },
-  copy: { paddingTop: 10, gap: 2 },
-  copyOver: { position: "absolute", left: 10, right: 10, bottom: 10, paddingTop: 0 },
-  // 네컷의 아래 여백. 사진관에서 뽑은 것처럼 가운데로 모은다.
-  copyBand: { paddingTop: 8, alignItems: "center", gap: 1 },
-  copyBandNarrow: { paddingTop: 5 },
-  bandLine: { alignItems: "center" },
-  title: { fontSize: 17, lineHeight: 24, fontFamily: typo.title.family },
-  titleCut: { fontSize: 12, lineHeight: 16 },
-  meta: { fontSize: 11, lineHeight: 16, fontFamily: typo.label.family },
-  caption: { fontSize: 12, lineHeight: 17, marginTop: 2 },
-  hand: { fontStyle: "italic" },
-  brand: { fontSize: 7, letterSpacing: 1.6, marginTop: 2, fontFamily: typo.label.family },
-  statRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 6 },
-  statValue: { fontSize: 14, fontFamily: typo.title.family },
-  statLabel: { fontSize: 10, fontFamily: typo.label.family },
   notice: { fontSize: 12, textAlign: "center", marginBottom: 10, color: "#8C8378" },
   export: {
     height: 44,

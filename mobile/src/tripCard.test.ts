@@ -14,7 +14,6 @@ import {
   keepsakeSizeOf,
   keepsakeSlotCaption,
   keepsakeStatLines,
-  keepsakeStickerSpots,
   keepsakeTextOf,
   peopleLineOf,
   suggestedStyleOf,
@@ -35,7 +34,7 @@ test("아무것도 고르지 않아도 카드 한 장이 나온다", () => {
   assert.deepEqual(card.stats, []);
   // 꾸미기는 다 꺼진 채로 시작한다. 틀 색만 사진관 기본인 검정이다.
   assert.equal(card.frameColor, "검정");
-  assert.deepEqual(card.stickers, []);
+  assert.deepEqual(card.decor, []);
   assert.equal(card.dateStamp, false);
   assert.equal(card.photoCaptions, false);
 });
@@ -59,7 +58,8 @@ test("모르는 값이 저장돼 있어도 기본으로 돌아가고 지운 사�
   assert.deepEqual(card.parts, ["이름"]);
   assert.deepEqual(card.stats, ["지출"]);
   assert.equal(card.frameColor, "검정");
-  assert.deepEqual(card.stickers, ["하트"]);
+  // 옛 스티커 목록은 새 형식으로 옮겨진다. 모르는 값은 빠진다.
+  assert.deepEqual(card.decor.map((하나) => 하나.kind), ["하트"]);
   // 켜고 끄기는 true 만 켠 것으로 읽는다.
   assert.equal(card.dateStamp, false);
   assert.equal(card.photoCaptions, false);
@@ -74,8 +74,8 @@ test("네컷 틀은 고른 값을 그대로 들고 온다", () => {
 
   assert.equal(card.style, "네컷 격자");
   assert.equal(card.frameColor, "크림");
-  // 켠 차례가 아니라 정해진 차례로 담긴다.
-  assert.deepEqual(card.stickers, ["별", "체크"]);
+  // 켠 차례가 아니라 정해진 차례로 옮겨진다.
+  assert.deepEqual(card.decor.map((하나) => 하나.kind), ["별", "체크"]);
   assert.equal(card.dateStamp, true);
   assert.equal(card.photoCaptions, true);
 });
@@ -161,24 +161,6 @@ test("줄마다 몇 번째 사진부터인지 미리 나눈다", () => {
     { start: 1, count: 2 },
   ]);
   assert.deepEqual(keepsakeRowSlots([4]), [{ start: 0, count: 4 }]);
-});
-
-test("스티커는 미리 정해 둔 자리에 붙고 켠 차례를 타지 않는다", () => {
-  const 넷 = keepsakeStickerSpots(["비행기", "하트", "별"], 4);
-  assert.deepEqual(넷, [
-    { sticker: "하트", slot: 0, corner: "우상" },
-    { sticker: "별", slot: 1, corner: "좌하" },
-    { sticker: "비행기", slot: 2, corner: "좌상" },
-  ]);
-  // 켠 차례를 바꿔도 같은 자리다.
-  assert.deepEqual(keepsakeStickerSpots(["별", "하트", "비행기"], 4), 넷);
-  // 칸이 하나면 그 한 칸의 네 모서리를 차례로 쓴다.
-  assert.deepEqual(keepsakeStickerSpots(["하트", "별", "비행기", "필름"], 1).map((자리) => 자리.corner), [
-    "우상", "좌하", "좌상", "우하",
-  ]);
-  // 모서리는 넷뿐이라 그보다 많이 켜면 뒤쪽은 붙지 않는다.
-  assert.equal(keepsakeStickerSpots(["하트", "별", "비행기", "필름", "말풍선", "체크"], 1).length, 4);
-  assert.deepEqual(keepsakeStickerSpots([], 4), []);
 });
 
 test("날짜 도장과 칸 아래 설명", () => {

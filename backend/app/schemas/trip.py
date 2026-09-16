@@ -33,8 +33,38 @@ KeepsakePart = Literal["이름", "기간", "지역", "사람", "문구", "통계
 KeepsakeStat = Literal["장소", "사진", "날", "지출"]
 # 네컷 틀의 테두리 색. 앞의 셋은 사진관 색이고 뒤의 셋은 앱에서 쓰는 색이다.
 KeepsakeFrameColor = Literal["검정", "흰색", "크림", "노을", "바다", "숲"]
-# 사진 모서리에 붙이는 작은 그림. 자리는 앱이 미리 정해 둔다.
-KeepsakeSticker = Literal["하트", "별", "비행기", "필름", "말풍선", "체크"]
+# 카드에 붙이는 작은 그림.
+KeepsakeSticker = Literal[
+    "하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝"
+]
+# 카드에 얹는 것. 스티커 이름이거나 글자다.
+KeepsakeDecorKind = Literal[
+    "하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝", "글자"
+]
+
+
+class KeepsakeDecorIn(_Camel):
+    """
+    카드 위에 손으로 얹은 것 하나.
+
+    자리와 크기는 픽셀이 아니라 **카드 크기에 대한 비율(0~1)** 이다. 같은 카드를
+    폰에서 보든 웹에서 보든 내보낸 그림에서든 같은 자리에 찍혀야 해서다. 서버는
+    이 값으로 아무것도 계산하지 않고 그대로 돌려준다.
+    """
+
+    # 앱이 만드는 이름(`d1`). 한 카드 안에서만 쓴다.
+    id: str = Field(default="d1", min_length=1, max_length=20)
+    kind: KeepsakeDecorKind = "하트"
+    # 글자일 때만 채운다.
+    text: str | None = Field(default=None, max_length=24)
+    # 가운데 자리. 카드 너비·높이에 대한 비율이다.
+    x: float = Field(default=0.5, ge=0, le=1)
+    y: float = Field(default=0.5, ge=0, le=1)
+    # 카드의 짧은 변에 대한 크기. 비율이 달라도 같은 크기로 보인다.
+    size: float = Field(default=0.16, ge=0.01, le=1)
+    angle: float = Field(default=0, ge=-180, le=180)
+    # 겹침 순서. 클수록 위에 있다.
+    z: int = Field(default=0, ge=0, le=99)
 
 
 class KeepsakeCardIn(_Camel):
@@ -55,7 +85,11 @@ class KeepsakeCardIn(_Camel):
     stats: list[KeepsakeStat] = Field(default_factory=list, max_length=4)
     # 아래 넷은 네컷 틀에서만 그려진다. 다른 스타일에서는 저장만 된다.
     frame_color: KeepsakeFrameColor = "검정"
-    stickers: list[KeepsakeSticker] = Field(default_factory=list, max_length=6)
+    # 옛 앱이 보내던 정해진 자리 스티커 목록. 새 앱은 늘 빈 목록을 보내고 대신
+    # `decor` 를 채운다. 옛 앱이 아직 이 칸으로 보낼 수 있어 받기만 한다.
+    stickers: list[KeepsakeSticker] = Field(default_factory=list, max_length=9)
+    # 손으로 얹은 스티커와 글자. 어느 스타일에서든 그려진다.
+    decor: list[KeepsakeDecorIn] = Field(default_factory=list, max_length=30)
     # 필름 카메라가 찍어 주던 날짜 도장(`2026.09.15`).
     date_stamp: bool = False
     # 사진에 적어 둔 짧은 설명을 칸 아래에 넣을지.
