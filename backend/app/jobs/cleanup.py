@@ -43,6 +43,9 @@ JOBS: list[tuple[str, Job]] = [
     # 여행 정리 뒤에 둔다. 여행이 지워져야 그 여행만 쓰던 손 장소가 남는다.
     ("places", lambda session: places.purge_orphan_manual_places(session)),
     ("photos", lambda session: photos.purge_photos(session)),
+    # 기한이 지난 원본 파일. 사진 줄과 표시본은 그대로 남는다. 사진 정리 뒤에 둔다.
+    # 어차피 통째로 지워질 사진의 원본을 먼저 지우느라 일하지 않는다.
+    ("photo-originals", lambda session: photos.purge_originals(session)),
     # 휴지통 기한이 지난 메모. 사진과 같은 자리에 둔다.
     ("memos", lambda session: memories.purge_memos(session)),
     ("throttle", lambda session: throttle.purge_expired(session)),

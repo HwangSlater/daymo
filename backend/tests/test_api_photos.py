@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from app.core.config import get_settings
 from app.models import Membership, MembershipRole, Photo, PhotoLink, PhotoStatus, Trip
 from app.services import photo_files
-from app.services.photos import purge_photos
+from app.services.photos import ORIGINAL_DAYS, purge_originals, purge_photos
 from app.services.trips import purge_deleted_trips
 from tests.test_api_places import 멤버로_넣는다, 여행_하나, 장소를_담는다
 from tests.test_api_schedule import 일정을_넣는다
@@ -261,6 +261,44 @@ async def test_정리_작업은_지운_지_7일_지난_사진과_오래_멈춘_�
     assert uuid.UUID(멈춘.json()["data"]["id"]) not in 남은_id
     assert not (사진_폴더 / "trips" / trip["id"] / 지울_것.json()["data"]["id"]).exists()
     assert (사진_폴더 / "trips" / trip["id"] / 남길_것.json()["data"]["id"] / "display.jpg").is_file()
+
+
+async def test_원본은_30일_뒤_사라지고_표시본과_썸네일은_남는다(api, db, 사진_폴더):
+    headers, _, trip = await 여행_하나(api)
+    _, 올림 = await 사진을_올린다(api, headers, trip["id"], jpeg(1200, 900))
+    사진 = 올림.json()["data"]
+    # 앱은 이 값으로 "언제까지 받을 수 있는지" 를 보여 준다.
+    기한 = datetime.fromisoformat(사진["originalUntil"].replace("Z", "+00:00"))
+    assert timedelta(days=ORIGINAL_DAYS) - timedelta(minutes=1) < 기한 - datetime.now(UTC)
+    폴더 = 사진_폴더 / "trips" / trip["id"] / 사진["id"]
+    잰_크기 = (await db.get(Photo, uuid.UUID(사진["id"]))).stored_bytes
+
+    수 = await purge_originals(db, now=datetime.now(UTC) + timedelta(days=ORIGINAL_DAYS, minutes=1))
+
+    assert 수 == 1
+    assert not (폴더 / "original.jpg").exists()
+    assert (폴더 / "display.jpg").is_file() and (폴더 / "thumbnail.jpg").is_file()
+    # 공간 한도가 실제 디스크와 어긋나면 안 된다.
+    줄 = await db.get(Photo, uuid.UUID(사진["id"]))
+    assert 줄.original_path is None
+    assert 줄.stored_bytes == (폴더 / "display.jpg").stat().st_size + (폴더 / "thumbnail.jpg").stat().st_size < 잰_크기
+
+    목록 = await api.get(f"/v1/trips/{trip['id']}/photos", headers=headers)
+    assert 목록.json()["data"][0]["originalUntil"] is None
+    # 사진이 없는 것이 아니라 원본만 지난 것이다. 앱은 이걸 보고 표시본을 저장한다.
+    받음 = await api.get(f"/v1/photos/{사진['id']}/content?variant=original", headers=headers)
+    assert (받음.status_code, 받음.json()["error"]["code"]) == (410, "GONE")
+    assert (await api.get(f"/v1/photos/{사진['id']}/content?variant=display", headers=headers)).status_code == 200
+
+
+async def test_기한이_지나지_않은_원본은_그대로_둔다(api, db, 사진_폴더):
+    headers, _, trip = await 여행_하나(api)
+    _, 올림 = await 사진을_올린다(api, headers, trip["id"], jpeg(1200, 900))
+    사진 = 올림.json()["data"]
+
+    assert await purge_originals(db, now=datetime.now(UTC) + timedelta(days=ORIGINAL_DAYS - 1)) == 0
+    assert (사진_폴더 / "trips" / trip["id"] / 사진["id"] / "original.jpg").is_file()
+    assert (await api.get(f"/v1/photos/{사진['id']}/content?variant=original", headers=headers)).status_code == 200
 
 
 async def test_기한이_지난_여행을_지우면_사진_폴더도_지운다(api, db, 사진_폴더):

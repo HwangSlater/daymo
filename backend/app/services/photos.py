@@ -45,6 +45,15 @@ from app.services import photo_files
 
 # 지운 사진을 되살릴 수 있는 기간. 지나면 파일과 줄을 함께 지운다.
 TRASH_DAYS = 7
+# 원본을 내려받을 수 있는 기간.
+#
+# 원본은 기록이 아니라 "함께 간 사람이 받아 갈 파일" 이다. 찍은 사람 폰에는 이미 있고,
+# 없는 사람은 같이 간 사람뿐이다. 화면에는 표시본(긴 변 1440px)만 쓰므로 원본이 사라져도
+# 여행 기록은 그대로 남는다. 한 장에 원본이 표시본의 열 배가 넘어서, 계속 두면 공간
+# 한도의 대부분을 아무도 열지 않는 파일이 차지한다(2026-09-16 결정).
+#
+# 앱은 `originalUntil` 로 남은 기간을 보여 주고, 기한이 지난 뒤 저장하면 표시본을 준다.
+ORIGINAL_DAYS = 30
 # 이만큼 지나도 파일이 오지 않은 줄은 버린다.
 STALE_UPLOAD = timedelta(days=1)
 
@@ -232,6 +241,32 @@ async def remove_photo(session: AsyncSession, *, photo: Photo, actor: Membership
     photo.deleted_by = actor.id
     photo.version += 1
     await session.flush()
+
+
+async def purge_originals(session: AsyncSession, *, now: datetime | None = None) -> int:
+    """
+    기한이 지난 원본 파일을 지운다. 표시본과 썸네일은 남는다. 정기 작업에서 부른다.
+
+    파일을 먼저 지우고 경로를 비운다. 반대로 하면 아무 줄도 가리키지 않는 파일이 남는다.
+    비운 만큼 `stored_bytes` 를 줄여야 공간 한도가 실제 디스크와 맞는다.
+    """
+    지금 = now or datetime.now(UTC)
+    대상 = (
+        await session.execute(
+            select(Photo).where(
+                Photo.original_path.is_not(None),
+                Photo.original_expires_at.is_not(None),
+                Photo.original_expires_at <= 지금,
+            )
+        )
+    ).scalars().all()
+    for photo in 대상:
+        비운_크기 = photo_files.remove_original(photo.original_path or "")
+        photo.original_path = None
+        if photo.stored_bytes:
+            photo.stored_bytes = max(photo.stored_bytes - 비운_크기, 0)
+    await session.flush()
+    return len(대상)
 
 
 async def purge_photos(session: AsyncSession, *, now: datetime | None = None) -> int:

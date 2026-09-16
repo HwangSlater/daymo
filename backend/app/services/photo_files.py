@@ -1,7 +1,7 @@
 """
 사진 파일을 디스크에 두고 꺼내는 일.
 
-    {upload_root}/trips/{trip_id}/{photo_id}/original.jpg
+    {upload_root}/trips/{trip_id}/{photo_id}/original.jpg   올린 지 30일까지만
                                             display.jpg     긴 변 1440px
                                             thumbnail.jpg   긴 변 480px
     {upload_root}/tmp/                      받는 중인 파일
@@ -206,6 +206,22 @@ def store(upload: Path, trip_id: uuid.UUID, photo_id: uuid.UUID, zone: ZoneInfo)
         display_path=f"{base}/display.jpg",
         thumbnail_path=f"{base}/thumbnail.jpg",
     )
+
+
+def remove_original(relative: str) -> int:
+    """
+    원본 파일만 지우고 비운 크기를 돌려준다. 표시본과 썸네일은 그대로 둔다.
+
+    원본은 받은 사람이 내려받아 갈 동안만 두는 파일이라 기한이 지나면 사라진다
+    (`app.services.photos.ORIGINAL_DAYS`). 기록으로 남는 것은 표시본이다.
+    """
+    path = absolute(relative)
+    try:
+        size = path.stat().st_size
+    except FileNotFoundError:
+        return 0
+    path.unlink(missing_ok=True)
+    return size
 
 
 def remove_photo(trip_id: uuid.UUID, photo_id: uuid.UUID) -> None:

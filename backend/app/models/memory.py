@@ -153,6 +153,9 @@ class Photo(Base, TimestampMixin):
     original_mime: Mapped[str | None] = mapped_column(String(30), nullable=True)
     # 원본·표시본·썸네일을 합친 크기. 공간 한도를 셀 때 쓴다.
     stored_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # 원본을 내려받을 수 있는 마지막 때. 지나면 정리 작업이 원본 파일만 지우고
+    # `original_path` 를 비운다(표시본과 썸네일은 그대로 남는다).
+    original_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 영수증은 기록 탭의 사진 목록에 넣지 않는다. 지출의 `receipt_photo_id` 가 가리킨다.
     is_receipt: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 

@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import uuid
-from datetime import date as Date
+from datetime import UTC, date as Date, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request, Response, status
@@ -46,6 +46,7 @@ def _사진_응답(photo: Photo, names: dict, links: Links) -> dict:
         width=photo.width,
         height=photo.height,
         bytes=photo.stored_bytes,
+        original_until=photo.original_expires_at if photo.original_path else None,
         is_receipt=photo.is_receipt,
         uploader_membership_id=str(photo.uploader_membership_id) if photo.uploader_membership_id else None,
         uploader_name=name_of(names, photo.uploader_membership_id),
@@ -179,6 +180,8 @@ async def upload_photo_content(photo_id: uuid.UUID, request: Request, caller: Cu
     photo.width = 저장.width
     photo.height = 저장.height
     photo.taken_at = 저장.taken_at
+    # 원본을 받아 갈 수 있는 기한. 지나면 정리 작업이 원본만 지운다.
+    photo.original_expires_at = datetime.now(UTC) + timedelta(days=photo_service.ORIGINAL_DAYS)
     photo.status = PhotoStatus.READY
     await db.flush()
     return ok(await _한_장(db, photo))
@@ -204,6 +207,13 @@ async def photo_content(
         raise AppError(ErrorCode.NOT_FOUND)
     경로 = {"thumbnail": photo.thumbnail_path, "display": photo.display_path, "original": photo.original_path}[variant]
     if not 경로:
+        # 표시본이 있는데 원본만 없으면 기한이 지나 지운 것이다. 사진이 없는 것과
+        # 다르므로 앱이 "화면 크기로 저장" 으로 넘어갈 수 있게 따로 답한다.
+        if variant == "original" and photo.display_path:
+            raise AppError(
+                ErrorCode.GONE,
+                message=f"원본은 올린 지 {photo_service.ORIGINAL_DAYS}일까지만 받을 수 있어요.",
+            )
         raise AppError(ErrorCode.NOT_FOUND)
     파일 = photo_files.absolute(경로)
     if not 파일.is_file():

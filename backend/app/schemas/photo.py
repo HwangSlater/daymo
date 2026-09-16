@@ -65,6 +65,9 @@ class PhotoOut(_Camel):
     width: int | None
     height: int | None
     bytes: int | None
+    # 원본을 내려받을 수 있는 마지막 때. 기한이 지나 원본이 지워졌으면 null 이고,
+    # 그때는 `variant=original` 대신 표시본을 받아야 한다(`photos.ORIGINAL_DAYS`).
+    original_until: datetime | None = None
     is_receipt: bool
     uploader_membership_id: str | None
     uploader_name: str

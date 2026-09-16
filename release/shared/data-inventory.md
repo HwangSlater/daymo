@@ -13,7 +13,7 @@ App Store의 App Privacy와 Google Play의 데이터 보안(Data safety) 답은 
 | 비밀번호 | 이메일 가입 | 로그인 | 예 | Argon2id 해시만 저장 `User.password_hash` |
 | 사용자 ID | 계정 생성 시 서버가 만듦, 소셜 제공자의 회원 식별값 | 계정 식별 | 예 | `User.id`, `OAuthAccount.provider_subject` |
 | 기기 ID | 로그인 | 로그인 기기 관리, 세션 폐기 | 예 | 앱이 만든 설치 UUID `Device.installation_id`, 플랫폼, 앱 버전, 기기 이름 |
-| 사진 | 기록 탭 사진, 지출 영수증 | 여행 기록을 멤버와 공유 | 예 | `backend/app/services/photo_files.py`. 원본(메타데이터 제거) + 표시본·썸네일 |
+| 사진 | 기록 탭 사진, 지출 영수증 | 여행 기록을 멤버와 공유 | 예 | `backend/app/services/photo_files.py`. 표시본(긴 변 1440px)·썸네일(480px)은 계속 두고, 원본(메타데이터 제거)은 올린 지 30일 뒤 지운다 |
 | 사진 촬영 시각 | 사진 원본 EXIF | 사진을 날짜에 놓기 | 예 | `Photo.taken_at` |
 | 그 밖의 사용자 콘텐츠 | 앱에 입력 | 여행을 멤버와 함께 관리 | 예 | 공간·여행·일정·장소·숙소·교통·예약·준비물·요리·지출·정산 기록·메모·일기 |
 | 약관 동의 기록 | 가입 | 법적 증빙 | 예 | `User.terms_version`, `terms_agreed_at` |
