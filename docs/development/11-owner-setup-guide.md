@@ -168,18 +168,17 @@ Google Drive에는 노출 가능한 폴더 원본을 그대로 올리지 않는�
 
 ## 3. 로컬 개발 환경
 
-### 현재 확인된 상태
+### 현재 확인된 상태 (2026-09-16)
 
-| 항목 | 현재 상태 | 필요한 조치 |
-| --- | --- | --- |
-| Node.js | 현재 shell `v26.7.0` | Node 24 LTS로 전환 확정 |
-| npm | `11.19.0` | 선택한 Node 버전과 함께 고정 |
-| Python | 현재 shell `3.13.15` | 프로젝트 기준 3.13으로 고정, 그대로 사용 |
-| uv | 설치되지 않음 | 파이썬 패키지·가상환경 도구로 설치 |
-| Expo | SDK 57 | 최신 안정 SDK 업그레이드 검증 완료 |
-| React Native | 0.86.3 | Expo 호환 조합 유지 |
-| PostgreSQL | 미구성 | Docker 기반 PostgreSQL 16 준비 |
-| FastAPI | 프로젝트 없음 | 기반 단계에서 생성 |
+| 항목 | 현재 상태 |
+| --- | --- |
+| Node.js | 24 LTS. 루트 `.nvmrc`와 `mobile/package.json` engines로 고정 |
+| Python | 3.13, 패키지와 가상환경은 uv |
+| Expo | SDK 57 |
+| React Native | 0.86.3, React 19.2.3, TypeScript 6.0.x |
+| PostgreSQL | 16. 로컬은 `backend/compose.yml`, 운영은 같은 VPS의 private volume |
+| FastAPI | `backend/` 에 있다. `uv run python dev.py` 로 띄운다 |
+| 네이티브 폴더 | `mobile/ios`·`mobile/android` 를 두지 않는다. 빌드할 때 `npx expo prebuild` 로 만든다 |
 
 ### 필요한 도구
 
@@ -234,12 +233,13 @@ Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 ### 배포·운영 단계
 
 - iwinv VPS
-- 도메인과 DNS 관리 계정
+- 가비아(도메인)와 Cloudflare(권한 DNS·메일 수신 전달)
+- Vercel(소개 사이트와 웹 빌드)
+- Resend(메일 발송)
 - Expo/EAS
 - App Store Connect
 - Google Play Console
-- Sentry 또는 결정한 오류 수집 서비스
-- 운영 이메일 발송 서비스
+- Sentry 또는 결정한 오류 수집 서비스 — 아직 쓰지 않는다
 
 외부 사진 저장소는 VPS 로컬 저장을 선택하면 초기에는 필요 없다.
 
@@ -247,11 +247,17 @@ Redis, Kafka, Elasticsearch, Kubernetes는 초기 범위에서 제외한다.
 
 앱 번들에서 읽을 수 있으므로 공개되어도 되는 설정만 넣는다.
 
+실제로 앱 코드가 읽는 것은 둘뿐이다(`mobile/.env.example`).
+
 ```dotenv
-EXPO_PUBLIC_APP_ENV=local
-EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/v1
-EXPO_PUBLIC_SENTRY_DSN=
+# 비우면 운영 API인 https://api.daymo.xyz 를 쓴다
+EXPO_PUBLIC_DAYMO_API_URL=https://api.daymo.xyz
+
+# 네이버 지도 단축 링크의 장소명·주소를 받아 오는 주소. 비우면 앱이 기기에서 읽을 수 있는 만큼만 채운다
+EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL=
 ```
+
+소셜 로그인도 위 API가 맡는다. 앱에 넣을 제공자 키는 없다. 웹 빌드는 `site/build.mjs`가 `EXPO_PUBLIC_DAYMO_API_URL=https://api.daymo.xyz`와 `DAYMO_WEB_BASE_URL=/app`을 넣어 내보낸다.
 
 `EXPO_PUBLIC_*`에 비밀번호, OAuth secret, DB 접속 정보나 서명 키를 넣지 않는다. 실제 `.env`는 커밋하지 않고 `.env.example`만 커밋한다.
 
@@ -259,17 +265,23 @@ EXPO_PUBLIC_SENTRY_DSN=
 
 ```dotenv
 APP_ENV=local
-DB_HOST=localhost
+# localhost 로 두지 않는다. 윈도우에서 ::1 로 풀려 연결이 멈춘다
+DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_NAME=daymo
 DB_USERNAME=daymo
 DB_PASSWORD=
 JWT_SIGNING_KEY=
 REFRESH_TOKEN_PEPPER=
+
+# 메일·초대 링크와 OAuth callback 의 앞부분
+AUTH_LINK_BASE=https://api.daymo.xyz
+# 브라우저에서 API 를 부를 수 있는 출처. 웹 빌드 주소를 넣는다
+CORS_ORIGINS=https://www.daymo.xyz,https://daymo.xyz
 ```
 
 - SQLAlchemy 접속 URL은 위 값으로 `postgresql+psycopg://` 형식으로 조립한다. 비밀번호가 들어간 완성 URL을 저장소나 로그에 남기지 않는다.
-- `JWT_SIGNING_KEY`와 `REFRESH_TOKEN_PEPPER`는 서로 다른 긴 난수로 생성한다.
+- `JWT_SIGNING_KEY`와 `REFRESH_TOKEN_PEPPER`는 서로 다른 긴 난수로 생성한다. `APP_ENV`가 `beta`·`production`이면 둘 중 하나라도 비었거나 32바이트보다 짧거나 둘이 같으면 서버가 뜨지 않는다.
 - 운영값은 VPS root 전용 env 또는 배포 secret에 저장한다.
 - 로컬·staging·production 값을 재사용하지 않는다.
 
@@ -286,8 +298,13 @@ KAKAO_REST_API_KEY=
 KAKAO_CLIENT_SECRET=
 NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
+
+# 로그인 뒤 돌아갈 수 있는 앱 주소. 쉼표로 여럿
+OAUTH_APP_REDIRECT_URIS=daymo://oauth,https://www.daymo.xyz/oauth,https://daymo.xyz/oauth
 ```
 
+- Apple은 `APPLE_CLIENT_SECRET`이 아니라 위 네 값으로 요청마다 5분짜리 client secret을 서버가 서명해 만든다. `APPLE_CLIENT_ID`는 번들 ID가 아니라 Services ID다.
+- 켜지는 조건: google은 id와 secret 둘 다, kakao는 REST API 키만(secret은 콘솔에서 켰을 때만), naver는 id와 secret 둘 다, apple은 네 값 모두. 하나라도 비면 그 provider는 `/auth/oauth/providers` 목록에서 빠지고 버튼도 안 보인다.
 - OAuth secret과 Apple private key는 서버에만 둔다. 앱 `.env`에는 넣을 값이 없다.
 - Kakao 네이티브 앱 키와 REST API 키를 구분한다. 서버는 REST API 키를 쓴다.
 - 개발·staging·운영 redirect URI를 각각 등록한다.
@@ -306,6 +323,8 @@ provider에 등록하는 redirect URI는 앱 주소가 아니라 API 주소다. 
 | Naver | `https://api.daymo.xyz/v1/auth/oauth/naver/callback` |
 
 로그인이 끝나면 API가 앱을 `daymo://oauth`로 연다. 이 주소는 `OAUTH_APP_REDIRECT_URIS`(기본 `daymo://oauth`)에 있어야 한다. Expo Go로 시험하면 앱이 `exp://<PC IP>:8081/--/oauth`를 쓰므로 그 주소를 쉼표로 더한다.
+
+**웹 버전은 같은 출처의 `/oauth`로 돌아온다.** `https://www.daymo.xyz/oauth`와 `https://daymo.xyz/oauth`를 같은 값에 더하고, 로컬 웹 시험에는 `http://localhost:8081/oauth`를 더한다. Vercel 미리보기 도메인은 자동으로 허용되지 않는다. provider 콘솔에 등록하는 redirect URI는 웹에서도 위 표의 API 주소 그대로다. 바뀌는 것은 서버가 마지막에 앱을 여는 주소뿐이다.
 
 콘솔 메뉴 이름은 개편으로 바뀔 수 있다. 아래는 2026-09 기준이다.
 
@@ -339,19 +358,25 @@ provider에 등록하는 redirect URI는 앱 주소가 아니라 API 주소다. 
 
 외부 S3를 사용하지 않는 경우 필요한 서버 설정 예시:
 
+API 컨테이너가 읽는 값(괄호는 기본값):
+
 ```dotenv
-PHOTO_STORAGE_TYPE=local
-PHOTO_LOCAL_ROOT=/srv/daymo/uploads
-PHOTO_MAX_TOTAL_BYTES=10737418240
-PHOTO_MAX_UPLOAD_BYTES=
-PHOTO_BACKUP_TARGET=rclone:daymo-drive:daymo-backup
-PHOTO_DOWNLOAD_SIGNING_KEY=
+UPLOAD_ROOT=/srv/daymo/uploads          # (uploads) 사진 루트
+PHOTO_MAX_BYTES=20971520                # (20MB) 원본 한 장
+PHOTO_SPACE_QUOTA_BYTES=1073741824      # (1GB) 공간 하나
+PHOTO_TOTAL_QUOTA_BYTES=10737418240     # (10GB) 서버 전체
+PHOTO_ACCEL_PREFIX=                     # 비우면 API가 파일을 직접 보낸다
+```
+
+백업 쪽은 API가 아니라 systemd unit이 읽는다.
+
+```dotenv
 RESTIC_REPOSITORY=rclone:daymo-drive:daymo-backup
 RESTIC_PASSWORD_FILE=/etc/daymo/secrets/restic-password
 RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
 ```
 
-`PHOTO_MAX_TOTAL_BYTES=10737418240`는 사진 전체 10GB 상한이다. `PHOTO_DOWNLOAD_SIGNING_KEY`는 파일 접근용 짧은 URL을 서명할 때 사용한다. 실제 경로를 API 응답이나 로그에 노출하지 않는다.
+`PHOTO_ACCEL_PREFIX`에 `/_protected_uploads/`를 넣으면 API가 권한만 보고 Nginx에 파일 전달을 넘긴다. 켜는 순서와 파일 권한은 [06-vps-deployment.md](./06-vps-deployment.md) 6장. 파일 접근용 서명 URL은 쓰지 않는다. 앱은 `GET /v1/photos/{id}/content`를 부르고 서버가 매번 권한을 본다. 실제 파일 경로를 API 응답이나 로그에 노출하지 않는다.
 
 Google 계정 연결 과정에서 생성되는 rclone OAuth token과 restic repository password도 시크릿이다. 채팅이나 Git에 올리지 않고 VPS root만 읽을 수 있게 보관한다. Google 계정 비밀번호 자체를 VPS에 저장하지 않는다.
 
@@ -360,8 +385,7 @@ Google 계정 연결 과정에서 생성되는 rclone OAuth token과 restic repo
 이메일 발송은 iwinv VPS에서 메일 서버를 직접 운영하지 않고 Resend SMTP를 사용하기로 결정했다. 가정용·클라우드 IP에서 직접 SMTP로 보내면 차단되거나 스팸으로 분류되기 때문이다. 미니PC로 옮긴 뒤에도 중계 서비스를 그대로 사용한다.
 
 ```dotenv
-MAIL_PROVIDER=resend
-MAIL_FROM=no-reply@daymo.xyz
+MAIL_FROM=Daymo <no-reply@daymo.xyz>
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USERNAME=resend
@@ -369,7 +393,9 @@ SMTP_PASSWORD=
 SMTP_STARTTLS=true
 ```
 
-로컬 개발에서는 Mailpit 같은 로컬 메일 서버를 사용해 실제 발송 키 없이 검증할 수 있다.
+`SMTP_PASSWORD` 말고는 모두 코드의 기본값과 같다. 로컬 개발에서는 Mailpit 같은 로컬 메일 서버를 사용해 실제 발송 키 없이 검증할 수 있다.
+
+2026-09-15에 `daymo.xyz` 발신 인증(SPF·DKIM, 도쿄 리전)을 마쳤다. `support@daymo.xyz` 수신은 Cloudflare Email Routing이다. DMARC 레코드(`_dmarc`)는 아직 없다.
 
 `SMTP_PASSWORD`에는 Resend API Key를 넣는다. 앱에 포함하지 않고 API 서버 운영 secret(`/etc/daymo/secrets/`)에만 둔다. `daymo.xyz` DNS에는 Resend가 안내하는 도메인 인증·DKIM 레코드를 설정하고 DMARC 정책도 단계적으로 적용한다.
 
@@ -507,15 +533,14 @@ Daymo 전용 `daymo.xyz`를 가비아에서 구매했고 권한 DNS를 Cloudflar
 예시:
 
 ```text
-daymo.xyz              Vercel 소개·약관·처리방침·계정 삭제 안내
-www.daymo.xyz          daymo.xyz로 redirect
+www.daymo.xyz          Vercel 프로젝트 daymo-site. 소개·약관·처리방침·계정 삭제 안내와 /app 웹 빌드
+daymo.xyz              www.daymo.xyz 로 308 redirect
 api.daymo.xyz          Cloudflare A record → iwinv VPS 운영 API
-staging-api.daymo.xyz  beta 기간 같은 VPS의 beta API, production 전환 후 제거 가능
 ```
 
-Vercel project에는 apex와 `www`만 연결하고 API·사진 요청은 보내지 않는다. Vercel Hobby는 비상업 beta·문서 제공 단계에서만 사용한다. 앱을 수익화하기 전 당시 Vercel 이용 조건을 다시 확인하고 Hobby가 허용되지 않으면 결제 여부를 자동 가정하지 말고 정적 문서를 다른 host로 이전한다.
+Vercel project에는 정적 파일만 올리고 API·사진 요청은 보내지 않는다. Vercel Hobby는 비상업 beta·문서 제공 단계에서만 사용한다. 앱을 수익화하기 전 당시 Vercel 이용 조건을 다시 확인하고 Hobby가 허용되지 않으면 결제 여부를 자동 가정하지 말고 정적 문서를 다른 host로 이전한다.
 
-모바일 프로젝트가 `mobile/`로 분리되어 있으므로 Vercel의 Git project Settings → Build and Deployment → Root Directory를 `mobile`로 변경한다. Framework Preset은 Other, build/output은 `mobile/vercel.json`의 Expo export와 `dist` 설정을 사용한다.
+**Git 연결로 배포하지 않는다.** `node site/build.mjs`로 `site/dist`를 만들고 `npx vercel deploy --prod --cwd site/dist`로 올린다. 저장소 push는 사이트를 바꾸지 않는다. 자세한 것은 `site/README.md`. 예전에 앱 웹 빌드를 올리던 `daymo` 프로젝트는 2026-09-15에 도메인만 떼어 두었다.
 
 `api.daymo.xyz`는 Cloudflare A record로 VPS 공인 IPv4에 직접 연결한다. Nginx에서 Let's Encrypt 인증서를 발급하고 자동 갱신 timer, 갱신 dry-run과 만료 알림을 설정한다.
 

@@ -23,6 +23,8 @@
 
 ## 2. 테스트 전략
 
+아래는 목표 범위다. **2026-09-16 현재 실제로 도는 것**은 서버 `pytest` 580개(API·서비스·모델·잡, DB는 PostgreSQL 컨테이너)와 앱 `node --test` 196개다. 앱 쪽은 `react-native`·`expo`를 import하지 않는 순수 모듈만 덮는다. 지출 계산, 목록 동기화 코덱, OAuth state·PKCE·복귀 주소 해석, 공간 매핑, 지도 히트 테스트, 링크 해석이 여기 들어간다. 화면 두 파일(`WarmAppShell.tsx`·`WarmTripDetail.tsx`)과 네트워크 계층은 덮지 않는다. 컴포넌트 렌더 테스트와 E2E(Maestro)는 아직 없다.
+
 ### 단위 테스트
 
 - 여행 기간/달력 연결 범위와 시간대
@@ -135,7 +137,7 @@
 
 ## 5. 관측과 장애 처리
 
-- Sentry: crash, unhandled rejection, 최소 화면/API breadcrumb. 개인정보는 scrub하고 행동 분석에는 사용하지 않음
+- Sentry: crash, unhandled rejection, 최소 화면/API breadcrumb. 개인정보는 scrub하고 행동 분석에는 사용하지 않음. **아직 앱·서버 어디에도 넣지 않았다.** 지금 있는 것은 서버 요청 로그와 timer 실패 메일뿐이다
 - 첫 출시에는 화면 조회·버튼 클릭을 수집하는 제3자 행동 분석 SDK를 넣지 않음
 - Sentry event는 가명 설치 ID만 사용하고 30일 후 만료; 계정 ID·이메일·본문·사진 경로 미수집
 - 잠금화면 push에 여행·멤버·장소·준비물 상세가 없고 앱 진입 후 membership 재검증
@@ -170,12 +172,12 @@
 - [ ] SSH key 전용·root 원격 로그인 차단·제한된 deploy 계정과 sudo allowlist 확인
 - [ ] GitHub Environment Secrets와 VPS root 전용 secret 파일의 권한·노출 여부 확인
 - [ ] OS security update 자동 설치와 재부팅 필요 알림 확인
-- [ ] OAuth 제공자별 운영 redirect 검증
-- [ ] `daymo.xyz` 네임서버가 Cloudflare를 가리키고 zone이 `Active`인지 확인
+- [ ] OAuth 제공자별 운영 redirect 검증. Google·카카오·네이버는 켜져 있고 Apple은 키가 없어 꺼져 있다. 웹은 `OAUTH_APP_REDIRECT_URIS`의 `/oauth` 주소와 API의 `CORS_ORIGINS`를 함께 본다
+- [x] `daymo.xyz` 네임서버가 Cloudflare를 가리키고 zone이 `Active`
 - [ ] Cloudflare에서 apex/`www`→Vercel, `api`→iwinv VPS 공인 IPv4 확인. **`api` 레코드의 proxy가 꺼져 있는지(회색 구름) 확인한다.** 켜져 있으면 트래픽이 Cloudflare를 지나게 되어 위탁 범위가 달라진다
 - [ ] Let's Encrypt 자동 갱신 dry-run과 인증서 만료 알림 확인
 - [ ] Vercel 사용이 현재 비상업 beta의 이용 조건에 맞는지 확인
-- [ ] 개인정보 처리방침·이용약관·계정 삭제 URL 공개
+- [x] 개인정보 처리방침·이용약관·계정 삭제 URL 공개(`www.daymo.xyz/privacy`·`/terms`·`/account-deletion`). 앱 안에서 여는 링크는 아직 남았다
 - [ ] 개인정보 항목/목적/근거/보유기간/위탁/국외 이전/파기/권리행사 표 검토
 - [ ] 선택 동의가 기본 해제이며 거부해도 가입 가능한지 확인
 - [ ] iwinv와 모든 외부 서비스의 처리 국가/재위탁자 확인. iwinv는 한국 리전을 구매할 계획이므로 계약한 VPS의 실제 데이터센터 국가를 구매 화면·계약 문서에서 확인
@@ -216,7 +218,12 @@
 | beta/production release candidate | EAS Build로 iOS·Android native binary 생성, 두 플랫폼 smoke test |
 | 매주 dependency schedule | client/server 생태계별 묶음 update PR 생성, 자동 merge 금지 |
 
-위 표는 목표 기준이다. 현재 구현된 CI는 `.github/workflows/ci.yml` 하나이며 `mobile`에서 `npm ci` → `npm run typecheck` → `npm run lint`까지만 실행한다. `typecheck`만 job을 실패시키고 `lint`는 기존 화면 코드의 `react-hooks` error가 정리될 때까지 `continue-on-error`로 결과만 보고한다. 단위 테스트, E2E, server pytest, migration 검증과 image build는 해당 도구와 server 코드가 생긴 뒤에 추가한다. 서버 의존성과 가상환경은 uv로 관리하므로 CI도 uv 기준으로 설치 단계를 짠다. 서버 린터는 아직 고르지 않았고 server 코드를 만들 때 `01` 문서에서 하나로 확정한다. `test`·`test:e2e` npm script도 아직 없다. 로컬 커밋 게이트에서도 같은 이유로 지금 실제로 돌릴 수 있는 검사는 `npm run typecheck`와 `npm run lint`뿐이다.
+위 표는 목표 기준이다. 현재 구현된 CI는 `.github/workflows/ci.yml` 하나이고 job 두 개로 나뉜다.
+
+- `client`: `mobile`에서 `npm ci` → `npm run typecheck` → `npm run lint` → `npm test`. 넷 다 실패하면 job이 실패한다. `lint`를 `continue-on-error`로 두었던 단계는 끝났다
+- `server`: `backend`에서 `uv sync --group dev --frozen` → `uv run alembic upgrade head` → `uv run pytest`. DB는 job의 `postgres:16` service 컨테이너이고 `DAYMO_REQUIRE_DB=1`이라 DB가 없으면 건너뛰지 않고 실패한다
+
+아직 없는 것은 E2E(Maestro), migration을 직전 production snapshot에 적용하는 검증, image build, `test:e2e` npm script다. 서버 린터도 아직 고르지 않았다. 로컬 커밋 게이트에서 실제로 돌릴 수 있는 검사는 `npm run typecheck`·`npm run lint`·`npm test`와 `uv run pytest`다.
 
 의존성 PR도 일반 PR과 같은 CI를 통과해야 하며 release note·Expo/FastAPI 호환성·보안 영향 확인 후 직접 squash merge한다. EAS build를 모든 PR에서 실행하지 않는다.
 

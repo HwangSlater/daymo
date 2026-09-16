@@ -2,22 +2,22 @@
 
 ## 1. 감사 결론
 
-현재 문서는 제품 도메인, REST API, 로컬 우선 동기화, VPS 운영과 출시 준수까지 큰 방향이 일관된다. 그러나 바로 기능 구현을 시작하면 식별자·도구 버전·인증·실시간 연결·사진 저장 결정을 중간에 다시 바꿀 가능성이 있다. 따라서 **0단계 기반 결정과 환경 고정 후 첫 수직 슬라이스를 시작**한다.
+이 문서는 2026-08-14 개발 착수 전에 쓴 감사와 결정 기록이다. **0단계와 첫 수직 슬라이스는 끝났고(2026-09), 3장의 결정 목록은 그대로 유효하다.** 아래 2장과 9장은 그 뒤 상태로 고쳐 두었다. 결정을 바꿀 일이 생기면 10장의 승인 규칙을 따른다.
 
-## 2. 현재 확인된 사실
+## 2. 현재 확인된 사실 (2026-09-16 기준)
 
 | 항목 | 현재 상태 | 판정 |
 | --- | --- | --- |
-| UI | 10단계 검토 완료, 홈 지난 여행 추가 | 기준선 태그 필요 |
-| 앱 구조 | `mobile/src/WarmAppShell.tsx`, `mobile/src/WarmTripDetail.tsx` 대형 로컬 상태 | 점진 분리 필요 |
-| API/서버 | 문서만 존재 | FastAPI 프로젝트 없음 |
-| Node | v26.7.0 | 표준 LTS와 불일치 |
-| Python | 현재 shell `3.13.15` | 프로젝트 기준 3.13으로 고정, 패키지·가상환경 도구 `uv` 설치 필요 |
-| iOS ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
-| Android ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
-| 자동 검사 | `tsc`만 수동 실행 | lint/test/CI 필요 |
-| npm audit | high 11, moderate 9 | 강제 수정 금지, SDK 호환 업그레이드 검증 |
-| 개인정보/인프라 | 개인 운영 확정, iwinv 한국 리전 VPS 구매 예정 | 구매·실제 리전·외부 제공자 계약 확인 전 운영 데이터 사용 금지 |
+| UI | 홈·여행·찾기·우리와 여행 상세 6개 탭이 서버에 연결됨 | — |
+| 앱 구조 | `mobile/src/WarmAppShell.tsx`(7,700줄), `WarmTripDetail.tsx`(12,500줄)에 화면이 몰려 있고 라우터가 없다 | **분리 남음.** Expo Router·TanStack Query·Zustand·SQLite 미도입 |
+| API/서버 | FastAPI 모놀리식. `/v1` 경로 68개(동작 102개), 표 41개, migration 22개 | — |
+| Node | 루트 `.nvmrc` 24, `engines` `>=24 <25` | — |
+| Python | 3.13 + uv | — |
+| iOS·Android ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
+| 자동 검사 | CI가 앱 `typecheck`·`lint`·`test`(196개)와 서버 `pytest`(580개, PostgreSQL 컨테이너)를 돌린다 | **E2E와 migration 리허설 남음** |
+| 오류 수집 | 없음. 문서 곳곳의 Sentry는 계획일 뿐이다 | 넣을 때 08 문서 4장·12장을 함께 고친다 |
+| 개인정보/인프라 | iwinv 한국 리전 VPS 운영 중(데이터센터 국가 2026-09-15 확인), 매일 백업과 정리 작업이 돈다 | — |
+| 공개 주소 | `api.daymo.xyz`(API), `www.daymo.xyz`(소개 사이트와 `/app` 웹 빌드) | — |
 
 ## 3. 사용자 결정이 필요한 항목
 
@@ -37,7 +37,7 @@
 
 | ID | 결정 | 권장안 |
 | --- | --- | --- |
-| D-005 | 첫 OAuth 범위 | **결정 완료: 이메일 + Apple + Google + Kakao + Naver 모두 첫 출시 지원** |
+| D-005 | 첫 OAuth 범위 | **결정 완료: 이메일 + Apple + Google + Kakao + Naver 모두 첫 출시 지원.** 2026-09-16 현재 Google·Kakao·Naver가 켜져 있고 Apple은 키가 없어 꺼져 있다 |
 | D-005A | 동일 이메일 계정 연결 | **결정 완료: 자동 병합 금지, 기존 계정 재인증 후 provider 연결** |
 | D-006 | 타인 메모 삭제 | **결정 완료: owner와 editor 모두 가능**, viewer 불가·삭제 감사 로그 유지 |
 | D-007 | 가입 연령 | **결정 완료: 만 14세 이상만 가입**, 생년월일 원본 미수집 |
@@ -156,7 +156,8 @@
 | D-021C | 복원 검증 | **결정 완료: 매월 자동 표본 복원 + 분기 전체 수동 복원** |
 | D-022 | DNS 사업자 | **결정 완료: 가비아에서 도메인 구매, 권한 DNS는 처음부터 Cloudflare**, 미니PC 단계의 Tunnel이 자기 zone을 요구하므로 레코드가 없는 지금 옮긴다 |
 | D-022C | Cloudflare proxy | **결정 완료: VPS 단계는 proxy 끔(회색 구름)**, 이름만 해석하고 트래픽은 경유하지 않음. 미니PC 단계에서 Tunnel로 전환 |
-| D-022A | 공개 웹 | **결정 완료: `daymo.xyz`를 Vercel에 연결**, 소개·약관·처리방침·계정 삭제 안내 제공 |
+| D-022A | 공개 웹 | **결정 완료: `daymo.xyz`를 Vercel에 연결**, 소개·약관·처리방침·계정 삭제 안내 제공. 2026-09-16부터 `www.daymo.xyz/app`에 앱 웹 빌드도 함께 올린다(`site/build.mjs`) |
+| D-022E | 앱 웹 버전 | **결정 완료: 같은 앱 코드를 `/app`에 올린다**, iPhone 앱 전까지 휴대폰 브라우저용. API의 `CORS_ORIGINS`와 `OAUTH_APP_REDIRECT_URIS`에 그 주소를 넣는다 |
 | D-022B | API DNS | **결정 완료: Cloudflare A record로 `api.daymo.xyz`→iwinv VPS 직접 연결**, proxy 미사용은 VPS 단계 한정·미니PC 단계는 Cloudflare Tunnel(D-022) |
 | D-022C | API HTTPS | **결정 완료: Let's Encrypt 무료 인증서 자동 발급·갱신** |
 | D-022D | Vercel 사용 조건 | **결정 완료: 비상업 beta에만 Hobby 사용**, 상업화 전 조건 재검토·필요 시 정적 host 이전 |
@@ -168,7 +169,7 @@
 | D-024A | 로그인 실패 | **결정 완료: 점진적 지연 + 최대 15분 일시 제한**, 장기 계정 lock 금지 |
 | D-024B | 인증 메일 재전송 | **결정 완료: 60초 간격·계정/IP별 하루 5회** |
 | D-024C | 계정 존재 보호 | **결정 완료: 로그인·인증·재설정 모두 일반 응답 사용** |
-| D-025 | 사진 metadata | **결정 완료: 촬영일만 별도 저장**, 표시본의 GPS·기기 EXIF 제거 |
+| D-025 | 사진 metadata | **결정 완료: 촬영일만 별도 저장**, 표시본의 GPS·기기 EXIF 제거. 2026-09-15에 **원본에서도 제거**하기로 넓혔다 |
 | D-025A | 사진 variant | **결정 완료: 원본 보존 + 1440px 표시본 + 480px 썸네일** |
 | D-025B | 사진 호환 형식 | **결정 완료: HEIC 등 원본 형식 보존**, 표시본·썸네일 JPEG 변환 |
 | D-025C | 사진 중복 | **결정 완료: checksum 후보 안내**, 사용자 선택으로 중복 저장 허용 |
@@ -204,6 +205,8 @@
 - 모든 동작의 무리한 오프라인 지원
 
 ## 6. 개발 0단계 실행 순서
+
+**끝났다(2026-09).** 다만 0-A의 태그·Maestro 초안과 0-C의 Expo Router 도입, 0-E의 SQLite·outbox spike는 하지 않았다. Expo Router와 SQLite는 4단계로 미뤘고, 회귀는 지금 단위 테스트가 대신한다.
 
 ### 0-A. 기준선 고정
 
@@ -249,6 +252,8 @@
 
 ## 7. 첫 수직 슬라이스
 
+**끝났다(2026-09).** 그 뒤 제외 목록에 있던 OAuth·초대·사진까지 모두 붙었고, 실시간(SSE)만 아직 없다.
+
 기반 공사 뒤 첫 기능은 `이메일 로그인 → 공간 하나 → 여행 생성 → 홈 표시 → 재실행 캐시`로 제한한다.
 
 포함:
@@ -288,17 +293,19 @@
 
 ## 9. 착수 게이트
 
-다음 항목이 모두 충족되면 1단계 기능 개발을 시작한다.
+1단계 기능 개발 전에 확인하기로 한 것들이다. **2026-09-16 기준 대부분 끝났다.**
 
 - [x] D-001~D-004 승인 완료
-- [ ] 기준선 commit/tag와 회귀 캡처 확보
-- [ ] Node LTS와 Python 3.13·uv 설치 확인
-- [ ] `mobile/`에서 `npm ci`, iOS, Android와 `backend/` local 실행 문서 검증
-- [ ] 앱/서버 식별자와 dev 환경 변수 확정
-- [ ] client/server CI 통과
-- [ ] Alembic 초기 migration과 pytest DB test 통과
-- [ ] SQLite·SecureStore·outbox spike 통과
-- [ ] 운영 secret이나 실데이터가 저장소에 없음을 확인
+- [x] Node LTS와 Python 3.13·uv 설치 확인
+- [x] `mobile/`에서 `npm ci`와 `backend/` local 실행 문서 검증(`01` 문서 3장)
+- [x] 앱/서버 식별자와 dev 환경 변수 확정
+- [x] client/server CI 통과
+- [x] Alembic migration과 pytest DB test 통과
+- [x] SecureStore 세션 저장·복원 확인
+- [x] 운영 secret이나 실데이터가 저장소에 없음을 확인(`site.local.json`·`.env`는 `.gitignore`)
+- [ ] 기준선 commit/tag와 회귀 캡처 확보. 태그는 붙이지 않았고 회귀는 단위 테스트로 대신하고 있다
+- [ ] iOS·Android 실기기 실행 확인. 아직 웹 빌드로만 확인했다
+- [ ] SQLite·outbox spike. 4단계(로컬 우선 동기화)에서 한다
 
 ## 10. 다음 사용자 승인 지점
 

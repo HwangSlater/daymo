@@ -5,29 +5,16 @@
 | 항목 | 현재 버전/설정 |
 | --- | --- |
 | Node.js | 24 LTS, 루트 `.nvmrc`와 `mobile/package.json` engines 고정 |
-| npm | Node 20에 포함된 버전, `package-lock.json` 고정 |
+| npm | Node 24에 포함된 버전, `package-lock.json` 고정 |
 | Expo | SDK 57 |
 | React Native | 0.86.3 |
 | React | 19.2.3 |
 | TypeScript | 6.0.x |
 | iOS | Xcode 최신 안정 버전, CocoaPods, iOS Simulator |
 | Android | Android Studio, SDK 35 이상, JDK 17 |
-| Web | Expo Web. 피드백용 모바일 폭 프리뷰이며 정식 웹 제품은 후순위 |
+| Web | Expo Web. 2026-09-16부터 `www.daymo.xyz/app`에 올리는 실제 배포본이다(`site/README.md`) |
 
-### 2026-08-14 현재 개발 PC 감사
-
-| 항목 | 확인 결과 | 조치 |
-| --- | --- | --- |
-| Node.js | 현재 shell `v26.7.0` | 기준은 Node 24 LTS로 확정, SDK 검증 전 실제 전환 필요 |
-| npm | `11.19.0` | 선택한 Node LTS에 포함된 버전으로 lockfile 재검증 |
-| Python | 현재 shell `3.13.15` | 백엔드 기준 3.13으로 확정, 그대로 사용 |
-| uv | 설치되지 않음 | 백엔드 생성 전에 설치 필수. 패키지와 가상환경을 uv로 관리 |
-| iOS bundle ID | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
-| Android package | `com.hwangslater.daymo` | 확정·`mobile/app.json` 반영 완료 |
-| 테스트/lint | `typecheck`·`lint`·`export` script 추가 완료, 단위·E2E 테스트 없음 | 테스트 프레임워크 도입 시 `test`·`test:e2e` script 추가 |
-| 의존성 감사 | high 11, moderate 9 | `audit fix --force` 금지, Expo SDK 업그레이드 검증 작업으로 분리 |
-
-현재 Node 26에서 UI는 실행되지만 프로젝트 기준은 Node 24 LTS다. SDK 검증 전에 `nvm use`로 실제 shell을 전환하고 `npm ci`와 네이티브 빌드를 다시 확인한다. npm audit의 자동 제안은 Expo/React Native의 호환 조합을 깨뜨릴 수 있으므로 그대로 적용하지 않는다.
+npm audit의 자동 제안은 Expo/React Native의 호환 조합을 깨뜨릴 수 있으므로 `audit fix --force`를 그대로 적용하지 않는다. 취약점 개수만으로 올리지 않고 실제 노출 여부와 공식 호환 버전을 보고 판단한다(`05` 문서 8장).
 
 Node 기준은 저장소 루트 `.nvmrc`를 사용하고 모바일 의존성 설치·실행은 `mobile/`에서 수행한다.
 
@@ -52,11 +39,11 @@ npm run export
 | `web` | `expo start --web` | 있음 |
 | `typecheck` | `tsc --noEmit` | 있음 |
 | `lint` | `expo lint` | 있음 |
-| `export` | `expo export -p web` | 있음, `mobile/vercel.json`의 `buildCommand`와 같은 명령 |
-| `test` | 미정 | 없음. 테스트 프레임워크와 테스트 파일이 아직 없다 |
+| `export` | `expo export -p web` | 있음. 배포용 웹 빌드는 `site/build.mjs`가 같은 명령을 `--output-dir site/dist/app`으로 부른다 |
+| `test` | `node --test ... src/*.test.ts api/*.test.js` | 있음. 196개 |
 | `test:e2e` | 미정 | 없음. E2E 도구가 아직 없다 |
 
-루트 `.nvmrc`(Node 24)와 `mobile/package.json`의 `engines`는 이미 반영되어 있다. `mobile/.env.example`도 추가했으며, 지금 앱 코드가 실제로 읽는 `EXPO_PUBLIC_DAYMO_API_URL`만 빈 값으로 두고 나머지는 서버 연동 환경변수를 확정할 때 채운다. `test`와 `test:e2e`는 도구를 실제로 도입하기 전에는 script만 먼저 만들지 않는다.
+테스트는 Jest가 아니라 Node에 들어 있는 `node --test`와 타입 지우기로 돌린다. 그래서 `tsconfig.json`에 `allowImportingTsExtensions`가 있고(테스트가 `./x.ts`로 부른다) `types/node-test.d.ts`가 `node:test` 타입을 직접 적어 둔다. 대상은 `react-native`·`expo`를 import하지 않는 순수 모듈이고 화면 두 파일은 덮지 않는다. `test:e2e`는 도구를 실제로 도입하기 전에는 script만 먼저 만들지 않는다.
 
 ### 정적 검사 도구
 
@@ -68,7 +55,7 @@ npm run lint          # 검사
 npx eslint . --fix    # 자동 수정 가능한 항목만 정리
 ```
 
-현재 `WarmAppShell.tsx`와 `WarmTripDetail.tsx`에 `react-hooks/refs`, `react-hooks/set-state-in-effect`, `react-hooks/purity` error가 남아 있다. 규칙을 끄지 않고 해당 화면 코드를 정리하는 방향으로 해결하며, 그전까지 CI에서 lint는 차단하지 않는 단계로 둔다.
+한동안 `WarmAppShell.tsx`와 `WarmTripDetail.tsx`에 `react-hooks` error가 남아 CI에서 lint를 차단하지 않았다. 지금은 정리돼 `lint`도 실패하면 job이 실패한다.
 
 네이티브 의존성을 추가할 때는 Expo 호환 버전을 위해 `npm install`보다 `npx expo install <package>`를 우선한다.
 
@@ -151,44 +138,53 @@ uv run python dev.py
 
 ## 4. 환경 변수
 
-저장소에는 `.env.example`만 커밋하고 실제 값은 커밋하지 않는다. 아래는 서버까지 연결했을 때의 목표 목록이고, 현재 `mobile/.env.example`에는 앱 코드가 실제로 읽는 `EXPO_PUBLIC_DAYMO_API_URL`만 들어 있다.
+저장소에는 `.env.example`만 커밋하고 실제 값은 커밋하지 않는다. 원본은 `mobile/.env.example`과 `backend/.env.example`이고, 서버 설정의 이름·기본값은 `backend/app/core/config.py`가 결정한다. 설명은 [11-owner-setup-guide.md](./11-owner-setup-guide.md) 5~9장에 있다.
+
+앱(번들에서 읽을 수 있으므로 비밀값을 넣지 않는다):
 
 ```dotenv
-EXPO_PUBLIC_APP_ENV=local
-EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/v1
-EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_DAYMO_API_URL=https://api.daymo.xyz
+EXPO_PUBLIC_DAYMO_PLACE_RESOLVER_URL=
+```
 
-# 아래 값은 서버 환경 변수이며 앱 .env에 넣지 않음
+서버:
+
+```dotenv
 APP_ENV=local
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_NAME=daymo
 DB_USERNAME=daymo
 DB_PASSWORD=
 JWT_SIGNING_KEY=
 REFRESH_TOKEN_PEPPER=
+AUTH_LINK_BASE=https://api.daymo.xyz
+CORS_ORIGINS=https://www.daymo.xyz,https://daymo.xyz
+OAUTH_APP_REDIRECT_URIS=daymo://oauth,https://www.daymo.xyz/oauth,https://daymo.xyz/oauth
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 APPLE_CLIENT_ID=
-APPLE_CLIENT_SECRET=
+APPLE_TEAM_ID=
+APPLE_KEY_ID=
+APPLE_PRIVATE_KEY=
 KAKAO_REST_API_KEY=
 KAKAO_CLIENT_SECRET=
 NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
-MAIL_PROVIDER=resend
-MAIL_FROM=no-reply@daymo.xyz
+MAIL_FROM=Daymo <no-reply@daymo.xyz>
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USERNAME=resend
 SMTP_PASSWORD=
 SMTP_STARTTLS=true
-PHOTO_STORAGE_TYPE=local
-PHOTO_LOCAL_ROOT=/srv/daymo/uploads
-PHOTO_DOWNLOAD_SIGNING_KEY=
-RESTIC_REPOSITORY=rclone:daymo-drive:daymo-backup
-RESTIC_PASSWORD_FILE=/etc/daymo/secrets/restic-password
-RCLONE_CONFIG=/etc/daymo/secrets/rclone.conf
+UPLOAD_ROOT=/srv/daymo/uploads
+PHOTO_MAX_BYTES=20971520
+PHOTO_SPACE_QUOTA_BYTES=1073741824
+PHOTO_TOTAL_QUOTA_BYTES=10737418240
+PHOTO_ACCEL_PREFIX=
 ```
+
+백업용 `RESTIC_REPOSITORY`·`RESTIC_PASSWORD_FILE`·`RCLONE_CONFIG`는 API가 아니라 VPS의 systemd unit이 읽는다.
 
 SQLAlchemy 접속 URL은 위 조각으로 코드에서 조립한다. 비밀번호가 든 완성 URL을 저장소, 로그, 오류 메시지에 남기지 않기 위해서다. `APP_ENV`가 `beta`나 `production`이면 `JWT_SIGNING_KEY`, `REFRESH_TOKEN_PEPPER`, `DB_PASSWORD`가 비어 있을 때 서버가 뜨지 않는다. 빈 서명 키로 조용히 뜨면 누구나 토큰을 위조할 수 있다.
 
@@ -250,8 +246,8 @@ docs/development/
 - 기능 브랜치: `feat/<domain>-<short-name>`
 - 커밋: 스키마, API, UI 연결, 테스트를 의미 단위로 분리
 - DB 마이그레이션은 되돌리기 SQL 또는 전진 수정 계획을 PR에 기록
-- UI 피드백용 Vercel Preview와 `daymo.xyz` 공개 문서 deployment, 앱용 EAS Update를 분리
-- Vercel Git project의 Root Directory는 `mobile`로 설정하고 `mobile/vercel.json`을 사용
+- 사이트(`www.daymo.xyz`)와 그 아래 웹 빌드(`/app`)는 `node site/build.mjs` 뒤 `npx vercel deploy --prod --cwd site/dist`로 사람이 올린다. Git 연결 자동 배포는 쓰지 않는다
+- 앱용 EAS Update는 이것과 분리한다
 - staging 검증 후 EAS Build로 iOS TestFlight와 Android 비공개 테스트를 같은 release 단위로 병행
 - EAS Update는 동일 native runtime의 JavaScript·스타일·이미지 수정에만 사용하고 내부 검증 후 단계적으로 확대
 - native module, permission, app config, SDK/runtime 변경은 새 store binary로 배포
@@ -271,7 +267,12 @@ CI 최소 작업에서 client job의 working directory는 `mobile`, backend job�
 6. Docker image build
 7. Expo export 검증
 
-현재 구현된 워크플로는 `.github/workflows/ci.yml` 하나이며 위 목록의 1~3만 담당한다. `main` push와 모든 pull request에서 실행하고, Node 버전은 루트 `.nvmrc`를 `actions/setup-node`의 `node-version-file`로 읽으며 `mobile/package-lock.json` 기준으로 npm 캐시를 쓴다. `typecheck`는 실패 시 job을 실패시키고, `lint`는 기존 화면 코드의 error가 정리될 때까지 `continue-on-error`로 두어 결과만 보고한다. 4~7은 서버와 테스트 도구가 생긴 뒤에 같은 파일이나 별도 워크플로로 추가한다.
+현재 구현된 워크플로는 `.github/workflows/ci.yml` 하나이고 job이 둘이다. `main` push와 모든 pull request에서 돈다.
+
+- `client`: `mobile`에서 `npm ci` → `typecheck` → `lint` → `test`. Node 버전은 루트 `.nvmrc`를 `actions/setup-node`의 `node-version-file`로 읽고 `mobile/package-lock.json` 기준으로 npm 캐시를 쓴다. 넷 다 실패하면 job이 실패한다
+- `server`: `backend`에서 `uv sync --group dev --frozen` → `alembic upgrade head` → `pytest`. DB는 job의 `postgres:16` service 컨테이너이고 `DAYMO_REQUIRE_DB=1`이라 DB가 없으면 건너뛰지 않고 실패한다
+
+위 목록의 6(Docker image build)과 7(Expo export 검증)은 아직 없다.
 
 ## 8. VPS 자원 예산
 
