@@ -63,6 +63,8 @@ import {
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
+import { useWebBackClose } from "./useWebBackClose";
+import { useWebKeyboardInset } from "./useWebKeyboardInset";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm } from "./auth";
@@ -5410,6 +5412,10 @@ function FormSheet({
   children: React.ReactNode;
 }) {
   const drag = useSheetDrag(onClose, visible);
+  // 웹에서만 쓰는 두 가지. 키보드가 가린 만큼 시트를 밀어 올리고, 브라우저
+  // 뒤로 가기를 페이지가 아니라 이 시트가 받는다. 기기에서는 둘 다 아무 일도 없다.
+  const keyboardInset = useWebKeyboardInset(visible);
+  useWebBackClose(visible, onClose);
   const submitLocked = useRef(false);
   useEffect(() => {
     if (visible) submitLocked.current = false;
@@ -5429,7 +5435,7 @@ function FormSheet({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={s.modalBack}
+        style={[s.modalBack, keyboardInset]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable style={s.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={`${title} 바깥 영역 닫기`} />
@@ -5544,6 +5550,10 @@ function InfoSheet({
   children: React.ReactNode;
 }) {
   const drag = useSheetDrag(onClose, visible);
+  // 이 시트에도 고칠 수 있는 칸이 들어간다. 웹에서는 키보드가 가린 만큼 밀어 올리고
+  // 브라우저 뒤로 가기로 닫는다. 기기에서는 둘 다 아무 일도 없다.
+  const keyboardInset = useWebKeyboardInset(visible);
+  useWebBackClose(visible, onClose);
   return (
     <Modal
       visible={visible}
@@ -5551,7 +5561,7 @@ function InfoSheet({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={s.modalBack}>
+      <View style={[s.modalBack, keyboardInset]}>
         <Pressable style={s.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={`${title} 바깥 영역 닫기`} />
         <Animated.View
           onLayout={drag.onLayout}
