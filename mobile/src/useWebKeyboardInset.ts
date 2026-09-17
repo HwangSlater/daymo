@@ -34,16 +34,6 @@ export function useWebKeyboardInset(active: boolean): WebKeyboardInset {
     const viewport = typeof window === "undefined" ? undefined : window.visualViewport;
     if (!viewport) return;
     let alive = true;
-    let revealTimer: ReturnType<typeof setTimeout> | undefined;
-    // 키보드가 올라오면 포커스된 칸이 시트 안에서도 가려질 수 있다. 시트를 밀어
-    // 올린 뒤에 스크롤해야 맞는 자리로 가므로 한 박자 늦게 부른다.
-    const revealFocused = () => {
-      const focused = document.activeElement;
-      if (!(focused instanceof HTMLElement)) return;
-      const tag = focused.tagName;
-      if (tag !== "INPUT" && tag !== "TEXTAREA" && !focused.isContentEditable) return;
-      focused.scrollIntoView({ block: "center" });
-    };
     const measure = () => {
       if (!alive) return;
       const nextTop = Math.max(0, Math.round(viewport.offsetTop));
@@ -53,8 +43,6 @@ export function useWebKeyboardInset(active: boolean): WebKeyboardInset {
       );
       setTop(nextTop);
       setBottom(nextBottom);
-      clearTimeout(revealTimer);
-      if (nextBottom > 0) revealTimer = setTimeout(revealFocused, 120);
     };
     // 첫 측정은 그리기 한 번 뒤로 미룬다. 효과 안에서 바로 상태를 바꾸지 않는다.
     const first = requestAnimationFrame(measure);
@@ -63,7 +51,6 @@ export function useWebKeyboardInset(active: boolean): WebKeyboardInset {
     return () => {
       alive = false;
       cancelAnimationFrame(first);
-      clearTimeout(revealTimer);
       viewport.removeEventListener("resize", measure);
       viewport.removeEventListener("scroll", measure);
       // 시트가 닫히면 여백도 같이 치운다. 남겨 두면 다음에 열 때 잠깐 떠 보인다.
