@@ -180,6 +180,9 @@ const DetailFeedbackContext = createContext<(message: string) => void>(() => und
 const DetailEditableContext = createContext(true);
 
 type ViewMode = "여행" | "장소" | "준비" | "요리" | "비용" | "기록";
+/** 탭에 찍히는 이름. 내부 값과 다른 것만 적는다. 첫 탭은 일정을 담고 있어 「일정」이라 부른다. */
+const MODE_LABEL: Partial<Record<ViewMode, string>> = { 여행: "일정" };
+const modeLabelOf = (mode: ViewMode) => MODE_LABEL[mode] ?? mode;
 export type TripDetailDestination =
   "overview" | "schedule-add" | "places" | "preparation" | "cooking" | "expenses" | "memories";
 const destinationMode = (destination: TripDetailDestination): ViewMode =>
@@ -277,7 +280,7 @@ const reservationScheduleRow = (reservation: ReservationInfo): ScheduleItem => (
 const saveErrorMessage = (caught: unknown) =>
   caught instanceof DaymoApiError && caught.status !== 0
     ? caught.message
-    : "저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요";
+    : "저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요";
 
 export type TripPlanningData = {
   // 셋 다 없을 수 있다. 예시 여행처럼 지출만 미리 심어 둔 경우가 있어서다.
@@ -641,11 +644,11 @@ const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? 
  * 입력칸 라벨 앞의 점 색.
  *
  * 필수든 선택이든 같은 색으로 찍혀 있어 글자를 읽기 전에는 구분이 안 됐다.
- * 라벨에 이미 · 필수 를 적고 있으니 그 말에서 가져온다. 따로 받으면 언젠가
- * 말과 색이 어긋난다.
+ * 라벨에는 「· 필수」를 적지 않고 선택 칸에만 「(선택)」을 붙이므로, 필수인지는
+ * 칸이 `required` 로 따로 말한다.
  */
-const requiredDot = (label: string, theme?: AppTheme) =>
-  theme && { backgroundColor: label.includes("필수") ? theme.primary : theme.border };
+const requiredDot = (required: boolean, theme?: AppTheme) =>
+  theme && { backgroundColor: required ? theme.primary : theme.border };
 
 const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
 
@@ -1576,7 +1579,7 @@ export function WarmTripDetail({
       create: createPayment,
       // 기록은 고치지 않는다. 앱도 새로 적거나 되돌리기만 한다.
       update: async () => {
-        throw new DaymoApiError("주고받은 기록은 고칠 수 없어요.", 422, "VALIDATION_ERROR");
+        throw new DaymoApiError("주고받은 기록은 수정할 수 없어요.", 422, "VALIDATION_ERROR");
       },
       remove: undoPayment,
     },
@@ -1784,7 +1787,7 @@ export function WarmTripDetail({
     refreshKey: `${tripDateKeyList.join(",")}|${[...serverLinkTargetIds].join(",")}`,
     reloadKey: trashReload.photo,
     // 편집 멤버도 남이 올린 사진은 못 고친다. 보기만 하는 멤버에게는 기본 안내가 맞다.
-    forbiddenMessage: canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined,
+    forbiddenMessage: canEdit ? "올린 사람과 관리자만 이 사진을 수정할 수 있어요" : undefined,
     notify: setFeedback,
   });
   /**
@@ -2182,9 +2185,9 @@ export function WarmTripDetail({
               ]}
             >
               <View style={[styles.tripMemoTape, { backgroundColor: memo.tape }]} />
-              <Text style={[styles.tripMemoLabel, { color: memo.label }]}>확인할 것</Text>
+              <Text style={[styles.tripMemoLabel, { color: memo.label }]}>여행 메모</Text>
               <Text numberOfLines={1} style={[styles.tripMemoPreview, { color: memo.text }]}>
-                {tripNotes[0]?.body || "메모를 남겨보세요"}
+                {tripNotes[0]?.body || "함께 볼 메모를 남겨 보세요"}
               </Text>
               <View style={styles.tripMemoBottom}>
                 <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
@@ -2234,7 +2237,7 @@ export function WarmTripDetail({
                 key={item}
                 onPress={() => showMode(item)}
                 accessibilityRole="tab"
-                accessibilityLabel={`${item} 탭`}
+                accessibilityLabel={`${modeLabelOf(item)} 탭`}
                 accessibilityState={{ selected: mode === item }}
                 style={[
                   styles.mode,
@@ -2255,7 +2258,7 @@ export function WarmTripDetail({
                     },
                   ]}
                 >
-                  {item}
+                  {modeLabelOf(item)}
                 </Text>
               </Pressable>
             ))}
@@ -2311,7 +2314,7 @@ export function WarmTripDetail({
                   placeId: place.id,
                   showInSchedule: true,
                 });
-                setFeedback(`${place.name}을(를) 이번 여행 숙소로 등록했어요`);
+                setFeedback(`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정했어요`);
               }}
               onUpdateRegisteredStay={(place) => setRegisteredStay((current) => ({
                 ...current,
@@ -2424,8 +2427,8 @@ export function WarmTripDetail({
         <DetailSheet
           visible={memoPanel}
           title="여행 메모"
-          subtitle="함께 확인할 짧은 내용을 남겨두세요"
-          submit={memoEditorOpen ? (editingMemoId ? "변경 저장" : "메모 추가") : "닫기"}
+          subtitle="함께 볼 메모를 남겨 보세요"
+          submit={memoEditorOpen ? (editingMemoId ? "저장" : "메모 추가") : "닫기"}
           submitDisabled={memoEditorOpen && !memoDraft.trim()}
           disabledHint={memoEditorOpen && !memoDraft.trim() ? "메모 내용을 입력해 주세요" : undefined}
           onClose={() => {
@@ -2477,7 +2480,7 @@ export function WarmTripDetail({
               <Text style={[styles.memoAddPlus, appTheme && { color: appTheme.primary }]}>＋</Text>
               <View style={styles.memoAddCopy}>
                 <Text style={[styles.memoAddTitle, appTheme && { color: appTheme.text }]}>새 메모 추가</Text>
-                <Text style={[styles.memoAddHint, appTheme && { color: appTheme.muted }]}>필요한 내용을 짧게 남겨보세요</Text>
+                <Text style={[styles.memoAddHint, appTheme && { color: appTheme.muted }]}>함께 볼 메모를 남겨 보세요</Text>
               </View>
             </Pressable>
           )}
@@ -2500,7 +2503,8 @@ export function WarmTripDetail({
                 </Pressable>
               </View>
               <DetailField
-                label="메모 내용 · 필수"
+                label="메모 내용"
+                required
                 value={memoDraft}
                 onChangeText={setMemoDraft}
                 placeholder="예: 체크인 전에 장보기"
@@ -2597,8 +2601,8 @@ export function WarmTripDetail({
         <DetailSheet
           visible={editingTrip}
           title="여행 수정"
-          subtitle="여행의 기본 정보와 사용할 기능을 관리해요"
-          submit="변경 저장"
+          subtitle="여행지·기간·함께 가는 사람을 바꿀 수 있어요"
+          submit="저장"
           disabledHint={
             !tripDraftValid
               ? (draftTripPeople.length ? "제목·여행지·기간을 확인해 주세요" : "함께 가는 사람을 한 명은 골라 주세요")
@@ -2606,7 +2610,7 @@ export function WarmTripDetail({
           }
           submitDisabled={!tripDraftValid}
           destructiveLabel={onDeleteTrip ? "여행 삭제" : undefined}
-          destructiveMessage="일정·비용·기록까지 이 여행의 모든 내용이 멤버 모두에게서 사라져요. 7일 안에는 여행 탭의 ‘보관’에서 되돌릴 수 있어요."
+          destructiveMessage="일정·비용·기록까지 이 여행의 모든 내용이 멤버 모두에게서 사라져요. 7일 안에는 여행 목록의 ‘휴지통’에서 되돌릴 수 있어요."
           onDestructive={() => {
             onDeleteTrip?.().catch((caught) => setFeedback(saveErrorMessage(caught)));
           }}
@@ -2672,7 +2676,8 @@ export function WarmTripDetail({
           }}
         >
           <DetailField
-            label="여행지 · 필수"
+            label="여행지"
+            required
             value={draftTitle}
             onChangeText={setDraftTitle}
             placeholder="예: 전주 한옥마을"
@@ -2688,7 +2693,7 @@ export function WarmTripDetail({
           )}
           <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
             <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>언제 떠나나요?</Text>
-            <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>시작일을 고른 다음 마지막 날을 선택해 주세요.</Text>
+            <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>시작일을 고른 다음 마지막 날을 골라 주세요.</Text>
             {appTheme && (
               <TripDateRangePicker
                 key={`${editingTrip}-${currentStart}-${currentEnd}`}
@@ -2701,7 +2706,7 @@ export function WarmTripDetail({
             )}
           </View>
           <DetailField
-            label="한 줄 메모 · 선택 사항"
+            label="한 줄 메모 (선택)"
             value={draftNote}
             onChangeText={setDraftNote}
             placeholder="예: 골목을 천천히 걷는 여행"
@@ -2710,7 +2715,7 @@ export function WarmTripDetail({
             <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
               <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>누가 함께 가나요?</Text>
               <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>
-                공간 멤버 {spaceMembers.length}명 중 이번에 같이 가는 사람만 골라요.
+                이번 여행에 가는 사람만 골라 주세요. 정산과 준비물 담당에 쓰여요.
               </Text>
               <ParticipantPicker
                 theme={appTheme}
@@ -2722,8 +2727,8 @@ export function WarmTripDetail({
             </View>
           )}
           <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
-            <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>여행 기능</Text>
-            <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>숙소 환경에 맞춰 필요한 탭만 보여줘요.</Text>
+            <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>요리 탭</Text>
+            <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>숙소에 주방이 있으면 켜 주세요.</Text>
           <OptionField
             label="숙소에 주방이 있나요?"
             options={["있어요", "없어요"]}
@@ -2741,7 +2746,7 @@ export function WarmTripDetail({
               <Text style={[styles.tripEditSectionHint, appTheme && { color: appTheme.muted }]}>
                 {archived
                   ? "보관한 여행이에요. 여행 목록의 ‘보관’에만 보여요."
-                  : "다 다녀온 여행을 목록에서 치워요. 기록은 그대로이고 언제든 다시 꺼낼 수 있어요."}
+                  : "끝난 여행을 보관함으로 옮겨요. 기록은 그대로예요."}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -2749,14 +2754,14 @@ export function WarmTripDetail({
                   onArchiveTrip(!archived)
                     .then(() => {
                       setEditingTrip(false);
-                      setFeedback(archived ? "여행을 목록으로 다시 꺼냈어요" : "여행을 보관했어요");
+                      setFeedback(archived ? "보관을 해제했어요" : "여행을 보관했어요");
                     })
                     .catch((caught) => setFeedback(saveErrorMessage(caught)));
                 }}
                 style={[styles.tripArchiveButton, appTheme && { borderColor: appTheme.border }]}
               >
                 <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>
-                  {archived ? "보관 해제" : "이 여행 보관하기"}
+                  {archived ? "보관 해제" : "보관하기"}
                 </Text>
               </Pressable>
             </View>
@@ -2982,7 +2987,7 @@ function TripOverview({
   );
   const transportTimesValid = Boolean(transportDepartureTime.trim()) === Boolean(transportArrivalTime.trim());
   const transportFormValid = transportRouteValid && transportTimesValid;
-  const transportSubmitLabel = editingTransportId ? "변경 저장" : "교통편 추가";
+  const transportSubmitLabel = editingTransportId ? "저장" : "교통편 추가";
   const transportDisabledHint = transportFormValid
     ? undefined
     : !transportDeparture.trim() || !transportArrival.trim()
@@ -3212,8 +3217,8 @@ function TripOverview({
     syncTransportationSchedule(next);
     if (transportDirection === "가는 편") {
       showAlert(
-        "가는 편을 저장했어요",
-        "오는 편도 이어서 등록할까요?",
+        "가는 편을 추가했어요",
+        "오는 편도 추가할까요?",
         [
           {
             text: "나중에",
@@ -3228,7 +3233,7 @@ function TripOverview({
             },
           },
           {
-            text: "오는 편 등록",
+            text: "오는 편 추가",
             onPress: () => {
               setTransportDraftBaseline(JSON.stringify({
                 owner: next.owner,
@@ -3262,7 +3267,7 @@ function TripOverview({
       setTransportArrivalTime("");
       setTransportNote("");
       setSheet(null);
-      notify("오는 편을 저장했어요");
+      notify("오는 편을 추가했어요");
     }
   };
   // 교통편 카드는 사람마다 한 장이다. 참가자에서 빠진 사람이 예매해 둔 편도
@@ -3484,7 +3489,7 @@ function TripOverview({
   const deleteStay = () => {
     setRegisteredStay({ name: "", checkin: "", checkout: "", address: "", showInSchedule: false });
     setSheet(null);
-    notify("대표 숙소에서 해제했어요");
+    notify("대표 숙소 설정을 해제했어요");
   };
   return (
     <View>
@@ -3570,7 +3575,7 @@ function TripOverview({
         {transportLegs.map(({ leg, ownerIndex }) => (
           <TransportCard
             key={leg.id}
-            owner={leg.owner || "이용자 미정"}
+            owner={leg.owner || "타는 사람 미정"}
             leg={leg}
             color={transportColors[ownerIndex % transportColors.length]}
             onPress={() => setSelectedTransport(leg)}
@@ -3579,8 +3584,8 @@ function TripOverview({
       </View>
       {transportations.length === 0 && (
         <EmptyState
-          title="등록한 교통편이 없어요"
-          description="타고 갈 편을 적어 두면 일정에도 같이 올릴 수 있어요."
+          title="아직 교통편이 없어요"
+          description="기차·버스·항공편을 적어 두면 일정에도 함께 보여요."
           action="교통편 추가"
           onPress={canEdit ? openTransportCreate : undefined}
         />
@@ -3593,7 +3598,7 @@ function TripOverview({
       <SectionLabel
         label="숙소"
         count={hasStay ? "1곳" : "없음"}
-        action={canEdit ? (hasStay ? "숙소 수정" : "숙소 등록") : undefined}
+        action={canEdit ? (hasStay ? "숙소 수정" : "숙소 추가") : undefined}
         onPress={() => openStay(!hasStay)}
       />
       <View style={styles.travelInfoList}>
@@ -3627,7 +3632,7 @@ function TripOverview({
         </View>
         {hasStay && <PhotoStrip photos={stayPhotos} label={registeredStay.name} />}
         {!hasStay && (
-          <EmptyState title="대표 숙소가 없어요" description="체크인과 체크아웃 정보를 기록해 두세요." action="숙소 등록" onPress={canEdit ? () => openStay(true) : undefined} />
+          <EmptyState title="아직 숙소가 없어요" description="체크인·체크아웃 시간을 적어 두면 일정에도 보여요." action="숙소 추가" onPress={canEdit ? () => openStay(true) : undefined} />
         )}
       </View>
 
@@ -3682,7 +3687,7 @@ function TripOverview({
         ]}
       >
         <View>
-          <Text style={[styles.readyEyebrow, theme && { color: theme.primary }]}>출발 전 확인</Text>
+          <Text style={[styles.readyEyebrow, theme && { color: theme.primary }]}>남은 준비물</Text>
           <Text style={[styles.readyText, theme && { color: theme.text }]}>
             준비물 {packingRemaining}개가 남아 있어요.
           </Text>
@@ -3694,7 +3699,7 @@ function TripOverview({
         visible={sheet === "schedule"}
         title={editingScheduleIndex === null ? "일정 추가" : "일정 수정"}
         subtitle="일정 이름만 입력해도 추가할 수 있어요"
-        submit={editingScheduleIndex === null ? "일정 추가" : "변경 저장"}
+        submit={editingScheduleIndex === null ? "일정 추가" : "저장"}
         disabledHint={!scheduleFormValid ? "일정 이름을 입력해 주세요" : undefined}
         destructiveLabel={editingScheduleIndex === null ? undefined : "일정 삭제"}
         destructiveMessage={newPlanTitle ? `${newPlanTitle} 일정을 삭제해요.` : undefined}
@@ -3764,7 +3769,8 @@ function TripOverview({
           </View>
         )}
         <DetailField
-          label="일정 이름 · 필수"
+          label="일정 이름"
+          required
           value={newPlanTitle}
           onChangeText={setNewPlanTitle}
           placeholder="예: 한옥마을 야행"
@@ -3782,7 +3788,7 @@ function TripOverview({
           onChange={setPlanType}
         />
         <TimePickerField
-          label="시간 · 선택 사항"
+          label="시간 (선택)"
           value={planTime}
           onChange={setPlanTime}
           fallback="11:00"
@@ -3790,12 +3796,12 @@ function TripOverview({
         />
         <OptionalFormSection
           label="장소와 지도"
-          summary={planPlace || planMapUrl ? "입력한 세부 정보가 있어요" : "필요할 때만 추가하세요"}
+          summary={planPlace || planMapUrl ? "입력한 세부 정보가 있어요" : "필요할 때만 펼쳐 주세요"}
           open={scheduleDetailsOpen}
           onToggle={() => setScheduleDetailsOpen((current) => !current)}
         >
           <DetailField
-            label="장소 · 선택 사항"
+            label="장소 (선택)"
             value={planPlace}
             onChangeText={setPlanPlace}
             placeholder="예: 한옥마을 정문"
@@ -3806,9 +3812,9 @@ function TripOverview({
                 <Text style={styles.naverLogoText}>N</Text>
               </View>
               <View>
-                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>지도 링크 · 선택</Text>
+                <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>지도 링크 (선택)</Text>
                 <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>
-                  네이버 지도나 카카오맵에서 공유한 링크를 붙여넣으세요
+                  네이버 지도나 카카오맵에서 공유한 링크를 붙여넣어 주세요
                 </Text>
               </View>
             </View>
@@ -3834,7 +3840,7 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "transport"}
         title={editingTransportId ? "교통편 수정" : "교통편 추가"}
-        subtitle="가는 편과 오는 편을 나누어 저장하고 한곳에서 확인하세요"
+        subtitle="가는 편과 오는 편을 나눠 적고 한곳에서 확인해요"
         submit={transportSubmitLabel}
         disabledHint={transportDisabledHint}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
@@ -3868,7 +3874,8 @@ function TripOverview({
         <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
         <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
         <PairedDetailField
-          label="이동 경로 · 필수"
+          label="이동 경로"
+          required
           leftValue={transportDeparture}
           rightValue={transportArrival}
           onChangeLeft={setTransportDeparture}
@@ -3880,19 +3887,19 @@ function TripOverview({
           accentSoft={transportDirectionSoft}
         />
         <PairedTimePickerField
-          label="출발·도착 시간 · 선택 사항"
+          label="출발·도착 시간 (선택)"
           leftValue={transportDepartureTime}
           rightValue={transportArrivalTime}
           onChangeLeft={setTransportDepartureTime}
           onChangeRight={setTransportArrivalTime}
         />
         <OptionalFormSection
-          label="이용자·예매·메모"
+          label="타는 사람·예매·메모"
           summary={`${transportOwner} · ${transportStatus}${transportShowInSchedule ? " · 일정 표시" : ""}${transportNote.trim() ? " · 메모" : ""}`}
           open={transportDetailsOpen}
           onToggle={() => setTransportDetailsOpen((current) => !current)}
         >
-          <OptionField label="이용자" options={transportOwners} value={transportOwner} onChange={setTransportOwner} />
+          <OptionField label="타는 사람" options={transportOwners} value={transportOwner} onChange={setTransportOwner} />
           <OptionField label="예매 상태" options={["예매 완료", "예매 전"]} value={transportStatus} onChange={(value) => setTransportStatus(value as Transportation["status"])} />
           <OptionField
             label="여행 일정 표시"
@@ -3901,18 +3908,18 @@ function TripOverview({
             onChange={(value) => setTransportShowInSchedule(value === "일정에도 표시")}
           />
           <DetailField
-            label="메모 · 선택 사항"
+            label="메모 (선택)"
             value={transportNote}
             onChangeText={setTransportNote}
             multiline
             maxLength={2000}
-            placeholder="예매번호, 좌석, 타는 곳을 적어 두세요"
+            placeholder="예: 예매번호, 좌석, 타는 곳"
           />
         </OptionalFormSection>
       </DetailSheet>
       <InfoPanel
         visible={selectedTransport !== null}
-        title={`${selectedTransport?.owner || "이용자 미정"}의 교통편`}
+        title={`${selectedTransport?.owner || "타는 사람 미정"} · 교통편`}
         onClose={() => setSelectedTransport(null)}
       >
         {transportations
@@ -3939,8 +3946,8 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "reservationPlace"}
         title="어디를 예약했나요?"
-        subtitle="예약은 장소에 붙여 둬요. 담아 둔 곳에서 고르거나 새로 만들 수 있어요"
-        submit="새 장소 만들기"
+        subtitle="저장한 장소를 고르거나 새 장소를 추가해 예약을 적어요"
+        submit="새 장소 추가"
         onClose={() => setSheet(null)}
         onSubmit={() => {
           setSheet(null);
@@ -3966,7 +3973,7 @@ function TripOverview({
                       onOpenPlaceForReservation(place.id);
                     }}
                     accessibilityRole="button"
-                    accessibilityLabel={`${place.name} 예약 적기`}
+                    accessibilityLabel={`${place.name} 예약 추가`}
                     style={({ pressed }) => [
                       styles.savedPlaceChoice,
                       styles.savedPlaceChoiceWide,
@@ -3985,7 +3992,7 @@ function TripOverview({
           </View>
         ) : (
           <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>
-            아직 담아 둔 장소가 없어요. 새 장소를 만들면서 예약도 함께 적을 수 있어요.
+            아직 저장한 장소가 없어요. 새 장소를 추가하면서 예약도 함께 적을 수 있어요.
           </Text>
         )}
       </DetailSheet>
@@ -3993,7 +4000,7 @@ function TripOverview({
         visible={sheet === "reservation"}
         title={editingReservation ? "예약 정보 수정" : "예약 정보 추가"}
         subtitle="예약 이름만 입력해도 저장할 수 있어요"
-        submit={editingReservation ? "변경 저장" : "예약 추가"}
+        submit={editingReservation ? "저장" : "예약 추가"}
         disabledHint={!reservationDraft.name.trim() ? "예약 이름을 입력해 주세요" : undefined}
         submitDisabled={!reservationDraft.name.trim()}
         destructiveLabel={editingReservation ? "예약 정보 삭제" : undefined}
@@ -4003,14 +4010,14 @@ function TripOverview({
         onSubmit={saveReservation}
         onDestructive={deleteReservation}
       >
-        <DetailField label="예약 이름 · 필수" value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 소나기식당" />
+        <DetailField label="예약 이름" required value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 소나기식당" />
         <OptionField label="예약 날짜" options={dayOptions} value={reservationDraft.date} onChange={(date) => setReservationDraft((current) => ({ ...current, date }))} />
-        <TimePickerField label="예약 시간 · 선택 사항" value={reservationDraft.time} onChange={(time) => setReservationDraft((current) => ({ ...current, time }))} fallback="19:00" optional />
-        <DetailField label="인원 · 선택 사항" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
+        <TimePickerField label="예약 시간 (선택)" value={reservationDraft.time} onChange={(time) => setReservationDraft((current) => ({ ...current, time }))} fallback="19:00" optional />
+        <DetailField label="인원 (선택)" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
         <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))} />
-        <DetailField label="장소 · 선택 사항" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
+        <DetailField label="장소 (선택)" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
         <DetailField
-          label="예약 링크 · 선택 사항"
+          label="예약 링크 (선택)"
           value={reservationDraft.bookingUrl ?? ""}
           onChangeText={(bookingUrl) => setReservationDraft((current) => ({ ...current, bookingUrl }))}
           placeholder="https://"
@@ -4030,19 +4037,19 @@ function TripOverview({
       </DetailSheet>
       <DetailSheet
         visible={sheet === "stay"}
-        title={hasStay ? "대표 숙소 수정" : "대표 숙소 추가"}
-        subtitle="이번 여행에서 머무를 대표 숙소와 이용 시간을 기록하세요"
-        submit={hasStay ? "변경 저장" : "숙소 추가"}
+        title={hasStay ? "숙소 수정" : "숙소 추가"}
+        subtitle="이번 여행에서 머무를 숙소와 체크인·체크아웃 시간을 적어요"
+        submit={hasStay ? "저장" : "숙소 추가"}
         disabledHint={!stayDraft.name.trim() ? "숙소 이름을 입력해 주세요" : !stayFormValid ? "체크아웃 시간을 다시 확인해 주세요" : undefined}
         submitDisabled={!stayFormValid}
-        destructiveLabel={hasStay ? "대표 숙소 해제" : undefined}
+        destructiveLabel={hasStay ? "대표 숙소 설정 해제" : undefined}
         destructiveMessage="저장한 장소는 남고 체크인 일정만 함께 사라져요."
         hasUnsavedChanges={stayDraftChanged}
         onClose={() => setSheet(null)}
         onSubmit={saveStay}
         onDestructive={deleteStay}
       >
-        <DetailField label="숙소 이름 · 필수" value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: 달빛한옥" />
+        <DetailField label="숙소 이름" required value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: 달빛한옥" />
         <StayDateTimePicker
           label="체크인"
           value={stayDraft.checkin}
@@ -4057,7 +4064,7 @@ function TripOverview({
           onDateChange={(value) => updateStayDateTime("checkout", "date", value)}
           onTimeChange={(value) => updateStayDateTime("checkout", "time", value)}
         />
-        <DetailField label="주소 · 선택 사항" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="숙소 주소" />
+        <DetailField label="주소 (선택)" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="예: 전주시 완산구 한옥길 12" />
         <OptionField
           label="여행 일정 표시"
           options={["체크인 일정 표시", "숙소 정보만 저장"]}
@@ -4496,9 +4503,9 @@ function Places({
       setReservationOn(false);
       return;
     }
-    showAlert("이 장소의 예약을 지울까요?", `${있던_예약.date} ${있던_예약.time || "시간 미정"} 예약 기록이 사라져요.`, [
+    showAlert("이 장소의 예약을 삭제할까요?", `${있던_예약.date} ${있던_예약.time || "시간 미정"} 예약 기록이 사라져요.`, [
       { text: "취소", style: "cancel" },
-      { text: "지우기", style: "destructive", onPress: () => setReservationOn(false) },
+      { text: "삭제", style: "destructive", onPress: () => setReservationOn(false) },
     ]);
   };
   const deletePlace = () => {
@@ -4540,7 +4547,7 @@ function Places({
     setPlaces((current) =>
       current.map((place) => (place.id === target.id ? { ...place, status: next } : place)),
     );
-    notify(next === "다녀옴" ? `${target.name}을(를) 다녀온 곳으로 표시했어요` : "다녀옴 표시를 지웠어요");
+    notify(next === "다녀옴" ? `${target.name}${josa(target.name, "을", "를")} 다녀온 곳으로 표시했어요` : "다녀옴 표시를 해제했어요");
   };
   const planCount = scheduledCount(places);
   const visitAllPlanned = () => {
@@ -4662,7 +4669,7 @@ function Places({
                   filter === item && theme && { color: theme.primary },
                 ]}
               >
-                  {item === "후보" ? "저장" : item}
+                  {item}
               </Text>
             </Pressable>
           ))}
@@ -4792,7 +4799,7 @@ function Places({
           // 다녀온 것이 마지막에 일어난 일이라 배지에서 앞선다. 대표 숙소인지는
           // 아래 버튼이 그대로 말해 준다.
           const statusTone = (visited ? theme?.muted : isStay ? theme?.secondary : inPlan ? theme?.accent : theme?.primary) ?? "#3F4C8F";
-          const statusLabel = visited ? "다녀옴" : isStay ? "대표 숙소" : inPlan ? "일정에 담김" : "저장";
+          const statusLabel = visited ? "다녀옴" : isStay ? "대표 숙소" : inPlan ? "일정에 담김" : "후보";
           // 이미 그 상태면 오른쪽 위 배지가 말해준다. 같은 말을 하는 비활성
           // 버튼은 내지 않는다. 다녀온 곳은 이제 와 담을 일이 없다.
           const settled = visited || (place.category === "숙소" ? isStay : inPlan);
@@ -4859,7 +4866,7 @@ function Places({
                   onPress={(event) => { event.stopPropagation(); markVisited(place); }}
                   accessibilityRole="button"
                   accessibilityState={{ selected: visited }}
-                  accessibilityLabel={visited ? `${place.name} 다녀옴 표시 지우기` : `${place.name} 다녀온 곳으로 표시`}
+                  accessibilityLabel={visited ? `${place.name} 다녀옴 표시 해제` : `${place.name} 다녀온 곳으로 표시`}
                   style={[
                     styles.placeMiniMapButton,
                     theme && { backgroundColor: visited ? theme.primarySoft : theme.surfaceAlt },
@@ -4872,10 +4879,10 @@ function Places({
                 <Pressable
                   onPress={(event) => { event.stopPropagation(); onRegisterStay(place); }}
                   accessibilityRole="button"
-                  accessibilityLabel={`${place.name}을 이번 여행 숙소로 등록`}
+                  accessibilityLabel={`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정`}
                   style={[styles.placeMiniPlanButton, { backgroundColor: theme?.secondary }]}
                 >
-                  <Text style={styles.placeMiniPlanText}>대표 숙소로 등록</Text>
+                  <Text style={styles.placeMiniPlanText}>대표 숙소로 설정</Text>
                 </Pressable>
               ) : (
                 <Pressable
@@ -4988,7 +4995,7 @@ function Places({
         visible={planningPlace !== null}
         title="일정에 담기"
         subtitle={
-          planningPlace ? `${planningPlace.name}을(를) 언제 갈까요?` : undefined
+          planningPlace ? `${planningPlace.name}${josa(planningPlace.name, "을", "를")} 언제 갈까요?` : undefined
         }
         submit="일정에 담기"
         onClose={() => setPlanningPlace(null)}
@@ -5014,7 +5021,7 @@ function Places({
           onChange={setPlanningDay}
         />
         <TimePickerField
-          label="시간 · 선택 사항"
+          label="시간 (선택)"
           value={planningTime}
           onChange={setPlanningTime}
           fallback="11:00"
@@ -5025,7 +5032,7 @@ function Places({
         visible={adding}
         title={editingId ? "장소 수정" : "장소 추가"}
         subtitle="이름만 입력해도 저장할 수 있어요"
-        submit={editingId ? "변경 저장" : "장소 추가"}
+        submit={editingId ? "저장" : "장소 추가"}
         disabledHint={!placeFormValid ? (duplicatePlace ? "이미 저장한 장소예요" : "장소 이름을 입력해 주세요") : undefined}
         destructiveLabel={editingId ? "장소 삭제" : undefined}
         destructiveMessage={editingId ? "연결된 일정과 대표 숙소 설정도 함께 정리돼요. 예약 기록은 예약 목록에 남아요." : undefined}
@@ -5051,19 +5058,14 @@ function Places({
             </View>
             <View style={styles.naverAutoFillCopy}>
               <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>{resolvingNaver ? "장소 정보 가져오는 중…" : "지도 링크 붙여넣기"}</Text>
-              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "네이버·카카오 링크를 붙여넣으세요"}</Text>
+              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "네이버·카카오 링크를 붙여넣어 주세요"}</Text>
             </View>
             <Glyph name="chevronRight" size={16} color={theme?.dark ? "#96B7A8" : "#16844E"} />
           </Pressable>
         )}
-        <View style={styles.placeFormIntro}>
-          <View style={[styles.placeRequiredBadge, theme && { backgroundColor: theme.primarySoft }]}>
-            <Text style={[styles.placeRequiredBadgeText, theme && { color: theme.primary }]}>필수 1개</Text>
-          </View>
-          <Text style={[styles.placeFormText, theme && { color: theme.muted }]}>장소 이름만 있으면 저장할 수 있어요</Text>
-        </View>
         <DetailField
-          label="장소 이름 · 필수"
+          label="장소 이름"
+          required
           value={name}
           onChangeText={setName}
           placeholder="예: 소나기식당"
@@ -5075,7 +5077,7 @@ function Places({
           onChange={setCategory}
         />
         <DetailField
-          label="메모 · 선택 사항"
+          label="메모 (선택)"
           value={memo}
           onChangeText={setMemo}
           multiline
@@ -5087,7 +5089,7 @@ function Places({
           summary={
             [address && "주소", draftTags.length && `태그 ${draftTags.length}개`, mapUrl && "지도"]
               .filter(Boolean)
-              .join(" · ") || "필요할 때만 추가하세요"
+              .join(" · ") || "필요할 때만 펼쳐 주세요"
           }
           open={placeDetailsOpen}
           onToggle={() => setPlaceDetailsOpen((current) => !current)}
@@ -5107,7 +5109,7 @@ function Places({
               </View>
               <View style={styles.naverCopy}>
                 <Text style={[styles.naverTitle, theme?.dark && { color: "#DDF7E9" }]}>지도로 장소 연결</Text>
-                <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>지도에서 공유 링크를 복사한 다음 붙여넣으세요</Text>
+                <Text style={[styles.naverHint, theme?.dark && { color: "#96B7A8" }]}>지도에서 공유 링크를 복사한 다음 붙여넣어 주세요</Text>
               </View>
             </View>
             <View style={styles.naverLinkActions}>
@@ -5150,10 +5152,10 @@ function Places({
             )}
           </View>
           <DetailField
-            label="주소 직접 입력 · 선택 사항"
+            label="주소 직접 입력 (선택)"
             value={address}
             onChangeText={setAddress}
-            placeholder="링크에 주소가 없을 때만 입력하세요"
+            placeholder="예: 전주시 완산구 한옥길 12"
           />
           <View style={styles.tagEditor}>
             <Text style={[styles.detailFieldLabel, styles.selectorLabel]}>태그</Text>
@@ -5236,14 +5238,14 @@ function Places({
             onChange={(date) => setReservationDraft((current) => ({ ...current, date }))}
           />
           <TimePickerField
-            label="예약 시간 · 선택 사항"
+            label="예약 시간 (선택)"
             value={reservationDraft.time}
             onChange={(time) => setReservationDraft((current) => ({ ...current, time }))}
             fallback="19:00"
             optional
           />
           <DetailField
-            label="인원 · 선택 사항"
+            label="인원 (선택)"
             value={reservationDraft.people}
             onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))}
             placeholder="예: 2명"
@@ -5255,7 +5257,7 @@ function Places({
             onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))}
           />
           <DetailField
-            label="예약 링크 · 선택 사항"
+            label="예약 링크 (선택)"
             value={reservationDraft.bookingUrl ?? ""}
             onChangeText={(bookingUrl) => setReservationDraft((current) => ({ ...current, bookingUrl }))}
             placeholder="https://"
@@ -5267,7 +5269,7 @@ function Places({
             <Text style={styles.linkState}>https:// 로 시작하는 링크만 저장돼요</Text>
           )}
           <DetailField
-            label="예약 메모 · 선택 사항"
+            label="예약 메모 (선택)"
             value={reservationDraft.place}
             onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))}
             multiline
@@ -5285,11 +5287,11 @@ function Places({
       <DetailSheet
         visible={importing}
         title="장소 목록 붙여넣기"
-        subtitle="복사한 내용을 메모에서 고친 뒤 한 번에 반영하세요"
+        subtitle="메모에서 고친 목록을 한 번에 반영해요"
         submit={importMode === "교체" ? "목록 교체" : "목록에 추가"}
         confirmSubmit={
           importMode === "교체" && places.length
-            ? `저장한 장소 ${places.length}곳을 지우고 붙여넣은 것으로 바꿔요. 되돌릴 수 없어요.`
+            ? `저장한 장소 ${places.length}곳을 삭제하고 붙여넣은 목록으로 바꿔요. 되돌릴 수 없어요.`
             : undefined
         }
         disabledHint={!importText.trim() ? "장소 목록을 입력해 주세요" : undefined}
@@ -5304,15 +5306,16 @@ function Places({
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="붙여넣을 장소 목록 · 필수"
+          label="붙여넣을 장소 목록"
+          required
           value={importText}
           onChangeText={setImportText}
           multiline
-          placeholder="장소마다 한 줄씩 붙여넣으세요"
+          placeholder="한 줄에 장소 하나씩"
         />
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-          ‘교체’는 현재 목록을 지우고 새 목록으로 바꿔요. 붙여넣은 장소는 저장한
-          장소로 추가됩니다.
+          ‘교체’는 현재 목록을 삭제하고 새 목록으로 바꿔요. 붙여넣은 장소는
+          ‘저장한 장소’에 추가돼요.
         </Text>
       </DetailSheet>
     </View>
@@ -5396,7 +5399,7 @@ function PastTripImport({
     try {
       setTrips(await listTrips(spaceId));
     } catch {
-      setError("지난 여행을 불러오지 못했어요. 연결을 확인하고 다시 열어 주세요");
+      setError("지난 여행을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요");
     } finally {
       setLoading(false);
     }
@@ -5419,7 +5422,7 @@ function PastTripImport({
         setSelected(list.filter((row) => !already.has(row.name.trim().toLowerCase())).map((row) => row.id));
       }
     } catch {
-      setError(`${trip.title}의 목록을 불러오지 못했어요. 연결을 확인해 주세요`);
+      setError(`${trip.title}의 목록을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요`);
     } finally {
       setLoading(false);
     }
@@ -5478,7 +5481,7 @@ function PastTripImport({
         visible={open}
         title={picked ? `${picked.title}에서 가져오기` : `지난 여행에서 ${kind} 가져오기`}
         subtitle={picked
-          ? `가져올 ${kind}${josa(kind, "을", "를")} 고르세요. 완료 표시는 꺼진 채로 들어와요`
+          ? `가져올 ${kind}${josa(kind, "을", "를")} 골라 주세요. 체크는 해제된 상태로 가져와요`
           : "같은 공간의 다른 여행에서 불러와요"}
         submit={picked && selected.length ? `${selected.length}개 가져오기` : "닫기"}
         submitDisabled={Boolean(picked) && !selected.length && newRows.length > 0}
@@ -5600,7 +5603,7 @@ function PastTripImport({
               </View>
             )}
             <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-              담당은 이번 여행에 가는 사람만 그대로 오고, 없으면 미정이 돼요.
+              담당은 이번 여행 참가자만 유지되고 나머지는 ‘미정’이 돼요.
             </Text>
           </>
         )}
@@ -5809,7 +5812,7 @@ function Preparation({
         ),
       );
       setAssigningItem(null);
-      notify(`${item.name} 담당을 ${nextOwner}(으)로 변경했어요`);
+      notify(`${item.name} 담당을 바꿨어요 · ${nextOwner}`);
     };
     const hits = findSimilarPacking(
       [item.name],
@@ -5857,7 +5860,7 @@ function Preparation({
         text: "표시하기",
         onPress: () => {
           onMarkIngredientReady(ingredient.id);
-          notify(`${ingredient.name}을(를) 요리 재료에서도 준비 완료로 표시했어요`);
+          notify(`${ingredient.name}${josa(ingredient.name, "을", "를")} 요리 재료에서도 준비 완료로 표시했어요`);
         },
       },
     ]);
@@ -6611,7 +6614,7 @@ function Preparation({
       <DetailSheet
         visible={tagPicker}
         title="태그 선택"
-        subtitle="보고 싶은 준비물의 태그를 선택하세요"
+        subtitle="보고 싶은 준비물의 태그를 골라 주세요"
         submit="닫기"
         onClose={() => setTagPicker(false)}
         onSubmit={() => setTagPicker(false)}
@@ -6666,7 +6669,7 @@ function Preparation({
         title="준비물 관리"
         subtitle={
           assigningItem
-            ? `‘${assigningItem.name}’을(를) 누가 챙길지 선택하세요`
+            ? `‘${assigningItem.name}’${josa(assigningItem.name, "을", "를")} 누가 챙길지 골라 주세요`
             : undefined
         }
         submit="닫기"
@@ -6678,7 +6681,7 @@ function Preparation({
             const selected = assigningItem?.owner === ownerName;
             const description =
               ownerName === PACKING_SHARED
-                ? "같이 쓰는 준비물로 이동"
+                ? "공용 준비물로 이동"
                 : ownerName === PACKING_UNASSIGNED
                   ? "나중에 담당 정하기"
                   : `${ownerName}의 준비물로 이동`;
@@ -6775,20 +6778,21 @@ function Preparation({
         visible={adding}
         title={editingId ? "준비물 수정" : "준비물 추가"}
         subtitle={editingId ? "이름, 수량, 담당과 태그를 바꿀 수 있어요" : "한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"}
-        submit={newPackingCount && !editingId ? `${newPackingCount}개 추가` : editingId ? "변경 저장" : "준비물 추가"}
+        submit={newPackingCount && !editingId ? `${newPackingCount}개 추가` : editingId ? "저장" : "준비물 추가"}
         disabledHint={!newPackingCount ? "준비물을 입력해 주세요" : undefined}
         submitDisabled={!newPackingCount}
         destructiveLabel={editingId ? "준비물 삭제" : undefined}
-        destructiveMessage={editingId ? `${names || "이 준비물"}을 목록에서 삭제해요.` : undefined}
+        destructiveMessage={editingId ? `${names || "이 준비물"}${josa(names || "이 준비물", "을", "를")} 목록에서 삭제해요.` : undefined}
         onDestructive={deletePacking}
         onClose={closePackingForm}
         onSubmit={submit}
       >
         <DetailField
-          label="준비물 이름 · 필수"
+          label="준비물 이름"
+          required
           value={names}
           onChangeText={setNames}
-          placeholder={"충전기, 안경, 갈아입을 옷"}
+          placeholder="예: 충전기, 안경, 갈아입을 옷"
           multiline={!editingId}
         />
         {packingHits.length > 0 && (
@@ -6797,7 +6801,7 @@ function Preparation({
           </Text>
         )}
         <DetailField
-          label="수량 · 선택 사항"
+          label="수량 (선택)"
           value={quantity}
           onChangeText={setQuantity}
           placeholder="예: 각 2개, 250g"
@@ -6810,7 +6814,7 @@ function Preparation({
               theme && { color: theme.muted },
             ]}
           >
-            담당 · 선택 사항
+            담당 (선택)
           </Text>
           <View style={styles.packingAssigneeOptions}>
             {ownerSections.map((ownerName) => (
@@ -6944,7 +6948,7 @@ function Preparation({
           <View style={[styles.cookingImportCallout, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
             <View style={styles.cookingImportCopy}>
               <Text style={[styles.cookingImportTitle, theme && { color: theme.text }]}>요리 재료에서 가져오기</Text>
-              <Text style={[styles.cookingImportText, theme && { color: theme.muted }]}>직접 입력하지 않고 등록된 재료를 선택할 수 있어요.</Text>
+              <Text style={[styles.cookingImportText, theme && { color: theme.muted }]}>직접 입력하지 않고 요리에 적어 둔 재료를 고를 수 있어요.</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -6962,7 +6966,7 @@ function Preparation({
       <DetailSheet
         visible={cookingPicker}
         title="요리 재료 불러오기"
-        subtitle="준비물에 추가할 재료를 선택하세요"
+        subtitle="준비물에 추가할 재료를 골라 주세요"
         submit={
           selectedCookingUniqueCount
             ? `${selectedCookingUniqueCount}개 준비물에 추가`
@@ -7063,11 +7067,11 @@ function Preparation({
       <DetailSheet
         visible={importing}
         title="준비물 목록 붙여넣기"
-        subtitle="메모에서 여러 줄을 고쳐 한 번에 반영하세요"
+        subtitle="메모에서 고친 목록을 한 번에 반영해요"
         submit={importMode === "교체" ? "목록 교체" : "목록에 추가"}
         confirmSubmit={
           importMode === "교체" && items.length
-            ? `저장한 준비물 ${items.length}개를 지우고 붙여넣은 것으로 바꿔요. 되돌릴 수 없어요.`
+            ? `저장한 준비물 ${items.length}개를 삭제하고 붙여넣은 목록으로 바꿔요. 되돌릴 수 없어요.`
             : undefined
         }
         disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
@@ -7082,11 +7086,12 @@ function Preparation({
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="붙여넣을 준비물 목록 · 필수"
+          label="붙여넣을 준비물 목록"
+          required
           value={importText}
           onChangeText={setImportText}
           multiline
-          placeholder="준비물마다 한 줄씩 붙여넣으세요"
+          placeholder="한 줄에 준비물 하나씩"
         />
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
           담당: {ownerSections.join("·")} / 태그는 #으로 여러 개 적을 수 있어요
@@ -7501,7 +7506,7 @@ function Cooking({
       {
         id,
         name: recipeName.trim(),
-        note: recipeNote.trim() || "언제 먹을지 정해보세요",
+        note: recipeNote.trim() || "메모 없음",
         url: recipeUrl.trim(),
         ingredients: [],
       },
@@ -7579,7 +7584,7 @@ function Cooking({
         ),
       }));
     if (!uniqueParsed.length) {
-      notify("이미 등록한 요리뿐이에요");
+      notify("이미 추가한 요리뿐이에요");
       return;
     }
     setRecipes((current) => [...current, ...uniqueParsed]);
@@ -7688,7 +7693,7 @@ function Cooking({
       ),
     );
     setImporting(false);
-    notify(additions.length ? `요리 재료 ${additions.length}개를 반영했어요` : "이미 등록한 재료뿐이에요");
+    notify(additions.length ? `요리 재료 ${additions.length}개를 반영했어요` : "이미 추가한 재료뿐이에요");
   };
   return (
     <View>
@@ -8128,8 +8133,8 @@ function Cooking({
       <DetailSheet
         visible={showMyIngredients}
         title="통합 장보기 목록"
-        subtitle={`요리 ${recipes.length}개의 재료를 준비 방법별로 확인하세요`}
-        submit={canEdit ? "준비 탭에서 가져오기" : "닫기"}
+        subtitle={`요리 ${recipes.length}개에 들어가는 재료를 준비 방법별로 모아 봐요`}
+        submit={canEdit ? "준비물에 추가" : "닫기"}
         onClose={() => {
           setShoppingCost("");
           setShowMyIngredients(false);
@@ -8143,7 +8148,7 @@ function Cooking({
         {canEdit && (
         <View style={[styles.shoppingCost, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
           <View style={styles.shoppingCostCopy}>
-            <Text style={[styles.shoppingCostTitle, theme && { color: theme.text }]}>장 본 금액 적기</Text>
+            <Text style={[styles.shoppingCostTitle, theme && { color: theme.text }]}>장 본 금액 추가</Text>
             <Text style={[styles.shoppingCostHint, theme && { color: theme.muted }]}>
               비용 탭에 식비로 한 건 들어가요
             </Text>
@@ -8172,10 +8177,10 @@ function Cooking({
               setShowMyIngredients(false);
             }}
             accessibilityRole="button"
-            accessibilityLabel="장 본 금액을 비용에 적기"
+            accessibilityLabel="장 본 금액을 비용에 추가"
             style={[styles.shoppingCostButton, theme && { backgroundColor: theme.primary }]}
           >
-            <Text style={styles.shoppingCostButtonText}>적기</Text>
+            <Text style={styles.shoppingCostButtonText}>추가</Text>
           </Pressable>
         </View>
         )}
@@ -8220,11 +8225,11 @@ function Cooking({
         visible={addingIngredient}
         title={editingIngredient ? "요리 재료 수정" : "요리 재료 추가"}
         subtitle="분류와 담당은 저장한 뒤에도 바꿀 수 있어요"
-        submit={editingIngredient ? "변경 저장" : "재료 추가"}
+        submit={editingIngredient ? "저장" : "재료 추가"}
         disabledHint={!ingredientFormValid ? (duplicateIngredient ? "이 요리에 이미 있는 재료예요" : "재료 이름을 입력해 주세요") : undefined}
         submitDisabled={!ingredientFormValid}
         destructiveLabel={editingIngredient ? "재료 삭제" : undefined}
-        destructiveMessage="이 요리에서 재료를 빼요."
+        destructiveMessage="이 요리에서 재료를 삭제해요."
         onDestructive={() => {
           if (!editingIngredient) return;
           removeIngredient(editingIngredient);
@@ -8234,13 +8239,14 @@ function Cooking({
         onSubmit={addIngredient}
       >
         <DetailField
-          label="재료 이름 · 필수"
+          label="재료 이름"
+          required
           value={name}
           onChangeText={setName}
           placeholder="예: 팽이버섯"
         />
         <DetailField
-          label="수량 · 선택 사항"
+          label="수량 (선택)"
           value={quantity}
           onChangeText={setQuantity}
           placeholder="예: 1봉"
@@ -8253,7 +8259,7 @@ function Cooking({
               theme && { color: theme.muted },
             ]}
           >
-            분류 · 선택 사항
+            분류 (선택)
           </Text>
           <View style={styles.tagSuggestions}>
             {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
@@ -8304,7 +8310,7 @@ function Cooking({
           />
         </View>
         <OptionField
-          label="담당 · 선택 사항"
+          label="담당 (선택)"
           options={cookingOwnerOptions(participants)}
           value={owner}
           onChange={setOwner}
@@ -8314,17 +8320,17 @@ function Cooking({
         visible={addingRecipe}
         title={editingRecipe ? "요리 수정" : "요리 추가"}
         subtitle="이름만 먼저 저장하고 재료는 메뉴 안에서 추가할 수 있어요"
-        submit={editingRecipe ? "변경 저장" : "요리 추가"}
+        submit={editingRecipe ? "저장" : "요리 추가"}
         disabledHint={!recipeFormValid
           ? duplicateRecipe
-            ? "이미 등록한 요리예요"
+            ? "이미 추가한 요리예요"
             : !recipeUrlValid
               ? "레시피 링크를 확인해 주세요"
               : "요리 이름을 입력해 주세요"
           : undefined}
         submitDisabled={!recipeFormValid}
         destructiveLabel={editingRecipe ? "요리 삭제" : undefined}
-        destructiveMessage={editingRecipe ? `${recipeName || "이 요리"}와 재료 목록을 함께 삭제해요.` : undefined}
+        destructiveMessage={editingRecipe ? `${recipeName || "이 요리"}${josa(recipeName || "이 요리", "과", "와")} 재료 목록을 함께 삭제해요.` : undefined}
         onClose={closeRecipeSheet}
         onSubmit={addRecipe}
         onDestructive={deleteRecipe}
@@ -8340,7 +8346,7 @@ function Cooking({
         >
           <View style={styles.aiRecipeCopy}>
             <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>여러 요리를 한 번에 추가</Text>
-            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT가 정리한 요리와 재료를 붙여넣을 수 있어요.</Text>
+            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>ChatGPT가 정리한 요리와 재료를 붙여넣을 수 있어요.</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -8354,34 +8360,35 @@ function Cooking({
           </Pressable>
         </View>}
         <DetailField
-          label="요리 이름 · 필수"
+          label="요리 이름"
+          required
           value={recipeName}
           onChangeText={setRecipeName}
           placeholder="예: 김치볶음밥"
         />
         <DetailField
-          label="메모 · 선택 사항"
+          label="메모 (선택)"
           value={recipeNote}
           onChangeText={setRecipeNote}
           placeholder="예: 둘째 날 아침 · 남은 재료 활용"
         />
         <DetailField
-          label="레시피 링크 · 선택 사항"
+          label="레시피 링크 (선택)"
           value={recipeUrl}
           onChangeText={setRecipeUrl}
-          placeholder="유튜브 또는 레시피 링크를 붙여넣으세요"
+          placeholder="예: https://youtu.be/…"
         />
       </DetailSheet>
       <DetailSheet
         visible={aiImporting}
-        title="GPT로 여러 요리 추가"
-        subtitle="프롬프트를 복사해 GPT에 요청하고 돌아와 결과를 붙여넣으면 돼요"
+        title="ChatGPT로 여러 요리 추가"
+        subtitle="프롬프트를 복사해 ChatGPT에 물어보고 돌아와 답을 붙여넣으면 돼요"
         submit={
           aiParsed.length
             ? `요리 ${aiParsed.length}개 추가`
             : "요리 추가"
         }
-        disabledHint={!aiParsed.length ? (aiResult.trim() ? "읽을 수 있는 줄이 없어요" : "GPT 결과를 붙여넣어 주세요") : undefined}
+        disabledHint={!aiParsed.length ? (aiResult.trim() ? "읽을 수 있는 줄이 없어요" : "ChatGPT 답을 붙여넣어 주세요") : undefined}
         submitDisabled={!aiParsed.length}
         onClose={() => setAiImporting(false)}
         onSubmit={importAiRecipes}
@@ -8397,13 +8404,13 @@ function Cooking({
         >
           <View style={styles.aiPromptHead}>
             <View style={styles.aiRecipeCopy}>
-              <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>1. 프롬프트 복사하고 GPT 열기</Text>
-              <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT 에 붙여넣고 그 아래에 요리와 재료 메모를 적으세요.</Text>
+              <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>1. 프롬프트 복사하고 ChatGPT 열기</Text>
+              <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>ChatGPT에 붙여넣고 그 아래에 요리와 재료 메모를 적어 주세요.</Text>
             </View>
             <Pressable
               onPress={copyPromptAndOpenGpt}
               accessibilityRole="button"
-              accessibilityLabel="프롬프트를 복사하고 GPT 열기"
+              accessibilityLabel="프롬프트를 복사하고 ChatGPT 열기"
               style={styles.aiPromptCopyButton}
             >
               <Text style={styles.aiPromptCopyText}>복사하고 열기</Text>
@@ -8422,7 +8429,7 @@ function Cooking({
         <View style={styles.aiPasteRow}>
           <View>
             <Text style={[styles.aiRecipeTitle, theme && { color: theme.text }]}>2. 돌아와서 결과 붙여넣기</Text>
-            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>GPT 답을 복사해 두고 이 단추를 누르세요.</Text>
+            <Text style={[styles.aiRecipeText, theme && { color: theme.muted }]}>ChatGPT 답을 복사한 뒤 이 버튼을 눌러 주세요.</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -8445,17 +8452,17 @@ function Cooking({
             ? "여러 요리와 각 재료가 한 번에 추가돼요."
             : aiParsed.length
               ? `요리 ${aiParsed.length}개와 재료 ${aiIngredientCount}개를 읽었어요. ${aiParsed.map((recipe) => recipe.name).join(", ")}`
-              : "요리 줄을 못 찾았어요. 각 줄이 '요리 |' 나 '재료 |' 로 시작하는지 봐 주세요."}
+              : "요리 줄을 찾지 못했어요. 각 줄이 ‘요리 |’ 나 ‘재료 |’ 로 시작하는지 확인해 주세요."}
         </Text>
       </DetailSheet>
       <DetailSheet
         visible={importing}
         title="요리 목록 붙여넣기"
-        subtitle="메모에서 수정한 재료를 한 번에 반영하세요"
+        subtitle="메모에서 고친 목록을 한 번에 반영해요"
         submit={importMode === "교체" ? "목록 교체" : "목록에 추가"}
         confirmSubmit={
           importMode === "교체" && recipes.length
-            ? `저장한 요리 ${recipes.length}개를 지우고 붙여넣은 것으로 바꿔요. 되돌릴 수 없어요.`
+            ? `저장한 요리 ${recipes.length}개를 삭제하고 붙여넣은 목록으로 바꿔요. 되돌릴 수 없어요.`
             : undefined
         }
         disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
@@ -8470,11 +8477,12 @@ function Cooking({
           onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <DetailField
-          label="붙여넣을 재료 목록 · 필수"
+          label="붙여넣을 재료 목록"
+          required
           value={importText}
           onChangeText={setImportText}
           multiline
-          placeholder="재료마다 한 줄씩 붙여넣으세요"
+          placeholder="한 줄에 재료 하나씩"
         />
       </DetailSheet>
     </View>
@@ -8835,7 +8843,7 @@ function Memories({
     try {
       if (photoUri && photoUri !== previous?.uri) savedUri = await copyPhotoIntoApp(photoUri);
     } catch {
-      notify("사진을 저장하지 못했어요. 다시 선택해 주세요");
+      notify("사진을 불러오지 못했어요. 다시 골라 주세요");
       return;
     }
     // 사진 자체를 바꾸면 새 사진으로 올린다. 서버는 올라온 파일을 바꾸지 않는다.
@@ -8865,7 +8873,7 @@ function Memories({
   const savePhotoToDevice = async (photo: MemoryPhoto, 차례: number) => {
     const hint = originalSaveHint(photo.originalUntil, todayKey);
     const 받은_것 = await downloadPhotoToSave(photo.id, hint.hasOriginal);
-    if (!받은_것) throw new DaymoApiError("사진을 받지 못했어요.", 0);
+    if (!받은_것) throw new DaymoApiError("사진을 불러오지 못했어요.", 0);
     const 이름 = `${tripName} ${photo.caption || `사진 ${차례 + 1}`}`;
     return savePhotoFile(받은_것.uri, 이름);
   };
@@ -8882,9 +8890,9 @@ function Memories({
     try {
       const 결과 = await savePhotoToDevice(photo, 차례);
       if (결과 === "saved") setPhotoToast("사진을 저장했어요");
-      else showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진을 내려받을 수 없어요.");
+      else showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
     } catch {
-      showAlert("사진을 저장하지 못했어요", "잠시 뒤에 다시 시도해 주세요.");
+      showAlert("사진을 저장하지 못했어요", "잠시 후 다시 시도해 주세요.");
     } finally {
       setSaving(false);
     }
@@ -8904,7 +8912,7 @@ function Memories({
       try {
         savedUri = await copyPhotoIntoApp(고른_것.uri);
       } catch {
-        notify("사진을 저장하지 못했어요. 다시 선택해 주세요");
+        notify("사진을 불러오지 못했어요. 다시 골라 주세요");
         return;
       }
       새_사진.push({
@@ -9067,7 +9075,7 @@ function Memories({
             onPress={() => cards?.create()}
             hitSlop={6}
             accessibilityRole="button"
-            accessibilityLabel="기념 카드 만들기"
+            accessibilityLabel="추억 카드 만들기"
             style={styles.memoryFilterLink}
           >
             <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>카드 만들기</Text>
@@ -9100,7 +9108,7 @@ function Memories({
             key={tile.key}
             onPress={() => setViewingPhotoId(tile.photo.id)}
             accessibilityRole="button"
-            accessibilityLabel={`${tile.photo.caption || tile.photo.date} 사진 ${tile.photo.id === coverPhotoId ? "· 홈 화면에 쓰는 중 " : ""}크게 보기`}
+            accessibilityLabel={`${tile.photo.caption || tile.photo.date} 사진 ${tile.photo.id === coverPhotoId ? "· 대표 사진으로 쓰는 중 " : ""}크게 보기`}
             style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
           >
             <View style={[styles.memoryTilePhoto, { backgroundColor: tile.photo.color }]}>
@@ -9110,7 +9118,7 @@ function Memories({
               {uploadingPhotoIds.has(tile.photo.id) && (
                 <View style={[styles.coverBadge, styles.uploadBadge]} pointerEvents="none">
                   <Text style={styles.coverBadgeText}>
-                    {blockedPhotoIds.has(tile.photo.id) ? "저장 안 됨" : "올리는 중"}
+                    {blockedPhotoIds.has(tile.photo.id) ? "업로드 실패" : "업로드 중"}
                   </Text>
                 </View>
               )}
@@ -9125,7 +9133,7 @@ function Memories({
             key={tile.key}
             onPress={() => cards?.open(tile.card.id)}
             accessibilityRole="button"
-            accessibilityLabel={`${tile.card.label} 기념 카드 ${tile.card.onHome ? "· 홈 화면에 쓰는 중 " : ""}열기`}
+            accessibilityLabel={`${tile.card.label} 추억 카드 ${tile.card.onHome ? "· 대표 사진으로 쓰는 중 " : ""}열기`}
             style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
           >
             <View style={[styles.memoryTilePhoto, { backgroundColor: tile.card.color }]}>
@@ -9147,7 +9155,7 @@ function Memories({
       </View>
       {tiles.length === 0 && (photoFilter === "카드" ? (
         <EmptyState
-          title="아직 만든 기념 카드가 없어요"
+          title="아직 만든 추억 카드가 없어요"
           description="여행 사진 몇 장을 골라 한 장으로 묶어 보세요."
           action="카드 만들기"
           onPress={canEdit && cards ? cards.create : undefined}
@@ -9191,7 +9199,7 @@ function Memories({
       {diaries.length === 0 && (
         <EmptyState
           title="아직 작성한 일기가 없어요"
-          description="여행에서 기억하고 싶은 순간을 글로 남겨보세요."
+          description="여행에서 기억하고 싶은 순간을 글로 남겨 보세요."
           action="일기 쓰기"
           onPress={canEdit ? openDiaryCreate : undefined}
         />
@@ -9241,7 +9249,7 @@ function Memories({
           toast: photoToast,
           toastAction: photoUndo ?? undefined,
           waitingText: viewing && uploadingPhotoIds.has(viewing.id)
-            ? (blockedPhotoIds.has(viewing.id) ? "아직 못 올린 사진이에요" : "올리는 중이에요")
+            ? (blockedPhotoIds.has(viewing.id) ? "아직 업로드되지 않은 사진이에요" : "업로드 중이에요")
             : undefined,
           cover: canSetViewCover || viewCover.on
             ? { on: viewCover.on, label: viewCover.label, onPress: () => void toggleViewCover() }
@@ -9278,7 +9286,7 @@ function Memories({
               onSubmit={() => void savePhoto()}
               toast={photoToast}
               readOnly={!canManagePhoto(photos.find((photo) => photo.id === editingPhotoId))}
-              readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined}
+              readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 수정할 수 있어요" : undefined}
               theme={theme}
             />
           ) : undefined,
@@ -9290,9 +9298,9 @@ function Memories({
       <DetailSheet
         visible={photoEditing && !editingPhotoId}
         title={photoDrafts.length > 1 ? `사진 ${photoDrafts.length}장 추가` : "사진 추가"}
-        subtitle={photoDrafts.length > 1 ? "고른 사진에 같은 날짜와 설명이 붙어요" : "날짜와 짧은 설명을 함께 남겨보세요"}
+        subtitle={photoDrafts.length > 1 ? "고른 사진에 같은 날짜와 설명이 붙어요" : "날짜와 짧은 설명을 함께 남겨 보세요"}
         submit={photoDrafts.length > 1 ? `${photoDrafts.length}장 추가` : "사진 추가"}
-        disabledHint={!photoDrafts.length ? "사진을 선택해 주세요" : undefined}
+        disabledHint={!photoDrafts.length ? "사진을 골라 주세요" : undefined}
         submitDisabled={!photoDrafts.length}
         onClose={() => setPhotoEditing(false)}
         onSubmit={savePhoto}
@@ -9311,17 +9319,17 @@ function Memories({
         </ScrollView>
         <OptionField label="여행 날짜" options={photoDayOptions} value={photoDate} onChange={setPhotoDate} />
         <PhotoLinkField options={photoLinkOptions} value={photoLinks} onChange={setPhotoLinks} />
-        <DetailField label="사진 설명 · 선택 사항" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
+        <DetailField label="사진 설명 (선택)" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
       </DetailSheet>
       <DetailSheet
         visible={diaryWriting}
         title={editingDiaryId ? "여행 일기 수정" : "여행 일기 쓰기"}
-        subtitle="그날의 기분과 오래 기억하고 싶은 이야기를 남겨보세요"
-        submit={editingDiaryId ? "변경 저장" : "일기 추가"}
+        subtitle="그날의 기분과 오래 기억하고 싶은 이야기를 남겨 보세요"
+        submit={editingDiaryId ? "저장" : "일기 추가"}
         disabledHint={!diaryBody.trim() ? "내용을 입력해 주세요" : undefined}
         submitDisabled={!diaryBody.trim()}
         destructiveLabel={editingDiaryId ? "일기 삭제" : undefined}
-        destructiveMessage={editingDiaryId ? `${diaryTitle || "이 일기"}를 여행 기록에서 삭제해요.` : undefined}
+        destructiveMessage={editingDiaryId ? `${diaryTitle || "이 일기"}${josa(diaryTitle || "이 일기", "을", "를")} 여행 기록에서 삭제해요.` : undefined}
         onDestructive={deleteDiary}
         onClose={() => {
           setDiaryWriting(false);
@@ -9329,8 +9337,8 @@ function Memories({
         }}
         onSubmit={saveDiary}
       >
-        <DetailField label="일기 제목 · 선택 사항" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
-        <DetailField label="여행 이야기 · 필수" value={diaryBody} onChangeText={setDiaryBody} placeholder="오늘 가장 기억에 남는 순간은..." multiline />
+        <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
+        <DetailField label="여행 이야기" required value={diaryBody} onChangeText={setDiaryBody} placeholder="예: 오늘 가장 기억에 남는 순간은…" multiline />
         {reportSpaceId && editingDiaryId && isServerId(editingDiaryId) && (
           <ReportLink key={editingDiaryId} spaceId={reportSpaceId} targetType="diary" targetId={editingDiaryId} label="이 일기 신고하기" />
         )}
@@ -9358,7 +9366,7 @@ function PhotoLinkField({ options, value, onChange }: {
 }) {
   const theme = useContext(DetailThemeContext);
   if (!options.length) return null;
-  const label = "사진을 붙일 곳 · 선택 사항";
+  const label = "연결 (선택)";
   const toggle = (option: PhotoLinkOption) =>
     onChange(value.some((link) => sameLink(link, option))
       ? value.filter((link) => !sameLink(link, option))
@@ -9366,7 +9374,7 @@ function PhotoLinkField({ options, value, onChange }: {
   return (
     <View style={styles.optionField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
+        <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
       </View>
       <View style={styles.photoLinkRow}>
@@ -9700,13 +9708,13 @@ function Money({
   };
   const undoPayment = (payment: Payment) => {
     setPayments((current) => current.filter((item) => item.id !== payment.id));
-    notify("주고받은 기록을 지웠어요");
+    notify("주고받은 기록을 삭제했어요");
   };
   const toggleSimplify = () => {
     // 묶은 화면이 시키는 대로 보낸 뒤에 방식을 바꾸면, 이미 보낸 돈이 엉뚱한
     // 곳으로 간 게 되고 끝난 일이 되살아난다. 기록을 다 지우면 다시 열린다.
     if (payments.length) {
-      notify("주고받은 기록이 있어서 지금은 못 바꿔요");
+      notify("주고받은 기록이 있어 바꿀 수 없어요. 기록을 되돌린 뒤 바꿔 주세요");
       return;
     }
     setSimplify((current) => !current);
@@ -10004,7 +10012,7 @@ function Money({
         action="지출 추가"
         onPress={openCreate}
       />
-      <MoneyBlock title="쓴 돈" action={canEdit ? "예산 수정" : undefined} onAction={openBudget}>
+      <MoneyBlock title="총 지출" action={canEdit ? "예산 수정" : undefined} onAction={openBudget}>
         <Text style={[styles.moneyTotal, theme && { color: theme.text }]}>
           {show(settlement.total)}
         </Text>
@@ -10025,7 +10033,7 @@ function Money({
             <Text style={[styles.moneyCurrencyLabel, theme && { color: theme.muted }]}>통화</Text>
             <Text style={[styles.moneyCurrencyValue, theme && { color: theme.primary }]}>
               {unit.code === DEFAULT_CURRENCY.code
-                ? `${unit.code} 원`
+                ? "원"
                 : `${unit.code} · ${amountText(exchangeRate, 2)}원`}
             </Text>
             {canEdit && <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />}
@@ -10079,7 +10087,7 @@ function Money({
           찾아야 하고, 정작 내가 할 일이 뭔지는 맨 나중에 안다. */}
       <MoneyBlock
         title="정산"
-        action={canEdit && settlement.transfers.length > 1 ? (simplify ? "묶어서 보기" : "그대로 보기") : undefined}
+        action={canEdit && settlement.transfers.length > 1 ? (simplify ? "원래대로" : "송금 줄이기") : undefined}
         onAction={toggleSimplify}
       >
         <View style={styles.moneySettleBlock}>
@@ -10226,7 +10234,7 @@ function Money({
             style={styles.moneyOthersHead}
           >
             <Text style={[styles.moneyOthersLabel, theme && { color: theme.muted }]}>
-              누가 얼마 냈나 {paidRows.length}명
+              낸 돈 · {paidRows.length}명
             </Text>
             <Glyph name={paidOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
           </Pressable>
@@ -10260,7 +10268,7 @@ function Money({
       </MoneyBlock>
       {/* 요약 바로 아래에 둔다. 탭을 열자마자 손이 닿는 자리다. */}
       {canEdit && (
-      <MoneyBlock title="빠르게 적기">
+      <MoneyBlock title="빠른 추가">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickAddChips}>
           {EXPENSE_CATEGORIES.map((item) => {
             const active = quickCategory === item;
@@ -10298,7 +10306,7 @@ function Money({
             onPress={addQuickExpense}
             disabled={!quickNumber}
             accessibilityRole="button"
-            accessibilityLabel={`${quickCategory} 지출 적기`}
+            accessibilityLabel={`${quickCategory} 지출 추가`}
             accessibilityState={{ disabled: !quickNumber }}
             style={({ pressed }) => [
               styles.quickAddButton,
@@ -10307,16 +10315,16 @@ function Money({
             ]}
           >
             <Glyph name="plus" size={16} color={quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE"} weight={2.6} />
-            <Text style={[styles.quickAddButtonText, { color: quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE" }]}>적기</Text>
+            <Text style={[styles.quickAddButtonText, { color: quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE" }]}>추가</Text>
           </Pressable>
         </View>
         <Text style={[styles.quickAddHint, theme && { color: theme.muted }]}>
-          {draftPayerHint} · 자세히 적으려면 위의 지출 추가를 누르세요
+          {draftPayerHint} · 자세히 적으려면 위의 지출 추가를 눌러 주세요
         </Text>
       </MoneyBlock>
       )}
       {expenses.length > 0 && (
-        <MoneyBlock title="얼마나 어디에 썼나" meta={`${byDay.length}일`}>
+        <MoneyBlock title="분류별 지출" meta={`${byDay.length}일`}>
           <View style={styles.moneyInsightGrid}>
             <View style={styles.moneyInsightItem}>
               <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>쓴 날 하루 평균</Text>
@@ -10438,10 +10446,10 @@ function Money({
       </View>
       {visible.length === 0 && (
         <EmptyState
-          title={expenses.length === 0 ? "아직 적은 지출이 없어요" : "이 날은 쓴 게 없어요"}
+          title={expenses.length === 0 ? "아직 지출이 없어요" : "이 날은 쓴 게 없어요"}
           description={
             expenses.length === 0
-              ? "쓴 돈을 적어 두면 여행이 끝나고 한 번에 정산할 수 있어요."
+              ? "지출을 적어 두면 여행이 끝나고 한 번에 정산할 수 있어요."
               : "다른 날을 보거나 전체로 돌아가 보세요."
           }
           action={expenses.length === 0 ? "지출 추가" : "전체 보기"}
@@ -10471,7 +10479,7 @@ function Money({
         visible={sheetOpen}
         title={editingId ? "지출 수정" : "지출 추가"}
         subtitle="항목과 금액만 적어도 저장돼요"
-        submit={editingId ? "변경 저장" : "지출 추가"}
+        submit={editingId ? "저장" : "지출 추가"}
         disabledHint={splitHint}
         submitDisabled={!formValid || Boolean(splitHint)}
         destructiveLabel={editingId ? "지출 삭제" : undefined}
@@ -10481,13 +10489,14 @@ function Money({
         onDestructive={deleteExpense}
       >
         <DetailField
-          label="항목"
+          label="항목 (선택)"
           value={draftTitle}
           onChangeText={setDraftTitle}
-          placeholder={`안 적으면 ${draftCategory}`}
+          placeholder="예: 점심"
         />
         <DetailField
-          label="금액 · 필수"
+          label="금액"
+          required
           value={draftAmount}
           onChangeText={changeAmount}
           placeholder="예: 32,000"
@@ -10516,10 +10525,10 @@ function Money({
             <Pressable
               onPress={() => setDraftAmount("")}
               accessibilityRole="button"
-              accessibilityLabel="금액 지우기"
+              accessibilityLabel="금액 비우기"
               style={({ pressed }) => [styles.amountStep, pressed && styles.controlPressed]}
             >
-              <Text style={[styles.amountStepText, theme && { color: theme.muted }]}>지우기</Text>
+              <Text style={[styles.amountStepText, theme && { color: theme.muted }]}>비우기</Text>
             </Pressable>
           )}
         </View>
@@ -10544,7 +10553,7 @@ function Money({
           />
           <View style={styles.shareField}>
             <View style={styles.fieldLabelRow}>
-              <View style={[styles.fieldLabelDot, requiredDot("누구 몫", theme)]} />
+              <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
               <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>누구 몫</Text>
             </View>
             {/* 방식을 먼저 고르고 그 방식에 맞는 것만 보여 준다. 사람들이
@@ -10658,7 +10667,7 @@ function Money({
                 ? "영수증이 있어요"
                 : draftMemo.trim()
                   ? "메모가 있어요"
-                  : "필요할 때만 추가하세요"
+                  : "필요할 때만 펼쳐 주세요"
           }
           open={extrasOpen}
           onToggle={() => setExtrasOpen((current) => !current)}
@@ -10709,7 +10718,8 @@ function Money({
         {paying && (
           <>
             <DetailField
-              label="보낸 금액 · 필수"
+              label="보낸 금액"
+              required
               value={payAmount}
               onChangeText={(text) => setPayAmount(amountText(parseAmount(text, unit.fraction), unit.fraction))}
               placeholder={amountText(paying.amount, unit.fraction)}
@@ -10733,7 +10743,7 @@ function Money({
         visible={peopleSheetOpen}
         title="이번 여행 참가자"
         subtitle="공간 멤버 중에 이번에 같이 가는 사람만 골라요"
-        submit="변경 저장"
+        submit="저장"
         disabledHint={!draftParticipants.length ? "한 명은 있어야 해요" : undefined}
         submitDisabled={!draftParticipants.length}
         onClose={() => setPeopleSheetOpen(false)}
@@ -10746,7 +10756,7 @@ function Money({
             value={draftParticipants}
             onChange={setDraftParticipants}
             noteFor={assignedSummary}
-            hint="몫을 따로 안 적은 지출은 여기 고른 사람들이 똑같이 나눠요. 사람을 바꾸면 정산도 다시 계산돼요."
+            hint="이번 여행에 가는 사람만 골라 주세요. 정산과 준비물 담당에 쓰여요."
           />
         )}
       </DetailSheet>
@@ -10754,7 +10764,7 @@ function Money({
         visible={currencySheetOpen}
         title="여행 통화"
         subtitle="현지 금액으로 적고 합계에서 원으로 환산해 봐요"
-        submit="변경 저장"
+        submit="저장"
         onClose={() => setCurrencySheetOpen(false)}
         onSubmit={saveCurrency}
       >
@@ -10770,7 +10780,7 @@ function Money({
         />
         {draftCurrency !== DEFAULT_CURRENCY.code && (
           <DetailField
-            label={`1 ${draftCurrency} 는 몇 원인가요`}
+            label={`1 ${draftCurrency}는 몇 원인가요`}
             value={draftRate}
             onChangeText={setDraftRate}
             placeholder={`예: ${amountText(currencyOf(draftCurrency).rate, 2)}`}
@@ -10787,14 +10797,15 @@ function Money({
         visible={budgetSheetOpen}
         title="여행 예산"
         subtitle="예산 대비 얼마나 썼는지 비용 탭에서 바로 확인해요"
-        submit="변경 저장"
+        submit="저장"
         disabledHint={!budgetNumber ? "예산을 입력해 주세요" : undefined}
         submitDisabled={!budgetNumber}
         onClose={() => setBudgetSheetOpen(false)}
         onSubmit={saveBudget}
       >
         <DetailField
-          label={`전체 예산 · 필수 (${unit.code})`}
+          label={`전체 예산 (${unit.code})`}
+          required
           value={draftBudget}
           onChangeText={(text) => {
             const amount = parseAmount(text, unit.fraction);
@@ -11220,6 +11231,7 @@ function PairedDetailField({
   onSwap,
   accentColor,
   accentSoft,
+  required = false,
 }: {
   label: string;
   leftValue: string;
@@ -11231,12 +11243,13 @@ function PairedDetailField({
   onSwap?: () => void;
   accentColor?: string;
   accentSoft?: string;
+  required?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
+        <View style={[styles.fieldLabelDot, requiredDot(required, theme)]} />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
       </View>
       <View style={styles.pairedFieldRow}>
@@ -11274,6 +11287,7 @@ function PairedDetailField({
 function DetailField({
   label,
   multiline,
+  required = false,
   ...props
 }: {
   label: string;
@@ -11285,13 +11299,15 @@ function DetailField({
   /** 서버가 받는 한도. 넘겨 두면 저장할 때 잘리는 대신 처음부터 못 넘긴다. */
   maxLength?: number;
   autoCapitalize?: "none" | "sentences";
+  /** 비우면 저장할 수 없는 칸. 라벨 앞 점이 강조색이 된다. */
+  required?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
         <View
-          style={[styles.fieldLabelDot, requiredDot(label, theme)]}
+          style={[styles.fieldLabelDot, requiredDot(required, theme)]}
         />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
           {label}
@@ -11448,7 +11464,7 @@ function TimePickerControl({
       onPress={openPicker}
       accessibilityRole="button"
       accessibilityLabel={`${accessibilityLabel}, ${value || "시간 미정"}`}
-      accessibilityHint="시와 분 숫자를 위아래로 돌려 선택합니다"
+      accessibilityHint="위아래로 돌려 시와 분을 골라요"
       style={({ pressed }) => [
         styles.timePickerButton,
         theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -11486,7 +11502,7 @@ function TimePickerField({
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
+        <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
       </View>
       <TimePickerControl
@@ -11517,7 +11533,7 @@ function PairedTimePickerField({
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
+        <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
       </View>
       <View style={styles.pairedTimeRow}>
@@ -11792,7 +11808,7 @@ function ReportForm({
     return (
       <View accessibilityLiveRegion="polite" style={box}>
         <View style={styles.deleteConfirmCopy}>
-          <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>신고를 받았어요. 24시간 안에 확인할게요.</Text>
+          <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>신고를 받았어요. 확인 후 조치할게요.</Text>
           <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>신고한 사람은 상대에게 알려지지 않아요.</Text>
         </View>
         <Pressable onPress={onClose} accessibilityRole="button" style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}>
@@ -11817,7 +11833,7 @@ function ReportForm({
       });
       setSent(true);
     } catch (caught) {
-      setError(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.");
+      setError(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "보내지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.");
     } finally {
       setSending(false);
     }
@@ -11829,8 +11845,8 @@ function ReportForm({
         <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>어떤 점이 문제인가요?</Text>
         <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>운영자가 확인해요. 신고한 사람은 상대에게 알려지지 않아요.</Text>
       </View>
-      <OptionField label="신고 사유 · 필수" options={REPORT_REASONS.map((item) => item.label)} value={reason} onChange={setReason} />
-      <DetailField label="자세한 내용 · 선택 사항" value={detail} onChangeText={setDetail} placeholder="확인에 도움이 되는 내용을 적어 주세요" multiline />
+      <OptionField label="신고 사유" required options={REPORT_REASONS.map((item) => item.label)} value={reason} onChange={setReason} />
+      <DetailField label="자세한 내용 (선택)" value={detail} onChangeText={setDetail} placeholder="예: 어떤 부분이 문제인지" multiline />
       {error ? <Text accessibilityLiveRegion="assertive" style={[styles.deleteConfirmMessage, { color: danger }]}>{error}</Text> : null}
       <View style={styles.deleteConfirmActions}>
         <Pressable onPress={onClose} accessibilityRole="button" style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}>
@@ -11890,18 +11906,20 @@ function OptionField({
   options,
   value,
   onChange,
+  required = false,
 }: {
   label: string;
   options: string[];
   value: string;
   onChange: (value: string) => void;
+  required?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
     <View style={styles.optionField}>
       <View style={styles.fieldLabelRow}>
         <View
-          style={[styles.fieldLabelDot, requiredDot(label, theme)]}
+          style={[styles.fieldLabelDot, requiredDot(required, theme)]}
         />
         <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
           {label}
@@ -12673,18 +12691,6 @@ const styles = StyleSheet.create({
   placeFilterTextActive: { color: "#FFFFFF" },
   placeAddText: { fontSize: 12, fontFamily: typo.label.family },
   placeList: { gap: 8 },
-  placeFormIntro: {
-    minHeight: 34,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  placeRequiredBadge: { height: 25, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", marginRight: 8 },
-  placeRequiredBadgeText: { fontSize: 12, fontFamily: typo.label.family },
-  placeFormText: {
-    fontSize: 12,
-    fontFamily: typo.label.family,
-  },
   placeSearchInput: { flex: 1, fontSize: 12 },
   resultCount: {
     minWidth: 25,

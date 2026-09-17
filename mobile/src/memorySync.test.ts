@@ -43,8 +43,8 @@ test("일기는 제목을 비우면 null, 다루는 날이 없으면 쓴 날로 
 
 test("휴지통은 남은 날을 내림해서 알리고 하루가 안 남으면 오늘이라고 한다", () => {
   const at = (days: number) => new Date(now.getTime() + days * 86_400_000).toISOString();
-  assert.equal(trashLeftLabel(at(6.9), now), "6일 뒤 사라져요");
-  assert.equal(trashLeftLabel(at(1), now), "1일 뒤 사라져요");
-  assert.equal(trashLeftLabel(at(0.5), now), "오늘 사라져요");
+  assert.equal(trashLeftLabel(at(6.9), now), "6일 뒤 완전히 삭제돼요");
+  assert.equal(trashLeftLabel(at(1), now), "1일 뒤 완전히 삭제돼요");
+  assert.equal(trashLeftLabel(at(0.5), now), "오늘 완전히 삭제돼요");
   assert.equal(trashLeftLabel("x", now), "");
 });

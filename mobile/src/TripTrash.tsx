@@ -50,7 +50,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
       if (caught instanceof DaymoApiError && caught.status === 410) {
         setItems((current) => current?.filter((row) => row.id !== item.id) ?? null);
       }
-      notify(caught instanceof DaymoApiError ? caught.message : "되돌리지 못했어요. 연결을 확인해 주세요.");
+      notify(caught instanceof DaymoApiError ? caught.message : "되돌리지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.");
     } finally {
       setBusyId(null);
     }
@@ -73,13 +73,13 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
         }}
         style={styles.toggle}
       >
-        <Text style={[styles.toggleText, { color: muted }]}>{open ? "휴지통 닫기" : "휴지통 · 지운 메모와 사진 7일 보관"}</Text>
+        <Text style={[styles.toggleText, { color: muted }]}>{open ? "휴지통 닫기" : "휴지통 · 삭제한 메모와 사진을 7일간 보관해요"}</Text>
       </Pressable>
       {open && (
         <View style={[styles.list, { borderColor: appTheme?.border ?? "#EEEAE5" }]}>
           {!items && !error && <ActivityIndicator color={primary} style={styles.loading} />}
           {!!error && <Text style={[styles.empty, { color: muted }]}>{error}</Text>}
-          {items?.length === 0 && <Text style={[styles.empty, { color: muted }]}>지운 메모와 사진이 없어요</Text>}
+          {items?.length === 0 && <Text style={[styles.empty, { color: muted }]}>삭제한 메모와 사진이 없어요</Text>}
           {items?.map((item) => (
             <View key={item.id} style={styles.row}>
               <View style={styles.copy}>
@@ -87,7 +87,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
                   {item.type === "memo" ? "메모" : "사진"} · {item.preview || (item.type === "memo" ? "내용 없음" : "설명 없는 사진")}
                 </Text>
                 <Text numberOfLines={1} style={[styles.meta, { color: muted }]}>
-                  {item.deletedByName}님이 지움 · {trashLeftLabel(item.restoreDeadline)}
+                  {item.deletedByName} 님이 삭제 · {trashLeftLabel(item.restoreDeadline)}
                 </Text>
               </View>
               {item.canRestore ? (
@@ -101,7 +101,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
                   <Text style={[styles.action, { color: primary }, busyId === item.id && { opacity: 0.5 }]}>되돌리기</Text>
                 </Pressable>
               ) : (
-                <Text style={[styles.meta, { color: muted }]}>올린 사람·관리자만</Text>
+                <Text style={[styles.meta, { color: muted }]}>올린 사람과 관리자만 되돌릴 수 있어요</Text>
               )}
             </View>
           ))}

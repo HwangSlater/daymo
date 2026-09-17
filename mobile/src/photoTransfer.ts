@@ -99,7 +99,7 @@ export async function uploadPhoto(
   try {
     buffer = await bytesOf(uri);
   } catch {
-    throw new DaymoApiError("사진 파일을 찾지 못했어요. 사진을 다시 골라 주세요.", 422, "VALIDATION_ERROR");
+    throw new DaymoApiError("사진을 불러오지 못했어요. 다시 골라 주세요.", 422, "VALIDATION_ERROR");
   }
   const checksum = hex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, buffer));
   const reserved = await createPhoto(tripId, photoId, {
@@ -141,7 +141,7 @@ export async function downloadPhoto(
       } catch {
         throw new DaymoApiError("인터넷 연결을 확인하고 다시 시도해 주세요.", 0);
       }
-      if (!response.ok) throw new DaymoApiError("사진을 받지 못했어요.", response.status);
+      if (!response.ok) throw new DaymoApiError("사진을 불러오지 못했어요.", response.status);
       const uri = URL.createObjectURL(await response.blob());
       liveBlobUris.add(uri);
       return uri;
@@ -160,7 +160,7 @@ export async function downloadPhoto(
     }
     if (status < 200 || status >= 300) {
       await FileSystem.deleteAsync(target, { idempotent: true }).catch(() => undefined);
-      throw new DaymoApiError("사진을 받지 못했어요.", status);
+      throw new DaymoApiError("사진을 불러오지 못했어요.", status);
     }
     return target;
   }, { safe: true }));

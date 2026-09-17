@@ -159,7 +159,7 @@ const expenseSection = (
 ): string[] => {
   if (!expenses.length && !payments.length) return [];
   const total = expenses.reduce((sum, item) => sum + item.amount, 0);
-  const lines = [`### 비용 — 합계 ${money(total, currency)}`];
+  const lines = [`### 비용 — 총 지출 ${money(total, currency)}`];
   for (const item of expenses) {
     const payer = clean(item.payer);
     const head = joinDot([item.day, item.title]) || "이름 없는 지출";

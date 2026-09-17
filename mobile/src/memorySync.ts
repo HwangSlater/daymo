@@ -39,12 +39,12 @@ export type ServerTrashItem = {
   canRestore: boolean;
 };
 
-/** `3일 뒤 사라져요`. 하루가 안 남았으면 `오늘 사라져요`. */
+/** `3일 뒤 완전히 삭제돼요`. 하루가 안 남았으면 `오늘 완전히 삭제돼요`. */
 export function trashLeftLabel(restoreDeadline: string, now: Date = new Date()): string {
   const left = new Date(restoreDeadline).getTime() - now.getTime();
   if (Number.isNaN(left)) return "";
   const days = Math.floor(left / 86_400_000);
-  return days < 1 ? "오늘 사라져요" : `${days}일 뒤 사라져요`;
+  return days < 1 ? "오늘 완전히 삭제돼요" : `${days}일 뒤 완전히 삭제돼요`;
 }
 
 const pad = (value: number) => String(value).padStart(2, "0");
