@@ -3273,6 +3273,17 @@ function TripOverview({
       .filter((owner) => owner && !participants.includes(owner));
     return [...participants, ...new Set(extra)];
   }, [participants, transportations]);
+  /** 카드 차례. 참가자 차례대로 묶고, 한 사람 안에서는 가는 편이 먼저다. */
+  const transportLegs = useMemo(() => {
+    const 차례 = (leg: Transportation) => (leg.direction === "가는 편" ? 0 : 1);
+    const 사람들 = [...transportOwners, ""];
+    return 사람들.flatMap((owner, ownerIndex) =>
+      transportations
+        .filter((leg) => (leg.owner || "") === owner)
+        .sort((a, b) => 차례(a) - 차례(b))
+        .map((leg) => ({ leg, ownerIndex })),
+    );
+  }, [transportOwners, transportations]);
   const transportColors = [
     theme?.secondary ?? "#55BFB4",
     theme?.accent ?? "#8B7CF6",
@@ -3552,22 +3563,19 @@ function TripOverview({
         action={canEdit ? "교통편 추가" : undefined}
         onPress={openTransportCreate}
       />
+      {/* 편마다 한 장이다. 예전에는 사람마다 한 장에 「가는 편」만 그리고 「오는 편」은
+          작은 글 한 줄로 붙여서, 위에 「2편」이라 적혀 있는데 카드는 하나만 보였다.
+          이용자가 비어 있는 편은 아예 안 그려져 「없음」으로 보이기도 했다. */}
       <View style={styles.transportGrid}>
-        {transportOwners.map((owner, index) => {
-          const outbound = transportations.find((item) => item.owner === owner && item.direction === "가는 편");
-          const inbound = transportations.find((item) => item.owner === owner && item.direction === "오는 편");
-          if (!outbound && !inbound) return null;
-          return (
-            <TransportCard
-              key={owner}
-              owner={owner}
-              outbound={outbound}
-              inbound={inbound}
-              color={transportColors[index % transportColors.length]}
-              onPress={() => setSelectedTransport(outbound ?? inbound ?? null)}
-            />
-          );
-        })}
+        {transportLegs.map(({ leg, ownerIndex }) => (
+          <TransportCard
+            key={leg.id}
+            owner={leg.owner || "이용자 미정"}
+            leg={leg}
+            color={transportColors[ownerIndex % transportColors.length]}
+            onPress={() => setSelectedTransport(leg)}
+          />
+        ))}
       </View>
       {transportations.length === 0 && (
         <EmptyState
@@ -3904,11 +3912,11 @@ function TripOverview({
       </DetailSheet>
       <InfoPanel
         visible={selectedTransport !== null}
-        title={`${selectedTransport?.owner ?? ""}의 교통편`}
+        title={`${selectedTransport?.owner || "이용자 미정"}의 교통편`}
         onClose={() => setSelectedTransport(null)}
       >
         {transportations
-          .filter((item) => item.owner === selectedTransport?.owner)
+          .filter((item) => (item.owner || "") === (selectedTransport?.owner || ""))
           .map((item) => (
             <View key={item.id} style={[styles.transportDetailBlock, theme && { borderColor: theme.border }]}>
               <Text style={[styles.transportDetailDirection, theme && { color: theme.primary }]}>{item.direction} · {item.status}</Text>
@@ -11027,23 +11035,20 @@ function TravelInfoRow({
 
 function TransportCard({
   owner,
-  outbound,
-  inbound,
+  leg,
   color,
   onPress,
 }: {
   owner: string;
-  outbound?: Transportation;
-  inbound?: Transportation;
+  leg: Transportation;
   color: string;
   onPress: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
-  const primary = outbound ?? inbound;
-  if (!primary) return null;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`${owner} ${leg.direction} ${leg.method} ${leg.departure}에서 ${leg.arrival}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.transportCard,
@@ -11053,19 +11058,19 @@ function TransportCard({
     >
       <View style={[styles.transportCardRail, { backgroundColor: color }]} />
       <View style={styles.transportCardHead}>
-        <Text style={[styles.transportOwner, { color }]}>{owner}</Text>
+        <Text numberOfLines={1} style={[styles.transportOwner, { color, flexShrink: 1 }]}>{owner}</Text>
         {/* 다 예매했으면 할 일이 없다. 아직인 것만 눈에 띄게 남긴다. */}
-        {primary.status === "예매 전" && (
+        {leg.status === "예매 전" && (
           <Text style={[styles.transportStatus, { color: theme?.accent ?? "#B4453C" }]}>
-            {primary.status}
+            {leg.status}
           </Text>
         )}
       </View>
-      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{primary.direction} · {primary.method}</Text>
+      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{leg.direction} · {leg.method}</Text>
       <View style={styles.transportRoute}>
         <View style={styles.transportStop}>
-          <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{primary.departure}</Text>
-          <Text style={[styles.transportTime, { color }]}>{primary.departureTime}</Text>
+          <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{leg.departure}</Text>
+          <Text style={[styles.transportTime, { color }]}>{leg.departureTime}</Text>
         </View>
         <View style={styles.transportRouteLine}>
           <View style={[styles.transportRouteDot, { backgroundColor: color }]} />
@@ -11073,13 +11078,11 @@ function TransportCard({
           <Glyph name="chevronRight" size={14} color={color} />
         </View>
         <View style={[styles.transportStop, styles.transportStopEnd]}>
-          <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{primary.arrival}</Text>
-          <Text style={[styles.transportTime, { color }]}>{primary.arrivalTime}</Text>
+          <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{leg.arrival}</Text>
+          <Text style={[styles.transportTime, { color }]}>{leg.arrivalTime}</Text>
         </View>
       </View>
-      {inbound && (
-        <Text numberOfLines={1} style={[styles.transportReturn, theme && { color: theme.muted }]}>오는 편 · {inbound.date} {inbound.departureTime}</Text>
-      )}
+      <Text numberOfLines={1} style={[styles.transportReturn, theme && { color: theme.muted }]}>{leg.date}</Text>
     </Pressable>
   );
 }
