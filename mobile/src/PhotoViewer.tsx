@@ -59,7 +59,6 @@ import { onAccent } from "./theme/colors";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
-import { useWebKeyboardInset } from "./useWebKeyboardInset";
 
 /**
  * 크게 볼 사진 한 장.
@@ -318,7 +317,6 @@ export function PhotoViewerScreen({
   // 웹의 뒤로 가기는 창을 닫기 전에 도구부터 접는다. 꾸미다 뒤로 가면 여행 화면까지
   // 한 번에 튕겨 나가는 것이 아니라 보던 사진으로 돌아와야 한다.
   useWebBackClose(visible, () => (decorating ? back() : close()));
-  const keyboardInset = useWebKeyboardInset(visible && decorating);
 
   /**
    * 좌우로 밀어 앞뒤 사진으로 넘기고, 아래로 끌어 닫는다.
@@ -514,7 +512,7 @@ export function PhotoViewerScreen({
       {/* 보기와 꾸미기가 이 한 창을 나눠 쓴다. 창을 갈아 끼우지 않아 「꾸미기」를
           눌러도 화면이 한 번 깜빡이지 않는다. */}
       <KeyboardAvoidingView
-        style={[styles.screen, keyboardInset]}
+        style={styles.screen}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {decorating && decor ? (
@@ -881,7 +879,6 @@ export function PhotoEditScreen({
    */
   const [tool, setTool] = useState<EditTool>("설명");
   const captionInput = useRef<TextInput>(null);
-  const keyboardInset = useWebKeyboardInset(visible);
   // 나갈 때 도구 칸을 처음 자리로 되돌린다. 다음에 다른 사진을 열었는데 지난번에
   // 보던 「붙일 곳」 칸이 그대로 떠 있으면 설명을 고치러 온 사람이 헤맨다.
   const leave = (go: () => void) => {
@@ -954,7 +951,7 @@ export function PhotoEditScreen({
     // iOS 는 이미 떠 있는 Modal 위에 형제 Modal 을 바로 얹지 못한다.
     <View style={StyleSheet.absoluteFill}>
       <KeyboardAvoidingView
-        style={[styles.editScreen, keyboardInset]}
+        style={styles.editScreen}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.editHead}>
