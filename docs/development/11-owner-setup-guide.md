@@ -434,7 +434,9 @@ SMTP_STARTTLS=true
 4. 만들고 나면 나오는 **Client Keys(DSN)** 값을 복사한다. `Settings → Projects → daymo-backend → Client Keys (DSA)` 에서 다시 볼 수 있다. `https://<키>@o<번호>.ingest.sentry.io/<번호>` 모양이다
 5. `Settings → Projects → daymo-backend → General → Event Retention`을 **30일**로 맞춘다
 6. `Settings → Security & Privacy`에서 `Data Scrubber`와 `Use Default Scrubbers`를 켜 둔다. 서버가 이미 지우고 보내지만 두 번 막는 편이 낫다
-7. VPS의 `/etc/daymo/secrets/runtime.env`에 아래 한 줄을 더하고 API 컨테이너를 다시 띄운다
+7. VPS의 `/etc/daymo/secrets/runtime.env`에 아래 한 줄을 더하고 API 컨테이너를 다시 띄운다.
+   `compose.yml` 의 api `environment` 에 `SENTRY_DSN: ${SENTRY_DSN:-}` 이 있어야 컨테이너까지
+   간다(2026-09-17에 넣었다). compose 는 거기 적힌 것만 넘기므로 `runtime.env` 에만 두면 켜지지 않는다
 
 ```dotenv
 # 비어 있으면 오류 수집이 꺼진다. 값을 넣으면 켜진다.
