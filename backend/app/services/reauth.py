@@ -14,6 +14,9 @@ from app.models import ReauthProof, SensitiveAction, ThrottleScope, User
 # 증표는 짧게 산다. 화면을 열어 두고 자리를 비운 사이에 쓰이지 않게 한다.
 PROOF_TTL = timedelta(minutes=5)
 
+# 증표가 없거나 못 쓰게 됐을 때. 어느 쪽인지는 나눠 말하지 않는다.
+_PROOF_REQUIRED = "본인 확인이 만료됐어요. 비밀번호(또는 소셜 계정)로 다시 확인해 주세요."
+
 
 async def issue_proof(
     session: AsyncSession,
@@ -34,7 +37,7 @@ async def issue_proof(
     if not user.password_hash:
         raise AppError(
             ErrorCode.FORBIDDEN,
-            message="이 계정은 비밀번호가 없어요. 가입할 때 쓴 소셜 로그인으로 다시 확인해 주세요.",
+            message="이 계정은 비밀번호가 없어요. 가입할 때 쓴 소셜 계정으로 본인 확인을 해 주세요.",
         )
 
     # 로그인과 같은 한도로 센다. 없으면 access token 하나만 손에 넣어도
@@ -80,7 +83,7 @@ async def consume_proof(
     여러 곳에 돌려 쓸 수 있으면 재인증을 요구한 의미가 없다.
     """
     if not proof:
-        raise AppError(ErrorCode.FORBIDDEN, message="다시 한 번 확인이 필요해요.")
+        raise AppError(ErrorCode.FORBIDDEN, message=_PROOF_REQUIRED)
 
     지금 = datetime.now(UTC)
     줄 = await session.scalar(
@@ -95,7 +98,7 @@ async def consume_proof(
     ):
         # 어느 조건에 걸렸는지 나눠 말하지 않는다. 만료인지 종류가 다른지
         # 알려 주면 증표를 맞춰 보는 데 힌트가 된다.
-        raise AppError(ErrorCode.FORBIDDEN, message="다시 한 번 확인이 필요해요.")
+        raise AppError(ErrorCode.FORBIDDEN, message=_PROOF_REQUIRED)
 
     줄.used_at = 지금
     await session.flush()

@@ -208,7 +208,7 @@ def _막는다(다시_되는_때: datetime, 지금: datetime) -> None:
     남은_초 = max(1, int((다시_되는_때 - 지금).total_seconds()))
     raise AppError(
         ErrorCode.RATE_LIMITED,
-        message=f"너무 자주 시도했어요. {남은_초}초 뒤에 다시 해 주세요.",
+        message=f"너무 자주 시도했어요. {남은_초}초 뒤에 다시 시도해 주세요.",
         fields={"retryAfterSeconds": str(남은_초)},
     )
 

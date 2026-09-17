@@ -110,5 +110,5 @@ async def test_계정을_지운_사람의_메모는_탈퇴한_멤버로_보인�
 
     목록 = (await api.get(f"/v1/trips/{trip['id']}/memos", headers=headers)).json()["data"]
 
-    assert (목록[0]["authorMembershipId"], 목록[0]["authorName"]) == (None, "탈퇴한 멤버")
+    assert (목록[0]["authorMembershipId"], 목록[0]["authorName"]) == (None, "삭제된 계정")
     assert await db.get(Membership, uuid.UUID(나)) is not None

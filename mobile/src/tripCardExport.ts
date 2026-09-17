@@ -22,7 +22,7 @@ import { safeFileName } from "./filenames";
 const base64Of = (uri: string) => uri.slice(uri.indexOf(",") + 1);
 
 export async function shareTripCard(fileName: string, shot: string): Promise<"shared" | "unavailable"> {
-  const name = `${safeFileName(fileName, "여행 기념 카드")}.png`;
+  const name = `${safeFileName(fileName, "추억 카드")}.png`;
   if (Platform.OS === "web") {
     if (typeof document === "undefined") return "unavailable";
     const link = document.createElement("a");

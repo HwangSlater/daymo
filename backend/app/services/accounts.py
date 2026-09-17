@@ -118,12 +118,12 @@ async def sign_up(
         await get_outbox().send(
             Letter(
                 to=정규화된_이메일,
-                subject="누군가 이 주소로 가입을 시도했어요",
+                subject="이미 Daymo에 가입한 이메일이에요",
                 # 1회용 링크가 아니라서 link 칸에 넣지 않는다. 넣으면 "30분 동안 한 번만"
                 # 안내가 붙는다.
                 body=(
-                    "이미 가입한 주소예요. 직접 시도했는데 비밀번호가 기억나지 않으면 "
-                    f"여기서 다시 정할 수 있어요.\n{_link('/auth/forgot-password')}\n\n"
+                    "이 이메일로 가입한 Daymo 계정이 이미 있어요. 비밀번호가 기억나지 않으면 "
+                    f"아래에서 비밀번호를 재설정할 수 있어요.\n{_link('/auth/forgot-password')}\n\n"
                     "직접 시도하지 않았다면 이 메일은 무시해도 괜찮아요."
                 ),
             )
@@ -215,7 +215,7 @@ async def confirm_email(session: AsyncSession, *, token: str) -> None:
     ):
         raise AppError(
             ErrorCode.VALIDATION_ERROR,
-            message="링크가 만료되었거나 이미 사용됐어요. 다시 받아 주세요.",
+            message="이미 사용했거나 만료된 링크예요. 다시 받아 주세요.",
         )
 
     줄.used_at = 지금
@@ -337,7 +337,7 @@ async def request_password_reset(
     await get_outbox().send(
         Letter(
             to=user.email,
-            subject="비밀번호를 다시 정해 주세요",
+            subject="Daymo 비밀번호 재설정",
             link=_link(f"/auth/reset-password?token={원문}"),
         )
     )
@@ -364,12 +364,12 @@ async def reset_password(session: AsyncSession, *, token: str, new_password: str
     ):
         raise AppError(
             ErrorCode.VALIDATION_ERROR,
-            message="링크가 만료되었거나 이미 사용됐어요. 다시 받아 주세요.",
+            message="이미 사용했거나 만료된 링크예요. 다시 받아 주세요.",
         )
 
     user = await session.get(User, 줄.user_id)
     if user is None:
-        raise AppError(ErrorCode.VALIDATION_ERROR, message="링크가 만료되었거나 이미 사용됐어요. 다시 받아 주세요.")
+        raise AppError(ErrorCode.VALIDATION_ERROR, message="이미 사용했거나 만료된 링크예요. 다시 받아 주세요.")
 
     검사된 = passwords.validate(new_password, email=user.email)
     user.password_hash = passwords.hash_password(검사된)

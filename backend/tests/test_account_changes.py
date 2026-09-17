@@ -241,7 +241,7 @@ async def test_버튼을_누르면_바뀌고_새_주소는_확인된_주소가_�
     두번째 = await api.post("/auth/confirm-email-change", content=f"token={token}", headers=폼)
 
     assert 첫번째.status_code == 200 and "이메일을 바꿨어요" in 첫번째.text
-    assert 두번째.status_code == 400 and "만료되었거나 이미 사용됐어요" in 두번째.text
+    assert 두번째.status_code == 400 and "이미 사용했거나 만료된 링크예요" in 두번째.text
     user = await db.get(User, user_id)
     await db.refresh(user)
     assert user.email == 새_이메일 and user.email_verified_at is not None
@@ -301,7 +301,7 @@ async def test_그새_주소를_다른_계정이_쓰면_바꾸지_않는다(api,
 
     응답 = await api.post("/auth/confirm-email-change", content=f"token={token}", headers=폼)
 
-    assert 응답.status_code == 400 and "만료되었거나 이미 사용됐어요" in 응답.text
+    assert 응답.status_code == 400 and "이미 사용했거나 만료된 링크예요" in 응답.text
     assert await 사용자_id(db, 이메일) is not None
 
 
@@ -335,4 +335,4 @@ async def test_이상한_token_은_같은_오류_화면이다(api, db):
     보내기 = await api.post("/auth/confirm-email-change", content="token=없는토큰", headers=폼)
 
     assert 열기.status_code == 400 and "<script>" not in 열기.text
-    assert 보내기.status_code == 400 and "만료되었거나 이미 사용됐어요" in 보내기.text
+    assert 보내기.status_code == 400 and "이미 사용했거나 만료된 링크예요" in 보내기.text

@@ -51,6 +51,22 @@ export const KEEPSAKE_PARTS: KeepsakePart[] = ["이름", "기간", "지역", "�
 export const KEEPSAKE_STAT_KINDS: KeepsakeStatKind[] = ["장소", "사진", "날", "지출"];
 export const KEEPSAKE_FRAME_COLORS: KeepsakeFrameColor[] = ["검정", "흰색", "크림", "노을", "바다", "숲"];
 
+/**
+ * 칩과 카드 이름에 적는 말. 저장되는 값은 그대로 두고 보이는 이름만 바꾼다.
+ * 「없음」이 카드 이름에 박히면 「없음 카드」가 되고, 「글」「사람」은 무엇인지
+ * 뜻이 오지 않아서다(docs/development/13-copy-glossary.md).
+ */
+export const keepsakeStyleLabel = (style: KeepsakeStyle): string => (style === "없음" ? "기본" : style);
+export const keepsakeRatioLabel = (ratio: KeepsakeRatio): string => (ratio === "정사각" ? "정사각형" : ratio);
+export const keepsakeFrameColorLabel = (color: KeepsakeFrameColor): string => (color === "흰색" ? "하양" : color);
+export const KEEPSAKE_PART_LABELS: Record<KeepsakePart, string> = {
+  이름: "제목", 기간: "기간", 지역: "지역", 사람: "함께한 사람", 문구: "한 줄 설명", 통계: "통계",
+};
+/** 통계 칩의 이름. 카드에 찍히는 이름과 같아야 고른 것이 어디 나오는지 보인다. */
+export const KEEPSAKE_STAT_LABELS: Record<KeepsakeStatKind, string> = {
+  장소: "다녀온 곳", 사진: "사진", 날: "함께한 날", 지출: "쓴 돈",
+};
+
 /** 네컷 틀인지. 틀이면 비율 대신 틀이 크기를 정한다. */
 export const isCutStyle = (style: KeepsakeStyle): boolean => KEEPSAKE_CUT_STYLES.includes(style);
 
@@ -210,7 +226,7 @@ export function toggleKeepsakePhoto(photoIds: readonly string[], id: string): st
 /** 더 고를 수 있는지. 못 고르면 그 까닭을 돌려준다. */
 export function keepsakePhotoFullReason(photoIds: readonly string[]): string {
   return photoIds.length >= KEEPSAKE_MAX_PHOTOS
-    ? `사진은 ${KEEPSAKE_MAX_PHOTOS}장까지 넣을 수 있어요. 빼려면 고른 사진을 다시 누르세요`
+    ? `사진은 ${KEEPSAKE_MAX_PHOTOS}장까지 넣을 수 있어요 · 고른 사진을 다시 누르면 빠져요`
     : "";
 }
 
@@ -308,7 +324,7 @@ export function keepsakeFrameOf(
 export function homeCardBlockedReason(style: KeepsakeStyle, photoCount: number): string {
   const rows = keepsakeFrameOf(style, photoCount).rows;
   if (rows.length <= Math.max(...rows, 1)) return "";
-  return "이 카드는 세로로 길어서 홈 화면에 담기지 않아요. 가로나 정사각 카드를 만들거나, 사진 한 장을 홈에 쓰세요";
+  return "가로나 정사각형 카드로 만들거나, 사진 한 장을 골라 주세요";
 }
 
 /**
@@ -388,11 +404,8 @@ export function keepsakeStatLines(
     날: `${count.days}일`,
     지출: count.spent,
   };
-  const 이름: Record<KeepsakeStatKind, string> = {
-    장소: "다녀온 곳", 사진: "사진", 날: "함께한 날", 지출: "쓴 돈",
-  };
   return KEEPSAKE_STAT_KINDS.filter((kind) => card.stats.includes(kind))
-    .map((kind) => ({ label: 이름[kind], value: 값[kind] }));
+    .map((kind) => ({ label: KEEPSAKE_STAT_LABELS[kind], value: 값[kind] }));
 }
 
 /** 카드에 올릴 글. 끈 줄과 빈 줄은 빠진다. */
@@ -421,9 +434,9 @@ export function peopleLineOf(people: readonly string[]): string {
   return `${이름.slice(0, 3).join(" · ")} 외 ${이름.length - 3}명`;
 }
 
-/** `우리의 서울 주말 기념카드`. 기기 파일 이름에 못 쓰는 글자는 뺀다. */
+/** `우리의 서울 주말 추억 카드`. 기기 파일 이름에 못 쓰는 글자는 뺀다. */
 export function keepsakeFileName(title: string): string {
-  return `${safeFileName(title, "여행 기념 카드")} 기념카드`;
+  return `${safeFileName(title, "여행")} 추억 카드`;
 }
 
 /** 서버가 돌려주는 카드 한 줄(`GET /trips/{id}/cards`). */
@@ -439,8 +452,10 @@ export type KeepsakeCardRow = {
 export type KeepsakeListItem = {
   id: string;
   card: KeepsakeCard;
-  /** `네컷 · 사진 4장`. 목록에서 카드를 가려내는 한 줄이다. */
+  /** 적어 둔 제목, 없으면 `카드 1`. 목록과 확인창에서 카드를 부르는 이름이다. */
   label: string;
+  /** `네컷 · 사진 4장`. 어떤 프레임에 사진 몇 장인지. */
+  meta: string;
   /** 목록에서 받아 올 대표 사진. 카드를 열기 전에는 이 한 장만 받는다. */
   coverPhotoId: string;
 };
@@ -461,12 +476,15 @@ export function keepsakeListOf(
       (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
       || (a.createdAt ?? "").localeCompare(b.createdAt ?? "")
       || a.id.localeCompare(b.id))
-    .map((row) => {
+    .map((row, 차례) => {
       const card = keepsakeCardOf(row.settings, tripName, photoIds);
       return {
         id: row.id,
         card,
-        label: `${card.style} · 사진 ${card.photoIds.length}장`,
+        // 여행 이름을 따라가는 제목(`keepsakeCardOf`)이 아니라 적어 둔 제목만 본다.
+        // 그것을 쓰면 제목 없는 카드가 전부 여행 이름이 돼 서로 가려지지 않는다.
+        label: (row.settings?.title ?? "").trim() || `카드 ${차례 + 1}`,
+        meta: `${keepsakeStyleLabel(card.style)} · 사진 ${card.photoIds.length}장`,
         coverPhotoId: card.photoIds[0] ?? "",
       };
     });
@@ -489,7 +507,7 @@ export function suggestedStyleOf(style: KeepsakeStyle, photoCount: number): Keep
 
 /** 새 카드를 더 만들 수 있는지. 못 만들면 그 까닭을 돌려준다. */
 export function keepsakeAddBlockedReason(cardCount: number, photoCount: number): string {
-  if (photoCount <= 0) return "사진을 한 장 추가하면 기념 카드를 만들 수 있어요";
+  if (photoCount <= 0) return "사진을 한 장 추가하면 추억 카드를 만들 수 있어요";
   if (cardCount >= KEEPSAKE_MAX_CARDS) return `카드는 여행마다 ${KEEPSAKE_MAX_CARDS}장까지 모아 둘 수 있어요`;
   return "";
 }

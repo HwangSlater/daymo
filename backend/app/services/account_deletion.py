@@ -37,7 +37,7 @@ logger = logging.getLogger("daymo.account_deletion")
 GRACE = timedelta(days=7)
 
 # 정리한 계정이 공동 기록에 남기는 이름. 앱도 이 이름을 그대로 보여 준다.
-DELETED_DISPLAY_NAME = "탈퇴한 멤버"
+DELETED_DISPLAY_NAME = "삭제된 계정"
 
 
 @dataclass(frozen=True)
