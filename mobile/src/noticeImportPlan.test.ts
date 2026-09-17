@@ -280,7 +280,7 @@ test("하나가 실패해도 나머지를 계속 넣고 어디까지 넣었는�
   assert.deepEqual(result.failed.map((row) => row.label), ["준비물 보조배터리", "준비물 돗자리"]);
   assert.ok(result.made.some((row) => row.label === "요리"));
   assert.ok(result.made.some((row) => row.label === "메모"));
-  assert.ok(noticeImportReport(result).includes("2개는 넣지 못했어요 (준비물 보조배터리"));
+  assert.ok(noticeImportReport(result).includes("2개는 추가하지 못했어요 (준비물 보조배터리"));
 });
 
 test("숙소 장소를 못 만들면 그 숙소의 체크인은 보내지 않는다", async () => {
@@ -294,11 +294,11 @@ test("숙소 장소를 못 만들면 그 숙소의 체크인은 보내지 않는
 test("건너뛴 개수도 함께 알려 준다", () => {
   assert.equal(
     noticeImportReport({ made: [{ label: "장소", count: 3 }], skipped: 2, failed: [] }),
-    "장소 3개 를 넣었어요. 이미 있던 2개는 건너뛰었어요.",
+    "장소 3개를 추가했어요. 이미 있던 2개는 건너뛰었어요.",
   );
   assert.equal(
     noticeImportReport({ made: [], skipped: 0, failed: [] }),
-    "넣은 것이 없어요.",
+    "추가한 것이 없어요.",
   );
 });
 

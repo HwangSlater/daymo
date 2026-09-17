@@ -36,16 +36,16 @@ test("진행 줄은 몇 장 중 몇 장인지 보여 준다", () => {
   assert.equal(photoUploadHeadline(NO_PHOTO_UPLOADS), "");
   assert.equal(
     photoUploadHeadline({ total: 40, done: 12, blocked: [], running: true }),
-    "사진 12/40장 올리는 중이에요",
+    "사진 40장 중 12장 업로드 중",
   );
   assert.equal(
     photoUploadHeadline({ total: 40, done: 12, blocked: ["a", "b"], running: true }),
-    "사진 12/40장 올리는 중이에요 · 2장 실패",
+    "사진 40장 중 12장 업로드 중 · 2장 실패",
   );
   // 보낼 것이 더 없고 실패만 남았으면 진행이 아니라 결과를 적는다.
   assert.equal(
     photoUploadHeadline({ total: 40, done: 38, blocked: ["a", "b"], running: false }),
-    "사진 2장을 올리지 못했어요",
+    "사진 2장 업로드에 실패했어요",
   );
 });
 

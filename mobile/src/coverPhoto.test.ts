@@ -15,7 +15,7 @@ test("홈 화면에 깔린 사진이면 켜진 것으로 보고 누르면 해제
   assert.equal(켜짐.on, true);
   assert.equal(켜짐.next, null);
   assert.equal(켜짐.label, COVER_ON_LABEL);
-  assert.equal(켜짐.done, "홈 화면에서 이 사진을 내렸어요");
+  assert.equal(켜짐.done, "대표 사진을 해제했어요");
 });
 
 test("다른 사진이 깔려 있으면 꺼진 것으로 보고 누르면 이 사진을 보낸다", () => {
@@ -23,33 +23,33 @@ test("다른 사진이 깔려 있으면 꺼진 것으로 보고 누르면 이 �
 
   assert.equal(꺼짐.on, false);
   assert.equal(꺼짐.next, "사진1");
-  assert.equal(꺼짐.label, "홈 화면에 이 사진 쓰기");
+  assert.equal(꺼짐.label, "대표 사진으로 설정");
 });
 
 test("무엇이 내려가는지 이름을 대고 알린다", () => {
   // 아무것도 없었으면 내려갈 것도 없다.
   assert.equal(
     coverToggleOf("사진1", undefined, "photo").done,
-    "홈 화면에 이 사진을 깔았어요",
+    "이 사진을 대표 사진으로 설정했어요",
   );
   // 공들여 꾸민 카드가 소리 없이 내려가면 안 된다. 이름을 댄다.
   assert.equal(
     coverToggleOf("사진1", { kind: "card", id: "카드1", name: "네컷 격자 · 사진 4장" }, "photo").done,
-    "「네컷 격자 · 사진 4장」 카드를 내리고 이 사진을 깔았어요",
+    "「네컷 격자 · 사진 4장」 카드 대신 이 사진을 대표 사진으로 설정했어요",
   );
   // 설명이 있으면 그 이름을, 없으면 종류로 부른다.
   assert.equal(
     coverToggleOf("사진1", { kind: "photo", id: "사진2", name: "커피거리 창가" }, "photo").done,
-    "「커피거리 창가」를 내리고 이 사진을 깔았어요",
+    "「커피거리 창가」 대신 이 사진을 대표 사진으로 설정했어요",
   );
   assert.equal(
     coverToggleOf("사진1", { kind: "photo", id: "사진2" }, "photo").done,
-    "전에 깔아 둔 사진을 내리고 이 사진을 깔았어요",
+    "전에 설정한 사진 대신 이 사진을 대표 사진으로 설정했어요",
   );
   // 카드 자리에서도 같은 말투다.
   assert.equal(
     coverToggleOf("카드1", { kind: "photo", id: "사진2", name: "밤바다" }, "card").done,
-    "「밤바다」를 내리고 이 카드를 깔았어요",
+    "「밤바다」 대신 이 카드를 대표 사진으로 설정했어요",
   );
 });
 

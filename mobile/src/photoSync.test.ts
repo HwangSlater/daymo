@@ -142,14 +142,14 @@ test("사진에 찍힌 날짜를 EXIF 에서 읽는다", () => {
 
 test("원본은 기한까지만 받을 수 있고, 지났으면 화면 크기로 저장한다", () => {
   const 남음 = originalSaveHint("2026-10-16T02:00:00Z", "2026-09-16");
-  assert.deepEqual(남음, { hasOriginal: true, text: "원본은 10월 16일까지 받을 수 있어요", soon: false });
+  assert.deepEqual(남음, { hasOriginal: true, text: "원본은 10월 16일까지 저장할 수 있어요", soon: false });
   // 일주일 안쪽이면 조금 더 눈에 띄게 둔다.
   assert.equal(originalSaveHint("2026-09-20T02:00:00Z", "2026-09-16").soon, true);
   assert.equal(originalSaveHint("2026-09-24T02:00:00Z", "2026-09-16").soon, false);
   // 기한이 지났으면 서버가 null 을 준다.
   assert.deepEqual(originalSaveHint(null, "2026-09-16"), {
     hasOriginal: false,
-    text: "원본 보관 기간이 지나 화면 크기로 저장돼요",
+    text: "원본 보관 기간(30일)이 지나 줄인 화질로 저장돼요",
     soon: false,
   });
   // 서버가 말해 주지 않으면 아무 말도 하지 않고 원본을 달라고 해 본다.

@@ -61,9 +61,9 @@ export const NO_PHOTO_UPLOADS: PhotoUploadState = { total: 0, done: 0, blocked: 
 export function photoUploadHeadline(state: PhotoUploadState): string {
   const 실패 = state.blocked.length;
   if (state.running) {
-    return `사진 ${state.done}/${state.total}장 올리는 중이에요${실패 ? ` · ${실패}장 실패` : ""}`;
+    return `사진 ${state.total}장 중 ${state.done}장 업로드 중${실패 ? ` · ${실패}장 실패` : ""}`;
   }
-  return 실패 ? `사진 ${실패}장을 올리지 못했어요` : "";
+  return 실패 ? `사진 ${실패}장 업로드에 실패했어요` : "";
 }
 
 /**

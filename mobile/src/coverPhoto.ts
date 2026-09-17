@@ -13,8 +13,6 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-import { josa } from "./tripExpenses.ts";
-
 /** 이 줄이 놓인 자리. 고르는 것이 사진인지 카드인지이기도 하다. */
 export type CoverSpot = "photo" | "card";
 
@@ -27,26 +25,26 @@ export type CoverNow = {
 };
 
 /** 켜져 있을 때의 글. 두 자리가 같은 말을 쓴다. */
-export const COVER_ON_LABEL = "홈 화면에 쓰는 중 · 누르면 해제";
+export const COVER_ON_LABEL = "대표 사진으로 쓰는 중 · 누르면 해제";
 
 /** 사진 목록과 카드 목록에 다는 작은 표시. */
-export const COVER_BADGE = "홈";
+export const COVER_BADGE = "대표";
 
 /** 서버에 닿지 못했을 때. */
-export const COVER_FAIL = "홈 화면 사진을 바꾸지 못했어요. 잠시 뒤에 다시 시도해 주세요";
+export const COVER_FAIL = "대표 사진을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요";
 
-/** 알림 옆 되돌리기 단추에 적을 말. */
+/** 알림 옆 되돌리기 버튼에 적을 말. */
 export const COVER_UNDO = "되돌리기";
 
 const OFF_LABEL: Record<CoverSpot, string> = {
-  photo: "홈 화면에 이 사진 쓰기",
-  card: "이 카드의 사진을 홈 화면에 쓰기",
+  photo: "대표 사진으로 설정",
+  card: "이 카드를 대표 사진으로 설정",
 };
 
 /** 부르는 말. 뒤에 붙는 조사까지 함께 둔다(사진「을」, 카드「를」). */
 const 이것: Record<CoverSpot, string> = { photo: "이 사진을", card: "이 카드를" };
 /** 내려가는 것을 부르는 말. 이름을 모를 때 쓴다. */
-const 그것: Record<CoverSpot, string> = { photo: "전에 깔아 둔 사진", card: "전에 깔아 둔 카드" };
+const 그것: Record<CoverSpot, string> = { photo: "전에 설정한 사진", card: "전에 설정한 카드" };
 
 export type CoverToggle = {
   /** 이것이 지금 홈 화면에 깔려 있는지. */
@@ -68,15 +66,12 @@ export type CoverToggle = {
 /**
  * 내려가는 것을 뭐라고 부를지. 이름이 있으면 이름을, 없으면 종류로 부른다.
  *
- * 뒤에 붙는 조사까지 함께 돌려준다. 「카드을」 처럼 붙으면 앱이 대충 만든 것처럼
- * 읽힌다. 이름이 사용자가 적은 말이라 받침이 있을지 없을지 미리 알 수 없다.
+ * 「○○ 대신」 꼴로 쓰이므로 조사는 붙이지 않는다. 사용자가 적은 이름이라 받침을
+ * 미리 알 수 없는데, 「대신」은 받침과 상관없이 붙는다.
  */
 const 내려가는_것 = (now: CoverNow): string => {
   const 이름 = now.name?.trim();
-  const 말 = !이름 ? 그것[now.kind] : now.kind === "card" ? `「${이름}」 카드` : `「${이름}」`;
-  // 따옴표로 끝나면 받침을 볼 수 없다. 괄호 안 마지막 글자로 본다.
-  const 받침볼_것 = 말.endsWith("」") ? 말.slice(0, -1) : 말;
-  return `${말}${josa(받침볼_것, "을", "를")}`;
+  return !이름 ? 그것[now.kind] : now.kind === "card" ? `「${이름}」 카드` : `「${이름}」`;
 };
 
 /**
@@ -97,7 +92,7 @@ export function coverToggleOf(
       on: true,
       next: null,
       label: COVER_ON_LABEL,
-      done: `홈 화면에서 ${이것[spot]} 내렸어요`,
+      done: "대표 사진을 해제했어요",
       undo: now ?? null,
     };
   }
@@ -106,8 +101,8 @@ export function coverToggleOf(
     next: targetId ?? null,
     label: OFF_LABEL[spot],
     done: now
-      ? `${내려가는_것(now)} 내리고 ${이것[spot]} 깔았어요`
-      : `홈 화면에 ${이것[spot]} 깔았어요`,
+      ? `${내려가는_것(now)} 대신 ${이것[spot]} 대표 사진으로 설정했어요`
+      : `${이것[spot]} 대표 사진으로 설정했어요`,
     undo: now ?? null,
   };
 }

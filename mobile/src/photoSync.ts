@@ -140,14 +140,14 @@ export function originalSaveHint(
   todayKey: string,
 ): { hasOriginal: boolean; text: string; soon: boolean } {
   if (originalUntil === undefined) return { hasOriginal: true, text: "", soon: false };
-  if (originalUntil === null) return { hasOriginal: false, text: "원본 보관 기간이 지나 화면 크기로 저장돼요", soon: false };
+  if (originalUntil === null) return { hasOriginal: false, text: "원본 보관 기간(30일)이 지나 줄인 화질로 저장돼요", soon: false };
   const 날 = originalUntil.slice(0, 10);
   const 맞는가 = 날.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!맞는가) return { hasOriginal: true, text: "", soon: false };
   const 남은_날 = Math.round((Date.parse(`${날}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86_400_000);
   return {
     hasOriginal: true,
-    text: `원본은 ${Number(맞는가[2])}월 ${Number(맞는가[3])}일까지 받을 수 있어요`,
+    text: `원본은 ${Number(맞는가[2])}월 ${Number(맞는가[3])}일까지 저장할 수 있어요`,
     soon: Number.isFinite(남은_날) && 남은_날 <= 7,
   };
 }
