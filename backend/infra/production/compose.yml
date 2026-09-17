@@ -87,7 +87,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    mem_limit: 400m
+    # 2026-09-17에 400m 에서 올렸다. 놀 때 236MiB 를 쓰는데, 사진을 받으면 워커 둘이
+    # 각각 최대 70MiB 를 더 쓴다(8M 픽셀 PNG 실측). 합쳐 376MiB 라 400m 에서는 여유가
+    # 24MiB 뿐이고, 넘으면 죽지는 않아도(도커 기본값이 RAM 만큼 스왑을 더 준다) 스왑으로
+    # 밀려 사진 처리가 느려진다. 512m 이면 여유가 136MiB 라 스왑 없이 끝난다.
+    #
+    # 더 올리지 않는다. 호스트가 1,967MiB 뿐이라 컨테이너가 죽는 것보다 호스트가 죽는
+    # 것이 훨씬 나쁘다(커널이 postgres 를 고를 수도 있다). 상한을 전부 더해도
+    # 512+800+128=1,440 이고 OS 가 쓰는 450 을 더하면 1,890 으로 호스트 안에 남는다.
+    mem_limit: 512m
     logging: *logging
     security_opt:
       - no-new-privileges:true
