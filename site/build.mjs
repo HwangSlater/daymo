@@ -49,13 +49,36 @@ for (const shot of ["trip-overview", "trip-packing", "trip-expenses", "trip-memo
 }
 
 // 웹 버전 앱을 /app 아래에 넣는다. 사이트를 올리면 배포가 통째로 바뀌므로 매번 같이 만든다.
-// --clear 가 없으면 예전에 로컬 API 주소로 만든 번들이 캐시에서 그대로 나올 수 있다.
-if (!withoutApp) {
-  execSync(`npx expo export -p web --clear --output-dir "${join(DIST, "app")}"`, {
+//
+// 예전에는 늘 `--clear` 로 캐시를 통째로 비웠다. 로컬 API 주소로 만든 번들이 캐시에서
+// 그대로 나올 수 있어서인데, 그 한 줄 때문에 고친 데가 한 줄이어도 3분을 기다렸다.
+// 이제는 캐시를 두고 만든 뒤 **결과물에 로컬 주소가 섞였는지 본다**. 섞였으면 그때만
+// 비우고 다시 만든다. 대개는 캐시가 맞아 30초 안에 끝난다.
+function 웹앱을_만든다(캐시를_비움) {
+  execSync(`npx expo export -p web ${캐시를_비움 ? "--clear " : ""}--output-dir "${join(DIST, "app")}"`, {
     cwd: join(ROOT, "mobile"),
     stdio: "inherit",
     env: { ...process.env, DAYMO_WEB_BASE_URL: "/app", EXPO_PUBLIC_DAYMO_API_URL: "https://api.daymo.xyz" },
   });
+}
+
+/** 번들에 로컬 API 주소가 들어갔는지. 들어갔으면 캐시가 옛것이다. */
+function 로컬_주소가_섞였나() {
+  const 자리 = join(DIST, "app", "_expo", "static", "js", "web");
+  for (const 이름 of readdirSync(자리)) {
+    if (!이름.endsWith(".js")) continue;
+    const 글 = readFileSync(join(자리, 이름), "utf8");
+    if (/127\.0\.0\.1:\d+|http:\/\/localhost:\d+/.test(글)) return true;
+  }
+  return false;
+}
+
+if (!withoutApp) {
+  웹앱을_만든다(false);
+  if (로컬_주소가_섞였나()) {
+    console.log("캐시에 로컬 API 주소가 남아 있다. 비우고 다시 만든다.");
+    웹앱을_만든다(true);
+  }
 }
 
 writeFileSync(

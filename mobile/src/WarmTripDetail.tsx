@@ -3628,20 +3628,29 @@ function TripOverview({
         onPress={() => setSheet("reservationPlace")}
       />
       <View style={styles.travelInfoList}>
-        {reservations.map((reservation) => (
+        {reservations.map((reservation) => {
+          // 장소에 붙은 예약은 그 장소의 **지금** 이름으로 보여 준다. 예약에 적힌
+          // 이름은 붙일 때 베껴 둔 것이라, 옆 사람이 장소 이름을 고치면 여기만
+          // 옛 이름으로 남는다. 고쳐 쓰는 대신 볼 때 장소를 따라가게 한다.
+          const 붙은_장소 = reservation.placeId
+            ? places.find((place) => place.id === reservation.placeId)
+            : undefined;
+          const 이름 = 붙은_장소?.name ?? reservation.name;
+          return (
           <TravelInfoRow
             key={reservation.id}
             label="예약"
             mark={dayNumberOf(reservation.date)}
-            title={reservation.name}
+            title={이름}
             meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people}`}
             badge={reservation.status}
             color={theme?.primary ?? "#FF6B63"}
             link={safeUrl(reservation.bookingUrl) ?? undefined}
-            linkSubject={`${reservation.name} 예약 링크`}
+            linkSubject={`${이름} 예약 링크`}
             onPress={() => openLinkedReservation(reservation)}
           />
-        ))}
+          );
+        })}
         {reservations.length === 0 && (
           <EmptyState title="예약한 곳이 없어요" description="식당이나 행사 예약을 기록해 두세요." action="예약 추가" onPress={canEdit ? () => setSheet("reservationPlace") : undefined} />
         )}
