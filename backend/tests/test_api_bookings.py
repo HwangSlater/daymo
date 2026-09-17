@@ -254,3 +254,92 @@ async def test_숙소를_지워도_거기_붙은_예약은_남는다(api, db):
 
     assert 지움.status_code == 204
     assert (남은_예약["title"], 남은_예약["targetType"], 남은_예약["targetId"]) == ("달빛한옥", "other", None)
+
+
+# ---------------------------------------------------------------------------
+# 여행 기간을 줄이면
+# ---------------------------------------------------------------------------
+
+
+async def test_기간을_줄이면_밖으로_밀려난_교통편은_날짜_미정이_되고_메모를_고칠_수_있다(api, db):
+    """
+    앱은 교통편을 고칠 때 전체를 되돌려 보낸다. 기간 밖 날짜가 그대로 남아 있으면
+    다음에 메모 한 줄을 고치려 해도 "여행 기간 안의 날짜" 검사에 막힌다.
+    """
+    headers, _, trip = await 여행_하나(api)  # 2026-10-01 ~ 2026-10-03
+    편 = (await 교통편을_넣는다(api, headers, trip["id"], direction="return", date="2026-10-03")).json()["data"]
+
+    줄임 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": trip["version"], "endDate": "2026-10-02"},
+        headers=headers,
+    )
+    assert 줄임.status_code == 200, 줄임.text
+
+    남은_것 = (await api.get(f"/v1/trips/{trip['id']}/transports", headers=headers)).json()["data"][0]
+    assert (남은_것["date"], 남은_것["departureTime"], 남은_것["arrivalTime"]) == (None, None, None)
+
+    메모 = await api.patch(
+        f"/v1/transports/{편['id']}",
+        json={
+            "version": 남은_것["version"],
+            "direction": "return",
+            "method": "ktx",
+            "date": None,
+            "departureName": "전주역",
+            "departureTime": None,
+            "arrivalName": "서울역",
+            "arrivalTime": None,
+            "bookingStatus": "booked",
+            "note": "8호차 3A",
+            "showInSchedule": True,
+        },
+        headers=headers,
+    )
+
+    assert 메모.status_code == 200, 메모.text
+    assert 메모.json()["data"]["note"] == "8호차 3A"
+
+
+async def test_기간을_줄이면_밖으로_밀려난_예약도_날짜_미정이_된다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    예약 = (
+        await api.post(
+            f"/v1/trips/{trip['id']}/reservations",
+            json={"title": "소나기식당", "date": "2026-10-03", "time": "19:00"},
+            headers=headers,
+        )
+    ).json()["data"]
+
+    줄임 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": trip["version"], "endDate": "2026-10-02"},
+        headers=headers,
+    )
+    assert 줄임.status_code == 200, 줄임.text
+
+    남은_것 = (await api.get(f"/v1/trips/{trip['id']}/reservations", headers=headers)).json()["data"][0]
+    assert (남은_것["date"], 남은_것["time"]) == (None, None)
+
+    메모 = await api.patch(
+        f"/v1/reservations/{예약['id']}",
+        json={"version": 남은_것["version"], "date": None, "time": None, "note": "창가 자리"},
+        headers=headers,
+    )
+    assert 메모.status_code == 200, 메모.text
+    assert 메모.json()["data"]["note"] == "창가 자리"
+
+
+async def test_기간_안에_남은_교통편의_날짜는_건드리지_않는다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    편 = (await 교통편을_넣는다(api, headers, trip["id"], date="2026-10-01")).json()["data"]
+
+    줄임 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": trip["version"], "endDate": "2026-10-02"},
+        headers=headers,
+    )
+
+    assert 줄임.status_code == 200
+    남은_것 = (await api.get(f"/v1/trips/{trip['id']}/transports", headers=headers)).json()["data"][0]
+    assert (남은_것["id"], 남은_것["date"], 남은_것["departureTime"]) == (편["id"], "2026-10-01", "08:00")

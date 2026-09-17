@@ -151,6 +151,32 @@ async def test_기간을_늘리면_새_날에도_일정을_붙일_수_있고_줄
     assert 목록 == {"넷째 날": "2026-10-04", 마지막_날["title"]: None}
 
 
+async def test_기간을_줄였다_다시_늘려도_지운_날의_시각은_되살아나지_않는다(api, db):
+    """
+    날을 지우면 `trip_day_id` 만 외래키로 풀린다. 시각을 그대로 두면 날짜 미정인
+    줄이 옛 시각을 이고 있다가 기간을 다시 늘릴 때 되살아나고 목록 정렬도 어긋난다.
+    """
+    headers, _, trip = await 여행_하나(api)  # 2026-10-01 ~ 2026-10-03
+    일정 = (await 일정을_넣는다(api, headers, trip["id"], date="2026-10-03", time="09:00")).json()["data"]
+
+    줄임 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "endDate": "2026-10-02"}, headers=headers
+    )
+    assert 줄임.status_code == 200, 줄임.text
+    저장된 = await db.get(ScheduleItem, uuid.UUID(일정["id"]))
+    await db.refresh(저장된)
+    assert (저장된.trip_day_id, 저장된.start_at, 저장된.end_at) == (None, None, None)
+
+    다시_늘림 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 줄임.json()["data"]["version"], "endDate": "2026-10-03"},
+        headers=headers,
+    )
+    assert 다시_늘림.status_code == 200
+    줄 = (await api.get(f"/v1/trips/{trip['id']}/schedule-items", headers=headers)).json()["data"][0]
+    assert (줄["date"], 줄["time"]) == (None, None)
+
+
 # ---------------------------------------------------------------------------
 # 숙소
 # ---------------------------------------------------------------------------

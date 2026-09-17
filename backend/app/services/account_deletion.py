@@ -176,8 +176,14 @@ async def purge_deleted_accounts(
 
 
 async def _scrub(session: AsyncSession, user: User, 지금: datetime) -> None:
+    # 「나 말고 활성 멤버가 없다」를 여기서도 본다. 앞의 방벽(`_shared_spaces_owned_by`)은
+    # 지우지 않은 공간만 세므로, 이미 삭제 요청되어 유예 중인 공간은 상대가 아직 쓰고
+    # 있어도 그대로 통과한다. 그 공간까지 지우면 상대의 여행·사진이 약속한 7일을 다
+    # 채우기 전에 사라진다. 남은 공간은 자기 기한이 되면 `purge_deleted_spaces` 가 지운다.
     혼자_쓰던_공간 = (
-        await session.scalars(select(Space.id).where(Space.owner_id == user.id))
+        await session.scalars(
+            select(Space.id).where(Space.owner_id == user.id, ~_다른_멤버가_있다(user.id))
+        )
     ).all()
     for space_id in 혼자_쓰던_공간:
         await purge_space(session, space_id)
@@ -212,18 +218,32 @@ async def _scrub(session: AsyncSession, user: User, 지금: datetime) -> None:
     user.deleted_at = 지금
 
 
-async def _shared_spaces_owned_by(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
-    """내가 owner 이고 나 말고도 활성 멤버가 있는, 지워지지 않은 공간의 이름."""
-    다른_멤버 = exists().where(
+def _다른_멤버가_있다(user_id: uuid.UUID):
+    """이 공간에 나 말고 나가지 않은 멤버가 있는지. 방벽과 정리가 같은 조건을 본다."""
+    return exists().where(
         Membership.space_id == Space.id,
         Membership.user_id != user_id,
         Membership.left_at.is_(None),
     )
+
+
+async def _shared_spaces_owned_by(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    """
+    내가 owner 이고 나 말고도 활성 멤버가 있는, 지워지지 않은 공간의 이름.
+
+    이미 지운 공간(`deleted_at`)은 세지 않는다. 앱에서 사라진 공간을 들며 관리자를
+    넘기라고 하면 넘길 화면이 없고, 그 공간의 기한이 끝날 때까지 계정 삭제가
+    밀린다. 대신 `_scrub` 이 그런 공간을 건드리지 않는다.
+    """
     return list(
         (
             await session.scalars(
                 select(Space.name)
-                .where(Space.owner_id == user_id, Space.deleted_at.is_(None), 다른_멤버)
+                .where(
+                    Space.owner_id == user_id,
+                    Space.deleted_at.is_(None),
+                    _다른_멤버가_있다(user_id),
+                )
                 .order_by(Space.created_at)
             )
         ).all()

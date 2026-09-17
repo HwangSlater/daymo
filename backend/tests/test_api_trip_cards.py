@@ -202,3 +202,60 @@ async def test_남이_만든_카드는_만든_사람과_owner_만_고치고_지�
     }
     assert 손님이_주인_것을.status_code == 403, 손님이_주인_것을.text
     assert 주인이_손님_것을.status_code == 204
+
+
+async def test_카드에_든_사진을_지워도_그_카드를_계속_고칠_수_있다(api, db):
+    """
+    앱은 카드를 고칠 때 꾸민 값을 통째로 되돌려 보낸다. 보낸 사진을 전부 검사하면
+    사진 한 장을 지운 날부터 그 카드는 글자 한 줄도 못 고치고 빠져나갈 길이 없다.
+    """
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    사진 = await 사진_하나(api, headers, trip["id"])
+    남은_사진 = await 사진_하나(api, headers, trip["id"])
+    카드 = await 카드를_만든다(api, headers, trip["id"], style="네컷", photoIds=[사진, 남은_사진])
+
+    assert (await api.delete(f"/v1/photos/{사진}", headers=headers)).status_code == 204
+
+    고침 = await api.patch(
+        f"/v1/trip-cards/{카드['id']}",
+        json={
+            "version": 카드["version"],
+            "settings": {
+                "style": "네컷 격자",
+                "caption": "그날 비가 왔다",
+                "photoIds": [사진, 남은_사진],
+            },
+        },
+        headers=headers,
+    )
+
+    assert 고침.status_code == 200, 고침.text
+    assert 고침.json()["data"]["settings"]["caption"] == "그날 비가 왔다"
+    # 죽은 id 는 카드에 남는다. 사람이 그 자리를 새 사진으로 바꾸면 사라진다.
+    assert 고침.json()["data"]["settings"]["photoIds"] == [사진, 남은_사진]
+
+
+async def test_카드를_고치며_남의_사진을_새로_끼울_수는_없다(api, db):
+    """이미 들어 있던 id 만 지나간다. 새로 고른 사진은 그대로 그 여행 것인지 본다."""
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    다른_여행 = (
+        await api.post(
+            f"/v1/spaces/{space_id}/trips",
+            json={"title": "다른 여행", "startDate": "2026-11-01", "endDate": "2026-11-02"},
+            headers=headers,
+        )
+    ).json()["data"]
+    남의_사진 = await 사진_하나(api, headers, 다른_여행["id"])
+    카드 = await 카드를_만든다(api, headers, trip["id"], style="네컷")
+
+    응답 = await api.patch(
+        f"/v1/trip-cards/{카드['id']}",
+        json={"version": 카드["version"], "settings": {"style": "네컷", "photoIds": [남의_사진]}},
+        headers=headers,
+    )
+
+    assert 응답.status_code == 422
