@@ -148,6 +148,7 @@ import {
   deviceLimitNotice,
   deviceLine,
   deviceName,
+  MAX_DEVICES,
   revokePrompt,
   type ServerDevice,
 } from "./deviceSessions";
@@ -2824,7 +2825,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open, onDraggin
     },
     onPanResponderTerminationRequest: () => false,
     });
-  }, [canMove, index, pages, reduceMotion, settle, turn, width]);
+  }, [canMove, index, onDragging, pages, reduceMotion, settle, turn, width]);
   const visible = useMemo(() => {
     // 옆 장은 손가락을 어느 쪽으로 밀든 바로 받쳐야 해서 미리 올려 둔다.
     // 점을 눌러 두 장 이상 건너뛸 때는 그 목적지도 함께 올린다. 그러지 않으면
@@ -5135,6 +5136,7 @@ function Together({
     | "deleteAccount"
     | "groups"
     | "deleteSpace"
+    | "devices"
     | null
   >(null);
   // 계정 화면을 열 때 서버에 내 정보를 다시 묻는다. 이메일은 새 주소로 간 링크를
@@ -5168,6 +5170,8 @@ function Together({
       ? "여행 공간 바꾸기"
       : panel === "account"
       ? "내 프로필"
+      : panel === "devices"
+      ? "로그인한 기기"
       : panel === "deleteAccount"
       ? "계정 삭제"
       : panel === "deleteSpace"
@@ -5232,8 +5236,10 @@ function Together({
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
+          {/* 비행기는 아래 「여행」 탭과 같은 그림이라 탭 하나가 더 있는 것처럼
+              읽혔다. 오른쪽 위 내 프로필 단추처럼 이름 첫 글자를 둔다. */}
           <View style={[s.workspaceMark, { backgroundColor: theme.primarySoft }]}>
-            <BottomNavIcon item="여행" color={theme.primary} />
+            <Text style={[s.workspaceMarkInitial, { color: theme.primary }]}>{spaceName.trim().slice(0, 1) || "?"}</Text>
           </View>
           <View style={s.workspaceCopy}>
             <Text style={[s.workspaceLabel, { color: theme.muted }]}>현재 여행 공간</Text>
@@ -5405,6 +5411,14 @@ function Together({
             value={user.name}
             onPress={() => setPanel("account")}
           />
+          {/* 예전에는 내 프로필 맨 아래에 숨어 있었다. 한도(5대)에 걸려 다른 기기가
+              로그아웃되고 나서야 찾게 되는 자리라, 설정 줄로 꺼내 둔다. */}
+          <Setting
+            theme={theme}
+            label="로그인한 기기"
+            value={`최대 ${MAX_DEVICES}대`}
+            onPress={() => setPanel("devices")}
+          />
           <Setting
             theme={theme}
             label="앱 색상"
@@ -5531,13 +5545,6 @@ function Together({
               user={user}
               onPasswordSet={() => setUser((current) => (current ? { ...current, hasPassword: true } : current))}
               onEmailChangeRequested={onEmailChangeRequested}
-            />
-            <DeviceSessionsSection
-              theme={theme}
-              onSignedOut={() => {
-                setPanel(null);
-                onLogout();
-              }}
             />
             <Pressable
               accessibilityRole="button"
@@ -5695,6 +5702,21 @@ function Together({
               onPress={() => updateActiveSpace({ relationship: "친구" })}
             />
             <SpaceSaveNote theme={theme} canEdit={canEdit} state={spaceSaveState} />
+          </>
+        )}
+        {panel === "devices" && (
+          <>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>
+              이 계정으로 로그인한 기기예요. 한 계정은 {MAX_DEVICES}대까지 쓸 수 있고, 넘기면 가장
+              오래 쓰지 않은 기기가 로그아웃돼요. 안 쓰는 기기는 여기서 미리 끊어 두세요.
+            </Text>
+            <DeviceSessionsSection
+              theme={theme}
+              onSignedOut={() => {
+                setPanel(null);
+                onLogout();
+              }}
+            />
           </>
         )}
         {panel === "theme" && (
@@ -8276,6 +8298,7 @@ const s = StyleSheet.create({
     marginTop: 16,
   },
   workspaceMark: { width: 43, height: 43, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  workspaceMarkInitial: { fontSize: 18, fontFamily: typo.title.family },
   workspaceCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
   workspaceLabel: { fontSize: 12, fontFamily: typo.label.family },
   workspaceName: { fontSize: 14, fontFamily: typo.title.family, marginTop: 2 },
