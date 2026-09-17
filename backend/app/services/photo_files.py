@@ -33,6 +33,7 @@ from zoneinfo import ZoneInfo
 from PIL import ExifTags, Image, ImageOps, UnidentifiedImageError
 
 from app.core.config import get_settings
+from app.core.errors import AppError, ErrorCode
 from app.services.photo_metadata import strip_location
 
 DISPLAY_EDGE = 1440
@@ -42,9 +43,16 @@ JPEG_QUALITY = 82
 # 받는 형식. HEIC 는 서버에서 열 수 없어 앱이 JPEG 로 바꿔 보낸다.
 FORMATS = {"JPEG": ("image/jpeg", "jpg"), "PNG": ("image/png", "png"), "WEBP": ("image/webp", "webp")}
 
-# 풀어 놓은 크기의 상한. API 컨테이너 메모리가 400MB 라 큰 PNG 하나로 워커가 죽으면 안 된다.
+# 풀어 놓은 크기의 상한. API 컨테이너가 400MB 인데 놀 때 이미 240MB 를 쓰고 워커가 둘이라,
+# 한 장을 푸는 데 쓸 수 있는 몫은 80MB 쯤이다.
+#
+# PNG·WebP 는 draft 가 없어 파일에 적힌 크기 그대로 다 풀린다(투명이 있으면 픽셀당 4바이트).
+# 8M 픽셀짜리 투명 PNG 한 장이 여기 함수를 지나는 동안 쓰는 최대치를 재 보면 70MB 다.
+# 예전 상한(30M 픽셀)으로는 같은 재기가 510MB 였다. 한 장으로 컨테이너가 죽던 값이다.
+# 요즘 폰 화면 갈무리가 4M 픽셀 언저리라 실제로 올리는 PNG 는 8M 에 걸리지 않는다.
+#
 # JPEG 은 줄여서 풀 수 있어(draft) 훨씬 커도 괜찮다.
-MAX_PIXELS = {"JPEG": 120_000_000, "PNG": 30_000_000, "WEBP": 30_000_000}
+MAX_PIXELS = {"JPEG": 120_000_000, "PNG": 8_000_000, "WEBP": 8_000_000}
 
 
 class NotAPhoto(Exception):
@@ -133,18 +141,49 @@ def _taken_at(image: Image.Image, zone: ZoneInfo) -> datetime | None:
 def _flatten(image: Image.Image) -> Image.Image:
     """투명한 부분은 흰 바탕에 올린다. JPEG 에는 투명이 없다."""
     if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
-        rgba = image.convert("RGBA")
+        # 이미 RGBA 면 convert 가 같은 크기를 한 벌 더 만들 뿐이다.
+        rgba = image if image.mode == "RGBA" else image.convert("RGBA")
         paper = Image.new("RGB", rgba.size, (255, 255, 255))
         paper.paste(rgba, mask=rgba.getchannel("A"))
         return paper
     return image.convert("RGB")
 
 
-def _save_jpeg(image: Image.Image, edge: int, path: Path) -> int:
+def _upright_rgb(image: Image.Image, kind: str) -> Image.Image:
+    """
+    방향을 바로잡고 투명을 흰 바탕에 올린 RGB 사본. 크기는 아직 받은 그대로다.
+
+    **줄이기 전에 RGB 로 만든다.** RGBA 를 그대로 줄이면 Pillow 가 알파를 미리 곱해 둔
+    사본(RGBa)을 한 벌 더 만들어, 줄이는 동안 같은 그림을 세 벌 들고 있게 된다. 먼저
+    펴 놓으면 알파가 빠져 4분의 1 작아지기까지 한다.
+
+    돌릴 것이 없을 때 `exif_transpose` 를 부르지 않는 것도 같은 까닭이다. 그 함수는
+    돌릴 방향이 없어도 사본을 하나 만들어 돌려준다.
+    """
+    if kind == "JPEG":
+        # 표시본보다 크게만 풀면 된다. 12MP 사진도 메모리를 몇십 MB 만 쓴다.
+        image.draft("RGB", (DISPLAY_EDGE, DISPLAY_EDGE))
+    if image.getexif().get(ExifTags.Base.Orientation, 1) != 1:
+        image = ImageOps.exif_transpose(image) or image
+    return _flatten(image)
+
+
+def _shrink(image: Image.Image, edge: int) -> None:
+    """긴 변이 `edge` 를 넘으면 그 자리에서 줄인다. 사본을 만들지 않는다."""
+    if max(image.size) > edge:
+        image.thumbnail((edge, edge), Image.Resampling.LANCZOS)
+
+
+def _resized(image: Image.Image, edge: int) -> Image.Image:
+    """긴 변을 `edge` 에 맞춘 사본."""
     copy = image.copy()
     copy.thumbnail((edge, edge), Image.Resampling.LANCZOS)
+    return copy
+
+
+def _save_jpeg(image: Image.Image, path: Path) -> int:
     # exif 를 넘기지 않으면 아무 메타데이터도 쓰지 않는다. 위치와 기기 정보가 빠진다.
-    copy.save(path, "JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
+    image.save(path, "JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
     os.chmod(path, 0o640)
     return path.stat().st_size
 
@@ -163,15 +202,20 @@ def store(upload: Path, trip_id: uuid.UUID, photo_id: uuid.UUID, zone: ZoneInfo)
                 raise NotAPhoto(kind)
             width, height = image.size
             if width * height > MAX_PIXELS[kind]:
-                raise NotAPhoto("too many pixels")
+                # 형식은 받는 것인데 그림이 너무 크다. NotAPhoto 로 던지면 API 가
+                # "JPEG, PNG, WebP 사진만 올릴 수 있어요" 라고 답해서, PNG 를 올린
+                # 사람이 PNG 를 다시 고르게 된다. 있는 그대로 "사진이 너무 커요" 다.
+                raise AppError(ErrorCode.PHOTO_TOO_LARGE)
             taken_at = _taken_at(image, zone)
             orientation = image.getexif().get(ExifTags.Base.Orientation, 1)
             if orientation in (5, 6, 7, 8):
                 width, height = height, width
-            if kind == "JPEG":
-                # 표시본보다 크게만 풀면 된다. 12MP 사진도 메모리를 몇십 MB 만 쓴다.
-                image.draft("RGB", (DISPLAY_EDGE, DISPLAY_EDGE))
-            upright = _flatten(ImageOps.exif_transpose(image) or image)
+            upright = _upright_rgb(image, kind)
+            # 받은 크기의 그림 데이터는 여기서 놓는다. 줄이는 동안까지 들고 있으면
+            # 큰 PNG 에서 그만큼이 그대로 최대치에 얹힌다. 아래로는 `upright` 만 쓴다.
+            image.close()
+        # **원본 파일은 받은 그대로 둔다.** 줄이는 것은 표시본과 썸네일뿐이다.
+        _shrink(upright, DISPLAY_EDGE)
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
         raise NotAPhoto(str(error)) from error
 
@@ -187,8 +231,11 @@ def store(upload: Path, trip_id: uuid.UUID, photo_id: uuid.UUID, zone: ZoneInfo)
         strip_location(original, kind)
         os.chmod(original, 0o640)
         total = original.stat().st_size
-        total += _save_jpeg(upright, DISPLAY_EDGE, building / "display.jpg")
-        total += _save_jpeg(upright, THUMBNAIL_EDGE, building / "thumbnail.jpg")
+        # `upright` 는 이미 표시본 크기다(_shrink 가 줄여 놓았다).
+        total += _save_jpeg(upright, building / "display.jpg")
+        # 썸네일은 원본이 아니라 표시본에서 뽑는다. 이미 줄어든 그림에서 줄이므로
+        # 큰 그림을 한 벌 덜 만든다.
+        total += _save_jpeg(_resized(upright, THUMBNAIL_EDGE), building / "thumbnail.jpg")
         shutil.rmtree(final, ignore_errors=True)
         building.rename(final)
     except Exception:

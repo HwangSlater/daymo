@@ -51,6 +51,16 @@ def png_with_alpha() -> bytes:
     return buffer.getvalue()
 
 
+def png(width: int, height: int) -> bytes:
+    """한 가지 색으로 칠한 PNG. 커도 파일은 작아서 한 장 한도(20MB)에 걸리지 않는다."""
+    image = Image.new("RGB", (width, height), (30, 90, 160))
+    # 왼쪽 위 귀퉁이만 다른 색이다. 줄인 그림이 제 모습인지 볼 자리다.
+    image.paste((240, 220, 60), (0, 0, width // 4, height // 4))
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    return buffer.getvalue()
+
+
 async def 사진을_올린다(api, headers, trip_id, content: bytes, **값):
     본문 = {"bytes": len(content), "checksum": hashlib.sha256(content).hexdigest(), **값}
     만듦 = await api.post(f"/v1/trips/{trip_id}/photos", json=본문, headers=headers)
@@ -106,6 +116,61 @@ async def test_투명한_PNG도_받고_목록에는_영수증과_올리는_중�
 
     assert png.status_code == 200 and png.json()["data"]["takenAt"] is None
     assert [item["id"] for item in 목록] == [png.json()["data"]["id"]]
+
+
+async def test_큰_PNG는_원본만_그대로_두고_표시본은_줄여서_만든다(api, db, 사진_폴더):
+    """
+    PNG 는 JPEG 과 달리 작게 풀 수 없어 픽셀이 다 메모리에 올라온다. 상한 바로 아래
+    크기를 넣어, 표시본을 만드는 동안 원래 크기의 그림을 여러 벌 들지 않는지 본다.
+    작은 PNG 를 표시본 크기까지 늘려 버리지 않는 것도 같이 본다.
+    """
+    headers, _, trip = await 여행_하나(api)
+    # 8M 픽셀 상한 바로 아래.
+    큰 = png(3000, 2600)
+    assert len(큰) < get_settings().photo_max_bytes
+
+    _, 올림 = await 사진을_올린다(api, headers, trip["id"], 큰)
+    _, 작은_올림 = await 사진을_올린다(api, headers, trip["id"], png(400, 300))
+
+    assert 올림.status_code == 200, 올림.text
+    사진 = 올림.json()["data"]
+    # DB 에 남는 크기는 줄이기 전 원래 크기다.
+    assert (사진["width"], 사진["height"]) == (3000, 2600)
+
+    표시본 = await api.get(f"/v1/photos/{사진['id']}/content?variant=display", headers=headers)
+    썸네일 = await api.get(f"/v1/photos/{사진['id']}/content?variant=thumbnail", headers=headers)
+    받은_원본 = await api.get(f"/v1/photos/{사진['id']}/content?variant=original", headers=headers)
+    with Image.open(io.BytesIO(표시본.content)) as 그림:
+        assert 그림.size == (1440, 1248)
+        # 귀퉁이 색이 그대로면 줄이는 차례가 어긋나지 않은 것이다.
+        assert 그림.getpixel((100, 100))[0] > 200 and 그림.getpixel((1400, 1200))[2] > 100
+    with Image.open(io.BytesIO(썸네일.content)) as 그림:
+        assert max(그림.size) == 480
+    # **원본은 그대로 둔다.** 30일 동안 받아 갈 수 있어야 한다.
+    with Image.open(io.BytesIO(받은_원본.content)) as 그림:
+        assert 그림.size == (3000, 2600)
+
+    작은_사진 = 작은_올림.json()["data"]
+    작은_표시본 = await api.get(f"/v1/photos/{작은_사진['id']}/content?variant=display", headers=headers)
+    with Image.open(io.BytesIO(작은_표시본.content)) as 그림:
+        assert 그림.size == (400, 300)
+
+
+async def test_픽셀이_너무_많은_PNG는_형식_탓이_아니라_너무_크다고_답한다(api, db, 사진_폴더):
+    """
+    형식은 받는 것인데 그림만 큰 경우다. "JPEG, PNG, WebP 만 올릴 수 있어요" 라고
+    답하면 PNG 를 올린 사람이 PNG 를 다시 고르게 된다.
+    """
+    headers, _, trip = await 여행_하나(api)
+
+    _, 올림 = await 사진을_올린다(api, headers, trip["id"], png(4000, 2400))
+
+    assert 올림.status_code == 413, 올림.text
+    assert 올림.json()["error"]["code"] == "PHOTO_TOO_LARGE"
+    assert "너무 커요" in 올림.json()["error"]["message"]
+    # 반쯤 만든 폴더나 임시 파일이 남지 않는다.
+    assert list((사진_폴더 / "tmp").iterdir()) == []
+    assert not list(사진_폴더.glob("trips/*/*"))
 
 
 async def test_보낸다고_한_파일과_다르거나_사진이_아니면_받지_않는다(api, db):

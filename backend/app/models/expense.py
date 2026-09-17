@@ -44,6 +44,8 @@ class Expense(Base, TimestampMixin, CreatedByMixin):
         CheckConstraint("amount > 0", name="amount_positive"),
         Index("ix_expenses_trip", "trip_id"),
         Index("ix_expenses_trip_day", "trip_day_id"),
+        # 멤버를 지울 때 RESTRICT 가 "이 멤버가 낸 지출이 있는가" 를 본다.
+        Index("ix_expenses_payer_membership_id", "payer_membership_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

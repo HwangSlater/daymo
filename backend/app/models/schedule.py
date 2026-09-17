@@ -45,6 +45,9 @@ class ScheduleItem(Base, TimestampMixin, CreatedByMixin):
             name="times_in_order",
         ),
         Index("ix_schedule_items_day", "trip_day_id", "sort_order"),
+        # 일정 탭은 여행의 일정을 통째로 읽는다. 위의 인덱스는 `trip_day_id` 가
+        # 앞이라 그 질의를 못 받고, 여행·공간 파기 때 CASCADE 도 이 길을 쓴다.
+        Index("ix_schedule_items_trip_id", "trip_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
