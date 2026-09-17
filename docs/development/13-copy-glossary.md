@@ -55,3 +55,4 @@
 - 공용 부품과 문구 헬퍼: [12-shared-ui-parts.md](12-shared-ui-parts.md)
 - 기기 목록 문구: `mobile/src/deviceSessions.ts`
 - 서버 오류 문구: `backend/app/core/errors.py`
+- 입력이 틀렸을 때의 칸별 문구(422): `backend/app/main.py` 의 `VALIDATION_MESSAGES`. Pydantic 이 붙이는 영어를 type 별로 한국어로 옮긴다. 표에 없는 type 은 「입력한 값을 확인해 주세요.」로 떨어지고 영어 원문은 로그에만 남는다

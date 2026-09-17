@@ -242,15 +242,18 @@ async def set_participants(
     ).scalars().all()
 
 
-def check_version(trip: Trip, expected: int | None) -> None:
+def check_version(trip: Trip, expected: int) -> None:
     """
     다른 곳에서 먼저 고쳤는지 본다.
 
     함께 쓰는 공간이라 두 사람이 같은 여행을 동시에 고칠 수 있다. 마지막에
     저장한 쪽이 앞사람의 수정을 조용히 덮어쓰면, 무엇이 사라졌는지 아무도
     모른다. 어긋나면 `409` 로 돌려주고 앱이 새로 받아 다시 시도한다.
+
+    `version` 은 요청 스키마에서 필수다. 예전에는 여행만 선택이라 안 보내면
+    검사를 건너뛰었고, 그 자리로 남의 수정이 조용히 덮였다.
     """
-    if expected is not None and expected != trip.version:
+    if expected != trip.version:
         raise AppError(ErrorCode.VERSION_CONFLICT)
 
 

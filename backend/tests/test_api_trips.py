@@ -524,9 +524,10 @@ async def test_먼저_고친_사람이_있으면_막는다(api, db):
     assert 응답.json()["error"]["code"] == "VERSION_CONFLICT"
 
 
-async def test_version을_안_보내면_그대로_덮어쓴다(api, db):
+async def test_version을_안_보내면_거절한다(api, db):
     """
-    앱이 아직 version 을 다루지 않는 자리가 있다. 없으면 검사하지 않는다.
+    version 이 없으면 먼저 고친 사람이 있는지 볼 수가 없다. 그대로 받아 주면
+    안 보내는 것만으로 남의 수정을 덮을 수 있다. 장소·일정·지출과 같이 필수다.
     """
     headers = await 로그인한_사람(api, "sky@example.com")
     space_id = await 공간을_만든다(api, headers)
@@ -536,7 +537,11 @@ async def test_version을_안_보내면_그대로_덮어쓴다(api, db):
         f"/v1/trips/{trip['id']}", json={"title": "그냥 고침"}, headers=headers
     )
 
-    assert 응답.status_code == 200
+    assert 응답.status_code == 422
+    assert 응답.json()["error"]["fields"]["version"] == "꼭 입력해야 하는 값이에요."
+
+    그대로 = await api.get(f"/v1/trips/{trip['id']}", headers=headers)
+    assert 그대로.json()["data"]["title"] == trip["title"]
 
 
 async def test_기간을_늘려도_규칙이_걸린다(api, db):
@@ -545,7 +550,9 @@ async def test_기간을_늘려도_규칙이_걸린다(api, db):
     trip = await 여행을_만든다(api, headers, space_id)
 
     응답 = await api.patch(
-        f"/v1/trips/{trip['id']}", json={"endDate": "2026-09-01"}, headers=headers
+        f"/v1/trips/{trip['id']}",
+        json={"version": trip["version"], "endDate": "2026-09-01"},
+        headers=headers,
     )
 
     assert 응답.status_code == 422
@@ -692,9 +699,11 @@ async def test_보관해도_하위_데이터는_막지_않는다(api, db):
     space_id = await 공간을_만든다(api, headers)
     trip = await 여행을_만든다(api, headers, space_id)
 
-    await api.post(f"/v1/trips/{trip['id']}/archive", headers=headers)
+    보관 = await api.post(f"/v1/trips/{trip['id']}/archive", headers=headers)
     응답 = await api.patch(
-        f"/v1/trips/{trip['id']}", json={"summary": "보관 뒤에도 적힌다"}, headers=headers
+        f"/v1/trips/{trip['id']}",
+        json={"version": 보관.json()["data"]["version"], "summary": "보관 뒤에도 적힌다"},
+        headers=headers,
     )
 
     assert 응답.status_code == 200

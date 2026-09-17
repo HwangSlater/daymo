@@ -137,15 +137,16 @@ class TripUpdateRequest(_Camel):
     """
     고칠 것만 보낸다.
 
-    `version` 을 함께 받는다. 함께 쓰는 공간이라 두 사람이 같은 여행을
-    동시에 고칠 수 있고, 마지막에 저장한 쪽이 앞사람의 수정을 조용히
-    덮어쓰면 무엇이 사라졌는지 아무도 모른다.
+    `version` 이 필수다. 함께 쓰는 공간이라 두 사람이 같은 여행을 동시에
+    고칠 수 있고, 마지막에 저장한 쪽이 앞사람의 수정을 조용히 덮어쓰면
+    무엇이 사라졌는지 아무도 모른다. 선택으로 두면 안 보내는 것만으로
+    검사를 건너뛸 수 있어, 장소·일정·지출·사진·카드와 같이 필수로 받는다.
 
     `None` 과 "안 보냈다" 를 구분해야 해서 지우기는 별도 규칙이 필요하다.
     지금은 보낸 칸만 덮어쓴다.
     """
 
-    version: int | None = None
+    version: int
     title: str | None = Field(default=None, min_length=1, max_length=60)
     start_date: date | None = None
     end_date: date | None = None
