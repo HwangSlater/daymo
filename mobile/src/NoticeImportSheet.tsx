@@ -12,6 +12,7 @@ import { status as statusColor } from "./theme/colors";
 import { 높이, 모서리, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { DaymoApiError } from "./auth";
+import { josa } from "./tripExpenses";
 import {
   createChecklistItem,
   createMemo,
@@ -273,7 +274,7 @@ export function NoticeImportSheet({
   };
 
   const submitLabel = stage === "붙여넣기"
-    ? (busy ? "읽는 중…" : "읽어보기")
+    ? (busy ? "읽는 중…" : "읽어 보기")
     : stage === "고치기"
       ? (busy ? "넣는 중…" : "이 여행에 넣기")
       : "여행 열기";
@@ -304,12 +305,12 @@ export function NoticeImportSheet({
     <SheetShell
       theme={theme}
       visible={visible}
-      title="공지 붙여넣기"
+      title="카톡 공지로 채우기"
       subtitle={stage === "붙여넣기"
         ? "카카오톡 공지를 통째로 붙여넣어 지난 여행을 채워요"
         : stage === "고치기"
-          ? `읽은 그대로예요. ${trip?.name ?? "여행"} 에 넣을 것만 켜 주세요`
-          : `${trip?.name ?? "여행"} 을 채웠어요`}
+          ? `읽은 그대로예요. ${trip?.name ?? "여행"}에 넣을 것만 켜 주세요`
+          : `${trip?.name ?? "여행"}${josa(trip?.name ?? "여행", "을", "를")} 채웠어요`}
       submit={submitLabel}
       onSubmit={submit}
       submitDisabled={submitDisabled}

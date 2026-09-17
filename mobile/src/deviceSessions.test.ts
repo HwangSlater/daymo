@@ -60,9 +60,9 @@ test("지금 이 기기를 해지하면 로그아웃이라고 묻는다", () => 
   const 지금 = revokePrompt(기기({ current: true }));
   assert.ok(/지금 이 기기/.test(지금.title));
   assert.ok(/로그아웃/.test(지금.message));
-  assert.equal(지금.confirm, "해지하고 로그아웃");
+  assert.equal(지금.confirm, "로그아웃");
 
   const 다른 = revokePrompt(기기({ displayName: "Android 기기", platform: "android" }));
-  assert.equal(다른.title, "Android 기기를 해지할까요?");
-  assert.equal(다른.confirm, "해지");
+  assert.equal(다른.title, "Android 기기에서 로그아웃할까요?");
+  assert.equal(다른.confirm, "로그아웃");
 });
