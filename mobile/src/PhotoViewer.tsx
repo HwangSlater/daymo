@@ -46,6 +46,7 @@ import { swipeAxis, swipeCloses, swipeStep, type SwipeAxis } from "./photoSwipe"
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
+import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
 import { useWebKeyboardInset } from "./useWebKeyboardInset";
@@ -407,6 +408,7 @@ export function PhotoViewerScreen({
               onPress={() => move(photos[(index + photos.length - 1) % photos.length].id)}
               accessibilityRole="button"
               accessibilityLabel="이전 사진"
+              hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepLeft, pressed && styles.pressed]}
             >
               <Glyph name="chevronLeft" size={20} color={INK} />
@@ -415,6 +417,7 @@ export function PhotoViewerScreen({
               onPress={() => move(photos[(index + 1) % photos.length].id)}
               accessibilityRole="button"
               accessibilityLabel="다음 사진"
+              hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepRight, pressed && styles.pressed]}
             >
               <Glyph name="chevronRight" size={20} color={INK} />
@@ -630,6 +633,7 @@ export function PhotoEditScreen({
             disabled={readOnly}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
+            hitSlop={누름여유(높이.칩)}
             style={({ pressed }) => [
               styles.chip,
               on && { backgroundColor: primary },
@@ -787,7 +791,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   count: { flex: 1, textAlign: "center", fontSize: 14, color: INK, opacity: 0.92, fontFamily: typo.label.family },
-  barButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  barButton: { width: 높이.버튼, height: 높이.버튼, borderRadius: 모서리.원, alignItems: "center", justifyContent: "center" },
   barButtonOn: { backgroundColor: "rgba(255,255,255,0.18)" },
   // ⋮ 바로 아래에 붙는 작은 메뉴. 한 줄뿐이라 시트를 열지 않는다.
   menu: {
@@ -802,13 +806,15 @@ const styles = StyleSheet.create({
   menuRow: { paddingVertical: 11, paddingHorizontal: 16 },
   menuText: { fontSize: 14, color: INK, fontFamily: typo.label.family },
   menuTextDanger: { color: DANGER_INK },
+  // 사진 위에 떠 있는 넘기기 화살표. 사진을 가리지 않게 칩 크기로 두고
+  // hitSlop 으로 누르는 넓이만 채운다.
   step: {
     position: "absolute",
     top: "50%",
-    marginTop: -18,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    marginTop: -높이.칩 / 2,
+    width: 높이.칩,
+    height: 높이.칩,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -857,8 +863,8 @@ const styles = StyleSheet.create({
   // 「꾸미기」 한 줄. 사진 아래에 놓여 눈에는 들되 사진을 가리지 않는다.
   decorate: {
     marginTop: 15,
-    height: 46,
-    borderRadius: 12,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.22)",
     flexDirection: "row",
@@ -926,8 +932,8 @@ const styles = StyleSheet.create({
   editPanelScroll: { maxHeight: 96 },
   editPanelPad: { paddingBottom: 2 },
   editField: {
-    height: 44,
-    borderRadius: 10,
+    height: 높이.입력,
+    borderRadius: 모서리.버튼,
     paddingHorizontal: 13,
     backgroundColor: "#26252E",
     color: INK,
@@ -938,9 +944,9 @@ const styles = StyleSheet.create({
   chipRowWrap: { flexWrap: "wrap" },
   chip: {
     maxWidth: "100%",
-    height: 34,
-    borderRadius: 17,
-    paddingHorizontal: 12,
+    height: 높이.칩,
+    borderRadius: 모서리.원,
+    paddingHorizontal: 여백.가로좁게,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#26252E",
