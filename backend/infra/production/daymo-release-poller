@@ -5,6 +5,7 @@ readonly LOCK_FILE=/run/daymo-release-poller.lock
 readonly STATE_FILE=/srv/daymo/deployed-sha
 readonly API_URL='https://api.github.com/repos/HwangSlater/daymo/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1'
 readonly RELEASE_ARCHIVE=/home/daymo-deploy/release.tar.gz
+readonly APP_DIR=/srv/daymo/current
 
 exec 9>"$LOCK_FILE"
 flock --nonblock 9 || exit 0
@@ -35,6 +36,18 @@ curl --fail --silent --show-error --location \
 tar --extract --gzip --file "$work_dir/source.tar.gz" --directory "$work_dir"
 source_dir="$work_dir/daymo-$latest_sha"
 test -d "$source_dir/backend"
+
+# backend/ 가 그대로면 배포하지 않는다. 폴러는 커밋 해시만 보는데, mobile 이나
+# 문서만 고친 커밋에도 API 컨테이너를 다시 만들어 몇 초 동안 502 가 났다. 여기서
+# 지금 돌고 있는 것과 견줘 같으면 해시만 적어 두고 넘어간다.
+if [[ -d "$APP_DIR/backend" ]] &&
+  diff --recursive --brief --exclude='__pycache__' --exclude='*.pyc' \
+    "$APP_DIR/backend" "$source_dir/backend" >/dev/null 2>&1; then
+  echo "backend unchanged; recording $latest_sha without redeploying"
+  printf '%s\n' "$latest_sha" >"$STATE_FILE.new"
+  mv "$STATE_FILE.new" "$STATE_FILE"
+  exit 0
+fi
 
 tar --directory "$source_dir" \
   --exclude='._*' --exclude='.DS_Store' \

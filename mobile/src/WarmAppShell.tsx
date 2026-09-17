@@ -5223,8 +5223,9 @@ function Together({
               onPress={() => setPanel("settings")}
               accessibilityRole="button"
               accessibilityLabel="설정 열기"
-              style={[s.togetherSettingsButton, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+              style={[s.togetherSettingsButton, { backgroundColor: theme.surfaceAlt }]}
             >
+              <Glyph name="gear" size={17} color={theme.muted} weight={1.8} />
               <Text style={[s.togetherSettingsText, { color: theme.muted }]}>설정</Text>
             </Pressable>
             <Pressable
@@ -7658,7 +7659,9 @@ const s = StyleSheet.create({
   searchEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
   searchEmptyCopy: { fontSize: 14, marginTop: 6 },
   togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  togetherSettingsButton: { minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  // 오른쪽 아바타와 같은 크기·모서리로 맞춘다. 예전에는 테두리 있는 둥근 알약이라
+  // 네모난 아바타와 따로 놀았다. 그림과 글자를 함께 두어 무엇인지 바로 보이게 한다.
+  togetherSettingsButton: { height: 높이.버튼, borderRadius: 모서리.버튼, paddingLeft: 11, paddingRight: 13, flexDirection: "row", alignItems: "center", gap: 6 },
   togetherSettingsText: { fontSize: 13, fontFamily: typo.label.family },
   togetherHead: {
     flexDirection: "row",
