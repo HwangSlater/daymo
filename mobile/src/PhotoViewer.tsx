@@ -21,11 +21,21 @@
  *      표시본을 받을지는 기한을 보고 부르는 쪽이 정한다(`photoSave.ts`).
  *   4. 넘기는 길은 셋이다. 좌우로 밀기, 화살표, 필름 스트립. 미는 줄 모르는 사람이
  *      있고 마우스로는 누르는 편이 빠르다. 어느 하나만 두면 누군가는 못 넘긴다.
+ *   5. 미는 동안 옆 사진이 실제로 따라 들어온다. 앞·지금·뒤 석 장을 한 줄에 놓고
+ *      줄째 민다. 예전에는 보고 있는 한 장만 움직이다 다 빠져나간 뒤에 다음 장을
+ *      제자리에 갈아 끼웠는데, 미는 내내 옆이 보이지 않고 끝에 가서야 바뀌어서
+ *      한 동작이 두 동강으로 보였다.
+ *   6. 미는 줄만 움직이고 그 줄은 제 레이어에 올려 둔다. 웹에서는 `useNativeDriver`
+ *      가 듣지 않아 매 프레임 자바스크립트가 스타일을 쓴다. 움직이는 판 안에 그늘
+ *      (SVG)과 글자까지 들어 있으면 매 프레임 그것들을 다시 칠한다. 그늘·아이콘
+ *      줄·설명·필름 스트립은 전부 줄 밖에 두고, 줄에는 `willChange` 로 「나는 움직인다」
+ *      고 미리 알려 다시 칠하기 대신 합성으로 가게 한다.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Animated,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -133,6 +143,19 @@ export type ViewerDecor = {
   cards: { id: string; label: string; color: string; uri?: string; on: boolean }[];
   onViewCard: (id: string) => void;
 };
+
+/**
+ * 움직이는 줄을 제 레이어로 올리는 값.
+ *
+ * 웹에서 `useNativeDriver` 는 듣지 않는다. react-native-web 의 `Animated` 는 매
+ * 프레임 자바스크립트로 스타일을 쓴다. 그때 브라우저가 이 줄을 「그냥 큰 그림」으로
+ * 보면 프레임마다 화면 폭짜리 사진을 다시 칠한다. `willChange` 로 미리 알리면 한 번만
+ * 칠해 두고 옮기기만 한다(합성). 안드로이드에는 같은 뜻의 `renderToHardwareTextureAndroid`
+ * 가 있어 줄에 직접 달았다(`WarmAppShell` 의 홈 카드 그림자와 같은 요령이다).
+ *
+ * `willChange` 는 웹에만 있는 값이라 react-native 의 스타일 표에 없다. 웹에서만 얹는다.
+ */
+const LIFT = Platform.OS === "web" ? ({ willChange: "transform" } as object) : null;
 
 /** 검은 바탕 위의 흰 글자. 테마를 타지 않는 값이라 한곳에 모아 둔다. */
 const INK = "#FFFFFF";
@@ -295,9 +318,20 @@ export function PhotoViewerScreen({
    *
    * 판은 사진 위에만 깔린다. 위쪽 아이콘 줄과 화살표, 필름 스트립은 이 위에 놓여
    * 누름을 먼저 가져가므로 밀기를 넣어도 그대로 눌린다.
+   *
+   * 움직이는 것은 사진 한 장이 아니라 석 장이 놓인 줄이다. 줄은 화면 폭의 세 배고
+   * 왼쪽으로 한 폭만큼 밀어 두어, 아무것도 안 건드렸을 때 가운데 칸이 화면에 온다.
+   * `slideX` 는 그 줄이 얼마나 끌려왔는지다.
    */
   const { width } = useWindowDimensions();
-  const [slide] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
+  /**
+   * 가로와 세로를 따로 든다.
+   *
+   * `ValueXY` 하나로 들면 가로로만 미는 동안에도 두 축을 함께 쓴다. 나누면 미는
+   * 동안 손대는 값이 하나뿐이고, 무엇이 무엇을 움직이는지도 읽기 쉽다.
+   */
+  const [slideX] = useState(() => new Animated.Value(0));
+  const [slideY] = useState(() => new Animated.Value(0));
   const axis = useRef<SwipeAxis>(null);
   // 손가락이 움직일 때 필요한 값. PanResponder 를 다시 만들지 않으려고 여기로 읽는다.
   const latest = useRef({ photos, index, width, move, close, previewing });
@@ -311,7 +345,10 @@ export function PhotoViewerScreen({
   // eslint-disable-next-line react-hooks/refs
   const [pan] = useState(() => {
     const 제자리로 = () => {
-      Animated.spring(slide, { toValue: { x: 0, y: 0 }, bounciness: 2, useNativeDriver: true }).start();
+      Animated.parallel([
+        Animated.spring(slideX, { toValue: 0, bounciness: 2, useNativeDriver: true }),
+        Animated.spring(slideY, { toValue: 0, bounciness: 2, useNativeDriver: true }),
+      ]).start();
     };
     const 잡을까 = (_: unknown, gesture: { dx: number; dy: number }) => {
       if (axis.current) return true;
@@ -325,10 +362,12 @@ export function PhotoViewerScreen({
     };
     return PanResponder.create({
       onMoveShouldSetPanResponder: 잡을까,
+      // 여기서 React 상태를 건드리지 않는다. 손가락이 움직이는 동안 렌더가 한 번이라도
+      // 끼어들면 그 프레임이 통째로 밀린다. 값 하나만 바꾼다.
       onPanResponderMove: (_, gesture) => {
-        if (axis.current === "가로") slide.setValue({ x: gesture.dx, y: 0 });
+        if (axis.current === "가로") slideX.setValue(gesture.dx);
         // 아래로 끄는 만큼만 따라간다. 위로 끌어도 사진은 꿈쩍하지 않는다.
-        else if (axis.current === "세로") slide.setValue({ x: 0, y: Math.max(0, gesture.dy) });
+        else if (axis.current === "세로") slideY.setValue(Math.max(0, gesture.dy));
       },
       onPanResponderRelease: (_, gesture) => {
         const 축 = axis.current;
@@ -336,21 +375,31 @@ export function PhotoViewerScreen({
         const { photos: 목록, index: 지금, width: 폭, move: 옮긴다, close: 닫는다 } = latest.current;
         if (축 === "세로") {
           if (!swipeCloses(gesture.dy, gesture.vy)) return 제자리로();
-          slide.setValue({ x: 0, y: 0 });
+          slideX.setValue(0);
+          slideY.setValue(0);
           닫는다();
           return;
         }
         const 걸음 = 축 === "가로" ? swipeStep(gesture.dx, gesture.vx, 폭) : 0;
         if (!걸음) return 제자리로();
-        // 민 쪽으로 마저 빠져나간 뒤 다음 사진이 제자리에 나타난다. 손이 놓은 방향을
-        // 눈이 따라갈 수 있어야 앞으로 갔는지 뒤로 갔는지 안다.
-        Animated.timing(slide, {
-          toValue: { x: 걸음 > 0 ? -폭 : 폭, y: 0 },
-          duration: 130,
+        /*
+         * 줄이 옆 칸 자리까지 마저 간다. 다 가면 옆 사진이 화면을 꽉 채운다. 그때
+         * 비로소 가리키는 자리를 옮긴다.
+         *
+         * 여기서 줄을 0 으로 되돌리지 않는다. 되돌리기는 새 자리가 그려지는 바로 그
+         * 프레임에 해야 한다(아래 `useLayoutEffect`). 먼저 되돌리면 새 사진이 그려지기
+         * 전이라 한 프레임 동안 옛 사진이 도로 보이고, 그게 딸꾹질처럼 눈에 띈다.
+         *
+         * 끝으로 갈수록 느려지게(`Easing.out`) 한다. 손을 뗀 뒤에도 같은 속도로 딱
+         * 멈추면 밀던 손과 화면이 따로 노는 느낌이 난다.
+         */
+        Animated.timing(slideX, {
+          toValue: 걸음 > 0 ? -폭 : 폭,
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
-        }).start(() => {
-          slide.setValue({ x: 0, y: 0 });
-          옮긴다(목록[(지금 + 걸음 + 목록.length) % 목록.length].id);
+        }).start(({ finished }) => {
+          if (finished) 옮긴다(목록[(지금 + 걸음 + 목록.length) % 목록.length].id);
         });
       },
       onPanResponderTerminate: () => {
@@ -362,8 +411,23 @@ export function PhotoViewerScreen({
   });
   // 창을 새로 열 때는 늘 제자리에서 시작한다. 밀다 만 자리가 남아 있으면 안 된다.
   useEffect(() => {
-    if (visible) slide.setValue({ x: 0, y: 0 });
-  }, [slide, visible]);
+    if (!visible) return;
+    slideX.setValue(0);
+    slideY.setValue(0);
+  }, [slideX, slideY, visible]);
+  /**
+   * 가리키는 자리가 바뀌면 줄을 제자리로 되돌린다.
+   *
+   * `useLayoutEffect` 여야 한다. 새 자리로 그려지는 것과 줄이 0 으로 돌아가는 것이
+   * 같은 프레임 안에서 함께 일어나야, 미는 동작이 한 번에 이어져 보인다. 그린 뒤에
+   * 되돌리면 그 사이 한 프레임 동안 옆 칸(다음다음 사진)이 스치듯 보인다.
+   *
+   * 화살표나 필름 스트립으로 옮길 때는 줄이 이미 0 이라 아무 일도 하지 않는다.
+   */
+  useLayoutEffect(() => {
+    slideX.setValue(0);
+    slideY.setValue(0);
+  }, [index, slideX, slideY]);
 
   // 필름 스트립이 지금 보는 사진을 늘 화면에 두게 한다. 스무 장쯤 되면 화살표로
   // 넘길수록 지금 사진이 줄 밖으로 밀려나 어디쯤인지 알 수 없다.
@@ -402,6 +466,15 @@ export function PhotoViewerScreen({
     : { label: "이 사진 저장", onPress: onSave, disabled: saving || saveBlocked, on: saving };
   /** 스트립 끝에 세울 카드. 꾸미는 동안에는 스트립 자체가 없다. */
   const 카드칸 = decor?.cards ?? [];
+  /**
+   * 줄에 놓을 앞뒤 사진.
+   *
+   * 끝에서 처음으로 돌아간다. 예전부터 화살표와 밀기가 그렇게 돌았고, 몇 번째인지는
+   * 위의 `3 / 8` 과 아래 필름 스트립이 늘 말해 준다. 이제는 마지막에서 밀면 첫 사진이
+   * 실제로 따라 들어오는 것이 보여서, 도는 것이 갑작스럽지 않다.
+   */
+  const 이웃 = (걸음: number) =>
+    photos.length ? photos[(index + 걸음 + photos.length) % photos.length] : undefined;
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={close} statusBarTranslucent>
       {/* 보기와 꾸미기가 이 한 창을 나눠 쓴다. 창을 갈아 끼우지 않아 「꾸미기」를
@@ -448,15 +521,45 @@ export function PhotoViewerScreen({
         </>
         ) : (
         <>
+        {/* 앞·지금·뒤 석 장이 놓인 줄. 줄을 통째로 민다. */}
         <Animated.View
           {...pan.panHandlers}
-          style={[styles.stage, { transform: slide.getTranslateTransform() }]}
+          renderToHardwareTextureAndroid
+          style={[
+            styles.track,
+            LIFT,
+            { width: width * 3, left: -width },
+            { transform: [{ translateX: slideX }, { translateY: slideY }] },
+          ]}
         >
-          {previewing
-            ? null
-            : photo?.uri
-              ? <Image source={{ uri: photo.uri }} resizeMode="contain" style={styles.fill} accessibilityLabel={photo.caption || "여행 사진"} />
-              : <Text style={styles.waiting}>{waitingText ?? "사진을 받는 중이에요"}</Text>}
+          {[-1, 0, 1].map((자리) => {
+            const 한장 = previewing ? undefined : 이웃(자리);
+            return (
+              <View
+                key={자리}
+                style={[
+                  styles.cell,
+                  { width },
+                  // 아직 파일을 못 받은 칸은 검게 두지 않는다. 격자에서 쓰는 그 사진의
+                  // 색을 깔아 두면 「올 자리」로 읽힌다. 검은 칸은 고장으로 보인다.
+                  한장 && !한장.uri ? { backgroundColor: 한장.color } : null,
+                ]}
+              >
+                {한장?.uri ? (
+                  // 크기를 숫자로 못 박는다. 퍼센트로 두면 줄이 움직일 때마다 칸을
+                  // 다시 재고, 표시본(긴 변 1440px)을 그 크기에 다시 맞춰 그린다.
+                  <Image
+                    source={{ uri: 한장.uri }}
+                    resizeMode="contain"
+                    style={[styles.fill, { width }]}
+                    accessibilityLabel={자리 === 0 ? 한장.caption || "여행 사진" : ""}
+                  />
+                ) : 자리 === 0 && !previewing ? (
+                  <Text style={styles.waiting}>{waitingText ?? "사진을 받는 중이에요"}</Text>
+                ) : null}
+              </View>
+            );
+          })}
         </Animated.View>
         {/* 카드는 위 아이콘 줄과 아래 설명·스트립을 비운 칸에 통째로 담는다. 사진처럼
             화면을 꽉 채우면 틀 아래의 글이 스트립에 가린다. */}
@@ -926,13 +1029,17 @@ const STRIP_GAP = 7;
 
 const styles = StyleSheet.create({
   // 사진이 주인공이라 바탕이 검다. 앱의 다른 화면과 일부러 다르다.
-  screen: { flex: 1, backgroundColor: "#000000" },
+  // 줄이 화면보다 넓어서 넘치는 쪽을 잘라 둔다. 웹에서 이게 없으면 가로로 밀린다.
+  screen: { flex: 1, backgroundColor: "#000000", overflow: "hidden" },
   fill: { position: "absolute", inset: 0, width: "100%", height: "100%" },
   pressed: { opacity: 0.65 },
   faded: { opacity: 0.4 },
-  // 사진은 화면을 다 쓰되 `contain` 이라 절대 잘리지 않는다.
+  // 석 장이 놓인 줄. 화면 폭의 세 배고 한 폭만큼 왼쪽에서 시작해, 손대지 않았을 때
+  // 가운데 칸이 화면에 온다. 폭은 기기마다 달라 부르는 쪽이 넣는다.
   // 웹에서 마우스로 밀 때 사진이 선택되거나 브라우저의 그림 끌기가 먼저 잡지 않게 막는다.
-  stage: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", userSelect: "none" },
+  track: { position: "absolute", top: 0, bottom: 0, flexDirection: "row", userSelect: "none" },
+  // 한 칸. 사진은 칸을 다 쓰되 `contain` 이라 절대 잘리지 않는다.
+  cell: { height: "100%", alignItems: "center", justifyContent: "center" },
   waiting: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
   scrimTop: { position: "absolute", top: 0, left: 0, right: 0, height: 150 },
   scrimBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 230 },
