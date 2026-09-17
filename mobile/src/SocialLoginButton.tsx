@@ -151,7 +151,7 @@ export function SocialLoginButton({
         maxFontSizeMultiplier={1.3}
         style={[styles.label, { color: look.text, fontSize: look.fontSize, fontWeight: look.fontWeight }]}
       >
-        {loading ? "연결 중" : look.label}
+        {loading ? "로그인 중…" : look.label}
       </Text>
     </Pressable>
   );

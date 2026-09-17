@@ -42,7 +42,7 @@ export function TripRegionPicker({ theme, value, onChange, expanded, setExpanded
           accessibilityState={{ expanded }}
           style={[styles.choice, styles.more, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
         >
-          <Text style={[styles.choiceText, { color: theme.primary }]}>{expanded ? "간단히 보기" : "전체 지역 +"}</Text>
+          <Text style={[styles.choiceText, { color: theme.primary }]}>{expanded ? "간단히 보기" : "전체 지역 보기"}</Text>
         </Pressable>
       </View>
     </View>

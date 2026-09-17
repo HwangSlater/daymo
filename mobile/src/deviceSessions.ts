@@ -75,7 +75,7 @@ export function deviceLine(device: ServerDevice, now: Date = new Date()): string
  */
 export function deviceLimitNotice(count: number, max: number = MAX_DEVICES): string {
   if (count >= max) {
-    return `기기 ${max}대를 모두 쓰고 있어요. 새 기기로 로그인하면 가장 오래 쓰지 않은 기기가 말없이 로그아웃돼요.`;
+    return `기기 ${max}대를 모두 쓰고 있어요. 새 기기로 로그인하면 가장 오래 쓰지 않은 기기가 자동으로 로그아웃돼요.`;
   }
   if (count === max - 1) {
     return `기기 ${count}대를 쓰고 있어요. ${max}대를 넘기면 가장 오래 쓰지 않은 기기가 로그아웃돼요.`;
@@ -87,14 +87,14 @@ export function deviceLimitNotice(count: number, max: number = MAX_DEVICES): str
 export function revokePrompt(device: ServerDevice): { title: string; message: string; confirm: string } {
   if (device.current) {
     return {
-      title: "지금 이 기기를 해지할까요?",
-      message: "이 기기에서 로그아웃돼요. 기기에만 저장된 변경 내용이 있다면 동기화 후 해지해 주세요.",
-      confirm: "해지하고 로그아웃",
+      title: "지금 이 기기에서 로그아웃할까요?",
+      message: "이 기기에서 로그아웃돼요. 아직 올라가지 않은 내용은 사라질 수 있어요.",
+      confirm: "로그아웃",
     };
   }
   return {
-    title: `${deviceName(device)}를 해지할까요?`,
+    title: `${deviceName(device)}에서 로그아웃할까요?`,
     message: "그 기기는 바로 로그아웃되고, 다시 쓰려면 새로 로그인해야 해요.",
-    confirm: "해지",
+    confirm: "로그아웃",
   };
 }

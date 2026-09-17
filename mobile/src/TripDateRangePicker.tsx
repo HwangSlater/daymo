@@ -56,7 +56,7 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd }: {
       <View style={[styles.rangeSummary, { backgroundColor: plate }]}>
         <View style={styles.rangeSummaryCopy}>
           <Text style={[styles.rangeSummaryLabel, { color: plateLabel }]}>
-            {selectingEnd ? "마지막 날을 선택하세요" : "선택한 여행 기간"}
+            {selectingEnd ? "마지막 날을 선택해 주세요" : "선택한 여행 기간"}
           </Text>
           <Text numberOfLines={1} style={[styles.rangeSummaryValue, { color: plateText }]}>
             {formatTripRange(start, end)}

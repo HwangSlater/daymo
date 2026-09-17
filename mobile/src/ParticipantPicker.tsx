@@ -75,7 +75,7 @@ export function ParticipantPicker({ theme, members, value, onChange, noteFor, hi
         })}
       </View>
       <Text style={[styles.hint, { color: theme.muted }]}>
-        {hint ?? "몫을 따로 안 적은 지출은 여기 고른 사람들이 똑같이 나눠요. 준비물과 교통편의 담당도 이 사람들 중에서 고르게 돼요."}
+        {hint ?? "이번 여행에 가는 사람만 골라 주세요. 정산과 준비물 담당에 쓰여요."}
       </Text>
     </View>
   );

@@ -154,6 +154,8 @@ import {
 } from "./deviceSessions";
 
 type MainView = "홈" | "여행" | "찾기" | "우리";
+/** 권한 이름표. 저장된 값은 「보기만」이지만 화면에는 「보기 전용」으로 적는다. */
+const roleLabel = (role: string) => (role === "보기만" ? "보기 전용" : role);
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasPassword" | "linkedProviders"> & { id?: string };
 
 WebBrowser.maybeCompleteAuthSession();
@@ -1464,12 +1466,12 @@ export function WarmAppShell({
       )}
       {authOffline && (
         <View accessibilityLiveRegion="polite" style={[s.storageWarning, { backgroundColor: theme.accent }]}>
-          <Text style={s.storageWarningText}>서버에 연결되지 않아 이 기기에 저장된 내용을 보여드리고 있어요.</Text>
+          <Text style={s.storageWarningText}>인터넷에 연결되지 않아 마지막으로 저장된 내용을 보여 줘요.</Text>
         </View>
       )}
       {serverDataError && !authOffline && (
         <View accessibilityLiveRegion="polite" style={[s.storageWarning, { backgroundColor: theme.accent }]}>
-          <Text style={s.storageWarningText}>공간을 새로 불러오지 못해 마지막으로 저장된 내용을 보여드리고 있어요.</Text>
+          <Text style={s.storageWarningText}>인터넷에 연결되지 않아 마지막으로 저장된 내용을 보여 줘요.</Text>
         </View>
       )}
       <View style={[s.body, { backgroundColor: "transparent" }]}>
@@ -1676,13 +1678,13 @@ function AuthScreen({
         setPassword("");
         setConfirm("");
         // 로그인은 확인 전에도 된다. 확인은 초대 참여처럼 이메일 소유가 필요한 곳에서 쓴다.
-        setNotice("가입했어요. 로그인해 주세요. 받은 메일의 링크로 이메일도 확인해 주세요.");
+        setNotice("가입을 마쳤어요. 보내 드린 메일의 링크로 이메일을 확인한 뒤 로그인해 주세요.");
         return;
       }
       const result = await login(normalizedEmail, password);
       onAuth(result.user);
       if (result.endedDevices.length > 0) {
-        showAlert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
+        showAlert("다른 기기에서 로그아웃됐어요", `한 계정은 기기 ${MAX_DEVICES}대까지 쓸 수 있어, 가장 오래 쓰지 않은 기기를 로그아웃했어요.`);
       }
     } catch (caught) {
       setError(caught instanceof DaymoApiError ? caught.message : "로그인하지 못했어요. 잠시 후 다시 시도해 주세요.");
@@ -1700,7 +1702,7 @@ function AuthScreen({
   const signedIn = (result: { user: DaymoUser; endedDevices: unknown[] }) => {
     onAuth(result.user);
     if (result.endedDevices.length > 0) {
-      showAlert("기기 로그인 정리", "오래 사용하지 않은 기기에서 로그아웃했어요.");
+      showAlert("다른 기기에서 로그아웃됐어요", `한 계정은 기기 ${MAX_DEVICES}대까지 쓸 수 있어, 가장 오래 쓰지 않은 기기를 로그아웃했어요.`);
     }
   };
   const startOAuth = async (provider: SocialProvider) => {
@@ -1760,7 +1762,7 @@ function AuthScreen({
         ) : (
         <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[s.authTitle, { color: theme.text }]}>{mode === "login" ? "다시 만나서 반가워요" : "우리의 여행을 시작해요"}</Text>
-          <Text style={[s.authDescription, { color: theme.muted }]}>{mode === "login" ? "Daymo에 로그인해 여행을 이어가세요." : "계정을 만들고 여행 공간에 멤버를 초대하세요."}</Text>
+          <Text style={[s.authDescription, { color: theme.muted }]}>{mode === "login" ? "로그인하면 지난 여행이 그대로 이어져요." : "계정을 만들고 함께 갈 사람을 초대해 보세요."}</Text>
           {/* 어느 공간인지는 링크를 연 사람에게도 알려 주지 않는다. 참여해야 보인다. */}
           {invited && (
             <Text accessibilityLiveRegion="polite" style={[s.authDescription, { color: theme.primary }]}>
@@ -1768,12 +1770,12 @@ function AuthScreen({
             </Text>
           )}
           {mode === "signup" && (
-            <Field theme={theme} label="이름 또는 별명 · 필수" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
+            <Field theme={theme} label="이름 또는 별명" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
           )}
-          <Field theme={theme} label="이메일 · 필수" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
-          <Field theme={theme} label="비밀번호 · 필수" value={password} onChangeText={setPassword} placeholder="8자 이상 입력" secureTextEntry />
+          <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+          <Field theme={theme} label="비밀번호" value={password} onChangeText={setPassword} placeholder="8자 이상 입력" secureTextEntry />
           {mode === "signup" && (
-            <Field theme={theme} label="비밀번호 확인 · 필수" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
+            <Field theme={theme} label="비밀번호 확인" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
           )}
           {mode === "signup" && (
             <View style={[s.authConsentList, { borderColor: theme.border }]}>
@@ -1795,9 +1797,9 @@ function AuthScreen({
               </Pressable>
               {/* 광고·마케팅 알림은 보내지 않아서 선택 동의 칸을 두지 않는다(개인정보 처리방침 1항). */}
               {[
-                { label: "만 14세 이상이에요 · 필수", checked: ageAgreed, toggle: setAgeAgreed },
-                { label: "이용약관 동의 · 필수", checked: termsAgreed, toggle: setTermsAgreed, url: TERMS_URL },
-                { label: "개인정보 수집·이용 동의 · 필수", checked: privacyAgreed, toggle: setPrivacyAgreed, url: PRIVACY_URL },
+                { label: "[필수] 만 14세 이상이에요", checked: ageAgreed, toggle: setAgeAgreed },
+                { label: "[필수] 이용약관 동의", checked: termsAgreed, toggle: setTermsAgreed, url: TERMS_URL },
+                { label: "[필수] 개인정보 수집·이용 동의", checked: privacyAgreed, toggle: setPrivacyAgreed, url: PRIVACY_URL },
               ].map((consent) => (
                 <View key={consent.label} style={[s.authConsentRow, { justifyContent: "space-between" }]}>
                   <Pressable
@@ -1815,7 +1817,7 @@ function AuthScreen({
                     <Pressable
                       onPress={() => void WebBrowser.openBrowserAsync(consent.url as string)}
                       accessibilityRole="link"
-                      accessibilityLabel={`${consent.label.split(" · ")[0]} 보기`}
+                      accessibilityLabel={`${consent.label.replace(/^\[필수\] /, "")} 보기`}
                       hitSlop={8}
                     >
                       <Text style={[s.authConsentText, { color: theme.muted, textDecorationLine: "underline" }]}>보기</Text>
@@ -1856,7 +1858,7 @@ function AuthScreen({
               accessibilityRole="button"
               style={s.authSwitch}
             >
-              <Text style={[s.authSwitchText, { color: theme.muted }]}>비밀번호를 잊었어요</Text>
+              <Text style={[s.authSwitchText, { color: theme.muted }]}>비밀번호를 잊으셨나요?</Text>
             </Pressable>
           )}
           {providers.length > 0 && (
@@ -1868,7 +1870,7 @@ function AuthScreen({
           )}
           {providers.length > 0 && (
           <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, marginBottom: 8 }]}>
-            소셜 계정으로 처음 시작하면 이용약관과 개인정보 처리방침에 동의하고 만 14세 이상임을 확인한 것으로 봐요.
+            소셜 계정으로 처음 시작하면 이용약관과 개인정보 처리방침에 동의하고 만 14세 이상임을 확인한 것으로 돼요.
           </Text>
           )}
           {providers.length > 0 && (
@@ -1904,7 +1906,7 @@ function AuthScreen({
             accessibilityLabel={mode === "login" ? "회원가입으로 바꾸기" : "로그인으로 바꾸기"}
             style={s.authSwitch}
           >
-            <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이신가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontFamily: typo.title.family }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
+            <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이세요? " : "이미 계정이 있으세요? "}<Text style={{ color: theme.primary, fontFamily: typo.title.family }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
           </Pressable>
         </View>
         )}
@@ -1962,7 +1964,7 @@ function LinkSocialCard({
     <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <Text style={[s.authTitle, { color: theme.text }]}>이미 가입한 이메일이에요</Text>
       <Text style={[s.authDescription, { color: theme.muted }]}>
-        {name} 계정의 이메일로 가입한 Daymo 계정이 있어요. 그 계정의 비밀번호를 입력하면 {name} 로그인이 연결되고, 다음부터는 {name} 로그인으로 바로 들어올 수 있어요.
+        이 이메일로 만든 Daymo 계정이 이미 있어요. 그 계정의 비밀번호를 입력하면 {name} 계정과 연결되고, 다음부터는 {name}로 바로 로그인할 수 있어요.
       </Text>
       <Field theme={theme} label="Daymo 비밀번호" value={password} onChangeText={setPassword} placeholder="가입할 때 정한 비밀번호" secureTextEntry />
       {error ? (
@@ -2016,11 +2018,11 @@ function ForgotPasswordCard({
   };
   return (
     <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Text style={[s.authTitle, { color: theme.text }]}>비밀번호 찾기</Text>
+      <Text style={[s.authTitle, { color: theme.text }]}>비밀번호 재설정</Text>
       <Text style={[s.authDescription, { color: theme.muted }]}>
         가입한 이메일로 재설정 링크를 보내 드려요. 링크는 30분 동안 쓸 수 있어요.
       </Text>
-      <Field theme={theme} label="이메일 · 필수" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+      <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
       {error ? (
         <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text>
       ) : null}
@@ -2078,13 +2080,11 @@ function FirstSpaceScreen({
           <Text style={[s.authTagline, { color: theme.muted }]}>함께 여행할 사람과 기록을 모아 둘 공간이에요.</Text>
         </View>
         <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Field theme={theme} label="공간 이름 · 필수" value={name} onChangeText={setName} placeholder="예: 우리의 여행" />
+          <Field theme={theme} label="공간 이름" value={name} onChangeText={setName} placeholder="예: 우리의 여행" />
           <Text style={[s.sheetCopy, { color: theme.muted }]}>누구와 여행하나요?</Text>
           {([
             ["couple", "연인"],
             ["friends", "친구"],
-            ["family", "가족"],
-            ["other", "기타"],
           ] as const).map(([value, label]) => (
             <Choice key={value} theme={theme} selected={relationshipType === value} label={label} onPress={() => setRelationshipType(value)} />
           ))}
@@ -2153,8 +2153,8 @@ function AccountDeletionPanel({
         "요청하면 모든 기기에서 바로 로그아웃돼요.",
         "7일 뒤에 계정이 삭제돼요. 그 전에 다시 로그인하면 삭제를 취소할 수 있어요.",
         "혼자 쓰는 공간과 그 안의 여행은 계정과 함께 삭제돼요.",
-        "다른 사람과 함께 쓰는 공간에 남긴 기록은 남고, 이름은 ‘탈퇴한 멤버’로 바뀌어요.",
-        "남기고 싶은 기록이 있으면 먼저 ‘여행 기록 내보내기’로 받아 두세요.",
+        "다른 사람과 함께 쓰는 공간에 남긴 기록은 남고, 이름은 ‘삭제된 계정’으로 바뀌어요.",
+        "남기고 싶은 기록이 있으면 먼저 ‘여행 기록 저장하기’로 저장해 두세요.",
       ].map((line) => (
         <Text key={line} style={[s.sheetCopy, { color: theme.text }]}>· {line}</Text>
       ))}
@@ -2186,7 +2186,7 @@ function AccountDeletionPanel({
           accessibilityState={{ disabled: !ready, busy: loading }}
           style={[s.authSubmit, { backgroundColor: danger }, !ready && s.authSubmitDisabled]}
         >
-          <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "요청하는 중…" : "계정 삭제 요청"}</Text>
+          <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "요청하는 중…" : "7일 뒤 삭제하기"}</Text>
         </Pressable>
       )}
     </>
@@ -2232,7 +2232,7 @@ function ReconfirmField({
   }
   return (
     <View style={{ gap: 8 }}>
-      <Text style={[s.sheetCopy, { color: theme.muted }]}>이 계정은 비밀번호가 없어요. 가입할 때 쓴 소셜 로그인으로 한 번 더 확인해 주세요.</Text>
+      <Text style={[s.sheetCopy, { color: theme.muted }]}>이 계정은 비밀번호가 없어요. 비밀번호 대신 가입할 때 쓴 소셜 계정으로 본인을 확인해요.</Text>
       {providers.map((provider) => (
         <Pressable
           key={provider}
@@ -2241,7 +2241,7 @@ function ReconfirmField({
           accessibilityRole="button"
           style={[s.accountLogout, { borderColor: theme.border }, disabled && s.authSubmitDisabled]}
         >
-          <Text style={[s.accountLogoutText, { color: theme.text }]}>{socialProviderName[provider]}로 다시 로그인해 확인</Text>
+          <Text style={[s.accountLogoutText, { color: theme.text }]}>{socialProviderName[provider]}로 본인 확인</Text>
         </Pressable>
       ))}
     </View>
@@ -2291,7 +2291,7 @@ function AccountChangeSection({
   );
   return (
     <>
-      {button("password", socialOnly ? "비밀번호 정하기" : "비밀번호 바꾸기")}
+      {button("password", socialOnly ? "비밀번호 만들기" : "비밀번호 바꾸기")}
       {open === "password" && (
         <PasswordChangeForm
           theme={theme}
@@ -2335,7 +2335,7 @@ function PasswordChangeForm({
     setError("");
     try {
       await changePassword(confirm, next);
-      onChanged(socialOnly ? "비밀번호를 정했어요. 이제 이메일로도 로그인할 수 있어요." : "비밀번호를 바꿨어요. 다른 기기에서는 로그아웃됐어요.");
+      onChanged(socialOnly ? "비밀번호를 만들었어요. 이제 이메일로도 로그인할 수 있어요." : "비밀번호를 바꿨어요. 다른 기기에서는 로그아웃됐어요.");
     } catch (caught) {
       if (!isReconfirmCancelled(caught)) setError(accountChangeError(caught, "비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요."));
       setLoading(false);
@@ -2343,7 +2343,7 @@ function PasswordChangeForm({
   };
   return (
     <View style={{ marginTop: 12 }}>
-      <Field theme={theme} label="새 비밀번호 · 8자 이상" value={next} onChangeText={setNext} placeholder="8자 이상 입력해 주세요" secureTextEntry autoCapitalize="none" />
+      <Field theme={theme} label="새 비밀번호 · 8자 이상" value={next} onChangeText={setNext} placeholder="8자 이상 입력" secureTextEntry autoCapitalize="none" />
       <Field theme={theme} label="새 비밀번호 한 번 더" value={again} onChangeText={setAgain} placeholder="같은 비밀번호" secureTextEntry autoCapitalize="none" />
       {again.length > 0 && next !== again ? (
         <Text style={[s.authError, { color: danger }]}>두 비밀번호가 달라요.</Text>
@@ -2478,7 +2478,7 @@ function DeletionPendingScreen({
         <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[s.authTitle, { color: theme.text }]}>계정 삭제가 예정돼 있어요</Text>
           <Text style={[s.authDescription, { color: theme.muted }]}>
-            {label ? `${label}에 계정이 삭제돼요.` : "곧 계정이 삭제돼요."} 계속 쓰려면 {socialOnly ? "한 번 더 확인하고" : "비밀번호를 입력하고"} 삭제를 취소해 주세요.
+            {label ? `${label}에 계정이 삭제돼요.` : "곧 계정이 삭제돼요."} 계속 쓰려면 {socialOnly ? "본인 확인을 하고" : "비밀번호를 입력하고"} 삭제를 취소해 주세요.
           </Text>
           <ReconfirmField
             theme={theme}
@@ -2575,7 +2575,7 @@ function NotebookHome({
       <View style={s.scrapTitleRow}>
         <View>
           <Text style={[s.noteTitleSmall, { color: theme.primary }]}>바로 가기</Text>
-          <Text style={[s.noteTitle, { color: theme.text }]}>출발 전 확인할 것</Text>
+          <Text style={[s.noteTitle, { color: theme.text }]}>이번 여행 한눈에</Text>
         </View>
         <Pressable
           onPress={() => open("overview", trip)}
@@ -2596,7 +2596,7 @@ function NotebookHome({
         ]}
       >
         <View pointerEvents="none" style={[s.memoPaperSpine, { backgroundColor: `${theme.primary}42` }]} />
-        <MemoRow theme={theme} color={theme.primary} text="대표 숙소" meta={home.stayName || "아직 등록하지 않았어요"} onPress={() => open("overview", trip)} />
+        <MemoRow theme={theme} color={theme.primary} text="대표 숙소" meta={home.stayName || "아직 없어요"} onPress={() => open("overview", trip)} />
         <MemoRow
           theme={theme}
           color={theme.accent}
@@ -2618,7 +2618,7 @@ function NotebookHome({
         <View style={s.homeArchiveSection}>
           <View style={s.homeArchiveHead}>
             <View>
-              <Text style={[s.homeArchiveEyebrow, { color: theme.secondary }]}>지난 페이지</Text>
+              <Text style={[s.homeArchiveEyebrow, { color: theme.secondary }]}>지난 여행</Text>
               <Text style={[s.homeArchiveTitle, { color: theme.text }]}>다시 펼쳐보는 여행</Text>
             </View>
             <Pressable
@@ -2966,8 +2966,8 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
   const stampInk = resolveTheme(theme.id, false).primary;
   const stampTitleInk = paperCard(false).title;
   const stage = trip.start <= todayKey && trip.end >= todayKey
-    ? "지금 여행 중"
-    : trip.end < todayKey ? "지난 여행" : "다음 여행";
+    ? "여행 중"
+    : trip.end < todayKey ? "지난 여행" : "다가오는 여행";
   // 없으면 없다고 말한다. 그럴듯한 숫자를 채워 두면 눌러 보고 나서야 빈 줄
   // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다.
   // 서버 여행은 서버가 센 요약을, 없으면 기기의 기록을 쓴다(`tripOverview.ts`).
@@ -3126,7 +3126,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[s.paperStayLabel, { color: domain("stay", theme.dark).solid }]}>숙소</Text>
-              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>{summary.stayName || "숙소 미등록"}</Text>
+              <Text numberOfLines={1} style={[s.paperStayName, { color: paper.title }]}>{summary.stayName || "미정"}</Text>
             </View>
             <View
               style={[
@@ -3147,13 +3147,13 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
         <View style={coverUri ? s.paperTripActionsBox : null}>
         <View style={[s.paperTripActions, { borderTopColor: paper.divider }]}>
           {[
-            { label: "여행 일정", meta: scheduleCount ? `${scheduleCount}개` : "아직 없음", color: theme.primary, destination: "overview" as TripDetailDestination },
-            { label: "저장 장소", meta: placeCount ? `${placeCount}곳` : "아직 없음", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
+            { label: "일정", meta: scheduleCount ? `${scheduleCount}개` : "미정", color: theme.primary, destination: "overview" as TripDetailDestination },
+            { label: "저장한 장소", meta: placeCount ? `${placeCount}곳` : "미정", color: domain("stay", theme.dark).solid, destination: "places" as TripDetailDestination },
             // 완료 개수는 여행마다 다르다. 앱 전체에 하나뿐인 done 을 쓰면 어느
             // 카드를 넘겨도 같은 숫자가 나와서 카드가 고장 난 것처럼 보인다.
-            { label: "준비물", meta: packedCount ? `${packedCount}개 완료` : "아직 없음", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
+            { label: "준비물", meta: packedCount ? `${packedCount}개 완료` : "미정", color: domain("packing", theme.dark).solid, destination: "preparation" as TripDetailDestination },
             ...(spent > 0
-              ? [{ label: "쓴 돈", meta: money(spent, spentCurrency), color: domain("cooking", theme.dark).solid, destination: "expenses" as TripDetailDestination }]
+              ? [{ label: "총 지출", meta: money(spent, spentCurrency), color: domain("cooking", theme.dark).solid, destination: "expenses" as TripDetailDestination }]
               : []),
           ].map((item, index) => (
             <Pressable
@@ -3274,7 +3274,7 @@ function TripsExplorer({
   const initialCalendarDate = new Date();
   const initialDateKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, "0")}-${String(initialCalendarDate.getDate()).padStart(2, "0")}`;
   const [display, setDisplay] = useState<TripView>("목록");
-  const [filter, setFilter] = useState<"전체" | "예정" | "추억" | "보관">("전체");
+  const [filter, setFilter] = useState<"전체" | "다가오는" | "지난 여행" | "보관">("전체");
   const [trash, setTrash] = useState<Trip[]>([]);
   // 지운 여행의 다음 쪽. null 이면 다 받았다.
   const [trashCursor, setTrashCursor] = useState<string | null>(null);
@@ -3308,7 +3308,7 @@ function TripsExplorer({
         });
         setTrashCursor(받은.nextCursor);
       })
-      .catch(() => setTrashMessage("지운 여행을 더 불러오지 못했어요. 잠시 후 다시 시도해 주세요."))
+      .catch(() => setTrashMessage("휴지통을 더 불러오지 못했어요. 잠시 후 다시 시도해 주세요."))
       .finally(() => setTrashLoading(false));
   };
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
@@ -3321,7 +3321,7 @@ function TripsExplorer({
   const [place, setPlace] = useState("");
   const [tripStart, setTripStart] = useState("2026-09-12");
   const [tripEnd, setTripEnd] = useState("2026-09-14");
-  const [note, setNote] = useState("새 여행");
+  const [note, setNote] = useState("");
   const [newRegion, setNewRegion] = useState("서울");
   // 여행마다 가는 사람이 다르다. 처음에는 공간 멤버 전원으로 두고, 일부만
   // 가는 여행이면 여기서 뺀다. 지출의 몫과 준비물 담당이 이 목록을 쓴다.
@@ -3357,9 +3357,9 @@ function TripsExplorer({
   const filtered =
     filter === "보관"
       ? items.filter((trip) => trip.archived)
-      : filter === "예정"
+      : filter === "다가오는"
         ? listed.filter((trip) => trip.end >= initialDateKey)
-        : filter === "추억"
+        : filter === "지난 여행"
           ? listed.filter((trip) => trip.end < initialDateKey)
           : listed;
   const mapTrips = selectedRegion
@@ -3387,6 +3387,7 @@ function TripsExplorer({
       const nextTrip = { ...serverTrip, planning: { participants: newPeople } };
       setItems((current) => [nextTrip, ...current]);
       setPlace("");
+      setNote("");
       setNewPeople(spaceMembers);
       setCreating(false);
       setShowAllRegions(false);
@@ -3419,14 +3420,14 @@ function TripsExplorer({
             <Pressable
               onPress={onPasteNotice}
               accessibilityRole="button"
-              accessibilityLabel="공지 붙여넣기로 지난 여행 채우기"
+              accessibilityLabel="카톡 공지로 지난 여행 채우기"
               style={({ pressed }) => [
                 s.pasteNotice,
                 { backgroundColor: theme.surface, borderColor: theme.border },
                 pressed && s.pressed,
               ]}
             >
-              <Text style={[s.newTripText, { color: theme.primary }]}>공지 붙여넣기</Text>
+              <Text style={[s.newTripText, { color: theme.primary }]}>카톡 공지로 채우기</Text>
             </Pressable>
           )}
           <Pressable
@@ -3527,12 +3528,12 @@ function TripsExplorer({
           {display === "목록" && (
             <>
               <View style={s.tripFilters}>
-                {(["전체", "예정", "추억", "보관"] as const).map((item) => (
+                {(["전체", "다가오는", "지난 여행", "보관"] as const).map((item) => (
                   <Pressable
                     key={item}
                     onPress={() => setFilter(item)}
                     accessibilityRole="button"
-                    accessibilityLabel={`${item} 여행만 보기`}
+                    accessibilityLabel={item === "전체" ? "전체 여행 보기" : item === "지난 여행" ? "지난 여행만 보기" : `${item} 여행만 보기`}
                     accessibilityState={{ selected: filter === item }}
                     style={[
                       s.filter,
@@ -3567,9 +3568,9 @@ function TripsExplorer({
               ) : null}
               {filter === "보관" && trash.length > 0 && (
                 <View style={{ marginTop: 20, gap: 8 }}>
-                  <Text style={[s.memberPermissionLabel, { color: theme.text }]}>지운 여행</Text>
+                  <Text style={[s.memberPermissionLabel, { color: theme.text }]}>휴지통</Text>
                   <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
-                    지운 날부터 7일 안에는 되돌릴 수 있어요. 그 뒤에는 모든 기록이 사라져요.
+                    삭제한 날부터 7일 안에는 되돌릴 수 있어요. 그 뒤에는 모든 기록이 사라져요.
                   </Text>
                   {trash.map((trip) => (
                     <View key={trip.id} style={[s.inviteRow, { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 8 }]}>
@@ -3600,7 +3601,7 @@ function TripsExplorer({
                   {trashCursor ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="지운 여행 더 보기"
+                      accessibilityLabel="휴지통 더 보기"
                       onPress={loadMoreTrash}
                       hitSlop={8}
                     >
@@ -3680,13 +3681,13 @@ function TripsExplorer({
         theme={theme}
         visible={creating}
         title="새 여행"
-        subtitle="여행지와 기간을 정하고 첫 여행을 만들어 보세요"
+        subtitle="여행지와 기간만 정하면 돼요"
         submit="여행 만들기"
         disabledHint={
           !place.trim()
             ? "여행지를 입력해 주세요"
             : !tripDateValid
-              ? "종료일을 다시 확인해 주세요"
+              ? "마지막 날을 다시 확인해 주세요"
               : !newPeople.length
                 ? "함께 가는 사람을 한 명은 골라 주세요"
                 : undefined
@@ -3701,7 +3702,7 @@ function TripsExplorer({
         {createError ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{createError}</Text> : null}
         <Field
           theme={theme}
-          label="여행지 · 필수"
+          label="여행지"
           value={place}
           onChangeText={setPlace}
           placeholder="예: 제주 애월"
@@ -3722,9 +3723,10 @@ function TripsExplorer({
         />
         <Field
           theme={theme}
-          label="한 줄 메모 · 선택 사항"
+          label="한 줄 메모 (선택)"
           value={note}
           onChangeText={setNote}
+          placeholder="예: 골목을 천천히 걷는 여행"
         />
         {/* 공간에 나 말고 아무도 없으면 고를 것이 없다. */}
         {spaceMembers.length > 1 && (
@@ -3733,7 +3735,6 @@ function TripsExplorer({
             members={spaceMembers}
             value={newPeople}
             onChange={setNewPeople}
-            hint="공간 멤버 모두가 매번 같이 가지는 않아요. 이번에 가는 사람만 골라 두면 지출의 몫과 준비물 담당이 그 사람들 기준으로 맞춰져요."
           />
         )}
       </SheetShell>
@@ -4207,8 +4208,8 @@ function KoreaTripMap({
               <Text style={[s.mapTrayTitle, { color: theme.text }]}>{selected} 여행</Text>
               <Text style={[s.mapTrayCount, { color: theme.muted }]}>
                 {results.length
-                  ? `${results.length}개의 여행`
-                  : "아직 등록된 여행이 없어요"}
+                  ? `여행 ${results.length}개`
+                  : "아직 여행이 없어요"}
               </Text>
             </View>
             <Pressable
@@ -4376,8 +4377,8 @@ function TripCalendar({
           </Text>
           <Text style={[s.calendarSub, { color: calendarMuted }]}>
             {monthTrips.length
-              ? `${monthTrips.length}개의 여행이 적혀 있어요`
-              : "아직 적힌 여행이 없어요"}
+              ? `이달 여행 ${monthTrips.length}개`
+              : "이달에는 여행이 없어요"}
           </Text>
         </View>
         <View style={s.calendarControls}>
@@ -4640,7 +4641,7 @@ function Search({
       </Text>
       <Text style={[s.screenTitle, { color: theme.text }]}>찾기</Text>
       <Text style={[s.searchIntro, { color: theme.muted }]}>
-        다녀온 여행과 준비 중인 기록을 한곳에서 찾아보세요
+        다녀온 여행과 준비 중인 기록을 한곳에서 찾아 보세요
       </Text>
       {/* 아직 받아 본 적 없는 여행을 받아 오는 중이다. 받는 대로 결과가 는다. */}
       {loading && (
@@ -4689,11 +4690,11 @@ function Search({
           {recentQueries.length > 0 && (
             <Pressable
               onPress={() => showAlert(
-                "최근 검색을 모두 지울까요?",
-                `${recentQueries.length}개를 지워요. 되돌릴 수 없어요.`,
+                "최근 검색을 모두 삭제할까요?",
+                `${recentQueries.length}개를 삭제해요. 되돌릴 수 없어요.`,
                 [
                   { text: "취소", style: "cancel" },
-                  { text: "지우기", style: "destructive", onPress: () => setRecentQueries([]) },
+                  { text: "삭제", style: "destructive", onPress: () => setRecentQueries([]) },
                 ],
               )}
               hitSlop={12}
@@ -4939,7 +4940,7 @@ function Search({
           </Text>
           <Text style={[s.searchEmptyCopy, { color: theme.muted }]}>
             {loading
-              ? "이 기기에서 아직 열어 보지 않은 여행을 받아 오고 있어요."
+              ? "여행 기록을 불러오는 중이에요."
               : "다른 단어나 카테고리로 검색해 보세요."}
           </Text>
           {(query || category !== "전체") && (
@@ -5102,7 +5103,7 @@ function Together({
     return () => clearTimeout(timer);
   }, [user.name]);
   const people = [
-    { key: "me", membershipId: activeSpace.myMembershipId, name: user.name, role: activeSpace.myRole ?? "권한 확인 중", me: true },
+    { key: "me", membershipId: activeSpace.myMembershipId, name: user.name, role: activeSpace.myRole ?? "불러오는 중", me: true },
     ...activeSpace.members.map((member, index) => ({
       key: member.id ?? `${member.name}-${index}`,
       membershipId: member.id,
@@ -5162,7 +5163,7 @@ function Together({
         showAlert("여행 기록을 복사했어요", "메모 앱에 붙여넣으면 그대로 남아요.");
       }
     } catch {
-      showAlert("내보내기를 마치지 못했어요", "잠시 후 다시 시도해 주세요.");
+      showAlert("여행 기록을 저장하지 못했어요", "잠시 후 다시 시도해 주세요.");
     }
   };
   const panelTitle =
@@ -5253,7 +5254,7 @@ function Together({
         <View style={s.memberSectionHead}>
           <View>
             <Text style={[s.historyEyebrow, { color: theme.primary }]}>멤버</Text>
-            <Text style={[s.memberSectionTitle, { color: theme.text }]}>함께하는 사람</Text>
+            <Text style={[s.memberSectionTitle, { color: theme.text }]}>함께하는 멤버</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -5273,7 +5274,7 @@ function Together({
           {people.map((member, index) => (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${member.name} ${member.role}, 멤버 관리 열기`}
+              accessibilityLabel={`${member.name} ${roleLabel(member.role)}, 멤버 관리 열기`}
               key={`${member.name}-${index}`}
               onPress={() => {
                 setSelectedMember(index);
@@ -5285,7 +5286,7 @@ function Together({
                 <Text style={[s.memberStripInitial, { color: onAccent(theme.dark) }]}>{member.name.slice(0, 1)}</Text>
               </View>
               <Text numberOfLines={1} style={[s.memberStripName, { color: theme.text }]}>{member.me ? "나" : member.name}</Text>
-              <Text numberOfLines={1} style={[s.memberStripRole, { color: theme.muted }]}>{member.role}</Text>
+              <Text numberOfLines={1} style={[s.memberStripRole, { color: theme.muted }]}>{roleLabel(member.role)}</Text>
             </Pressable>
           ))}
           <Pressable
@@ -5307,7 +5308,7 @@ function Together({
               label: "멤버 관리",
               onPress: () => setPanel("members"),
             },
-            { icon: "share" as const, label: "여행 기록 내보내기", onPress: () => void exportData() },
+            { icon: "share" as const, label: "여행 기록 저장하기", onPress: () => void exportData() },
             {
               icon: "swap" as const,
               label: "공간 바꾸기",
@@ -5430,10 +5431,10 @@ function Together({
             label="화면 모드"
             value={
               appearance === "system"
-                ? "시스템 설정"
+                ? "시스템 설정과 같게"
                 : appearance === "dark"
-                  ? "다크"
-                  : "라이트"
+                  ? "다크 모드"
+                  : "라이트 모드"
             }
             onPress={() => setPanel("appearance")}
           />
@@ -5449,7 +5450,7 @@ function Together({
           />
         </View>
         {/* 문제를 알릴 때 무엇을 쓰고 있는지 말할 수 있어야 한다. */}
-        <Text style={[s.appVersion, { color: theme.muted }]}>Daymo {appVersion} · 프로토타입</Text>
+        <Text style={[s.appVersion, { color: theme.muted }]}>Daymo {appVersion}</Text>
       </ScrollView>
       <InfoSheet
         theme={theme}
@@ -5459,7 +5460,7 @@ function Together({
       >
         {panel === "groups" && (
           <>
-            <Text style={[s.sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 선택하세요.</Text>
+            <Text style={[s.sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 골라 주세요.</Text>
             {spaces.map((space) => {
               const current = space.id === activeSpace.id;
               return (
@@ -5535,7 +5536,7 @@ function Together({
               {nameSave === "saving"
                 ? "이름을 저장하는 중이에요."
                 : nameSave === "failed"
-                  ? "이름을 저장하지 못했어요. 연결을 확인하고 다시 고쳐 주세요."
+                  ? "이름을 저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요."
                   : nameSave === "tooLong"
                     ? "이름은 20자까지 쓸 수 있어요."
                     : "이름은 같은 공간 멤버에게 보여요. 이메일은 아래 ‘이메일 바꾸기’에서 바꿀 수 있어요."}
@@ -5549,7 +5550,7 @@ function Together({
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                showAlert("로그아웃할까요?", "기기에만 저장된 변경 내용이 있다면 동기화 후 로그아웃해 주세요.", [
+                showAlert("로그아웃할까요?", "아직 올라가지 않은 내용은 사라질 수 있어요.", [
                   { text: "취소", style: "cancel" },
                   { text: "로그아웃", style: "destructive", onPress: () => { setPanel(null); onLogout(); } },
                 ]);
@@ -5561,18 +5562,18 @@ function Together({
             <Pressable
               onPress={() => {
                 showAlert(
-                  "이 기기의 데이터를 모두 지울까요?",
-                  "이 기기에만 저장된 일정·준비물·비용·기록과 앱 설정이 사라져요. 계정과 서버에 저장된 공간·여행은 그대로예요. 되돌릴 수 없어요.",
+                  "이 기기의 데이터를 모두 삭제할까요?",
+                  "이 기기에만 저장된 일정·준비물·비용·기록과 앱 설정이 사라져요. 계정에 저장된 공간과 여행은 그대로예요. 되돌릴 수 없어요.",
                   [
                     { text: "취소", style: "cancel" },
-                    { text: "모두 지우기", style: "destructive", onPress: () => { setPanel(null); onWipe(); } },
+                    { text: "모두 삭제", style: "destructive", onPress: () => { setPanel(null); onWipe(); } },
                   ],
                 );
               }}
               accessibilityRole="button"
               style={s.accountDelete}
             >
-              <Text style={s.accountDeleteText}>이 기기 데이터 모두 지우기</Text>
+              <Text style={s.accountDeleteText}>이 기기 데이터 모두 삭제</Text>
             </Pressable>
             <Pressable
               onPress={() => setPanel("deleteAccount")}
@@ -5599,7 +5600,7 @@ function Together({
             <View style={s.memberManagerHead}>
               <View>
                 <Text style={[s.memberManagerTitle, { color: theme.text }]}>{people.length}명이 함께하고 있어요</Text>
-                <Text style={[s.memberManagerCopy, { color: theme.muted }]}>관리할 멤버를 선택하세요.</Text>
+                <Text style={[s.memberManagerCopy, { color: theme.muted }]}>관리할 멤버를 골라 주세요.</Text>
               </View>
             </View>
             <View style={s.memberManagerGrid}>
@@ -5621,7 +5622,7 @@ function Together({
                   </View>
                   <View style={s.memberManagerCardCopy}>
                     <Text numberOfLines={1} style={[s.memberManagerName, { color: theme.text }]}>{member.name}{member.me ? " (나)" : ""}</Text>
-                    <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === index ? theme.primary : theme.muted }]}>{member.role}</Text>
+                    <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === index ? theme.primary : theme.muted }]}>{roleLabel(member.role)}</Text>
                   </View>
                   <View style={selectedMember !== index && { opacity: 0 }}>
                     <Glyph name="check" size={16} color={theme.primary} weight={2.4} />
@@ -5634,7 +5635,7 @@ function Together({
               <Text style={[s.memberManagerTitle, { color: theme.text }]}>
                 {selectedPerson.name}{selectedPerson.me ? " (나)" : ""}
               </Text>
-              <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{selectedPerson.role}</Text>
+              <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{roleLabel(selectedPerson.role)}</Text>
               {/* 서버가 지키는 권한이다. 예전에는 이름표일 뿐이라고 적어 뒀는데, 이제
                   보기만인 사람이 고치면 서버가 막는다. */}
               <Text style={[s.memberRoleText, { color: theme.muted }]}>
@@ -5708,7 +5709,7 @@ function Together({
           <>
             <Text style={[s.sheetCopy, { color: theme.muted }]}>
               이 계정으로 로그인한 기기예요. 한 계정은 {MAX_DEVICES}대까지 쓸 수 있고, 넘기면 가장
-              오래 쓰지 않은 기기가 로그아웃돼요. 안 쓰는 기기는 여기서 미리 끊어 두세요.
+              오래 쓰지 않은 기기가 로그아웃돼요. 안 쓰는 기기는 여기서 미리 로그아웃해 두세요.
             </Text>
             <DeviceSessionsSection
               theme={theme}
@@ -5773,19 +5774,19 @@ function Together({
             <Choice
               theme={theme}
               selected={appearance === "system"}
-              label="시스템 설정에 맞추기"
+              label="시스템 설정과 같게"
               onPress={() => setAppearance("system")}
             />
             <Choice
               theme={theme}
               selected={appearance === "light"}
-              label="항상 라이트"
+              label="라이트 모드"
               onPress={() => setAppearance("light")}
             />
             <Choice
               theme={theme}
               selected={appearance === "dark"}
-              label="항상 다크"
+              label="다크 모드"
               onPress={() => setAppearance("dark")}
             />
           </>
@@ -5803,7 +5804,7 @@ function Together({
         {panel === "licenses" && (
           <>
             <Text style={[s.sheetCopy, { color: theme.muted }]}>
-              Daymo에 담아 함께 배포하는 저작물과 라이선스예요.
+              Daymo를 만드는 데 쓴 오픈소스와 라이선스예요.
             </Text>
             {openSourceNotices.map((notice) => (
               <View
@@ -6130,7 +6131,7 @@ function SpaceSaveNote({
     );
   }
   const copy = {
-    idle: "바꾸면 모두의 화면에 저장돼요.",
+    idle: "바꾸면 멤버 모두에게 바로 반영돼요.",
     saving: "저장하고 있어요…",
     saved: "저장했어요.",
     failed: "저장하지 못했어요. 인터넷 연결을 확인하고 다시 바꿔 주세요.",
@@ -6171,7 +6172,7 @@ function SpaceDeletionPanel({
     try {
       await onDelete(typed.trim());
     } catch (caught) {
-      setError(caught instanceof DaymoApiError ? caught.message : "공간을 지우지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setError(caught instanceof DaymoApiError ? caught.message : "공간을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.");
       setLoading(false);
     }
   };
@@ -6179,12 +6180,12 @@ function SpaceDeletionPanel({
     <>
       {[
         "모든 멤버에게서 이 공간이 바로 사라져요.",
-        "7일 뒤에 공간 안의 여행, 일정, 비용, 사진이 모두 지워져요.",
+        "7일 뒤에 공간 안의 여행, 일정, 비용, 사진이 모두 삭제돼요.",
         "7일 안에는 여행 공간 바꾸기 화면에서 관리자가 되돌릴 수 있어요.",
       ].map((line) => (
         <Text key={line} style={[s.sheetCopy, { color: theme.text }]}>· {line}</Text>
       ))}
-      <Field theme={theme} label={`공간 이름 “${spaceName}” 을 똑같이 적어 주세요`} value={typed} onChangeText={setTyped} placeholder={spaceName} />
+      <Field theme={theme} label={`공간 이름 “${spaceName}”을 똑같이 입력해 주세요`} value={typed} onChangeText={setTyped} placeholder={spaceName} />
       <Pressable
         onPress={() => setUnderstood((current) => !current)}
         accessibilityRole="checkbox"
@@ -6194,7 +6195,7 @@ function SpaceDeletionPanel({
         <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
           {understood && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
         </View>
-        <Text style={[s.authConsentText, { color: theme.text }]}>지워지는 범위를 확인했어요</Text>
+        <Text style={[s.authConsentText, { color: theme.text }]}>삭제되는 범위를 확인했어요</Text>
       </Pressable>
       {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
       <Pressable
@@ -6204,7 +6205,7 @@ function SpaceDeletionPanel({
         accessibilityState={{ disabled: !ready, busy: loading }}
         style={[s.authSubmit, { backgroundColor: danger }, !ready && s.authSubmitDisabled]}
       >
-        <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "지우는 중…" : "7일 후 삭제"}</Text>
+        <Text style={[s.authSubmitText, { color: "#FFFFFF" }]}>{loading ? "삭제하는 중…" : "7일 뒤 삭제하기"}</Text>
       </Pressable>
     </>
   );
@@ -6267,12 +6268,12 @@ function SpaceExtras({
         </View>
       ) : (
         <Pressable accessibilityRole="button" onPress={() => setCreating(true)} style={[s.accountLogout, { borderColor: theme.border }]}>
-          <Text style={[s.accountLogoutText, { color: theme.text }]}>새 여행 공간 만들기</Text>
+          <Text style={[s.accountLogoutText, { color: theme.text }]}>새 공간 만들기</Text>
         </Pressable>
       )}
       {deleted.length > 0 && (
         <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 6 }]}>
-          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>지운 공간</Text>
+          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>삭제한 공간</Text>
           <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>관리자만 보여요. 기한이 지나면 되돌릴 수 없어요.</Text>
           {deleted.map((space) => (
             <View key={space.id} style={s.inviteRow}>
@@ -6398,7 +6399,7 @@ function MemberActions({
     <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt }]}>
       {myRole === "관리자" && (
         <>
-          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{person.name}의 권한</Text>
+          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{person.name} 님의 권한</Text>
           <Choice
             theme={theme}
             label="편집 가능"
@@ -6408,7 +6409,7 @@ function MemberActions({
           />
           <Choice
             theme={theme}
-            label="보기만"
+            label="보기 전용"
             selected={person.role === "보기만"}
             disabled={busy}
             onPress={() => void run(() => changeMemberRole(spaceId, membershipId, roleToServer("보기만")))}
@@ -6417,7 +6418,7 @@ function MemberActions({
             accessibilityRole="button"
             disabled={busy}
             onPress={() => confirm(
-              `${person.name}에게 관리자를 넘길까요?`,
+              `${person.name} 님에게 관리자를 넘길까요?`,
               "공간은 관리자 한 명이 관리해요. 넘기면 나는 편집 가능한 멤버가 돼요.",
               "넘기기",
               () => changeMemberRole(spaceId, membershipId, "owner"),
@@ -6430,7 +6431,7 @@ function MemberActions({
             accessibilityRole="button"
             disabled={busy}
             onPress={() => confirm(
-              `${person.name}을(를) 내보낼까요?`,
+              `${person.name} 님을 내보낼까요?`,
               "그 사람이 쓴 일정·지출·기록은 공간에 남아요. 다시 들어오려면 초대 링크가 필요해요.",
               "내보내기",
               () => removeMember(spaceId, membershipId),
@@ -6464,11 +6465,11 @@ function MemberActions({
         accessibilityRole="button"
         disabled={busy}
         onPress={() => blocked
-          ? showAlert(`${person.name}의 차단을 풀까요?`, "다시 초대 링크로 같은 공간에 들어올 수 있어요.", [
+          ? showAlert(`${person.name} 님의 차단을 풀까요?`, "다시 초대 링크로 같은 공간에 들어올 수 있어요.", [
             { text: "취소", style: "cancel" },
             { text: "차단 해제", onPress: () => void changeBlock(() => unblock(membershipId)) },
           ])
-          : showAlert(`${person.name}을(를) 차단할까요?`, "차단하면 서로 새 공간에 초대로 함께 들어갈 수 없어요. 상대에게는 알리지 않아요.", [
+          : showAlert(`${person.name} 님을 차단할까요?`, "차단하면 앞으로 서로를 새 공간에 초대할 수 없어요. 상대에게는 알리지 않아요.", [
             { text: "취소", style: "cancel" },
             {
               text: "차단하기",
@@ -6530,7 +6531,7 @@ function MemberReportForm({
     return (
       <View accessibilityLiveRegion="polite" style={{ marginTop: 16 }}>
         <Text style={[s.memberPermissionLabel, { color: theme.text }]}>신고를 받았어요. 24시간 안에 확인할게요.</Text>
-        <Text style={[s.sheetCopy, { color: theme.muted }]}>신고한 사람은 {name}에게 알려지지 않아요.</Text>
+        <Text style={[s.sheetCopy, { color: theme.muted }]}>신고한 사람은 {name} 님에게 알려지지 않아요.</Text>
         <Pressable accessibilityRole="button" onPress={onClose} style={[s.accountLogout, { borderColor: theme.border, marginTop: 0 }]}>
           <Text style={[s.accountLogoutText, { color: theme.text }]}>닫기</Text>
         </Pressable>
@@ -6552,7 +6553,7 @@ function MemberReportForm({
       });
       setSent(true);
     } catch (caught) {
-      setError(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "보내지 못했어요. 연결을 확인하고 다시 시도해 주세요.");
+      setError(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "보내지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.");
     } finally {
       setSending(false);
     }
@@ -6560,7 +6561,7 @@ function MemberReportForm({
 
   return (
     <View style={{ marginTop: 16 }}>
-      <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{name}을(를) 신고하는 이유</Text>
+      <Text style={[s.memberPermissionLabel, { color: theme.text }]}>{name} 님을 신고하는 이유</Text>
       {REPORT_REASONS.map((item) => (
         <Choice
           key={item.value}
@@ -6573,7 +6574,7 @@ function MemberReportForm({
       ))}
       <Field
         theme={theme}
-        label="자세한 내용 · 선택 사항"
+        label="자세한 내용 (선택)"
         value={detail}
         onChangeText={setDetail}
         placeholder="확인에 도움이 되는 내용을 적어 주세요"
@@ -6672,7 +6673,7 @@ ${url}` }).catch(() => undefined);
     try {
       await revokeInvite(spaceId, invite.id);
       setInvites((current) => current.filter((item) => item.id !== invite.id));
-      setMessage("초대 링크를 폐기했어요. 이제 그 링크로는 들어올 수 없어요.");
+      setMessage("초대 링크를 삭제했어요. 이제 그 링크로는 들어올 수 없어요.");
     } catch (caught) {
       fail(caught);
     }
@@ -6702,9 +6703,9 @@ ${url}` }).catch(() => undefined);
     <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 8 }]}>
       {spaceId && canInvite && (
         <>
-          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>함께할 사람 초대</Text>
+          <Text style={[s.memberPermissionLabel, { color: theme.text }]}>멤버 초대</Text>
           <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
-            링크를 받은 사람은 로그인하고 이메일을 확인한 뒤 편집 가능한 멤버로 들어와요.
+            링크를 받은 사람은 로그인해 이메일을 확인하면 편집 가능 멤버로 들어와요.
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -6720,8 +6721,8 @@ ${url}` }).catch(() => undefined);
                 {inviteDeadline(invite.expiresAt)} · {invite.usedCount}/{invite.maxUses}명 참여
               </Text>
               {(isOwner || invite.createdByMembershipId === myMembershipId) && (
-                <Pressable accessibilityRole="button" accessibilityLabel="초대 링크 폐기" onPress={() => void revoke(invite)}>
-                  <Text style={s.accountDeleteText}>폐기</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="초대 링크 삭제" onPress={() => void revoke(invite)}>
+                  <Text style={s.accountDeleteText}>삭제</Text>
                 </Pressable>
               )}
             </View>
@@ -6795,12 +6796,12 @@ function DeviceSessionsSection({ theme, onSignedOut }: { theme: AppTheme; onSign
         return;
       }
       setDevices((current) => current.filter((item) => item.id !== device.id));
-      setMessage(`${deviceName(device)}를 해지했어요.`);
+      setMessage(`${deviceName(device)}에서 로그아웃했어요.`);
     } catch (caught) {
       setError(
         caught instanceof DaymoApiError
           ? caught.message
-          : "해지하지 못했어요. 연결을 확인하고 다시 해 주세요.",
+          : "로그아웃하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
       );
     } finally {
       setBusyId("");
@@ -6822,12 +6823,12 @@ function DeviceSessionsSection({ theme, onSignedOut }: { theme: AppTheme; onSign
       <Text style={[s.memberPermissionLabel, { color: theme.text }]}>로그인한 기기</Text>
       {state === "loading" && (
         <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
-          기기를 불러오는 중이에요.
+          기기 목록을 불러오고 있어요…
         </Text>
       )}
       {state === "failed" && (
         <Text style={[s.memberRoleText, { color: theme.muted, marginTop: 0 }]}>
-          기기 목록을 불러오지 못했어요. 연결을 확인하고 이 화면을 다시 열어 주세요.
+          기기 목록을 불러오지 못했어요. 인터넷 연결을 확인하고 이 화면을 다시 열어 주세요.
         </Text>
       )}
       {state === "ready" &&
@@ -6843,11 +6844,11 @@ function DeviceSessionsSection({ theme, onSignedOut }: { theme: AppTheme; onSign
             </Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${deviceName(device)} 해지`}
+              accessibilityLabel={`${deviceName(device)}에서 로그아웃`}
               disabled={busyId === device.id}
               onPress={() => ask(device)}
             >
-              <Text style={s.accountDeleteText}>해지</Text>
+              <Text style={s.accountDeleteText}>로그아웃</Text>
             </Pressable>
           </View>
         ))}
