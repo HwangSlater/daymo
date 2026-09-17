@@ -79,7 +79,7 @@ def validate(raw: str, *, email: str | None = None) -> str:
 
     낮춘_값 = 값.lower()
     if 낮춘_값 in _COMMON:
-        _거부("너무 흔한 비밀번호예요. 다른 걸로 정해 주세요.", ErrorCode.PASSWORD_TOO_COMMON)
+        _거부("너무 흔한 비밀번호예요. 다른 비밀번호를 정해 주세요.", ErrorCode.PASSWORD_TOO_COMMON)
 
     # 한 글자만 반복하는 값은 길이만 채운 것이다.
     if len(set(값)) == 1:

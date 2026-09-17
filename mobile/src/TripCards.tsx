@@ -570,7 +570,7 @@ export function TripCardsSection({
         width: size.exportWidth,
         height: size.exportHeight,
       });
-      if (__DEV__) console.log(`기념 카드 캡처 ${card.style} ${Date.now() - 잰다}ms`);
+      if (__DEV__) console.log(`추억 카드 캡처 ${card.style} ${Date.now() - 잰다}ms`);
       const 결과 = await shareTripCard(keepsakeFileName(text.title || tripName), 찍은_것);
       // 창이 떠 있는 동안이라 여행 화면 바닥의 토스트는 가려진다. 창 안에서 알린다.
       // 폰은 공유 시트가 뜨는 것으로 끝이다. 시트만 열렸는데 「공유했어요」라고

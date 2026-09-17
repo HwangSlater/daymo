@@ -21,3 +21,20 @@ declare module "node:assert/strict" {
   const assert: Assert;
   export default assert;
 }
+
+// 문구 사전 검사(src/copyGlossary.test.ts)가 소스 파일을 읽을 때 쓰는 것만 선언한다.
+declare module "node:fs" {
+  export function readdirSync(path: string): string[];
+  export function readFileSync(path: string, encoding: "utf8"): string;
+  export function statSync(path: string): { isDirectory(): boolean };
+}
+
+declare module "node:path" {
+  export function join(...parts: string[]): string;
+  export function relative(from: string, to: string): string;
+  export function dirname(path: string): string;
+}
+
+declare module "node:url" {
+  export function fileURLToPath(url: string): string;
+}

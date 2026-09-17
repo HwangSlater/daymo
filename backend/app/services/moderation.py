@@ -140,7 +140,7 @@ async def create_report(
         )
     )
     if (최근 or 0) >= REPORTS_PER_HOUR:
-        raise AppError(ErrorCode.RATE_LIMITED, message="신고를 너무 많이 보냈어요. 잠시 후 다시 해 주세요.")
+        raise AppError(ErrorCode.RATE_LIMITED, message="신고를 너무 많이 보냈어요. 잠시 후 다시 시도해 주세요.")
 
     report = Report(
         reporter_user_id=reporter.user_id,

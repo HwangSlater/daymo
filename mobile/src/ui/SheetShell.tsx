@@ -62,7 +62,7 @@ export function SheetShell({
   destructiveMessage,
   onDestructive,
   locked = false,
-  lockedHint = "보기만 할 수 있는 공간이에요",
+  lockedHint = "보기 전용 공간이에요",
   hasUnsavedChanges = false,
   keyboardAvoiding = true,
   padBody = true,

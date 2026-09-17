@@ -19,7 +19,7 @@ class MemoUpdateRequest(_Camel):
 
 class MemoOut(_Camel):
     """
-    `authorName` 은 지금 표시 이름이다. 계정을 지운 사람이면 `탈퇴한 멤버` 다.
+    `authorName` 은 지금 표시 이름이다. 계정을 지운 사람이면 `삭제된 계정` 다.
 
     앱은 `authorMembershipId` 로 공간 사람 표에서 이름을 찾고, 없을 때 이 값을 쓴다.
     """

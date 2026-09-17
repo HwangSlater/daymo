@@ -999,7 +999,7 @@ export function PhotoEditScreen({
                 value={caption}
                 onChangeText={onCaption}
                 editable={!readOnly}
-                placeholder="예: 숙소에서 삼겹살"
+                placeholder="예: 도착하자마자 먹은 점심"
                 placeholderTextColor={INK_FAINT}
                 maxLength={200}
                 accessibilityLabel="사진 설명"

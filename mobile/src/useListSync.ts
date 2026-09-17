@@ -316,7 +316,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
           if (!warnedForbidden.current) {
             warnedForbidden.current = true;
             latest.current.notify(
-              latest.current.forbiddenMessage ?? `이 공간에서는 보기만 할 수 있어 ${label} 변경이 저장되지 않아요`,
+              latest.current.forbiddenMessage ?? `보기 전용 공간이라 ${label} 변경이 저장되지 않아요`,
             );
           }
         } else if (!(caught instanceof DaymoApiError) || caught.status === 0 || caught.status >= 500) {

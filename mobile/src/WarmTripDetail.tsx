@@ -10888,7 +10888,7 @@ function TabActionHeader({
       </View>
       {/* 탭마다 한 번, 추가 버튼 자리에서 왜 버튼이 없는지 알린다. */}
       {!canEdit ? (
-        <Text style={[styles.tabActionReadOnly, theme && { color: theme.muted }]}>보기만 할 수 있는 공간이에요</Text>
+        <Text style={[styles.tabActionReadOnly, theme && { color: theme.muted }]}>보기 전용 공간이에요</Text>
       ) : (
       <Pressable
         onPress={onPress}
@@ -11601,7 +11601,7 @@ function DetailSheet({
   submitDisabled = false,
   hasUnsavedChanges = false,
   readOnly,
-  readOnlyHint = "보기만 할 수 있는 공간이에요",
+  readOnlyHint = "보기 전용 공간이에요",
   onClose,
   onSubmit,
   onDestructive,

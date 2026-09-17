@@ -136,7 +136,7 @@ async def purge_deleted_accounts(
     **users 줄은 지우지 않는다.** 공동 여행의 참가자·지출·준비물 담당이
     membership 을 거쳐 이 줄을 가리킨다. 줄을 지우면 남은 사람들의 기록이
     무너진다. 대신 이 사람을 알아볼 수 있는 값을 전부 지우고 이름을
-    `탈퇴한 멤버` 로 바꾼다
+    `삭제된 계정` 로 바꾼다
     (docs/development/02-architecture-and-data-model.md 공동 콘텐츠 비식별화).
 
     - 혼자 쓰던 공간은 여행과 함께 지운다.
@@ -192,7 +192,7 @@ async def _scrub(session: AsyncSession, user: User, 지금: datetime) -> None:
         update(Membership).where(Membership.user_id == user.id).values(nickname=None)
     )
 
-    # 차단은 이 사람이 한 것도 당한 것도 지운다. 남겨 두면 `탈퇴한 멤버` 가 목록에 남는다.
+    # 차단은 이 사람이 한 것도 당한 것도 지운다. 남겨 두면 `삭제된 계정` 가 목록에 남는다.
     # 신고는 검토가 끝날 때까지 남기되 누가 냈는지는 끊는다.
     await session.execute(
         delete(UserBlock).where(or_(UserBlock.blocker_user_id == user.id, UserBlock.blocked_user_id == user.id))
