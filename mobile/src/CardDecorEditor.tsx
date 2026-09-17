@@ -1,14 +1,21 @@
 /**
- * 기념 카드 꾸미기 — 카드를 크게 띄우고 그 위에서 직접 꾸미는 화면.
+ * 기념 카드 꾸미기 도구 — 카드를 크게 띄우고 그 아래에서 네 갈래로 고친다.
  *
- * 시트 안에서 칩으로 켜고 끄던 스티커를, 인생네컷처럼 손으로 끌어 옮기고 키우고
- * 돌린다. 앱의 다른 화면과 모양이 다르다. 사진이 주인공이라 바탕을 어둡게 깔고
- * 도구를 아래로 몰았다. 글꼴과 강조색은 앱 것을 그대로 쓴다.
+ * 창을 스스로 열지 않는다. 사진을 크게 보는 창(`PhotoViewer.tsx`)이 「꾸미기」를
+ * 누르면 그 자리에서 이것을 펼친다. 사진과 카드가 다른 창이면 한 장을 카드로
+ * 만들다 말고 나갔다 들어오게 된다. 보던 사진이 그대로 카드가 되어야 한다.
+ *
+ * 갈래는 넷이다. 예전에는 「카드 설정 고치기」 시트에 틀·사진·글이 있고 스티커만
+ * 전용 화면에 있었다. 같은 카드를 두 군데서 고치는 셈이라 무엇이 어디 있는지
+ * 외워야 했다. 카드를 보면서 고치는 것이 전부 여기 있다.
+ *   틀 — 스타일·비율·틀 색·날짜 도장·사진 설명
+ *   사진 — 어떤 사진을 몇 번째 칸에 넣을지
+ *   글 — 제목·한 줄 설명·넣을 항목·통계
+ *   스티커 — 붙이기·크기·회전·순서·삭제·글자
  *
  * 지키는 것 셋.
- *   1. 꾸미는 동안 카드가 통째로 보인다. 화면에서 남는 칸을 재서 카드를 그만큼
- *      줄인다(`fitScaleOf`). 세로로 긴 네컷 스트립도 스크롤 없이 한눈에 든다.
- *      도구는 카드 아래 제 칸에 있어서 카드를 가리지 않는다.
+ *   1. 어느 갈래에서도 카드가 통째로 보인다. 남는 칸을 재서 카드를 그만큼 줄인다
+ *      (`fitScaleOf`). 도구 칸은 높이를 고정해서 갈래를 바꿔도 카드가 튀지 않는다.
  *   2. 끄는 동안 다시 그리지 않는다. 움직이는 스티커만 `Animated` 로 밀고
  *      (`KeepsakeCardView` 의 `DecorItem`), 손을 뗄 때 한 번 상태로 올린다.
  *   3. 자리는 카드 크기에 대한 비율로만 들고 있는다. 줄여 보여 줘도 내보낸
@@ -17,11 +24,10 @@
 
 import { memo, useCallback, useMemo, useState } from "react";
 import {
-  KeyboardAvoidingView,
+  Image,
   LayoutChangeEvent,
-  Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -48,294 +54,564 @@ import {
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
 import { typo } from "./theme/typography";
-import { keepsakeSizeOf, type KeepsakeCard } from "./tripCard";
-import { useWebKeyboardInset } from "./useWebKeyboardInset";
+import {
+  isCutStyle,
+  keepsakeSizeOf,
+  toggleKeepsakePhoto,
+  KEEPSAKE_FRAME_COLORS,
+  KEEPSAKE_PARTS,
+  KEEPSAKE_RATIOS,
+  KEEPSAKE_STAT_KINDS,
+  KEEPSAKE_STYLES,
+  type KeepsakeCard,
+  type KeepsakeFrameColor,
+  type KeepsakePart,
+  type KeepsakeRatio,
+  type KeepsakeStatKind,
+  type KeepsakeStyle,
+} from "./tripCard";
 
 /** 카드를 띄울 칸의 안쪽 여백. 카드가 화면 끝에 붙지 않게 한다. */
-const STAGE_PAD = 20;
+const STAGE_PAD = 16;
 
-/** 도구 단추 하나. 누를 때마다 목록이 바뀌므로 `memo` 로 감싸 둔다. */
-const Tool = memo(function Tool({
+/** 어두운 바탕 위의 글자. 사진 창과 같은 값을 쓴다. */
+const INK = "#F6F4F1";
+const INK_SOFT = "rgba(255,255,255,0.80)";
+const INK_FAINT = "rgba(255,255,255,0.42)";
+const PANEL = "#17161C";
+const CHIP = "#26252E";
+const ACCENT = "#A7B3EE";
+
+/** 도구의 네 갈래. 값이 곧 탭에 적히는 말이다. */
+export const CARD_TOOL_TABS = ["틀", "사진", "글", "스티커"] as const;
+export type CardToolTab = (typeof CARD_TOOL_TABS)[number];
+
+/** 갈래 안의 작은 제목. 무엇을 고르는 줄인지만 알린다. */
+function PanelLabel({ text }: { text: string }) {
+  return <Text style={styles.panelLabel}>{text}</Text>;
+}
+
+/** 고르는 칩 한 줄. 여러 줄로 펴서 한눈에 보여 준다. */
+const ChipRow = memo(function ChipRow({
+  options,
+  chosen,
+  accent,
+  accentInk,
+  onPress,
+}: {
+  options: readonly string[];
+  chosen: (option: string) => boolean;
+  accent: string;
+  /** 고른 칩의 글자색. 강조색 위에서 읽히는 값이라 테마가 정한다. */
+  accentInk: string;
+  onPress: (option: string) => void;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      {options.map((option) => {
+        const on = chosen(option);
+        return (
+          <Pressable
+            key={option}
+            onPress={() => onPress(option)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={option}
+            style={({ pressed }) => [styles.chip, on && { backgroundColor: accent }, pressed && styles.pressed]}
+          >
+            <Text style={[styles.chipText, on && styles.chipTextOn, on && { color: accentInk }]}>{option}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+});
+
+/** 켜고 끄는 한 줄. 칩으로 두면 켠 것인지 고른 것인지 헷갈린다. */
+function Toggle({
   label,
-  tone,
-  theme,
+  on,
+  accent,
   onPress,
 }: {
   label: string;
-  /** 위험한 것(삭제)만 다른 색이다. */
-  tone?: "위험";
-  theme?: AppTheme;
+  on: boolean;
+  accent: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
       accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.tool,
-        tone === "위험" && styles.toolDanger,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.toggleRow, pressed && styles.pressed]}
     >
-      <Text style={[styles.toolText, tone === "위험" && styles.toolDangerText, theme && tone !== "위험" && { color: theme.primary }]}>
-        {label}
-      </Text>
+      <Text style={styles.toggleLabel}>{label}</Text>
+      <View style={[styles.toggleTrack, on && { backgroundColor: accent }]}>
+        <View style={[styles.toggleKnob, on && styles.toggleKnobOn]} />
+      </View>
     </Pressable>
   );
-});
+}
 
-export function CardDecorEditor({
-  visible,
+export function CardDecorTools({
   card,
-  photos,
+  tune,
+  onDecor,
+  allPhotos,
+  drawPhotos,
+  thumbs,
   text,
   stats,
   stamp,
+  notice,
+  suggest,
+  exporting,
+  shotRef,
+  onPhotoReady,
+  readOnly,
+  readOnlyHint,
   theme,
-  onClose,
-  onSave,
 }: {
-  visible: boolean;
   card: KeepsakeCard;
-  photos: CardPhoto[];
+  /** 카드 한 칸을 고친다. 고친 것은 바로 카드에 보인다. */
+  tune: (change: Partial<KeepsakeCard>) => void;
+  /** 얹은 것 목록을 고친다. 지금 목록을 받아 새 목록을 돌려준다. */
+  onDecor: (change: (list: CardDecor[]) => CardDecor[]) => void;
+  /** 이 여행에서 카드에 쓸 수 있는 사진 전부. 「사진」 갈래가 늘어놓는다. */
+  allPhotos: CardPhoto[];
+  /** 지금 카드에 그릴 사진. 고른 차례대로다. */
+  drawPhotos: CardPhoto[];
+  thumbs: Record<string, string>;
   text: { title: string; meta: string; caption: string; people: string };
   stats: { label: string; value: string }[];
   stamp: string;
+  /** 틀이 바라는 사진 수가 모자랄 때 알릴 말. */
+  notice: string;
+  /** 고른 사진 수에 어울리는 틀. 없으면 빈 글자다. */
+  suggest: string;
+  /** 내보내는 중인지. 그때만 카드를 줄이지 않고 표시본 그대로 그린다. */
+  exporting: boolean;
+  /** 내보낼 때 찍을 곳. */
+  shotRef?: React.RefObject<View | null>;
+  onPhotoReady?: (key: string) => void;
+  /** 남이 만든 카드. 보기만 하고 도구는 나오지 않는다. */
+  readOnly?: boolean;
+  readOnlyHint?: string;
   theme?: AppTheme;
-  /** 꾸민 것을 버리고 나간다. */
-  onClose: () => void;
-  /** 꾸민 것을 카드에 넣고 저장한다. */
-  onSave: (decor: CardDecor[]) => void;
 }) {
-  // 열 때 지금 카드에서 시작한다. 부르는 쪽이 열 때만 이 화면을 만들기 때문에,
-  // 나갔다 다시 열면 저장된 것에서 다시 시작한다.
-  const [decor, setDecor] = useState<CardDecor[]>(card.decor);
+  const [tab, setTab] = useState<CardToolTab>("틀");
   const [고른_것, 고르기] = useState("");
   const [칸, 칸재기] = useState({ width: 0, height: 0 });
-  const keyboardInset = useWebKeyboardInset(visible);
 
+  const accent = theme?.primary ?? "#3F4C8F";
+  const accentInk = onAccent(Boolean(theme?.dark));
   const size = keepsakeSizeOf(card.ratio, card.style);
-  const scale = fitScaleOf(
-    size.width,
-    size.height,
-    칸.width - STAGE_PAD * 2,
-    칸.height - STAGE_PAD * 2,
-  );
+  /**
+   * 내보낼 때는 줄이지 않는다.
+   *
+   * 웹의 캡처(html2canvas)는 화면에 그려진 크기 그대로 찍는다. 줄여 둔 카드를
+   * 찍으면 1080px 로 늘릴 때 뭉개진다. 내보내는 동안에는 카드를 제 크기로 되돌리고
+   * 부르는 쪽이 「만드는 중」 덮개로 가린다.
+   */
+  const scale = exporting
+    ? 1
+    : fitScaleOf(size.width, size.height, 칸.width - STAGE_PAD * 2, 칸.height - STAGE_PAD * 2);
   const onStageLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     칸재기((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
   }, []);
 
-  const onMove = useCallback((id: string, x: number, y: number) => {
-    setDecor((지금) => moveDecor(지금, id, x, y));
-  }, []);
-  const edit = useMemo(
-    () => ({ selectedId: 고른_것, scale, onSelect: 고르기, onMove }),
-    [고른_것, scale, onMove],
+  const onMove = useCallback(
+    (id: string, x: number, y: number) => onDecor((지금) => moveDecor(지금, id, x, y)),
+    [onDecor],
   );
-  const 보여줄_카드 = useMemo(() => ({ ...card, decor }), [card, decor]);
-  const 고른_줄 = decor.find((하나) => 하나.id === 고른_것);
+  const edit = useMemo(
+    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove }),
+    [readOnly, 고른_것, scale, onMove],
+  );
+  const 고른_줄 = card.decor.find((하나) => 하나.id === 고른_것);
+  const 네컷 = isCutStyle(card.style);
 
   const 붙이기 = (kind: KeepsakeSticker | "글자") => {
-    if (decor.length >= DECOR_MAX) return;
-    const 다음 = addDecor(decor, kind, kind === "글자" ? "여기에 적기" : "");
-    setDecor(다음);
+    if (card.decor.length >= DECOR_MAX) return;
+    // 새 목록을 먼저 만들고 그것을 넘긴다. 상태를 고치는 함수 안에서 고르면
+    // React 가 그 함수를 두 번 부를 때 엉뚱한 것이 골라진다.
+    const 다음 = addDecor(card.decor, kind, kind === "글자" ? "여기에 적기" : "");
+    onDecor(() => 다음);
     고르기(다음[다음.length - 1].id);
   };
   const 고친다 = (바꿈: (list: CardDecor[], id: string) => CardDecor[]) => {
     if (!고른_것) return;
-    setDecor((지금) => 바꿈(지금, 고른_것));
+    onDecor((지금) => 바꿈(지금, 고른_것));
   };
+  const 넣고_빼기 = <T extends string>(고른_목록: readonly T[], 값: T): T[] =>
+    고른_목록.includes(값) ? 고른_목록.filter((하나) => 하나 !== 값) : [...고른_목록, 값];
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={[styles.screen, theme && { backgroundColor: theme.dark ? theme.background : "#1B1A18" }, keyboardInset]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={styles.head}>
-          <Pressable
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="꾸미기 나가기"
-            style={({ pressed }) => [styles.headButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.headBack}>나가기</Text>
-          </Pressable>
-          <Text style={styles.headTitle}>카드 꾸미기</Text>
-          <Pressable
-            onPress={() => onSave(decor)}
-            accessibilityRole="button"
-            accessibilityLabel="꾸민 카드 저장"
-            style={({ pressed }) => [
-              styles.headSave,
-              theme && { backgroundColor: theme.primary },
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={[styles.headSaveText, theme && { color: onAccent(theme.dark) }]}>저장</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.stage} onLayout={onStageLayout} accessibilityLabel="꾸미는 카드">
-          {칸.width > 0 && (
-            <ScaledCard scale={scale} width={size.width} height={size.height}>
-              <KeepsakeCardView
-                card={보여줄_카드}
-                photos={photos}
-                text={text}
-                stats={stats}
-                stamp={stamp}
-                big={false}
-                edit={edit}
-              />
-            </ScaledCard>
-          )}
-        </View>
-
-        <View style={styles.tools}>
-          <Text style={styles.hint}>
-            {고른_줄
-              ? "끌어서 옮기고, 아래 단추로 크기와 각도를 바꿔요"
-              : decor.length
-                ? "스티커를 눌러 고르거나 끌어서 옮겨요"
-                : "아래에서 스티커를 눌러 카드에 붙여요"}
-          </Text>
-
-          {Boolean(고른_줄) && (
-            <View style={styles.toolRow}>
-              <Tool label="작게" theme={theme} onPress={() => 고친다((l, id) => resizeDecor(l, id, false))} />
-              <Tool label="크게" theme={theme} onPress={() => 고친다((l, id) => resizeDecor(l, id, true))} />
-              <Tool label="왼쪽" theme={theme} onPress={() => 고친다((l, id) => turnDecor(l, id, false))} />
-              <Tool label="오른쪽" theme={theme} onPress={() => 고친다((l, id) => turnDecor(l, id, true))} />
-              <Tool label="뒤로" theme={theme} onPress={() => 고친다((l, id) => raiseDecor(l, id, false))} />
-              <Tool label="앞으로" theme={theme} onPress={() => 고친다((l, id) => raiseDecor(l, id, true))} />
-              <Tool
-                label="삭제"
-                tone="위험"
-                theme={theme}
-                onPress={() => {
-                  고친다(removeDecor);
-                  고르기("");
-                }}
-              />
-            </View>
-          )}
-
-          {고른_줄?.kind === "글자" && (
-            <TextInput
-              value={고른_줄.text}
-              onChangeText={(값) => 고친다((l, id) => setDecorText(l, id, 값))}
-              placeholder="카드에 적을 짧은 말"
-              placeholderTextColor="#8C8378"
-              maxLength={DECOR_TEXT_MAX}
-              accessibilityLabel="카드에 적을 글"
-              style={styles.textInput}
+    <>
+      <View style={styles.stage} onLayout={onStageLayout} accessibilityLabel="꾸미는 카드">
+        {칸.width > 0 && (
+          <ScaledCard scale={scale} width={size.width} height={size.height}>
+            <KeepsakeCardView
+              shotRef={shotRef}
+              card={card}
+              photos={drawPhotos}
+              text={text}
+              stats={stats}
+              stamp={stamp}
+              big={exporting}
+              edit={edit}
+              onPhotoReady={onPhotoReady}
             />
-          )}
+          </ScaledCard>
+        )}
+      </View>
 
-          <View style={styles.paletteRow}>
-            {KEEPSAKE_STICKERS.map((sticker) => (
-              <Pressable
-                key={sticker}
-                onPress={() => 붙이기(sticker)}
-                accessibilityRole="button"
-                accessibilityLabel={`${sticker} 스티커 붙이기`}
-                style={({ pressed }) => [styles.palette, pressed && styles.pressed]}
-              >
-                <Glyph name={STICKER_LOOK[sticker].glyph} size={24} color={STICKER_LOOK[sticker].color} />
-              </Pressable>
-            ))}
-            <Pressable
-              onPress={() => 붙이기("글자")}
-              accessibilityRole="button"
-              accessibilityLabel="글자 붙이기"
-              style={({ pressed }) => [styles.palette, styles.paletteWide, pressed && styles.pressed]}
-            >
-              <Text style={styles.paletteText}>글자</Text>
-            </Pressable>
-          </View>
-          <Text style={styles.count}>
-            {decor.length >= DECOR_MAX
-              ? `카드 하나에 ${DECOR_MAX}개까지 붙일 수 있어요`
-              : `${decor.length}개 붙였어요`}
-          </Text>
+      {readOnly ? (
+        <View style={styles.readOnly}>
+          <Text style={styles.readOnlyText}>{readOnlyHint || "만든 사람과 관리자만 이 카드를 고칠 수 있어요"}</Text>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      ) : (
+        <>
+          <View style={styles.tabs}>
+            {CARD_TOOL_TABS.map((하나) => {
+              const on = tab === 하나;
+              return (
+                <Pressable
+                  key={하나}
+                  onPress={() => setTab(하나)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${하나} 고치기`}
+                  style={({ pressed }) => [styles.tab, on && styles.tabOn, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.tabText, on && styles.tabTextOn]}>{하나}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/*
+            도구 칸의 높이를 고정한다. 갈래마다 줄 수가 달라 칸이 늘었다 줄면 그때마다
+            카드가 다시 맞춰져 위아래로 튄다. 넘치는 갈래는 이 안에서 밀어 본다.
+          */}
+          <View style={styles.panel}>
+            <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelPad} keyboardShouldPersistTaps="handled">
+              {tab === "틀" && (
+                <>
+                  <PanelLabel text="틀" />
+                  <ChipRow
+                    options={KEEPSAKE_STYLES}
+                    chosen={(option) => option === card.style}
+                    accent={accent}
+                    accentInk={accentInk}
+                    onPress={(option) => tune({ style: option as KeepsakeStyle })}
+                  />
+                  {Boolean(suggest) && (
+                    <Pressable onPress={() => tune({ style: suggest as KeepsakeStyle })} style={styles.suggest}>
+                      <Text style={styles.suggestText}>
+                        사진 {card.photoIds.length}장이면 「{suggest}」 이 어울려요 · 누르면 바꿔요
+                      </Text>
+                    </Pressable>
+                  )}
+                  {/* 네컷 틀은 스트립 모양이 크기를 정한다. 비율을 고를 것이 없다. */}
+                  {!네컷 && (
+                    <>
+                      <PanelLabel text="비율" />
+                      <ChipRow
+                        options={KEEPSAKE_RATIOS}
+                        chosen={(option) => option === card.ratio}
+                        accent={accent}
+                        accentInk={accentInk}
+                        onPress={(option) => tune({ ratio: option as KeepsakeRatio })}
+                      />
+                    </>
+                  )}
+                  {/* 틀 색·날짜 도장·사진 설명은 네컷 틀만 그린다(`KeepsakeCardView`).
+                      다른 틀에서 켜면 아무 일도 일어나지 않아 고장으로 읽힌다. */}
+                  {네컷 && (
+                    <>
+                      <PanelLabel text="틀 색" />
+                      <ChipRow
+                        options={KEEPSAKE_FRAME_COLORS}
+                        chosen={(option) => option === card.frameColor}
+                        accent={accent}
+                        accentInk={accentInk}
+                        onPress={(option) => tune({ frameColor: option as KeepsakeFrameColor })}
+                      />
+                      <Toggle
+                        label="날짜 도장"
+                        on={card.dateStamp}
+                        accent={accent}
+                        onPress={() => tune({ dateStamp: !card.dateStamp })}
+                      />
+                      <Toggle
+                        label="사진 설명 넣기"
+                        on={card.photoCaptions}
+                        accent={accent}
+                        onPress={() => tune({ photoCaptions: !card.photoCaptions })}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+
+              {tab === "사진" && (
+                <>
+                  <PanelLabel text={`카드에 넣을 사진 · ${card.photoIds.length}장`} />
+                  {allPhotos.length === 0 ? (
+                    <Text style={styles.panelHint}>카드에 넣을 수 있는 사진이 아직 없어요</Text>
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pickRow}>
+                      {allPhotos.map((photo) => {
+                        const 차례 = card.photoIds.indexOf(photo.id);
+                        const uri = thumbs[photo.id] ?? photo.uri;
+                        return (
+                          <Pressable
+                            key={photo.id}
+                            onPress={() => tune({ photoIds: toggleKeepsakePhoto(card.photoIds, photo.id) })}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: 차례 >= 0 }}
+                            accessibilityLabel={`${photo.caption || "사진"}을 카드에 넣기`}
+                            style={[
+                              styles.pick,
+                              { backgroundColor: photo.color },
+                              차례 >= 0 && { borderColor: accent },
+                            ]}
+                          >
+                            {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
+                            {차례 >= 0 && card.photoIds.length > 1 && (
+                              <View style={styles.pickOrder}>
+                                <Text style={styles.pickOrderText}>{차례 + 1}</Text>
+                              </View>
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+                  <Text style={styles.panelHint}>
+                    {notice || "누른 차례가 카드에 놓이는 차례예요"}
+                  </Text>
+                </>
+              )}
+
+              {tab === "글" && (
+                <>
+                  <PanelLabel text="제목" />
+                  <TextInput
+                    value={card.title}
+                    onChangeText={(값) => tune({ title: 값 })}
+                    placeholder="예: 우리의 서울 주말"
+                    placeholderTextColor={INK_FAINT}
+                    maxLength={60}
+                    accessibilityLabel="카드 제목"
+                    style={styles.field}
+                  />
+                  <PanelLabel text="한 줄 설명" />
+                  <TextInput
+                    value={card.caption}
+                    onChangeText={(값) => tune({ caption: 값 })}
+                    placeholder="사진과 함께 남길 말을 적어보세요"
+                    placeholderTextColor={INK_FAINT}
+                    maxLength={200}
+                    accessibilityLabel="카드에 적을 한 줄 설명"
+                    style={styles.field}
+                  />
+                  <PanelLabel text="카드에 넣을 것" />
+                  <ChipRow
+                    options={KEEPSAKE_PARTS}
+                    chosen={(option) => card.parts.includes(option as KeepsakePart)}
+                    accent={accent}
+                    accentInk={accentInk}
+                    onPress={(option) => tune({ parts: 넣고_빼기(card.parts, option as KeepsakePart) })}
+                  />
+                  {card.parts.includes("통계") && (
+                    <>
+                      <PanelLabel text="어떤 숫자를 넣을까요" />
+                      <ChipRow
+                        options={KEEPSAKE_STAT_KINDS}
+                        chosen={(option) => card.stats.includes(option as KeepsakeStatKind)}
+                        accent={accent}
+                        accentInk={accentInk}
+                        onPress={(option) => tune({ stats: 넣고_빼기(card.stats, option as KeepsakeStatKind) })}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+
+              {tab === "스티커" && (
+                <>
+                  <PanelLabel text="붙일 것" />
+                  <View style={styles.paletteRow}>
+                    {KEEPSAKE_STICKERS.map((sticker) => (
+                      <Pressable
+                        key={sticker}
+                        onPress={() => 붙이기(sticker)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${sticker} 스티커 붙이기`}
+                        style={({ pressed }) => [styles.palette, pressed && styles.pressed]}
+                      >
+                        <Glyph name={STICKER_LOOK[sticker].glyph} size={22} color={STICKER_LOOK[sticker].color} />
+                      </Pressable>
+                    ))}
+                    <Pressable
+                      onPress={() => 붙이기("글자")}
+                      accessibilityRole="button"
+                      accessibilityLabel="글자 붙이기"
+                      style={({ pressed }) => [styles.palette, styles.paletteWide, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.paletteText}>글자</Text>
+                    </Pressable>
+                  </View>
+                  <PanelLabel
+                    text={고른_줄
+                      ? `고른 것 · ${고른_줄.kind === "글자" ? 고른_줄.text || "글자" : 고른_줄.kind}`
+                      : card.decor.length
+                        ? "카드에서 스티커를 눌러 고르거나 끌어서 옮겨요"
+                        : `붙인 것이 없어요 · ${DECOR_MAX}개까지 붙일 수 있어요`}
+                  />
+                  {Boolean(고른_줄) && (
+                    <>
+                      <View style={styles.chipRow}>
+                        <Tool label="작게" onPress={() => 고친다((l, id) => resizeDecor(l, id, false))} />
+                        <Tool label="크게" onPress={() => 고친다((l, id) => resizeDecor(l, id, true))} />
+                        <Tool label="왼쪽" onPress={() => 고친다((l, id) => turnDecor(l, id, false))} />
+                        <Tool label="오른쪽" onPress={() => 고친다((l, id) => turnDecor(l, id, true))} />
+                        <Tool label="뒤로" onPress={() => 고친다((l, id) => raiseDecor(l, id, false))} />
+                        <Tool label="앞으로" onPress={() => 고친다((l, id) => raiseDecor(l, id, true))} />
+                        <Tool
+                          label="삭제"
+                          tone="위험"
+                          onPress={() => {
+                            고친다(removeDecor);
+                            고르기("");
+                          }}
+                        />
+                      </View>
+                      {고른_줄?.kind === "글자" && (
+                        <TextInput
+                          value={고른_줄.text}
+                          onChangeText={(값) => 고친다((l, id) => setDecorText(l, id, 값))}
+                          placeholder="카드에 적을 짧은 말"
+                          placeholderTextColor={INK_FAINT}
+                          maxLength={DECOR_TEXT_MAX}
+                          accessibilityLabel="카드에 적을 글"
+                          style={styles.field}
+                        />
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </>
+      )}
+    </>
+  );
+}
+
+/** 고른 스티커를 만지는 단추. 위험한 것(삭제)만 다른 색이다. */
+function Tool({ label, tone, onPress }: { label: string; tone?: "위험"; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.chip, tone === "위험" && styles.chipDanger, pressed && styles.pressed]}
+    >
+      <Text style={[styles.chipText, tone === "위험" && styles.chipDangerText]}>{label}</Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  // 사진이 주인공이라 바탕을 어둡게 깐다. 앱의 다른 화면과 일부러 다르다.
-  screen: { flex: 1, backgroundColor: "#1B1A18" },
+  fill: { width: "100%", height: "100%" },
   pressed: { opacity: 0.65 },
-  head: {
+  // 남는 칸을 다 쓴다. 이 칸의 크기로 카드를 얼마나 줄일지 정한다.
+  stage: { flex: 1, alignItems: "center", justifyContent: "center", padding: STAGE_PAD },
+  tabs: { flexDirection: "row", gap: 6, paddingHorizontal: 12, paddingBottom: 9 },
+  tab: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: "center", backgroundColor: "#1C1B22" },
+  tabOn: { backgroundColor: "#2E2D3A" },
+  tabText: { fontSize: 12.5, color: INK_FAINT, fontFamily: typo.label.family },
+  tabTextOn: { color: ACCENT, fontFamily: typo.title.family },
+  // 갈래를 바꿔도 카드가 튀지 않게 높이를 잡아 둔다.
+  panel: {
+    minHeight: 196,
+    backgroundColor: PANEL,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "#26252D",
+  },
+  panelScroll: { maxHeight: 196 },
+  panelPad: { paddingHorizontal: 14, paddingBottom: 16 },
+  panelLabel: { fontSize: 11.5, color: INK_FAINT, marginBottom: 8, marginTop: 13, fontFamily: typo.label.family },
+  panelHint: { fontSize: 11.5, color: INK_FAINT, marginTop: 9, lineHeight: 16, fontFamily: typo.caption.family },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: {
+    minHeight: 32,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: CHIP,
+  },
+  chipText: { fontSize: 12.5, color: INK_SOFT, fontFamily: typo.label.family },
+  chipTextOn: { color: onAccent(false), fontFamily: typo.title.family },
+  chipDanger: { backgroundColor: "#4A2320" },
+  chipDangerText: { color: "#E7A79F" },
+  suggest: { paddingVertical: 8 },
+  suggestText: { fontSize: 11.5, color: ACCENT, fontFamily: typo.label.family },
+  toggleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingTop: Platform.OS === "ios" ? 52 : 18,
-    paddingBottom: 10,
-    gap: 10,
+    marginTop: 13,
+    minHeight: 32,
   },
-  headButton: { paddingVertical: 8, paddingHorizontal: 4, minWidth: 64 },
-  headBack: { fontSize: 13, color: "#D8D2C8", fontFamily: typo.label.family },
-  headTitle: { fontSize: 15, color: "#F6F1E7", fontFamily: typo.title.family },
-  headSave: {
-    minWidth: 64,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#3F4C8F",
-  },
-  headSaveText: { fontSize: 13, color: "#FFFFFF", fontFamily: typo.label.family },
-  // 남는 칸을 다 쓴다. 이 칸의 크기로 카드를 얼마나 줄일지 정한다.
-  stage: { flex: 1, alignItems: "center", justifyContent: "center", padding: STAGE_PAD },
-  // 도구 칸의 높이를 고정한다. 고른 것에 따라 줄이 늘었다 줄면 그때마다 카드가
-  // 다시 맞춰져 위아래로 튄다. 다 편 높이로 잡아 두면 카드가 제자리에 있는다.
-  tools: {
-    minHeight: 246,
-    justifyContent: "flex-end",
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === "ios" ? 28 : 14,
-    gap: 8,
-  },
-  hint: { fontSize: 12, color: "#B5AB9E", textAlign: "center", fontFamily: typo.label.family },
-  toolRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6 },
-  tool: {
-    height: 34,
-    paddingHorizontal: 12,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#2C2A28",
-  },
-  toolText: { fontSize: 12, color: "#F6F1E7", fontFamily: typo.label.family },
-  toolDanger: { backgroundColor: "#4A2320" },
-  toolDangerText: { color: "#E7A79F" },
-  textInput: {
+  toggleLabel: { fontSize: 12.5, color: INK_SOFT, fontFamily: typo.label.family },
+  toggleTrack: { width: 38, height: 22, borderRadius: 11, backgroundColor: CHIP, justifyContent: "center" },
+  toggleKnob: { width: 16, height: 16, borderRadius: 8, marginLeft: 3, backgroundColor: INK_FAINT },
+  toggleKnobOn: { marginLeft: 19, backgroundColor: "#FFFFFF" },
+  field: {
     height: 42,
     borderRadius: 10,
     paddingHorizontal: 12,
-    backgroundColor: "#2C2A28",
-    color: "#F6F1E7",
+    backgroundColor: CHIP,
+    color: INK,
     fontSize: 14,
     fontFamily: typo.body.family,
   },
-  paletteRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 },
+  pickRow: { gap: 8, paddingRight: 6, paddingVertical: 2 },
+  pick: { width: 54, height: 54, borderRadius: 10, borderWidth: 2, borderColor: "transparent", overflow: "hidden" },
+  // 고른 차례. 두 장 이상일 때만 보인다.
+  pickOrder: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(17,16,15,0.7)",
+  },
+  pickOrderText: { fontSize: 10, color: "#FFFFFF", fontFamily: typo.label.family },
+  paletteRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   palette: {
     width: 42,
     height: 42,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2C2A28",
+    backgroundColor: CHIP,
   },
   paletteWide: { width: 54 },
-  paletteText: { fontSize: 13, color: "#F6F1E7", fontFamily: typo.label.family },
-  count: { fontSize: 11, color: "#8C8378", textAlign: "center", fontFamily: typo.label.family },
+  paletteText: { fontSize: 13, color: INK, fontFamily: typo.label.family },
+  // 남이 만든 카드. 도구 자리에 왜 못 고치는지만 적는다.
+  readOnly: { minHeight: 64, justifyContent: "center", paddingHorizontal: 20, paddingBottom: 12 },
+  readOnlyText: { fontSize: 12, color: INK_FAINT, textAlign: "center", fontFamily: typo.caption.family },
 });

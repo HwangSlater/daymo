@@ -53,10 +53,11 @@ import {
 } from "./pastTripImport";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
+import { memoryDayCount, memoryFilterChips, memoryHeadCount, type MemoryFilter } from "./memoryFilter";
 import { originalSaveHint, photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
-import { PhotoEditScreen, PhotoViewerScreen, confirmPhotoDelete } from "./PhotoViewer";
+import { PhotoEditScreen, confirmPhotoDelete } from "./PhotoViewer";
 import { photoUploadHeadline, photoUploads, usePhotoUploads, type PhotoUploadJob } from "./photoUploads";
-import { TripCardsSection, type CardPhoto, type CardTile, type DetailUi } from "./TripCards";
+import { TripCardsSection, type CardPhoto, type CardTile } from "./TripCards";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
 import { savePhotoFile } from "./photoSave";
@@ -8463,9 +8464,10 @@ function Cooking({
  * 사진과 기념 카드를 한 격자에 놓았다. 여행의 기록은 한 덩어리인데 카드만 아래에
  * 따로 두면 같은 여행을 두 군데서 훑게 된다. 대신 종류별로 보고 싶을 때가 있어
  * 격자 위에 이 세 칩을 둔다.
+ *
+ * 개수는 이 칩들이 든다. 머리에 세 줄이나 더 얹어 같은 것을 세 번 세던 자리를
+ * 없앴다(`memoryFilter.ts`).
  */
-const PHOTO_FILTERS = ["전체", "사진", "기념 카드"] as const;
-type PhotoFilter = (typeof PHOTO_FILTERS)[number];
 
 /** 카드가 아직 오지 않았을 때. 렌더마다 새 배열을 만들면 격자가 매번 다시 계산된다. */
 const NO_CARDS: CardTile[] = [];
@@ -8584,7 +8586,7 @@ function Memories({
   /** 크게 보는 화면의 ⋮ 에서 연 신고 폼. */
   const [reporting, setReporting] = useState(false);
   /** 격자 위의 필터. 사진과 기념 카드를 한 격자에 놓고 여기서 갈라 본다. */
-  const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("전체");
+  const [photoFilter, setPhotoFilter] = useState<MemoryFilter>("전체");
   /** 기념 카드 목록과 손잡이. `TripCardsSection` 이 넘겨 준다. */
   const [cards, setCards] = useState<{ tiles: CardTile[]; open: (id: string) => void; create: () => void }>();
   const takeCards = useCallback((것: { tiles: CardTile[]; open: (id: string) => void; create: () => void }) => setCards(것), []);
@@ -8678,7 +8680,7 @@ function Memories({
     const 카드 = photoFilter === "사진"
       ? []
       : cardTiles.map((card): MemoryTile => ({ kind: "card", key: `card:${card.id}`, card }));
-    const 사진 = photoFilter === "기념 카드"
+    const 사진 = photoFilter === "카드"
       ? []
       : photos.map((photo, index): MemoryTile => ({ kind: "photo", key: `photo:${photo.id}`, photo, index }));
     return [...카드, ...사진];
@@ -8952,34 +8954,29 @@ function Memories({
   };
   return (
     <View>
+      {/* 탭 머리는 두 줄이다. 예전에는 제목 줄·요약 줄·섹션 제목 줄·필터 줄 네 줄이
+          쌓인 뒤에야 사진이 나왔고, 「9개」「8장·1편」「10개」로 같은 것을 세 번 셌다.
+          세는 일은 아래 필터 칩이 맡고, 여기서는 며칠에 걸친 기록인지만 알린다.
+          「전부 저장」과 두 번째 추가 버튼은 예전에 없앴다. 한 번 눌러 수십 장을
+          내려받는 버튼은 실수로 눌렀을 때 되돌릴 방법이 없고, 추가 버튼은 다른 탭과
+          같이 탭 머리에 하나면 된다. */}
       <TabActionHeader
         label="여행 기록"
-        count={`${photos.length + diaries.length}개`}
+        count={memoryHeadCount(memoryDayCount(photos.map((photo) => photo.date), UNDATED))}
         action="사진 추가"
         onPress={openPhotoCreate}
       />
-      <View style={styles.memorySummaryLine}>
-        <Text style={[styles.memorySummaryText, theme && { color: theme.muted }]}>사진 {photos.length}장 · 일기 {diaries.length}편</Text>
-        <Text style={[styles.memorySummaryText, theme && { color: theme.primary }]}>{new Set(photos.map((photo) => photo.date).filter((date) => date && date !== UNDATED)).size}일의 기록</Text>
-      </View>
-      {/* 「전부 저장」은 없앴다. 한 번 눌러 수십 장을 내려받는 버튼은 실수로 눌렀을 때
-          되돌릴 방법이 없다. 사진 추가는 탭 머리에 있는 것 하나면 된다. 다른 탭도
-          모두 탭 머리에 추가 버튼을 두고 있어, 여기에 하나 더 두면 같은 버튼이
-          한 화면에 둘이 된다. */}
-      <SectionLabel
-        label="사진과 기념 카드"
-        count={`${photos.length + cardTiles.length}개`}
-      />
       <View style={styles.memoryFilterLine}>
         <View style={styles.memoryFilterRow}>
-          {PHOTO_FILTERS.map((하나) => {
-            const on = photoFilter === 하나;
+          {memoryFilterChips(photos.length, cardTiles.length).map((칩) => {
+            const on = photoFilter === 칩.key;
             return (
               <Pressable
-                key={하나}
-                onPress={() => setPhotoFilter(하나)}
+                key={칩.key}
+                onPress={() => setPhotoFilter(칩.key)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
+                accessibilityLabel={`${칩.key} ${칩.count}개만 보기`}
                 style={({ pressed }) => [
                   styles.photoLinkChip,
                   theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -8994,24 +8991,23 @@ function Memories({
                   on && styles.optionTextActive,
                   on && theme && { color: theme.primary },
                 ]}>
-                  {하나}
+                  {칩.label}
                 </Text>
               </Pressable>
             );
           })}
         </View>
-        {/* 「기념 카드 만들어 보기」는 권하는 말이라 격자 아래 큰 버튼으로 두지 않는다.
-            큰 버튼은 해야 할 일처럼 보인다. 필터 줄 끝의 작은 글씨면 눈에는 들되
-            떠밀지는 않는다. */}
+        {/* 「카드 만들기」는 권하는 말이라 격자 아래 큰 버튼으로 두지 않는다. 큰 버튼은
+            해야 할 일처럼 보인다. 필터 줄 끝의 작은 글씨면 눈에는 들되 떠밀지는 않는다. */}
         {Boolean(cards && canEdit) && (
           <Pressable
             onPress={() => cards?.create()}
             hitSlop={6}
             accessibilityRole="button"
-            accessibilityLabel="기념 카드 만들어 보기"
+            accessibilityLabel="기념 카드 만들기"
             style={styles.memoryFilterLink}
           >
-            <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>기념 카드 만들어 보기</Text>
+            <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>카드 만들기</Text>
           </Pressable>
         )}
       </View>
@@ -9086,11 +9082,11 @@ function Memories({
           </Pressable>
         ))}
       </View>
-      {tiles.length === 0 && (photoFilter === "기념 카드" ? (
+      {tiles.length === 0 && (photoFilter === "카드" ? (
         <EmptyState
           title="아직 만든 기념 카드가 없어요"
           description="여행 사진 몇 장을 골라 한 장으로 묶어 보세요."
-          action="기념 카드 만들어 보기"
+          action="카드 만들기"
           onPress={canEdit && cards ? cards.create : undefined}
         />
       ) : (
@@ -9144,6 +9140,8 @@ function Memories({
           onPress={() => setShowAllDiaries((value) => !value)}
         />
       )}
+      {/* 사진을 크게 보는 창과 기념 카드 꾸미기는 한 창이다. 창은 카드 쪽이 그린다
+          (`TripCards.tsx`). 사진 쪽 몫만 여기서 내려 준다. */}
       <TripCardsSection
         tripId={cardTripId}
         tripName={tripName}
@@ -9155,35 +9153,32 @@ function Memories({
         counts={cardCounts}
         coverCardId={coverCardId}
         onSaveHomeCover={onSaveHomeCover}
-        onAddPhoto={openPhotoCreate}
         onInline={takeCards}
         canEdit={canEdit}
         theme={theme}
         notify={notify}
-        ui={CARD_UI}
-      />
-      {/* 사진을 크게 보는 화면. 시트가 아니라 화면을 통째로 덮는다. 사진첩을 넘겨 보는
-          자리라 사진이 주인공이어야 한다(`PhotoViewer.tsx`). */}
-      <PhotoViewerScreen
-        visible={Boolean(viewingPhotoId) && Boolean(viewing)}
-        photos={photos}
-        index={viewIndex}
-        onMove={moveViewing}
-        onClose={() => moveViewing(null)}
-        onSave={() => viewing && void saveOnePhoto(viewing, viewIndex)}
-        saving={saving}
-        saveBlocked={Boolean(viewing && uploadingPhotoIds.has(viewing.id))}
-        onEdit={viewing && canManagePhoto(viewing) ? () => openPhotoEdit(viewing) : undefined}
-        onReport={reportSpaceId && viewing && isServerId(viewing.id) ? () => setReporting(true) : undefined}
-        report={reporting && reportSpaceId && viewing && isServerId(viewing.id)
-          ? <ReportForm spaceId={reportSpaceId} targetType="photo" targetId={viewing.id} onClose={() => setReporting(false)} />
-          : undefined}
-        hint={viewing ? originalSaveHint(viewing.originalUntil, todayKey).text : undefined}
-        hintSoon={viewing ? originalSaveHint(viewing.originalUntil, todayKey).soon : false}
-        toast={photoToast}
-        waitingText={viewing && uploadingPhotoIds.has(viewing.id)
-          ? (blockedPhotoIds.has(viewing.id) ? "아직 못 올린 사진이에요" : "올리는 중이에요")
-          : undefined}
+        viewer={{
+          photos,
+          index: viewIndex,
+          photoId: viewingPhotoId,
+          onMove: moveViewing,
+          onSave: () => {
+            if (viewing) void saveOnePhoto(viewing, viewIndex);
+          },
+          saving,
+          saveBlocked: Boolean(viewing && uploadingPhotoIds.has(viewing.id)),
+          onEditPhoto: viewing && canManagePhoto(viewing) ? () => openPhotoEdit(viewing) : undefined,
+          onReport: reportSpaceId && viewing && isServerId(viewing.id) ? () => setReporting(true) : undefined,
+          report: reporting && reportSpaceId && viewing && isServerId(viewing.id)
+            ? <ReportForm spaceId={reportSpaceId} targetType="photo" targetId={viewing.id} onClose={() => setReporting(false)} />
+            : undefined,
+          hint: viewing ? originalSaveHint(viewing.originalUntil, todayKey).text : undefined,
+          hintSoon: viewing ? originalSaveHint(viewing.originalUntil, todayKey).soon : false,
+          toast: photoToast,
+          waitingText: viewing && uploadingPhotoIds.has(viewing.id)
+            ? (blockedPhotoIds.has(viewing.id) ? "아직 못 올린 사진이에요" : "올리는 중이에요")
+            : undefined,
+        }}
       />
       {/* 고치기도 전용 화면이다. 시트 안에서 사진을 작게 보며 고치던 자리를 옮겼다. */}
       <PhotoEditScreen
@@ -9334,55 +9329,6 @@ function PhotoLinkField({ options, value, onChange }: {
   );
 }
 
-/** 여럿을 켜고 끄는 칩 줄. 하나만 고르는 `OptionField` 와 손놀림이 같아야 해서 모양을 맞춘다. */
-function ToggleChips({ label, options, chosen, onToggle }: {
-  label: string;
-  options: readonly string[];
-  chosen: readonly string[];
-  onToggle: (value: string) => void;
-}) {
-  const theme = useContext(DetailThemeContext);
-  return (
-    <View style={styles.optionField}>
-      <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, requiredDot(label, theme)]} />
-        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
-      </View>
-      <View style={styles.photoLinkRow}>
-        {options.map((option) => {
-          const on = chosen.includes(option);
-          return (
-            <Pressable
-              key={option}
-              onPress={() => onToggle(option)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-              style={({ pressed }) => [
-                styles.photoLinkChip,
-                theme && { backgroundColor: theme.surface, borderColor: theme.border },
-                on && styles.optionChipActive,
-                on && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-                pressed && styles.controlPressed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  theme && { color: theme.muted },
-                  on && styles.optionTextActive,
-                  on && theme && { color: theme.primary },
-                ]}
-              >
-                {option}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 /** 어딘가에 붙은 사진 몇 장. 붙은 사진이 없으면 아무것도 그리지 않는다. */
 function PhotoStrip({ photos, label }: { photos: MemoryPhoto[]; label: string }) {
   const theme = useContext(DetailThemeContext);
@@ -9400,23 +9346,6 @@ function PhotoStrip({ photos, label }: { photos: MemoryPhoto[]; label: string })
     </View>
   );
 }
-
-/**
- * 기념 카드 화면이 쓰는 시트·칩 모양.
- *
- * 카드 코드는 `TripCards.tsx` 에 있다. 이 파일이 이미 아주 커서다. 새 디자인
- * 언어를 들이지 않으려고 여기 있는 것을 그대로 넘긴다. 매 렌더마다 새 객체를
- * 만들면 카드가 통째로 다시 그려지므로 모듈에 한 번만 만든다.
- */
-const CARD_UI: DetailUi = {
-  Sheet: DetailSheet,
-  Field: DetailField,
-  Option: OptionField,
-  Chips: ToggleChips,
-  Empty: EmptyState,
-  Label: SectionLabel,
-  requiredDot,
-};
 
 function SectionLabel({
   label,
@@ -14268,16 +14197,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
   },
-  memorySummaryLine: {
-    minHeight: 32,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 2,
-    marginTop: -4,
-    marginBottom: 4,
-  },
-  memorySummaryText: { fontSize: 11, fontFamily: typo.label.family },
   photoPickerPreview: {
     height: 176,
     borderRadius: 16,

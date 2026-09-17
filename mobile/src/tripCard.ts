@@ -171,6 +171,19 @@ export function keepsakeBodyOf(card: KeepsakeCard, tripName: string): Required<S
   };
 }
 
+/**
+ * 두 카드가 같은 그림인지.
+ *
+ * 꾸미다 「나가기」를 누를 때 한 번 물을지 그냥 접을지 가른다. 아무것도 손대지
+ * 않았는데 묻는 창이 뜨면 나가는 길이 두 번이 된다.
+ *
+ * 저장할 모양(`keepsakeBodyOf`)으로 재서 본다. 화면에서만 쓰는 값이나 소수점
+ * 끝자리 차이로 「고쳤다」고 보지 않으려면 서버에 실제로 보낼 것끼리 대야 한다.
+ */
+export function sameKeepsakeCard(a: KeepsakeCard, b: KeepsakeCard): boolean {
+  return JSON.stringify(keepsakeBodyOf(a, "")) === JSON.stringify(keepsakeBodyOf(b, ""));
+}
+
 /** 고른 사진을 넣었다 뺐다 한다. 넘치면 가장 먼저 고른 것을 밀어낸다. */
 export function toggleKeepsakePhoto(photoIds: readonly string[], id: string): string[] {
   if (photoIds.includes(id)) {

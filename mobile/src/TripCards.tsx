@@ -1,38 +1,37 @@
 /**
- * 여행 기념 카드 — 목록과 만들기 시트, 그리고 카드 그림 그 자체.
+ * 여행 기념 카드 — 목록과, 사진 창 안에서 카드를 만들고 고치는 일.
  *
- * `WarmTripDetail.tsx` 가 이미 아주 커서 여기로 뺐다. 시트·칩 모양은 그 파일의
- * 것을 그대로 가져다 쓴다(새 디자인 언어를 들이지 않는다).
+ * `WarmTripDetail.tsx` 가 이미 아주 커서 여기로 뺐다.
+ *
+ * 카드는 **사진을 크게 보는 창과 한 창**에서 만든다(`PhotoViewer.tsx`). 예전에는
+ * 사진 크게 보기, 카드 시트, 꾸미기 화면이 셋 다 다른 창이었다. 사진 한 장을
+ * 카드로 만들려면 창을 두 번 갈아 끼워야 했고, 그때마다 보던 사진이 사라졌다.
+ * 이제는 그 창에서 「꾸미기」를 누르면 그 자리에서 사진이 카드가 된다. 그래서 이
+ * 화면은 목록과 카드 상태만 들고 있고, 그리는 일은 사진 창과 도구
+ * (`CardDecorEditor.tsx`)에 맡긴다.
  *
  * 무엇을 어떻게 그릴지 정하는 계산은 전부 `tripCard.ts`·`cardDecor.ts` 에 있다.
- * 카드 그림 자체는 `KeepsakeCardView.tsx` 에 있고, 미리보기·내보내기·꾸미기 화면이
- * 그 하나를 같이 쓴다. 보이는 그대로 저장돼야 해서다.
- *
- * 스티커와 글자를 손으로 얹는 것은 전용 화면(`CardDecorEditor.tsx`)에서 한다.
+ * 카드 그림 자체는 `KeepsakeCardView.tsx` 에 있고, 미리보기·내보내기·꾸미기가 그
+ * 하나를 같이 쓴다. 보이는 그대로 저장돼야 해서다.
  *
  * 무거워지기 쉬운 화면이라 몇 가지를 지킨다.
  * - 미리보기는 썸네일(480px)을 쓰고 내보낼 때만 표시본(1440px)으로 바꿔 찍는다.
- * - 칩 하나를 눌러도 시트 전체가 다시 그려지지 않게 미리보기와 꾸미기를 갈라 두고
- *   둘 다 `memo` 로 감쌌다. 넘기는 값은 `useMemo`·`useCallback` 으로 붙들어 둔다.
  * - 목록은 카드마다 대표 사진 한 장만 받는다. 나머지는 그 카드를 열 때 받는다.
+ * - 기록 탭으로 올려 보내는 손잡이(`onInline`)는 붙들어 둔 것만 넘긴다. 매 렌더마다
+ *   새로 만들면 위에서 상태를 고치고 그 때문에 다시 렌더되는 고리가 생긴다.
  */
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Image, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
-import { Text } from "./AppText";
-import { CardDecorEditor } from "./CardDecorEditor";
-import { Glyph } from "./Glyph";
-import {
-  CardStage,
-  KeepsakeCardView,
-  type CardPhoto,
-} from "./KeepsakeCardView";
+import { CardDecorTools } from "./CardDecorEditor";
+import { type CardPhoto } from "./KeepsakeCardView";
+import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
 import { DaymoApiError } from "./auth";
 import type { CardDecor } from "./cardDecor";
-import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
+import { isLivePhotoUri, downloadPhoto } from "./photoTransfer";
 import {
   createTripCard,
   deleteTripCard,
@@ -42,11 +41,9 @@ import {
 } from "./serverData";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
-import { typo } from "./theme/typography";
-import { COVER_BADGE, COVER_FAIL, coverToggleOf } from "./coverPhoto";
+import { COVER_FAIL, coverToggleOf } from "./coverPhoto";
 import {
   homeCardBlockedReason,
-  isCutStyle,
   keepsakeAddBlockedReason,
   keepsakeBodyOf,
   keepsakeCardOf,
@@ -57,19 +54,10 @@ import {
   keepsakeSizeOf,
   keepsakeStatLines,
   keepsakeTextOf,
+  sameKeepsakeCard,
   suggestedStyleOf,
-  toggleKeepsakePhoto,
-  KEEPSAKE_FRAME_COLORS,
-  KEEPSAKE_PARTS,
-  KEEPSAKE_RATIOS,
-  KEEPSAKE_STAT_KINDS,
   KEEPSAKE_STYLES,
   type KeepsakeCard,
-  type KeepsakeFrameColor,
-  type KeepsakePart,
-  type KeepsakeRatio,
-  type KeepsakeStatKind,
-  type KeepsakeStyle,
 } from "./tripCard";
 import { shareTripCard } from "./tripCardExport";
 
@@ -99,6 +87,34 @@ export type CardCounts = {
   days: number;
   /** 통화까지 붙인 지출 합. */
   spent: string;
+};
+
+/**
+ * 사진을 크게 보는 창에 넘길 것.
+ *
+ * 사진 쪽 일(넘기기·저장·신고·고치기)은 기록 탭이 안다. 카드 쪽 일은 이 화면이
+ * 안다. 한 창이 둘을 같이 쓰므로, 기록 탭이 사진 몫을 여기로 내려 준다.
+ */
+export type CardViewer = {
+  photos: ViewerPhoto[];
+  /** 지금 보는 사진의 차례. 목록에 없으면 -1 이다. */
+  index: number;
+  /** 지금 보는 사진 id. 없으면 사진 없이 카드만 꾸미는 중이다. */
+  photoId: string | null;
+  /** 사진을 넘기거나(id) 창을 닫는다(null). */
+  onMove: (photoId: string | null) => void;
+  /** ↓. 묻지 않고 바로 받는다. */
+  onSave: () => void;
+  saving: boolean;
+  saveBlocked: boolean;
+  /** ✎ 사진 고치기. 고칠 수 없는 사람에게는 주지 않는다. */
+  onEditPhoto?: () => void;
+  onReport?: () => void;
+  report?: React.ReactNode;
+  hint?: string;
+  hintSoon?: boolean;
+  toast?: string;
+  waitingText?: string;
 };
 
 /**
@@ -135,244 +151,11 @@ function usePhotoThumbs(ids: readonly string[]): Record<string, string> {
 }
 
 /**
- * 꾸미기 목록.
+ * 기록 탭의 기념 카드 몫.
  *
- * 미리보기와 갈라 두고 `memo` 로 감쌌다. 칩 하나를 눌러도 카드를 다시 그릴 뿐
- * 이 목록 전체가 다시 그려지지는 않는다.
- */
-const CardTuner = memo(function CardTuner({
-  card,
-  photos,
-  thumbs,
-  theme,
-  tune,
-  Field,
-  Option,
-  Chips,
-  requiredDot,
-}: {
-  card: KeepsakeCard;
-  photos: CardPhoto[];
-  thumbs: Record<string, string>;
-  theme?: AppTheme;
-  tune: (change: Partial<KeepsakeCard>) => void;
-  Field: DetailUi["Field"];
-  Option: DetailUi["Option"];
-  Chips: DetailUi["Chips"];
-  requiredDot: DetailUi["requiredDot"];
-}) {
-  const 네컷 = isCutStyle(card.style);
-  const 권함 = suggestedStyleOf(card.style, card.photoIds.length);
-  const 켜고끄기 = useMemo(() => {
-    const 켠_것: string[] = [];
-    if (card.dateStamp) 켠_것.push("날짜 도장");
-    if (card.photoCaptions) 켠_것.push("사진 설명");
-    return 켠_것;
-  }, [card.dateStamp, card.photoCaptions]);
-  return (
-    <>
-      <View style={styles.pickField}>
-        <View style={styles.pickLabelRow}>
-          <View style={[styles.pickLabelDot, requiredDot("카드에 쓸 사진", theme)]} />
-          <Text style={[styles.pickLabel, theme && { color: theme.text }]}>
-            카드에 쓸 사진 · {card.photoIds.length}장
-          </Text>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pickRow}>
-          {photos.map((photo) => {
-            const 차례 = card.photoIds.indexOf(photo.id);
-            const uri = thumbs[photo.id] ?? photo.uri;
-            return (
-              <Pressable
-                key={`${photo.id}-pick`}
-                onPress={() => tune({ photoIds: toggleKeepsakePhoto(card.photoIds, photo.id) })}
-                accessibilityRole="button"
-                accessibilityState={{ selected: 차례 >= 0 }}
-                accessibilityLabel={`${photo.caption || "사진"}을 카드에 넣기`}
-                style={[
-                  styles.pick,
-                  { backgroundColor: photo.color },
-                  차례 >= 0 && styles.pickChosen,
-                  차례 >= 0 && theme && { borderColor: theme.primary },
-                ]}
-              >
-                {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
-                {차례 >= 0 && card.photoIds.length > 1 && (
-                  <View style={styles.pickOrder}>
-                    <Text style={styles.pickOrderText}>{차례 + 1}</Text>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-      <Option
-        label="카드 스타일"
-        options={KEEPSAKE_STYLES}
-        value={card.style}
-        onChange={(value) => tune({ style: value as KeepsakeStyle })}
-      />
-      {Boolean(권함) && (
-        <Pressable onPress={() => tune({ style: 권함 as KeepsakeStyle })} style={styles.suggest}>
-          <Text style={[styles.suggestText, theme && { color: theme.primary }]}>
-            사진 {card.photoIds.length}장이면 「{권함}」 이 어울려요 · 누르면 바꿔요
-          </Text>
-        </Pressable>
-      )}
-      {!네컷 && (
-        <Option
-          label="방향과 비율"
-          options={KEEPSAKE_RATIOS}
-          value={card.ratio}
-          onChange={(value) => tune({ ratio: value as KeepsakeRatio })}
-        />
-      )}
-      {네컷 && (
-        <>
-          <Option
-            label="틀 색"
-            options={KEEPSAKE_FRAME_COLORS}
-            value={card.frameColor}
-            onChange={(value) => tune({ frameColor: value as KeepsakeFrameColor })}
-          />
-          <Chips
-            label="도장과 설명"
-            options={["날짜 도장", "사진 설명"]}
-            chosen={켜고끄기}
-            onToggle={(value) =>
-              tune(value === "날짜 도장" ? { dateStamp: !card.dateStamp } : { photoCaptions: !card.photoCaptions })
-            }
-          />
-        </>
-      )}
-      <Chips
-        label="카드에 넣을 것"
-        options={KEEPSAKE_PARTS}
-        chosen={card.parts}
-        onToggle={(value) =>
-          tune({
-            parts: card.parts.includes(value as KeepsakePart)
-              ? card.parts.filter((item) => item !== value)
-              : [...card.parts, value as KeepsakePart],
-          })
-        }
-      />
-      {card.parts.includes("통계") && (
-        <Chips
-          label="어떤 숫자를 넣을까요"
-          options={KEEPSAKE_STAT_KINDS}
-          chosen={card.stats}
-          onToggle={(value) =>
-            tune({
-              stats: card.stats.includes(value as KeepsakeStatKind)
-                ? card.stats.filter((item) => item !== value)
-                : [...card.stats, value as KeepsakeStatKind],
-            })
-          }
-        />
-      )}
-      <Field
-        label="카드 제목 · 선택 사항"
-        value={card.title}
-        onChangeText={(value) => tune({ title: value })}
-        placeholder="예: 우리의 서울 주말"
-      />
-      <Field
-        label="짧은 문구 · 선택 사항"
-        value={card.caption}
-        onChangeText={(value) => tune({ caption: value })}
-        placeholder="사진과 함께 남길 말을 적어보세요"
-        multiline
-      />
-    </>
-  );
-});
-
-/** 목록의 카드 한 줄. 대표 사진 한 장만 받아 보여 준다. */
-const CardRow = memo(function CardRow({
-  label,
-  color,
-  uri,
-  onHome,
-  theme,
-  onPress,
-}: {
-  label: string;
-  color: string;
-  uri?: string;
-  /** 지금 홈 화면에 깔려 있는 카드인지. 목록에서 바로 보이게 표시를 단다. */
-  onHome?: boolean;
-  theme?: AppTheme;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${label} 카드 ${onHome ? "· 홈 화면에 쓰는 중 " : ""}열기`}
-      style={[styles.listRow, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
-    >
-      <View style={[styles.listThumb, { backgroundColor: color }]}>
-        {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
-        {onHome && (
-          <View style={styles.homeBadge} pointerEvents="none">
-            <Glyph name="home" size={9} color="#FFFFFF" />
-            <Text style={styles.homeBadgeText}>{COVER_BADGE}</Text>
-          </View>
-        )}
-      </View>
-      <Text numberOfLines={1} style={[styles.listLabel, theme && { color: theme.text }]}>{label}</Text>
-    </Pressable>
-  );
-});
-
-/** 부르는 쪽(`WarmTripDetail`)이 쓰는 시트·칩 모양. 여기서 새로 만들지 않는다. */
-export type DetailUi = {
-  Sheet: React.ComponentType<{
-    visible: boolean;
-    title: string;
-    subtitle?: string;
-    submit: string;
-    destructiveLabel?: string;
-    destructiveMessage?: string;
-    readOnly?: boolean;
-    readOnlyHint?: string;
-    onDestructive?: () => void;
-    onClose: () => void;
-    onSubmit: () => void | Promise<void>;
-    children: React.ReactNode;
-  }>;
-  Field: React.ComponentType<{
-    label: string;
-    value: string;
-    onChangeText: (text: string) => void;
-    placeholder?: string;
-    multiline?: boolean;
-  }>;
-  Option: React.ComponentType<{
-    label: string;
-    options: string[];
-    value: string;
-    onChange: (value: string) => void;
-  }>;
-  Chips: React.ComponentType<{
-    label: string;
-    options: readonly string[];
-    chosen: readonly string[];
-    onToggle: (value: string) => void;
-  }>;
-  Empty: React.ComponentType<{ title: string; description: string; action: string; onPress?: () => void }>;
-  Label: React.ComponentType<{ label: string; count?: string }>;
-  requiredDot: (label: string, theme?: AppTheme) => { backgroundColor: string } | undefined;
-};
-
-/**
- * 기록 탭의 「여행 기념 카드」 자리.
- *
- * 만든 카드를 목록으로 보여 주고, 누르면 그 카드로 시트를 연다. 서버 여행이면
- * 카드가 `trip_cards` 에 남아 함께 보는 사람에게도 보인다. 예시 여행은 서버에
- * 보낼 곳이 없어 이 화면에서만 산다.
+ * 만든 카드를 목록으로 위에 넘기고(`onInline`), 카드를 열고 고치는 창을 그린다.
+ * 서버 여행이면 카드가 `trip_cards` 에 남아 함께 보는 사람에게도 보인다. 예시
+ * 여행은 서버에 보낼 곳이 없어 이 화면에서만 산다.
  */
 export function TripCardsSection({
   tripId,
@@ -385,12 +168,11 @@ export function TripCardsSection({
   counts,
   coverCardId,
   onSaveHomeCover,
-  onAddPhoto,
   onInline,
   canEdit,
   theme,
   notify,
-  ui,
+  viewer,
 }: {
   /** 서버 여행 id. 없으면 예시 여행이라 카드가 이 화면에서만 산다. */
   tripId?: string;
@@ -410,38 +192,47 @@ export function TripCardsSection({
     고른_것: { coverPhotoId: string | null } | { coverCardId: string | null },
     localUris?: Record<string, string | undefined>,
   ) => Promise<void>;
-  onAddPhoto?: () => void;
   /**
-   * 카드를 이 자리에 늘어놓지 않고 부르는 쪽(기록 탭)의 사진 격자에 함께 놓는다.
+   * 카드 목록과 손잡이를 기록 탭으로 올려 보낸다.
    *
-   * 목록과 손잡이(열기·만들기)를 위로 넘기고 여기서는 시트만 그린다. 카드를 만들고
-   * 고치는 일은 전부 이 파일에 남아 있어야 해서 상태를 위로 올리지는 않았다.
+   * 카드는 사진 격자에 함께 놓인다. 목록과 열기·만들기만 위로 넘기고 카드를
+   * 만들고 고치는 일은 전부 이 파일에 남는다.
    */
-  onInline?: (것: { tiles: CardTile[]; open: (id: string) => void; create: () => void }) => void;
+  onInline: (것: { tiles: CardTile[]; open: (id: string) => void; create: () => void }) => void;
   canEdit: boolean;
   theme?: AppTheme;
   notify: (message: string) => void;
-  ui: DetailUi;
+  /** 사진을 크게 보는 창의 사진 쪽 몫. */
+  viewer: CardViewer;
 }) {
-  const { Sheet, Empty, Label } = ui;
   // 카드에 쓸 수 있는 사진은 파일이 기기에 있는 것뿐이다. 웹의 blob: 주소는 탭을
   // 새로 열면 죽어서, 그 사진을 고르면 빈 칸이 찍힌다.
   const cardPhotos = useMemo(() => photos.filter((photo) => isLivePhotoUri(photo.uri)), [photos]);
   const photoIds = useMemo(() => cardPhotos.map((photo) => photo.id), [cardPhotos]);
 
   const [rows, setRows] = useState<ServerTripCard[]>([]);
+  /** 지금 꾸미는 카드. `새 카드` 면 아직 저장 전이다. 비어 있으면 도구가 접혀 있다. */
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState<KeepsakeCard | null>(null);
-  const [tuning, setTuning] = useState(false);
-  // 전용 꾸미기 화면이 떠 있는지. 시트 위에 창을 하나 더 띄우는 대신 시트는 그대로 두고
-  // 그 위를 덮는다. 나가면 시트가 다시 보인다.
-  const [decorOpen, setDecorOpen] = useState(false);
+  /** 꾸미기를 시작할 때의 카드. 「나가기」에서 손댄 것이 있는지 볼 때만 쓴다. */
+  const [baseline, setBaseline] = useState<KeepsakeCard | null>(null);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const shot = useRef<View>(null);
   // 다 그려진 사진. 화면에 알리는 것과 캡처 전에 기다리는 것 둘 다 쓴다.
   const [drawnKeys, setDrawnKeys] = useState<string[]>([]);
   const drawn = useRef(new Set<string>());
+  /**
+   * 사진 쪽 몫의 최신 값.
+   *
+   * 아래 손잡이들은 기록 탭으로 올려 보내는 것이라 렌더마다 새로 만들면 안 된다
+   * (위에서 상태를 고치고 그 때문에 다시 렌더되는 고리가 생긴다). 그래서 매 렌더
+   * 바뀌는 사진 쪽 값은 붙들지 않고 여기로 읽는다. 렌더 중에는 읽지 않는다.
+   */
+  const viewerRef = useRef(viewer);
+  useEffect(() => {
+    viewerRef.current = viewer;
+  });
 
   useEffect(() => {
     if (!tripId) return;
@@ -499,7 +290,6 @@ export function TripCardsSection({
   );
   const blocked = keepsakeAddBlockedReason(list.length, cardPhotos.length);
 
-
   const markDrawn = useCallback((key: string) => {
     if (drawn.current.has(key)) return;
     drawn.current.add(key);
@@ -513,21 +303,27 @@ export function TripCardsSection({
     }
     setDraft((current) => (current ? { ...current, ...change } : current));
   }, []);
+  const onDecor = useCallback((change: (list: CardDecor[]) => CardDecor[]) => {
+    setDraft((current) => (current ? { ...current, decor: change(current.decor) } : current));
+  }, []);
 
+  /** 도구를 펼친다. 창은 이미 떠 있으므로 카드만 갈아 끼운다. */
   const openCard = useCallback((id: string, start: KeepsakeCard) => {
     drawn.current = new Set();
     setDrawnKeys([]);
     setDraft(start);
+    setBaseline(start);
     setOpenId(id);
-    setTuning(false);
-    setDecorOpen(false);
+    setExporting(false);
   }, []);
   const makeCard = useCallback(() => {
     if (blocked) {
       notify(blocked);
       return;
     }
-    openCard("새 카드", keepsakeCardOf(undefined, tripName, photoIds));
+    const 시작 = keepsakeCardOf(undefined, tripName, photoIds);
+    openCard("새 카드", 시작);
+    viewerRef.current.onMove(시작.photoIds[0] ?? null);
   }, [blocked, notify, openCard, photoIds, tripName]);
   // 사진 격자에 함께 놓을 타일. 대표 사진 한 장의 색과 썸네일만 실어 보낸다.
   const tiles = useMemo<CardTile[]>(
@@ -541,24 +337,46 @@ export function TripCardsSection({
       })),
     [cardPhotos, coverCardId, list, thumbs],
   );
+  /**
+   * 격자에서 카드를 눌렀을 때. 같은 창이 처음부터 펼쳐진 상태로 열린다.
+   *
+   * 보던 사진 자리에는 그 카드의 첫 사진을 둔다. 「나가기」로 도구를 접으면 그
+   * 사진을 크게 보는 자리가 되어야 해서다.
+   */
   const openTile = useCallback(
     (id: string) => {
       const 줄 = list.find((하나) => 하나.id === id);
-      if (줄) openCard(줄.id, 줄.card);
+      if (!줄) return;
+      openCard(줄.id, 줄.card);
+      viewerRef.current.onMove(줄.card.photoIds[0] ?? null);
     },
     [list, openCard],
   );
   useEffect(() => {
-    onInline?.({ tiles, open: openTile, create: makeCard });
+    onInline({ tiles, open: openTile, create: makeCard });
   }, [makeCard, onInline, openTile, tiles]);
-  const closeCard = () => {
+
+  /** 창을 통째로 닫는다. 카드도 사진도 놓는다. */
+  const closeAll = () => {
     setOpenId(null);
     setDraft(null);
+    setBaseline(null);
     setExporting(false);
-    setDecorOpen(false);
+    viewerRef.current.onMove(null);
+  };
+  /** 도구만 접고 사진 보기로 돌아간다. 꾸미던 카드의 첫 사진 앞에 선다. */
+  const collapse = () => {
+    const 첫_사진 = draft?.photoIds[0];
+    setOpenId(null);
+    setDraft(null);
+    setBaseline(null);
+    setExporting(false);
+    const 지금 = viewerRef.current;
+    if (첫_사진 && 지금.photos.some((하나) => 하나.id === 첫_사진)) 지금.onMove(첫_사진);
+    else if (!지금.photoId) 지금.onMove(null);
   };
 
-  /** 꾸민 값을 서버에 올린다. 시트의 저장과 꾸미기 화면의 저장이 같이 쓴다. */
+  /** 꾸민 값을 서버에 올린다. */
   const persist = async (지금: KeepsakeCard | null) => {
     const 고칠_수_있다 = canManage && canEdit;
     if (!지금 || !tripId || !고칠_수_있다) return;
@@ -581,18 +399,52 @@ export function TripCardsSection({
     }
   };
 
+  /** 머리줄의 「저장」. 카드를 만들거나 고치고 창을 닫는다. */
   const saveCard = async () => {
     const 지금 = draft;
-    closeCard();
+    if (readOnly) {
+      closeAll();
+      return;
+    }
+    if (!tripId) {
+      notify("예시 여행이라 기념 카드가 저장되지 않아요");
+      closeAll();
+      return;
+    }
+    closeAll();
     await persist(지금);
   };
 
-  /** 꾸미기 화면에서 저장. 시트는 그대로 두고 꾸민 카드가 미리보기에 바로 보인다. */
-  const saveDecor = async (decor: CardDecor[]) => {
-    const 지금 = draft ? { ...draft, decor } : null;
-    setDraft(지금);
-    setDecorOpen(false);
-    await persist(지금);
+  /**
+   * 머리줄의 「나가기」.
+   *
+   * 손댄 것이 있으면 한 번 묻는다. 웹에서도 물으려고 `showAlert` 를 쓴다
+   * (`Alert.alert` 은 웹에서 아무 일도 하지 않는다).
+   */
+  const leaveDecor = () => {
+    if (!readOnly && baseline && draft && !sameKeepsakeCard(baseline, draft)) {
+      showAlert("꾸미던 것을 버릴까요?", "저장하지 않은 꾸미기가 사라져요.", [
+        { text: "계속 꾸미기", style: "cancel" },
+        { text: "버리기", style: "destructive", onPress: collapse },
+      ]);
+      return;
+    }
+    collapse();
+  };
+
+  /** 사진 창의 「꾸미기」. 보던 사진 한 장으로 카드를 시작한다. */
+  const startDecor = () => {
+    const 보던_사진 = viewerRef.current.photoId;
+    const 쓸_수_있나 = 보던_사진 && cardPhotos.some((photo) => photo.id === 보던_사진);
+    if (!쓸_수_있나) {
+      notify("이 사진은 아직 카드에 넣을 수 없어요");
+      return;
+    }
+    if (blocked) {
+      notify(blocked);
+      return;
+    }
+    openCard("새 카드", { ...keepsakeCardOf(undefined, tripName, photoIds), photoIds: [보던_사진] });
   };
 
   const removeCard = () => {
@@ -604,7 +456,7 @@ export function TripCardsSection({
         text: "삭제",
         style: "destructive",
         onPress: () => {
-          closeCard();
+          closeAll();
           setRows((current) => current.filter((줄) => 줄.id !== 지울_것.id));
           deleteTripCard(지울_것.id).catch(() => notify("카드를 지우지 못했어요. 잠시 뒤에 다시 시도해 주세요"));
           notify("기념 카드를 지웠어요");
@@ -621,7 +473,11 @@ export function TripCardsSection({
 
   /** 화면에 그려 둔 카드를 그대로 찍어 내보낸다. 웹은 내려받고 폰은 공유 시트로 간다. */
   const exportCard = async () => {
-    if (!card || busy || !ready) return;
+    if (!card || busy) return;
+    if (!ready) {
+      notify("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
+      return;
+    }
     setBusy(true);
     // 표시본으로 바꿔 그린 뒤에 찍는다. 미리보기 내내 1440px 사진을 들고 있지 않는다.
     setExporting(true);
@@ -689,199 +545,78 @@ export function TripCardsSection({
     }
   };
 
+  /**
+   * ⋮ 안에 둘 것.
+   *
+   * 내보내기·홈 화면·삭제는 카드를 다 꾸민 뒤에 한 번 쓰는 것이다. 네 갈래 도구에
+   * 섞어 두면 매번 지나치게 되고, 머리줄에 늘어놓으면 「저장」이 묻힌다.
+   */
+  const cardMenu: ViewerDecor["menu"] = readOnly
+    ? []
+    : [
+        {
+          label: Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기",
+          onPress: () => void exportCard(),
+        },
+        ...(onSaveHomeCover && open ? [{ label: cover.label, onPress: () => void toggleCover() }] : []),
+        ...(open && tripId ? [{ label: "카드 삭제", tone: "위험" as const, onPress: removeCard }] : []),
+      ];
+
+  // 꾸밀 수 없는 사람에게는 「꾸미기」 한 줄도 주지 않는다. 다만 남의 카드를 열어
+  // 보는 중이면 그 창은 카드 모습이라야 한다.
+  const decorReady = canEdit || Boolean(openId);
+  const decor: ViewerDecor | undefined = decorReady
+    ? {
+        open: Boolean(openId),
+        onOpen: startDecor,
+        onBack: leaveDecor,
+        onSave: () => void saveCard(),
+        saveLabel: readOnly || !tripId ? "닫기" : "저장",
+        menu: cardMenu,
+        busyText: busy ? "카드를 만드는 중이에요" : undefined,
+        body: card ? (
+          <CardDecorTools
+            card={card}
+            tune={tune}
+            onDecor={onDecor}
+            allPhotos={cardPhotos}
+            drawPhotos={drawPhotos}
+            thumbs={thumbs}
+            text={text}
+            stats={stats}
+            stamp={stamp}
+            notice={frame?.notice ?? ""}
+            suggest={suggestedStyleOf(card.style, card.photoIds.length)}
+            exporting={exporting}
+            shotRef={shot}
+            onPhotoReady={markDrawn}
+            readOnly={readOnly}
+            readOnlyHint={canEdit ? "만든 사람과 관리자만 이 카드를 고칠 수 있어요" : undefined}
+            theme={theme}
+          />
+        ) : null,
+      }
+    : undefined;
+
   return (
-    <>
-      {/* 격자에 함께 놓기로 한 자리(`onInline`)에서는 목록도 만들기 버튼도 여기서
-          그리지 않는다. 기록 탭이 사진과 같은 격자에 세우고, 만들기는 필터 줄
-          옆의 작은 글씨가 맡는다. 시트만 여기 남는다. */}
-      {!onInline && (
-        <>
-          <Label label="여행 기념 카드" count={list.length ? `${list.length}장` : undefined} />
-          {cardPhotos.length === 0 ? (
-            <Empty
-              title="카드로 만들 사진이 없어요"
-              description="사진을 한 장 추가하면 그 사진으로 기념 카드를 만들 수 있어요."
-              action="사진 추가"
-              onPress={canEdit ? onAddPhoto : undefined}
-            />
-          ) : (
-            <>
-              {list.length > 0 && (
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={list}
-                  keyExtractor={(줄) => 줄.id}
-                  contentContainerStyle={styles.listRowGap}
-                  initialNumToRender={4}
-                  windowSize={3}
-                  removeClippedSubviews
-                  renderItem={({ item }) => (
-                    <CardRow
-                      label={item.label}
-                      color={cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.color ?? "#E7DFD2"}
-                      uri={thumbs[item.coverPhotoId] ?? cardPhotos.find((photo) => photo.id === item.coverPhotoId)?.uri}
-                      onHome={item.id === coverCardId}
-                      theme={theme}
-                      onPress={() => openCard(item.id, item.card)}
-                    />
-                  )}
-                />
-              )}
-              <Pressable
-                onPress={makeCard}
-                accessibilityRole="button"
-                accessibilityLabel="새 기념 카드 만들기"
-                style={[styles.add, theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft }]}
-              >
-                <Text style={[styles.addText, theme && { color: theme.primary }]}>
-                  {list.length ? "새 카드 만들기" : "한 장으로 만들기"}
-                </Text>
-              </Pressable>
-            </>
-          )}
-        </>
-      )}
-      <Sheet
-        visible={Boolean(openId)}
-        title="여행 기념 카드"
-        subtitle="이대로 저장해도 되고, 스티커를 손으로 얹어도 돼요"
-        submit={tripId && !readOnly ? "이 카드로 저장" : "닫기"}
-        destructiveLabel={open && tripId && !readOnly ? "카드 삭제" : undefined}
-        destructiveMessage="이 카드를 지워요. 사진은 그대로예요."
-        readOnly={readOnly}
-        readOnlyHint={canEdit ? "만든 사람과 관리자만 이 카드를 고칠 수 있어요" : undefined}
-        onDestructive={removeCard}
-        onClose={closeCard}
-        onSubmit={saveCard}
-      >
-        {card && (
-          <>
-            <CardStage>
-              <KeepsakeCardView
-                shotRef={shot}
-                card={card}
-                photos={drawPhotos}
-                text={text}
-                stats={stats}
-                stamp={stamp}
-                big={exporting}
-                onPhotoReady={markDrawn}
-              />
-            </CardStage>
-            {Boolean(frame?.notice) && (
-              <Text style={[styles.notice, theme && { color: theme.muted }]}>{frame?.notice}</Text>
-            )}
-            {!readOnly && (
-              <Pressable
-                onPress={() => setDecorOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel="스티커와 글자로 카드 꾸미기"
-                style={[
-                  styles.export,
-                  theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-                ]}
-              >
-                <Text style={[styles.exportText, theme && { color: theme.primary }]}>
-                  {card.decor.length ? `스티커 꾸미기 · ${card.decor.length}개` : "스티커로 꾸미기"}
-                </Text>
-              </Pressable>
-            )}
-            <Pressable
-              onPress={exportCard}
-              disabled={busy || !ready}
-              accessibilityRole="button"
-              accessibilityLabel="기념 카드를 이미지로 내보내기"
-              style={[
-                styles.export,
-                theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-                (busy || !ready) && styles.exportWaiting,
-              ]}
-            >
-              <Text style={[styles.exportText, theme && { color: theme.primary }]}>
-                {busy
-                  ? "카드를 만드는 중이에요"
-                  : !ready
-                    ? "사진을 불러오는 중이에요"
-                    : Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기"}
-              </Text>
-            </Pressable>
-            {Boolean(onSaveHomeCover && canEdit) && (open ? (
-              <Pressable
-                onPress={toggleCover}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: cover.on, disabled: Boolean(coverBlocked) && !cover.on }}
-                accessibilityLabel="이 카드를 홈 화면의 여행 카드에 쓰기"
-                style={[
-                  styles.cover,
-                  theme && { borderColor: theme.border, backgroundColor: theme.surface },
-                  cover.on && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-                  Boolean(coverBlocked) && !cover.on && styles.coverBlocked,
-                ]}
-              >
-                <Glyph
-                  name="home"
-                  size={15}
-                  color={cover.on ? theme?.primary ?? "#3F4C8F" : theme?.muted ?? "#8C8378"}
-                />
-                <Text style={[styles.coverText, theme && { color: cover.on ? theme.primary : theme.muted }]}>
-                  {cover.label}
-                </Text>
-              </Pressable>
-            ) : (
-              <Text style={[styles.notice, theme && { color: theme.muted }]}>
-                카드를 저장하면 홈 화면에 쓸 수 있어요
-              </Text>
-            ))}
-            {!readOnly && (
-              <Pressable
-                onPress={() => setTuning((value) => !value)}
-                accessibilityRole="button"
-                accessibilityLabel={tuning ? "카드 설정 접기" : "카드 설정 고치기"}
-                accessibilityState={{ expanded: tuning }}
-                style={styles.more}
-              >
-                <Text style={[styles.moreText, theme && { color: theme.primary }]}>
-                  {tuning ? "카드 설정 접기" : "카드 설정 고치기"}
-                </Text>
-              </Pressable>
-            )}
-            {tuning && !readOnly && (
-              <CardTuner
-                card={card}
-                photos={cardPhotos}
-                thumbs={thumbs}
-                theme={theme}
-                tune={tune}
-                Field={ui.Field}
-                Option={ui.Option}
-                Chips={ui.Chips}
-                requiredDot={ui.requiredDot}
-              />
-            )}
-            <Text style={[styles.hint, theme && { color: theme.muted }]}>
-              {tripId
-                ? "꾸민 것은 여행에 저장돼 함께 보는 사람에게도 같은 카드가 보여요."
-                : "예시 여행이라 꾸민 것이 저장되지 않아요. 카드는 지금 바로 내보낼 수 있어요."}
-            </Text>
-          </>
-        )}
-      </Sheet>
-      {/* 열 때만 만든다. 나가면 사라져서, 다시 열면 저장된 카드에서 다시 시작한다. */}
-      {card && decorOpen && !readOnly && (
-        <CardDecorEditor
-          visible
-          card={card}
-          photos={drawPhotos}
-          text={text}
-          stats={stats}
-          stamp={stamp}
-          theme={theme}
-          onClose={() => setDecorOpen(false)}
-          onSave={saveDecor}
-        />
-      )}
-    </>
+    <PhotoViewerScreen
+      visible={Boolean(viewer.photos[viewer.index]) || Boolean(openId)}
+      photos={viewer.photos}
+      index={viewer.index}
+      onMove={viewer.onMove}
+      onClose={closeAll}
+      onSave={viewer.onSave}
+      saving={viewer.saving}
+      saveBlocked={viewer.saveBlocked}
+      onEdit={viewer.onEditPhoto}
+      onReport={viewer.onReport}
+      report={viewer.report}
+      hint={viewer.hint}
+      hintSoon={viewer.hintSoon}
+      toast={viewer.toast}
+      waitingText={viewer.waitingText}
+      decor={decor}
+    />
   );
 }
 
@@ -895,93 +630,3 @@ const 그려질_때까지 = async (다_그렸나: () => boolean) => {
     await new Promise((멈춤) => setTimeout(멈춤, 50));
   }
 };
-
-const styles = StyleSheet.create({
-  fill: { width: "100%", height: "100%" },
-  notice: { fontSize: 12, textAlign: "center", marginBottom: 10, color: "#8C8378" },
-  export: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EEF1FA",
-    borderColor: "#3F4C8F",
-    marginBottom: 16,
-  },
-  exportText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
-  exportWaiting: { opacity: 0.5 },
-  // 홈 화면에 쓰는 줄. 켜지면 테두리·글자 색과 집 모양이 함께 바뀐다.
-  cover: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 16,
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E5E1DC",
-  },
-  // 담기지 않는 카드. 눌러도 되지만 왜 안 되는지 알려 줄 뿐이다.
-  coverBlocked: { opacity: 0.55 },
-  coverText: { flex: 1, fontSize: 13, color: "#8C8378", fontFamily: typo.label.family },
-  // 목록에서 홈에 쓰는 카드에 다는 표시. 사진 위에 얹히니 어두운 바탕을 깐다.
-  homeBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    height: 16,
-    paddingHorizontal: 5,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    backgroundColor: "rgba(17,16,15,0.72)",
-  },
-  homeBadgeText: { fontSize: 9, color: "#FFFFFF", fontFamily: typo.label.family },
-  more: { alignItems: "center", paddingVertical: 6, marginBottom: 8 },
-  moreText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
-  hint: { fontSize: 12, lineHeight: 17, color: "#8C8378", marginTop: 4 },
-  // 목록
-  listRowGap: { gap: 8, paddingRight: 6, paddingVertical: 2 },
-  listRow: { width: 116, borderRadius: 12, borderWidth: 1, padding: 8, backgroundColor: "#F2EFEA", borderColor: "#E5E1DC" },
-  listThumb: { height: 66, borderRadius: 8, overflow: "hidden", backgroundColor: "#E7DFD2" },
-  listLabel: { fontSize: 11, marginTop: 6, fontFamily: typo.label.family },
-  add: {
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EEF1FA",
-    borderColor: "#3F4C8F",
-    marginTop: 10,
-    marginBottom: 16,
-  },
-  addText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
-  // 꾸미기
-  pickField: { marginBottom: 16 },
-  pickLabelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  pickLabelDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#E5E1DC" },
-  pickLabel: { fontSize: 13, color: "#2C2A28", fontFamily: typo.label.family },
-  pickRow: { gap: 8, paddingRight: 6, paddingVertical: 2 },
-  pick: { width: 56, height: 56, borderRadius: 10, borderWidth: 2, borderColor: "transparent", overflow: "hidden" },
-  pickChosen: { borderColor: "#3F4C8F" },
-  // 고른 차례. 두 장 이상일 때만 보인다.
-  pickOrder: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(17,16,15,0.7)",
-  },
-  pickOrderText: { fontSize: 10, color: "#FFFFFF", fontFamily: typo.label.family },
-  suggest: { paddingVertical: 4, marginTop: -8, marginBottom: 12 },
-  suggestText: { fontSize: 12, color: "#3F4C8F", fontFamily: typo.label.family },
-});
