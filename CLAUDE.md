@@ -65,3 +65,4 @@
 - 「그만 건들자」는 즉시 중단.
 - 남은 일 목록을 들고 있다가 「남은 거 뭐 있어?」에 바로 답한다.
 - 검사 명령: `cd mobile && npx tsc --noEmit -p tsconfig.json && npm run lint && npm test`, `cd backend && python -m pytest -q`.
+- **백엔드 시험을 여럿이 동시에 돌리지 않는다.** 같은 테스트 DB 를 쓰면 `throttle_counters` 를 비우는 것과 가입 한도가 서로 부딪혀, **건드리지도 않은 파일이 무작위로 429 나 AttributeError 로 깨진다**(2026-09-17에 겪었다). 에이전트를 여럿 보낼 때는 한 명만 시험을 돌리게 하거나, 각자 `DB_NAME` 을 달리해 `alembic upgrade head` 한 뒤 쓰고 끝나면 지우게 한다. 병렬로 돌린 실패는 진짜 실패인지 먼저 의심하고, 합친 뒤 혼자서 한 번 더 돌려 가린다.
