@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { maskClockTime, settleClockTime } from "./clock";
-import { useSheetDrag } from "./sheetDrag";
+import { SheetShell, sheetHeadStyles } from "./ui/SheetShell";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
@@ -140,13 +140,9 @@ import {
 } from "./tripExpenses";
 import { shareExpenseCsv } from "./tripExpenseExport";
 import {
-  Animated,
   BackHandler,
-  KeyboardAvoidingView,
-  Keyboard,
   Image,
   Linking,
-  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -165,7 +161,6 @@ import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import { shrinkForWeb } from "./webImage";
 import { useWebBackClose } from "./useWebBackClose";
-import { useWebKeyboardInset } from "./useWebKeyboardInset";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
@@ -11565,6 +11560,16 @@ function StayDateTimePicker({
   );
 }
 
+/**
+ * 여행 화면의 시트. 껍데기는 `ui/SheetShell` 이 그리고 여기서는 이 화면에만
+ * 있는 세 가지만 얹는다.
+ *
+ * 1. 권한. 보기만 하는 멤버에게는 잠긴 시트로 연다. 다만 저장 버튼이 이미
+ *    「닫기」인 시트는 둘러보는 시트라 막지 않는다.
+ * 2. 안쪽 칸까지 같이 잠그기. 잠긴 시트 안의 입력 칸도 고칠 수 없는 모습이어야
+ *    해서 `DetailEditableContext` 를 시트 안에서 다시 내린다.
+ * 3. 제목으로 고르는 색 막대. 장소·숙소·기록은 보조색, 준비·예약은 강조색이다.
+ */
 function DetailSheet({
   visible,
   title,
@@ -11575,7 +11580,7 @@ function DetailSheet({
   destructiveMessage,
   confirmSubmit,
   submitDisabled = false,
-  hasUnsavedChanges: changed = false,
+  hasUnsavedChanges = false,
   readOnly,
   readOnlyHint = "보기만 할 수 있는 공간이에요",
   onClose,
@@ -11616,43 +11621,6 @@ function DetailSheet({
   const theme = useContext(DetailThemeContext);
   const canEdit = useContext(DetailEditableContext);
   const locked = readOnly ?? (!canEdit && submit !== "닫기");
-  const hasUnsavedChanges = changed && !locked;
-  // 되돌릴 수 없는 것을 확정하는 버튼인데 글자가 가장 흐리면 안 된다.
-  // 색값을 따로 박지 말고 라이트/다크 AA 를 맞춰 둔 토큰을 쓴다.
-  const danger = theme?.dark ? statusColor.danger.dark : statusColor.danger.light;
-  const [confirmingDestructive, setConfirmingDestructive] = useState(false);
-  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const submitLocked = useRef(false);
-  useEffect(() => {
-    if (visible) submitLocked.current = false;
-  }, [visible]);
-  const closeAndReset = () => {
-    setConfirmingDestructive(false);
-    setConfirmingSubmit(false);
-    onClose();
-  };
-  const requestClose = () => {
-    if (!hasUnsavedChanges) {
-      closeAndReset();
-      return;
-    }
-    showAlert(
-      "저장하지 않고 닫을까요?",
-      "변경한 내용은 저장되지 않아요.",
-      [
-        { text: "취소", style: "cancel" },
-        { text: "저장 안 함", style: "destructive", onPress: closeAndReset },
-      ],
-    );
-  };
-  const drag = useSheetDrag(requestClose, visible, hasUnsavedChanges);
-  // 웹에서만 쓰는 두 가지. 키보드가 가린 만큼 시트를 밀어 올리고, 브라우저
-  // 뒤로 가기를 페이지가 아니라 이 시트가 받는다. 기기에서는 둘 다 아무 일도 없다.
-  const keyboardInset = useWebKeyboardInset(visible);
-  useWebBackClose(visible, requestClose);
-  const submitLabel = locked ? "닫기" : submit;
-  const submitBlocked = !locked && (submitDisabled || submitting);
   const sheetKind = title.includes("일정")
     ? "일정"
     : title.includes("장소")
@@ -11688,205 +11656,34 @@ function DetailSheet({
           : theme.primary
     : "#FF6B63";
   return (
-    <Modal
+    <SheetShell
+      theme={theme}
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={requestClose}
+      title={title}
+      subtitle={subtitle}
+      accent={sheetAccent}
+      submit={submit}
+      onSubmit={onSubmit}
+      submitDisabled={submitDisabled}
+      disabledHint={disabledHint}
+      // 저장을 기다리는 동안은 버튼 글을 바꿔 둔다. 그대로 두면 한 번 더 눌러도
+      // 되는 줄 알고 누른다.
+      busyLabel="저장 중…"
+      confirmSubmit={confirmSubmit}
+      destructiveLabel={destructiveLabel}
+      destructiveMessage={destructiveMessage}
+      locked={locked}
+      lockedHint={readOnlyHint}
+      hasUnsavedChanges={hasUnsavedChanges}
+      onClose={onClose}
+      onDestructive={onDestructive}
     >
-      <KeyboardAvoidingView
-        style={[styles.modalBack, keyboardInset]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable
-          style={styles.modalDismiss}
-          onPress={requestClose}
-          accessibilityRole="button"
-          accessibilityLabel={`${title} 바깥 영역 닫기`}
-        />
-        <Animated.View
-          onLayout={drag.onLayout}
-          style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
-        >
-          <View {...drag.panHandlers} style={styles.sheetDragHandleArea}>
-            <View style={styles.sheetHandle} />
-          </View>
-          {/* 머리는 제목과 닫기 한 줄이다. 예전에는 "장소 · 추가" 와 "장소 추가" 가
-              위아래로 겹쳐 있었고 그 둘을 테두리 상자로 묶어, 내용이 시작되기도 전에
-              화면 위쪽 98px 을 먹었다. 종류는 왼쪽 색 막대로만 남긴다.
-              앱 껍데기(WarmAppShell)의 시트도 같은 모양이다. */}
-          <View style={styles.sheetHead}>
-            <View {...drag.panHandlers} style={styles.sheetHeadMain}>
-              <View style={[styles.sheetKindBar, { backgroundColor: sheetAccent }]} />
-              <Text
-                numberOfLines={1}
-                style={[styles.sheetTitle, theme && { color: theme.text }]}
-              >
-                {title}
-              </Text>
-            </View>
-            <Pressable
-              onPress={requestClose}
-              hitSlop={누름여유(높이.칩)}
-              accessibilityRole="button"
-              accessibilityLabel={`${title} 닫기`}
-              style={[
-                styles.sheetCloseButton,
-                theme && { backgroundColor: theme.surfaceAlt },
-              ]}
-            >
-              <Text
-                style={[styles.sheetClose, theme && { color: theme.primary }]}
-              >
-                ×
-              </Text>
-            </Pressable>
-          </View>
-          <ScrollView
-            style={styles.sheetScroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-          >
-            <DetailEditableContext.Provider value={canEdit && !locked}>
-              <View style={styles.sheetFormBody} pointerEvents={locked ? "none" : "auto"}>
-                {/* 도움말은 머리에 박아 두지 않고 내용의 첫 줄로 둔다. 적기 시작하면
-                    같이 밀려 올라가, 다 읽은 안내가 입력 칸 자리를 계속 차지하지 않는다. */}
-                {subtitle && (
-                  <Text style={[styles.sheetSubtitle, theme && { color: theme.muted }]}>{subtitle}</Text>
-                )}
-                {children}
-              </View>
-            </DetailEditableContext.Provider>
-          </ScrollView>
-          {locked ? (
-            <Text style={[styles.sheetDisabledHint, theme && { color: theme.muted }]}>{readOnlyHint}</Text>
-          ) : submitDisabled && disabledHint && (
-            <Text accessibilityLiveRegion="polite" style={[styles.sheetDisabledHint, theme && { color: theme.muted }]}>
-              {disabledHint}
-            </Text>
-          )}
-          <Pressable
-            onPress={async () => {
-              if (locked) {
-                closeAndReset();
-                return;
-              }
-              if (submitLocked.current) return;
-              Keyboard.dismiss();
-              setConfirmingDestructive(false);
-              // 저장이 곧 삭제인 자리에서는 한 번 더 묻는다.
-              if (confirmSubmit && !confirmingSubmit) {
-                setConfirmingSubmit(true);
-                return;
-              }
-              submitLocked.current = true;
-              setSubmitting(true);
-              setConfirmingSubmit(false);
-              try {
-                await onSubmit();
-              } finally {
-                setSubmitting(false);
-                setTimeout(() => {
-                  submitLocked.current = false;
-                }, 800);
-              }
-            }}
-            disabled={submitBlocked}
-            accessibilityRole="button"
-            accessibilityLabel={submitLabel}
-            accessibilityState={{ disabled: submitBlocked, busy: submitting }}
-            style={({ pressed }) => [
-              styles.sheetSubmit,
-              theme && { backgroundColor: theme.primary },
-              submitBlocked && styles.sheetSubmitDisabled,
-              pressed && !submitBlocked && styles.controlPressed,
-            ]}
-          >
-            <Text style={[styles.sheetSubmitText, theme && { color: onAccent(theme.dark) }]}>{submitting ? "저장 중…" : submitLabel}</Text>
-            <View style={styles.sheetSubmitArrow}>
-              <Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} />
-            </View>
-          </Pressable>
-          {confirmSubmit && confirmingSubmit && (
-            <View
-              accessibilityLiveRegion="polite"
-              style={[styles.deleteConfirm, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
-            >
-              <View style={styles.deleteConfirmCopy}>
-                <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>{submit}할까요?</Text>
-                <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>{confirmSubmit}</Text>
-              </View>
-              <View style={styles.deleteConfirmActions}>
-                <Pressable
-                  onPress={() => setConfirmingSubmit(false)}
-                  accessibilityRole="button"
-                  style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}
-                >
-                  <Text style={[styles.deleteConfirmCancel, theme && { color: theme.text }]}>취소</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    setConfirmingSubmit(false);
-                    onSubmit();
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${submit} 확인`}
-                  style={[styles.deleteConfirmButton, { backgroundColor: danger, borderColor: danger }]}
-                >
-                  <Text style={[styles.deleteConfirmDanger, { color: onAccent(Boolean(theme?.dark)) }]}>확인</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-          {destructiveLabel && !locked && confirmingDestructive && (
-            <View
-              accessibilityLiveRegion="polite"
-              style={[styles.deleteConfirm, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
-            >
-              <View style={styles.deleteConfirmCopy}>
-                <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>{destructiveLabel}할까요?</Text>
-                <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>
-                  {destructiveMessage ?? "삭제한 내용은 되돌릴 수 없어요."}
-                </Text>
-              </View>
-              <View style={styles.deleteConfirmActions}>
-                <Pressable
-                  onPress={() => setConfirmingDestructive(false)}
-                  accessibilityRole="button"
-                  style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}
-                >
-                  <Text style={[styles.deleteConfirmCancel, theme && { color: theme.text }]}>취소</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    setConfirmingDestructive(false);
-                    onDestructive?.();
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${destructiveLabel} 확인`}
-                  style={[styles.deleteConfirmButton, { backgroundColor: danger, borderColor: danger }]}
-                >
-                  <Text style={[styles.deleteConfirmDanger, { color: onAccent(Boolean(theme?.dark)) }]}>확인</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-          {destructiveLabel && !locked && !confirmingDestructive && (
-            <Pressable
-              onPress={() => setConfirmingDestructive(true)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={destructiveLabel}
-              style={styles.deletePlace}
-            >
-              <Text style={[styles.deletePlaceText, { color: danger }]}>{destructiveLabel}</Text>
-            </Pressable>
-          )}
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
+      {/* 잠긴 시트 안의 칸들도 고칠 수 없는 모습이어야 한다. 누르지 못하게 막는
+          것은 껍데기가 하지만, 흐리게 그리는 것은 칸들이 이 값을 보고 한다. */}
+      <DetailEditableContext.Provider value={canEdit && !locked}>
+        {children}
+      </DetailEditableContext.Provider>
+    </SheetShell>
   );
 }
 function InfoPanel({
@@ -11901,60 +11698,41 @@ function InfoPanel({
   children: React.ReactNode;
 }) {
   const theme = useContext(DetailThemeContext);
-  const drag = useSheetDrag(onClose, visible);
-  // 웹에서는 브라우저 뒤로 가기가 페이지가 아니라 이 패널을 닫는다. 키보드가
-  // 올라오는 칸은 없지만, 열어 둔 채 화면이 줄어드는 경우까지 같이 맞춘다.
-  const keyboardInset = useWebKeyboardInset(visible);
-  useWebBackClose(visible, onClose);
   return (
-    <Modal
+    <SheetShell
+      theme={theme}
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      title={title}
+      onClose={onClose}
+      // 둘러보기만 하는 패널이라 맨 아래 저장 버튼이 없다. 대신 머리의 「완료」로
+      // 닫으므로 기본 머리(색 막대 + 제목 + ×) 대신 직접 그린다.
+      renderHead={(panHandlers) => (
+        <View style={sheetHeadStyles.head}>
+          <View {...panHandlers} style={sheetHeadStyles.copy}>
+            <Text style={[sheetHeadStyles.title, theme && { color: theme.text }]}>
+              {title}
+            </Text>
+          </View>
+          <Pressable
+            onPress={onClose}
+            hitSlop={누름여유(높이.칩)}
+            accessibilityRole="button"
+            accessibilityLabel={`${title} 닫기`}
+            style={[styles.infoPanelCloseButton, theme && { backgroundColor: theme.primarySoft }]}
+          >
+            <Text style={[styles.infoPanelCloseText, theme && { color: theme.primary }]}>
+              완료
+            </Text>
+          </Pressable>
+        </View>
+      )}
+      // 입력 칸이 없어 키보드를 피할 일이 없고, 안쪽 여백은 패널에 담기는 줄들이
+      // 직접 가지고 있다.
+      keyboardAvoiding={false}
+      padBody={false}
     >
-      <View style={[styles.modalBack, keyboardInset]}>
-        <Pressable
-          style={styles.modalDismiss}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel={`${title} 바깥 영역 닫기`}
-        />
-        <Animated.View
-          onLayout={drag.onLayout}
-          style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
-        >
-          <View {...drag.panHandlers} style={styles.sheetDragHandleArea}>
-            <View style={styles.sheetHandle} />
-          </View>
-          <View style={styles.sheetHead}>
-            <View {...drag.panHandlers} style={styles.sheetHeadCopy}>
-              <Text style={[styles.sheetTitle, theme && { color: theme.text }]}>
-                {title}
-              </Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={누름여유(높이.칩)}
-              accessibilityRole="button"
-              accessibilityLabel={`${title} 닫기`}
-              style={[styles.infoPanelCloseButton, theme && { backgroundColor: theme.primarySoft }]}
-            >
-              <Text
-                style={[styles.infoPanelCloseText, theme && { color: theme.primary }]}
-              >
-                완료
-              </Text>
-            </Pressable>
-          </View>
-          {/* 시트는 91% 높이에서 멈춘다. 감싸지 않으면 개수 제한 없이 그리는
-              패널의 아래쪽이 잘려 아예 볼 수 없다. */}
-          <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
-            {children}
-          </ScrollView>
-        </Animated.View>
-      </View>
-    </Modal>
+      {children}
+    </SheetShell>
   );
 }
 function InfoLine({ label, value }: { label: string; value: string }) {
@@ -12582,73 +12360,6 @@ const styles = StyleSheet.create({
   // 아직 올라가는 중인 사진. 홈 표시와 같은 자리에 붙지만 둘이 겹칠 일은 없다
   // (올라가지 않은 사진은 홈에 깔 수 없다).
   uploadBadge: { left: 4, right: undefined },
-  modalBack: {
-    flex: 1,
-    backgroundColor: "rgba(10,18,35,.42)",
-    justifyContent: "flex-end",
-  },
-  modalDismiss: { flex: 1 },
-  sheetHandle: {
-    width: 54,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "#C7C7C3",
-  },
-  sheetDragHandleArea: {
-    height: 40,
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sheetHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  sheetFormBody: {
-    paddingHorizontal: 2,
-  },
-  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
-  sheetHeadCopy: { flex: 1 },
-  // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
-  sheetKindBar: { width: 3, height: 19, borderRadius: 2 },
-  sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 4 },
-  sheetRouteDot: { width: 6, height: 6, borderRadius: 999, borderWidth: 1.5 },
-  sheetTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 21,
-    fontFamily: typo.title.family,
-    letterSpacing: -0.5,
-  },
-  // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
-  sheetSubtitle: {
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 14,
-  },
-  sheetDisabledHint: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontFamily: typo.caption.family,
-    textAlign: "center",
-    marginTop: 4,
-  },
-  sheetCloseButton: {
-    width: 높이.칩,
-    height: 높이.칩,
-    borderRadius: 모서리.원,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-  },
-  sheetClose: {
-    fontSize: 24,
-    lineHeight: 26,
-    fontWeight: "500",
-  },
   infoPanelCloseButton: {
     minWidth: 52,
     height: 높이.칩,
@@ -12766,27 +12477,7 @@ const styles = StyleSheet.create({
   stayPickerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   stayPickerLabel: { fontSize: 14, fontFamily: typo.label.family },
   stayPickerValue: { fontSize: 14, fontFamily: typo.data.family },
-  sheetSubmit: {
-    height: 높이.저장,
-    borderRadius: 모서리.버튼,
-    backgroundColor: "#17233D",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexDirection: "row",
-    paddingLeft: 여백.가로,
-    paddingRight: 6,
-    marginTop: 6,
-  },
-  sheetSubmitText: { fontSize: 14, fontFamily: typo.label.family },
   sheetSubmitDisabled: { opacity: 0.38 },
-  sheetSubmitArrow: {
-    width: 높이.버튼,
-    height: 높이.버튼,
-    borderRadius: 모서리.버튼,
-    backgroundColor: "rgba(255,255,255,.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   infoLine: {
     minHeight: 58,
     borderBottomWidth: 1,
@@ -13043,13 +12734,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   draftTagText: { fontSize: 12, fontFamily: typo.label.family },
-  deletePlace: {
-    height: 높이.버튼,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
-  deletePlaceText: { fontSize: 13, fontFamily: typo.label.family },
   deleteConfirm: {
     borderWidth: 1,
     borderRadius: 16,
@@ -14356,18 +14040,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sheet: {
-    width: "100%",
-    maxWidth: 430,
-    alignSelf: "center",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 24,
-    maxHeight: "91%",
-  },
-  sheetScroll: { flexGrow: 0, flexShrink: 1 },
   placeMiniCard: {
     borderRadius: 12,
     borderWidth: 1,
