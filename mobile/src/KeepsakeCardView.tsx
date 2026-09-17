@@ -103,16 +103,36 @@ export const lookOf = (card: KeepsakeCard): KeepsakeLook =>
     ? KEEPSAKE_FRAME_LOOK[card.frameColor]
     : KEEPSAKE_LOOK[card.style as "없음" | "필름" | "엽서" | "스크랩북"];
 
-/** 꾸미기 화면이 넘기는 것. 없으면 그냥 그리기만 한다(미리보기·내보내기). */
+/**
+ * 꾸미기 화면이 넘기는 것. 없으면 그냥 그리기만 한다(미리보기·내보내기).
+ *
+ * 스티커를 만지는 일은 전부 스티커 위에서 한다. 예전에는 화면 맨 아래에 작게·크게·
+ * 왼쪽·오른쪽·뒤로·앞으로·삭제 일곱 개가 줄지어 있었다. 무엇을 고쳤는지 보려면
+ * 눈이 카드와 버튼 줄 사이를 계속 오가야 했고, 각도를 15도씩 눌러 맞추는 것은
+ * 「기울인다」는 일과 손놀림이 전혀 달랐다. 스토리 편집기들이 다 그렇듯 고른
+ * 스티커에 테두리와 손잡이를 붙이고, 모서리를 끌어 크기와 각도를 함께 바꾼다.
+ */
 export type DecorEdit = {
-  /** 고른 것. 테두리가 보이고 도구가 이것을 만진다. */
+  /** 고른 것. 테두리와 손잡이가 보인다. */
   selectedId: string;
   /** 카드를 화면에 맞추려고 줄인 배(`fitScaleOf`). 손가락이 움직인 거리를 이만큼 나눈다. */
   scale: number;
   onSelect: (id: string) => void;
   /** 손을 뗄 때 한 번만 부른다. 끄는 동안에는 부르지 않는다. */
   onMove: (id: string, x: number, y: number) => void;
+  /**
+   * 모서리 손잡이를 끄는 동안. 크기와 각도가 함께 바뀐다.
+   *
+   * 자리와 달리 크기는 글자 크기와 칸까지 바꾸므로 `Animated` 로 밀 수 없다.
+   * 끄는 내내 상태를 고친다. 짧고 일부러 하는 동작이라 프레임이 아깝지 않다.
+   */
+  onResize: (id: string, size: number, angle: number) => void;
+  /** ✕. 이 스티커를 뗀다. */
+  onRemove: (id: string) => void;
 };
+
+/** 손잡이를 화면에서 몇 px 로 보이게 할지. 카드가 줄어든 만큼 되돌려 그린다. */
+const HANDLE = 26;
 
 /**
  * 카드에 얹은 것 하나.
@@ -186,8 +206,67 @@ const DecorItem = memo(function DecorItem({
     });
   }, [spot]);
 
+  /**
+   * 모서리 손잡이를 끄는 판.
+   *
+   * 가운데에서 손잡이로 뻗은 화살표를 기준으로 삼는다. 끄는 동안 그 화살표가
+   * 얼마나 길어졌는지가 크기, 얼마나 돌았는지가 각도다. 손가락 하나로 둘이
+   * 함께 바뀌는 것이 스티커를 「집어서 돌려 키우는」 손놀림과 같다.
+   */
+  const corner = useMemo(() => {
+    /** 손잡이를 잡은 순간의 값. 끄는 동안 이것에 견준다. */
+    const 처음 = { 길이: 1, 각: 0, size: 0, angle: 0 };
+    // 아래 콜백들은 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
+    // eslint-disable-next-line react-hooks/refs
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      // 이 손잡이를 잡았으면 스티커를 옮기는 판으로 넘기지 않는다.
+      onStartShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: () => {
+        const 상태 = 지금.current;
+        const 배 = 상태.edit?.scale || 1;
+        const 상자 = decorBoxOf(상태.decor, 상태.cardWidth, 상태.cardHeight, 상태.글자폭 || undefined);
+        // 손잡이는 기울어진 상자의 오른쪽 아래 모서리다. 각도만큼 돌려 둔 자리다.
+        const 라디안 = (상태.decor.angle * Math.PI) / 180;
+        const x = ((상자.width / 2) * Math.cos(라디안) - (상자.height / 2) * Math.sin(라디안)) * 배;
+        const y = ((상자.width / 2) * Math.sin(라디안) + (상자.height / 2) * Math.cos(라디안)) * 배;
+        처음.길이 = Math.max(1, Math.hypot(x, y));
+        처음.각 = Math.atan2(y, x);
+        처음.size = 상태.decor.size;
+        처음.angle = 상태.decor.angle;
+        상태.edit?.onSelect(상태.decor.id);
+      },
+      onPanResponderMove: (_, gesture) => {
+        const 상태 = 지금.current;
+        const 배 = 상태.edit?.scale || 1;
+        const 상자 = decorBoxOf({ ...상태.decor, size: 처음.size }, 상태.cardWidth, 상태.cardHeight, 상태.글자폭 || undefined);
+        const 라디안 = (처음.angle * Math.PI) / 180;
+        const x = ((상자.width / 2) * Math.cos(라디안) - (상자.height / 2) * Math.sin(라디안)) * 배 + gesture.dx;
+        const y = ((상자.width / 2) * Math.sin(라디안) + (상자.height / 2) * Math.cos(라디안)) * 배 + gesture.dy;
+        const 길이 = Math.max(1, Math.hypot(x, y));
+        상태.edit?.onResize(
+          상태.decor.id,
+          처음.size * (길이 / 처음.길이),
+          처음.angle + ((Math.atan2(y, x) - 처음.각) * 180) / Math.PI,
+        );
+      },
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, []);
+
   const 고른_것 = edit?.selectedId === decor.id;
   const look = decor.kind === "글자" ? undefined : STICKER_LOOK[decor.kind];
+  /**
+   * 손잡이 크기.
+   *
+   * 카드는 화면에 맞추려고 `scale` 만큼 줄여 그린다. 손잡이를 카드 좌표로 그냥
+   * 그리면 카드가 작을수록 손잡이도 작아져 누를 수가 없다. 줄인 만큼 되나눠
+   * 화면에서는 늘 같은 크기로 보이게 한다. `theme/controls` 의 값은 화면 좌표용이라
+   * 여기서는 쓰지 않는다.
+   */
+  const 손잡이 = HANDLE / (edit?.scale || 1);
+  const 테두리 = Math.max(1, 1.5 / (edit?.scale || 1));
   return (
     <Animated.View
       {...(edit ? pan.panHandlers : {})}
@@ -220,11 +299,29 @@ const DecorItem = memo(function DecorItem({
             {decor.text}
           </Text>
         )}
-      {고른_것 && (
-        <View
-          pointerEvents="none"
-          style={[styles.decorRing, { borderWidth: Math.max(1, 1.5 / (edit?.scale || 1)) }]}
-        />
+      {고른_것 && edit && (
+        <>
+          <View pointerEvents="none" style={[styles.decorRing, { borderWidth: 테두리 }]} />
+          {/* 왼쪽 위는 떼기. 스티커를 끌어 옮기는 손과 부딪히지 않게 반대쪽 모서리에 둔다. */}
+          <Pressable
+            onPress={() => edit.onRemove(decor.id)}
+            hitSlop={손잡이 / 2}
+            accessibilityRole="button"
+            accessibilityLabel="이 스티커 떼기"
+            style={[styles.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, left: -손잡이 / 2, top: -손잡이 / 2, borderWidth: 테두리 }]}
+          >
+            <Text style={[styles.decorHandleMark, { fontSize: 손잡이 * 0.55 }]}>✕</Text>
+          </Pressable>
+          {/* 오른쪽 아래는 크기와 각도. 한 손가락으로 되는 길을 먼저 둔다. */}
+          <View
+            {...corner.panHandlers}
+            accessible
+            accessibilityLabel="끌어서 크기와 각도 바꾸기"
+            style={[styles.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, right: -손잡이 / 2, bottom: -손잡이 / 2, borderWidth: 테두리 }]}
+          >
+            <Text style={[styles.decorHandleMark, { fontSize: 손잡이 * 0.5 }]}>⤢</Text>
+          </View>
+        </>
       )}
     </Animated.View>
   );
@@ -523,6 +620,15 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     backgroundColor: "rgba(255,255,255,0.14)",
   },
+  // 모서리 손잡이. 어떤 사진 위에 얹혀도 보이게 흰 알에 어두운 글자를 쓴다.
+  decorHandle: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "rgba(17,16,15,0.35)",
+  },
+  decorHandleMark: { color: "#23211F", fontFamily: typo.label.family },
   // 필름 카메라가 찍어 주던 날짜. 마지막 칸 오른쪽 아래에 주황색으로.
   stamp: {
     position: "absolute",

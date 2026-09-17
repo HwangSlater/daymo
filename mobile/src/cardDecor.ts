@@ -20,6 +20,18 @@ export const KEEPSAKE_STICKERS: KeepsakeSticker[] = [
   "하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝",
 ];
 
+/**
+ * 지금 고를 수 있는 스티커.
+ *
+ * 비행기는 「이상하게 보인다」는 말을 듣고 뺐다. 위의 전체 목록에서는 지우지
+ * 않는다. 지우면 이미 비행기를 얹어 둔 카드가 읽힐 때 그 줄이 통째로 버려진다
+ * (`decorOf` 는 모르는 이름을 버린다). 그리기는 그대로 두고 새로 고르는 자리에서만
+ * 뺀다. 남의 카드에 있던 비행기도 계속 보인다.
+ */
+export const KEEPSAKE_PALETTE: KeepsakeSticker[] = KEEPSAKE_STICKERS.filter(
+  (하나) => 하나 !== "비행기",
+);
+
 /** 스티커가 붙던 모서리. 이제는 옛 값을 옮길 때만 쓴다. */
 export type KeepsakeCorner = "좌상" | "우상" | "좌하" | "우하";
 
@@ -210,6 +222,26 @@ export function moveDecor(
   y: number,
 ): CardDecor[] {
   return list.map((줄) => (줄.id === id ? { ...줄, x: clamp(x, 0, 1), y: clamp(y, 0, 1) } : 줄));
+}
+
+/**
+ * 모서리를 끄는 동안 크기와 각도를 함께 놓는다.
+ *
+ * 손잡이 하나로 둘이 같이 바뀐다. 스티커를 집어 돌려 키우는 손놀림이 그렇다.
+ * 크기는 한계에서 멈추고, 각도는 -180~180 으로 접는다. 버튼으로 15도씩 누르던
+ * `turnDecor` 와 배로 키우던 `resizeDecor` 를 이것이 대신한다(둘은 아직 남겨
+ * 둔다. 손잡이를 못 쓰는 자리가 생기면 다시 쓸 수 있고, 시험도 그대로다).
+ */
+export function setDecorSize(
+  list: readonly CardDecor[],
+  id: string,
+  size: number,
+  angle: number,
+): CardDecor[] {
+  return list.map((줄) =>
+    줄.id === id
+      ? { ...줄, size: clamp(size, DECOR_MIN_SIZE, DECOR_MAX_SIZE), angle: turnedAngle(angle) }
+      : 줄);
 }
 
 /** 크기 버튼. 한계에 닿으면 더 가지 않는다. */

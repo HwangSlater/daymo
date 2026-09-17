@@ -245,6 +245,8 @@ export function PhotoViewerScreen({
   waitingText,
   cover,
   decor,
+  editPanel,
+  onCloseEdit,
 }: {
   visible: boolean;
   photos: ViewerPhoto[];
@@ -281,6 +283,16 @@ export function PhotoViewerScreen({
   waitingText?: string;
   /** 같은 창에서 펼치는 기념 카드 꾸미기. 없으면 사진만 보는 창이다. */
   decor?: ViewerDecor;
+  /**
+   * 「사진 정보」 화면. 이 창 안에 한 겹으로 얹는다.
+   *
+   * 예전에는 `Modal` 두 장을 형제로 띄웠다. iOS 는 이미 떠 있는 Modal 위에 형제
+   * Modal 을 바로 얹지 못해서, ⋮ → 「사진 정보」를 눌러도 아무 일이 없다가 사진첩을
+   * 닫아야 그제서야 떴다. 카드 꾸미기를 같은 창에서 펼친 것과 같은 방식으로 옮긴다.
+   */
+  editPanel?: React.ReactNode;
+  /** 그 겹을 닫는다. 안드로이드의 하드웨어 뒤로 가기가 이것부터 부른다. */
+  onCloseEdit?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const strip = useRef<ScrollView>(null);
@@ -476,7 +488,14 @@ export function PhotoViewerScreen({
   const 이웃 = (걸음: number) =>
     photos.length ? photos[(index + 걸음 + photos.length) % photos.length] : undefined;
   return (
-    <Modal visible={visible} animationType="fade" onRequestClose={close} statusBarTranslucent>
+    // 안드로이드의 하드웨어 뒤로 가기는 맨 위 겹부터 닫는다. 사진 정보를 열어 둔 채
+    // 뒤로 가면 창이 통째로 닫히는 것이 아니라 그 겹만 접혀야 한다.
+    <Modal
+      visible={visible}
+      animationType="fade"
+      onRequestClose={() => (editPanel ? onCloseEdit?.() : decorating ? back() : close())}
+      statusBarTranslucent
+    >
       {/* 보기와 꾸미기가 이 한 창을 나눠 쓴다. 창을 갈아 끼우지 않아 「꾸미기」를
           눌러도 화면이 한 번 깜빡이지 않는다. */}
       <KeyboardAvoidingView
@@ -522,6 +541,7 @@ export function PhotoViewerScreen({
         ) : (
         <>
         {/* 앞·지금·뒤 석 장이 놓인 줄. 줄을 통째로 민다. */}
+        <View style={styles.trackClip}>
         <Animated.View
           {...pan.panHandlers}
           renderToHardwareTextureAndroid
@@ -561,6 +581,7 @@ export function PhotoViewerScreen({
             );
           })}
         </Animated.View>
+        </View>
         {/* 카드는 위 아이콘 줄과 아래 설명·스트립을 비운 칸에 통째로 담는다. 사진처럼
             화면을 꽉 채우면 틀 아래의 글이 스트립에 가린다. */}
         {previewing && (
@@ -699,6 +720,17 @@ export function PhotoViewerScreen({
 
         {/* ⋮ 메뉴는 두 모습이 같이 쓴다. 보기에서는 신고 하나, 꾸미기에서는 내보내기·
             홈 화면·삭제처럼 가끔 쓰는 것이 들어간다. 자주 쓰는 것은 메뉴에 두지 않는다. */}
+        {/* 메뉴 뒤에 화면을 통째로 덮는 판을 깐다. 밖을 눌러 닫는 것은 메뉴를 연
+            사람이 늘 먼저 해 보는 일인데, 예전에는 아무 데도 닫는 곳이 없어 ⋮ 를
+            다시 찾아 눌러야 했다. */}
+        {menuOpen && menuRows.length > 0 && (
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityRole="button"
+            accessibilityLabel="메뉴 닫기"
+            onPress={() => setMenuOpen(false)}
+          />
+        )}
         {menuOpen && menuRows.length > 0 && (
           <View style={styles.menu}>
             {menuRows.map((하나) => (
@@ -742,6 +774,8 @@ export function PhotoViewerScreen({
           </View>
         )}
         {Boolean(report) && <View style={styles.reportPanel}>{report}</View>}
+        {/* 사진 정보는 이 창 위에 한 겹으로 얹힌다. 맨 마지막에 놓아야 위에 온다. */}
+        {editPanel}
         {/* 카드를 찍는 동안 카드를 제 크기로 되돌린다(`CardDecorTools`). 화면 밖으로
             넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. */}
         {Boolean(decorating && decor?.busyText) && (
@@ -754,17 +788,21 @@ export function PhotoViewerScreen({
   );
 }
 
-/** 고치기 화면 아래의 도구 한 칸. 고른 것만 칸이 열린다. */
+/** 사진 정보 화면 아래의 도구 한 칸. 고른 것만 칸이 열린다. */
 type EditTool = "설명" | "날짜" | "붙일 곳";
 
-/** 고치기 화면의 아이콘 줄에 놓을 것. 홈 화면과 삭제는 칸이 없고 누르면 바로 한다. */
-const EDIT_TOOLS: { key: EditTool | "홈 화면" | "삭제"; glyph: GlyphName }[] = [
+/**
+ * 사진 정보 화면의 아이콘 줄에 놓을 것. 삭제는 칸이 없고 누르면 바로 묻는다.
+ *
+ * 「홈 화면」은 뺐다. 크게 보는 창의 위 줄에 ⌂ 가 생겨서 같은 일이 두 군데가 됐다.
+ * 홈에 까는 것은 지금 보고 있는 것에 대한 일이라 크게 보는 자리가 맞다.
+ */
+const EDIT_TOOLS: { key: EditTool | "삭제"; glyph: GlyphName }[] = [
   { key: "설명", glyph: "lines" },
   { key: "날짜", glyph: "calendar" },
   // 「붙이기」로는 무엇에 붙이는지 알 수 없었다. 이 앱의 다른 자리도 「사진을
   // 붙일 곳」이라고 적는다. 도구 이름도 그 말에 맞춘다.
   { key: "붙일 곳", glyph: "link" },
-  { key: "홈 화면", glyph: "home" },
   { key: "삭제", glyph: "trash" },
 ];
 
@@ -780,8 +818,6 @@ export function PhotoEditScreen({
   linkLabels,
   linkChosen,
   onToggleLink,
-  cover,
-  onCover,
   onRepick,
   onDelete,
   onClose,
@@ -804,9 +840,6 @@ export function PhotoEditScreen({
   linkLabels: string[];
   linkChosen: boolean[];
   onToggleLink: (index: number) => void;
-  /** 홈 화면 도구. 누를 수 없으면 `undefined` 다(아직 올라가는 중인 사진). */
-  cover?: { on: boolean; label: string };
-  onCover?: () => void;
   /** 사진 자체를 다른 것으로 바꾼다. */
   onRepick?: () => void;
   onDelete: () => void;
@@ -849,10 +882,6 @@ export function PhotoEditScreen({
   // 어두운 바탕(#141318) 위의 강조색. 라이트 테마의 `primary`(#3F4C8F)는 여기서
   // 거의 검게 묻혀서, 이 화면에서만 같은 계열의 밝은 값을 쓴다.
   const 눌렀을_때 = (key: (typeof EDIT_TOOLS)[number]["key"]) => {
-    if (key === "홈 화면") {
-      onCover?.();
-      return;
-    }
     if (key === "삭제") {
       onDelete();
       return;
@@ -860,11 +889,9 @@ export function PhotoEditScreen({
     setTool(key);
     if (key === "설명") captionInput.current?.focus();
   };
-  /** 도구 아이콘에 불이 들어와 있는지. 무엇이 열려 있는지와 홈에 깔렸는지를 함께 보여 준다. */
-  const 켜졌나 = (key: (typeof EDIT_TOOLS)[number]["key"]) =>
-    key === "홈 화면" ? Boolean(cover?.on) : key === "삭제" ? false : tool === key;
-  const 쓸_수_있나 = (key: (typeof EDIT_TOOLS)[number]["key"]) =>
-    key === "홈 화면" ? Boolean(onCover) : key === "삭제" ? !readOnly : true;
+  /** 도구 아이콘에 불이 들어와 있는지. 무엇이 열려 있는지를 보여 준다. */
+  const 켜졌나 = (key: (typeof EDIT_TOOLS)[number]["key"]) => key !== "삭제" && tool === key;
+  const 쓸_수_있나 = (key: (typeof EDIT_TOOLS)[number]["key"]) => (key === "삭제" ? !readOnly : true);
 
   /**
    * 고를 것을 칩으로 늘어놓는다.
@@ -902,7 +929,9 @@ export function PhotoEditScreen({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={() => leave(onClose)} statusBarTranslucent>
+    // 창을 스스로 열지 않는다. 크게 보는 창이 이것을 제 안의 한 겹으로 얹는다.
+    // iOS 는 이미 떠 있는 Modal 위에 형제 Modal 을 바로 얹지 못한다.
+    <View style={StyleSheet.absoluteFill}>
       <KeyboardAvoidingView
         style={[styles.editScreen, keyboardInset]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -994,7 +1023,7 @@ export function PhotoEditScreen({
                   onPress={() => 눌렀을_때(key)}
                   disabled={!쓸}
                   accessibilityRole="button"
-                  accessibilityLabel={key === "홈 화면" ? cover?.label ?? "홈 화면에 이 사진 쓰기" : key}
+                  accessibilityLabel={key}
                   accessibilityState={{ selected: on, disabled: !쓸 }}
                   style={({ pressed }) => [styles.editTool, pressed && styles.pressed]}
                 >
@@ -1012,7 +1041,7 @@ export function PhotoEditScreen({
           </View>
         )}
       </KeyboardAvoidingView>
-    </Modal>
+    </View>
   );
 }
 
@@ -1029,8 +1058,16 @@ const STRIP_GAP = 7;
 
 const styles = StyleSheet.create({
   // 사진이 주인공이라 바탕이 검다. 앱의 다른 화면과 일부러 다르다.
-  // 줄이 화면보다 넓어서 넘치는 쪽을 잘라 둔다. 웹에서 이게 없으면 가로로 밀린다.
-  screen: { flex: 1, backgroundColor: "#000000", overflow: "hidden" },
+  screen: { flex: 1, backgroundColor: "#000000" },
+  /**
+   * 줄을 담아 넘치는 쪽을 자르는 칸.
+   *
+   * 자르는 일은 이 칸에만 맡긴다. 창 전체에 `overflow: hidden` 을 주면 창이
+   * 「스크롤되는 상자」가 되어, 안에서 입력 칸에 커서가 가거나 브라우저가 무언가를
+   * 화면 안으로 끌어오려 할 때 창 전체가 옆으로 밀린다. 이 칸 안에는 사진뿐이라
+   * 끌어올 것이 없다.
+   */
+  trackClip: { position: "absolute", inset: 0, overflow: "hidden" },
   fill: { position: "absolute", inset: 0, width: "100%", height: "100%" },
   pressed: { opacity: 0.65 },
   faded: { opacity: 0.4 },

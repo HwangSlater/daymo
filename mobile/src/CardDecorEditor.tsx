@@ -45,14 +45,12 @@ import {
   addDecor,
   fitScaleOf,
   moveDecor,
-  raiseDecor,
   removeDecor,
-  resizeDecor,
+  setDecorSize,
   setDecorText,
-  turnDecor,
   DECOR_MAX,
   DECOR_TEXT_MAX,
-  KEEPSAKE_STICKERS,
+  KEEPSAKE_PALETTE,
   type CardDecor,
   type KeepsakeSticker,
 } from "./cardDecor";
@@ -294,9 +292,20 @@ export function CardDecorTools({
     (id: string, x: number, y: number) => onDecor((지금) => moveDecor(지금, id, x, y)),
     [onDecor],
   );
+  const onResize = useCallback(
+    (id: string, size: number, angle: number) => onDecor((지금) => setDecorSize(지금, id, size, angle)),
+    [onDecor],
+  );
+  const onRemove = useCallback(
+    (id: string) => {
+      onDecor((지금) => removeDecor(지금, id));
+      고르기("");
+    },
+    [onDecor],
+  );
   const edit = useMemo(
-    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove }),
-    [readOnly, 고른_것, scale, onMove],
+    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove, onResize, onRemove }),
+    [readOnly, 고른_것, scale, onMove, onResize, onRemove],
   );
   const 고른_줄 = card.decor.find((하나) => 하나.id === 고른_것);
   const 네컷 = isCutStyle(card.style);
@@ -541,6 +550,21 @@ export function CardDecorTools({
                     accentInk={accentInk}
                     onPress={(option) => tune({ parts: 넣고_빼기(card.parts, option as KeepsakePart) })}
                   />
+                  {/* 「통계」를 켜면 고를 것이 하나 더 생긴다. 그 줄은 누른 칩 바로
+                      아래에 편다. 맨 밑에 두면 무엇을 눌러서 생긴 줄인지 알 수 없고,
+                      도구 칸을 끝까지 밀어야 보인다. */}
+                  {card.parts.includes("통계") && (
+                    <>
+                      <PanelLabel text="어떤 숫자를 넣을까요" />
+                      <ChipRow
+                        options={KEEPSAKE_STAT_KINDS}
+                        chosen={(option) => card.stats.includes(option as KeepsakeStatKind)}
+                        accent={accent}
+                        accentInk={accentInk}
+                        onPress={(option) => tune({ stats: 넣고_빼기(card.stats, option as KeepsakeStatKind) })}
+                      />
+                    </>
+                  )}
                   <PanelLabel text="제목" />
                   <TextInput
                     value={card.title}
@@ -570,18 +594,6 @@ export function CardDecorTools({
                   {!card.parts.includes("문구") && (
                     <Text style={styles.panelWarn}>위 「카드에 넣을 것」에서 문구를 켜야 카드에 보여요</Text>
                   )}
-                  {card.parts.includes("통계") && (
-                    <>
-                      <PanelLabel text="어떤 숫자를 넣을까요" />
-                      <ChipRow
-                        options={KEEPSAKE_STAT_KINDS}
-                        chosen={(option) => card.stats.includes(option as KeepsakeStatKind)}
-                        accent={accent}
-                        accentInk={accentInk}
-                        onPress={(option) => tune({ stats: 넣고_빼기(card.stats, option as KeepsakeStatKind) })}
-                      />
-                    </>
-                  )}
                 </>
               )}
 
@@ -591,7 +603,7 @@ export function CardDecorTools({
                       고장인지 한도인지 알 수 없었다. */}
                   <PanelLabel text={`붙일 것 · ${card.decor.length} / ${DECOR_MAX}`} />
                   <View style={styles.paletteRow}>
-                    {KEEPSAKE_STICKERS.map((sticker) => (
+                    {KEEPSAKE_PALETTE.map((sticker) => (
                       <Pressable
                         key={sticker}
                         onPress={() => 붙이기(sticker)}
@@ -620,45 +632,29 @@ export function CardDecorTools({
                       <Text style={styles.paletteText}>글자</Text>
                     </Pressable>
                   </View>
+                  {/* 크기·각도·떼기는 전부 스티커 위 손잡이로 옮겼다(`KeepsakeCardView`).
+                      버튼 줄이 화면 맨 아래에 있으면 눈이 카드와 줄 사이를 오가야 하고,
+                      각도를 15도씩 눌러 맞추는 것은 「기울인다」는 일과 손놀림이 달랐다.
+                      여기 남는 것은 무엇을 하면 되는지 알려 주는 한 줄과 글자 고치기뿐이다. */}
                   <PanelLabel
                     text={스티커_꽉_참
-                      ? `${DECOR_MAX}개를 다 붙였어요. 빼려면 카드에서 눌러 고르고 삭제하세요`
+                      ? `${DECOR_MAX}개를 다 붙였어요. 빼려면 카드에서 눌러 고르고 ✕ 를 누르세요`
                       : 고른_줄
-                        ? `고른 것 · ${고른_줄.kind === "글자" ? 고른_줄.text || "글자" : 고른_줄.kind}`
+                        ? "끌어서 옮기고, 오른쪽 아래 ⤢ 를 끌어 크기와 각도를 바꿔요 · ✕ 로 떼요"
                         : card.decor.length
                           ? "카드에서 스티커를 눌러 고르거나 끌어서 옮겨요"
                           : "위에서 눌러 카드에 붙이고, 붙인 것은 끌어서 옮겨요"}
                   />
-                  {Boolean(고른_줄) && (
-                    <>
-                      <View style={styles.chipRow}>
-                        <Tool label="작게" onPress={() => 고친다((l, id) => resizeDecor(l, id, false))} />
-                        <Tool label="크게" onPress={() => 고친다((l, id) => resizeDecor(l, id, true))} />
-                        <Tool label="왼쪽" onPress={() => 고친다((l, id) => turnDecor(l, id, false))} />
-                        <Tool label="오른쪽" onPress={() => 고친다((l, id) => turnDecor(l, id, true))} />
-                        <Tool label="뒤로" onPress={() => 고친다((l, id) => raiseDecor(l, id, false))} />
-                        <Tool label="앞으로" onPress={() => 고친다((l, id) => raiseDecor(l, id, true))} />
-                        <Tool
-                          label="삭제"
-                          tone="위험"
-                          onPress={() => {
-                            고친다(removeDecor);
-                            고르기("");
-                          }}
-                        />
-                      </View>
-                      {고른_줄?.kind === "글자" && (
-                        <TextInput
-                          value={고른_줄.text}
-                          onChangeText={(값) => 고친다((l, id) => setDecorText(l, id, 값))}
-                          placeholder="카드에 적을 짧은 말"
-                          placeholderTextColor={INK_FAINT}
-                          maxLength={DECOR_TEXT_MAX}
-                          accessibilityLabel="카드에 적을 글"
-                          style={styles.field}
-                        />
-                      )}
-                    </>
+                  {고른_줄?.kind === "글자" && (
+                    <TextInput
+                      value={고른_줄.text}
+                      onChangeText={(값) => 고친다((l, id) => setDecorText(l, id, 값))}
+                      placeholder="카드에 적을 짧은 말"
+                      placeholderTextColor={INK_FAINT}
+                      maxLength={DECOR_TEXT_MAX}
+                      accessibilityLabel="카드에 적을 글"
+                      style={styles.field}
+                    />
                   )}
                 </>
               )}
