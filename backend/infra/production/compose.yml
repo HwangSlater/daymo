@@ -105,7 +105,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    mem_limit: 64m
+    # 2026-09-17에 64m 에서 올렸다. 그날 `PHOTO_ACCEL_PREFIX` 를 켜면서 사진을 nginx 가
+    # 직접 보내게 됐고, 켜자마자 36MiB(64m 의 57%)를 썼다. 파일 자체는 sendfile 이라
+    # 메모리에 담기지 않지만 연결마다 버퍼가 붙어서, 여럿이 한꺼번에 받을 때 여유가 없었다.
+    mem_limit: 128m
     logging: *logging
     networks: [private]
 
