@@ -11683,19 +11683,6 @@ function DetailSheet({
           ? theme.secondary
           : theme.primary
     : "#FF6B63";
-  const sheetAction = locked
-    ? "보기"
-    : title.includes("수정")
-    ? "수정"
-    : title.includes("추가")
-      ? "추가"
-      : title.includes("선택")
-        ? "선택"
-        : title.includes("관리")
-          ? "관리"
-          : title.includes("담기")
-            ? "일정"
-            : "확인";
   return (
     <Modal
       visible={visible}
@@ -11720,36 +11707,19 @@ function DetailSheet({
           <View {...drag.panHandlers} style={styles.sheetDragHandleArea}>
             <View style={styles.sheetHandle} />
           </View>
-          <View
-            style={[
-              styles.sheetHead,
-              styles.sheetHeadDecorated,
-              { backgroundColor: `${sheetAccent}0B`, borderColor: `${sheetAccent}30` },
-            ]}
-          >
+          {/* 머리는 제목과 닫기 한 줄이다. 예전에는 "장소 · 추가" 와 "장소 추가" 가
+              위아래로 겹쳐 있었고 그 둘을 테두리 상자로 묶어, 내용이 시작되기도 전에
+              화면 위쪽 98px 을 먹었다. 종류는 왼쪽 색 막대로만 남긴다.
+              앱 껍데기(WarmAppShell)의 시트도 같은 모양이다. */}
+          <View style={styles.sheetHead}>
             <View {...drag.panHandlers} style={styles.sheetHeadMain}>
-              <View style={styles.sheetHeadCopy}>
-                <View style={styles.sheetKindRow}>
-                  <View style={[styles.sheetKindDot, { backgroundColor: sheetAccent }]} />
-                  <Text style={[styles.sheetKindText, { color: sheetAccent }]}>{sheetKind} · {sheetAction}</Text>
-                </View>
-                <Text
-                  style={[styles.sheetTitle, theme && { color: theme.text }]}
-                >
-                  {title}
-                </Text>
-                {subtitle && (
-                  <Text
-                    numberOfLines={2}
-                    style={[
-                      styles.sheetSubtitle,
-                      theme && { color: theme.muted },
-                    ]}
-                  >
-                    {subtitle}
-                  </Text>
-                )}
-              </View>
+              <View style={[styles.sheetKindBar, { backgroundColor: sheetAccent }]} />
+              <Text
+                numberOfLines={1}
+                style={[styles.sheetTitle, theme && { color: theme.text }]}
+              >
+                {title}
+              </Text>
             </View>
             <Pressable
               onPress={requestClose}
@@ -11777,6 +11747,11 @@ function DetailSheet({
           >
             <DetailEditableContext.Provider value={canEdit && !locked}>
               <View style={styles.sheetFormBody} pointerEvents={locked ? "none" : "auto"}>
+                {/* 도움말은 머리에 박아 두지 않고 내용의 첫 줄로 둔다. 적기 시작하면
+                    같이 밀려 올라가, 다 읽은 안내가 입력 칸 자리를 계속 차지하지 않는다. */}
+                {subtitle && (
+                  <Text style={[styles.sheetSubtitle, theme && { color: theme.muted }]}>{subtitle}</Text>
+                )}
                 {children}
               </View>
             </DetailEditableContext.Provider>
@@ -12628,34 +12603,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  sheetHeadDecorated: {
-    minHeight: 82,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginTop: 2,
-    position: "relative",
-  },
   sheetFormBody: {
     paddingHorizontal: 2,
   },
-  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
+  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
   sheetHeadCopy: { flex: 1 },
-  sheetKindRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  sheetKindDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
-  sheetKindText: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 1 },
+  // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
+  sheetKindBar: { width: 3, height: 19, borderRadius: 2 },
   sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 4 },
   sheetRouteDot: { width: 6, height: 6, borderRadius: 999, borderWidth: 1.5 },
   sheetTitle: {
-    fontSize: 24,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 21,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
   },
+  // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
   sheetSubtitle: {
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 14,
   },
   sheetDisabledHint: {
     fontSize: 11,

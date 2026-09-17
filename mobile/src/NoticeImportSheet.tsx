@@ -331,22 +331,12 @@ export function NoticeImportSheet({
           <View {...drag.panHandlers} style={styles.sheetDragHandleArea}>
             <View style={styles.sheetHandle} />
           </View>
-          <View style={[styles.sheetHead, { backgroundColor: `${accent}0B`, borderColor: `${accent}30` }]}>
+          {/* 머리는 제목과 닫기 한 줄이다. 다른 시트들과 같은 모양이다
+              (WarmAppShell·WarmTripDetail). 안내는 내용의 첫 줄로 내려보낸다. */}
+          <View style={styles.sheetHead}>
             <View {...drag.panHandlers} style={styles.sheetHeadMain}>
-              <View style={styles.sheetHeadCopy}>
-                <View style={styles.sheetKindRow}>
-                  <View style={[styles.sheetKindDot, { backgroundColor: accent }]} />
-                  <Text style={[styles.sheetKindText, { color: accent }]}>여행 · {stage}</Text>
-                </View>
-                <Text numberOfLines={1} style={[styles.sheetTitle, { color: theme.text }]}>공지 붙여넣기</Text>
-                <Text numberOfLines={2} style={[styles.sheetSubtitle, { color: theme.muted }]}>
-                  {stage === "붙여넣기"
-                    ? "카카오톡 공지를 통째로 붙여넣어 지난 여행을 채워요"
-                    : stage === "고치기"
-                      ? `읽은 그대로예요. ${trip?.name ?? "여행"} 에 넣을 것만 켜 주세요`
-                      : `${trip?.name ?? "여행"} 을 채웠어요`}
-                </Text>
-              </View>
+              <View style={[styles.sheetKindBar, { backgroundColor: accent }]} />
+              <Text numberOfLines={1} style={[styles.sheetTitle, { color: theme.text }]}>공지 붙여넣기</Text>
             </View>
             <Pressable
               onPress={onClose}
@@ -366,6 +356,13 @@ export function NoticeImportSheet({
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             <View style={styles.body}>
+              <Text style={[styles.sheetSubtitle, { color: theme.muted }]}>
+                {stage === "붙여넣기"
+                  ? "카카오톡 공지를 통째로 붙여넣어 지난 여행을 채워요"
+                  : stage === "고치기"
+                    ? `읽은 그대로예요. ${trip?.name ?? "여행"} 에 넣을 것만 켜 주세요`
+                    : `${trip?.name ?? "여행"} 을 채웠어요`}
+              </Text>
               {error ? (
                 <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: danger }]}>{error}</Text>
               ) : null}
@@ -859,21 +856,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
-    minHeight: 82,
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginTop: 2,
+    marginBottom: 16,
   },
-  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center" },
+  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
+  // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
+  sheetKindBar: { width: 3, height: 19, borderRadius: 2 },
   sheetHeadCopy: { flex: 1 },
-  sheetKindRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  sheetKindDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
-  sheetKindText: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 1 },
-  sheetTitle: { fontSize: 24, fontFamily: typo.title.family, letterSpacing: -0.5 },
-  sheetSubtitle: { fontSize: 11, marginTop: 4 },
+  sheetTitle: { flex: 1, minWidth: 0, fontSize: 21, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
+  sheetSubtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
   sheetCloseButton: { width: 34, height: 34, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   sheetClose: { fontSize: 24, lineHeight: 26, fontWeight: "500" },
   sheetScroll: { flexGrow: 0, flexShrink: 1 },

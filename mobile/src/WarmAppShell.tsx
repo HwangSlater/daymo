@@ -7173,7 +7173,7 @@ const s = StyleSheet.create({
     height: 17,
     top: -5,
     opacity: 0.85,
-    transform: [{ rotate: "-3deg" }],
+    transform: [{ rotate: "-4.5deg" }],
   },
   // 카드 높이의 55~60%. 폭을 따라가되 넓은 화면에서 혼자 커지지 않게 위를 막는다.
   // 바탕은 어둡게 둔다. 사진이 깨져 안 그려져도 위에 얹은 흰 글자가 읽힌다.
@@ -7227,12 +7227,14 @@ const s = StyleSheet.create({
     position: "absolute",
     width: 78,
     height: 20,
-    top: -11,
+    // 종이의 위쪽 여백(24) 안에서 자리를 잡아, 카드 가장자리에 걸치려면 그만큼
+    // 더 올려야 한다. -11 이던 때는 테이프가 종이 안에 동동 떠 있었다.
+    top: -35,
     left: "50%",
     marginLeft: -39,
     opacity: 0.82,
     backgroundColor: "rgba(218, 198, 157, .68)",
-    transform: [{ rotate: "1.5deg" }],
+    transform: [{ rotate: "2.6deg" }],
   },
   paperTripHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   paperTripCopy: { flex: 1, paddingRight: 12 },
