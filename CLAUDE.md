@@ -34,9 +34,22 @@
 
 - 커밋 메시지는 한국어. 끝나면 커밋 해시와 되돌리기 명령을 알린다. 「커밋 하나로」면 squash.
 - 에이전트와 저장소를 나눠 쓸 때 `git add -A` 금지. 자기 파일만 add 한다. 에이전트는 워크트리에서 파일 단위로 나눠 맡긴다.
-- push → VPS 백엔드 자동 배포(마이그레이션 포함). Vercel 웹은 수동. 프리뷰(daymo-preview)는 자유, `www.daymo.xyz` 는 승인 뒤. 배포 전에 빌드가 끝났는지 번들 해시로 확인한다.
+- push → VPS 백엔드 자동 배포(마이그레이션 포함).
+- 웹 앱은 `node site/build.mjs` → `cd site/dist && npx vercel deploy --prod --yes`. `www.daymo.xyz/app` 하나뿐이다(2026-09-17에 별도 미리보기를 없앴다. 소셜 심사가 끝나 운영 주소를 막아 둘 이유가 사라졌다). 작업 중인 것은 Expo Go(터널)로 본다.
+- **Vercel은 `--prod` 로 올려도 도메인 별칭이 자동으로 안 옮겨진다.** 올린 뒤 `npx vercel alias set <새 배포 주소> www.daymo.xyz` 와 `… daymo.xyz` 를 직접 하고, `curl -s https://www.daymo.xyz/app/ | grep -o 'AppEntry-[a-f0-9]*\.js'` 가 `site/dist` 의 번들 해시와 같은지 확인한다. `vercel deploy` 출력은 뒤쪽이 JSON 도움말이라 `tail` 로 자르면 배포된 것을 못 본다 — `head` 로 본다.
 - 「브랜치 최신화」 = 다른 세션·기기에서 푸시한 것을 받아 합친다.
 - EAS 빌드·버전 올림·스토어 제출은 앱이 완성될 때까지 하지 않는다. 유료 기능은 스토어 출시 뒤에 열고, 지금은 `features.ts` 에서 꺼 둔다.
+
+## VPS (`ssh daymo-vps`)
+
+- 배포·재시작은 `/srv/daymo/current/backend/infra/production/daymo-deploy` 가 한다. **컨테이너를 직접 만들거나 지우지 않는다.**
+- 설정 파일(`/etc/daymo/secrets/runtime.env`)을 고쳤으면 다시 만들어야 반영되는데, compose 를 손으로 부를 때 **`--env-file /etc/daymo/secrets/runtime.env` 를 반드시 붙인다.** 빠뜨리면 compose 가 `${APP_ENV}` 를 빈 값으로 채워 API 가 뜨자마자 죽고 운영이 502 가 된다(2026-09-17에 겪었다).
+  ```sh
+  ssh daymo-vps "sudo sh -c 'cd /srv/daymo/current/backend/infra/production && docker compose --env-file /etc/daymo/secrets/runtime.env -f compose.yml up -d --force-recreate api'"
+  ```
+- 고치기 전에 `sudo cp … runtime.env runtime.env.bak-<까닭>` 로 사본을 남기고, 고친 뒤 그 줄만 `grep` 해서 확인한다. 파일 전체를 출력하지 않는다(비밀값이 들어 있다).
+- 되돌린 뒤에는 `curl https://api.daymo.xyz/health` 가 200 인지, CORS 허용 목록이 뜻대로인지 확인한다.
+- Git Bash 의 `ssh` 는 이 키를 못 읽는다(libcrypto). PowerShell 도구로 접속한다.
 
 ## 일하는 방식
 

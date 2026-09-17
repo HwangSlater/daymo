@@ -25,8 +25,19 @@ Vercel 프로젝트 `daymo-site`에 `site/dist`를 그대로 올린다. `www.day
 ```sh
 npx vercel link --yes --project daymo-site --cwd site   # 한 번만. site/.vercel 은 커밋하지 않는다
 node site/build.mjs
-npx vercel deploy --prod --cwd site/dist
+cd site/dist && npx vercel deploy --prod --yes
 ```
+
+`--prod` 로 올려도 도메인 별칭은 자동으로 옮겨지지 않는다. 올린 뒤 직접 옮기고 번들 해시로 확인한다.
+
+```sh
+npx vercel alias set <새 배포 주소> www.daymo.xyz
+npx vercel alias set <새 배포 주소> daymo.xyz
+curl -s https://www.daymo.xyz/app/ | grep -o 'AppEntry-[a-f0-9]*\.js'   # site/dist 의 것과 같아야 한다
+```
+
+미리보기용 Vercel 프로젝트는 따로 두지 않는다. 소셜 심사가 끝난 2026-09-17에 `daymo-preview` 를 없애고
+서버 허용 목록(`CORS_ORIGINS`, `OAUTH_APP_REDIRECT_URIS`)에서도 뺐다. 작업 중인 화면은 Expo Go(터널)로 본다.
 
 `build.mjs`는 앱의 웹 버전도 `dist/app`에 함께 만든다(`www.daymo.xyz/app`). iPhone 앱이 나오기 전에 휴대폰 브라우저로
 쓰는 곳이다. 이메일과 서버에서 활성화한 Google·카카오·네이버·Apple 소셜 로그인을 지원한다. 소셜 로그인은 팝업으로
