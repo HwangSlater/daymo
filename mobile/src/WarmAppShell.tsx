@@ -5612,7 +5612,10 @@ function Together({
                 {roleExplain[selectedPerson.role] ?? "권한을 불러오지 못했어요. 인터넷에 연결되면 다시 확인해요."}
               </Text>
             </View>
-            {activeSpace.myMembershipId && (
+            {/* 고른 사람이 남이면 여기서 권한과 내보내기를 다룬다. 나를 골랐을 때의
+                「이 공간에서 나가기」는 아래로 내려 보낸다 — 되돌릴 수 없는 일이
+                초대보다 위에서 눈에 먼저 띌 이유가 없다. */}
+            {activeSpace.myMembershipId && !selectedPerson.me && (
               <MemberActions
                 // 다른 멤버를 고르면 쓰던 신고와 오류를 새로 시작한다.
                 key={selectedPerson.membershipId ?? selectedPerson.name}
@@ -5637,6 +5640,20 @@ function Together({
               myMembershipId={activeSpace.myMembershipId}
               onJoin={onJoinInvite}
             />
+            {activeSpace.myMembershipId && selectedPerson.me && (
+              <MemberActions
+                key={`${selectedPerson.membershipId ?? selectedPerson.name}-me`}
+                theme={theme}
+                spaceId={activeSpace.id}
+                myRole={activeSpace.myRole}
+                person={selectedPerson}
+                alone={people.length === 1}
+                onChanged={() => {
+                  setSelectedMember(0);
+                  onMembersChanged();
+                }}
+              />
+            )}
           </>
         )}
         {panel === "relationship" && (
@@ -8350,8 +8367,10 @@ const s = StyleSheet.create({
   memberManagerCopy: { fontSize: 14, fontFamily: typo.body.family, marginTop: 4 },
   memberManagerInvite: { height: 34, borderRadius: 8, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   memberManagerInviteText: { fontSize: 12, fontFamily: typo.label.family },
-  memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
-  memberManagerCard: { width: "48.8%", minHeight: 61, borderRadius: 12, borderWidth: 1, paddingHorizontal: 8, flexDirection: "row", alignItems: "center" },
+  memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 여백.세로좁게, marginBottom: 여백.세로 },
+  // 한 줄에 둘. `48.8%` 와 `gap: 8` 을 함께 쓰면 둘을 더한 값이 칸보다 넓어져
+  // 좁은 화면에서 한 장씩 내려갔다. 여백을 뺀 폭으로 잡는다.
+  memberManagerCard: { flexBasis: "47%", flexGrow: 1, maxWidth: "48%", minHeight: 61, borderRadius: 모서리.버튼, borderWidth: 1, paddingHorizontal: 여백.가로좁게, flexDirection: "row", alignItems: "center" },
   memberManagerAvatar: { width: 33, height: 33, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   memberManagerCardCopy: { flex: 1, minWidth: 0, marginLeft: 8 },
   memberManagerName: { fontSize: 14, fontFamily: typo.title.family },
@@ -8360,7 +8379,9 @@ const s = StyleSheet.create({
   helpItem: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 8 },
   helpQuestion: { fontSize: 14, fontFamily: typo.title.family },
   helpAnswer: { fontSize: 13, lineHeight: 20, marginTop: 4, fontFamily: typo.body.family },
-  memberEditor: { borderRadius: 12, padding: 12 },
+  // 구역 하나. 아래 여백이 없어 「선택한 멤버」·「나가기」·「초대」가 서로 맞붙어
+  // 어디까지가 한 덩이인지 읽히지 않았다(기기에서 확인).
+  memberEditor: { borderRadius: 모서리.구역, padding: 여백.가로좁게, marginBottom: 여백.세로 },
   inviteRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 32 },
   memberEditorEyebrow: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 8 },
 });
