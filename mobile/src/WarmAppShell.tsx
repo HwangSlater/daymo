@@ -2745,6 +2745,11 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
         // 넘긴 장의 값은 1 에 그대로 둔다. 그래서 스스로 안 보이고, 위에 새 장이
         // 얹히는 순간 어떤 속성도 바뀌지 않는다. 그림자 값은 0 으로 돌려도 양
         // 끝이 다 안 보이는 값이라 언제 반영되든 상관없다.
+        //
+        // **가는 장은 0 으로 되돌린다.** 한 번 넘겼던 장으로 되돌아가면 그 장은
+        // 아직 1(다 넘어간 상태)이라 스스로 보이지 않고, 그 아래 장이 비쳐 보인다.
+        // 다음 → 다음 → 이전 으로 가면 두 장 전의 내용이 남아 보이던 까닭이다.
+        pages.get(index + step)?.setValue(0);
         setIndex(current => current + step);
         turn.setValue(0);
       }
@@ -2757,8 +2762,10 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     if (step === 0 || busy.current || dragging.current || !canMove(step)) return;
     dragDirection.current = step;
     setDirection(step);
-    if (reduceMotion) setIndex(current => current + step);
-    else settle(step, true);
+    if (reduceMotion) {
+      pages.get(index + step)?.setValue(0);
+      setIndex(current => current + step);
+    } else settle(step, true);
   };
   const pan = useMemo(() => {
     // PanResponder registers these callbacks; refs are read only during touch events.
@@ -2790,7 +2797,10 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
       const forwardVelocity = step === 1 ? -gesture.vx : gesture.vx;
       const complete = canMove(step) && shouldCompletePeel(gesture.dx, gesture.dy, forwardVelocity, width);
       if (reduceMotion) {
-        if (complete) setIndex(current => current + step);
+        if (complete) {
+          pages.get(index + step)?.setValue(0);
+          setIndex(current => current + step);
+        }
         dragging.current = false;
       } else settle(step, complete);
     },
