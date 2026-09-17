@@ -41,7 +41,7 @@ import {
 } from "./serverData";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
-import { COVER_FAIL, coverToggleOf } from "./coverPhoto";
+import { COVER_FAIL, COVER_UNDO, coverNowOf, coverToggleOf, coverUndoBody } from "./coverPhoto";
 import {
   homeCardBlockedReason,
   keepsakeAddBlockedReason,
@@ -114,6 +114,8 @@ export type CardViewer = {
   hint?: string;
   hintSoon?: boolean;
   toast?: string;
+  /** 그 줄 옆의 되돌리기 단추. */
+  toastAction?: { label: string; onPress: () => void };
   waitingText?: string;
   /**
    * 보고 있는 사진을 홈 화면에 깔거나 내린다. 깔 수 없는 사진이면 없다.
@@ -121,14 +123,14 @@ export type CardViewer = {
    * 홈에 까는 일은 크게 보는 자리에 있어야 한다. 지금 보고 있는 것을 홈에 까는
    * 일이라, 고치러 들어가야 보이면 고칠 생각이 없는 사람은 찾지 못한다.
    */
-  cover?: { label: string; onPress: () => void };
+  cover?: { on: boolean; label: string; onPress: () => void };
   /**
    * 창 안에 떴다 사라지는 한 줄.
    *
    * 여행 화면 바닥의 토스트는 이 창에 가려 보이지 않는다. 창이 떠 있는 동안
-   * 알릴 말은 이 길로 보낸다.
+   * 알릴 말은 이 길로 보낸다. `undo` 를 주면 그 줄 옆에 되돌리기가 붙는다.
    */
-  onNotice: (text: string) => void;
+  onNotice: (text: string, undo?: { label: string; onPress: () => void }) => void;
 };
 
 /**
@@ -181,6 +183,7 @@ export function TripCardsSection({
   participants,
   counts,
   coverCardId,
+  coverPhotoId,
   onSaveHomeCover,
   onInline,
   canEdit,
@@ -201,6 +204,8 @@ export function TripCardsSection({
   counts: CardCounts;
   /** 홈 화면의 여행 카드에 통째로 깔린 카드. */
   coverCardId?: string;
+  /** 홈 화면에 깔린 사진 한 장. 카드를 깔 때 무엇이 내려가는지 말하려고 받는다. */
+  coverPhotoId?: string;
   /** 홈 화면에 깔 것을 바꾼다. `localUris` 는 기기가 들고 있는 사진 자리(사진 id → 자리)다. */
   onSaveHomeCover?: (
     고른_것: { coverPhotoId: string | null } | { coverCardId: string | null },
@@ -592,7 +597,16 @@ export function TripCardsSection({
     [openId, previewing, tiles],
   );
 
-  const cover = coverToggleOf(open?.id, coverCardId, "card");
+  /**
+   * 지금 홈에 깔린 것. 내려가는 것의 이름을 대려면 종류와 이름이 함께 필요하다.
+   *
+   * 사진 이름은 크게 보기 목록에서, 카드 이름은 이 화면의 목록에서 찾는다.
+   */
+  const coverNow = coverNowOf(coverPhotoId, coverCardId, (kind, id) =>
+    kind === "card"
+      ? list.find((줄) => 줄.id === id)?.label
+      : viewer.photos.find((하나) => 하나.id === id)?.caption);
+  const cover = coverToggleOf(open?.id, coverNow, "card");
   // 세로로 쌓은 카드는 홈의 가로로 넓은 자리에 담기지 않는다. 눕히거나 격자로 바꾸면
   // 만든 사람이 고른 모양과 달라지므로, 담기지 않는다고 알리고 막는다.
   //
@@ -617,7 +631,14 @@ export function TripCardsSection({
         Object.fromEntries(chosen.map((photo) => [photo.id, thumbs[photo.id] ?? photo.uri])),
       );
       // 창이 떠 있는 동안이라 여행 화면 바닥의 토스트는 가려진다. 창 안에서 알린다.
-      viewerRef.current.onNotice(cover.on ? "홈 화면에서 이 카드를 내렸어요" : "홈 화면에 이 카드를 깔았어요");
+      // 무엇이 내려갔는지 적고 한 번에 되돌릴 길을 같은 줄에 둔다.
+      viewerRef.current.onNotice(cover.done, {
+        label: COVER_UNDO,
+        onPress: () => {
+          void onSaveHomeCover(coverUndoBody(cover.undo)).catch(() =>
+            viewerRef.current.onNotice(COVER_FAIL));
+        },
+      });
     } catch {
       viewerRef.current.onNotice(COVER_FAIL);
     }
@@ -626,32 +647,27 @@ export function TripCardsSection({
   /**
    * 꾸미기의 ⋮.
    *
-   * 내보내기와 삭제는 다 꾸민 뒤에 한 번 쓰는 것이다. 네 갈래 도구에 섞어 두면
-   * 매번 지나치게 되고, 머리줄에 늘어놓으면 「저장」이 묻힌다. 홈 화면에 쓰는 것은
-   * 여기 있지 않다. 지금 크게 보고 있는 것을 홈에 까는 일이라 보기 쪽으로 옮겼다.
+   * 삭제 하나만 남는다. 내보내기는 위 줄의 ↓ 로, 홈 화면은 보기의 ⌂ 로 올렸다.
+   * 자주 쓰는 것을 메뉴 안에 두면 있는 줄도 모르고, 되돌릴 수 없는 삭제를 줄에
+   * 내놓으면 잘못 눌린다. 남는 것이 삭제뿐인 까닭이다.
    */
-  const cardMenu: ViewerDecor["menu"] = readOnly
-    ? []
-    : [
-        {
-          label: Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기",
-          onPress: () => void exportCard(),
-        },
-        ...(open && tripId ? [{ label: "카드 삭제", tone: "위험" as const, onPress: removeCard }] : []),
-      ];
+  const cardMenu: ViewerDecor["menu"] =
+    !readOnly && open && tripId
+      ? [{ label: "카드 삭제", tone: "위험" as const, onPress: removeCard }]
+      : [];
+  /** ↓ 에 적을 말. 웹은 내려받고 폰은 공유 시트로 간다. */
+  const exportLabel = Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기";
 
   /**
    * 보기의 ⋮.
    *
-   * 카드를 보는 중이면 그 카드를, 사진을 보는 중이면 그 사진을 홈에 깐다. 사진 쪽
-   * 몫은 기록 탭이 내려 준다(`viewer.cover`). 신고는 사진에만 있다.
+   * ⌂ 와 ↓ 가 줄로 올라가서 여기 남는 것은 가끔 쓰는 것뿐이다. 사진을 보고
+   * 있으면 사진 정보와 신고, 카드를 보고 있으면 남는 것이 없어 ⋮ 자체가 없다.
    */
   const viewMenu: ViewerDecor["viewMenu"] = previewing
-    ? onSaveHomeCover && open && canEdit
-      ? [{ label: cover.label, onPress: () => void toggleCover() }]
-      : []
+    ? []
     : [
-        ...(viewer.cover ? [{ label: viewer.cover.label, onPress: viewer.cover.onPress }] : []),
+        ...(viewer.onEditPhoto ? [{ label: "사진 정보", onPress: viewer.onEditPhoto }] : []),
         ...(viewer.onReport ? [{ label: "신고", onPress: viewer.onReport }] : []),
       ];
 
@@ -667,6 +683,11 @@ export function TripCardsSection({
         saveLabel: readOnly || !tripId ? "닫기" : "저장",
         menu: cardMenu,
         viewMenu,
+        onExport: () => void exportCard(),
+        exportLabel,
+        cover: onSaveHomeCover && open && canEdit
+          ? { on: cover.on, label: cover.label, onPress: () => void toggleCover() }
+          : undefined,
         preview: previewing && card
           ? <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} />
           : undefined,
@@ -713,10 +734,12 @@ export function TripCardsSection({
       saveBlocked={viewer.saveBlocked}
       onEdit={viewer.onEditPhoto}
       onReport={viewer.onReport}
+      cover={viewer.cover}
       report={viewer.report}
       hint={viewer.hint}
       hintSoon={viewer.hintSoon}
       toast={viewer.toast}
+      toastAction={viewer.toastAction}
       waitingText={viewer.waitingText}
       decor={decor}
     />

@@ -76,6 +76,14 @@ export type ViewerPhoto = {
  */
 export type ViewerMenuRow = { label: string; tone?: "위험"; onPress: () => void };
 
+/**
+ * ⌂ 단추 하나.
+ *
+ * 홈 화면에 쓰는 일은 ⋮ 안에 있었다. 지금 크게 보고 있는 것을 홈에 까는 일이라
+ * 자주 쓰는데, 메뉴를 열어 봐야 있는 줄 알 수 있었다. 위 줄로 올린다.
+ */
+export type ViewerCover = { on: boolean; label: string; onPress: () => void };
+
 export type ViewerDecor = {
   /** 도구가 펼쳐져 있는지. 펼쳐지면 무대에 도구가 딸린 카드가 온다. */
   open: boolean;
@@ -87,8 +95,18 @@ export type ViewerDecor = {
   onSave: () => void;
   /** 오른쪽 위에 적을 말. 보통 `저장`, 남의 카드면 `닫기`. */
   saveLabel: string;
-  /** 꾸미기의 ⋮. 내보내기·삭제처럼 다 꾸민 뒤에 한 번 쓰는 것만 들어간다. */
+  /** 꾸미기의 ⋮. 위 줄에 올리지 못한 것만 남는다(지금은 삭제 하나). */
   menu: ViewerMenuRow[];
+  /**
+   * ↓. 카드를 그림으로 내보낸다.
+   *
+   * 사진첩의 ↓ 와 같은 자리·같은 그림이다. 카드에서만 ⋮ 안에 숨겨 두면 「이 카드
+   * 내려받기」를 사진과 다른 데서 찾아야 한다. 같은 일은 같은 자리에 둔다.
+   */
+  onExport: () => void;
+  exportLabel: string;
+  /** ⌂. 이 카드를 홈 화면에 깔거나 내린다. 깔 수 없으면 없다. */
+  cover?: ViewerCover;
   /** 보기의 ⋮. 홈 화면에 쓰기와 신고가 들어간다. */
   viewMenu: ViewerMenuRow[];
   /** 카드와 도구. 펼쳤을 때만 그린다. */
@@ -200,7 +218,9 @@ export function PhotoViewerScreen({
   hint,
   hintSoon,
   toast,
+  toastAction,
   waitingText,
+  cover,
   decor,
 }: {
   visible: boolean;
@@ -214,8 +234,10 @@ export function PhotoViewerScreen({
   saving: boolean;
   /** 아직 서버에 올라가는 중이라 받을 것이 없을 때. */
   saveBlocked: boolean;
-  /** ✎. 고칠 수 없는 사람에게는 주지 않는다. */
+  /** ⋮ 안의 「사진 정보」. 설명·날짜·붙일 곳·삭제를 다루는 화면을 연다. */
   onEdit?: () => void;
+  /** ⌂. 보고 있는 사진을 홈 화면에 깔거나 내린다. */
+  cover?: ViewerCover;
   /** ⋮ 안의 「신고」. 서버 사진에만 있다. */
   onReport?: () => void;
   /** 신고 폼. 열려 있을 때만 온다. */
@@ -225,6 +247,13 @@ export function PhotoViewerScreen({
   hintSoon?: boolean;
   /** 저장하고 나서 떴다 사라지는 한 줄. */
   toast?: string;
+  /**
+   * 그 한 줄 옆의 단추.
+   *
+   * 홈 화면을 바꾸면 전에 깔아 둔 것이 내려간다. 묻지 않고 바꾸는 대신, 무엇이
+   * 내려갔는지 적고 한 번에 되돌릴 길을 같은 줄에 둔다.
+   */
+  toastAction?: { label: string; onPress: () => void };
   /** 사진 파일이 아직 없을 때 사진 자리에 적을 말. */
   waitingText?: string;
   /** 같은 창에서 펼치는 기념 카드 꾸미기. 없으면 사진만 보는 창이다. */
@@ -366,6 +395,11 @@ export function PhotoViewerScreen({
       : onReport
         ? [{ label: "신고", onPress: () => onReport() }]
         : [];
+  /** 위 줄의 ⌂ 와 ↓. 사진을 볼 때와 카드를 볼 때가 하는 일만 다르고 자리는 같다. */
+  const 홈단추 = previewing ? decor?.cover : cover;
+  const 저장단추 = previewing
+    ? decor && { label: decor.exportLabel, onPress: decor.onExport, disabled: false, on: false }
+    : { label: "이 사진 저장", onPress: onSave, disabled: saving || saveBlocked, on: saving };
   /** 스트립 끝에 세울 카드. 꾸미는 동안에는 스트립 자체가 없다. */
   const 카드칸 = decor?.cards ?? [];
   return (
@@ -388,6 +422,8 @@ export function PhotoViewerScreen({
               <Text style={styles.decorBack}>나가기</Text>
             </Pressable>
             <Text style={styles.decorTitle}>카드 꾸미기</Text>
+            {/* 사진첩의 ↓ 와 같은 자리·같은 그림이다. 배울 것이 하나 줄어든다. */}
+            <BarButton glyph="download" label={decor.exportLabel} onPress={decor.onExport} />
             {menuRows.length > 0 && (
               <BarButton
                 glyph="moreVertical"
@@ -431,21 +467,29 @@ export function PhotoViewerScreen({
         {/* 「꾸미기」 한 줄이 붙으면 아래가 한 줄 길어진다. 그늘도 그만큼 더 깐다. */}
         <Scrim place="bottom" tall={Boolean(decor)} />
 
+        {/* ✕ / n·N / ⌂ / ↓ / ⋮. 자주 쓰는 것만 줄에 둔다. 사진 정보와 신고는 ⋮
+            안으로 넣었다. 예전에는 ✎(사진 고치기)가 여기 있었는데, 아래 「꾸미기」도
+            연필이라 한 화면에 같은 그림이 둘이었다. */}
         <View style={styles.bar}>
           <BarButton glyph="close" label="크게 보기 닫기" onPress={close} />
           <Text style={styles.count}>{!previewing && photos.length > 1 ? `${index + 1} / ${photos.length}` : ""}</Text>
-          {/* ↓ 와 ✎ 는 사진에만 있는 것이다. 카드는 내려받을 원본도, 설명·날짜를
-              고칠 곳도 없다(카드를 고치는 것은 아래 「꾸미기」다). */}
-          {!previewing && (
+          {Boolean(홈단추) && (
             <BarButton
-              glyph="download"
-              label="이 사진 저장"
-              on={saving}
-              disabled={saving || saveBlocked}
-              onPress={onSave}
+              glyph={홈단추?.on ? "home" : "homeOutline"}
+              label={홈단추?.label ?? ""}
+              on={홈단추?.on}
+              onPress={() => 홈단추?.onPress()}
             />
           )}
-          {Boolean(onEdit) && !previewing && <BarButton glyph="pencil" label="사진 고치기" onPress={() => onEdit?.()} />}
+          {Boolean(저장단추) && (
+            <BarButton
+              glyph="download"
+              label={저장단추?.label ?? ""}
+              on={저장단추?.on}
+              disabled={저장단추?.disabled}
+              onPress={() => 저장단추?.onPress()}
+            />
+          )}
           {menuRows.length > 0 && (
             <BarButton glyph="moreVertical" label="더 보기" on={menuOpen} onPress={() => setMenuOpen((열림) => !열림)} />
           )}
@@ -534,7 +578,9 @@ export function PhotoViewerScreen({
                 accessibilityLabel={previewing ? "이 카드 꾸미기" : "이 사진으로 기념 카드 만들기"}
                 style={({ pressed }) => [styles.decorate, pressed && styles.pressed]}
               >
-                <Glyph name="pencil" size={17} color={INK} weight={2} />
+                {/* 연필이 아니라 네모 넷이다. 연필은 「고치기」고 이것은 사진을
+                    모아 카드를 만드는 일이다(`Glyph` 의 grid 주석). */}
+                <Glyph name="grid" size={17} color={INK} weight={1.8} />
                 <Text style={styles.decorateText}>{previewing ? "이 카드 꾸미기" : "꾸미기"}</Text>
               </Pressable>
               <Text style={styles.decorateHint}>
@@ -570,9 +616,26 @@ export function PhotoViewerScreen({
         )}
 
         {Boolean(toast) && (
-          <View style={styles.toast} accessibilityLiveRegion="polite" pointerEvents="none">
+          <View
+            style={styles.toast}
+            accessibilityLiveRegion="polite"
+            // 되돌리기 단추가 있을 때만 누름을 받는다. 그냥 알리는 줄이 사진 위를
+            // 덮고 있으면 그 자리의 사진을 누를 수 없다.
+            pointerEvents={toastAction ? "box-none" : "none"}
+          >
             <Glyph name="check" size={17} color="#7FD8A6" weight={2.4} />
             <Text style={styles.toastText}>{toast}</Text>
+            {Boolean(toastAction) && (
+              <Pressable
+                onPress={() => toastAction?.onPress()}
+                hitSlop={누름여유(높이.칩)}
+                accessibilityRole="button"
+                accessibilityLabel={toastAction?.label ?? ""}
+                style={({ pressed }) => [styles.toastAction, pressed && styles.pressed]}
+              >
+                <Text style={[styles.toastText, { color: EDIT_ACCENT }]}>{toastAction?.label}</Text>
+              </Pressable>
+            )}
           </View>
         )}
         {Boolean(report) && <View style={styles.reportPanel}>{report}</View>}
@@ -589,13 +652,15 @@ export function PhotoViewerScreen({
 }
 
 /** 고치기 화면 아래의 도구 한 칸. 고른 것만 칸이 열린다. */
-type EditTool = "설명" | "날짜" | "붙이기";
+type EditTool = "설명" | "날짜" | "붙일 곳";
 
 /** 고치기 화면의 아이콘 줄에 놓을 것. 홈 화면과 삭제는 칸이 없고 누르면 바로 한다. */
 const EDIT_TOOLS: { key: EditTool | "홈 화면" | "삭제"; glyph: GlyphName }[] = [
   { key: "설명", glyph: "lines" },
   { key: "날짜", glyph: "calendar" },
-  { key: "붙이기", glyph: "link" },
+  // 「붙이기」로는 무엇에 붙이는지 알 수 없었다. 이 앱의 다른 자리도 「사진을
+  // 붙일 곳」이라고 적는다. 도구 이름도 그 말에 맞춘다.
+  { key: "붙일 곳", glyph: "link" },
   { key: "홈 화면", glyph: "home" },
   { key: "삭제", glyph: "trash" },
 ];
@@ -661,7 +726,7 @@ export function PhotoEditScreen({
   const captionInput = useRef<TextInput>(null);
   const keyboardInset = useWebKeyboardInset(visible);
   // 나갈 때 도구 칸을 처음 자리로 되돌린다. 다음에 다른 사진을 열었는데 지난번에
-  // 보던 「붙이기」 칸이 그대로 떠 있으면 설명을 고치러 온 사람이 헤맨다.
+  // 보던 「붙일 곳」 칸이 그대로 떠 있으면 설명을 고치러 온 사람이 헤맨다.
   const leave = (go: () => void) => {
     setTool("설명");
     go();
@@ -748,7 +813,7 @@ export function PhotoEditScreen({
           >
             <Text style={styles.editCancel}>취소</Text>
           </Pressable>
-          <Text style={styles.editTitle}>사진 고치기</Text>
+          <Text style={styles.editTitle}>사진 정보</Text>
           <Pressable
             onPress={() => leave(readOnly ? onClose : onSubmit)}
             accessibilityRole="button"
@@ -795,11 +860,22 @@ export function PhotoEditScreen({
               {chips(dateOptions, (option) => option === date, (차례) => onDate(dateOptions[차례]), true)}
             </ScrollView>
           )}
-          {tool === "붙이기" && (
+          {tool === "붙일 곳" && (
             <ScrollView style={styles.editPanelScroll} contentContainerStyle={styles.editPanelPad}>
-              {linkLabels.length
-                ? chips(linkLabels, (_option, 차례) => linkChosen[차례], onToggleLink, true)
-                : <Text style={styles.editStageHint}>아직 사진을 붙일 장소나 일정이 없어요</Text>}
+              {linkLabels.length ? (
+                <>
+                  {/* 무엇에 붙이는 것인지 한 줄 적어 둔다. 칩 이름만으로는 이 사진이
+                      거기에 「걸린다」는 뜻이 오지 않는다. */}
+                  <Text style={styles.editPanelLead}>
+                    {linkChosen.some(Boolean)
+                      ? "고른 곳에서 이 사진이 함께 보여요"
+                      : "장소·일정·숙소에 이 사진을 걸어 둘 수 있어요"}
+                  </Text>
+                  {chips(linkLabels, (_option, 차례) => linkChosen[차례], onToggleLink, true)}
+                </>
+              ) : (
+                <Text style={styles.editStageHint}>아직 사진을 붙일 장소나 일정이 없어요</Text>
+              )}
             </ScrollView>
           )}
 
@@ -941,6 +1017,7 @@ const styles = StyleSheet.create({
   toast: {
     position: "absolute",
     alignSelf: "center",
+    maxWidth: "92%",
     bottom: 190,
     flexDirection: "row",
     alignItems: "center",
@@ -951,6 +1028,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(20,20,22,0.92)",
   },
   toastText: { fontSize: 13.5, color: INK, fontFamily: typo.label.family },
+  // 알림 줄 오른쪽 끝의 되돌리기. 글자만 두고 테두리는 주지 않는다.
+  toastAction: { paddingLeft: 4 },
   // 고치기 화면은 도구 칸이 아래를 차지해서 조금 더 위에 띄운다.
   editToast: { bottom: 210 },
   // 「꾸미기」 한 줄. 사진 아래에 놓여 눈에는 들되 사진을 가리지 않는다.
@@ -1010,6 +1089,8 @@ const styles = StyleSheet.create({
   editStage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, paddingVertical: 10 },
   editShot: { width: "100%", height: "100%", borderRadius: 6, overflow: "hidden" },
   editStageHint: { fontSize: 12, color: INK_FAINT, textAlign: "center", paddingBottom: 8, fontFamily: typo.caption.family },
+  // 도구 칸 맨 위의 한 줄. 이 칸이 무엇을 하는 자리인지 알린다.
+  editPanelLead: { fontSize: 12, color: INK_SOFT, marginBottom: 8, fontFamily: typo.caption.family },
   // 도구 칸의 높이를 고정한다. 도구를 바꿀 때마다 칸이 늘었다 줄면 위의 사진이
   // 따라 움직여 눈이 어지럽다(`CardDecorEditor` 와 같은 요령이다).
   editTools: {

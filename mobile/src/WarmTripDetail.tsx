@@ -172,7 +172,7 @@ import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/co
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
 import { parseKakaoPlaceShare, resolveKakaoPlaceShare } from "./kakaoPlaceShare";
 import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } from "./mapLinks";
-import { COVER_BADGE, COVER_FAIL, coverPickable, coverToggleOf } from "./coverPhoto";
+import { COVER_BADGE, COVER_FAIL, COVER_UNDO, coverNowOf, coverPickable, coverToggleOf, coverUndoBody } from "./coverPhoto";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
@@ -8594,8 +8594,19 @@ function Memories({
    *
    * 저장했다고 알리는 자리다. 이 화면은 화면을 통째로 덮는 `Modal` 이라, 여행 화면
    * 바닥에 깔린 토스트(`DetailFeedbackContext`)가 뒤에 가려 보이지 않는다.
+   *
+   * 홈 화면을 바꿀 때는 옆에 되돌리기가 붙는다. 새로 깔면 전에 깔아 둔 것이
+   * 내려가는데, 물을 때마다 걸리적거리므로 묻지 않고 되돌릴 길만 준다.
    */
   const [photoToast, setPhotoToast] = useState("");
+  const [photoUndo, setPhotoUndo] = useState<{ label: string; onPress: () => void } | null>(null);
+  /** 창 안에서 한 줄 알린다. 되돌릴 것이 있으면 단추까지 함께 띄운다. */
+  const notifyInViewer = (text: string, undo?: { label: string; onPress: () => void }) => {
+    setPhotoToast(text);
+    // 상태에 함수를 넣을 때는 함수를 돌려주는 함수여야 한다. 그냥 넘기면 React 가
+    // 값을 고치는 함수로 본다.
+    setPhotoUndo(() => undo ?? null);
+  };
   /** 크게 보는 화면의 ⋮ 에서 연 신고 폼. */
   const [reporting, setReporting] = useState(false);
   /** 격자 위의 필터. 사진과 기념 카드를 한 격자에 놓고 여기서 갈라 본다. */
@@ -8703,9 +8714,13 @@ function Memories({
   // 저장했다는 한 줄은 잠깐 뜨고 사라진다. 여행 화면 바닥의 토스트와 같은 시간을 쓴다.
   useEffect(() => {
     if (!photoToast) return;
-    const timer = setTimeout(() => setPhotoToast(""), 2200);
+    // 되돌리기가 붙은 줄은 조금 더 오래 둔다. 읽고 손이 가기까지 시간이 든다.
+    const timer = setTimeout(() => {
+      setPhotoToast("");
+      setPhotoUndo(null);
+    }, photoUndo ? 5200 : 2200);
     return () => clearTimeout(timer);
-  }, [photoToast]);
+  }, [photoToast, photoUndo]);
   /** 사진을 넘기거나 창을 닫는다. 열어 둔 신고 폼도 함께 닫는다. */
   const moveViewing = (photoId: string | null) => {
     setReporting(false);
@@ -8912,7 +8927,24 @@ function Memories({
    * 고치기 화면의 「저장」을 기다리지 않는다. 사진 설명과 달리 홈에 깔 사진은
    * 여행에 붙는 값이라 저장 단추와 함께 보내면 무엇이 저장됐는지 흐려진다.
    */
-  const cover = coverToggleOf(editingPhotoId ?? undefined, coverPhotoId, "photo");
+  /**
+   * 지금 홈에 깔린 것. 무엇이 내려가는지 이름을 대려면 종류와 이름이 함께 필요하다.
+   *
+   * 카드 이름은 기념 카드 쪽이 올려 준 목록(`cards.tiles`)에서 찾는다.
+   */
+  const coverNow = coverNowOf(coverPhotoId, coverCardId, (kind, id) =>
+    kind === "card"
+      ? cardTiles.find((하나) => 하나.id === id)?.label
+      : photos.find((photo) => photo.id === id)?.caption);
+  /** 되돌리기 한 번에 전으로 돌린다. 실패하면 같은 자리에 한 줄로 알린다. */
+  const undoCover = (undo: Parameters<typeof coverUndoBody>[0]) => ({
+    label: COVER_UNDO,
+    onPress: () => {
+      if (!onSaveHomeCover) return;
+      void onSaveHomeCover(coverUndoBody(undo)).catch(() => notifyInViewer(COVER_FAIL));
+    },
+  });
+  const cover = coverToggleOf(editingPhotoId ?? undefined, coverNow, "photo");
   const canSetCover = canEdit && Boolean(onSaveHomeCover) && coverPickable(editingPhotoId, uploadedPhotoIds ?? new Set());
   const toggleCover = async () => {
     if (!onSaveHomeCover || !editingPhotoId) return;
@@ -8920,8 +8952,8 @@ function Memories({
     try {
       await onSaveHomeCover({ coverPhotoId: cover.next }, { [editingPhotoId]: uri });
       // 고치기 화면은 검은 바탕이라 여행 화면 바닥의 토스트가 가려진다. 같은 자리의
-      // 한 줄로 알린다.
-      setPhotoToast(cover.done);
+      // 한 줄로 알리고, 무엇이 내려갔는지와 되돌릴 길을 함께 준다.
+      notifyInViewer(cover.done, undoCover(cover.undo));
     } catch {
       showAlert("홈 화면 사진을 바꾸지 못했어요", COVER_FAIL);
     }
@@ -8933,17 +8965,17 @@ function Memories({
    * 홈에 까는 일은 크게 보는 자리에도 있어야 한다. 지금 보고 있는 것을 홈에 까는
    * 일이라, 고치러 들어가야 보이면 고칠 생각이 없는 사람은 찾지 못한다.
    */
-  const viewCover = coverToggleOf(viewingPhotoId ?? undefined, coverPhotoId, "photo");
+  const viewCover = coverToggleOf(viewingPhotoId ?? undefined, coverNow, "photo");
   const canSetViewCover = canEdit && Boolean(onSaveHomeCover) && coverPickable(viewingPhotoId, uploadedPhotoIds ?? new Set());
   const toggleViewCover = async () => {
     if (!onSaveHomeCover || !viewingPhotoId) return;
     const uri = photos.find((photo) => photo.id === viewingPhotoId)?.uri;
     try {
       await onSaveHomeCover({ coverPhotoId: viewCover.next }, { [viewingPhotoId]: uri });
-      setPhotoToast(viewCover.done);
+      notifyInViewer(viewCover.done, undoCover(viewCover.undo));
     } catch {
       // 크게 보는 창이 여행 화면을 덮고 있어 바닥의 토스트는 가려진다.
-      setPhotoToast(COVER_FAIL);
+      notifyInViewer(COVER_FAIL);
     }
   };
   const openDiaryCreate = () => {
@@ -9187,6 +9219,7 @@ function Memories({
         participants={participants}
         counts={cardCounts}
         coverCardId={coverCardId}
+        coverPhotoId={coverPhotoId}
         onSaveHomeCover={onSaveHomeCover}
         onInline={takeCards}
         canEdit={canEdit}
@@ -9210,13 +9243,14 @@ function Memories({
           hint: viewing ? originalSaveHint(viewing.originalUntil, todayKey).text : undefined,
           hintSoon: viewing ? originalSaveHint(viewing.originalUntil, todayKey).soon : false,
           toast: photoToast,
+          toastAction: photoUndo ?? undefined,
           waitingText: viewing && uploadingPhotoIds.has(viewing.id)
             ? (blockedPhotoIds.has(viewing.id) ? "아직 못 올린 사진이에요" : "올리는 중이에요")
             : undefined,
           cover: canSetViewCover || viewCover.on
-            ? { label: viewCover.label, onPress: () => void toggleViewCover() }
+            ? { on: viewCover.on, label: viewCover.label, onPress: () => void toggleViewCover() }
             : undefined,
-          onNotice: setPhotoToast,
+          onNotice: notifyInViewer,
         }}
       />
       {/* 고치기도 전용 화면이다. 시트 안에서 사진을 작게 보며 고치던 자리를 옮겼다. */}

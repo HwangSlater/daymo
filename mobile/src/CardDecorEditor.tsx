@@ -56,6 +56,7 @@ import {
   type CardDecor,
   type KeepsakeSticker,
 } from "./cardDecor";
+import { Chip, ChipRow as SharedChipRow } from "./ui/Chip";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
@@ -89,6 +90,8 @@ const INK_SOFT = "rgba(255,255,255,0.80)";
 const INK_FAINT = "rgba(255,255,255,0.42)";
 const PANEL = "#17161C";
 const CHIP = "#26252E";
+/** 꺼진 칩의 테두리. 채움만으로는 어두운 바탕에서 칩인지 바탕인지 알 수 없다. */
+const CHIP_EDGE = "#3C3A47";
 const ACCENT = "#A7B3EE";
 
 /** 도구의 네 갈래. 값이 곧 탭에 적히는 말이다. */
@@ -100,7 +103,16 @@ function PanelLabel({ text }: { text: string }) {
   return <Text style={styles.panelLabel}>{text}</Text>;
 }
 
-/** 고르는 칩 한 줄. 여러 줄로 펴서 한눈에 보여 준다. */
+/**
+ * 고르는 칩 한 줄.
+ *
+ * 모양은 공통 부품(`ui/Chip`)을 그대로 쓰고 색만 이 화면 것을 준다. 도구 칸은
+ * 늘 어두워서 테마 색을 그대로 쓰면 글자가 묻힌다.
+ *
+ * 꺼진 칩에도 테두리를 준다. 채움만으로 가르면 어두운 바탕에서 꺼진 칩이 바탕에
+ * 녹아 「고를 수 있는 것」으로 보이지 않는다. 「카드에 넣을 것」처럼 켜고 끄는
+ * 줄에서 특히 그렇다.
+ */
 const ChipRow = memo(function ChipRow({
   options,
   chosen,
@@ -116,24 +128,22 @@ const ChipRow = memo(function ChipRow({
   onPress: (option: string) => void;
 }) {
   return (
-    <View style={styles.chipRow}>
+    <SharedChipRow>
       {options.map((option) => {
         const on = chosen(option);
         return (
-          <Pressable
+          <Chip
             key={option}
+            label={option}
+            on={on}
             onPress={() => onPress(option)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: on }}
-            accessibilityLabel={option}
-            hitSlop={누름여유(높이.칩)}
-            style={({ pressed }) => [styles.chip, on && { backgroundColor: accent }, pressed && styles.pressed]}
-          >
-            <Text style={[styles.chipText, on && styles.chipTextOn, on && { color: accentInk }]}>{option}</Text>
-          </Pressable>
+            colors={on
+              ? { background: accent, border: accent, text: accentInk }
+              : { background: CHIP, border: CHIP_EDGE, text: INK_SOFT }}
+          />
         );
       })}
-    </View>
+    </SharedChipRow>
   );
 });
 
@@ -521,6 +531,16 @@ export function CardDecorTools({
 
               {tab === "글" && (
                 <>
+                  {/* 켜고 끄는 줄을 제목보다 위에 둔다. 아래에 있으면 제목을 다 적고
+                      저장할 때까지 지나치고, 「적었는데 왜 카드에 없지」가 된다. */}
+                  <PanelLabel text="카드에 넣을 것" />
+                  <ChipRow
+                    options={KEEPSAKE_PARTS}
+                    chosen={(option) => card.parts.includes(option as KeepsakePart)}
+                    accent={accent}
+                    accentInk={accentInk}
+                    onPress={(option) => tune({ parts: 넣고_빼기(card.parts, option as KeepsakePart) })}
+                  />
                   <PanelLabel text="제목" />
                   <TextInput
                     value={card.title}
@@ -531,10 +551,11 @@ export function CardDecorTools({
                     accessibilityLabel="카드 제목"
                     style={styles.field}
                   />
-                  {/* 적어 두었는데 아래에서 그 줄을 꺼 두면 카드에 안 나온다. 왜 안
-                      보이는지 알 길이 없어서, 껐을 때만 한 줄로 알린다. */}
+                  {/* 적어 두었는데 그 줄을 꺼 두면 카드에 안 나온다. 왜 안 보이는지
+                      알 길이 없어서, 껐을 때만 알린다. 흐린 설명 색이 아니라 눈에
+                      드는 색을 쓴다. 이건 안내가 아니라 「지금 안 나오고 있다」는 말이다. */}
                   {!card.parts.includes("이름") && (
-                    <Text style={styles.panelHint}>아래 「카드에 넣을 것」에서 이름을 켜야 카드에 보여요</Text>
+                    <Text style={styles.panelWarn}>위 「카드에 넣을 것」에서 이름을 켜야 카드에 보여요</Text>
                   )}
                   <PanelLabel text="한 줄 설명" />
                   <TextInput
@@ -547,16 +568,8 @@ export function CardDecorTools({
                     style={styles.field}
                   />
                   {!card.parts.includes("문구") && (
-                    <Text style={styles.panelHint}>아래 「카드에 넣을 것」에서 문구를 켜야 카드에 보여요</Text>
+                    <Text style={styles.panelWarn}>위 「카드에 넣을 것」에서 문구를 켜야 카드에 보여요</Text>
                   )}
-                  <PanelLabel text="카드에 넣을 것" />
-                  <ChipRow
-                    options={KEEPSAKE_PARTS}
-                    chosen={(option) => card.parts.includes(option as KeepsakePart)}
-                    accent={accent}
-                    accentInk={accentInk}
-                    onPress={(option) => tune({ parts: 넣고_빼기(card.parts, option as KeepsakePart) })}
-                  />
                   {card.parts.includes("통계") && (
                     <>
                       <PanelLabel text="어떤 숫자를 넣을까요" />
@@ -657,18 +670,17 @@ export function CardDecorTools({
   );
 }
 
-/** 고른 스티커를 만지는 단추. 위험한 것(삭제)만 다른 색이다. */
+/** 고른 것을 만지는 단추. 위험한 것(삭제)만 다른 색이다. */
 function Tool({ label, tone, onPress }: { label: string; tone?: "위험"; onPress: () => void }) {
   return (
-    <Pressable
+    <Chip
+      label={label}
+      on={false}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={누름여유(높이.칩)}
-      style={({ pressed }) => [styles.chip, tone === "위험" && styles.chipDanger, pressed && styles.pressed]}
-    >
-      <Text style={[styles.chipText, tone === "위험" && styles.chipDangerText]}>{label}</Text>
-    </Pressable>
+      colors={tone === "위험"
+        ? { background: "#4A2320", border: "#6A3430", text: "#E7A79F" }
+        : { background: CHIP, border: CHIP_EDGE, text: INK }}
+    />
   );
 }
 
@@ -700,19 +712,9 @@ const styles = StyleSheet.create({
   panelPad: { paddingHorizontal: 14, paddingBottom: 16 },
   panelLabel: { fontSize: 11.5, color: INK_FAINT, marginBottom: 8, marginTop: 13, fontFamily: typo.label.family },
   panelHint: { fontSize: 11.5, color: INK_FAINT, marginTop: 9, lineHeight: 16, fontFamily: typo.caption.family },
+  // 「지금 카드에 안 나오고 있다」는 말. 흐린 설명과 같은 색이면 설명으로 읽혀 지나친다.
+  panelWarn: { fontSize: 11.5, color: "#F0C27A", marginTop: 8, lineHeight: 16, fontFamily: typo.label.family },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  chip: {
-    minHeight: 높이.칩,
-    paddingHorizontal: 여백.가로좁게,
-    borderRadius: 모서리.원,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: CHIP,
-  },
-  chipText: { fontSize: 12.5, color: INK_SOFT, fontFamily: typo.label.family },
-  chipTextOn: { color: onAccent(false), fontFamily: typo.title.family },
-  chipDanger: { backgroundColor: "#4A2320" },
-  chipDangerText: { color: "#E7A79F" },
   suggest: { paddingVertical: 8 },
   suggestText: { fontSize: 11.5, color: ACCENT, fontFamily: typo.label.family },
   toggleRow: {
