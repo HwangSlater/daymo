@@ -4,7 +4,12 @@
  * 둘 다 시트가 아니라 화면을 통째로 덮는다. 시트로 열면 사진이 카드 안에 갇혀
  * 「사진 앱 같지 않다」는 말을 듣는다. 사진첩을 넘겨 보는 자리는 사진이 주인공이라야
  * 한다. 그래서 바탕을 검게 깔고 위아래에 옅은 그늘만 얹어 그 위에 아이콘을 놓았다.
- * 기념 카드 꾸미기 화면(`CardDecorEditor.tsx`)과 같은 결이다.
+ *
+ * 크게 보기는 기념 카드 꾸미기와 **한 창**이다. 아래 「꾸미기」 한 줄을 누르면 창을
+ * 새로 열지 않고 이 자리에서 사진이 카드가 되고 도구(`CardDecorEditor.tsx`)가
+ * 올라온다. 창을 갈아 끼우면 보던 사진이 한 번 사라졌다 다시 나타나서, 이 사진으로
+ * 카드를 만드는 중이라는 느낌이 끊긴다. 그냥 보기만 할 사람에게는 그 한 줄 말고는
+ * 아무것도 늘지 않는다.
  *
  * 지키는 것 넷.
  *   1. 사진은 `contain` 이다. 어떤 비율이어도 잘리지 않는다. 사진첩에서 잘려 보이는
@@ -61,6 +66,32 @@ export type ViewerPhoto = {
   uploaderName?: string;
 };
 
+/**
+ * 같은 창에서 펼치는 기념 카드 꾸미기.
+ *
+ * 없으면 「꾸미기」 한 줄이 나오지 않고 예전처럼 사진만 보는 창이다. 카드를 무엇으로
+ * 어떻게 그릴지는 이 화면이 모른다. 부르는 쪽(`TripCards.tsx`)이 `body` 에 도구를
+ * 통째로 넣어 준다.
+ */
+export type ViewerDecor = {
+  /** 도구가 펼쳐져 있는지. 펼쳐지면 사진 자리에 카드가 온다. */
+  open: boolean;
+  /** 「꾸미기」. 보던 사진으로 카드를 시작한다. */
+  onOpen: () => void;
+  /** 「나가기」. 도구만 접고 보기로 돌아간다. */
+  onBack: () => void;
+  /** 「저장」. 보기만 하는 카드면 그냥 닫는다. */
+  onSave: () => void;
+  /** 오른쪽 위에 적을 말. 보통 `저장`, 남의 카드면 `닫기`. */
+  saveLabel: string;
+  /** ⋮ 안에 둘 것. 내보내기·홈 화면·삭제처럼 가끔 쓰는 것만 들어간다. */
+  menu: { label: string; tone?: "위험"; onPress: () => void }[];
+  /** 카드와 도구. 펼쳤을 때만 그린다. */
+  body: React.ReactNode;
+  /** 무언가 하는 중이라 화면을 통째로 덮어야 할 때 적을 말. */
+  busyText?: string;
+};
+
 /** 검은 바탕 위의 흰 글자. 테마를 타지 않는 값이라 한곳에 모아 둔다. */
 const INK = "#FFFFFF";
 const INK_SOFT = "rgba(255,255,255,0.62)";
@@ -76,10 +107,13 @@ const DANGER_INK = "#F08A82";
  * 아이콘만 살리려면 끝에서만 짙고 가운데로 가며 사라지는 그늘이 있어야 한다.
  * `expo-linear-gradient` 를 새로 들이지 않고 이미 쓰는 `react-native-svg` 로 그린다.
  */
-function Scrim({ place }: { place: "top" | "bottom" }) {
+function Scrim({ place, tall = false }: { place: "top" | "bottom"; tall?: boolean }) {
   const id = `photoScrim-${place}`;
   return (
-    <View style={place === "top" ? styles.scrimTop : styles.scrimBottom} pointerEvents="none">
+    <View
+      style={place === "top" ? styles.scrimTop : tall ? styles.scrimBottomTall : styles.scrimBottom}
+      pointerEvents="none"
+    >
       <Svg width="100%" height="100%">
         <Defs>
           <LinearGradient id={id} x1="0" y1={place === "top" ? "0" : "1"} x2="0" y2={place === "top" ? "1" : "0"}>
@@ -143,6 +177,7 @@ export function PhotoViewerScreen({
   hintSoon,
   toast,
   waitingText,
+  decor,
 }: {
   visible: boolean;
   photos: ViewerPhoto[];
@@ -168,6 +203,8 @@ export function PhotoViewerScreen({
   toast?: string;
   /** 사진 파일이 아직 없을 때 사진 자리에 적을 말. */
   waitingText?: string;
+  /** 같은 창에서 펼치는 기념 카드 꾸미기. 없으면 사진만 보는 창이다. */
+  decor?: ViewerDecor;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const strip = useRef<ScrollView>(null);
@@ -182,7 +219,16 @@ export function PhotoViewerScreen({
     setMenuOpen(false);
     onClose();
   };
-  useWebBackClose(visible, close);
+  /** 지금 도구가 펼쳐져 있는지. 펼쳐져 있으면 사진 자리에 카드가 온다. */
+  const decorating = Boolean(decor?.open);
+  const back = () => {
+    setMenuOpen(false);
+    decor?.onBack();
+  };
+  // 웹의 뒤로 가기는 창을 닫기 전에 도구부터 접는다. 꾸미다 뒤로 가면 여행 화면까지
+  // 한 번에 튕겨 나가는 것이 아니라 보던 사진으로 돌아와야 한다.
+  useWebBackClose(visible, () => (decorating ? back() : close()));
+  const keyboardInset = useWebKeyboardInset(visible && decorating);
 
   /**
    * 좌우로 밀어 앞뒤 사진으로 넘기고, 아래로 끌어 닫는다.
@@ -271,21 +317,73 @@ export function PhotoViewerScreen({
     return () => clearTimeout(timer);
   }, [index, visible]);
 
-  if (!photo) return null;
-  const meta = [photo.date, photo.uploaderName ? `${photo.uploaderName} 올림` : ""].filter(Boolean).join(" · ");
+  // 도구를 펼쳐 둔 동안에는 볼 사진이 없어도 창이 남아 있어야 한다. 카드에 넣은
+  // 사진을 다 빼도 카드는 그대로 꾸미는 중이다.
+  if (!photo && !decorating) return null;
+  const meta = photo
+    ? [photo.date, photo.uploaderName ? `${photo.uploaderName} 올림` : ""].filter(Boolean).join(" · ")
+    : "";
+  /** ⋮ 안에 들어갈 것. 보기에서는 신고 하나, 꾸미기에서는 부르는 쪽이 준 것들이다. */
+  const menuRows = decorating
+    ? decor?.menu ?? []
+    : onReport
+      ? [{ label: "신고", tone: undefined as "위험" | undefined, onPress: () => onReport() }]
+      : [];
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={close} statusBarTranslucent>
-      <View style={styles.screen}>
+      {/* 보기와 꾸미기가 이 한 창을 나눠 쓴다. 창을 갈아 끼우지 않아 「꾸미기」를
+          눌러도 화면이 한 번 깜빡이지 않는다. */}
+      <KeyboardAvoidingView
+        style={[styles.screen, keyboardInset]}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        {decorating && decor ? (
+        <>
+          <View style={styles.decorHead}>
+            <Pressable
+              onPress={back}
+              accessibilityRole="button"
+              accessibilityLabel="꾸미기 접고 사진으로 돌아가기"
+              style={({ pressed }) => [styles.decorHeadSide, pressed && styles.pressed]}
+            >
+              <Text style={styles.decorBack}>나가기</Text>
+            </Pressable>
+            <Text style={styles.decorTitle}>카드 꾸미기</Text>
+            {menuRows.length > 0 && (
+              <BarButton
+                glyph="moreVertical"
+                label="카드 더 보기"
+                on={menuOpen}
+                onPress={() => setMenuOpen((열림) => !열림)}
+              />
+            )}
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                decor.onSave();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${decor.saveLabel} 하기`}
+              style={({ pressed }) => [styles.decorHeadSide, styles.decorHeadRight, pressed && styles.pressed]}
+            >
+              <Text style={[styles.decorSave, { color: EDIT_ACCENT }]}>{decor.saveLabel}</Text>
+            </Pressable>
+          </View>
+          {decor.body}
+        </>
+        ) : (
+        <>
         <Animated.View
           {...pan.panHandlers}
           style={[styles.stage, { transform: slide.getTranslateTransform() }]}
         >
-          {photo.uri
+          {photo?.uri
             ? <Image source={{ uri: photo.uri }} resizeMode="contain" style={styles.fill} accessibilityLabel={photo.caption || "여행 사진"} />
             : <Text style={styles.waiting}>{waitingText ?? "사진을 받는 중이에요"}</Text>}
         </Animated.View>
         <Scrim place="top" />
-        <Scrim place="bottom" />
+        {/* 「꾸미기」 한 줄이 붙으면 아래가 한 줄 길어진다. 그늘도 그만큼 더 깐다. */}
+        <Scrim place="bottom" tall={Boolean(decor)} />
 
         <View style={styles.bar}>
           <BarButton glyph="close" label="크게 보기 닫기" onPress={close} />
@@ -302,24 +400,6 @@ export function PhotoViewerScreen({
             <BarButton glyph="moreVertical" label="더 보기" on={menuOpen} onPress={() => setMenuOpen((열림) => !열림)} />
           )}
         </View>
-
-        {/* ⋮ 안에는 신고만 둔다. 삭제는 고치기 화면에 있다. 지우는 것과 신고하는 것이
-            같은 메뉴에 있으면 남의 사진에서 잘못 누르기 쉽다. */}
-        {menuOpen && (
-          <View style={styles.menu}>
-            <Pressable
-              onPress={() => {
-                setMenuOpen(false);
-                onReport?.();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="이 사진 신고하기"
-              style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
-            >
-              <Text style={styles.menuText}>신고</Text>
-            </Pressable>
-          </View>
-        )}
 
         {photos.length > 1 && (
           <>
@@ -368,7 +448,42 @@ export function PhotoViewerScreen({
               ))}
             </ScrollView>
           )}
+          {/* 그냥 보기만 할 사람에게 늘어나는 것은 이 한 줄뿐이다. 도구는 접혀 있다. */}
+          {Boolean(decor) && (
+            <Pressable
+              onPress={() => decor?.onOpen()}
+              accessibilityRole="button"
+              accessibilityLabel="이 사진으로 기념 카드 꾸미기"
+              style={({ pressed }) => [styles.decorate, pressed && styles.pressed]}
+            >
+              <Glyph name="pencil" size={17} color={INK} weight={2} />
+              <Text style={styles.decorateText}>꾸미기</Text>
+            </Pressable>
+          )}
         </View>
+        </>
+        )}
+
+        {/* ⋮ 메뉴는 두 모습이 같이 쓴다. 보기에서는 신고 하나, 꾸미기에서는 내보내기·
+            홈 화면·삭제처럼 가끔 쓰는 것이 들어간다. 자주 쓰는 것은 메뉴에 두지 않는다. */}
+        {menuOpen && menuRows.length > 0 && (
+          <View style={styles.menu}>
+            {menuRows.map((하나) => (
+              <Pressable
+                key={하나.label}
+                onPress={() => {
+                  setMenuOpen(false);
+                  하나.onPress();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={하나.label}
+                style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
+              >
+                <Text style={[styles.menuText, 하나.tone === "위험" && styles.menuTextDanger]}>{하나.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {Boolean(toast) && (
           <View style={styles.toast} accessibilityLiveRegion="polite" pointerEvents="none">
@@ -377,7 +492,14 @@ export function PhotoViewerScreen({
           </View>
         )}
         {Boolean(report) && <View style={styles.reportPanel}>{report}</View>}
-      </View>
+        {/* 카드를 찍는 동안 카드를 제 크기로 되돌린다(`CardDecorTools`). 화면 밖으로
+            넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. */}
+        {Boolean(decorating && decor?.busyText) && (
+          <View style={styles.busy} accessibilityLiveRegion="polite">
+            <Text style={styles.busyText}>{decor?.busyText}</Text>
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -653,6 +775,7 @@ const styles = StyleSheet.create({
   waiting: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
   scrimTop: { position: "absolute", top: 0, left: 0, right: 0, height: 150 },
   scrimBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 230 },
+  scrimBottomTall: { position: "absolute", bottom: 0, left: 0, right: 0, height: 300 },
   bar: {
     position: "absolute",
     left: 0,
@@ -678,6 +801,7 @@ const styles = StyleSheet.create({
   },
   menuRow: { paddingVertical: 11, paddingHorizontal: 16 },
   menuText: { fontSize: 14, color: INK, fontFamily: typo.label.family },
+  menuTextDanger: { color: DANGER_INK },
   step: {
     position: "absolute",
     top: "50%",
@@ -730,6 +854,42 @@ const styles = StyleSheet.create({
   toastText: { fontSize: 13.5, color: INK, fontFamily: typo.label.family },
   // 고치기 화면은 도구 칸이 아래를 차지해서 조금 더 위에 띄운다.
   editToast: { bottom: 210 },
+  // 「꾸미기」 한 줄. 사진 아래에 놓여 눈에는 들되 사진을 가리지 않는다.
+  decorate: {
+    marginTop: 15,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  decorateText: { fontSize: 14, color: INK, fontFamily: typo.title.family },
+  // 꾸미기 머리줄. 보기의 아이콘 줄과 달리 흐르는 자리에 놓여 아래 카드를 밀어 준다.
+  decorHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: Platform.OS === "ios" ? 52 : 18,
+    paddingBottom: 8,
+    gap: 4,
+  },
+  decorHeadSide: { minWidth: 56, paddingVertical: 8, paddingHorizontal: 4 },
+  decorHeadRight: { alignItems: "flex-end" },
+  decorBack: { fontSize: 13.5, color: INK_SOFT, fontFamily: typo.label.family },
+  decorTitle: { flex: 1, textAlign: "center", fontSize: 15, color: INK, fontFamily: typo.title.family },
+  decorSave: { fontSize: 14, fontFamily: typo.label.family },
+  // 카드를 찍는 동안 덮는 판. 화면 밖으로 넘친 카드를 가린다.
+  busy: {
+    position: "absolute",
+    inset: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(10,10,12,0.92)",
+  },
+  busyText: { fontSize: 14, color: INK, fontFamily: typo.label.family },
   // 신고 폼은 앱의 밝은 판을 그대로 쓴다. 검은 바탕 위에 떠서 오히려 잘 보인다.
   reportPanel: { position: "absolute", left: 16, right: 16, bottom: 40 },
 

@@ -18,6 +18,7 @@ import {
   keepsakeStatLines,
   keepsakeTextOf,
   peopleLineOf,
+  sameKeepsakeCard,
   suggestedStyleOf,
   toggleKeepsakePhoto,
 } from "./tripCard.ts";
@@ -264,4 +265,19 @@ test("홈 화면은 고른 카드와 같은 배치로 사진을 놓는다", () =
   assert.deepEqual(homeCoverRows(undefined, 1), [1]);
   assert.deepEqual(homeCoverRows("폴라로이드", 2), [2]);
   assert.deepEqual(homeCoverRows(null, 0), []);
+});
+
+test("손댄 것이 없으면 같은 카드로 본다", () => {
+  const card = keepsakeCardOf(undefined, "가을 제주", 사진들);
+
+  assert.equal(sameKeepsakeCard(card, { ...card }), true);
+  assert.equal(sameKeepsakeCard(card, { ...card, style: "엽서" }), false);
+  assert.equal(sameKeepsakeCard(card, { ...card, caption: "또 가자" }), false);
+  assert.equal(
+    sameKeepsakeCard(card, {
+      ...card,
+      decor: [{ id: "d1", kind: "하트", text: "", x: 0.5, y: 0.5, size: 0.16, angle: 0, z: 0 }],
+    }),
+    false,
+  );
 });
