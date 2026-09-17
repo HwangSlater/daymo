@@ -254,6 +254,28 @@ export type PlaceItem = {
   memo?: string;
 };
 /** 새 장소·일정·숙소 id. 서버가 이 UUID 를 그대로 받아 쓴다(backend/app/api/v1/places.py). */
+/**
+ * 일정의 「종류」.
+ *
+ * 예전에는 첫 칸이 「장소」였는데, 장소는 종류가 아니라 대상이라 무엇을 고르는
+ * 칸인지 흐렸다(트리플도 「관광·식당·카페」처럼 한 일로 적는다). 저장된 일정에는
+ * 「장소」로 적혀 있어서, 읽을 때만 「방문」으로 바꿔 받는다. 이 값은 일정 줄의
+ * `note` 앞칸에 들어가고 목록에는 그려지지 않는다 — 양식 안에서만 보인다.
+ */
+/**
+ * 요리 메모.
+ *
+ * 예전에는 비어 있으면 「메모 없음」이라는 글자를 저장했다. 그러면 고치기를 열었을 때
+ * 그 글자가 입력칸에 들어앉아, 지우고 써야 했다. 저장은 빈 글자로 하고 보일 때만 채운다.
+ * 예전에 저장된 「메모 없음」도 빈 것으로 읽는다.
+ */
+const 요리메모_읽기 = (적힌: string) => (적힌.trim() === "메모 없음" ? "" : 적힌.trim());
+const 요리메모_보이기 = (적힌: string) => 요리메모_읽기(적힌) || "메모 없음";
+
+const PLAN_TYPES = ["방문", "식사", "이동", "예약", "행사"];
+const 일정종류_읽기 = (적힌: string) => (적힌 === "장소" ? "방문" : 적힌);
+const 일정종류인가 = (적힌: string) => 적힌 === "장소" || PLAN_TYPES.includes(적힌);
+
 const newPlaceId = () => Crypto.randomUUID();
 
 /** 교통편에서 만들어지는 일정 줄. 저장할 때와 목록을 다시 맞출 때 같은 모양이어야 한다. */
@@ -2860,7 +2882,7 @@ function TripOverview({
   const firstDate = dateOptions[0];
   const lastDate = dateOptions[dateOptions.length - 1];
   const [planDay, setPlanDay] = useState(defaultPlanDay);
-  const [planType, setPlanType] = useState("장소");
+  const [planType, setPlanType] = useState(PLAN_TYPES[0]);
   const [planTime, setPlanTime] = useState("11:00");
   const [newPlanTitle, setNewPlanTitle] = useState("");
   const [planPlace, setPlanPlace] = useState("");
@@ -3100,8 +3122,8 @@ function TripOverview({
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
     const nextDay = item.date ?? dayOptions.find((value) => weekdayOf(value) === day) ?? defaultPlanDay;
-    const nextType = ["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? savedType : "장소";
-    const nextPlace = savedPlace.length ? savedPlace.join(" · ") : (["장소", "식사", "이동", "예약", "행사"].includes(savedType) ? "" : item.note);
+    const nextType = 일정종류인가(savedType) ? 일정종류_읽기(savedType) : PLAN_TYPES[0];
+    const nextPlace = savedPlace.length ? savedPlace.join(" · ") : (일정종류인가(savedType) ? "" : item.note);
     setScheduleDraftBaseline(scheduleDraftKey(
       nextDay,
       nextType,
@@ -3783,7 +3805,7 @@ function TripOverview({
         />
         <OptionField
           label="종류"
-          options={["장소", "식사", "이동", "예약", "행사"]}
+          options={PLAN_TYPES}
           value={planType}
           onChange={setPlanType}
         />
@@ -5379,7 +5401,7 @@ function PastTripImport({
     : recipeRows.map((row) => ({
         id: row.id,
         name: row.name,
-        meta: [`재료 ${row.ingredients.length}개`, row.note.trim()].filter(Boolean).join(" · "),
+        meta: [`재료 ${row.ingredients.length}개`, 요리메모_읽기(row.note)].filter(Boolean).join(" · "),
       }));
   const newRows = rows.filter((row) => !already.has(row.name.trim().toLowerCase()));
 
@@ -7147,7 +7169,7 @@ function parseAiRecipes(text: string, newId: () => string): Recipe[] {
         currentRecipe = {
           id: newId(),
           name: values[0],
-          note: values[1] || "메모 없음",
+          note: values[1]?.trim() ?? "",
           url: values[2] || "",
           ingredients: [],
         };
@@ -7486,7 +7508,7 @@ function Cooking({
             ? {
                 ...recipe,
                 name: recipeName.trim(),
-                note: recipeNote.trim() || "메모 없음",
+                note: recipeNote.trim(),
                 url: recipeUrl.trim(),
               }
             : recipe,
@@ -7506,7 +7528,7 @@ function Cooking({
       {
         id,
         name: recipeName.trim(),
-        note: recipeNote.trim() || "메모 없음",
+        note: recipeNote.trim(),
         url: recipeUrl.trim(),
         ingredients: [],
       },
@@ -7525,7 +7547,7 @@ function Cooking({
   const openRecipeEdit = () => {
     if (!activeRecipe) return;
     setRecipeName(activeRecipe.name);
-    setRecipeNote(activeRecipe.note);
+    setRecipeNote(요리메모_읽기(activeRecipe.note));
     setRecipeUrl(activeRecipe.url || "");
     setEditingRecipe(true);
     setAddingRecipe(true);
@@ -7842,7 +7864,7 @@ function Cooking({
               <Text
                 style={[styles.cookingNote, theme && { color: theme.muted }]}
               >
-                {activeRecipe.note}
+                {요리메모_보이기(activeRecipe.note)}
               </Text>
               {activeRecipe.url ? (
                 <Pressable
@@ -8123,7 +8145,7 @@ function Cooking({
               </View>
               <View style={styles.recipeListCopy}>
                 <Text numberOfLines={1} style={[styles.recipeListName, theme && { color: theme.text }]}>{recipe.name}</Text>
-                <Text numberOfLines={1} style={[styles.recipeListNote, theme && { color: theme.muted }]}>{recipe.note}</Text>
+                <Text numberOfLines={1} style={[styles.recipeListNote, theme && { color: theme.muted }]}>{요리메모_보이기(recipe.note)}</Text>
               </View>
               <Text style={[styles.recipeListCount, theme && { color: theme.muted }]}>{recipe.ingredients.length}개</Text>
             </Pressable>
