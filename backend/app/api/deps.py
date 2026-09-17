@@ -91,18 +91,20 @@ def client_ip(request: Request) -> str:
     """
     요청을 보낸 쪽의 주소.
 
-    운영에서는 Nginx 뒤에 있어서 `X-Forwarded-For` 의 맨 앞을 본다. 이 값은
-    바깥에서 마음대로 넣을 수 있으므로, **Nginx 가 그 헤더를 덮어쓰도록
-    설정한 뒤에만 믿을 수 있다**(docs/development/06-vps-deployment.md 2장).
-    지금은 세는 데만 쓰고 권한 판단에 쓰지 않는다.
+    운영에서는 Nginx 뒤에 있어서 `X-Real-IP` 를 본다. Nginx 가 이 머리에
+    `$remote_addr` 를 **덮어써서** 보내므로(infra/production/nginx.conf) 바깥에서
+    적어 넣은 값은 남지 않는다. 머리가 없으면(로컬·시험) 연결된 주소로 떨어진다.
 
-    원문은 저장하지 않는다. 세는 표에는 pepper 를 섞은 해시만 들어간다.
+    `X-Forwarded-For` 는 읽지 않는다. Nginx 가 `$proxy_add_x_forwarded_for` 로
+    **바깥 값 뒤에 진짜 주소를 덧붙이는** 탓에 맨 앞은 클라이언트가 마음대로 적은
+    값이다. 그것을 열쇠로 쓰면 요청마다 다른 값을 넣어 IP 한도를 비켜 갈 수 있다.
+
+    지금은 세는 데만 쓰고 권한 판단에 쓰지 않는다. 원문은 저장하지 않고 세는
+    표에는 pepper 를 섞은 해시만 들어간다.
     """
-    전달된 = request.headers.get("X-Forwarded-For")
-    if 전달된:
-        첫_주소 = 전달된.split(",")[0].strip()
-        if 첫_주소:
-            return 첫_주소
+    실제_주소 = (request.headers.get("X-Real-IP") or "").strip()
+    if 실제_주소:
+        return 실제_주소
     return request.client.host if request.client else "unknown"
 
 

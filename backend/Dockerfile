@@ -21,7 +21,10 @@ COPY app ./app
 USER daymo
 EXPOSE 8000
 
+# DB 까지 보는 /v1/health 를 친다. /health 는 프로세스만 보기 때문에 DB 가 죽어도
+# 컨테이너가 healthy 로 남고, compose 의 `nginx: depends_on: api: service_healthy`
+# 까지 그대로 통과한다. 이 경로는 nginx 가 밖에 열지 않는다.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=4 \
-  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=2)"]
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers", "--forwarded-allow-ips=*"]
