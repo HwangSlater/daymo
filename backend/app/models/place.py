@@ -84,6 +84,9 @@ class TripPlace(Base, TimestampMixin, CreatedByMixin):
         # 한 여행에 같은 장소를 두 번 담지 않는다.
         Index("uq_trip_places_place", "trip_id", "place_id", unique=True),
         Index("ix_trip_places_trip_status", "trip_id", "status"),
+        # 아무 여행에도 안 남은 손수 적은 장소를 매일 지운다. 위의 둘은 `trip_id` 가
+        # 앞이라 장소 쪽에서 되짚을 수 없다.
+        Index("ix_trip_places_place_id", "place_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

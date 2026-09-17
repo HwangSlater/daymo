@@ -72,6 +72,8 @@ class ChecklistItem(Base, TimestampMixin, CreatedByMixin):
             "completed_at IS NOT NULL OR completed_by IS NULL", name="completed_by_needs_time"
         ),
         Index("ix_checklist_items_list", "checklist_id", "sort_order"),
+        # 재료를 지울 때 거기서 가져온 준비물을 찾는 길.
+        Index("ix_checklist_items_source_ingredient_id", "source_ingredient_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

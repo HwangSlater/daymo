@@ -43,6 +43,9 @@ class Memo(Base, TimestampMixin, CreatedByMixin):
             "deleted_at IS NOT NULL OR deleted_by IS NULL", name="deleted_by_needs_time"
         ),
         Index("ix_memos_trip_alive", "trip_id", "deleted_at"),
+        # 지운 지 7일 지난 것을 매일 찾는 파기 작업용. 위의 인덱스는 `trip_id` 가
+        # 앞이라 여행을 가리지 않는 이 질의를 받지 못한다.
+        Index("ix_memos_deleted_at", "deleted_at", postgresql_where="deleted_at IS NOT NULL"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -117,6 +120,8 @@ class Photo(Base, TimestampMixin):
         ),
         Index("ix_photos_trip_status", "trip_id", "status"),
         Index("ix_photos_checksum", "checksum"),
+        # 메모와 같은 이유. 파기 작업이 여행을 가리지 않고 지워진 줄만 찾는다.
+        Index("ix_photos_deleted_at", "deleted_at", postgresql_where="deleted_at IS NOT NULL"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
