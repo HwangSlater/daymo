@@ -380,7 +380,9 @@ export const sheetHeadStyles = StyleSheet.create({
   },
   /** 제목만 한 덩어리로 왼쪽에 둘 때. */
   copy: { flex: 1 },
-  title: { flex: 1, minWidth: 0, fontSize: 21, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  // 줄 높이를 적어 둔다. 적지 않으면 iOS 가 글꼴이 말하는 만큼만 칸을 잡아,
+  // 「함께하는 멤버」처럼 받침이 있는 한글의 아래가 잘린다(기기에서 확인).
+  title: { flex: 1, minWidth: 0, fontSize: 21, lineHeight: 29, fontFamily: typo.title.family, letterSpacing: -0.5 },
 });
 
 const styles = StyleSheet.create({

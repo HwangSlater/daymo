@@ -2214,6 +2214,12 @@ export function WarmTripDetail({
               appTheme && { backgroundColor: appTheme.background, borderColor: appTheme.border },
             ]}
           >
+            {/* 한 겹 더 감싼다. 기기(iOS·안드로이드)에서 화면에 붙는 줄은 리액트
+                네이티브가 **바깥 View 의 스타일을 껍데기로 옮기고 이 자리에는
+                `flex: 1` 만 남긴다.** 그래서 `flexDirection: "row"` 가 여기서
+                사라지고 탭 여섯 개가 세로로 쌓였다. 웹은 그렇게 하지 않아
+                브라우저에서는 멀쩡해 보였다. */}
+            <View style={styles.modeSwitchRow}>
             {(
               [
                 "여행",
@@ -2253,6 +2259,7 @@ export function WarmTripDetail({
                 </Text>
               </Pressable>
             ))}
+            </View>
           </View>
 
           {mode === "여행" && (
@@ -13787,6 +13794,8 @@ const styles = StyleSheet.create({
   // 배경은 표면색이 아니라 화면 바탕색이다. 줄 바깥으로 삐져나온 여백까지
   // 같이 덮어야 글자가 줄을 뚫고 지나가는 것처럼 보이지 않는다.
   modeSwitchPinned: { zIndex: 2 },
+  // 탭을 가로로 늘어놓는 줄. 위 주석의 까닭으로 바깥이 아니라 여기서 가로를 정한다.
+  modeSwitchRow: { flex: 1, flexDirection: "row" },
   mode: {
     flex: 1,
     minHeight: 높이.버튼,
