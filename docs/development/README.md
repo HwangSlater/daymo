@@ -15,6 +15,7 @@
 9. [UI-개발 추적표](./09-ui-development-traceability.md): 현재 화면별 데이터·API·로컬 처리·테스트 연결
 10. [개발 착수 준비](./10-implementation-readiness.md): 현재 차이, 결정 목록, 0단계 실행 순서와 완료 게이트
 11. [소유자 준비 안내](./11-owner-setup-guide.md): 개발 환경, 계정, 시크릿과 로컬 사진 저장 선택
+12. [공통 부품 목록](./12-shared-ui-parts.md): 화면을 새로 만들기 전에 보는 부품 표, 쓰는 법, 하지 말 것
 
 ## 문서 상태
 

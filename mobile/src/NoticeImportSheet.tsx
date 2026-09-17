@@ -1,26 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Crypto from "expo-crypto";
 
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
-import { useSheetDrag } from "./sheetDrag";
-import { useWebBackClose } from "./useWebBackClose";
-import { useWebKeyboardInset } from "./useWebKeyboardInset";
+import { Chip, ChipRow } from "./ui/Chip";
+import { SheetShell } from "./ui/SheetShell";
 import { AppTheme } from "./theme";
-import { onAccent, status as statusColor } from "./theme/colors";
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { status as statusColor } from "./theme/colors";
+import { 높이, 모서리, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { DaymoApiError } from "./auth";
 import {
@@ -107,10 +96,6 @@ export function NoticeImportSheet({
   /** 다 넣고 나서 그 여행을 연다. */
   onFilled: (tripId: string) => Promise<void> | void;
 }) {
-  const drag = useSheetDrag(onClose, visible);
-  const keyboardInset = useWebKeyboardInset(visible);
-  useWebBackClose(visible, onClose);
-
   const [stage, setStage] = useState<Stage>("붙여넣기");
   const [tripId, setTripId] = useState("");
   const [text, setText] = useState("");
@@ -123,7 +108,6 @@ export function NoticeImportSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<NoticeImportResult | null>(null);
-  const submitLocked = useRef(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -141,7 +125,6 @@ export function NoticeImportSheet({
     setError("");
     setResult(null);
     setBusy(false);
-    submitLocked.current = false;
   }, [visible, trips]);
 
   const trip = trips.find((item) => item.id === tripId);
@@ -313,416 +296,330 @@ export function NoticeImportSheet({
   const accent = theme.primary;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
 
+  // 읽거나 넣는 중에는 모자란 것을 알리지 않는다. 버튼에 이미 "읽는 중…" 이
+  // 적혀 있는데 그 위에 "공지 글을 붙여넣어 주세요" 가 같이 뜨면 어긋나 보인다.
+  const hint = busy ? undefined : disabledHint;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={[styles.modalBack, keyboardInset]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable
-          style={styles.modalDismiss}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="공지 붙여넣기 바깥 영역 닫기"
-        />
-        <Animated.View
-          onLayout={drag.onLayout}
-          style={[styles.sheet, { backgroundColor: theme.background }, drag.sheetStyle]}
-        >
-          <View {...drag.panHandlers} style={styles.sheetDragHandleArea}>
-            <View style={styles.sheetHandle} />
-          </View>
-          {/* 머리는 제목과 닫기 한 줄이다. 다른 시트들과 같은 모양이다
-              (WarmAppShell·WarmTripDetail). 안내는 내용의 첫 줄로 내려보낸다. */}
-          <View style={styles.sheetHead}>
-            <View {...drag.panHandlers} style={styles.sheetHeadMain}>
-              <View style={[styles.sheetKindBar, { backgroundColor: accent }]} />
-              <Text numberOfLines={1} style={[styles.sheetTitle, { color: theme.text }]}>공지 붙여넣기</Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={누름여유(높이.칩)}
-              accessibilityRole="button"
-              accessibilityLabel="공지 붙여넣기 닫기"
-              style={[styles.sheetCloseButton, { backgroundColor: theme.surfaceAlt }]}
-            >
-              <Text style={[styles.sheetClose, { color: theme.primary }]}>×</Text>
-            </Pressable>
-          </View>
-          <ScrollView
-            style={styles.sheetScroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-          >
-            <View style={styles.body}>
-              <Text style={[styles.sheetSubtitle, { color: theme.muted }]}>
-                {stage === "붙여넣기"
-                  ? "카카오톡 공지를 통째로 붙여넣어 지난 여행을 채워요"
-                  : stage === "고치기"
-                    ? `읽은 그대로예요. ${trip?.name ?? "여행"} 에 넣을 것만 켜 주세요`
-                    : `${trip?.name ?? "여행"} 을 채웠어요`}
-              </Text>
-              {error ? (
-                <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: danger }]}>{error}</Text>
-              ) : null}
+    <SheetShell
+      theme={theme}
+      visible={visible}
+      title="공지 붙여넣기"
+      subtitle={stage === "붙여넣기"
+        ? "카카오톡 공지를 통째로 붙여넣어 지난 여행을 채워요"
+        : stage === "고치기"
+          ? `읽은 그대로예요. ${trip?.name ?? "여행"} 에 넣을 것만 켜 주세요`
+          : `${trip?.name ?? "여행"} 을 채웠어요`}
+      submit={submitLabel}
+      onSubmit={submit}
+      submitDisabled={submitDisabled}
+      disabledHint={hint}
+      onClose={onClose}
+    >
+      {error ? (
+        <Text accessibilityLiveRegion="assertive" style={[styles.error, { color: danger }]}>{error}</Text>
+      ) : null}
 
-              {stage === "붙여넣기" && (
-                <>
-                  <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 8 }]}>어느 여행에 넣을까요</Text>
-                  {trips.length ? (
-                    <View style={styles.chipRow}>
-                      {trips.map((item) => (
-                        <Chip
-                          key={item.id}
-                          theme={theme}
-                          label={item.name}
-                          on={item.id === tripId}
-                          onPress={() => setTripId(item.id)}
-                        />
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>
-                      먼저 여행을 만들어 주세요. 공지는 이미 있는 여행을 채우는 데 써요.
-                    </Text>
-                  )}
-                  {trip && (
-                    <Text style={[styles.hint, { color: theme.muted }]}>{trip.date}</Text>
-                  )}
-
-                  <View style={[styles.labelRow, { marginTop: 18 }]}>
-                    <View style={[styles.labelDot, { backgroundColor: accent }]} />
-                    <Text style={[styles.label, { color: theme.text }]}>공지 글</Text>
-                    <Pressable
-                      onPress={pasteFromClipboard}
-                      hitSlop={누름여유(높이.칩)}
-                      accessibilityRole="button"
-                      accessibilityLabel="복사한 글 붙여넣기"
-                      style={[styles.toolButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                    >
-                      <Text style={[styles.toolButtonText, { color: theme.primary }]}>붙여넣기</Text>
-                    </Pressable>
-                  </View>
-                  <TextInput
-                    value={text}
-                    onChangeText={setText}
-                    multiline
-                    accessibilityLabel="공지 글"
-                    placeholder={"# 제목: 9월 22일 ~ 9월 24일 전주 한옥마을\n\n—————— 먹고 싶은 것 리스트 ——————\n..."}
-                    placeholderTextColor={theme.muted}
-                    style={[
-                      styles.paste,
-                      { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
-                    ]}
-                  />
-                  <Text style={[styles.hint, { color: theme.muted }]}>
-                    구획 제목, 대괄호 상태, 지도 링크, 재료 수량, 조리 순서를 읽어요.
-                    이미 여행에 있는 것은 미리 꺼 두고, 못 읽은 줄은 따로 모아 보여 드려요.
-                  </Text>
-                </>
-              )}
-
-              {stage === "고치기" && (
-                <>
-                  {notices.length > 1 && (
-                    <View style={styles.section}>
-                      <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                        공지 {notices.length}편을 찾았어요
-                      </Text>
-                      <View style={styles.chipRow}>
-                        {notices.map((notice, index) => (
-                          <Chip
-                            key={index}
-                            theme={theme}
-                            label={parseNotice(notice, { today: todayKey() }).title || `${index + 1}번째`}
-                            on={picked === index}
-                            onPress={() => void pick(index)}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  <View style={styles.summaryRow}>
-                    {counts.length ? counts.map((row) => (
-                      <View key={row.label} style={[styles.countChip, { backgroundColor: theme.primarySoft }]}>
-                        <Text style={[styles.countText, { color: theme.primary }]}>{row.label} {row.count}</Text>
-                      </View>
-                    )) : (
-                      <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>넣을 것이 없어요.</Text>
-                    )}
-                  </View>
-                  {skipped > 0 && (
-                    <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>
-                      이미 여행에 있는 {skipped}개는 꺼 뒀어요. 다른 것이면 다시 켜 주세요.
-                    </Text>
-                  )}
-
-                  <Rows
-                    theme={theme}
-                    title="장소"
-                    keys={draft.places.map((_, index) => `장소:${index}`)}
-                    isOn={isOn}
-                    toggle={toggle}
-                    setAll={setAll}
-                    duplicates={duplicates}
-                    rows={draft.places.map((place, index) => ({
-                      key: `장소:${index}`,
-                      name: place.name,
-                      under: [place.note, place.address, place.mapUrl ? "지도 링크" : ""].filter(Boolean).join(" · "),
-                      rename: (value: string) => setDraft((current) => ({
-                        ...current,
-                        places: current.places.map((item, at) => (at === index ? { ...item, name: value } : item)),
-                      })),
-                    }))}
-                  />
-
-                  <Rows
-                    theme={theme}
-                    title="숙소"
-                    keys={draft.stays.map((_, index) => `숙소:${index}`)}
-                    isOn={isOn}
-                    toggle={toggle}
-                    setAll={setAll}
-                    duplicates={duplicates}
-                    rows={draft.stays.map((stay, index) => ({
-                      key: `숙소:${index}`,
-                      name: stay.name,
-                      under: [
-                        stay.checkIn ? `체크인 ${stay.checkIn}` : "",
-                        stay.checkOut ? `체크아웃 ${stay.checkOut}` : "",
-                        stay.address,
-                      ].filter(Boolean).join(" · "),
-                      rename: (value: string) => setDraft((current) => ({
-                        ...current,
-                        stays: current.stays.map((item, at) => (at === index ? { ...item, name: value } : item)),
-                      })),
-                    }))}
-                  />
-
-                  <Rows
-                    theme={theme}
-                    title="교통편"
-                    keys={draft.transports.map((_, index) => `교통:${index}`)}
-                    isOn={isOn}
-                    toggle={toggle}
-                    setAll={setAll}
-                    duplicates={duplicates}
-                    rows={draft.transports.map((transport, index) => ({
-                      key: `교통:${index}`,
-                      name: `${transport.method} ${transport.departure} → ${transport.arrival}`,
-                      under: `${transport.direction} · ${transport.owner || "담당 미정"} · ${transport.departureTime}–${transport.arrivalTime} · ${transport.booked ? "예매 완료" : "예매 전"}`,
-                    }))}
-                  />
-
-                  <Rows
-                    theme={theme}
-                    title="일정"
-                    keys={draft.schedule.map((_, index) => `일정:${index}`)}
-                    isOn={isOn}
-                    toggle={toggle}
-                    setAll={setAll}
-                    duplicates={duplicates}
-                    rows={draft.schedule.map((item, index) => ({
-                      key: `일정:${index}`,
-                      name: item.title,
-                      under: [item.note, item.time].filter(Boolean).join(" · "),
-                      rename: (value: string) => setDraft((current) => ({
-                        ...current,
-                        schedule: current.schedule.map((row, at) => (at === index ? { ...row, title: value } : row)),
-                      })),
-                      // 공지의 날짜가 이 여행 기간 밖이면 비어 있다. 여기서 고른다.
-                      days: {
-                        choices: dayChoices,
-                        value: item.date && dates.includes(item.date) ? dayLabel(item.date) : NO_DAY,
-                        onChange: (label: string) => setDraft((current) => ({
-                          ...current,
-                          schedule: current.schedule.map((row, at) => at === index
-                            ? { ...row, date: dates.find((key) => dayLabel(key) === label) ?? "" }
-                            : row),
-                        })),
-                      },
-                    }))}
-                  />
-
-                  <Rows
-                    theme={theme}
-                    title="요리"
-                    keys={draft.recipes.map((_, index) => `요리:${index}`)}
-                    isOn={isOn}
-                    toggle={toggle}
-                    setAll={setAll}
-                    duplicates={duplicates}
-                    rows={draft.recipes.map((recipe, index) => ({
-                      key: `요리:${index}`,
-                      name: recipe.name,
-                      under: [
-                        recipe.ingredients.length ? `재료 ${recipe.ingredients.length}개` : "재료 없음",
-                        recipe.note ? "조리 순서 있음" : "",
-                      ].filter(Boolean).join(" · "),
-                      rename: (value: string) => setDraft((current) => ({
-                        ...current,
-                        recipes: current.recipes.map((item, at) => (at === index ? { ...item, name: value } : item)),
-                      })),
-                    }))}
-                  />
-
-                  <Rows
-                    theme={theme}
-                    title="준비물"
-                    keys={draft.packing.map((_, index) => `준비:${index}`)}
-                    isOn={isOn}
-                    toggle={toggle}
-                    setAll={setAll}
-                    duplicates={duplicates}
-                    rows={draft.packing.map((item, index) => ({
-                      key: `준비:${index}`,
-                      name: item.name,
-                      under: [item.quantity, item.owner].filter(Boolean).join(" · "),
-                      rename: (value: string) => setDraft((current) => ({
-                        ...current,
-                        packing: current.packing.map((row, at) => (at === index ? { ...row, name: value } : row)),
-                      })),
-                    }))}
-                  />
-
-                  <Rows
-                    theme={theme}
-                    title="메모"
-                    keys={draft.memos.map((_, index) => `메모:${index}`)}
-                    isOn={isOn}
-                    toggle={toggle}
-                    setAll={setAll}
-                    duplicates={duplicates}
-                    rows={draft.memos.map((memo, index) => ({
-                      key: `메모:${index}`,
-                      name: memo.split("\n")[0],
-                      under: memo.split("\n").length > 1 ? `${memo.split("\n").length}줄` : "",
-                    }))}
-                  />
-
-                  {draft.leftovers.length > 0 && (
-                    <View style={styles.section}>
-                      <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                        읽지 못한 줄 {draft.leftovers.length}
-                      </Text>
-                      <View style={[styles.leftoverBox, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
-                        {draft.leftovers.slice(0, 12).map((line, index) => (
-                          <Text key={index} numberOfLines={1} style={[styles.leftoverLine, { color: theme.muted }]}>
-                            {line}
-                          </Text>
-                        ))}
-                        {draft.leftovers.length > 12 && (
-                          <Text style={[styles.leftoverLine, { color: theme.muted }]}>
-                            … 그리고 {draft.leftovers.length - 12}줄
-                          </Text>
-                        )}
-                      </View>
-                      <Pressable
-                        onPress={() => setKeepLeftovers((current) => !current)}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: keepLeftovers }}
-                        accessibilityLabel="읽지 못한 줄을 여행 메모로 남기기"
-                        style={[
-                          styles.checkRow,
-                          {
-                            borderColor: keepLeftovers ? theme.primary : theme.border,
-                            backgroundColor: keepLeftovers ? theme.primarySoft : theme.surface,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.checkText, { color: keepLeftovers ? theme.primary : theme.muted }]}>
-                          여행 메모로 남기기
-                        </Text>
-                        {keepLeftovers && <Glyph name="check" size={16} color={theme.primary} weight={2.6} />}
-                      </Pressable>
-                    </View>
-                  )}
-                </>
-              )}
-
-              {stage === "결과" && result && (
-                <View style={styles.section}>
-                  <Text style={[styles.reportText, { color: theme.text }]}>{noticeImportReport(result)}</Text>
-                  {result.failed.length > 0 && (
-                    <View style={[styles.leftoverBox, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
-                      <Text style={[styles.leftoverLine, { color: theme.text }]}>넣지 못한 것</Text>
-                      {result.failed.map((row, index) => (
-                        <Text key={index} numberOfLines={2} style={[styles.leftoverLine, { color: danger }]}>
-                          {row.label} — {row.message}
-                        </Text>
-                      ))}
-                      <Text style={[styles.hint, { color: theme.muted }]}>
-                        나머지는 이미 들어갔어요. 못 넣은 것만 여행 안에서 손으로 채워 주세요.
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          </ScrollView>
-          {submitDisabled && disabledHint && !busy && (
-            <Text accessibilityLiveRegion="polite" style={[styles.disabledHint, { color: theme.muted }]}>
-              {disabledHint}
+      {stage === "붙여넣기" && (
+        <>
+          <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 8 }]}>어느 여행에 넣을까요</Text>
+          {trips.length ? (
+            <ChipRow>
+              {trips.map((item) => (
+                <Chip
+                  key={item.id}
+                  theme={theme}
+                  label={item.name}
+                  on={item.id === tripId}
+                  onPress={() => setTripId(item.id)}
+                />
+              ))}
+            </ChipRow>
+          ) : (
+            <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>
+              먼저 여행을 만들어 주세요. 공지는 이미 있는 여행을 채우는 데 써요.
             </Text>
           )}
-          <Pressable
-            onPress={() => {
-              if (submitLocked.current) return;
-              submitLocked.current = true;
-              Keyboard.dismiss();
-              submit();
-              setTimeout(() => {
-                submitLocked.current = false;
-              }, 800);
-            }}
-            disabled={submitDisabled}
-            accessibilityRole="button"
-            accessibilityLabel={submitLabel}
-            accessibilityState={{ disabled: submitDisabled }}
-            style={({ pressed }) => [
-              styles.submit,
-              { backgroundColor: theme.primary },
-              submitDisabled && styles.submitDisabled,
-              pressed && !submitDisabled && styles.pressed,
+          {trip && (
+            <Text style={[styles.hint, { color: theme.muted }]}>{trip.date}</Text>
+          )}
+
+          <View style={[styles.labelRow, { marginTop: 18 }]}>
+            <View style={[styles.labelDot, { backgroundColor: accent }]} />
+            <Text style={[styles.label, { color: theme.text }]}>공지 글</Text>
+            <Pressable
+              onPress={pasteFromClipboard}
+              hitSlop={누름여유(높이.칩)}
+              accessibilityRole="button"
+              accessibilityLabel="복사한 글 붙여넣기"
+              style={[styles.toolButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+            >
+              <Text style={[styles.toolButtonText, { color: theme.primary }]}>붙여넣기</Text>
+            </Pressable>
+          </View>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            multiline
+            accessibilityLabel="공지 글"
+            placeholder={"# 제목: 9월 22일 ~ 9월 24일 전주 한옥마을\n\n—————— 먹고 싶은 것 리스트 ——————\n..."}
+            placeholderTextColor={theme.muted}
+            style={[
+              styles.paste,
+              { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
             ]}
-          >
-            <Text style={[styles.submitText, { color: onAccent(theme.dark) }]}>{submitLabel}</Text>
-            <View style={styles.submitArrow}><Glyph name="arrowRight" size={15} color={onAccent(theme.dark)} /></View>
-          </Pressable>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
+          />
+          <Text style={[styles.hint, { color: theme.muted }]}>
+            구획 제목, 대괄호 상태, 지도 링크, 재료 수량, 조리 순서를 읽어요.
+            이미 여행에 있는 것은 미리 꺼 두고, 못 읽은 줄은 따로 모아 보여 드려요.
+          </Text>
+        </>
+      )}
+
+      {stage === "고치기" && (
+        <>
+          {notices.length > 1 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                공지 {notices.length}편을 찾았어요
+              </Text>
+              <ChipRow>
+                {notices.map((notice, index) => (
+                  <Chip
+                    key={index}
+                    theme={theme}
+                    label={parseNotice(notice, { today: todayKey() }).title || `${index + 1}번째`}
+                    on={picked === index}
+                    onPress={() => void pick(index)}
+                  />
+                ))}
+              </ChipRow>
+            </View>
+          )}
+
+          <View style={styles.summaryRow}>
+            {counts.length ? counts.map((row) => (
+              <View key={row.label} style={[styles.countChip, { backgroundColor: theme.primarySoft }]}>
+                <Text style={[styles.countText, { color: theme.primary }]}>{row.label} {row.count}</Text>
+              </View>
+            )) : (
+              <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>넣을 것이 없어요.</Text>
+            )}
+          </View>
+          {skipped > 0 && (
+            <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>
+              이미 여행에 있는 {skipped}개는 꺼 뒀어요. 다른 것이면 다시 켜 주세요.
+            </Text>
+          )}
+
+          <Rows
+            theme={theme}
+            title="장소"
+            keys={draft.places.map((_, index) => `장소:${index}`)}
+            isOn={isOn}
+            toggle={toggle}
+            setAll={setAll}
+            duplicates={duplicates}
+            rows={draft.places.map((place, index) => ({
+              key: `장소:${index}`,
+              name: place.name,
+              under: [place.note, place.address, place.mapUrl ? "지도 링크" : ""].filter(Boolean).join(" · "),
+              rename: (value: string) => setDraft((current) => ({
+                ...current,
+                places: current.places.map((item, at) => (at === index ? { ...item, name: value } : item)),
+              })),
+            }))}
+          />
+
+          <Rows
+            theme={theme}
+            title="숙소"
+            keys={draft.stays.map((_, index) => `숙소:${index}`)}
+            isOn={isOn}
+            toggle={toggle}
+            setAll={setAll}
+            duplicates={duplicates}
+            rows={draft.stays.map((stay, index) => ({
+              key: `숙소:${index}`,
+              name: stay.name,
+              under: [
+                stay.checkIn ? `체크인 ${stay.checkIn}` : "",
+                stay.checkOut ? `체크아웃 ${stay.checkOut}` : "",
+                stay.address,
+              ].filter(Boolean).join(" · "),
+              rename: (value: string) => setDraft((current) => ({
+                ...current,
+                stays: current.stays.map((item, at) => (at === index ? { ...item, name: value } : item)),
+              })),
+            }))}
+          />
+
+          <Rows
+            theme={theme}
+            title="교통편"
+            keys={draft.transports.map((_, index) => `교통:${index}`)}
+            isOn={isOn}
+            toggle={toggle}
+            setAll={setAll}
+            duplicates={duplicates}
+            rows={draft.transports.map((transport, index) => ({
+              key: `교통:${index}`,
+              name: `${transport.method} ${transport.departure} → ${transport.arrival}`,
+              under: `${transport.direction} · ${transport.owner || "담당 미정"} · ${transport.departureTime}–${transport.arrivalTime} · ${transport.booked ? "예매 완료" : "예매 전"}`,
+            }))}
+          />
+
+          <Rows
+            theme={theme}
+            title="일정"
+            keys={draft.schedule.map((_, index) => `일정:${index}`)}
+            isOn={isOn}
+            toggle={toggle}
+            setAll={setAll}
+            duplicates={duplicates}
+            rows={draft.schedule.map((item, index) => ({
+              key: `일정:${index}`,
+              name: item.title,
+              under: [item.note, item.time].filter(Boolean).join(" · "),
+              rename: (value: string) => setDraft((current) => ({
+                ...current,
+                schedule: current.schedule.map((row, at) => (at === index ? { ...row, title: value } : row)),
+              })),
+              // 공지의 날짜가 이 여행 기간 밖이면 비어 있다. 여기서 고른다.
+              days: {
+                choices: dayChoices,
+                value: item.date && dates.includes(item.date) ? dayLabel(item.date) : NO_DAY,
+                onChange: (label: string) => setDraft((current) => ({
+                  ...current,
+                  schedule: current.schedule.map((row, at) => at === index
+                    ? { ...row, date: dates.find((key) => dayLabel(key) === label) ?? "" }
+                    : row),
+                })),
+              },
+            }))}
+          />
+
+          <Rows
+            theme={theme}
+            title="요리"
+            keys={draft.recipes.map((_, index) => `요리:${index}`)}
+            isOn={isOn}
+            toggle={toggle}
+            setAll={setAll}
+            duplicates={duplicates}
+            rows={draft.recipes.map((recipe, index) => ({
+              key: `요리:${index}`,
+              name: recipe.name,
+              under: [
+                recipe.ingredients.length ? `재료 ${recipe.ingredients.length}개` : "재료 없음",
+                recipe.note ? "조리 순서 있음" : "",
+              ].filter(Boolean).join(" · "),
+              rename: (value: string) => setDraft((current) => ({
+                ...current,
+                recipes: current.recipes.map((item, at) => (at === index ? { ...item, name: value } : item)),
+              })),
+            }))}
+          />
+
+          <Rows
+            theme={theme}
+            title="준비물"
+            keys={draft.packing.map((_, index) => `준비:${index}`)}
+            isOn={isOn}
+            toggle={toggle}
+            setAll={setAll}
+            duplicates={duplicates}
+            rows={draft.packing.map((item, index) => ({
+              key: `준비:${index}`,
+              name: item.name,
+              under: [item.quantity, item.owner].filter(Boolean).join(" · "),
+              rename: (value: string) => setDraft((current) => ({
+                ...current,
+                packing: current.packing.map((row, at) => (at === index ? { ...row, name: value } : row)),
+              })),
+            }))}
+          />
+
+          <Rows
+            theme={theme}
+            title="메모"
+            keys={draft.memos.map((_, index) => `메모:${index}`)}
+            isOn={isOn}
+            toggle={toggle}
+            setAll={setAll}
+            duplicates={duplicates}
+            rows={draft.memos.map((memo, index) => ({
+              key: `메모:${index}`,
+              name: memo.split("\n")[0],
+              under: memo.split("\n").length > 1 ? `${memo.split("\n").length}줄` : "",
+            }))}
+          />
+
+          {draft.leftovers.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                읽지 못한 줄 {draft.leftovers.length}
+              </Text>
+              <View style={[styles.leftoverBox, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+                {draft.leftovers.slice(0, 12).map((line, index) => (
+                  <Text key={index} numberOfLines={1} style={[styles.leftoverLine, { color: theme.muted }]}>
+                    {line}
+                  </Text>
+                ))}
+                {draft.leftovers.length > 12 && (
+                  <Text style={[styles.leftoverLine, { color: theme.muted }]}>
+                    … 그리고 {draft.leftovers.length - 12}줄
+                  </Text>
+                )}
+              </View>
+              <Pressable
+                onPress={() => setKeepLeftovers((current) => !current)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: keepLeftovers }}
+                accessibilityLabel="읽지 못한 줄을 여행 메모로 남기기"
+                style={[
+                  styles.checkRow,
+                  {
+                    borderColor: keepLeftovers ? theme.primary : theme.border,
+                    backgroundColor: keepLeftovers ? theme.primarySoft : theme.surface,
+                  },
+                ]}
+              >
+                <Text style={[styles.checkText, { color: keepLeftovers ? theme.primary : theme.muted }]}>
+                  여행 메모로 남기기
+                </Text>
+                {keepLeftovers && <Glyph name="check" size={16} color={theme.primary} weight={2.6} />}
+              </Pressable>
+            </View>
+          )}
+        </>
+      )}
+
+      {stage === "결과" && result && (
+        <View style={styles.section}>
+          <Text style={[styles.reportText, { color: theme.text }]}>{noticeImportReport(result)}</Text>
+          {result.failed.length > 0 && (
+            <View style={[styles.leftoverBox, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
+              <Text style={[styles.leftoverLine, { color: theme.text }]}>넣지 못한 것</Text>
+              {result.failed.map((row, index) => (
+                <Text key={index} numberOfLines={2} style={[styles.leftoverLine, { color: danger }]}>
+                  {row.label} — {row.message}
+                </Text>
+              ))}
+              <Text style={[styles.hint, { color: theme.muted }]}>
+                나머지는 이미 들어갔어요. 못 넣은 것만 여행 안에서 손으로 채워 주세요.
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+    </SheetShell>
   );
 }
 
 // ---------------------------------------------------------------------------
 // 안에서만 쓰는 조각
 // ---------------------------------------------------------------------------
-
-function Chip({ theme, label, on, onPress }: { theme: AppTheme; label: string; on: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={누름여유(높이.칩)}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          backgroundColor: on ? theme.primarySoft : theme.surface,
-          borderColor: on ? theme.primary : theme.border,
-        },
-        pressed && styles.pressed,
-      ]}
-    >
-      <Text style={[styles.chipText, { color: on ? theme.primary : theme.muted }]}>{label}</Text>
-    </Pressable>
-  );
-}
 
 type Row = {
   key: string;
@@ -813,7 +710,7 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
               <Text numberOfLines={2} style={[styles.rowUnder, { color: theme.muted }]}>{row.under}</Text>
             )}
             {row.days && on && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+              <ChipRow scroll>
                 {row.days.choices.map((choice) => (
                   <Chip
                     key={choice}
@@ -823,7 +720,7 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
                     onPress={() => row.days?.onChange(choice)}
                   />
                 ))}
-              </ScrollView>
+              </ChipRow>
             )}
           </View>
         );
@@ -833,44 +730,6 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
 }
 
 const styles = StyleSheet.create({
-  modalBack: { flex: 1, backgroundColor: "rgba(10,18,35,.42)", justifyContent: "flex-end" },
-  modalDismiss: { flex: 1 },
-  sheet: {
-    width: "100%",
-    maxWidth: 430,
-    alignSelf: "center",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 24,
-    maxHeight: "91%",
-  },
-  sheetDragHandleArea: {
-    height: 40,
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sheetHandle: { width: 54, height: 5, borderRadius: 3, backgroundColor: "#C7C7C3" },
-  sheetHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
-  // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
-  sheetKindBar: { width: 3, height: 19, borderRadius: 2 },
-  sheetHeadCopy: { flex: 1 },
-  sheetTitle: { flex: 1, minWidth: 0, fontSize: 21, fontFamily: typo.title.family, letterSpacing: -0.5 },
-  // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
-  sheetSubtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
-  sheetCloseButton: { width: 높이.칩, height: 높이.칩, borderRadius: 모서리.원, alignItems: "center", justifyContent: "center" },
-  sheetClose: { fontSize: 24, lineHeight: 26, fontWeight: "500" },
-  sheetScroll: { flexGrow: 0, flexShrink: 1 },
-  body: { paddingHorizontal: 2 },
   error: { fontSize: 12, lineHeight: 17, marginBottom: 10 },
   labelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 6 },
   labelDot: { width: 5, height: 5, borderRadius: 2 },
@@ -895,9 +754,6 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   countChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   countText: { fontSize: 12, fontFamily: typo.data.family },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingRight: 6 },
-  chip: { minHeight: 높이.칩, borderRadius: 모서리.원, borderWidth: 1, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
-  chipText: { fontSize: 12, fontFamily: typo.label.family },
   row: { borderWidth: 1, borderRadius: 모서리.구역, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, gap: 6 },
   rowHead: { flexDirection: "row", alignItems: "center", gap: 10 },
   // 체크 상자는 글자 옆에 붙는 표시라 22px 이다. 칩 높이로 키우면 줄 이름을
@@ -927,26 +783,4 @@ const styles = StyleSheet.create({
   },
   checkText: { fontSize: 13, fontFamily: typo.label.family },
   reportText: { fontSize: 14, lineHeight: 21, marginBottom: 10 },
-  disabledHint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },
-  submit: {
-    height: 높이.저장,
-    borderRadius: 모서리.버튼,
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexDirection: "row",
-    paddingLeft: 여백.가로,
-    paddingRight: 6,
-    marginTop: 6,
-  },
-  submitText: { fontSize: 14, fontFamily: typo.label.family },
-  submitDisabled: { opacity: 0.38 },
-  submitArrow: {
-    width: 높이.버튼,
-    height: 높이.버튼,
-    borderRadius: 모서리.버튼,
-    backgroundColor: "rgba(255,255,255,.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
 });
