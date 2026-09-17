@@ -246,9 +246,9 @@ pull request가 필수 CI를 통과해 `main`에 merge되는 것이 production �
 1. GitHub Actions가 앱 typecheck·lint·unit test와 서버 pytest·PostgreSQL 컨테이너 DB test 수행
 2. 직전 production schema snapshot으로 Alembic migration 검증
 3. VPS가 성공한 commit의 GitHub source archive를 HTTPS로 내려받아 고정된 release 경로에 푼다
-4. 배포 직전 PostgreSQL snapshot 생성과 성공 여부 확인
+4. 배포 직전 PostgreSQL snapshot 생성. 종료 코드와 파일 크기(1KB 미만이면 중단)를 확인하고 `backup-staging`에는 최근 10개만 남긴다
 5. VPS에서 새 API image를 빌드하고 expand-contract migration 후 API 교체
-6. `GET /v1/health`와 로그인·홈·여행 읽기 smoke test
+6. 밖에서 공개용 `GET /health`, 컨테이너 안에서 DB까지 보는 `GET /v1/health`(밖에는 열지 않는다), 그리고 로그인·홈·여행 읽기 smoke test
 7. 실패 시 이전 SHA image로 자동 복귀하고 운영자에게 경고; 별도 수동 rollback 명령도 유지
 
 단일 API 컨테이너에서는 수 초의 재시작이 있을 수 있다. 초기에는 이를 허용하고, 무중단이 필요해진 뒤에만 blue-green 두 컨테이너를 검토한다. 2GB에서 API 컨테이너 두 벌을 상시 운영하지 않는다.
@@ -348,7 +348,7 @@ Google Drive는 초기 알파 백업으로 사용하고 다음 조건에서는 �
 
 ## 9. 모니터링
 
-- API: `GET /v1/health`가 프로세스와 DB 연결 상태를 확인한다. DB에 닿지 않으면 `503 SERVICE_UNAVAILABLE`이다
+- API: `GET /v1/health`가 프로세스와 DB 연결 상태를 확인한다. DB에 닿지 않으면 `503 SERVICE_UNAVAILABLE`이다. 밖에서는 부를 수 없고(Nginx가 404), 컨테이너 HEALTHCHECK와 배포 스크립트가 안에서 부른다
 - 서버: CPU, RAM, swap, disk, load average
 - 요청 기록: API가 요청 하나에 JSON 한 줄을 stdout으로 남긴다. 남기는 항목은 `requestId`, `method`, `endpoint`, `status`, `durationMs`, `actor` 여섯 개다. `endpoint`는 실제 경로가 아니라 라우트 틀(`/v1/trips/{trip_id}/expenses`)이라 같은 API의 요청이 한 줄로 모이고 여행 ID가 로그에 흩어지지 않는다. `actor`는 계정 ID가 아니라 pepper를 섞은 해시 앞 16자다. 요청 본문, 질의 문자열, 헤더는 남기지 않는다. 여행 제목·메모·검색어가 거기 들어 있다
 - 로그를 모아 검색하는 도구(Loki, ELK)는 VPS 단계에서 올리지 않는다. 2GB에 들어가지 않는다. 찾는 수단은 `docker compose logs`와 `jq`다
