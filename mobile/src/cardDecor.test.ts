@@ -21,6 +21,7 @@ import {
   DECOR_MIN_SIZE,
   DECOR_NEW_SIZE,
   type CardDecor,
+  setDecorSize,
 } from "./cardDecor.ts";
 
 const 하나 = (고칠: Partial<CardDecor> = {}): CardDecor => ({
@@ -184,4 +185,18 @@ test("카드를 화면에 맞춰 줄일 배율", () => {
   assert.equal(fitScaleOf(100, 50, 900, 900), 2.4);
   // 잴 곳이 아직 없으면 1 이다.
   assert.equal(fitScaleOf(200, 600, 0, 0), 1);
+});
+
+test("모서리를 끌면 크기와 각도가 함께 놓인다", () => {
+  const 하나 = addDecor([], "하트");
+
+  const 키운_것 = setDecorSize(하나, 하나[0].id, 0.3, 200);
+  assert.equal(키운_것[0].size, 0.3);
+  // 각도는 -180~180 으로 접는다. 200도와 -160도는 같은 그림이다.
+  assert.equal(키운_것[0].angle, -160);
+  // 한계에 닿으면 멈춘다. 카드를 덮는 스티커는 지울 길이 없다.
+  assert.equal(setDecorSize(하나, 하나[0].id, 9, 0)[0].size, DECOR_MAX_SIZE);
+  assert.equal(setDecorSize(하나, 하나[0].id, 0, 0)[0].size, DECOR_MIN_SIZE);
+  // 다른 줄은 건드리지 않는다.
+  assert.deepEqual(setDecorSize(하나, "없는것", 0.3, 45), 하나);
 });

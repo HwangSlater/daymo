@@ -117,6 +117,10 @@ export type CardViewer = {
   /** 그 줄 옆의 되돌리기 단추. */
   toastAction?: { label: string; onPress: () => void };
   waitingText?: string;
+  /** 「사진 정보」 화면. 창 안의 한 겹으로 얹힌다. */
+  editPanel?: React.ReactNode;
+  /** 그 겹을 닫는다. */
+  onCloseEditPanel?: () => void;
   /**
    * 보고 있는 사진을 홈 화면에 깔거나 내린다. 깔 수 없는 사진이면 없다.
    *
@@ -740,6 +744,8 @@ export function TripCardsSection({
       hintSoon={viewer.hintSoon}
       toast={viewer.toast}
       toastAction={viewer.toastAction}
+      editPanel={viewer.editPanel}
+      onCloseEdit={viewer.onCloseEditPanel}
       waitingText={viewer.waitingText}
       decor={decor}
     />

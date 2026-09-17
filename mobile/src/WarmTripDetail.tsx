@@ -8946,26 +8946,12 @@ function Memories({
       void onSaveHomeCover(coverUndoBody(undo)).catch(() => notifyInViewer(COVER_FAIL));
     },
   });
-  const cover = coverToggleOf(editingPhotoId ?? undefined, coverNow, "photo");
-  const canSetCover = canEdit && Boolean(onSaveHomeCover) && coverPickable(editingPhotoId, uploadedPhotoIds ?? new Set());
-  const toggleCover = async () => {
-    if (!onSaveHomeCover || !editingPhotoId) return;
-    const uri = photos.find((photo) => photo.id === editingPhotoId)?.uri;
-    try {
-      await onSaveHomeCover({ coverPhotoId: cover.next }, { [editingPhotoId]: uri });
-      // 고치기 화면은 검은 바탕이라 여행 화면 바닥의 토스트가 가려진다. 같은 자리의
-      // 한 줄로 알리고, 무엇이 내려갔는지와 되돌릴 길을 함께 준다.
-      notifyInViewer(cover.done, undoCover(cover.undo));
-    } catch {
-      showAlert("홈 화면 사진을 바꾸지 못했어요", COVER_FAIL);
-    }
-  };
   /**
    * 크게 보고 있는 사진을 홈 화면의 여행 카드에 깐다.
    *
-   * 고치기 화면에도 같은 것이 있지만 그쪽은 「고치는 중인 사진」에 대한 것이다.
-   * 홈에 까는 일은 크게 보는 자리에도 있어야 한다. 지금 보고 있는 것을 홈에 까는
-   * 일이라, 고치러 들어가야 보이면 고칠 생각이 없는 사람은 찾지 못한다.
+   * 홈에 까는 길은 이 하나뿐이다. 「사진 정보」 화면에도 같은 도구가 있었는데,
+   * 크게 보는 창의 위 줄에 ⌂ 가 생기면서 같은 일이 두 군데가 됐다. 홈에 까는 것은
+   * 지금 보고 있는 것에 대한 일이라 크게 보는 자리에 둔다.
    */
   const viewCover = coverToggleOf(viewingPhotoId ?? undefined, coverNow, "photo");
   const canSetViewCover = canEdit && Boolean(onSaveHomeCover) && coverPickable(viewingPhotoId, uploadedPhotoIds ?? new Set());
@@ -9253,36 +9239,43 @@ function Memories({
             ? { on: viewCover.on, label: viewCover.label, onPress: () => void toggleViewCover() }
             : undefined,
           onNotice: notifyInViewer,
+          /*
+           * 사진 정보는 크게 보는 창 **안의 한 겹**으로 얹는다.
+           *
+           * 예전에는 `Modal` 두 장을 형제로 띄웠다. iOS 는 이미 떠 있는 Modal 위에
+           * 형제 Modal 을 바로 얹지 못해서, ⋮ → 「사진 정보」를 눌러도 아무 일이
+           * 없다가 사진첩을 닫아야 그제서야 떴다.
+           */
+          editPanel: photoEditing && editingPhotoId ? (
+            <PhotoEditScreen
+              visible
+              uri={photoUri}
+              color={photoColor}
+              caption={photoCaption}
+              onCaption={setPhotoCaption}
+              date={photoDate}
+              dateOptions={photoDayOptions}
+              onDate={setPhotoDate}
+              linkLabels={photoLinkOptions.map((option) => option.label)}
+              linkChosen={photoLinkOptions.map((option) => photoLinks.some((link) => sameLink(link, option)))}
+              onToggleLink={(차례) => {
+                const option = photoLinkOptions[차례];
+                setPhotoLinks((지금) => 지금.some((link) => sameLink(link, option))
+                  ? 지금.filter((link) => !sameLink(link, option))
+                  : [...지금, { targetType: option.targetType, targetId: option.targetId }]);
+              }}
+              onRepick={choosePhoto}
+              onDelete={() => confirmPhotoDelete(deletePhoto)}
+              onClose={() => setPhotoEditing(false)}
+              onSubmit={() => void savePhoto()}
+              toast={photoToast}
+              readOnly={!canManagePhoto(photos.find((photo) => photo.id === editingPhotoId))}
+              readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined}
+              theme={theme}
+            />
+          ) : undefined,
+          onCloseEditPanel: () => setPhotoEditing(false),
         }}
-      />
-      {/* 고치기도 전용 화면이다. 시트 안에서 사진을 작게 보며 고치던 자리를 옮겼다. */}
-      <PhotoEditScreen
-        visible={photoEditing && Boolean(editingPhotoId)}
-        uri={photoUri}
-        color={photoColor}
-        caption={photoCaption}
-        onCaption={setPhotoCaption}
-        date={photoDate}
-        dateOptions={photoDayOptions}
-        onDate={setPhotoDate}
-        linkLabels={photoLinkOptions.map((option) => option.label)}
-        linkChosen={photoLinkOptions.map((option) => photoLinks.some((link) => sameLink(link, option)))}
-        onToggleLink={(차례) => {
-          const option = photoLinkOptions[차례];
-          setPhotoLinks((지금) => 지금.some((link) => sameLink(link, option))
-            ? 지금.filter((link) => !sameLink(link, option))
-            : [...지금, { targetType: option.targetType, targetId: option.targetId }]);
-        }}
-        cover={canSetCover || cover.on ? { on: cover.on, label: cover.label } : undefined}
-        onCover={canSetCover || cover.on ? toggleCover : undefined}
-        onRepick={choosePhoto}
-        onDelete={() => confirmPhotoDelete(deletePhoto)}
-        onClose={() => setPhotoEditing(false)}
-        onSubmit={() => void savePhoto()}
-        toast={photoToast}
-        readOnly={!canManagePhoto(photos.find((photo) => photo.id === editingPhotoId))}
-        readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 고칠 수 있어요" : undefined}
-        theme={theme}
       />
       {/* 새로 고른 사진을 기록에 넣는 시트. 고치기와 달리 여기는 그대로 둔다. 여러 장을
           한꺼번에 고른 뒤 같은 날짜와 설명을 다는 자리라 사진 한 장이 주인공이 아니다. */}
