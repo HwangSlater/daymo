@@ -19,7 +19,6 @@ import { Glyph } from "../Glyph";
 import { useSheetDrag } from "../sheetDrag";
 import { showAlert } from "../showAlert";
 import { useWebBackClose } from "../useWebBackClose";
-import { useWebKeyboardInset } from "../useWebKeyboardInset";
 import { AppTheme } from "../theme";
 import { onAccent, status as statusColor } from "../theme/colors";
 import { 높이, 모서리, 여백, 누름여유 } from "../theme/controls";
@@ -156,9 +155,7 @@ export function SheetShell({
   };
 
   const drag = useSheetDrag(requestClose, visible, dirty);
-  // 웹에서만 쓰는 두 가지. 키보드가 가린 만큼 시트를 밀어 올리고, 브라우저
-  // 뒤로 가기를 페이지가 아니라 이 시트가 받는다. 기기에서는 둘 다 아무 일도 없다.
-  const keyboardInset = useWebKeyboardInset(visible);
+  // 웹의 뒤로 가기는 페이지가 아니라 지금 열린 시트가 받는다.
   useWebBackClose(visible, requestClose);
 
   const submitLabel = submitLabelOf({ locked, submitting, submit: submit ?? "", busyLabel });
@@ -353,13 +350,13 @@ export function SheetShell({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={requestClose}>
       {keyboardAvoiding ? (
         <KeyboardAvoidingView
-          style={[styles.modalBack, keyboardInset]}
+          style={styles.modalBack}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           {inside}
         </KeyboardAvoidingView>
       ) : (
-        <View style={[styles.modalBack, keyboardInset]}>{inside}</View>
+        <View style={styles.modalBack}>{inside}</View>
       )}
     </Modal>
   );
