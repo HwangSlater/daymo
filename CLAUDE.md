@@ -50,6 +50,8 @@
 - 고치기 전에 `sudo cp … runtime.env runtime.env.bak-<까닭>` 로 사본을 남기고, 고친 뒤 그 줄만 `grep` 해서 확인한다. 파일 전체를 출력하지 않는다(비밀값이 들어 있다).
 - 되돌린 뒤에는 `curl https://api.daymo.xyz/health` 가 200 인지, CORS 허용 목록이 뜻대로인지 확인한다.
 - Git Bash 의 `ssh` 는 이 키를 못 읽는다(libcrypto). PowerShell 도구로 접속한다.
+- **`/usr/local/sbin/` 의 스크립트는 배포로 갱신되지 않는다.** `daymo-deploy`·`daymo-alert` 같은 것은 저장소에 있어도 호스트에 **따로 설치**해야 바뀐다. 저장소의 것을 고쳤으면 `sudo install -o root -g root -m 0755 /srv/daymo/current/backend/infra/production/daymo-deploy /usr/local/sbin/daymo-deploy` 를 함께 한다. 2026-09-17에 이것을 빠뜨려, 배포 스크립트가 옛 주소로 상태를 확인하다 30번 실패하고 되돌리기를 반복했다(서비스는 살아 있었지만 2분마다 실패 알림이 갔다).
+- 배포가 실패로 끝나면 `sudo journalctl -u daymo-release-poller.service` 를 본다. 컨테이너 로그가 섞이므로 `grep -viE 'nginx-1  .|api-1    .'` 로 걷어 내고 본다. 실패한 실행의 PID 로 언제 시작했는지 보면, 고친 것이 그 실행에 반영됐는지 알 수 있다.
 
 ## 일하는 방식
 
