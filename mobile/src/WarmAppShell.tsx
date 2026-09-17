@@ -3009,7 +3009,10 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
         {/* 종이를 붙인 테이프. 사진이 있으면 그 사진을 붙인 테이프가 이 자리를 대신한다.
             둘 다 그리면 같은 자리에 두 장이 겹쳐 지저분하다. */}
         {!coverUri && <View style={[s.paperTape, { backgroundColor: paper.tape }]} />}
-        {!coverUri && <View pointerEvents="none" style={s.paperTripRoute}>
+        {/* 비행기가 지나간 자국. 여행 이름이 길면 이름이 이 자리까지 밀고 들어와
+            글자와 점선이 겹친다. 꾸밈이 글자를 이길 이유는 없으므로 이름이 길면
+            자국을 접는다. 여덟 자는 카드에서 이름이 한 줄로 들어오는 길이다. */}
+        {!coverUri && trip.name.length <= 8 && <View pointerEvents="none" style={s.paperTripRoute}>
           <Svg width="100%" height="100%" viewBox="0 0 112 42">
             <Path
               // 점선 끝을 종이비행기 꼬리 홈(90,20) 앞에 맞춘다.
@@ -3038,7 +3041,9 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             <Text style={[s.paperKicker, { color: theme.primary }]}>
               {stage}
             </Text>
-            <Text style={[s.paperTitle, { color: paper.title }]}>
+            {/* 두 줄까지만. 아주 긴 이름이 카드를 세로로 늘려 아래 칸을 밀어내면
+                카드마다 높이가 달라져 옆으로 넘길 때 덜컹거린다. */}
+            <Text numberOfLines={2} style={[s.paperTitle, { color: paper.title }]}>
               {trip.name}
             </Text>
             <Text style={[s.paperDate, { color: paper.muted }]}>

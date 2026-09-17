@@ -8670,20 +8670,21 @@ function Memories({
   const [showAllDiaries, setShowAllDiaries] = useState(false);
   const cardTiles = cards?.tiles ?? NO_CARDS;
   /**
-   * 격자에 놓을 것. 카드가 먼저고 사진이 뒤다.
+   * 격자에 놓을 것. 사진이 먼저고 카드가 뒤다.
    *
-   * 격자는 처음에 여섯 칸만 펴 둔다. 사진을 앞에 세우면 카드가 「더 보기」 뒤로 숨어
-   * 만들어 둔 카드를 못 찾는다. 카드는 여행 하나에 몇 장뿐이고 일부러 만든 것이라
-   * 앞자리를 준다.
+   * 한동안 카드를 앞에 세웠다. 「더 보기」 뒤로 숨지 않게 하려던 것인데, 이 격자는
+   * 「여행 사진」 자리라 첫 칸을 사진으로 알고 누른다. 누르면 꾸미기가 열려서
+   * 눌러 본 사람이 "사진을 눌렀는데 왜 카드가 뜨지" 로 읽었다. 카드는 바로 위
+   * 「카드 N」 칩으로 한 번에 모아 볼 수 있으니 뒤로 보낸다.
    */
   const tiles = useMemo<MemoryTile[]>(() => {
-    const 카드 = photoFilter === "사진"
-      ? []
-      : cardTiles.map((card): MemoryTile => ({ kind: "card", key: `card:${card.id}`, card }));
     const 사진 = photoFilter === "카드"
       ? []
       : photos.map((photo, index): MemoryTile => ({ kind: "photo", key: `photo:${photo.id}`, photo, index }));
-    return [...카드, ...사진];
+    const 카드 = photoFilter === "사진"
+      ? []
+      : cardTiles.map((card): MemoryTile => ({ kind: "card", key: `card:${card.id}`, card }));
+    return [...사진, ...카드];
   }, [cardTiles, photoFilter, photos]);
   const shownTiles = showAllPhotos ? tiles : tiles.slice(0, 6);
   // 저장했다는 한 줄은 잠깐 뜨고 사라진다. 여행 화면 바닥의 토스트와 같은 시간을 쓴다.
