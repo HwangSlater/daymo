@@ -64,7 +64,7 @@ import {
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
-import { SheetShell, sheetHeadStyles } from "./ui/SheetShell";
+import { SheetShell } from "./ui/SheetShell";
 import { showAlert } from "./showAlert";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
@@ -2522,6 +2522,8 @@ function NotebookHome({
   since,
 }: {
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
+  /** 옆으로 미는 동안 알린다. 그동안 홈 화면은 세로로 움직이지 않는다. */
+  onDragging?: (미는_중: boolean) => void;
   goTrips: () => void;
   theme: AppTheme;
   trip: Trip | null;
@@ -2535,11 +2537,18 @@ function NotebookHome({
   const togetherDays = relationship === "연인" ? daysSince(since, todayKey) : null;
   const home = homeSummaryOf(trip ? tripForSummary(trip) : {});
   const homeLeft = Math.max(0, home.packingTotal - home.packingDone);
+  // 카드를 옆으로 미는 동안만 참이다. 손가락이 움직이는 내내 바꾸는 값이 아니라
+  // 잡을 때와 놓을 때 한 번씩이라, 미는 중에 렌더가 끼어들지 않는다.
+  const [카드를_미는_중, 카드를_미는_중_바꾸기] = useState(false);
   return (
     <ScrollView
       style={{ backgroundColor: "transparent" }}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={s.page}
+      // 카드를 옆으로 미는 동안에는 세로로 움직이지 않는다. 손가락이 조금만
+      // 비스듬해도 화면이 같이 오르내려 카드가 흔들려 보였다. 가로로 민다고
+      // 판단한 뒤에만 잠그므로, 그냥 훑어 내리는 것은 그대로 된다.
+      scrollEnabled={!카드를_미는_중}
     >
       <View style={s.notebookHead}>
         <View>
@@ -2559,7 +2568,7 @@ function NotebookHome({
           </Text>
         </View>
       </View>
-      {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} open={open} />}
+      {trips.length > 0 && <HomeTripCarousel trips={trips} initialTrip={trip} theme={theme} todayKey={todayKey} open={open} onDragging={카드를_미는_중_바꾸기} />}
       {trip && (
         <>
       <View style={s.scrapTitleRow}>
@@ -2684,12 +2693,14 @@ function NotebookHome({
   );
 }
 
-function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
+function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open, onDragging }: {
   trips: Trip[];
   initialTrip: Trip | null;
   theme: AppTheme;
   todayKey: string;
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
+  /** 옆으로 미는 동안 알린다. 그동안 홈 화면은 세로로 움직이지 않는다. */
+  onDragging?: (미는_중: boolean) => void;
 }) {
   const ordered = useMemo(() => [...trips].sort((a, b) => a.start.localeCompare(b.start)), [trips]);
   const initialIndex = initialTrip ? Math.max(0, ordered.indexOf(initialTrip)) : ordered.length - 1;
@@ -2763,13 +2774,20 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
     } else settle(step, true);
   };
   const pan = useMemo(() => {
+    const 가로로_미나 = (gesture: { dx: number; dy: number }) =>
+      !busy.current && Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2;
+    const 놓았다 = () => onDragging?.(false);
     // PanResponder registers these callbacks; refs are read only during touch events.
     // eslint-disable-next-line react-hooks/refs
     return PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75,
-    onMoveShouldSetPanResponderCapture: (_, gesture) => !busy.current && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75,
+    // 가로가 세로보다 **확실히** 클 때만 잡는다. 0.75 배였을 때는 비스듬히
+    // 훑어 내리기만 해도 카드가 딸려 와 화면이 흔들렸다.
+    onMoveShouldSetPanResponder: (_, gesture) => 가로로_미나(gesture),
+    onMoveShouldSetPanResponderCapture: (_, gesture) => 가로로_미나(gesture),
     onPanResponderGrant: (event) => {
       dragging.current = true;
+      // 미는 동안 홈 화면이 세로로 움직이지 않게 한다.
+      onDragging?.(true);
       dragFrame.current = { value: 0, time: event.nativeEvent.timestamp };
     },
     onPanResponderMove: (event, gesture) => {
@@ -2788,6 +2806,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
       pages.get(index)?.setValue(reduceMotion ? 0 : progress);
     },
     onPanResponderRelease: (_, gesture) => {
+      놓았다();
       const step = dragDirection.current;
       const forwardVelocity = step === 1 ? -gesture.vx : gesture.vx;
       const complete = canMove(step) && shouldCompletePeel(gesture.dx, gesture.dy, forwardVelocity, width);
@@ -2799,7 +2818,10 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open }: {
         dragging.current = false;
       } else settle(step, complete);
     },
-    onPanResponderTerminate: () => settle(dragDirection.current, false),
+    onPanResponderTerminate: () => {
+      놓았다();
+      settle(dragDirection.current, false);
+    },
     onPanResponderTerminationRequest: () => false,
     });
   }, [canMove, index, pages, reduceMotion, settle, turn, width]);
@@ -6052,32 +6074,10 @@ function InfoSheet({
       visible={visible}
       title={title}
       onClose={onClose}
-      // 「우리 설정」은 둘러보고 고치는 자리라 저장 버튼이 없다. 대신 머리의
-      // 「완료」로 닫는다. 그래서 기본 머리 대신 직접 그린다.
-      renderHead={(panHandlers) => (
-        <View style={[sheetHeadStyles.head, s.infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
-          <View {...panHandlers} style={s.sheetHeadCopy}>
-            <View style={s.sheetKindRow}>
-              <View style={[s.sheetKindDot, theme && { backgroundColor: theme.primary }]} />
-              <Text style={[s.sheetKindText, theme && { color: theme.primary }]}>우리 설정</Text>
-              <View style={[s.sheetRouteLine, theme && { backgroundColor: theme.border }]} />
-              <View style={[s.sheetRouteDot, theme && { borderColor: theme.primary }]} />
-            </View>
-            <Text numberOfLines={1} style={[sheetHeadStyles.title, theme && { color: theme.text }]}>
-              {title}
-            </Text>
-          </View>
-          <Pressable
-            onPress={onClose}
-            hitSlop={누름여유(높이.칩)}
-            accessibilityRole="button"
-            accessibilityLabel={`${title} 닫기`}
-            style={[s.infoSheetDone, theme && { backgroundColor: theme.surface }]}
-          >
-            <Text style={[s.infoSheetDoneText, theme && { color: theme.primary }]}>완료</Text>
-          </Pressable>
-        </View>
-      )}
+      // 「우리 설정」은 둘러보고 고치는 자리라 저장 버튼이 없다. 닫기는 머리의
+      // × 하나면 된다. 예전에는 여기만 머리를 따로 그려 「우리 설정 ──○」 와
+      // 「완료」를 얹었는데, 장소·일정 같은 다른 창과 모양이 달라 같은 앱의 다른
+      // 창처럼 보였다. 기본 머리를 그대로 쓴다.
       padBody={false}
       scrollContentStyle={s.infoSheetBody}
     >
@@ -7304,28 +7304,6 @@ const s = StyleSheet.create({
     fontFamily: typo.hero.family,
   },
   pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
-  sheetHeadCopy: { flex: 1 },
-  sheetKindRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  sheetKindDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
-  sheetKindText: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 1 },
-  sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 4 },
-  sheetRouteDot: { width: 6, height: 6, borderRadius: 999, borderWidth: 1.5 },
-  infoSheetHead: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 12,
-  },
-  infoSheetDone: {
-    minWidth: 52,
-    height: 높이.칩,
-    borderRadius: 모서리.버튼,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-  },
-  infoSheetDoneText: { fontSize: 14, lineHeight: 18, fontFamily: typo.label.family },
   infoSheetBody: { paddingBottom: 8 },
   field: { marginBottom: 12 },
   fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },

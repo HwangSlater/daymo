@@ -344,7 +344,8 @@ export function PhotoViewerScreen({
    */
   const [slideX] = useState(() => new Animated.Value(0));
   const [slideY] = useState(() => new Animated.Value(0));
-  const axis = useRef<SwipeAxis>(null);
+  /** 이번에 미는 방향. 「안함」은 좌우로 밀었지만 갈 곳이 없어 흘려보내는 중이다. */
+  const 축_판정 = useRef<"아직" | "안함" | NonNullable<SwipeAxis>>("아직");
   // 손가락이 움직일 때 필요한 값. PanResponder 를 다시 만들지 않으려고 여기로 읽는다.
   const latest = useRef({ photos, index, width, move, close, previewing });
   useEffect(() => {
@@ -362,28 +363,42 @@ export function PhotoViewerScreen({
         Animated.spring(slideY, { toValue: 0, bounciness: 2, useNativeDriver: true }),
       ]).start();
     };
-    const 잡을까 = (_: unknown, gesture: { dx: number; dy: number }) => {
-      if (axis.current) return true;
+    /**
+     * 손가락이 사진에 닿는 순간 받는다.
+     *
+     * 움직인 뒤에야 물어보는(`onMoveShouldSet…`) 방식은 웹에서만 됐다. iOS 기기는
+     * 아무도 받지 않은 손가락의 움직임을 JS 에 넘기지 않아서, 물어볼 기회 자체가
+     * 오지 않았다(시트 끌기·스티커 끌기도 같은 까닭으로 닿는 순간 받는다). 이 판
+     * 위에 그리는 아이콘 줄·화살표·스트립은 형제라 이 판을 거치지 않고 그대로
+     * 눌린다. 어느 쪽으로 미는지는 받은 뒤 움직임을 보고 정한다.
+     */
+    const 축_정하기 = (gesture: { dx: number; dy: number }) => {
+      if (축_판정.current !== "아직") return;
       const 잡은_축 = swipeAxis(gesture.dx, gesture.dy);
+      if (!잡은_축) return;
       // 사진이 한 장뿐이면 좌우로 밀어도 갈 곳이 없다. 닫기만 받는다. 카드를 보는
       // 중에도 좌우는 받지 않는다. 카드는 사진 줄의 한 칸이 아니라서, 밀어 넘기면
       // 어디로 가는 것인지 알 수 없다. 오갈 길은 아래 스트립이다.
       const 가로_막힘 = latest.current.photos.length < 2 || latest.current.previewing;
-      axis.current = 잡은_축 === "가로" && 가로_막힘 ? null : 잡은_축;
-      return axis.current !== null;
+      축_판정.current = 잡은_축 === "가로" && 가로_막힘 ? "안함" : 잡은_축;
     };
     return PanResponder.create({
-      onMoveShouldSetPanResponder: 잡을까,
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
       // 여기서 React 상태를 건드리지 않는다. 손가락이 움직이는 동안 렌더가 한 번이라도
       // 끼어들면 그 프레임이 통째로 밀린다. 값 하나만 바꾼다.
+      onPanResponderGrant: () => {
+        축_판정.current = "아직";
+      },
       onPanResponderMove: (_, gesture) => {
-        if (axis.current === "가로") slideX.setValue(gesture.dx);
+        축_정하기(gesture);
+        if (축_판정.current === "가로") slideX.setValue(gesture.dx);
         // 아래로 끄는 만큼만 따라간다. 위로 끌어도 사진은 꿈쩍하지 않는다.
-        else if (axis.current === "세로") slideY.setValue(Math.max(0, gesture.dy));
+        else if (축_판정.current === "세로") slideY.setValue(Math.max(0, gesture.dy));
       },
       onPanResponderRelease: (_, gesture) => {
-        const 축 = axis.current;
-        axis.current = null;
+        const 축 = 축_판정.current;
+        축_판정.current = "아직";
         const { photos: 목록, index: 지금, width: 폭, move: 옮긴다, close: 닫는다 } = latest.current;
         if (축 === "세로") {
           if (!swipeCloses(gesture.dy, gesture.vy)) return 제자리로();
@@ -415,7 +430,7 @@ export function PhotoViewerScreen({
         });
       },
       onPanResponderTerminate: () => {
-        axis.current = null;
+        축_판정.current = "아직";
         제자리로();
       },
       onPanResponderTerminationRequest: () => false,
@@ -541,9 +556,9 @@ export function PhotoViewerScreen({
         ) : (
         <>
         {/* 앞·지금·뒤 석 장이 놓인 줄. 줄을 통째로 민다. */}
+        {/* 이 판은 그리기만 한다. 손가락은 아래에 따로 깐 투명한 판이 받는다. */}
         <View style={styles.trackClip}>
         <Animated.View
-          {...pan.panHandlers}
           renderToHardwareTextureAndroid
           style={[
             styles.track,
@@ -582,6 +597,12 @@ export function PhotoViewerScreen({
           })}
         </Animated.View>
         </View>
+
+        {/* 손가락을 받는 전용 판. 사진 위에 투명하게 깔리고, 이 줄 뒤에 그리는
+            아이콘 줄·화살표·설명은 이 판보다 위라 그대로 눌린다. 밀려 나가는 줄이
+            직접 받으면 기기에서 판이 손가락 아래에서 움직이는 순간 추적이 끊긴다. */}
+        {!previewing && <View style={StyleSheet.absoluteFill} {...pan.panHandlers} />}
+
         {/* 카드는 위 아이콘 줄과 아래 설명·스트립을 비운 칸에 통째로 담는다. 사진처럼
             화면을 꽉 채우면 틀 아래의 글이 스트립에 가린다. */}
         {previewing && (
@@ -1059,6 +1080,7 @@ const STRIP_GAP = 7;
 const styles = StyleSheet.create({
   // 사진이 주인공이라 바탕이 검다. 앱의 다른 화면과 일부러 다르다.
   screen: { flex: 1, backgroundColor: "#000000" },
+  // [임시] 확인용. 지울 것.
   /**
    * 줄을 담아 넘치는 쪽을 자르는 칸.
    *
