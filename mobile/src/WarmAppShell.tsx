@@ -4,10 +4,7 @@ import {
   Animated,
   AppState,
   Easing,
-  Modal,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
   Linking,
   PanResponder,
   Platform,
@@ -25,7 +22,6 @@ import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "rea
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
-import { useSheetDrag } from "./sheetDrag";
 import { type Expense, money } from "./tripExpenses";
 import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
@@ -68,9 +64,8 @@ import {
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
+import { SheetShell, sheetHeadStyles } from "./ui/SheetShell";
 import { showAlert } from "./showAlert";
-import { useWebBackClose } from "./useWebBackClose";
-import { useWebKeyboardInset } from "./useWebKeyboardInset";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
@@ -3648,7 +3643,7 @@ function TripsExplorer({
           )}
         </ScrollView>
       )}
-      <FormSheet
+      <SheetShell
         theme={theme}
         visible={creating}
         title="새 여행"
@@ -3708,7 +3703,7 @@ function TripsExplorer({
             hint="공간 멤버 모두가 매번 같이 가지는 않아요. 이번에 가는 사람만 골라 두면 지출의 몫과 준비물 담당이 그 사람들 기준으로 맞춰져요."
           />
         )}
-      </FormSheet>
+      </SheetShell>
     </>
   );
 }
@@ -6011,140 +6006,6 @@ function Field({
     </View>
   );
 }
-function FormSheet({
-  theme,
-  visible,
-  title,
-  subtitle,
-  submit,
-  disabledHint,
-  submitDisabled = false,
-  onClose,
-  onSubmit,
-  children,
-}: {
-  theme?: AppTheme;
-  visible: boolean;
-  title: string;
-  subtitle?: string;
-  submit: string;
-  disabledHint?: string;
-  submitDisabled?: boolean;
-  onClose: () => void;
-  onSubmit: () => void;
-  children: React.ReactNode;
-}) {
-  const drag = useSheetDrag(onClose, visible);
-  // 웹에서만 쓰는 두 가지. 키보드가 가린 만큼 시트를 밀어 올리고, 브라우저
-  // 뒤로 가기를 페이지가 아니라 이 시트가 받는다. 기기에서는 둘 다 아무 일도 없다.
-  const keyboardInset = useWebKeyboardInset(visible);
-  useWebBackClose(visible, onClose);
-  const submitLocked = useRef(false);
-  useEffect(() => {
-    if (visible) submitLocked.current = false;
-  }, [visible]);
-  const sheetAccent = theme?.primary ?? "#FF6B63";
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView
-        style={[s.modalBack, keyboardInset]}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable style={s.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={`${title} 바깥 영역 닫기`} />
-        <Animated.View
-          onLayout={drag.onLayout}
-          style={[
-            s.sheet,
-            theme && { backgroundColor: theme.background },
-            drag.sheetStyle,
-          ]}
-        >
-          <View {...drag.panHandlers} style={s.sheetDragHandleArea}>
-            <View style={s.sheetHandle} />
-          </View>
-          {/* 머리는 제목과 닫기 한 줄이다. 예전에는 "장소 · 추가" 와 "장소 추가" 가
-              위아래로 겹쳐 있었고 그 둘을 테두리 상자로 묶어, 내용이 시작되기도 전에
-              화면 위쪽 98px 을 먹었다. 종류는 왼쪽 색 막대로만 남긴다. */}
-          <View style={s.sheetHead}>
-            <View {...drag.panHandlers} style={s.sheetHeadMain}>
-              <View style={[s.sheetKindBar, { backgroundColor: sheetAccent }]} />
-              <Text
-                numberOfLines={1}
-                style={[s.sheetTitle, theme && { color: theme.text }]}
-              >
-                {title}
-              </Text>
-            </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={누름여유(높이.칩)}
-              accessibilityRole="button"
-              accessibilityLabel={`${title} 닫기`}
-              style={[s.sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}
-            >
-              <Text
-                style={[
-                  s.sheetClose,
-                  theme && { color: theme.primary },
-                ]}
-              >
-                ×
-              </Text>
-            </Pressable>
-          </View>
-          <ScrollView
-            style={s.sheetScroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-          >
-            <View style={s.sheetFormBody}>
-              {/* 도움말은 머리에 박아 두지 않고 내용의 첫 줄로 둔다. 적기 시작하면
-                  같이 밀려 올라가, 다 읽은 안내가 입력 칸 자리를 계속 차지하지 않는다. */}
-              {subtitle && (
-                <Text style={[s.sheetSubtitle, theme && { color: theme.muted }]}>{subtitle}</Text>
-              )}
-              {children}
-            </View>
-          </ScrollView>
-          {submitDisabled && disabledHint && (
-            <Text accessibilityLiveRegion="polite" style={[s.sheetDisabledHint, theme && { color: theme.muted }]}>{disabledHint}</Text>
-          )}
-          <Pressable
-            onPress={() => {
-              if (submitLocked.current) return;
-              submitLocked.current = true;
-              Keyboard.dismiss();
-              onSubmit();
-              setTimeout(() => {
-                submitLocked.current = false;
-              }, 800);
-            }}
-            disabled={submitDisabled}
-            accessibilityRole="button"
-            accessibilityLabel={submit}
-            accessibilityState={{ disabled: submitDisabled }}
-            style={({ pressed }) => [
-              s.sheetSubmit,
-              theme && { backgroundColor: theme.primary },
-              submitDisabled && s.sheetSubmitDisabled,
-              pressed && !submitDisabled && s.controlPressed,
-            ]}
-          >
-            <Text style={[s.sheetSubmitText, { color: onAccent(Boolean(theme?.dark)) }]}>{submit}</Text>
-            <View style={s.sheetSubmitArrow}><Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} /></View>
-          </Pressable>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
 function InfoSheet({
   theme,
   visible,
@@ -6158,76 +6019,43 @@ function InfoSheet({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  const drag = useSheetDrag(onClose, visible);
-  // 이 시트에도 고칠 수 있는 칸이 들어간다. 웹에서는 키보드가 가린 만큼 밀어 올리고
-  // 브라우저 뒤로 가기로 닫는다. 기기에서는 둘 다 아무 일도 없다.
-  const keyboardInset = useWebKeyboardInset(visible);
-  useWebBackClose(visible, onClose);
   return (
-    <Modal
+    <SheetShell
+      theme={theme}
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={[s.modalBack, keyboardInset]}>
-        <Pressable style={s.modalDismiss} onPress={onClose} accessibilityRole="button" accessibilityLabel={`${title} 바깥 영역 닫기`} />
-        <Animated.View
-          onLayout={drag.onLayout}
-          style={[
-            s.sheet,
-            theme && { backgroundColor: theme.background },
-            drag.sheetStyle,
-          ]}
-        >
-          <View {...drag.panHandlers} style={s.sheetDragHandleArea}>
-            <View style={s.sheetHandle} />
-          </View>
-          <View style={[s.sheetHead, s.infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
-            <View {...drag.panHandlers} style={s.sheetHeadCopy}>
-              <View style={s.sheetKindRow}>
-                <View style={[s.sheetKindDot, theme && { backgroundColor: theme.primary }]} />
-                <Text style={[s.sheetKindText, theme && { color: theme.primary }]}>우리 설정</Text>
-                <View style={[s.sheetRouteLine, theme && { backgroundColor: theme.border }]} />
-                <View style={[s.sheetRouteDot, theme && { borderColor: theme.primary }]} />
-              </View>
-              <Text
-                numberOfLines={1}
-                style={[s.sheetTitle, theme && { color: theme.text }]}
-              >
-                {title}
-              </Text>
+      title={title}
+      onClose={onClose}
+      // 「우리 설정」은 둘러보고 고치는 자리라 저장 버튼이 없다. 대신 머리의
+      // 「완료」로 닫는다. 그래서 기본 머리 대신 직접 그린다.
+      renderHead={(panHandlers) => (
+        <View style={[sheetHeadStyles.head, s.infoSheetHead, theme && { backgroundColor: theme.primarySoft, borderColor: theme.border }]}>
+          <View {...panHandlers} style={s.sheetHeadCopy}>
+            <View style={s.sheetKindRow}>
+              <View style={[s.sheetKindDot, theme && { backgroundColor: theme.primary }]} />
+              <Text style={[s.sheetKindText, theme && { color: theme.primary }]}>우리 설정</Text>
+              <View style={[s.sheetRouteLine, theme && { backgroundColor: theme.border }]} />
+              <View style={[s.sheetRouteDot, theme && { borderColor: theme.primary }]} />
             </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={누름여유(높이.칩)}
-              accessibilityRole="button"
-              accessibilityLabel={`${title} 닫기`}
-              style={[s.infoSheetDone, theme && { backgroundColor: theme.surface }]}
-            >
-              <Text
-                style={[
-                  s.infoSheetDoneText,
-                  theme && { color: theme.primary },
-                ]}
-              >
-                완료
-              </Text>
-            </Pressable>
+            <Text numberOfLines={1} style={[sheetHeadStyles.title, theme && { color: theme.text }]}>
+              {title}
+            </Text>
           </View>
-          <ScrollView
-            style={s.sheetScroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
-            contentContainerStyle={s.infoSheetBody}
+          <Pressable
+            onPress={onClose}
+            hitSlop={누름여유(높이.칩)}
+            accessibilityRole="button"
+            accessibilityLabel={`${title} 닫기`}
+            style={[s.infoSheetDone, theme && { backgroundColor: theme.surface }]}
           >
-            {children}
-          </ScrollView>
-        </Animated.View>
-      </View>
-    </Modal>
+            <Text style={[s.infoSheetDoneText, theme && { color: theme.primary }]}>완료</Text>
+          </Pressable>
+        </View>
+      )}
+      padBody={false}
+      scrollContentStyle={s.infoSheetBody}
+    >
+      {children}
+    </SheetShell>
   );
 }
 /**
@@ -7449,61 +7277,12 @@ const s = StyleSheet.create({
     fontFamily: typo.hero.family,
   },
   pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
-  modalBack: {
-    flex: 1,
-    backgroundColor: "rgba(10,18,35,.42)",
-    justifyContent: "flex-end",
-  },
-  modalDismiss: { flex: 1 },
-  sheetHandle: {
-    width: 54,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "#C7C7C3",
-  },
-  sheetDragHandleArea: {
-    height: 40,
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sheetHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  sheetFormBody: {
-    paddingHorizontal: 2,
-  },
-  sheetHeadMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
-  // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
-  sheetKindBar: { width: 3, height: 19, borderRadius: 2 },
   sheetHeadCopy: { flex: 1 },
   sheetKindRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   sheetKindDot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
   sheetKindText: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 1 },
   sheetRouteLine: { width: 27, height: 1, marginLeft: 8, marginRight: 4 },
   sheetRouteDot: { width: 6, height: 6, borderRadius: 999, borderWidth: 1.5 },
-  sheetTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 21,
-    fontFamily: typo.title.family,
-    letterSpacing: -0.5,
-  },
-  // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
-  sheetSubtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
-  sheetDisabledHint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },
-  sheetCloseButton: {
-    width: 높이.칩,
-    height: 높이.칩,
-    borderRadius: 모서리.원,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sheetClose: { fontSize: 24, lineHeight: 26, fontWeight: "500" },
   infoSheetHead: {
     borderWidth: 1,
     borderRadius: 16,
@@ -7528,27 +7307,6 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontFamily: typo.label.family,
     marginBottom: 0,
-  },
-  sheetSubmit: {
-    height: 높이.저장,
-    borderRadius: 모서리.버튼,
-    backgroundColor: "#17233D",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexDirection: "row",
-    paddingLeft: 여백.가로,
-    paddingRight: 6,
-    marginTop: 6,
-  },
-  sheetSubmitText: { fontSize: 14, fontFamily: typo.label.family },
-  sheetSubmitDisabled: { opacity: 0.38 },
-  sheetSubmitArrow: {
-    width: 높이.버튼,
-    height: 높이.버튼,
-    borderRadius: 모서리.버튼,
-    backgroundColor: "rgba(255,255,255,.2)",
-    alignItems: "center",
-    justifyContent: "center",
   },
   sheetCopy: {
     fontSize: 14,
@@ -7879,7 +7637,6 @@ const s = StyleSheet.create({
     marginTop: 24,
     marginBottom: 8,
   },
-  sheetScroll: { flexGrow: 0, flexShrink: 1 },
   regionChoices: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -8354,17 +8111,6 @@ const s = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
   },
-  sheet: {
-    width: "100%",
-    maxWidth: 430,
-    alignSelf: "center",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 24,
-    maxHeight: "91%",
-  },
   fieldInput: {
     height: 높이.입력,
     borderRadius: 모서리.버튼,
@@ -8399,7 +8145,6 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   navText: { fontSize: 12, fontFamily: typo.label.family },
-  controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
   authPage: {
     flexGrow: 1,
     width: "100%",

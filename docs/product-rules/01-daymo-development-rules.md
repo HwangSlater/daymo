@@ -45,6 +45,7 @@
 - 제목은 보통 18pt 이상, 본문·입력값은 13~17pt, 보조 정보는 11~12pt를 기준으로 한다.
 - 중요 정보와 조작 문구에 9pt 글자를 사용하지 않는다.
 - 작은 시각 버튼은 `hitSlop`으로 충분한 터치 영역을 확보한다.
+- 화면 부품을 새로 만들기 전에 `docs/development/12-shared-ui-parts.md`를 먼저 본다. 시트는 `ui/SheetShell`, 칩은 `ui/Chip`, 크기는 `theme/controls.ts`를 쓰고 같은 것을 다시 만들지 않는다.
 - 시스템 큰 글자에서도 잘림을 확인하며 확대를 일괄 제한하지 않는다.
 - `react-native-safe-area-context`를 사용하고 하단 탭이나 상태 표시줄과 콘텐츠가 겹치지 않게 한다.
 
