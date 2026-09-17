@@ -20,6 +20,7 @@ import { useWebBackClose } from "./useWebBackClose";
 import { useWebKeyboardInset } from "./useWebKeyboardInset";
 import { AppTheme } from "./theme";
 import { onAccent, status as statusColor } from "./theme/colors";
+import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { DaymoApiError } from "./auth";
 import {
@@ -340,7 +341,7 @@ export function NoticeImportSheet({
             </View>
             <Pressable
               onPress={onClose}
-              hitSlop={8}
+              hitSlop={누름여유(높이.칩)}
               accessibilityRole="button"
               accessibilityLabel="공지 붙여넣기 닫기"
               style={[styles.sheetCloseButton, { backgroundColor: theme.surfaceAlt }]}
@@ -396,6 +397,7 @@ export function NoticeImportSheet({
                     <Text style={[styles.label, { color: theme.text }]}>공지 글</Text>
                     <Pressable
                       onPress={pasteFromClipboard}
+                      hitSlop={누름여유(높이.칩)}
                       accessibilityRole="button"
                       accessibilityLabel="복사한 글 붙여넣기"
                       style={[styles.toolButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
@@ -704,7 +706,7 @@ function Chip({ theme, label, on, onPress }: { theme: AppTheme; label: string; o
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={{ top: 3, bottom: 3, left: 1, right: 1 }}
+      hitSlop={누름여유(높이.칩)}
       accessibilityRole="button"
       accessibilityState={{ selected: on }}
       accessibilityLabel={label}
@@ -779,7 +781,7 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
             <View style={styles.rowHead}>
               <Pressable
                 onPress={() => toggle(row.key)}
-                hitSlop={8}
+                hitSlop={누름여유(22)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: on }}
                 accessibilityLabel={`${row.name} 넣기`}
@@ -865,7 +867,7 @@ const styles = StyleSheet.create({
   sheetTitle: { flex: 1, minWidth: 0, fontSize: 21, fontFamily: typo.title.family, letterSpacing: -0.5 },
   // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
   sheetSubtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
-  sheetCloseButton: { width: 34, height: 34, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+  sheetCloseButton: { width: 높이.칩, height: 높이.칩, borderRadius: 모서리.원, alignItems: "center", justifyContent: "center" },
   sheetClose: { fontSize: 24, lineHeight: 26, fontWeight: "500" },
   sheetScroll: { flexGrow: 0, flexShrink: 1 },
   body: { paddingHorizontal: 2 },
@@ -873,9 +875,10 @@ const styles = StyleSheet.create({
   labelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 6 },
   labelDot: { width: 5, height: 5, borderRadius: 2 },
   label: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
+  // 공지 글 전체를 붙여넣는 칸이라 여러 줄이 들어간다. 높이 토큰의 한 줄짜리가 아니다.
   paste: {
     minHeight: 200,
-    borderRadius: 12,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     padding: 14,
     fontSize: 13,
@@ -883,7 +886,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   hint: { fontSize: 12, lineHeight: 17, marginTop: 10, fontFamily: typo.caption.family },
-  toolButton: { minWidth: 62, height: 30, borderWidth: 1, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  toolButton: { minWidth: 62, height: 높이.칩, borderWidth: 1, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   toolButtonText: { fontSize: 12, fontFamily: typo.label.family },
   section: { marginTop: 18 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
@@ -893,10 +896,12 @@ const styles = StyleSheet.create({
   countChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   countText: { fontSize: 12, fontFamily: typo.data.family },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingRight: 6 },
-  chip: { minHeight: 32, borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
+  chip: { minHeight: 높이.칩, borderRadius: 모서리.원, borderWidth: 1, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
   chipText: { fontSize: 12, fontFamily: typo.label.family },
-  row: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, gap: 6 },
+  row: { borderWidth: 1, borderRadius: 모서리.구역, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, gap: 6 },
   rowHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  // 체크 상자는 글자 옆에 붙는 표시라 22px 이다. 칩 높이로 키우면 줄 이름을
+  // 밀어내고 체크 표시만 커 보인다. 대신 hitSlop 으로 44 를 채운다.
   check: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   rowInput: { flex: 1, fontSize: 14, fontFamily: typo.title.family, paddingVertical: 2 },
   rowBadge: {
@@ -908,15 +913,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   rowUnder: { fontSize: 12, lineHeight: 16, marginLeft: 32, fontFamily: typo.caption.family },
-  leftoverBox: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 4 },
+  leftoverBox: { borderWidth: 1, borderRadius: 모서리.구역, padding: 12, gap: 4 },
   leftoverLine: { fontSize: 12, lineHeight: 17 },
   checkRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: 높이.버튼,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.버튼,
     paddingHorizontal: 14,
     marginTop: 8,
   },
@@ -924,21 +929,21 @@ const styles = StyleSheet.create({
   reportText: { fontSize: 14, lineHeight: 21, marginBottom: 10 },
   disabledHint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },
   submit: {
-    height: 50,
-    borderRadius: 16,
+    height: 높이.저장,
+    borderRadius: 모서리.버튼,
     alignItems: "center",
     justifyContent: "space-between",
     flexDirection: "row",
-    paddingLeft: 16,
+    paddingLeft: 여백.가로,
     paddingRight: 6,
     marginTop: 6,
   },
   submitText: { fontSize: 14, fontFamily: typo.label.family },
   submitDisabled: { opacity: 0.38 },
   submitArrow: {
-    width: 39,
-    height: 39,
-    borderRadius: 12,
+    width: 높이.버튼,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     backgroundColor: "rgba(255,255,255,.2)",
     alignItems: "center",
     justifyContent: "center",

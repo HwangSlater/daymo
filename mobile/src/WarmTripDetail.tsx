@@ -166,6 +166,7 @@ import { showAlert } from "./showAlert";
 import { shrinkForWeb } from "./webImage";
 import { useWebBackClose } from "./useWebBackClose";
 import { useWebKeyboardInset } from "./useWebKeyboardInset";
+import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
@@ -3916,7 +3917,7 @@ function TripOverview({
               {Boolean(item.note?.trim()) && <InfoLine label="메모" value={item.note ?? ""} />}
               {canEdit && (
               <Pressable
-                accessibilityRole="button" onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
+                accessibilityRole="button" hitSlop={누름여유(높이.칩)} onPress={() => openTransportEdit(item)} style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}>
                 <Text style={[styles.infoManageButtonText, theme && { color: theme.primary }]}>이 교통편 수정</Text>
               </Pressable>
               )}
@@ -4703,6 +4704,7 @@ function Places({
           onPress={() => setTagFilter(null)}
           accessibilityRole="button"
           accessibilityState={{ selected: tagFilter === null }}
+          hitSlop={누름여유(높이.칩)}
           style={[
             styles.tagFilterChip,
             tagFilter === null && styles.tagFilterChipActive,
@@ -4726,6 +4728,7 @@ function Places({
             onPress={() => setTagFilter(tagFilter === tag ? null : tag)}
             accessibilityRole="button"
             accessibilityState={{ selected: tagFilter === tag }}
+            hitSlop={누름여유(높이.칩)}
             style={[
               styles.tagFilterChip,
               tagFilter === tag && styles.tagFilterChipActive,
@@ -4762,6 +4765,7 @@ function Places({
             accessibilityRole="button"
             accessibilityLabel={`일정에 담은 ${planCount}곳을 다녀옴으로 표시`}
             onPress={visitAllPlanned}
+            hitSlop={누름여유(높이.칩)}
             style={[styles.placeVisitAllButton, theme && { borderColor: theme.border, backgroundColor: theme.surface }]}
           >
             <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>한 번에 표시</Text>
@@ -4935,6 +4939,7 @@ function Places({
         <Pressable
           accessibilityRole="button"
           onPress={copyPlaces}
+          hitSlop={누름여유(높이.칩)}
           style={[
             styles.packingToolButton,
             theme && { borderColor: theme.border },
@@ -4952,6 +4957,7 @@ function Places({
         <Pressable
           accessibilityRole="button"
           onPress={openImport}
+          hitSlop={누름여유(높이.칩)}
           style={[
             styles.packingToolButton,
             theme && { borderColor: theme.border },
@@ -5035,7 +5041,7 @@ function Places({
             </View>
             <View style={styles.naverAutoFillCopy}>
               <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>{resolvingNaver ? "장소 정보 가져오는 중…" : "지도 링크 붙여넣기"}</Text>
-              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "네이버 지도·카카오맵 공유 링크를 복사했다면 여기만 탭하세요"}</Text>
+              <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "네이버·카카오 링크를 붙여넣으세요"}</Text>
             </View>
             <Glyph name="chevronRight" size={16} color={theme?.dark ? "#96B7A8" : "#16844E"} />
           </Pressable>
@@ -5452,6 +5458,7 @@ function PastTripImport({
           accessibilityRole="button"
           accessibilityLabel={`지난 여행에서 ${kind} 가져오기`}
           onPress={openSheet}
+          hitSlop={누름여유(높이.칩)}
           style={[styles.packingToolButton, theme && { borderColor: theme.border }]}
         >
           <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>여행 고르기</Text>
@@ -6125,6 +6132,7 @@ function Preparation({
                   onPress={() => setFilter(item)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
+                  hitSlop={누름여유(높이.칩)}
                   style={[
                     styles.packingV2StatusChip,
                     active && theme && { backgroundColor: theme.primarySoft },
@@ -6555,6 +6563,7 @@ function Preparation({
         <Pressable
           accessibilityRole="button"
           onPress={copyPacking}
+          hitSlop={누름여유(높이.칩)}
           style={[
             styles.packingToolButton,
             theme && { borderColor: theme.border },
@@ -6572,6 +6581,7 @@ function Preparation({
         <Pressable
           accessibilityRole="button"
           onPress={openImport}
+          hitSlop={누름여유(높이.칩)}
           style={[
             styles.packingToolButton,
             theme && { borderColor: theme.border },
@@ -6744,6 +6754,7 @@ function Preparation({
           <Pressable
             onPress={() => openPackingEdit(assigningItem)}
             accessibilityRole="button"
+            hitSlop={누름여유(높이.칩)}
             style={[styles.infoManageButton, theme && { backgroundColor: theme.primarySoft }]}
           >
             <Text style={[styles.infoManageButtonText, theme && { color: theme.primary }]}>이 준비물 정보 수정</Text>
@@ -8015,6 +8026,7 @@ function Cooking({
             <Pressable
               accessibilityRole="button"
               onPress={copyCooking}
+              hitSlop={누름여유(높이.칩)}
               style={[
                 styles.packingToolButton,
                 theme && { borderColor: theme.border },
@@ -8032,6 +8044,7 @@ function Cooking({
             <Pressable
               accessibilityRole="button"
               onPress={openImport}
+              hitSlop={누름여유(높이.칩)}
               style={[
                 styles.packingToolButton,
                 theme && { borderColor: theme.border },
@@ -8978,6 +8991,7 @@ function Memories({
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
                 accessibilityLabel={`${칩.key} ${칩.count}개만 보기`}
+                hitSlop={누름여유(높이.칩)}
                 style={({ pressed }) => [
                   styles.photoLinkChip,
                   theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -9303,6 +9317,7 @@ function PhotoLinkField({ options, value, onChange }: {
               onPress={() => toggle(option)}
               accessibilityRole="button"
               accessibilityState={{ selected: chosen }}
+              hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [
                 styles.photoLinkChip,
                 theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -10036,6 +10051,7 @@ function Money({
                   onPress={() => recordFull(transfer)}
                   accessibilityRole="button"
                   accessibilityLabel={`${other}에게 ${show(transfer.amount)} ${iSend ? "다 보냈어요" : "다 받았어요"}`}
+                  hitSlop={누름여유(높이.칩)}
                   style={({ pressed }) => [
                     styles.moneySettleDone,
                     theme && { backgroundColor: theme.primary },
@@ -10938,7 +10954,7 @@ function TravelInfoRow({
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={`${linkSubject ?? title} 열기`}
-          hitSlop={8}
+          hitSlop={누름여유(높이.칩)}
           onPress={(event) => { event.stopPropagation(); if (link) void Linking.openURL(link); }}
           style={({ pressed }) => [
             styles.travelInfoLink,
@@ -11653,7 +11669,7 @@ function DetailSheet({
             </View>
             <Pressable
               onPress={requestClose}
-              hitSlop={8}
+              hitSlop={누름여유(높이.칩)}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}
               style={[
@@ -11861,7 +11877,7 @@ function InfoPanel({
             </View>
             <Pressable
               onPress={onClose}
-              hitSlop={10}
+              hitSlop={누름여유(높이.칩)}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}
               style={[styles.infoPanelCloseButton, theme && { backgroundColor: theme.primarySoft }]}
@@ -12209,8 +12225,8 @@ const styles = StyleSheet.create({
   tripMemoAuthor: { fontSize: 12, fontFamily: typo.label.family },
   tripMemoBody: { fontSize: 14, lineHeight: 21, marginTop: 6 },
   memoAddButton: {
-    minHeight: 58,
-    borderRadius: 12,
+    minHeight: 높이.저장,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     paddingHorizontal: 12,
     flexDirection: "row",
@@ -12251,7 +12267,7 @@ const styles = StyleSheet.create({
     opacity: 0.22,
     transform: [{ rotate: "-2deg" }],
   },
-  travelMomentCompact: { minHeight: 57 },
+  travelMomentCompact: { minHeight: 높이.저장 },
   travelMomentTimeCompact: { width: 84 },
   travelMomentDayCompact: { width: 62, fontSize: 12 },
   travelMomentContentCompact: { paddingLeft: 4 },
@@ -12289,12 +12305,12 @@ const styles = StyleSheet.create({
   transportSwitchHintText: { fontSize: 11, lineHeight: 13, fontFamily: typo.caption.family },
   transportSwitchHintArrow: { fontSize: 14, lineHeight: 16, fontFamily: typo.label.family },
   pairedFieldRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  pairedFieldInput: { flex: 1, minWidth: 0, height: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 14, textAlign: "center" },
+  pairedFieldInput: { flex: 1, minWidth: 0, height: 높이.입력, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14, textAlign: "center" },
   pairedFieldArrow: { width: 27, height: 27, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   pairedFieldArrowText: { fontSize: 14, lineHeight: 16, fontFamily: typo.label.family },
   transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 8, marginBottom: 8 },
   transportDetailDirection: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 2 },
-  infoManageButton: { minHeight: 34, borderRadius: 8, alignItems: "center", justifyContent: "center", marginTop: 6 },
+  infoManageButton: { minHeight: 높이.칩, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center", marginTop: 6 },
   infoManageButtonText: { fontSize: 14, fontFamily: typo.label.family },
   travelInfoPair: { flexDirection: "row", alignItems: "stretch", gap: 8 },
   travelMiniCard: {
@@ -12389,8 +12405,8 @@ const styles = StyleSheet.create({
   },
   travelInfoArrow: { fontSize: 18, lineHeight: 20, fontFamily: typo.label.family },
   travelInfoLink: {
-    minHeight: 36,
-    borderRadius: 8,
+    minHeight: 높이.칩,
+    borderRadius: 모서리.버튼,
     paddingHorizontal: 10,
     alignItems: "center",
     justifyContent: "center",
@@ -12455,9 +12471,9 @@ const styles = StyleSheet.create({
   memoryFilterRow: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 6 },
   memoryFilterLink: { paddingVertical: 4 },
   photoLinkChip: {
-    height: 36,
+    height: 높이.칩,
     maxWidth: "100%",
-    borderRadius: 8,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     paddingHorizontal: 10,
     justifyContent: "center",
@@ -12563,9 +12579,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sheetCloseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
+    width: 높이.칩,
+    height: 높이.칩,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
@@ -12577,8 +12593,8 @@ const styles = StyleSheet.create({
   },
   infoPanelCloseButton: {
     minWidth: 52,
-    height: 32,
-    borderRadius: 8,
+    height: 높이.칩,
+    borderRadius: 모서리.버튼,
     paddingHorizontal: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -12653,9 +12669,9 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   timePickerButton: {
-    minHeight: 58,
+    minHeight: 높이.저장,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.버튼,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -12672,9 +12688,9 @@ const styles = StyleSheet.create({
   timePickerValue: { fontSize: 16, fontFamily: typo.data.family },
   timePickerHint: { fontSize: 11, lineHeight: 16, fontFamily: typo.caption.family, marginTop: 1 },
   timePickerFallback: {
-    height: 50,
+    height: 높이.입력,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.버튼,
     paddingHorizontal: 12,
     fontSize: 14,
   },
@@ -12693,22 +12709,22 @@ const styles = StyleSheet.create({
   stayPickerLabel: { fontSize: 14, fontFamily: typo.label.family },
   stayPickerValue: { fontSize: 14, fontFamily: typo.data.family },
   sheetSubmit: {
-    height: 50,
-    borderRadius: 16,
+    height: 높이.저장,
+    borderRadius: 모서리.버튼,
     backgroundColor: "#17233D",
     alignItems: "center",
     justifyContent: "space-between",
     flexDirection: "row",
-    paddingLeft: 16,
+    paddingLeft: 여백.가로,
     paddingRight: 6,
     marginTop: 6,
   },
   sheetSubmitText: { fontSize: 14, fontFamily: typo.label.family },
   sheetSubmitDisabled: { opacity: 0.38 },
   sheetSubmitArrow: {
-    width: 39,
-    height: 39,
-    borderRadius: 12,
+    width: 높이.버튼,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     backgroundColor: "rgba(255,255,255,.2)",
     alignItems: "center",
     justifyContent: "center",
@@ -12747,7 +12763,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     marginTop: 2,
   },
-  tripArchiveButton: { minHeight: 44, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  tripArchiveButton: { minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center", marginTop: 8 },
   tripEditSectionTitle: { fontSize: 16, fontFamily: typo.title.family },
   tripEditSectionHint: { fontSize: 11, lineHeight: 16, fontFamily: typo.caption.family, marginTop: 3, marginBottom: 14 },
   optionField: { marginBottom: 16 },
@@ -12810,8 +12826,8 @@ const styles = StyleSheet.create({
   savedPlacePickerRow: { gap: 8, paddingRight: 10 },
   savedPlaceChoice: {
     width: 152,
-    minHeight: 58,
-    borderRadius: 12,
+    minHeight: 높이.저장,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -12833,9 +12849,11 @@ const styles = StyleSheet.create({
   },
   naverHead: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   naverCopy: { flex: 1, minWidth: 0 },
+  // 한 줄 설명이 들어가는 큰 버튼. 모서리는 안에 N 로고와 두 줄이 들어가는
+  // 구역이라 버튼보다 크게 둔다.
   naverAutoFill: {
-    minHeight: 62,
-    borderRadius: 16,
+    minHeight: 높이.저장,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     paddingHorizontal: 12,
     flexDirection: "row",
@@ -12847,7 +12865,7 @@ const styles = StyleSheet.create({
   naverAutoFillText: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   naverLinkGuide: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     backgroundColor: "#EAF7F0",
     padding: 12,
     marginBottom: 14,
@@ -12855,8 +12873,8 @@ const styles = StyleSheet.create({
   naverLinkActions: { flexDirection: "row", gap: 8 },
   naverLinkButton: {
     flex: 1,
-    height: 42,
-    borderRadius: 12,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -12865,8 +12883,8 @@ const styles = StyleSheet.create({
   naverLinkButtonText: { color: "#16844E", fontSize: 13, fontFamily: typo.label.family },
   naverLinkButtonPrimaryText: { color: "#FFFFFF" },
   naverConnected: {
-    minHeight: 38,
-    borderRadius: 12,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 10,
     marginTop: 8,
@@ -12890,8 +12908,8 @@ const styles = StyleSheet.create({
   naverTitle: { color: "#184D36", fontSize: 14, fontFamily: typo.title.family },
   naverHint: { color: "#648172", fontSize: 11, marginTop: 2 },
   naverInput: {
-    height: 45,
-    borderRadius: 12,
+    height: 높이.입력,
+    borderRadius: 모서리.버튼,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 12,
     color: "#184D36",
@@ -12951,8 +12969,8 @@ const styles = StyleSheet.create({
   tagSuggestionText: { color: "#747C88", fontSize: 12, fontFamily: typo.label.family },
   tagSuggestionTextActive: { color: "#FFFFFF" },
   tagInput: {
-    minHeight: 47,
-    borderRadius: 12,
+    minHeight: 높이.입력,
+    borderRadius: 모서리.버튼,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E0DA",
@@ -12968,7 +12986,7 @@ const styles = StyleSheet.create({
   },
   draftTagText: { fontSize: 12, fontFamily: typo.label.family },
   deletePlace: {
-    height: 44,
+    height: 높이.버튼,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 4,
@@ -12987,15 +13005,15 @@ const styles = StyleSheet.create({
   deleteConfirmActions: { flexDirection: "row", gap: 8 },
   deleteConfirmButton: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   deleteConfirmCancel: { fontSize: 12, fontFamily: typo.label.family },
   deleteConfirmDanger: { fontSize: 13, fontFamily: typo.label.family },
-  reportLink: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  reportLink: { minHeight: 높이.버튼, alignItems: "center", justifyContent: "center", marginTop: 4 },
   reportLinkText: { fontSize: 12, fontFamily: typo.label.family },
   fullScheduleText: { fontSize: 12, fontFamily: typo.label.family },
   moneyBlock: { marginBottom: 18 },
@@ -13003,7 +13021,7 @@ const styles = StyleSheet.create({
   moneyBlockTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   moneyBlockTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
   moneyBlockMeta: { fontSize: 12, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, fontFamily: typo.data.family },
-  moneyBlockAction: { minHeight: 40, justifyContent: "center", paddingLeft: 8 },
+  moneyBlockAction: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 8 },
   moneyBlockActionText: { fontSize: 13, fontFamily: typo.label.family },
   moneyBlockBody: { borderWidth: 1, borderRadius: 16, padding: 16 },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
@@ -13020,16 +13038,17 @@ const styles = StyleSheet.create({
   participantName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
   participantWarn: { fontSize: 11, fontFamily: typo.caption.family },
   splitModes: { flexDirection: "row", gap: 6, marginTop: 8 },
-  splitMode: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  splitMode: { flex: 1, minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   splitModeText: { fontSize: 13, fontFamily: typo.label.family },
   splitEven: { fontSize: 13, marginTop: 10, fontFamily: typo.caption.family },
   splitPeople: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
-  splitPerson: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 44, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14 },
+  splitPerson: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 14 },
   splitPersonText: { maxWidth: 86, fontSize: 13, fontFamily: typo.label.family },
   splitAmountRows: { gap: 8, marginTop: 10 },
   splitAmountRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   splitAmountName: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typo.label.family },
-  splitAmountInput: { width: 124, height: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, fontSize: 14, textAlign: "right", fontFamily: typo.data.family },
+  // 같은 줄에 놓이는 사람 칩과 높이를 맞춰야 해서 입력 높이(52)를 쓰지 않는다.
+  splitAmountInput: { width: 124, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14, textAlign: "right", fontFamily: typo.data.family },
   splitLeft: { fontSize: 13, textAlign: "right", fontFamily: typo.caption.family },
   shareField: { marginBottom: 20 },
   shareRows: { gap: 8, marginTop: 10 },
@@ -13040,10 +13059,10 @@ const styles = StyleSheet.create({
   shareWeightValue: { minWidth: 18, textAlign: "center", fontSize: 14, fontFamily: typo.data.family },
   shareAmount: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
   amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: -4, marginBottom: 18 },
-  amountStep: { minHeight: 44, borderWidth: 1, borderColor: "transparent", borderRadius: 999, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  amountStep: { minHeight: 높이.버튼, borderWidth: 1, borderColor: "transparent", borderRadius: 모서리.원, paddingHorizontal: 여백.가로, alignItems: "center", justifyContent: "center" },
   amountStepText: { fontSize: 14, fontFamily: typo.label.family },
   moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44, borderWidth: 1, borderRadius: 999, paddingLeft: 12, paddingRight: 9 },
+  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.원, paddingLeft: 여백.가로좁게, paddingRight: 9 },
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
   moneyCurrencyValue: { fontSize: 12.5, fontFamily: typo.label.family },
   moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
@@ -13082,15 +13101,15 @@ const styles = StyleSheet.create({
   moneySettleHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 24 },
   moneySettleCopy: { flex: 1, minWidth: 0 },
   moneySettleWho: { fontSize: 12, fontFamily: typo.caption.family },
-  moneySettleDone: { minHeight: 36, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  moneySettleDone: { minHeight: 높이.칩, borderRadius: 모서리.원, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   moneySettleDoneText: { fontSize: 13, fontFamily: typo.label.family },
   moneyOthersHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 40 },
   moneyOthersLabel: { fontSize: 13, fontFamily: typo.caption.family },
-  moneyOtherRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14 },
+  moneyOtherRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 14 },
   moneyOtherText: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: typo.label.family },
   moneyOtherAmount: { fontSize: 14, fontFamily: typo.data.family },
   moneyOtherUndo: { fontSize: 13, fontFamily: typo.label.family },
-  moneySettleCopyButton: { minHeight: 44, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  moneySettleCopyButton: { minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center", marginTop: 4 },
   moneySettleCopyText: { fontSize: 13, fontFamily: typo.label.family },
   payWhy: { gap: 4, borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
   payWhyLabel: { fontSize: 12, fontFamily: typo.caption.family },
@@ -13105,7 +13124,7 @@ const styles = StyleSheet.create({
   moneyInsightValue: { fontSize: 15, marginTop: 4, fontFamily: typo.data.family },
   moneyInsightMeta: { fontSize: 12, marginTop: 1, fontFamily: typo.caption.family },
   moneyCategoryCard: { marginTop: 12 },
-  moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44, paddingHorizontal: 6, borderRadius: 8 },
+  moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 높이.버튼, paddingHorizontal: 6, borderRadius: 모서리.버튼 },
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
   moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
   moneyBarFill: { height: 6, borderRadius: 3 },
@@ -13113,7 +13132,7 @@ const styles = StyleSheet.create({
   moneyCategoryPercent: { minWidth: 30, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
   moneyCategoryHint: { fontSize: 12, fontFamily: typo.caption.family, paddingHorizontal: 6, paddingTop: 4, paddingBottom: 7 },
   moneyDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4 },
-  moneyDayChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 40, justifyContent: "center" },
+  moneyDayChip: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 여백.가로좁게, minHeight: 높이.버튼, justifyContent: "center" },
   moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
   moneyList: { gap: 14, marginTop: 8 },
   moneyGroup: { gap: 6 },
@@ -13135,9 +13154,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    minHeight: 40,
+    borderRadius: 모서리.원,
+    paddingHorizontal: 여백.가로좁게,
+    minHeight: 높이.버튼,
   },
   scheduleDayChipText: { fontSize: 12, fontFamily: typo.label.family },
   scheduleDayChipCount: { fontSize: 11, fontFamily: typo.data.family },
@@ -13405,9 +13424,9 @@ const styles = StyleSheet.create({
   },
   packingV2StatusTabs: { flexDirection: "row", alignItems: "center", gap: 2 },
   packingV2StatusChip: {
-    minHeight: 30,
-    borderRadius: 999,
-    paddingHorizontal: 8,
+    minHeight: 높이.칩,
+    borderRadius: 모서리.원,
+    paddingHorizontal: 여백.세로좁게,
     paddingVertical: 6,
     justifyContent: "center",
   },
@@ -13424,8 +13443,8 @@ const styles = StyleSheet.create({
   packingV2TagChevron: { fontSize: 12, fontFamily: typo.label.family, marginTop: -2 },
   packingV2Owners: { flexDirection: "row", gap: 6, paddingRight: 16 },
   packingV2TagChoice: {
-    minHeight: 40,
-    borderRadius: 8,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
     paddingHorizontal: 11,
     flexDirection: "row",
     alignItems: "center",
@@ -13451,8 +13470,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   packingV2GroupHead: {
-    minHeight: 46,
-    paddingHorizontal: 12,
+    minHeight: 높이.버튼,
+    paddingHorizontal: 여백.가로좁게,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -13492,8 +13511,8 @@ const styles = StyleSheet.create({
   },
   packingV2GroupCountText: { fontSize: 14, fontFamily: typo.data.family },
   packingV2Row: {
-    minHeight: 49,
-    paddingHorizontal: 12,
+    minHeight: 높이.입력,
+    paddingHorizontal: 여백.가로좁게,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -13528,8 +13547,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   packingV2CompletedHead: {
-    minHeight: 48,
-    paddingHorizontal: 12,
+    minHeight: 높이.입력,
+    paddingHorizontal: 여백.가로좁게,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -13550,9 +13569,9 @@ const styles = StyleSheet.create({
   packingListToolsHint: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   packingToolButton: {
     minWidth: 48,
-    height: 34,
+    height: 높이.칩,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.버튼,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -13565,10 +13584,10 @@ const styles = StyleSheet.create({
   },
   tagPickerItem: {
     width: "48.7%",
-    minHeight: 54,
+    minHeight: 높이.저장,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderRadius: 모서리.버튼,
+    paddingHorizontal: 여백.가로좁게,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -13646,7 +13665,7 @@ const styles = StyleSheet.create({
   cookingImportGroupTitle: { fontSize: 14, fontFamily: typo.title.family },
   cookingImportGroupCount: { fontSize: 14, fontFamily: typo.data.family },
   cookingImportRow: {
-    minHeight: 45,
+    minHeight: 높이.버튼,
     borderTopWidth: 1,
     borderTopColor: "#EEEAE5",
     flexDirection: "row",
@@ -13871,9 +13890,9 @@ const styles = StyleSheet.create({
   emptyCookingTitle: { fontSize: 18, fontFamily: typo.title.family },
   emptyCookingText: { fontSize: 12, marginTop: 6 },
   emptyCookingAction: {
-    minHeight: 38,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
+    paddingHorizontal: 여백.가로좁게,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
@@ -13912,7 +13931,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cookV2SectionHead: {
-    minHeight: 44,
+    minHeight: 높이.버튼,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -13925,7 +13944,7 @@ const styles = StyleSheet.create({
   cookV2SectionCount: { fontSize: 14, fontFamily: typo.data.family },
   cookV2SectionToggle: { width: 16, fontSize: 14, fontFamily: typo.label.family, textAlign: "center" },
   ingredientRow: {
-    minHeight: 45,
+    minHeight: 높이.버튼,
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: 1,
@@ -13954,9 +13973,9 @@ const styles = StyleSheet.create({
   emptyStateCopy: { flex: 1, minWidth: 0 },
   emptyStateTitle: { fontSize: 18, fontFamily: typo.title.family },
   emptyStateDescription: { fontSize: 14, lineHeight: 20, fontFamily: typo.body.family, marginTop: 2 },
-  emptyStateAction: { minHeight: 44, borderRadius: 8, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  emptyStateAction: { minHeight: 높이.버튼, borderRadius: 모서리.버튼, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", marginLeft: 8 },
   emptyStateActionText: { fontSize: 14, fontFamily: typo.label.family },
-  listMoreButton: { minHeight: 39, borderWidth: 1, borderRadius: 8, marginTop: 8, marginBottom: 4, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  listMoreButton: { minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, marginTop: 8, marginBottom: 4, paddingHorizontal: 여백.가로좁게, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   listMoreText: { fontSize: 14, fontFamily: typo.label.family },
   listMoreChevron: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 6 },
   longPressHint: {
@@ -14028,8 +14047,8 @@ const styles = StyleSheet.create({
   modeSwitchPinned: { zIndex: 2 },
   mode: {
     flex: 1,
-    minHeight: 40,
-    borderRadius: 8,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -14039,7 +14058,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
-  sectionActionHit: { minHeight: 40, justifyContent: "center", paddingLeft: 8 },
+  sectionActionHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.세로좁게 },
   sectionActionRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   sectionLabel: {
     minHeight: 42,
@@ -14068,9 +14087,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   tabActionButton: {
-    minHeight: 44,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
+    paddingHorizontal: 여백.가로좁게,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -14079,8 +14098,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
   timelineCard: { borderRadius: 12, padding: 12, borderWidth: 1 },
   fullScheduleButton: {
-    height: 43,
-    borderRadius: 8,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     marginTop: 6,
     marginHorizontal: 12,
     marginBottom: 12,
@@ -14116,15 +14135,15 @@ const styles = StyleSheet.create({
   // 칩이 다섯이라 좁은 화면에서는 한 줄에 다 들어가지 않는다. 밀려 잘리느니 접는다.
   placeFilters: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 4 },
   placeFilter: {
-    minHeight: 38,
-    borderRadius: 999,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.원,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   placeFilterMoreButton: {
-    minHeight: 38,
-    borderRadius: 999,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.원,
     paddingHorizontal: 9,
     flexDirection: "row",
     alignItems: "center",
@@ -14141,17 +14160,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   placeVisitAllButton: {
-    height: 34,
+    height: 높이.칩,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 모서리.버튼,
+    paddingHorizontal: 여백.가로좁게,
     alignItems: "center",
     justifyContent: "center",
   },
   placeAdd: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   placeSearch: {
-    height: 39,
-    borderRadius: 8,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -14161,9 +14180,9 @@ const styles = StyleSheet.create({
   },
   tagFilterRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   tagFilterChip: {
-    height: 30,
-    borderRadius: 999,
-    paddingHorizontal: 8,
+    height: 높이.칩,
+    borderRadius: 모서리.원,
+    paddingHorizontal: 여백.세로좁게,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -14266,16 +14285,16 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "-.5deg" }],
   },
   detailFieldInput: {
-    height: 50,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    height: 높이.입력,
+    borderRadius: 모서리.버튼,
+    paddingHorizontal: 여백.가로좁게,
     borderWidth: 1,
   },
   optionChip: {
-    height: 44,
-    borderRadius: 12,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 여백.가로좁게,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -14321,8 +14340,8 @@ const styles = StyleSheet.create({
   placeMiniActions: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
   placeMiniIconButton: { minWidth: 47, height: 44, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniEditText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniMapButton: { minWidth: 63, height: 44, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniMapButton: { minWidth: 63, height: 높이.버튼, borderRadius: 모서리.버튼, paddingHorizontal: 여백.세로좁게, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniPlanButton: { flex: 1, height: 44, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniPlanButton: { flex: 1, height: 높이.버튼, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   placeMiniPlanText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
 });

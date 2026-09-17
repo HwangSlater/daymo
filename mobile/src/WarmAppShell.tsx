@@ -71,6 +71,7 @@ import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import { useWebBackClose } from "./useWebBackClose";
 import { useWebKeyboardInset } from "./useWebKeyboardInset";
+import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
@@ -4184,7 +4185,7 @@ function KoreaTripMap({
             </View>
             <Pressable
               onPress={onClear}
-              hitSlop={10}
+              hitSlop={누름여유(28)}
               accessibilityRole="button"
               accessibilityLabel={`${selected} 여행 창 닫기`}
               style={[s.mapTrayClose, { backgroundColor: theme.surfaceAlt }]}
@@ -4359,10 +4360,10 @@ function TripCalendar({
           >
             <Text style={[s.calendarTodayText, { color: calendarMuted }]}>오늘</Text>
           </Pressable>
-          <Pressable onPress={() => move(-1)} hitSlop={9} accessibilityRole="button" accessibilityLabel="이전 달" style={s.monthArrow}>
+          <Pressable onPress={() => move(-1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="이전 달" style={s.monthArrow}>
             <Glyph name="chevronLeft" size={20} color={calendarInk} />
           </Pressable>
-          <Pressable onPress={() => move(1)} hitSlop={9} accessibilityRole="button" accessibilityLabel="다음 달" style={s.monthArrow}>
+          <Pressable onPress={() => move(1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="다음 달" style={s.monthArrow}>
             <Glyph name="chevronRight" size={20} color={calendarInk} />
           </Pressable>
         </View>
@@ -4680,6 +4681,7 @@ function Search({
               <Pressable
                 key={word}
                 onPress={() => runSearch(word)}
+                hitSlop={누름여유(높이.칩)}
                 accessibilityRole="button"
                 accessibilityLabel={`최근 검색어 ${word}`}
                 style={[
@@ -6080,7 +6082,7 @@ function FormSheet({
             </View>
             <Pressable
               onPress={onClose}
-              hitSlop={8}
+              hitSlop={누름여유(높이.칩)}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}
               style={[s.sheetCloseButton, theme && { backgroundColor: theme.surfaceAlt }]}
@@ -6198,7 +6200,7 @@ function InfoSheet({
             </View>
             <Pressable
               onPress={onClose}
-              hitSlop={10}
+              hitSlop={누름여유(높이.칩)}
               accessibilityRole="button"
               accessibilityLabel={`${title} 닫기`}
               style={[s.infoSheetDone, theme && { backgroundColor: theme.surface }]}
@@ -7082,7 +7084,7 @@ const s = StyleSheet.create({
   newTripText: { fontSize: 12, fontFamily: typo.label.family },
   arrow: { color: "#A0665B", fontSize: 24, fontWeight: "300" },
   setting: {
-    minHeight: 55,
+    minHeight: 높이.저장,
     borderBottomWidth: 1,
     borderColor: "#F0E2DA",
     flexDirection: "row",
@@ -7305,7 +7307,7 @@ const s = StyleSheet.create({
   },
   paperTripAction: {
     flex: 1,
-    minHeight: 55,
+    minHeight: 높이.저장,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
@@ -7422,9 +7424,9 @@ const s = StyleSheet.create({
     marginTop: 6,
   },
   homeEmptyTripAction: {
-    minHeight: 42,
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
+    paddingHorizontal: 여백.가로,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 16,
@@ -7495,9 +7497,9 @@ const s = StyleSheet.create({
   sheetSubtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
   sheetDisabledHint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },
   sheetCloseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
+    width: 높이.칩,
+    height: 높이.칩,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -7511,8 +7513,8 @@ const s = StyleSheet.create({
   },
   infoSheetDone: {
     minWidth: 52,
-    height: 32,
-    borderRadius: 12,
+    height: 높이.칩,
+    borderRadius: 모서리.버튼,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
@@ -7528,22 +7530,22 @@ const s = StyleSheet.create({
     marginBottom: 0,
   },
   sheetSubmit: {
-    height: 50,
-    borderRadius: 16,
+    height: 높이.저장,
+    borderRadius: 모서리.버튼,
     backgroundColor: "#17233D",
     alignItems: "center",
     justifyContent: "space-between",
     flexDirection: "row",
-    paddingLeft: 16,
+    paddingLeft: 여백.가로,
     paddingRight: 6,
     marginTop: 6,
   },
   sheetSubmitText: { fontSize: 14, fontFamily: typo.label.family },
   sheetSubmitDisabled: { opacity: 0.38 },
   sheetSubmitArrow: {
-    width: 39,
-    height: 39,
-    borderRadius: 12,
+    width: 높이.버튼,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     backgroundColor: "rgba(255,255,255,.2)",
     alignItems: "center",
     justifyContent: "center",
@@ -7610,10 +7612,11 @@ const s = StyleSheet.create({
   },
   mapTrayTitle: { fontSize: 18, fontFamily: typo.title.family },
   mapTrayCount: { fontSize: 14, marginTop: 2 },
+  // 지도 위에 얹히는 닫기라 지도를 가리지 않게 작게 둔다. hitSlop 으로 44 를 채운다.
   mapTrayClose: {
     width: 28,
     height: 28,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     backgroundColor: "#F0F3F2",
     alignItems: "center",
     justifyContent: "center",
@@ -7623,7 +7626,7 @@ const s = StyleSheet.create({
   mapTrayCard: {
     width: 244,
     height: 60,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     padding: 8,
     backgroundColor: "#F7F8F6",
     borderWidth: 1,
@@ -7704,7 +7707,7 @@ const s = StyleSheet.create({
     overflow: "hidden",
   },
   zoomControlsRaised: { bottom: 146 },
-  zoomButton: { height: 44, alignItems: "center", justifyContent: "center" },
+  zoomButton: { height: 높이.버튼, alignItems: "center", justifyContent: "center" },
   zoomButtonDisabled: { opacity: 0.28 },
   zoomResetText: { fontSize: 12, fontFamily: typo.label.family },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 6 },
@@ -7861,7 +7864,7 @@ const s = StyleSheet.create({
   searchEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
   searchEmptyCopy: { fontSize: 14, marginTop: 6 },
   togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  togetherSettingsButton: { minHeight: 44, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
+  togetherSettingsButton: { minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" },
   togetherSettingsText: { fontSize: 13, fontFamily: typo.label.family },
   togetherHead: {
     flexDirection: "row",
@@ -7927,16 +7930,16 @@ const s = StyleSheet.create({
   },
   tripHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   pasteNotice: {
-    borderRadius: 12,
-    minHeight: 40,
+    borderRadius: 모서리.버튼,
+    minHeight: 높이.버튼,
     justifyContent: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 여백.가로좁게,
     borderWidth: 1,
     transform: [{ rotate: "-0.5deg" }],
   },
   newTrip: {
-    borderRadius: 12,
-    minHeight: 40,
+    borderRadius: 모서리.버튼,
+    minHeight: 높이.버튼,
     justifyContent: "center",
     paddingHorizontal: 14,
     transform: [{ rotate: "0.5deg" }],
@@ -7954,8 +7957,8 @@ const s = StyleSheet.create({
   },
   viewChoice: {
     flex: 1,
-    minHeight: 39,
-    borderRadius: 12,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -7969,7 +7972,7 @@ const s = StyleSheet.create({
     gap: 4,
     marginBottom: 8,
   },
-  filter: { minHeight: 40, paddingHorizontal: 14, borderRadius: 999, justifyContent: "center" },
+  filter: { minHeight: 높이.버튼, paddingHorizontal: 14, borderRadius: 모서리.원, justifyContent: "center" },
   filterText: { fontSize: 12, fontFamily: typo.label.family },
   tripRow: {
     minHeight: 72,
@@ -8052,6 +8055,7 @@ const s = StyleSheet.create({
     zIndex: -1,
     transform: [{ rotate: "0.35deg" }],
   },
+  // 달 이름 양옆의 화살표. 달 이름 줄 높이에 맞춰 작게 두고 hitSlop 으로 44 를 채운다.
   monthArrow: {
     width: 27,
     height: 28,
@@ -8099,10 +8103,12 @@ const s = StyleSheet.create({
   weekNameSunday: { color: "#C66D68" },
   weekNameSaturday: { color: "#617EA4" },
   calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingTop: 2 },
+  // 달력 한 칸. 일곱 칸이 한 줄이라 너비가 가로의 1/7 로 정해져 있고, 높이를
+  // 44 로 올리면 여섯 줄짜리 달은 화면을 넘긴다. hitSlop 대신 옆칸과 맞닿아 있다.
   dayCell: {
     width: "14.285%",
     height: 37,
-    borderRadius: 8,
+    borderRadius: 모서리.버튼,
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 2,
@@ -8129,8 +8135,8 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   searchBoxNew: {
-    height: 54,
-    borderRadius: 12,
+    height: 높이.저장,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -8143,9 +8149,9 @@ const s = StyleSheet.create({
   },
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
-    height: 40,
+    height: 높이.버튼,
     minWidth: 61,
-    borderRadius: 16,
+    borderRadius: 모서리.원,
     borderWidth: 1,
     paddingHorizontal: 8,
     flexDirection: "row",
@@ -8200,8 +8206,8 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   searchSuggestion: {
-    minHeight: 32,
-    borderRadius: 999,
+    minHeight: 높이.칩,
+    borderRadius: 모서리.원,
     borderWidth: 1,
     paddingLeft: 12,
     paddingRight: 8,
@@ -8228,7 +8234,7 @@ const s = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 3 },
   },
-  searchMore: { minHeight: 48, borderTopWidth: 1, alignItems: "center", justifyContent: "center" },
+  searchMore: { minHeight: 높이.입력, borderTopWidth: 1, alignItems: "center", justifyContent: "center" },
   searchMoreText: { fontSize: 14, fontFamily: typo.label.family },
   searchResultCardLast: {},
   searchResultColorTab: {
@@ -8297,8 +8303,8 @@ const s = StyleSheet.create({
   togetherQuick: {
     flex: 1,
     minWidth: 0,
-    minHeight: 58,
-    borderRadius: 12,
+    minHeight: 높이.저장,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     paddingHorizontal: 4,
     alignItems: "center",
@@ -8360,17 +8366,17 @@ const s = StyleSheet.create({
     maxHeight: "91%",
   },
   fieldInput: {
-    height: 49,
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    height: 높이.입력,
+    borderRadius: 모서리.버튼,
+    paddingHorizontal: 여백.가로,
     fontSize: 14,
     borderWidth: 1,
   },
   choice: {
-    minHeight: 54,
-    borderRadius: 12,
+    minHeight: 높이.저장,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 여백.가로,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -8431,8 +8437,8 @@ const s = StyleSheet.create({
   authDividerText: { fontSize: 12, fontFamily: typo.label.family, marginHorizontal: 8 },
   authError: { fontSize: 13, fontFamily: typo.label.family, marginTop: 2 },
   authSubmit: {
-    height: 52,
-    borderRadius: 12,
+    height: 높이.저장,
+    borderRadius: 모서리.버튼,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
@@ -8442,7 +8448,7 @@ const s = StyleSheet.create({
   authSwitch: { alignItems: "center", paddingTop: 16, paddingBottom: 2 },
   authSwitchText: { fontSize: 12, fontFamily: typo.label.family },
   authConsentList: { borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: 6, marginBottom: 12 },
-  authConsentRow: { minHeight: 38, flexDirection: "row", alignItems: "center" },
+  authConsentRow: { minHeight: 높이.버튼, flexDirection: "row", alignItems: "center" },
   authConsentAll: { borderBottomWidth: 1, marginBottom: 4 },
   authConsentAllText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
   authConsentCheck: { width: 22, height: 22, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center", marginRight: 8 },
@@ -8469,15 +8475,15 @@ const s = StyleSheet.create({
   accountPreviewName: { fontSize: 14, fontFamily: typo.title.family },
   accountPreviewEmail: { fontSize: 12, fontFamily: typo.label.family, marginTop: 4 },
   accountLogout: {
-    height: 46,
-    borderRadius: 8,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 16,
   },
   accountLogoutText: { color: "#DF5148", fontSize: 12, fontFamily: typo.label.family },
-  accountDelete: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  accountDelete: { minHeight: 높이.버튼, alignItems: "center", justifyContent: "center", marginTop: 4 },
   accountDeleteText: { color: "#A36E67", fontSize: 12, fontFamily: typo.label.family, textDecorationLine: "underline" },
   groupChoice: {
     minHeight: 66,
@@ -8499,16 +8505,16 @@ const s = StyleSheet.create({
   noticeHolder: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 8 },
   noticeBody: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 6 },
   noticeLink: {
-    minHeight: 40,
-    borderRadius: 12,
+    minHeight: 높이.버튼,
+    borderRadius: 모서리.버튼,
     marginTop: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 여백.가로좁게,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   noticeLinkText: { fontSize: typo.label.size, lineHeight: typo.label.line, fontFamily: typo.label.family },
-  togetherAccountButton: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  togetherAccountButton: { width: 높이.버튼, height: 높이.버튼, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   togetherAccountInitial: { fontSize: 14, fontFamily: typo.label.family },
   workspaceCard: {
     minHeight: 86,
@@ -8551,7 +8557,7 @@ const s = StyleSheet.create({
   groupTabMoreText: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 1 },
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   memberSectionTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 2 },
-  memberManageHit: { minHeight: 40, justifyContent: "center", paddingLeft: 8 },
+  memberManageHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.세로좁게 },
   memberManageText: { fontSize: 12, fontFamily: typo.label.family, paddingVertical: 4 },
   memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1 },
   memberStripContent: { minWidth: "100%", paddingHorizontal: 10, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 6 },
@@ -8573,7 +8579,7 @@ const s = StyleSheet.create({
   historySummaryValue: { fontSize: 16, fontFamily: typo.data.family },
   historySummaryLabel: { fontSize: 12, fontFamily: typo.label.family, marginTop: 4 },
   historyLatest: {
-    minHeight: 43,
+    minHeight: 높이.버튼,
     borderBottomWidth: 1,
     flexDirection: "row",
     alignItems: "center",
