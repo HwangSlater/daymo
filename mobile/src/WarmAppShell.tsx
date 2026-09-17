@@ -5138,6 +5138,7 @@ function Together({
     | "groups"
     | "deleteSpace"
     | "devices"
+    | "settings"
     | null
   >(null);
   // 계정 화면을 열 때 서버에 내 정보를 다시 묻는다. 이메일은 새 주소로 간 링크를
@@ -5166,8 +5167,18 @@ function Together({
       showAlert("여행 기록을 저장하지 못했어요", "잠시 후 다시 시도해 주세요.");
     }
   };
+  /**
+   * 설정 안에 있는 화면들. 닫으면 창을 통째로 닫지 않고 설정 목록으로 돌아간다.
+   *
+   * 창은 하나만 쓴다. iOS 는 떠 있는 창 위에 창을 또 얹지 못해서(사진 정보가 안 뜨던
+   * 그 문제), 겹쳐 쌓는 대신 안에 그리는 것을 갈아 끼운다.
+   */
+  const 설정_안 = ["profile", "relationship", "account", "devices", "theme", "appearance", "help", "licenses", "deleteAccount", "deleteSpace"];
+  const 패널_닫기 = () => setPanel(panel && 설정_안.includes(panel) ? "settings" : null);
   const panelTitle =
-    panel === "groups"
+    panel === "settings"
+      ? "설정"
+      : panel === "groups"
       ? "여행 공간 바꾸기"
       : panel === "account"
       ? "내 프로필"
@@ -5191,12 +5202,9 @@ function Together({
                 ? "오픈소스 라이선스"
                 : "공간 프로필";
   // 설정 묶음이 화면 어디쯤인지. 머리의 버튼이 그리로 내려 보낸다.
-  const pageRef = useRef<ScrollView>(null);
-  const [settingsTop, setSettingsTop] = useState(0);
   return (
     <>
       <ScrollView
-        ref={pageRef}
         style={{ backgroundColor: "transparent" }}
         contentContainerStyle={s.page}
       >
@@ -5208,12 +5216,13 @@ function Together({
             <Text style={[s.screenTitle, { color: theme.text }]}>우리</Text>
           </View>
           <View style={s.togetherHeadActions}>
-            {/* 앱 색상과 화면 모드가 "우리" 라는 말 뒤에 묻혀 있었다. 탭 이름만
-                보고는 설정이 여기 있는 줄 알 수가 없다. */}
+            {/* 설정은 제 화면으로 뺐다. 예전에는 이 버튼이 페이지를 그 자리로 굴려
+                내렸는데, 눌러도 「어디로 갔다」는 느낌이 없고 닫을 방법도 없었다.
+                이제 「우리」 탭은 공간·멤버·기록만 맡는다. */}
             <Pressable
-              onPress={() => pageRef.current?.scrollTo({ y: Math.max(0, settingsTop - 12), animated: true })}
+              onPress={() => setPanel("settings")}
               accessibilityRole="button"
-              accessibilityLabel="앱 설정으로 이동"
+              accessibilityLabel="설정 열기"
               style={[s.togetherSettingsButton, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
             >
               <Text style={[s.togetherSettingsText, { color: theme.muted }]}>설정</Text>
@@ -5374,90 +5383,89 @@ function Together({
             <Text style={[s.historyLatestDate, { color: theme.muted }]}>{trips[0].date}</Text>
           </Pressable>
         )}
-        <Text style={[s.settingGroupLabel, { color: theme.muted }]}>공간 설정</Text>
-        <View
-          style={[
-            s.settingGroup,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Setting
-            theme={theme}
-            label="공간 프로필"
-            value={spaceName}
-            onPress={() => setPanel("profile")}
-          />
-          <Setting
-            theme={theme}
-            label="관계 설정"
-            value={relationship}
-            onPress={() => setPanel("relationship")}
-          />
-        </View>
-        <Text
-          onLayout={(event) => setSettingsTop(event.nativeEvent.layout.y)}
-          style={[s.settingGroupLabel, { color: theme.muted }]}
-        >
-          앱과 계정
-        </Text>
-        <View
-          style={[
-            s.settingGroup,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Setting
-            theme={theme}
-            label="내 프로필"
-            value={user.name}
-            onPress={() => setPanel("account")}
-          />
-          {/* 예전에는 내 프로필 맨 아래에 숨어 있었다. 한도(5대)에 걸려 다른 기기가
-              로그아웃되고 나서야 찾게 되는 자리라, 설정 줄로 꺼내 둔다. */}
-          <Setting
-            theme={theme}
-            label="로그인한 기기"
-            value={`최대 ${MAX_DEVICES}대`}
-            onPress={() => setPanel("devices")}
-          />
-          <Setting
-            theme={theme}
-            label="앱 색상"
-            value={theme.name}
-            onPress={() => setPanel("theme")}
-          />
-          <Setting
-            theme={theme}
-            label="화면 모드"
-            value={
-              appearance === "system"
-                ? "시스템 설정과 같게"
-                : appearance === "dark"
-                  ? "다크 모드"
-                  : "라이트 모드"
-            }
-            onPress={() => setPanel("appearance")}
-          />
-          <Setting
-            theme={theme}
-            label="도움말"
-            onPress={() => setPanel("help")}
-          />
-          <Setting
-            theme={theme}
-            label="오픈소스 라이선스"
-            onPress={() => setPanel("licenses")}
-          />
-        </View>
-        {/* 문제를 알릴 때 무엇을 쓰고 있는지 말할 수 있어야 한다. */}
-        <Text style={[s.appVersion, { color: theme.muted }]}>Daymo {appVersion}</Text>
       </ScrollView>
       <InfoSheet
         theme={theme}
         visible={panel !== null}
         title={panelTitle}
-        onClose={() => setPanel(null)}
+        onClose={패널_닫기}
       >
+        {panel === "settings" && (
+          <>
+        <Text style={[s.settingGroupLabel, { color: theme.muted }]}>공간 설정</Text>
+            <View
+              style={[
+                s.settingGroup,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Setting
+                theme={theme}
+                label="공간 프로필"
+                value={spaceName}
+                onPress={() => setPanel("profile")}
+              />
+              <Setting
+                theme={theme}
+                label="관계 설정"
+                value={relationship}
+                onPress={() => setPanel("relationship")}
+              />
+            </View>
+            <Text style={[s.settingGroupLabel, { color: theme.muted }]}>앱과 계정</Text>
+            <View
+              style={[
+                s.settingGroup,
+                { backgroundColor: theme.surface, borderColor: theme.border },
+              ]}
+            >
+              <Setting
+                theme={theme}
+                label="내 프로필"
+                value={user.name}
+                onPress={() => setPanel("account")}
+              />
+              {/* 예전에는 내 프로필 맨 아래에 숨어 있었다. 한도(5대)에 걸려 다른 기기가
+                  로그아웃되고 나서야 찾게 되는 자리라, 설정 줄로 꺼내 둔다. */}
+              <Setting
+                theme={theme}
+                label="로그인한 기기"
+                value={`최대 ${MAX_DEVICES}대`}
+                onPress={() => setPanel("devices")}
+              />
+              <Setting
+                theme={theme}
+                label="앱 색상"
+                value={theme.name}
+                onPress={() => setPanel("theme")}
+              />
+              <Setting
+                theme={theme}
+                label="화면 모드"
+                value={
+                  appearance === "system"
+                    ? "시스템 설정과 같게"
+                    : appearance === "dark"
+                      ? "다크 모드"
+                      : "라이트 모드"
+                }
+                onPress={() => setPanel("appearance")}
+              />
+              <Setting
+                theme={theme}
+                label="도움말"
+                onPress={() => setPanel("help")}
+              />
+              <Setting
+                theme={theme}
+                label="오픈소스 라이선스"
+                onPress={() => setPanel("licenses")}
+              />
+            </View>
+            {/* 문제를 알릴 때 무엇을 쓰고 있는지 말할 수 있어야 한다. */}
+            <Text style={[s.appVersion, { color: theme.muted }]}>Daymo {appVersion}</Text>
+          </>
+        )}
         {panel === "groups" && (
           <>
             <Text style={[s.sheetCopy, { color: theme.muted }]}>함께 관리할 여행 공간을 골라 주세요.</Text>
