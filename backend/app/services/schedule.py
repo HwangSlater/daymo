@@ -10,7 +10,7 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
@@ -19,10 +19,12 @@ from app.models import (
     LinkTargetType,
     Membership,
     PhotoTargetType,
+    Reservation,
     ReservationTargetType,
     ScheduleItem,
     Space,
     Stay,
+    Transport,
     Trip,
     TripDay,
     TripPlace,
@@ -86,6 +88,12 @@ async def sync_trip_days(session: AsyncSession, trip: Trip) -> None:
     남는 날은 그대로 둔다(일정이 그 날을 가리키고 있다). 빠진 날은 지운다.
     그 날을 가리키던 일정·지출은 외래키가 SET NULL 이라 "날짜 미정" 이 된다.
     앱은 기간을 고칠 때 일정 날짜를 새 기간으로 옮겨 다시 보낸다.
+
+    **날짜를 들고 있는 다른 줄도 함께 푼다.** 외래키가 풀어 주는 것은 `trip_day_id`
+    뿐이라, 일정의 시각(timestamptz)과 교통편·예약의 날짜는 기간 밖 값을 그대로 이고
+    남는다. 그러면 기간을 줄였다 늘렸을 때 지운 날의 시각이 되살아나고, 교통편·예약은
+    다음에 고칠 때 `bookings._in_trip` 이 막아 메모 한 줄도 바꿀 수 없게 된다. 기간
+    밖으로 밀려난 날짜·시각은 "미정" 으로 되돌린다.
     """
     원하는_날 = [trip.start_date + timedelta(days=i) for i in range((trip.end_date - trip.start_date).days + 1)]
     기존 = (await session.execute(select(TripDay).where(TripDay.trip_id == trip.id))).scalars().all()
@@ -93,7 +101,16 @@ async def sync_trip_days(session: AsyncSession, trip: Trip) -> None:
 
     빠진_ids = [day.id for day in 기존 if day.date not in 남길_날]
     if 빠진_ids:
+        # 날보다 먼저 시각을 비운다. 날이 지워지고 나면 어느 일정이 그 날을
+        # 가리켰는지 알 수 없다.
+        await session.execute(
+            update(ScheduleItem)
+            .where(ScheduleItem.trip_day_id.in_(빠진_ids))
+            .values(start_at=None, end_at=None)
+        )
         await session.execute(delete(TripDay).where(TripDay.id.in_(빠진_ids)))
+
+    await _기간_밖_날짜를_푼다(session, trip)
 
     # day_index 는 여행 안에서 유일하다. 순서를 바로 바꾸면 잠깐 겹쳐서 막히므로
     # 먼저 멀리 비켜 두었다가 제자리에 놓는다.
@@ -111,6 +128,31 @@ async def sync_trip_days(session: AsyncSession, trip: Trip) -> None:
         else:
             await session.execute(update(TripDay).where(TripDay.id == day.id).values(day_index=순서))
     await session.flush()
+
+
+async def _기간_밖_날짜를_푼다(session: AsyncSession, trip: Trip) -> None:
+    """
+    교통편·예약이 든 여행 기간 밖 날짜를 비운다.
+
+    둘은 `trip_days` 를 가리키지 않아 날을 지워도 아무도 풀어 주지 않는다. 검사를
+    "날짜를 보냈을 때만" 으로 늦추는 길도 있지만 그러면 기간 밖 날짜가 DB 에 그대로
+    남아, 목록 정렬과 일정에 합쳐 보여 주는 자리에서 여행 기간에 없는 날이 튀어나온다.
+    `travel_on`·`reserved_on` 은 원래 비워 둘 수 있는 칸이고 앱에도 "날짜 미정" 자리가
+    있으니, 이미 있는 상태로 떨어뜨리는 쪽을 골랐다.
+    """
+    for 표, 날짜칸, 함께_비울_칸 in (
+        (Transport, Transport.travel_on, ("departure_at", "arrival_at")),
+        (Reservation, Reservation.reserved_on, ("reserved_at",)),
+    ):
+        await session.execute(
+            update(표)
+            .where(
+                표.trip_id == trip.id,
+                날짜칸.is_not(None),
+                or_(날짜칸 < trip.start_date, 날짜칸 > trip.end_date),
+            )
+            .values({날짜칸.key: None, **dict.fromkeys(함께_비울_칸)})
+        )
 
 
 async def _day_for(session: AsyncSession, trip: Trip, day: date | None) -> TripDay | None:

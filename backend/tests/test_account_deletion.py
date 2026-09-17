@@ -343,3 +343,59 @@ async def test_유예_중에_멤버를_들인_관리자는_정리를_미룬다(a
 
     assert await purge_deleted_accounts(db) == 0
     assert await db.scalar(select(func.count()).select_from(Space).where(Space.id == space_id)) == 1
+
+
+async def test_유예_중인_공간에_다른_멤버가_있으면_계정_정리가_그_공간을_지우지_않는다(api, db):
+    """
+    owner 가 공간을 지우고(7일) 바로 계정 삭제를 요청하면 계정 기한이 먼저 온다.
+    그때 공간까지 함께 지우면 상대의 여행·사진이 약속한 7일을 다 채우기 전에 사라진다.
+    공간은 제 기한에 `purge_deleted_spaces` 가 지운다.
+    """
+    세션 = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, 세션, "주말 여행 메이트")
+    여행 = await api.post(
+        f"/v1/spaces/{space_id}/trips",
+        json={"title": "가을 제주", "startDate": "2026-10-01", "endDate": "2026-10-03"},
+        headers=세션["headers"],
+    )
+    assert 여행.status_code == 201
+    await 로그인한_사람(api, "daon@example.com", "다온")
+    await 멤버로_넣는다(db, space_id, "daon@example.com")
+
+    지움 = await api.request(
+        "DELETE",
+        f"/v1/spaces/{space_id}",
+        json={"confirmationName": "주말 여행 메이트", "impactAcknowledged": True},
+        headers=세션["headers"],
+    )
+    assert 지움.status_code == 202, 지움.text
+
+    # 이미 지운 공간은 계정 삭제를 막지 않는다. 앱에서 사라진 공간을 들며 관리자를
+    # 넘기라고 할 수는 없다.
+    assert (await 삭제_요청(api, 세션, await 증표(api, 세션))).status_code == 202
+    await 기한을_넘긴다(db, "sky@example.com")
+
+    assert await purge_deleted_accounts(db) == 1
+
+    남은_공간 = await db.scalar(select(Space).where(Space.id == space_id))
+    assert 남은_공간 is not None and 남은_공간.deleted_at is not None
+    assert 남은_공간.deletion_scheduled_at > datetime.now(UTC)
+    assert await db.scalar(select(func.count()).select_from(Trip).where(Trip.space_id == space_id)) == 1
+
+
+async def test_유예_중이고_혼자_쓰던_공간은_계정과_함께_지운다(api, db):
+    """상대가 없으면 기다릴 이유가 없다. 지금까지처럼 계정과 함께 지운다."""
+    세션 = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, 세션, "혼자 쓰는 공간")
+    지움 = await api.request(
+        "DELETE",
+        f"/v1/spaces/{space_id}",
+        json={"confirmationName": "혼자 쓰는 공간", "impactAcknowledged": True},
+        headers=세션["headers"],
+    )
+    assert 지움.status_code == 202, 지움.text
+    await 삭제_요청(api, 세션, await 증표(api, 세션))
+    await 기한을_넘긴다(db, "sky@example.com")
+
+    assert await purge_deleted_accounts(db) == 1
+    assert await db.scalar(select(func.count()).select_from(Space).where(Space.id == space_id)) == 0

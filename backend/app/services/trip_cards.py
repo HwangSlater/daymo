@@ -105,6 +105,22 @@ async def create_card(
     return card, True
 
 
+def _새로_고른_사진(card: TripCard, settings: dict) -> list[str]:
+    """
+    이번에 새로 끼운 사진 id 만 고른다.
+
+    앱은 카드를 고칠 때 꾸민 값을 통째로 되돌려 보낸다. 그래서 보낸 것을 전부
+    검사하면, 카드에 든 사진 한 장을 지운 날부터 그 카드는 글자 한 줄도 못 고친다
+    (늘 422 가 나고 앱에서 빠져나갈 길이 없다). 이미 들어 있던 id 는 그냥 지나가고,
+    새로 끼우는 사진만 그 여행의 것인지 본다. 남의 사진을 끼워 넣는 것은 그대로 막힌다.
+
+    죽은 id 는 카드에 남지만 앱이 그리지 못하는 자리로 비워 둔다. 사람이 그 자리를
+    새 사진으로 바꾸면 그때 사라진다.
+    """
+    이미_있던 = {값 for 값 in ((card.settings or {}).get("photoIds") or []) if isinstance(값, str)}
+    return [값 for 값 in (settings.get("photoIds") or []) if 값 not in 이미_있던]
+
+
 async def update_card(
     session: AsyncSession,
     *,
@@ -118,7 +134,7 @@ async def update_card(
         raise AppError(ErrorCode.FORBIDDEN)
     if version != card.version:
         raise AppError(ErrorCode.VERSION_CONFLICT)
-    await check_card_photos(session, trip, settings.get("photoIds") or [])
+    await check_card_photos(session, trip, _새로_고른_사진(card, settings))
     card.settings = settings
     card.version += 1
     card.updated_at = datetime.now(UTC)
