@@ -146,11 +146,11 @@ export function SheetShell({
       return;
     }
     showAlert(
-      "저장하지 않고 닫을까요?",
-      "변경한 내용은 저장되지 않아요.",
+      "저장하지 않고 나갈까요?",
+      "저장하지 않은 내용은 사라져요.",
       [
-        { text: "취소", style: "cancel" },
-        { text: "저장 안 함", style: "destructive", onPress: closeAndReset },
+        { text: "계속 편집", style: "cancel" },
+        { text: "나가기", style: "destructive", onPress: closeAndReset },
       ],
     );
   };

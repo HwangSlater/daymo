@@ -147,7 +147,7 @@ async def _form(request: Request) -> dict[str, str]:
     return {이름: 목록[0] for 이름, 목록 in 값들.items() if 목록}
 
 
-_EXPIRED = "링크가 만료되었거나 이미 사용됐어요."
+_EXPIRED = "이미 사용했거나 만료된 링크예요."
 
 
 # ---------------------------------------------------------------------------
@@ -172,8 +172,8 @@ async def verify_email_page(token: str | None = None) -> HTMLResponse:
         return _page("이메일 확인", f"<h1>{_EXPIRED}</h1><p>확인 메일을 다시 받아 주세요.</p>{_resend_form()}", 400)
     return _page(
         "이메일 확인",
-        "<h1>이메일을 확인할게요</h1>"
-        "<p>아래 버튼을 누르면 이 주소가 확인돼요.</p>"
+        "<h1>이메일 주소를 확인해 주세요</h1>"
+        "<p>아래 버튼을 누르면 이 이메일이 Daymo 계정에 등록돼요.</p>"
         '<form method="post" action="/auth/verify-email">'
         f'<input type="hidden" name="token" value="{escape(usable)}">'
         "<button>이메일 확인하기</button></form>",
@@ -212,7 +212,7 @@ async def resend_verification(request: Request, db: DbSession, ip: ClientIp) -> 
 
 def _reset_form(token: str, error: str | None = None) -> str:
     return (
-        "<h1>새 비밀번호를 정해 주세요</h1>"
+        "<h1>비밀번호 재설정</h1>"
         "<p>바꾸면 모든 기기에서 로그아웃돼요. 새 비밀번호로 다시 로그인해 주세요.</p>"
         f"{_error(error)}"
         '<form method="post" action="/auth/reset-password">'
@@ -268,8 +268,8 @@ async def reset_password(request: Request, db: DbSession) -> HTMLResponse:
 @router.get("/forgot-password")
 async def forgot_password_page() -> HTMLResponse:
     return _page(
-        "비밀번호 찾기",
-        "<h1>비밀번호를 잊으셨나요?</h1><p>가입한 이메일로 재설정 링크를 보내 드려요.</p>" + _forgot_form(),
+        "비밀번호 재설정",
+        "<h1>비밀번호를 잊으셨나요?</h1><p>가입한 이메일로 비밀번호 재설정 링크를 보내 드려요.</p>" + _forgot_form(),
     )
 
 
@@ -277,11 +277,11 @@ async def forgot_password_page() -> HTMLResponse:
 async def forgot_password(request: Request, db: DbSession, ip: ClientIp) -> HTMLResponse:
     email = (await _form(request)).get("email", "").strip()
     if not email or "@" not in email or len(email) > 320:
-        return _page("비밀번호 찾기", _forgot_form("이메일 주소를 확인해 주세요."), 400)
+        return _page("비밀번호 재설정", _forgot_form("이메일 주소를 확인해 주세요."), 400)
     try:
         await accounts.request_password_reset(db, email=email, ip=ip)
     except AppError as 오류:
-        return _page("비밀번호 찾기", _forgot_form(str(오류.detail)), 429)
+        return _page("비밀번호 재설정", _forgot_form(str(오류.detail)), 429)
     return _message("메일을 보냈어요", "가입한 주소라면 곧 재설정 메일이 도착해요. 링크는 30분 동안 쓸 수 있어요.")
 
 
@@ -345,12 +345,12 @@ async def invite_page(token: str | None = None) -> HTMLResponse:
     """
     usable = _usable_token(token)
     if usable is None:
-        return _message("초대 링크", "링크가 잘못되었어요. 초대한 사람에게 링크를 다시 받아 주세요.", 400)
+        return _message("초대 링크", "올바른 초대 링크가 아니에요. 초대한 사람에게 다시 받아 주세요.", 400)
     앱_주소 = f"daymo://invite?token={usable}"
     웹_주소 = _web_invite_url(usable)
     return _page(
         "공간 초대",
-        "<h1>같이 가자고 초대했어요</h1>"
+        "<h1>Daymo 여행 공간에 초대받았어요</h1>"
         "<p>일정도 준비물도 지출도 한곳에 모아 두는 여행 수첩이에요. "
         "아래에서 열면 로그인이나 가입을 마치는 대로 바로 들어가요.</p>"
         f'<a class="plain" href="{escape(웹_주소)}">'

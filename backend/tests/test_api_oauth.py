@@ -344,7 +344,7 @@ async def test_비밀번호가_없는_계정에_이메일_미확인_제공자가
     assert 응답.status_code == 409
     오류 = 응답.json()["error"]
     assert 오류["code"] == "ACCOUNT_LINK_REQUIRED"
-    assert "전에 쓰던 로그인 방법" in 오류["message"]
+    assert "처음 가입할 때 쓴 방법" in 오류["message"]
     # 있지도 않은 비밀번호를 묻지 않는다.
     assert not (오류.get("details") or {}).get("linkToken")
 

@@ -119,9 +119,14 @@ const 다시_매긴다 = (list: readonly CardDecor[]): CardDecor[] =>
     .sort((a, b) => a.줄.z - b.줄.z || a.차례 - b.차례)
     .map(({ 줄 }, z) => (줄.z === z ? 줄 : { ...줄, z }));
 
-/** 서버로 보낼 모양. 소수는 셋째 자리까지만 적는다. */
+/**
+ * 서버로 보낼 모양. 소수는 셋째 자리까지만 적는다.
+ *
+ * 비워 둔 텍스트는 보내지 않는다. 「텍스트 입력」을 얹고 글을 다 지운 채 저장하면
+ * 보이지 않는 줄만 남는데, 읽을 때(`decorOf`)도 어차피 버리는 줄이다.
+ */
 export function decorBodyOf(list: readonly CardDecor[]): Record<string, unknown>[] {
-  return list.slice(0, DECOR_MAX).map((줄) => ({
+  return list.filter((줄) => 줄.kind !== "글자" || 줄.text.trim()).slice(0, DECOR_MAX).map((줄) => ({
     id: 줄.id,
     kind: 줄.kind,
     text: 줄.kind === "글자" ? 줄.text.slice(0, DECOR_TEXT_MAX) : null,

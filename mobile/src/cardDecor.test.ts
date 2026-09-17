@@ -68,6 +68,8 @@ test("서버로 보낼 때 소수는 셋째 자리까지만 적는다", () => {
   assert.equal(body[0].x, 0.123);
   assert.equal(body[0].text, null);
   assert.equal(body[1].text, "바다");
+  // 비워 둔 텍스트는 저장하지 않는다.
+  assert.equal(decorBodyOf([하나({ kind: "글자", text: "  " }), 하나({ id: "d2" })]).length, 1);
 });
 
 test("픽셀로 바꾸는 셈은 한 곳뿐이다", () => {

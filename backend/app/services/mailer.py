@@ -67,6 +67,8 @@ class Outbox:
             문단.append(letter.body)
         if letter.link:
             문단.append(f"아래 링크는 30분 동안 한 번만 사용할 수 있어요.\n{letter.link}")
+        # 모든 메일의 꼬리. 답장할 곳이 없다는 것과 문의처를 여기 한 번만 적는다.
+        문단.append(f"이 메일은 발신 전용이에요. 문의: {OPERATOR_ADDRESS}")
         message.set_content("\n\n".join(문단) + "\n")
 
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:

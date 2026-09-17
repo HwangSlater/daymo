@@ -74,7 +74,7 @@ async def test_버튼을_누르면_확인되고_다시_쓸_수_없다(api, db):
     두번째 = await api.post("/auth/verify-email", content=f"token={token}", headers=폼)
 
     assert 첫번째.status_code == 200 and "이메일을 확인했어요" in 첫번째.text
-    assert 두번째.status_code == 400 and "만료되었거나 이미 사용됐어요" in 두번째.text
+    assert 두번째.status_code == 400 and "이미 사용했거나 만료된 링크예요" in 두번째.text
     user = await db.scalar(select(User).where(User.email == 이메일))
     assert user.email_verified_at is not None
 

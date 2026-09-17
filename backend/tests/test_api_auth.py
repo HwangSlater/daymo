@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy import func, select
 
+from app.core.errors import MESSAGE_BY_CODE, ErrorCode
 from app.models import Device, RefreshToken, User
 from app.services.mailer import get_outbox
 
@@ -77,7 +78,7 @@ async def test_이미_있는_이메일이면_주인에게_알린다(api, db):
 
     await 가입(api)
 
-    assert "가입을 시도" in get_outbox().last.subject
+    assert "이미 Daymo에 가입한" in get_outbox().last.subject
 
 
 async def test_흔한_비밀번호는_전용_코드로_거부한다(api, db):
@@ -261,8 +262,9 @@ async def test_재사용하면_거부하고_사유를_알려_주지_않는다(ap
     응답 = await api.post("/v1/auth/refresh", json={"refreshToken": 첫_토큰})
 
     assert 응답.status_code == 401
-    본문 = 응답.text
-    assert "재사용" not in 본문 and "만료" not in 본문
+    # 재사용인지 만료인지 나눠 말하지 않는다. 모든 401 이 쓰는 한 문구 그대로여야 한다.
+    assert 응답.json()["error"]["message"] == MESSAGE_BY_CODE[ErrorCode.UNAUTHENTICATED]
+    assert "재사용" not in 응답.text
 
 
 async def test_로그아웃은_모르는_토큰에도_204다(api, db):

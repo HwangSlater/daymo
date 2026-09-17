@@ -117,7 +117,7 @@ async def accept_invite(session: AsyncSession, *, token: str, user: User) -> tup
         return 기존, True
 
     if invite.revoked_at is not None or invite.expires_at <= datetime.now(UTC) or invite.used_count >= invite.max_uses:
-        raise AppError(ErrorCode.GONE, message="만료되었거나 더 쓸 수 없는 초대 링크예요. 새 링크를 받아 주세요.")
+        raise AppError(ErrorCode.GONE, message="이미 만료됐거나 더 쓸 수 없는 초대 링크예요. 새 링크를 받아 주세요.")
     if user.email_verified_at is None:
         raise AppError(ErrorCode.EMAIL_NOT_VERIFIED)
     if await blocked_between(session, user_id=user.id, space_id=space.id):
@@ -151,7 +151,7 @@ async def change_role(
         raise AppError(ErrorCode.FORBIDDEN)
     target = await _target(session, space_id, membership_id)
     if target.id == actor.id:
-        raise AppError(ErrorCode.VALIDATION_ERROR, fields={"role": "내 권한은 다른 멤버에게 관리자를 넘겨서 바꿔요."})
+        raise AppError(ErrorCode.VALIDATION_ERROR, fields={"role": "내 권한은 직접 바꿀 수 없어요. 관리자를 다른 멤버에게 넘기면 바뀌어요."})
     if role == MembershipRole.OWNER:
         # 관리자는 한 명이다. 넘기면 나는 편집할 수 있는 멤버가 된다.
         space = await session.get(Space, space_id)
@@ -175,7 +175,7 @@ async def remove_member(
             raise AppError(ErrorCode.OWNER_TRANSFER_REQUIRED)
         raise AppError(
             ErrorCode.VALIDATION_ERROR,
-            message="혼자 있는 공간은 나갈 수 없어요. 공간을 지워 주세요.",
+            message="혼자 있는 공간은 나갈 수 없어요. 대신 공간을 삭제해 주세요.",
             fields={"membershipId": "혼자 있는 공간의 관리자예요."},
         )
     target.left_at = datetime.now(UTC)

@@ -65,11 +65,16 @@ import {
   keepsakeSizeOf,
   moveKeepsakePhoto,
   toggleKeepsakePhoto,
+  keepsakeFrameColorLabel,
+  keepsakeRatioLabel,
+  keepsakeStyleLabel,
   KEEPSAKE_MAX_PHOTOS,
   KEEPSAKE_FRAME_COLORS,
   KEEPSAKE_PARTS,
+  KEEPSAKE_PART_LABELS,
   KEEPSAKE_RATIOS,
   KEEPSAKE_STAT_KINDS,
+  KEEPSAKE_STAT_LABELS,
   KEEPSAKE_STYLES,
   type KeepsakeCard,
   type KeepsakeFrameColor,
@@ -78,6 +83,7 @@ import {
   type KeepsakeStatKind,
   type KeepsakeStyle,
 } from "./tripCard";
+import { josa } from "./tripExpenses";
 
 /** 카드를 띄울 칸의 안쪽 여백. 카드가 화면 끝에 붙지 않게 한다. */
 const STAGE_PAD = 16;
@@ -92,8 +98,8 @@ const CHIP = "#26252E";
 const CHIP_EDGE = "#3C3A47";
 const ACCENT = "#A7B3EE";
 
-/** 도구의 네 갈래. 값이 곧 탭에 적히는 말이다. */
-export const CARD_TOOL_TABS = ["모양", "사진", "글", "스티커"] as const;
+/** 도구의 네 갈래. 값이 곧 탭에 적히는 말이다. 화면 안에서만 쓰고 저장하지 않는다. */
+export const CARD_TOOL_TABS = ["프레임", "사진", "텍스트", "스티커"] as const;
 export type CardToolTab = (typeof CARD_TOOL_TABS)[number];
 
 /** 갈래 안의 작은 제목. 무엇을 고르는 줄인지만 알린다. */
@@ -117,6 +123,7 @@ const ChipRow = memo(function ChipRow({
   accent,
   accentInk,
   onPress,
+  labelOf,
 }: {
   options: readonly string[];
   chosen: (option: string) => boolean;
@@ -124,6 +131,8 @@ const ChipRow = memo(function ChipRow({
   /** 고른 칩의 글자색. 강조색 위에서 읽히는 값이라 테마가 정한다. */
   accentInk: string;
   onPress: (option: string) => void;
+  /** 칩에 적을 이름. 저장되는 값과 보이는 말이 다른 줄만 준다. */
+  labelOf?: (option: string) => string;
 }) {
   return (
     <SharedChipRow>
@@ -132,7 +141,7 @@ const ChipRow = memo(function ChipRow({
         return (
           <Chip
             key={option}
-            label={option}
+            label={labelOf ? labelOf(option) : option}
             on={on}
             onPress={() => onPress(option)}
             colors={on
@@ -201,7 +210,7 @@ export function CardPreview({
     칸재기((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
   }, []);
   return (
-    <View style={styles.stage} onLayout={onLayout} accessibilityLabel={`${text.title || "기념 카드"} 크게 보기`}>
+    <View style={styles.stage} onLayout={onLayout} accessibilityLabel={`${text.title || "추억 카드"} 크게 보기`}>
       {칸.width > 0 && (
         <ScaledCard scale={scale} width={size.width} height={size.height}>
           <KeepsakeCardView
@@ -264,7 +273,7 @@ export function CardDecorTools({
   readOnlyHint?: string;
   theme?: AppTheme;
 }) {
-  const [tab, setTab] = useState<CardToolTab>("모양");
+  const [tab, setTab] = useState<CardToolTab>("프레임");
   const [고른_것, 고르기] = useState("");
   /** 차례를 옮기려고 고른 사진. 「사진」 갈래에서만 쓴다. */
   const [옮길_사진, 옮길_사진_고르기] = useState("");
@@ -316,7 +325,7 @@ export function CardDecorTools({
     if (card.decor.length >= DECOR_MAX) return;
     // 새 목록을 먼저 만들고 그것을 넘긴다. 상태를 고치는 함수 안에서 고르면
     // React 가 그 함수를 두 번 부를 때 엉뚱한 것이 골라진다.
-    const 다음 = addDecor(card.decor, kind, kind === "글자" ? "여기에 적기" : "");
+    const 다음 = addDecor(card.decor, kind, kind === "글자" ? "텍스트 입력" : "");
     onDecor(() => 다음);
     고르기(다음[다음.length - 1].id);
   };
@@ -352,7 +361,7 @@ export function CardDecorTools({
 
       {readOnly ? (
         <View style={styles.readOnly}>
-          <Text style={styles.readOnlyText}>{readOnlyHint || "만든 사람과 관리자만 이 카드를 고칠 수 있어요"}</Text>
+          <Text style={styles.readOnlyText}>{readOnlyHint || "만든 사람과 관리자만 이 카드를 수정할 수 있어요"}</Text>
         </View>
       ) : (
         <>
@@ -365,7 +374,7 @@ export function CardDecorTools({
                   onPress={() => setTab(하나)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${하나} 고치기`}
+                  accessibilityLabel={`${하나} 편집`}
                   hitSlop={누름여유(높이.칩)}
                   style={({ pressed }) => [styles.tab, on && styles.tabOn, pressed && styles.pressed]}
                 >
@@ -381,7 +390,7 @@ export function CardDecorTools({
           */}
           <View style={styles.panel}>
             <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelPad} keyboardShouldPersistTaps="handled">
-              {tab === "모양" && (
+              {tab === "프레임" && (
                 <>
                   <PanelLabel text="프레임" />
                   <ChipRow
@@ -390,11 +399,12 @@ export function CardDecorTools({
                     accent={accent}
                     accentInk={accentInk}
                     onPress={(option) => tune({ style: option as KeepsakeStyle })}
+                    labelOf={(option) => keepsakeStyleLabel(option as KeepsakeStyle)}
                   />
                   {Boolean(suggest) && (
                     <Pressable onPress={() => tune({ style: suggest as KeepsakeStyle })} style={styles.suggest}>
                       <Text style={styles.suggestText}>
-                        사진 {card.photoIds.length}장이면 「{suggest}」 프레임이 어울려요 · 누르면 바꿔요
+                        사진 {card.photoIds.length}장에는 「{suggest}」 프레임이 어울려요 · 눌러서 바꾸기
                       </Text>
                     </Pressable>
                   )}
@@ -408,6 +418,7 @@ export function CardDecorTools({
                         accent={accent}
                         accentInk={accentInk}
                         onPress={(option) => tune({ ratio: option as KeepsakeRatio })}
+                        labelOf={(option) => keepsakeRatioLabel(option as KeepsakeRatio)}
                       />
                     </>
                   )}
@@ -423,15 +434,16 @@ export function CardDecorTools({
                         accent={accent}
                         accentInk={accentInk}
                         onPress={(option) => tune({ frameColor: option as KeepsakeFrameColor })}
+                        labelOf={(option) => keepsakeFrameColorLabel(option as KeepsakeFrameColor)}
                       />
                       <Toggle
-                        label="날짜 도장"
+                        label="날짜 표시"
                         on={card.dateStamp}
                         accent={accent}
                         onPress={() => tune({ dateStamp: !card.dateStamp })}
                       />
                       <Toggle
-                        label="사진 설명 넣기"
+                        label="사진 설명 표시"
                         on={card.photoCaptions}
                         accent={accent}
                         onPress={() => tune({ photoCaptions: !card.photoCaptions })}
@@ -463,8 +475,8 @@ export function CardDecorTools({
                             accessibilityRole="button"
                             accessibilityState={{ selected: 차례 >= 0, disabled: 막힘 }}
                             accessibilityLabel={차례 >= 0
-                              ? `${photo.caption || "사진"}을 카드에서 빼기`
-                              : `${photo.caption || "사진"}을 카드에 넣기`}
+                              ? `${photo.caption || "사진"}${josa(photo.caption || "사진", "을", "를")} 카드에서 빼기`
+                              : `${photo.caption || "사진"}${josa(photo.caption || "사진", "을", "를")} 카드에 넣기`}
                             style={[
                               styles.pick,
                               { backgroundColor: photo.color },
@@ -538,7 +550,7 @@ export function CardDecorTools({
                 </>
               )}
 
-              {tab === "글" && (
+              {tab === "텍스트" && (
                 <>
                   {/* 켜고 끄는 줄을 제목보다 위에 둔다. 아래에 있으면 제목을 다 적고
                       저장할 때까지 지나치고, 「적었는데 왜 카드에 없지」가 된다. */}
@@ -549,6 +561,7 @@ export function CardDecorTools({
                     accent={accent}
                     accentInk={accentInk}
                     onPress={(option) => tune({ parts: 넣고_빼기(card.parts, option as KeepsakePart) })}
+                    labelOf={(option) => KEEPSAKE_PART_LABELS[option as KeepsakePart]}
                   />
                   {/* 「통계」를 켜면 고를 것이 하나 더 생긴다. 그 줄은 누른 칩 바로
                       아래에 편다. 맨 밑에 두면 무엇을 눌러서 생긴 줄인지 알 수 없고,
@@ -562,6 +575,7 @@ export function CardDecorTools({
                         accent={accent}
                         accentInk={accentInk}
                         onPress={(option) => tune({ stats: 넣고_빼기(card.stats, option as KeepsakeStatKind) })}
+                        labelOf={(option) => KEEPSAKE_STAT_LABELS[option as KeepsakeStatKind]}
                       />
                     </>
                   )}
@@ -579,20 +593,20 @@ export function CardDecorTools({
                       알 길이 없어서, 껐을 때만 알린다. 흐린 설명 색이 아니라 눈에
                       드는 색을 쓴다. 이건 안내가 아니라 「지금 안 나오고 있다」는 말이다. */}
                   {!card.parts.includes("이름") && (
-                    <Text style={styles.panelWarn}>위 「카드에 넣을 것」에서 이름을 켜야 카드에 보여요</Text>
+                    <Text style={styles.panelWarn}>위 「카드에 넣을 것」에서 제목을 켜야 카드에 보여요</Text>
                   )}
                   <PanelLabel text="한 줄 설명" />
                   <TextInput
                     value={card.caption}
                     onChangeText={(값) => tune({ caption: 값 })}
-                    placeholder="사진과 함께 남길 말을 적어보세요"
+                    placeholder="사진과 함께 남길 말을 적어 보세요"
                     placeholderTextColor={INK_FAINT}
                     maxLength={200}
                     accessibilityLabel="카드에 적을 한 줄 설명"
                     style={styles.field}
                   />
                   {!card.parts.includes("문구") && (
-                    <Text style={styles.panelWarn}>위 「카드에 넣을 것」에서 문구를 켜야 카드에 보여요</Text>
+                    <Text style={styles.panelWarn}>위 「카드에 넣을 것」에서 한 줄 설명을 켜야 카드에 보여요</Text>
                   )}
                 </>
               )}
@@ -601,7 +615,7 @@ export function CardDecorTools({
                 <>
                   {/* 서른 개까지다. 예전에는 꽉 찬 뒤 눌러도 아무 일이 없어서
                       고장인지 한도인지 알 수 없었다. */}
-                  <PanelLabel text={`붙일 것 · ${card.decor.length} / ${DECOR_MAX}`} />
+                  <PanelLabel text={`스티커 · ${card.decor.length}/${DECOR_MAX}`} />
                   <View style={styles.paletteRow}>
                     {KEEPSAKE_PALETTE.map((sticker) => (
                       <Pressable
@@ -620,7 +634,7 @@ export function CardDecorTools({
                       onPress={() => 붙이기("글자")}
                       disabled={스티커_꽉_참}
                       accessibilityRole="button"
-                      accessibilityLabel="글자 붙이기"
+                      accessibilityLabel="텍스트 추가"
                       accessibilityState={{ disabled: 스티커_꽉_참 }}
                       style={({ pressed }) => [
                         styles.palette,
@@ -629,7 +643,7 @@ export function CardDecorTools({
                         pressed && styles.pressed,
                       ]}
                     >
-                      <Text style={styles.paletteText}>글자</Text>
+                      <Text style={styles.paletteText}>텍스트</Text>
                     </Pressable>
                   </View>
                   {/* 크기·각도·떼기는 전부 스티커 위 손잡이로 옮겼다(`KeepsakeCardView`).
@@ -638,9 +652,9 @@ export function CardDecorTools({
                       여기 남는 것은 무엇을 하면 되는지 알려 주는 한 줄과 글자 고치기뿐이다. */}
                   <PanelLabel
                     text={스티커_꽉_참
-                      ? `${DECOR_MAX}개를 다 붙였어요. 빼려면 카드에서 눌러 고르고 ✕ 를 누르세요`
+                      ? `스티커는 ${DECOR_MAX}개까지 붙일 수 있어요 · 삭제하려면 스티커를 고르고 ✕를 누르면 돼요`
                       : 고른_줄
-                        ? "끌어서 옮기고, 오른쪽 아래 ⤢ 를 끌어 크기와 각도를 바꿔요 · ✕ 로 떼요"
+                        ? "끌어서 옮기고, ⤢로 크기와 회전을 바꿔요 · ✕로 삭제해요"
                         : card.decor.length
                           ? "카드에서 스티커를 눌러 고르거나 끌어서 옮겨요"
                           : "위에서 눌러 카드에 붙이고, 붙인 것은 끌어서 옮겨요"}
@@ -652,7 +666,7 @@ export function CardDecorTools({
                       placeholder="카드에 적을 짧은 말"
                       placeholderTextColor={INK_FAINT}
                       maxLength={DECOR_TEXT_MAX}
-                      accessibilityLabel="카드에 적을 글"
+                      accessibilityLabel="카드에 넣을 텍스트"
                       style={styles.field}
                     />
                   )}

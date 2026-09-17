@@ -523,10 +523,10 @@ export function PhotoViewerScreen({
             <Pressable
               onPress={back}
               accessibilityRole="button"
-              accessibilityLabel="꾸미기 접고 사진으로 돌아가기"
+              accessibilityLabel="카드 꾸미기 취소"
               style={({ pressed }) => [styles.decorHeadSide, pressed && styles.pressed]}
             >
-              <Text style={styles.decorBack}>나가기</Text>
+              <Text style={styles.decorBack}>취소</Text>
             </Pressable>
             <Text style={styles.decorTitle}>카드 꾸미기</Text>
             {/* 사진첩의 ↓ 와 같은 자리·같은 그림이다. 배울 것이 하나 줄어든다. */}
@@ -534,7 +534,7 @@ export function PhotoViewerScreen({
             {menuRows.length > 0 && (
               <BarButton
                 glyph="moreVertical"
-                label="카드 더 보기"
+                label="더 보기"
                 on={menuOpen}
                 onPress={() => setMenuOpen((열림) => !열림)}
               />
@@ -545,7 +545,7 @@ export function PhotoViewerScreen({
                 decor.onSave();
               }}
               accessibilityRole="button"
-              accessibilityLabel={`${decor.saveLabel} 하기`}
+              accessibilityLabel={decor.saveLabel}
               style={({ pressed }) => [styles.decorHeadSide, styles.decorHeadRight, pressed && styles.pressed]}
             >
               <Text style={[styles.decorSave, { color: EDIT_ACCENT }]}>{decor.saveLabel}</Text>
@@ -590,7 +590,7 @@ export function PhotoViewerScreen({
                     accessibilityLabel={자리 === 0 ? 한장.caption || "여행 사진" : ""}
                   />
                 ) : 자리 === 0 && !previewing ? (
-                  <Text style={styles.waiting}>{waitingText ?? "사진을 받는 중이에요"}</Text>
+                  <Text style={styles.waiting}>{waitingText ?? "사진을 불러오는 중이에요"}</Text>
                 ) : null}
               </View>
             );
@@ -665,7 +665,7 @@ export function PhotoViewerScreen({
 
         <View style={styles.foot} pointerEvents="box-none">
           <Text numberOfLines={2} style={styles.caption}>
-            {previewing ? decor?.previewTitle || "기념 카드" : photo?.caption || "설명 없이 남긴 사진"}
+            {previewing ? decor?.previewTitle || "추억 카드" : photo?.caption || ""}
           </Text>
           <Text style={styles.meta}>{previewing ? decor?.previewMeta ?? "" : meta}</Text>
           {Boolean(hint) && !previewing && <Text style={[styles.meta, hintSoon && styles.metaSoon]}>{hint}</Text>}
@@ -701,7 +701,7 @@ export function PhotoViewerScreen({
                   onPress={() => decor?.onViewCard(하나.id)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: 하나.on }}
-                  accessibilityLabel={`${하나.label} 기념 카드 보기`}
+                  accessibilityLabel={`${하나.label} 보기`}
                   style={[styles.stripThumb, { backgroundColor: 하나.color }, 하나.on && styles.stripThumbOn]}
                 >
                   {Boolean(하나.uri) && <Image source={{ uri: 하나.uri }} resizeMode="cover" style={styles.fill} />}
@@ -720,18 +720,18 @@ export function PhotoViewerScreen({
               <Pressable
                 onPress={() => decor?.onOpen()}
                 accessibilityRole="button"
-                accessibilityLabel={previewing ? "이 카드 꾸미기" : "이 사진으로 기념 카드 만들기"}
+                accessibilityLabel={previewing ? "카드 꾸미기" : "이 사진으로 카드 만들기"}
                 style={({ pressed }) => [styles.decorate, pressed && styles.pressed]}
               >
                 {/* 연필이 아니라 네모 넷이다. 연필은 「고치기」고 이것은 사진을
                     모아 카드를 만드는 일이다(`Glyph` 의 grid 주석). */}
                 <Glyph name="grid" size={17} color={INK} weight={1.8} />
-                <Text style={styles.decorateText}>{previewing ? "이 카드 꾸미기" : "꾸미기"}</Text>
+                <Text style={styles.decorateText}>{previewing ? "카드 꾸미기" : "카드 만들기"}</Text>
               </Pressable>
               <Text style={styles.decorateHint}>
                 {previewing
-                  ? "프레임·사진·글·스티커를 고쳐요"
-                  : "이 사진으로 기념 카드를 만들 수 있어요"}
+                  ? "프레임·사진·텍스트·스티커를 바꿀 수 있어요"
+                  : "이 사진으로 추억 카드를 만들 수 있어요"}
               </Text>
             </>
           )}
@@ -818,13 +818,13 @@ type EditTool = "설명" | "날짜" | "붙일 곳";
  * 「홈 화면」은 뺐다. 크게 보는 창의 위 줄에 ⌂ 가 생겨서 같은 일이 두 군데가 됐다.
  * 홈에 까는 것은 지금 보고 있는 것에 대한 일이라 크게 보는 자리가 맞다.
  */
-const EDIT_TOOLS: { key: EditTool | "삭제"; glyph: GlyphName }[] = [
-  { key: "설명", glyph: "lines" },
-  { key: "날짜", glyph: "calendar" },
-  // 「붙이기」로는 무엇에 붙이는지 알 수 없었다. 이 앱의 다른 자리도 「사진을
-  // 붙일 곳」이라고 적는다. 도구 이름도 그 말에 맞춘다.
-  { key: "붙일 곳", glyph: "link" },
-  { key: "삭제", glyph: "trash" },
+const EDIT_TOOLS: { key: EditTool | "삭제"; label: string; glyph: GlyphName }[] = [
+  { key: "설명", label: "설명", glyph: "lines" },
+  { key: "날짜", label: "날짜", glyph: "calendar" },
+  // 「붙이기」「걸어 두기」는 스티커 붙이기와 겹친다. 장소·일정과의 관계는 앱
+  // 어디서나 「연결」이다(docs/development/13-copy-glossary.md).
+  { key: "붙일 곳", label: "연결", glyph: "link" },
+  { key: "삭제", label: "삭제", glyph: "trash" },
 ];
 
 export function PhotoEditScreen({
@@ -961,16 +961,16 @@ export function PhotoEditScreen({
           <Pressable
             onPress={() => leave(onClose)}
             accessibilityRole="button"
-            accessibilityLabel="고치기 취소"
+            accessibilityLabel="편집 취소"
             style={({ pressed }) => [styles.editHeadSide, pressed && styles.pressed]}
           >
             <Text style={styles.editCancel}>취소</Text>
           </Pressable>
-          <Text style={styles.editTitle}>사진 정보</Text>
+          <Text style={styles.editTitle}>{readOnly ? "사진 정보" : "사진 정보 수정"}</Text>
           <Pressable
             onPress={() => leave(readOnly ? onClose : onSubmit)}
             accessibilityRole="button"
-            accessibilityLabel={readOnly ? "닫기" : "고친 사진 저장"}
+            accessibilityLabel={readOnly ? "닫기" : "사진 정보 저장"}
             style={({ pressed }) => [styles.editHeadSide, styles.editHeadRight, pressed && styles.pressed]}
           >
             <Text style={[styles.editSave, { color: EDIT_ACCENT }]}>{readOnly ? "닫기" : "저장"}</Text>
@@ -981,7 +981,7 @@ export function PhotoEditScreen({
           onPress={() => onRepick?.()}
           disabled={!onRepick || readOnly}
           accessibilityRole={onRepick && !readOnly ? "button" : "image"}
-          accessibilityLabel={onRepick && !readOnly ? "이 사진 다시 고르기" : "고치는 중인 사진"}
+          accessibilityLabel={onRepick && !readOnly ? "이 사진 다시 고르기" : "수정 중인 사진"}
           style={styles.editStage}
         >
           <View style={[styles.editShot, !uri && { backgroundColor: color }]}>
@@ -1022,18 +1022,18 @@ export function PhotoEditScreen({
                   <Text style={styles.editPanelLead}>
                     {linkChosen.some(Boolean)
                       ? "고른 곳에서 이 사진이 함께 보여요"
-                      : "장소·일정·숙소에 이 사진을 걸어 둘 수 있어요"}
+                      : "장소·일정·숙소에 이 사진을 연결할 수 있어요"}
                   </Text>
                   {chips(linkLabels, (_option, 차례) => linkChosen[차례], onToggleLink, true)}
                 </>
               ) : (
-                <Text style={styles.editStageHint}>아직 사진을 붙일 장소나 일정이 없어요</Text>
+                <Text style={styles.editStageHint}>아직 사진을 연결할 장소나 일정이 없어요</Text>
               )}
             </ScrollView>
           )}
 
           <View style={styles.editToolRow}>
-            {EDIT_TOOLS.map(({ key, glyph }) => {
+            {EDIT_TOOLS.map(({ key, label, glyph }) => {
               const on = 켜졌나(key);
               const 쓸 = 쓸_수_있나(key);
               const 위험 = key === "삭제";
@@ -1044,12 +1044,12 @@ export function PhotoEditScreen({
                   onPress={() => 눌렀을_때(key)}
                   disabled={!쓸}
                   accessibilityRole="button"
-                  accessibilityLabel={key}
+                  accessibilityLabel={label}
                   accessibilityState={{ selected: on, disabled: !쓸 }}
                   style={({ pressed }) => [styles.editTool, pressed && styles.pressed]}
                 >
                   <Glyph name={glyph} size={22} color={색} />
-                  <Text style={[styles.editToolText, { color: 색 }]}>{key}</Text>
+                  <Text style={[styles.editToolText, { color: 색 }]}>{label}</Text>
                 </Pressable>
               );
             })}
@@ -1068,7 +1068,7 @@ export function PhotoEditScreen({
 
 /** 지우기 전에 한 번 묻는다. 웹에서도 물으려고 `showAlert` 를 쓴다. */
 export function confirmPhotoDelete(onDelete: () => void) {
-  showAlert("이 사진을 지울까요?", "사진을 여행 기록에서 삭제해요.", [
+  showAlert("이 사진을 삭제할까요?", "삭제한 사진은 휴지통에서 7일 안에 되돌릴 수 있어요.", [
     { text: "취소", style: "cancel" },
     { text: "삭제", style: "destructive", onPress: onDelete },
   ]);

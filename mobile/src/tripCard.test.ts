@@ -236,14 +236,14 @@ test("끈 줄과 빈 줄은 카드에서 빠지고 사람 이름은 셋까지만
 });
 
 test("파일 이름에서 못 쓰는 글자를 뺀다", () => {
-  assert.equal(keepsakeFileName("제주/여행?"), "제주여행 기념카드");
-  assert.equal(keepsakeFileName("   "), "여행 기념 카드 기념카드");
+  assert.equal(keepsakeFileName("제주/여행?"), "제주여행 추억 카드");
+  assert.equal(keepsakeFileName("   "), "여행 추억 카드");
 });
 
 test("카드 목록은 정해진 차례로 읽히고 대표 사진 한 장을 알려 준다", () => {
   const 목록 = keepsakeListOf(
     [
-      { id: "둘", settings: { style: "엽서", photoIds: ["b"] }, sortOrder: 2, createdAt: "2026-09-02T00:00:00Z" },
+      { id: "둘", settings: { style: "엽서", photoIds: ["b"], title: " 바다 " }, sortOrder: 2, createdAt: "2026-09-02T00:00:00Z" },
       { id: "하나", settings: { style: "네컷", photoIds: ["a", "b", "c", "d"] }, sortOrder: 1, createdAt: "2026-09-01T00:00:00Z" },
       // 차례가 같으면 만든 시각으로 가른다.
       { id: "셋", settings: { style: "세컷", photoIds: ["c", "d", "e"] }, sortOrder: 2, createdAt: "2026-09-03T00:00:00Z" },
@@ -253,7 +253,8 @@ test("카드 목록은 정해진 차례로 읽히고 대표 사진 한 장을 �
   );
 
   assert.deepEqual(목록.map((줄) => 줄.id), ["하나", "둘", "셋"]);
-  assert.deepEqual(목록.map((줄) => 줄.label), ["네컷 · 사진 4장", "엽서 · 사진 1장", "세컷 · 사진 3장"]);
+  assert.deepEqual(목록.map((줄) => 줄.label), ["카드 1", "바다", "카드 3"]);
+  assert.deepEqual(목록.map((줄) => 줄.meta), ["네컷 · 사진 4장", "엽서 · 사진 1장", "세컷 · 사진 3장"]);
   assert.deepEqual(목록.map((줄) => 줄.coverPhotoId), ["a", "b", "c"]);
 });
 
@@ -275,13 +276,13 @@ test("카드를 더 만들 수 없을 때만 까닭이 나온다", () => {
   assert.equal(keepsakeAddBlockedReason(0, 3), "");
   assert.equal(keepsakeAddBlockedReason(19, 3), "");
   assert.equal(keepsakeAddBlockedReason(20, 3), "카드는 여행마다 20장까지 모아 둘 수 있어요");
-  assert.equal(keepsakeAddBlockedReason(0, 0), "사진을 한 장 추가하면 기념 카드를 만들 수 있어요");
+  assert.equal(keepsakeAddBlockedReason(0, 0), "사진을 한 장 추가하면 추억 카드를 만들 수 있어요");
 });
 
-test("세로로 쌓은 카드만 홈 화면에 담기지 않는다", () => {
+test("세로로 쌓은 카드만 대표 사진으로 쓸 수 없다", () => {
   // 사진관 스트립은 줄이 칸보다 많다. 홈의 가로로 넓은 자리에 넣으면 손톱만 해진다.
-  assert.ok(homeCardBlockedReason("네컷", 4).includes("세로로 길어서"));
-  assert.ok(homeCardBlockedReason("세컷", 3).includes("세로로 길어서"));
+  assert.ok(homeCardBlockedReason("네컷", 4).includes("가로나 정사각형"));
+  assert.ok(homeCardBlockedReason("세컷", 3).includes("가로나 정사각형"));
   // 격자·가로 스트립과 한 장짜리 틀은 그대로 담긴다.
   assert.equal(homeCardBlockedReason("네컷 격자", 4), "");
   assert.equal(homeCardBlockedReason("네컷 가로", 4), "");

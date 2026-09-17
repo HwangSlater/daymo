@@ -450,17 +450,17 @@ export function TripCardsSection({
         const 만든_것 = await createTripCard(tripId, Crypto.randomUUID(), body);
         setRows((current) => (current.some((줄) => 줄.id === 만든_것.id) ? current : [...current, 만든_것]));
       }
-      notify("기념 카드를 저장했어요");
+      notify("카드를 저장했어요");
     } catch (caught) {
       notify(
         caught instanceof DaymoApiError && caught.status === 422
           ? caught.message
-          : "기념 카드를 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요",
+          : "카드를 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요",
       );
     }
   };
 
-  /** 머리줄의 「저장」. 카드를 만들거나 고치고 창을 닫는다. */
+  /** 머리줄의 「완료」. 카드를 만들거나 고치고 창을 닫는다. */
   const saveCard = async () => {
     const 지금 = draft;
     if (readOnly) {
@@ -468,7 +468,7 @@ export function TripCardsSection({
       return;
     }
     if (!tripId) {
-      notify("예시 여행이라 기념 카드가 저장되지 않아요");
+      notify("예시 여행이라 카드가 저장되지 않아요");
       closeAll();
       return;
     }
@@ -485,15 +485,15 @@ export function TripCardsSection({
    */
   const 버려도_되나 = (버린다: () => void) => {
     if (toolsOpen && !readOnly && baseline && draft && !sameKeepsakeCard(baseline, draft)) {
-      showAlert("꾸미던 것을 버릴까요?", "저장하지 않은 꾸미기가 사라져요.", [
-        { text: "계속 꾸미기", style: "cancel" },
-        { text: "버리기", style: "destructive", onPress: 버린다 },
+      showAlert("저장하지 않고 나갈까요?", "저장하지 않은 내용은 사라져요.", [
+        { text: "계속 편집", style: "cancel" },
+        { text: "나가기", style: "destructive", onPress: 버린다 },
       ]);
       return;
     }
     버린다();
   };
-  /** 머리줄의 「나가기」. 도구만 접는다. */
+  /** 머리줄의 「취소」. 도구만 접는다. */
   const leaveDecor = () => 버려도_되나(collapse);
   /** ✕. 창을 통째로 닫는다. 꾸미던 중이면 나가기와 같은 것을 묻는다. */
   const closeWindow = () => 버려도_되나(closeAll);
@@ -514,7 +514,7 @@ export function TripCardsSection({
     const 보던_사진 = viewerRef.current.photoId;
     const 쓸_수_있나 = 보던_사진 && cardPhotos.some((photo) => photo.id === 보던_사진);
     if (!쓸_수_있나) {
-      viewerRef.current.onNotice("이 사진은 아직 카드에 넣을 수 없어요");
+      viewerRef.current.onNotice("업로드가 끝나면 카드에 넣을 수 있어요");
       return;
     }
     if (blocked) {
@@ -527,7 +527,7 @@ export function TripCardsSection({
   const removeCard = () => {
     const 지울_것 = open;
     if (!지울_것) return;
-    showAlert("이 카드를 지울까요?", `${지울_것.label} 카드를 지워요. 사진은 그대로예요.`, [
+    showAlert("이 카드를 삭제할까요?", "카드만 삭제되고 사진은 그대로 남아요.", [
       { text: "취소", style: "cancel" },
       {
         text: "삭제",
@@ -535,8 +535,8 @@ export function TripCardsSection({
         onPress: () => {
           closeAll();
           setRows((current) => current.filter((줄) => 줄.id !== 지울_것.id));
-          deleteTripCard(지울_것.id).catch(() => notify("카드를 지우지 못했어요. 잠시 뒤에 다시 시도해 주세요"));
-          notify("기념 카드를 지웠어요");
+          deleteTripCard(지울_것.id).catch(() => notify("카드를 삭제하지 못했어요. 잠시 뒤에 다시 시도해 주세요"));
+          notify("카드를 삭제했어요");
         },
       },
     ]);
@@ -573,10 +573,12 @@ export function TripCardsSection({
       if (__DEV__) console.log(`기념 카드 캡처 ${card.style} ${Date.now() - 잰다}ms`);
       const 결과 = await shareTripCard(keepsakeFileName(text.title || tripName), 찍은_것);
       // 창이 떠 있는 동안이라 여행 화면 바닥의 토스트는 가려진다. 창 안에서 알린다.
-      if (결과 === "unavailable") viewerRef.current.onNotice("이 기기에서는 카드를 내보낼 수 없어요");
-      else viewerRef.current.onNotice(Platform.OS === "web" ? "기념 카드를 내려받았어요" : "기념 카드를 공유했어요");
+      // 폰은 공유 시트가 뜨는 것으로 끝이다. 시트만 열렸는데 「공유했어요」라고
+      // 단정하지 않는다. 웹은 내려받기가 조용히 끝나서 한 줄 알린다.
+      if (결과 === "unavailable") viewerRef.current.onNotice("이 기기에서는 카드를 저장하거나 공유할 수 없어요");
+      else if (Platform.OS === "web") viewerRef.current.onNotice("카드를 저장했어요");
     } catch {
-      viewerRef.current.onNotice("기념 카드를 만들지 못했어요");
+      viewerRef.current.onNotice("저장할 이미지를 만들지 못했어요");
     } finally {
       // 찍은 그림은 여기서만 쓴다. 화면이 아직 쓰는 사진 주소는 건드리지 않는다
       // (`photoTransfer.ts` 의 liveBlobUris 규칙).
@@ -626,7 +628,7 @@ export function TripCardsSection({
     if (!onSaveHomeCover || !open) return;
     if (coverBlocked && !cover.on) {
       // 버튼을 주지 않는다. 고를 것이 없는 안내라 확인창 대신 알림창이어야 한다.
-      showAlert("홈 화면에 담기지 않아요", `${coverBlocked}.`);
+      showAlert("세로 카드는 대표 사진으로 쓸 수 없어요", `${coverBlocked}.`);
       return;
     }
     try {
@@ -660,7 +662,7 @@ export function TripCardsSection({
       ? [{ label: "카드 삭제", tone: "위험" as const, onPress: removeCard }]
       : [];
   /** ↓ 에 적을 말. 웹은 내려받고 폰은 공유 시트로 간다. */
-  const exportLabel = Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기";
+  const exportLabel = Platform.OS === "web" ? "카드 저장" : "카드 공유";
 
   /**
    * 보기의 ⋮.
@@ -684,7 +686,7 @@ export function TripCardsSection({
         onOpen: startDecor,
         onBack: leaveDecor,
         onSave: () => void saveCard(),
-        saveLabel: readOnly || !tripId ? "닫기" : "저장",
+        saveLabel: readOnly || !tripId ? "닫기" : "완료",
         menu: cardMenu,
         viewMenu,
         onExport: () => void exportCard(),
@@ -698,10 +700,10 @@ export function TripCardsSection({
         // 기간과 지역은 카드 얼굴에 이미 적혀 있다. 아래에는 어떤 틀에 사진 몇 장인지만
         // 둔다. 두 줄이 되면 스트립이 밀린다.
         previewTitle: text.title || tripName,
-        previewMeta: open?.label ?? "아직 저장하지 않은 카드",
+        previewMeta: open?.meta ?? "아직 저장하지 않은 카드",
         cards: cardStrip,
         onViewCard: openTile,
-        busyText: busy ? "카드를 만드는 중이에요" : undefined,
+        busyText: busy ? "저장할 이미지를 만드는 중이에요" : undefined,
         body: card ? (
           <CardDecorTools
             card={card}
@@ -719,7 +721,7 @@ export function TripCardsSection({
             shotRef={shot}
             onPhotoReady={markDrawn}
             readOnly={readOnly}
-            readOnlyHint={canEdit ? "만든 사람과 관리자만 이 카드를 고칠 수 있어요" : undefined}
+            readOnlyHint={canEdit ? "만든 사람과 관리자만 이 카드를 수정할 수 있어요" : undefined}
             theme={theme}
           />
         ) : null,

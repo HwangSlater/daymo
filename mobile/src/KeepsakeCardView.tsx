@@ -271,7 +271,7 @@ const DecorItem = memo(function DecorItem({
     <Animated.View
       {...(edit ? pan.panHandlers : {})}
       accessible={Boolean(edit)}
-      accessibilityLabel={decor.kind === "글자" ? `글자 ${decor.text}` : `${decor.kind} 스티커`}
+      accessibilityLabel={decor.kind === "글자" ? `텍스트 ${decor.text}` : `${decor.kind} 스티커`}
       style={[
         styles.decor,
         {
@@ -307,7 +307,7 @@ const DecorItem = memo(function DecorItem({
             onPress={() => edit.onRemove(decor.id)}
             hitSlop={손잡이 / 2}
             accessibilityRole="button"
-            accessibilityLabel="이 스티커 떼기"
+            accessibilityLabel="스티커 삭제"
             style={[styles.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, left: -손잡이 / 2, top: -손잡이 / 2, borderWidth: 테두리 }]}
           >
             <Text style={[styles.decorHandleMark, { fontSize: 손잡이 * 0.55 }]}>✕</Text>
@@ -316,7 +316,7 @@ const DecorItem = memo(function DecorItem({
           <View
             {...corner.panHandlers}
             accessible
-            accessibilityLabel="끌어서 크기와 각도 바꾸기"
+            accessibilityLabel="끌어서 크기와 회전 바꾸기"
             style={[styles.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, right: -손잡이 / 2, bottom: -손잡이 / 2, borderWidth: 테두리 }]}
           >
             <Text style={[styles.decorHandleMark, { fontSize: 손잡이 * 0.5 }]}>⤢</Text>

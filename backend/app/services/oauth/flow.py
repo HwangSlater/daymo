@@ -325,7 +325,7 @@ async def exchange(
     if 대기.provider_email is None:
         return AppError(
             ErrorCode.VALIDATION_ERROR,
-            message="이메일 제공에 동의해야 가입할 수 있어요. 다시 로그인하면서 이메일 항목에 동의해 주세요.",
+            message="가입하려면 이메일 제공 동의가 필요해요. 다시 로그인하면서 이메일 항목에 동의해 주세요.",
         )
 
     기존 = await session.scalar(select(User).where(User.email == 대기.provider_email))
@@ -373,7 +373,7 @@ async def exchange(
         #      것은 어차피 위에서도 알려 주는 사실이다.
         return AppError(
             ErrorCode.ACCOUNT_LINK_REQUIRED,
-            message="이 이메일은 다른 방법으로 가입한 계정이에요. 전에 쓰던 로그인 방법으로 들어와 주세요.",
+            message="이미 다른 방법으로 가입한 이메일이에요. 처음 가입할 때 쓴 방법으로 로그인해 주세요.",
         )
 
     # 새 계정이 생기는 자리다. 이메일 가입과 같은 동의를 받았어야 한다.
