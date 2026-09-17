@@ -338,6 +338,15 @@ HTML 페이지를 직접 보여 주게 했다. GET은 아무것도 바꾸지 않
   배포)·`production`(스토어, 빌드 번호 자동 증가) 프로필을 뒀다. iOS 빌드는 Apple Developer 가입 뒤에 된다
 - 나머지는 `release/README.md`의 "출시를 막는 것" 표를 따른다
 
+### 나중에 하기로 한 것
+
+- **푸시 알림.** 2026-09-17 현재 **코드가 한 줄도 없다.** 서버에도 앱에도 없고
+  (`expo-notifications` 도 안 깔려 있다), 설계만 `11-owner-setup-guide.md` 10장에 있다.
+  첫 출시 푸시는 셋으로 제한하기로 했다 — 초대 참여, 담당 지정·변경, 여행 임박(공간
+  시간대 기준 출발 7일 전·1일 전 오전 9시). 일반적인 공동 수정은 푸시로 알리지 않는다.
+  푸시는 Expo Go 로 볼 수 없어 실제 빌드가 필요하고 iOS 는 Apple Developer 가입이
+  먼저라, **Apple 등록·첫 빌드와 묶어서 한다.** 없이도 출시는 된다.
+
 ### 막혀 있는 것 — 바깥 자격증명이 있어야 한다
 
 - **Sign in with Apple.** 서버 코드는 다 있고 `APPLE_CLIENT_ID`·`APPLE_TEAM_ID`·`APPLE_KEY_ID`·
