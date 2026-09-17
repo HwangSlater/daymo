@@ -103,9 +103,11 @@ showAlert("지울까요?", "되돌릴 수 없어요", [
 
 ## 아직 옮기지 않은 복사본
 
-`WarmTripDetail.tsx` 의 `DetailSheet` 와 `InfoPanel` 은 아직 자기 껍데기를 들고 있다. `SheetShell` 은 그 두 곳이 쓰는 기능(잠김·저장 재확인·지우기 확인·작성 중 닫기 확인·머리 갈아 끼우기)을 모두 받도록 미리 뚫어 두었으니, 다음 사람은 갈아 끼우기만 하면 된다. 옮길 때 알아 둘 두 가지 차이가 있다.
+시트 껍데기는 다 옮겼다. `WarmTripDetail.tsx` 의 `DetailSheet` 와 `InfoPanel` 도 `SheetShell` 을 쓴다. 두 곳은 이제 이 화면에만 있는 것만 얹는다.
 
-- `DetailSheet` 의 머리 아래 여백이 20 이고 `SheetShell` 은 16 이다. 뜻이 없는 차이라 옮길 때 16 으로 맞춘다.
-- `DetailSheet` 의 닫기 버튼에 `marginLeft: 8` 이 더 붙어 있다. 같은 이유로 옮길 때 뗀다.
+- `DetailSheet` — 공간 권한으로 잠글지 정하고(저장 버튼이 이미 「닫기」인 둘러보는 시트는 빼고), 잠긴 시트 안의 칸까지 흐려지도록 `DetailEditableContext` 를 시트 안에서 다시 내리고, 제목으로 색 막대 색을 고른다. 나머지(잠김 안내·저장 재확인·지우기 확인·작성 중 닫기 확인·기다리는 동안의 버튼 글)는 전부 부품의 prop 으로 넘어갔고 새로 뚫은 prop 은 없다.
+- `InfoPanel` — 머리에 저장 버튼 대신 「완료」가 있어 `renderHead` 로 머리만 갈아 끼운다. `WarmAppShell` 의 `InfoSheet` 와 같은 방식이다.
 
-`CardDecorEditor.tsx` 와 `PhotoViewer.tsx` 의 칩도 아직 따로 있다. 둘은 사진 위에 얹는 어두운 칩이라 테마를 따르지 않는다. `Chip` 의 `colors` 로 받을 수 있다.
+옮기면서 뜻 없이 달랐던 두 값은 부품 쪽에 맞췄다. 머리 아래 여백 20 → 16, 닫기 버튼의 `marginLeft: 8` 제거. 그만큼 시트 내용이 4px 위로 올라간다. 그 둘만 앞 모습에 맞춰 두고 찍으면 장소·일정·숙소·교통편·예약·지출·잠김·지우기 확인·저장 재확인·정보 패널 두 개, 열한 화면이 0픽셀로 같다.
+
+`CardDecorEditor.tsx` 와 `PhotoViewer.tsx` 의 칩은 아직 따로 있다. 둘은 사진 위에 얹는 어두운 칩이라 테마를 따르지 않는다. `Chip` 의 `colors` 로 받을 수 있다. 남은 복사본은 이 둘뿐이다.
