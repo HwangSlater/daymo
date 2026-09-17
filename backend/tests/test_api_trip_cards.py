@@ -151,6 +151,20 @@ async def test_카드_사진은_그_여행의_사진이어야_하고_모르는_�
     assert 기본값.json()["data"]["settings"]["style"] == "필름"
 
 
+async def test_종이를_끼우지_않는_프레임도_저장된다(api, db):
+    # 사진에 스티커와 글자만 얹고 싶은 사람이 있다. 그런 사람에게 필름도 엽서도
+    # 거추장스러운 테두리라, 아무 프레임도 안 고를 길이 있어야 한다.
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    맨몸 = await 카드를_만든다(api, headers, trip["id"], style="없음", ratio="정사각")
+
+    assert 맨몸["settings"]["style"] == "없음"
+    # 종이가 없어도 비율은 살아 있다. 사진을 어떤 비율로 담을지는 여전히 고를 일이다.
+    assert 맨몸["settings"]["ratio"] == "정사각"
+
+
 async def test_카드는_여행마다_스무_장까지만_쌓인다(api, db):
     headers = await 로그인한_사람(api, "sky@example.com")
     space_id = await 공간을_만든다(api, headers)

@@ -24,6 +24,9 @@ export { KEEPSAKE_STICKERS };
 export type { CardDecor, KeepsakeSticker };
 
 export type KeepsakeStyle =
+  // 종이를 끼우지 않고 사진만 쓴다. 스티커와 글자만 얹고 싶은 사람에게는 필름도
+  // 엽서도 거추장스러운 테두리다. 그런 사람이 아무것도 안 고를 길이 있어야 한다.
+  | "없음"
   | "필름" | "엽서" | "스크랩북"
   // 사진관에서 뽑는 네컷 틀. 사진이 칸을 채우고 아래 여백에 이름·날짜·Daymo 가 들어간다.
   | "네컷" | "네컷 격자" | "네컷 가로" | "세컷";
@@ -36,8 +39,11 @@ export type KeepsakeStatKind = "장소" | "사진" | "날" | "지출";
 export type KeepsakeFrameColor = "검정" | "흰색" | "크림" | "노을" | "바다" | "숲";
 
 export const KEEPSAKE_STYLES: KeepsakeStyle[] = [
-  "필름", "엽서", "스크랩북", "네컷", "네컷 격자", "네컷 가로", "세컷",
+  "없음", "필름", "엽서", "스크랩북", "네컷", "네컷 격자", "네컷 가로", "세컷",
 ];
+
+/** 종이를 끼우지 않는 프레임. 사진이 통째로 카드가 된다. */
+export const isBareStyle = (style: KeepsakeStyle): boolean => style === "없음";
 /** 네컷 틀. 나머지 셋과 달리 비율이 틀에 붙어 있고 꾸미기 항목이 더 나온다. */
 export const KEEPSAKE_CUT_STYLES: KeepsakeStyle[] = ["네컷", "네컷 격자", "네컷 가로", "세컷"];
 export const KEEPSAKE_RATIOS: KeepsakeRatio[] = ["세로", "정사각", "가로"];
@@ -184,14 +190,47 @@ export function sameKeepsakeCard(a: KeepsakeCard, b: KeepsakeCard): boolean {
   return JSON.stringify(keepsakeBodyOf(a, "")) === JSON.stringify(keepsakeBodyOf(b, ""));
 }
 
-/** 고른 사진을 넣었다 뺐다 한다. 넘치면 가장 먼저 고른 것을 밀어낸다. */
+/**
+ * 고른 사진을 넣었다 뺐다 한다.
+ *
+ * 꽉 찼으면 그대로 둔다. 예전에는 가장 먼저 고른 것을 말없이 밀어냈는데, 다섯
+ * 번째를 누른 사람은 방금 무엇이 빠졌는지 알 수 없었다. 조용히 사라지는 것보다
+ * 안 되는 것이 낫다. 부르는 쪽이 꽉 찼다고 한 줄로 알린다.
+ */
 export function toggleKeepsakePhoto(photoIds: readonly string[], id: string): string[] {
   if (photoIds.includes(id)) {
     const 남는_것 = photoIds.filter((item) => item !== id);
     // 한 장은 남아야 카드가 빈 칸이 되지 않는다.
     return 남는_것.length ? 남는_것 : [...photoIds];
   }
-  return [...photoIds, id].slice(-KEEPSAKE_MAX_PHOTOS);
+  if (photoIds.length >= KEEPSAKE_MAX_PHOTOS) return [...photoIds];
+  return [...photoIds, id];
+}
+
+/** 더 고를 수 있는지. 못 고르면 그 까닭을 돌려준다. */
+export function keepsakePhotoFullReason(photoIds: readonly string[]): string {
+  return photoIds.length >= KEEPSAKE_MAX_PHOTOS
+    ? `사진은 ${KEEPSAKE_MAX_PHOTOS}장까지 넣을 수 있어요. 빼려면 고른 사진을 다시 누르세요`
+    : "";
+}
+
+/**
+ * 고른 사진의 차례를 한 칸 옮긴다. 끝에서 더 가면 그대로 둔다.
+ *
+ * 고른 차례가 곧 카드에 놓이는 차례다. 예전에는 차례를 바꾸려면 전부 뺐다가 다시
+ * 골라야 했다. 스티커의 「앞으로·뒤로」와 같은 결로 한 칸씩 옮긴다.
+ */
+export function moveKeepsakePhoto(
+  photoIds: readonly string[],
+  id: string,
+  앞으로: boolean,
+): string[] {
+  const 자리 = photoIds.indexOf(id);
+  const 이웃 = 자리 + (앞으로 ? -1 : 1);
+  if (자리 < 0 || 이웃 < 0 || 이웃 >= photoIds.length) return [...photoIds];
+  const 바꾼_것 = [...photoIds];
+  [바꾼_것[자리], 바꾼_것[이웃]] = [바꾼_것[이웃], 바꾼_것[자리]];
+  return 바꾼_것;
 }
 
 /** 한 줄에 몇 장씩 놓을지. 2장은 나란히, 3장은 위 한 장 아래 두 장, 4장은 격자다. */
@@ -216,7 +255,19 @@ const CUT_FRAME: Record<string, { want: number; 방향: "세로" | "가로" | "�
  * 고른 사진이 틀보다 적으면 남는 칸을 비우지 않는다. 빈 칸이 찍힌 그림은 고장 난
  * 카드처럼 보인다. 대신 틀을 고른 수만큼 줄이고, 몇 장을 더 고르면 꽉 차는지 알린다.
  */
-export function keepsakeFrameOf(style: KeepsakeStyle, photoCount: number): {
+export function keepsakeFrameOf(
+  style: KeepsakeStyle,
+  photoCount: number,
+  /**
+   * 빈 칸까지 다 보여 줄지. 꾸미는 중에만 참이다.
+   *
+   * 빈 칸이 찍힌 그림은 고장 난 카드처럼 보인다. 그래서 내보낼 때와 미리보기는
+   * 고른 수만큼 틀을 줄인다. 그런데 꾸미는 중에도 줄이면, 「네컷」을 골랐는데
+   * 사진 한 장이 세로로 긴 카드를 꽉 채워 늘어난 것처럼 보인다. 무엇을 하면
+   * 네컷이 되는지도 알 수 없다. 꾸미는 동안에는 칸을 다 펴 두고 빈 칸을 그린다.
+   */
+  빈칸까지 = false,
+): {
   /** 각 줄에 놓을 칸 수. */
   rows: number[];
   /** 실제로 그리는 칸 수. */
@@ -229,17 +280,18 @@ export function keepsakeFrameOf(style: KeepsakeStyle, photoCount: number): {
   const 있는_것 = Math.max(1, Math.min(photoCount, KEEPSAKE_MAX_PHOTOS));
   const 틀 = CUT_FRAME[style];
   if (!틀) return { rows: keepsakeLayoutOf(있는_것), slots: 있는_것, want: 있는_것, notice: "" };
-  const slots = Math.min(있는_것, 틀.want);
+  const slots = 빈칸까지 ? 틀.want : Math.min(있는_것, 틀.want);
   const rows = 틀.방향 === "격자"
     ? keepsakeLayoutOf(slots)
     : 틀.방향 === "가로"
       ? [slots]
       : Array.from({ length: slots }, () => 1);
+  const 채운_칸 = Math.min(있는_것, 틀.want);
   return {
     rows,
     slots,
     want: 틀.want,
-    notice: slots < 틀.want ? `사진 ${틀.want - slots}장을 더 고르면 ${틀.want}컷으로 꽉 차요` : "",
+    notice: 채운_칸 < 틀.want ? `사진 ${틀.want - 채운_칸}장을 더 고르면 ${틀.want}컷으로 꽉 차요` : "",
   };
 }
 

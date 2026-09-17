@@ -26,7 +26,7 @@ import { Platform, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
-import { CardDecorTools } from "./CardDecorEditor";
+import { CardDecorTools, CardPreview } from "./CardDecorEditor";
 import { type CardPhoto } from "./KeepsakeCardView";
 import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
 import { DaymoApiError } from "./auth";
@@ -115,6 +115,20 @@ export type CardViewer = {
   hintSoon?: boolean;
   toast?: string;
   waitingText?: string;
+  /**
+   * 보고 있는 사진을 홈 화면에 깔거나 내린다. 깔 수 없는 사진이면 없다.
+   *
+   * 홈에 까는 일은 크게 보는 자리에 있어야 한다. 지금 보고 있는 것을 홈에 까는
+   * 일이라, 고치러 들어가야 보이면 고칠 생각이 없는 사람은 찾지 못한다.
+   */
+  cover?: { label: string; onPress: () => void };
+  /**
+   * 창 안에 떴다 사라지는 한 줄.
+   *
+   * 여행 화면 바닥의 토스트는 이 창에 가려 보이지 않는다. 창이 떠 있는 동안
+   * 알릴 말은 이 길로 보낸다.
+   */
+  onNotice: (text: string) => void;
 };
 
 /**
@@ -211,8 +225,15 @@ export function TripCardsSection({
   const photoIds = useMemo(() => cardPhotos.map((photo) => photo.id), [cardPhotos]);
 
   const [rows, setRows] = useState<ServerTripCard[]>([]);
-  /** 지금 꾸미는 카드. `새 카드` 면 아직 저장 전이다. 비어 있으면 도구가 접혀 있다. */
+  /**
+   * 지금 창에 올라온 카드. `새 카드` 면 아직 저장 전이고, 비어 있으면 사진을 보는 중이다.
+   *
+   * 카드가 올라와 있다고 곧 꾸미는 것은 아니다. 격자에서 카드를 누르면 사진과 같은
+   * 결로 먼저 크게 보여 주고, 도구는 「꾸미기」를 한 번 더 눌러야 펴진다.
+   */
   const [openId, setOpenId] = useState<string | null>(null);
+  /** 도구가 펼쳐져 있는지. */
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [draft, setDraft] = useState<KeepsakeCard | null>(null);
   /** 꾸미기를 시작할 때의 카드. 「나가기」에서 손댄 것이 있는지 볼 때만 쓴다. */
   const [baseline, setBaseline] = useState<KeepsakeCard | null>(null);
@@ -307,13 +328,14 @@ export function TripCardsSection({
     setDraft((current) => (current ? { ...current, decor: change(current.decor) } : current));
   }, []);
 
-  /** 도구를 펼친다. 창은 이미 떠 있으므로 카드만 갈아 끼운다. */
-  const openCard = useCallback((id: string, start: KeepsakeCard) => {
+  /** 카드를 창에 올린다. `tools` 면 도구까지 편다. */
+  const openCard = useCallback((id: string, start: KeepsakeCard, tools: boolean) => {
     drawn.current = new Set();
     setDrawnKeys([]);
     setDraft(start);
     setBaseline(start);
     setOpenId(id);
+    setToolsOpen(tools);
     setExporting(false);
   }, []);
   const makeCard = useCallback(() => {
@@ -321,8 +343,9 @@ export function TripCardsSection({
       notify(blocked);
       return;
     }
+    // 「카드 만들기」는 만들러 온 것이라 곧바로 도구를 편다.
     const 시작 = keepsakeCardOf(undefined, tripName, photoIds);
-    openCard("새 카드", 시작);
+    openCard("새 카드", 시작, true);
     viewerRef.current.onMove(시작.photoIds[0] ?? null);
   }, [blocked, notify, openCard, photoIds, tripName]);
   // 사진 격자에 함께 놓을 타일. 대표 사진 한 장의 색과 썸네일만 실어 보낸다.
@@ -338,17 +361,18 @@ export function TripCardsSection({
     [cardPhotos, coverCardId, list, thumbs],
   );
   /**
-   * 격자에서 카드를 눌렀을 때. 같은 창이 처음부터 펼쳐진 상태로 열린다.
+   * 카드를 크게 보는 자리를 연다. 격자에서 누를 때와 창 안 스트립에서 누를 때가 같다.
    *
-   * 보던 사진 자리에는 그 카드의 첫 사진을 둔다. 「나가기」로 도구를 접으면 그
-   * 사진을 크게 보는 자리가 되어야 해서다.
+   * 도구는 펴지 않는다. 격자는 누르면 크게 보는 자리인데 카드만 고치는 화면이 뜨면
+   * 「사진을 눌렀는데 왜 고치는 게 뜨지」로 읽힌다. 보던 사진은 놓는다. 사진과 카드
+   * 둘 다 고른 것처럼 보이면 스트립에서 어느 것을 보는 중인지 알 수 없다.
    */
   const openTile = useCallback(
     (id: string) => {
       const 줄 = list.find((하나) => 하나.id === id);
       if (!줄) return;
-      openCard(줄.id, 줄.card);
-      viewerRef.current.onMove(줄.card.photoIds[0] ?? null);
+      openCard(줄.id, 줄.card, false);
+      viewerRef.current.onMove(null);
     },
     [list, openCard],
   );
@@ -356,21 +380,49 @@ export function TripCardsSection({
     onInline({ tiles, open: openTile, create: makeCard });
   }, [makeCard, onInline, openTile, tiles]);
 
+  /**
+   * 스트립에서 사진을 눌렀을 때.
+   *
+   * 카드를 보던 중이면 그 카드를 놓는다. 놓지 않으면 사진을 골랐는데 무대에는
+   * 카드가 그대로 남아, 스트립에서 사진과 카드가 함께 골라진 것처럼 보인다.
+   */
+  const viewPhoto = (photoId: string | null) => {
+    if (openId && !toolsOpen) {
+      setOpenId(null);
+      setDraft(null);
+      setBaseline(null);
+    }
+    viewerRef.current.onMove(photoId);
+  };
+
   /** 창을 통째로 닫는다. 카드도 사진도 놓는다. */
   const closeAll = () => {
     setOpenId(null);
+    setToolsOpen(false);
     setDraft(null);
     setBaseline(null);
     setExporting(false);
     viewerRef.current.onMove(null);
   };
-  /** 도구만 접고 사진 보기로 돌아간다. 꾸미던 카드의 첫 사진 앞에 선다. */
+  /**
+   * 도구만 접는다.
+   *
+   * 저장된 카드를 꾸미던 중이면 그 카드를 크게 보는 자리로 돌아간다. 고치기 전
+   * 모습으로 되돌려야 「나가기」가 버린다는 뜻이 된다. 아직 저장 전인 새 카드는
+   * 돌아갈 카드가 없으니 놓고, 그 카드를 시작한 사진 앞으로 돌아간다.
+   */
   const collapse = () => {
+    setToolsOpen(false);
+    setExporting(false);
+    if (open) {
+      setDraft(open.card);
+      setBaseline(open.card);
+      return;
+    }
     const 첫_사진 = draft?.photoIds[0];
     setOpenId(null);
     setDraft(null);
     setBaseline(null);
-    setExporting(false);
     const 지금 = viewerRef.current;
     if (첫_사진 && 지금.photos.some((하나) => 하나.id === 첫_사진)) 지금.onMove(첫_사진);
     else if (!지금.photoId) 지금.onMove(null);
@@ -416,35 +468,51 @@ export function TripCardsSection({
   };
 
   /**
-   * 머리줄의 「나가기」.
+   * 꾸미다 만 것이 사라지기 전에 한 번 묻는다.
    *
-   * 손댄 것이 있으면 한 번 묻는다. 웹에서도 물으려고 `showAlert` 를 쓴다
-   * (`Alert.alert` 은 웹에서 아무 일도 하지 않는다).
+   * 되돌릴 길이 없는 일이라 말없이 버리면 안 된다. 손댄 것이 없으면 묻지 않는다.
+   * 나가는 길이 두 번이 되면 그것대로 성가시다. 웹에서도 물으려고 `showAlert` 를
+   * 쓴다(`Alert.alert` 은 웹에서 아무 일도 하지 않는다).
    */
-  const leaveDecor = () => {
-    if (!readOnly && baseline && draft && !sameKeepsakeCard(baseline, draft)) {
+  const 버려도_되나 = (버린다: () => void) => {
+    if (toolsOpen && !readOnly && baseline && draft && !sameKeepsakeCard(baseline, draft)) {
       showAlert("꾸미던 것을 버릴까요?", "저장하지 않은 꾸미기가 사라져요.", [
         { text: "계속 꾸미기", style: "cancel" },
-        { text: "버리기", style: "destructive", onPress: collapse },
+        { text: "버리기", style: "destructive", onPress: 버린다 },
       ]);
       return;
     }
-    collapse();
+    버린다();
   };
+  /** 머리줄의 「나가기」. 도구만 접는다. */
+  const leaveDecor = () => 버려도_되나(collapse);
+  /** ✕. 창을 통째로 닫는다. 꾸미던 중이면 나가기와 같은 것을 묻는다. */
+  const closeWindow = () => 버려도_되나(closeAll);
 
-  /** 사진 창의 「꾸미기」. 보던 사진 한 장으로 카드를 시작한다. */
+  /**
+   * 아래 「꾸미기」 한 줄.
+   *
+   * 카드를 보는 중이면 **그 카드**의 도구를 편다. 사진을 보는 중이면 그 사진 한
+   * 장으로 새 카드를 시작한다. 카드를 보다가 눌렀는데 엉뚱한 새 카드가 시작되면
+   * 방금 본 카드를 어디서 고치는지 알 수 없다.
+   */
   const startDecor = () => {
+    if (openId) {
+      setToolsOpen(true);
+      setBaseline(draft);
+      return;
+    }
     const 보던_사진 = viewerRef.current.photoId;
     const 쓸_수_있나 = 보던_사진 && cardPhotos.some((photo) => photo.id === 보던_사진);
     if (!쓸_수_있나) {
-      notify("이 사진은 아직 카드에 넣을 수 없어요");
+      viewerRef.current.onNotice("이 사진은 아직 카드에 넣을 수 없어요");
       return;
     }
     if (blocked) {
-      notify(blocked);
+      viewerRef.current.onNotice(blocked);
       return;
     }
-    openCard("새 카드", { ...keepsakeCardOf(undefined, tripName, photoIds), photoIds: [보던_사진] });
+    openCard("새 카드", { ...keepsakeCardOf(undefined, tripName, photoIds), photoIds: [보던_사진] }, true);
   };
 
   const removeCard = () => {
@@ -475,7 +543,7 @@ export function TripCardsSection({
   const exportCard = async () => {
     if (!card || busy) return;
     if (!ready) {
-      notify("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
+      viewerRef.current.onNotice("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
       return;
     }
     setBusy(true);
@@ -495,10 +563,11 @@ export function TripCardsSection({
       });
       if (__DEV__) console.log(`기념 카드 캡처 ${card.style} ${Date.now() - 잰다}ms`);
       const 결과 = await shareTripCard(keepsakeFileName(text.title || tripName), 찍은_것);
-      if (결과 === "unavailable") notify("이 기기에서는 카드를 내보낼 수 없어요");
-      else notify(Platform.OS === "web" ? "기념 카드를 내려받았어요" : "기념 카드를 공유했어요");
+      // 창이 떠 있는 동안이라 여행 화면 바닥의 토스트는 가려진다. 창 안에서 알린다.
+      if (결과 === "unavailable") viewerRef.current.onNotice("이 기기에서는 카드를 내보낼 수 없어요");
+      else viewerRef.current.onNotice(Platform.OS === "web" ? "기념 카드를 내려받았어요" : "기념 카드를 공유했어요");
     } catch {
-      notify("기념 카드를 만들지 못했어요");
+      viewerRef.current.onNotice("기념 카드를 만들지 못했어요");
     } finally {
       // 찍은 그림은 여기서만 쓴다. 화면이 아직 쓰는 사진 주소는 건드리지 않는다
       // (`photoTransfer.ts` 의 liveBlobUris 규칙).
@@ -515,6 +584,14 @@ export function TripCardsSection({
    * 저장한 카드만 깔 수 있다. 아직 저장하지 않은 카드는 서버에 없어서 다른 기기와
    * 상대에게 보일 것이 없다.
    */
+  /** 도구는 접힌 채로 카드를 크게 보는 중인지. */
+  const previewing = Boolean(openId) && !toolsOpen;
+  /** 스트립 끝에 세울 카드. 지금 보는 카드에 표가 선다. */
+  const cardStrip = useMemo(
+    () => tiles.map((하나) => ({ ...하나, on: previewing && 하나.id === openId })),
+    [openId, previewing, tiles],
+  );
+
   const cover = coverToggleOf(open?.id, coverCardId, "card");
   // 세로로 쌓은 카드는 홈의 가로로 넓은 자리에 담기지 않는다. 눕히거나 격자로 바꾸면
   // 만든 사람이 고른 모양과 달라지므로, 담기지 않는다고 알리고 막는다.
@@ -539,17 +616,19 @@ export function TripCardsSection({
         { coverCardId: cover.next },
         Object.fromEntries(chosen.map((photo) => [photo.id, thumbs[photo.id] ?? photo.uri])),
       );
-      notify(cover.on ? "홈 화면에서 이 카드를 내렸어요" : "홈 화면에 이 카드를 깔았어요");
+      // 창이 떠 있는 동안이라 여행 화면 바닥의 토스트는 가려진다. 창 안에서 알린다.
+      viewerRef.current.onNotice(cover.on ? "홈 화면에서 이 카드를 내렸어요" : "홈 화면에 이 카드를 깔았어요");
     } catch {
-      notify(COVER_FAIL);
+      viewerRef.current.onNotice(COVER_FAIL);
     }
   };
 
   /**
-   * ⋮ 안에 둘 것.
+   * 꾸미기의 ⋮.
    *
-   * 내보내기·홈 화면·삭제는 카드를 다 꾸민 뒤에 한 번 쓰는 것이다. 네 갈래 도구에
-   * 섞어 두면 매번 지나치게 되고, 머리줄에 늘어놓으면 「저장」이 묻힌다.
+   * 내보내기와 삭제는 다 꾸민 뒤에 한 번 쓰는 것이다. 네 갈래 도구에 섞어 두면
+   * 매번 지나치게 되고, 머리줄에 늘어놓으면 「저장」이 묻힌다. 홈 화면에 쓰는 것은
+   * 여기 있지 않다. 지금 크게 보고 있는 것을 홈에 까는 일이라 보기 쪽으로 옮겼다.
    */
   const cardMenu: ViewerDecor["menu"] = readOnly
     ? []
@@ -558,8 +637,22 @@ export function TripCardsSection({
           label: Platform.OS === "web" ? "이미지로 저장하기" : "이미지로 공유하기",
           onPress: () => void exportCard(),
         },
-        ...(onSaveHomeCover && open ? [{ label: cover.label, onPress: () => void toggleCover() }] : []),
         ...(open && tripId ? [{ label: "카드 삭제", tone: "위험" as const, onPress: removeCard }] : []),
+      ];
+
+  /**
+   * 보기의 ⋮.
+   *
+   * 카드를 보는 중이면 그 카드를, 사진을 보는 중이면 그 사진을 홈에 깐다. 사진 쪽
+   * 몫은 기록 탭이 내려 준다(`viewer.cover`). 신고는 사진에만 있다.
+   */
+  const viewMenu: ViewerDecor["viewMenu"] = previewing
+    ? onSaveHomeCover && open && canEdit
+      ? [{ label: cover.label, onPress: () => void toggleCover() }]
+      : []
+    : [
+        ...(viewer.cover ? [{ label: viewer.cover.label, onPress: viewer.cover.onPress }] : []),
+        ...(viewer.onReport ? [{ label: "신고", onPress: viewer.onReport }] : []),
       ];
 
   // 꾸밀 수 없는 사람에게는 「꾸미기」 한 줄도 주지 않는다. 다만 남의 카드를 열어
@@ -567,12 +660,22 @@ export function TripCardsSection({
   const decorReady = canEdit || Boolean(openId);
   const decor: ViewerDecor | undefined = decorReady
     ? {
-        open: Boolean(openId),
+        open: toolsOpen,
         onOpen: startDecor,
         onBack: leaveDecor,
         onSave: () => void saveCard(),
         saveLabel: readOnly || !tripId ? "닫기" : "저장",
         menu: cardMenu,
+        viewMenu,
+        preview: previewing && card
+          ? <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} />
+          : undefined,
+        // 기간과 지역은 카드 얼굴에 이미 적혀 있다. 아래에는 어떤 틀에 사진 몇 장인지만
+        // 둔다. 두 줄이 되면 스트립이 밀린다.
+        previewTitle: text.title || tripName,
+        previewMeta: open?.label ?? "아직 저장하지 않은 카드",
+        cards: cardStrip,
+        onViewCard: openTile,
         busyText: busy ? "카드를 만드는 중이에요" : undefined,
         body: card ? (
           <CardDecorTools
@@ -603,8 +706,8 @@ export function TripCardsSection({
       visible={Boolean(viewer.photos[viewer.index]) || Boolean(openId)}
       photos={viewer.photos}
       index={viewer.index}
-      onMove={viewer.onMove}
-      onClose={closeAll}
+      onMove={viewPhoto}
+      onClose={closeWindow}
       onSave={viewer.onSave}
       saving={viewer.saving}
       saveBlocked={viewer.saveBlocked}

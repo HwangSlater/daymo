@@ -10,7 +10,7 @@
  */
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, PanResponder, StyleSheet, View } from "react-native";
+import { Animated, Image, PanResponder, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "./AppText";
 import { Glyph, type GlyphName } from "./Glyph";
@@ -22,6 +22,7 @@ import {
 } from "./cardDecor";
 import { typo } from "./theme/typography";
 import {
+  isBareStyle,
   isCutStyle,
   keepsakeFrameOf,
   keepsakeRowSlots,
@@ -42,7 +43,10 @@ export type CardPhoto = {
 type KeepsakeLook = { paper: string; ink: string; sub: string; accent: string; frame: string };
 
 /** 카드 스타일마다의 색. 사진 위에 글씨가 얹힐 수 있어 어느 스타일이든 대비가 세야 한다. */
-const KEEPSAKE_LOOK: Record<"필름" | "엽서" | "스크랩북", KeepsakeLook> = {
+const KEEPSAKE_LOOK: Record<"없음" | "필름" | "엽서" | "스크랩북", KeepsakeLook> = {
+  // 종이가 없다. 글은 사진 위에 얹히므로 밝은 글자와 옅은 그늘만 쓴다. `paper` 는
+  // 사진이 아직 안 왔을 때만 잠깐 보이는 바탕이다.
+  없음: { paper: "#17161C", ink: "#F8F5F0", sub: "#E7DFD2", accent: "#F0C27A", frame: "#2A2933" },
   필름: { paper: "#171615", ink: "#F6F1E7", sub: "#B5AB9E", accent: "#E7B4A6", frame: "#33302C" },
   엽서: { paper: "#FFFFFF", ink: "#2C2A28", sub: "#7C7266", accent: "#3F4C8F", frame: "#E7DFD2" },
   스크랩북: { paper: "#F1E9DA", ink: "#33302B", sub: "#7E756A", accent: "#C0693F", frame: "#E0D1B8" },
@@ -75,10 +79,29 @@ export const STICKER_LOOK: Record<KeepsakeSticker, { glyph: GlyphName; color: st
   반짝: { glyph: "sparkle", color: "#F2D479" },
 };
 
+/**
+ * 사진 위에 글을 얹을 때 까는 아래쪽 그늘.
+ *
+ * 한 겹짜리 판으로 깔면 그 윗변이 사진을 가로지르는 금으로 보인다. 세로로 긴
+ * 카드에서 특히 눈에 띈다. 옅은 띠를 높이만 달리해 여러 겹 포개 아래로 갈수록
+ * 짙어지게 한다. 그림(SVG)이 아니라 판이라 내보낼 때 찍히는 모습이 화면과 같다.
+ */
+const SCRIM_BANDS = [56, 44, 34, 26, 19, 13, 8];
+
+function Scrim() {
+  return (
+    <>
+      {SCRIM_BANDS.map((높이) => (
+        <View key={높이} style={[styles.scrimBand, { height: `${높이}%` }]} pointerEvents="none" />
+      ))}
+    </>
+  );
+}
+
 export const lookOf = (card: KeepsakeCard): KeepsakeLook =>
   isCutStyle(card.style)
     ? KEEPSAKE_FRAME_LOOK[card.frameColor]
-    : KEEPSAKE_LOOK[card.style as "필름" | "엽서" | "스크랩북"];
+    : KEEPSAKE_LOOK[card.style as "없음" | "필름" | "엽서" | "스크랩북"];
 
 /** 꾸미기 화면이 넘기는 것. 없으면 그냥 그리기만 한다(미리보기·내보내기). */
 export type DecorEdit = {
@@ -227,6 +250,8 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   stamp,
   big,
   edit,
+  showEmptySlots,
+  onPickSlot,
   onPhotoReady,
 }: {
   shotRef?: React.RefObject<View | null>;
@@ -241,14 +266,31 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   big: boolean;
   /** 꾸미기 화면에서만 넘긴다. 스티커를 끌 수 있게 된다. */
   edit?: DecorEdit;
+  /**
+   * 틀의 빈 칸까지 그릴지. 꾸미는 중에만 참이다.
+   *
+   * 「네컷」을 골랐는데 사진이 한 장이면 예전에는 틀을 한 칸으로 줄였다. 세로로 긴
+   * 카드에 사진 한 장이 꽉 차 늘어난 것처럼 보였고, 무엇을 하면 네컷이 되는지도
+   * 알 수 없었다. 꾸미는 동안에는 빈 칸을 점선으로 그리고 눌러 채우게 한다.
+   * 내보낼 때와 미리보기에서는 끈다. 빈 칸이 그림으로 남으면 안 된다.
+   */
+  showEmptySlots?: boolean;
+  /** 빈 칸을 눌렀을 때. 그 칸에 넣을 사진을 고르는 자리로 데려간다. */
+  onPickSlot?: (index: number) => void;
   /** 사진 한 장이 다 그려졌을 때. 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. */
   onPhotoReady?: (key: string) => void;
 }) {
   const look = lookOf(card);
   const size = keepsakeSizeOf(card.ratio, card.style);
   const 네컷 = isCutStyle(card.style);
-  const 위에_얹는다 = !네컷 && card.ratio === "가로";
-  const frame = useMemo(() => keepsakeFrameOf(card.style, photos.length), [card.style, photos.length]);
+  // 종이가 없으면 사진이 칸을 다 쓴다. 글을 아래에 두면 놓을 종이가 없으므로
+  // 가로 카드와 같이 사진 위에 옅은 그늘을 깔고 얹는다.
+  const 종이없음 = isBareStyle(card.style);
+  const 위에_얹는다 = 종이없음 || (!네컷 && card.ratio === "가로");
+  const frame = useMemo(
+    () => keepsakeFrameOf(card.style, photos.length, showEmptySlots),
+    [card.style, photos.length, showEmptySlots],
+  );
   const 좁은_띠 = card.style === "네컷 가로";
   // 줄마다 몇 번째 사진부터인지. 그리면서 세면 같은 사진이 두 칸에 들어간다.
   const 줄 = useMemo(() => keepsakeRowSlots(frame.rows), [frame.rows]);
@@ -256,6 +298,22 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   const 칸 = (photo: CardPhoto | undefined, 내_자리: number) => {
     const 설명 = 네컷 ? keepsakeSlotCaption(photo?.caption, card.photoCaptions) : "";
     const 마지막_칸 = 내_자리 === frame.slots - 1;
+    // 꾸미는 중의 빈 칸. 점선과 ＋ 로 「여기에 넣으세요」를 눈에 보이게 한다.
+    if (!photo && showEmptySlots) {
+      return (
+        <Pressable
+          key={`blank-${내_자리}`}
+          onPress={() => onPickSlot?.(내_자리)}
+          accessibilityRole="button"
+          accessibilityLabel={`${내_자리 + 1}번째 칸에 사진 넣기`}
+          style={styles.cell}
+        >
+          <View style={[styles.cellEmpty, { borderColor: look.sub }]}>
+            <Text style={[styles.cellEmptyMark, { color: look.sub }]}>＋</Text>
+          </View>
+        </Pressable>
+      );
+    }
     return (
       <View key={photo?.id ?? `blank-${내_자리}`} style={styles.cell}>
         <View style={[styles.cellPhoto, { backgroundColor: photo?.color ?? look.frame }]}>
@@ -334,6 +392,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
       style={[
         styles.card,
         네컷 && styles.cardCut,
+        종이없음 && styles.cardBare,
         { width: size.width, height: size.height, backgroundColor: look.paper },
       ]}
     >
@@ -349,11 +408,12 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           styles.photoArea,
           card.style === "스크랩북" && styles.photoAreaTilt,
           네컷 && styles.photoAreaCut,
+          종이없음 && styles.photoAreaBare,
           { borderColor: look.frame },
         ]}
       >
         {줄.map((한_줄, index) => (
-          <View key={`row-${index}`} style={[styles.photoRow, 네컷 && styles.photoRowCut]}>
+          <View key={`row-${index}`} style={[styles.photoRow, 네컷 && styles.photoRowCut, 종이없음 && styles.photoRowBare]}>
             {Array.from({ length: 한_줄.count }, (_, slot) => 칸(photos[한_줄.start + slot], 한_줄.start + slot))}
           </View>
         ))}
@@ -363,7 +423,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           </View>
         )}
         {card.style === "스크랩북" && <View style={styles.tape} />}
-        {위에_얹는다 && <View style={styles.scrim} />}
+        {위에_얹는다 && <Scrim />}
         {위에_얹는다 && copy}
       </View>
       {!위에_얹는다 && copy}
@@ -415,6 +475,10 @@ const styles = StyleSheet.create({
   card: { borderRadius: 14, padding: 12, overflow: "hidden" },
   // 사진관에서 뽑는 네컷은 테두리가 얇고 모서리가 각지다.
   cardCut: { borderRadius: 6, padding: 8 },
+  // 종이 없는 카드. 여백도 사진 사이 간격도 없이 사진이 칸을 다 쓴다.
+  cardBare: { padding: 0 },
+  photoAreaBare: { borderRadius: 0, gap: 0 },
+  photoRowBare: { gap: 0 },
   filmHoles: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   filmHole: { width: 18, height: 7, borderRadius: 2 },
   photoArea: { flex: 1, borderRadius: 8, overflow: "hidden", gap: 3 },
@@ -427,6 +491,16 @@ const styles = StyleSheet.create({
   cell: { flex: 1, minWidth: 0 },
   cellPhoto: { flex: 1, overflow: "hidden" },
   cellCaption: { fontSize: 7, lineHeight: 10, marginTop: 1, textAlign: "center" },
+  // 꾸미는 중의 빈 칸. 점선이라 「아직 안 채운 자리」로 읽힌다.
+  cellEmpty: {
+    flex: 1,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.7,
+  },
+  cellEmptyMark: { fontSize: 18 },
   // 얹은 것. 자리와 각도는 transform 으로만 준다. 끄는 동안 다시 그리지 않으려면
   // left/top 이 아니라 transform 이어야 한다.
   decor: { position: "absolute", left: 0, top: 0, alignItems: "center", justifyContent: "center" },
@@ -485,7 +559,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "-4deg" }],
   },
   // 가로 카드는 글이 사진 위에 얹힌다. 밝은 사진에서도 읽히도록 아래를 어둡게 깐다.
-  scrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "62%", backgroundColor: "rgba(12,11,10,0.55)" },
+  scrimBand: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "rgba(12,11,10,0.11)" },
   copy: { paddingTop: 10, gap: 2 },
   copyOver: { position: "absolute", left: 10, right: 10, bottom: 10, paddingTop: 0 },
   // 네컷의 아래 여백. 사진관에서 뽑은 것처럼 가운데로 모은다.

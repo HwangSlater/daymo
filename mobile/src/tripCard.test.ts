@@ -17,6 +17,8 @@ import {
   keepsakeSlotCaption,
   keepsakeStatLines,
   keepsakeTextOf,
+  keepsakePhotoFullReason,
+  moveKeepsakePhoto,
   peopleLineOf,
   sameKeepsakeCard,
   suggestedStyleOf,
@@ -107,8 +109,40 @@ test("사진은 넷까지 고르고 한 장은 남는다", () => {
   assert.deepEqual(toggleKeepsakePhoto(["a", "b"], "a"), ["b"]);
   // 마지막 한 장은 빼지 않는다. 사진 없는 카드는 빈 칸이다.
   assert.deepEqual(toggleKeepsakePhoto(["a"], "a"), ["a"]);
-  // 넘치면 가장 먼저 고른 것이 밀려난다.
-  assert.deepEqual(toggleKeepsakePhoto(["a", "b", "c", "d"], "e"), ["b", "c", "d", "e"]);
+  // 꽉 찼으면 그대로 둔다. 말없이 밀어내면 무엇이 빠졌는지 알 수 없다.
+  assert.deepEqual(toggleKeepsakePhoto(["a", "b", "c", "d"], "e"), ["a", "b", "c", "d"]);
+  assert.equal(keepsakePhotoFullReason(["a", "b", "c"]), "");
+  assert.ok(keepsakePhotoFullReason(["a", "b", "c", "d"]).includes("4장까지"));
+});
+
+test("종이 없는 프레임도 비율과 배치를 그대로 쓴다", () => {
+  // 종이를 안 끼워도 사진을 어떤 비율로 담을지는 여전히 고를 일이다.
+  assert.deepEqual(keepsakeSizeOf("정사각", "없음"), { width: 300, height: 300, exportWidth: 1080, exportHeight: 1080 });
+  assert.deepEqual(keepsakeFrameOf("없음", 4).rows, [2, 2]);
+  assert.equal(keepsakeFrameOf("없음", 4).notice, "");
+  // 홈 화면에도 같은 배치로 담긴다.
+  assert.deepEqual(homeCoverRows("없음", 3), [1, 2]);
+  assert.equal(homeCardBlockedReason("없음", 4), "");
+});
+
+test("고른 사진의 차례를 한 칸씩 옮긴다", () => {
+  assert.deepEqual(moveKeepsakePhoto(["a", "b", "c"], "b", true), ["b", "a", "c"]);
+  assert.deepEqual(moveKeepsakePhoto(["a", "b", "c"], "b", false), ["a", "c", "b"]);
+  // 끝에서 더 가면 그대로 둔다. 없는 사진도 그대로다.
+  assert.deepEqual(moveKeepsakePhoto(["a", "b"], "a", true), ["a", "b"]);
+  assert.deepEqual(moveKeepsakePhoto(["a", "b"], "b", false), ["a", "b"]);
+  assert.deepEqual(moveKeepsakePhoto(["a", "b"], "z", true), ["a", "b"]);
+});
+
+test("꾸미는 중에는 틀의 칸을 다 펴 두고, 내보낼 때는 채운 만큼 줄인다", () => {
+  const 펴둔_것 = keepsakeFrameOf("네컷", 1, true);
+  assert.deepEqual(펴둔_것.rows, [1, 1, 1, 1]);
+  assert.equal(펴둔_것.slots, 4);
+  // 안내는 펴 두었는지와 상관없이 실제로 채운 수로 센다.
+  assert.equal(펴둔_것.notice, "사진 3장을 더 고르면 4컷으로 꽉 차요");
+  assert.equal(keepsakeFrameOf("네컷", 1).slots, 1);
+  // 네컷 틀이 아니면 펴 둘 빈 칸이 없다.
+  assert.deepEqual(keepsakeFrameOf("필름", 1, true).rows, [1]);
 });
 
 test("사진 수에 맞는 배치와 비율마다의 크기", () => {

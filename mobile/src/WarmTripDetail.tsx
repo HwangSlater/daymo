@@ -8926,6 +8926,26 @@ function Memories({
       showAlert("홈 화면 사진을 바꾸지 못했어요", COVER_FAIL);
     }
   };
+  /**
+   * 크게 보고 있는 사진을 홈 화면의 여행 카드에 깐다.
+   *
+   * 고치기 화면에도 같은 것이 있지만 그쪽은 「고치는 중인 사진」에 대한 것이다.
+   * 홈에 까는 일은 크게 보는 자리에도 있어야 한다. 지금 보고 있는 것을 홈에 까는
+   * 일이라, 고치러 들어가야 보이면 고칠 생각이 없는 사람은 찾지 못한다.
+   */
+  const viewCover = coverToggleOf(viewingPhotoId ?? undefined, coverPhotoId, "photo");
+  const canSetViewCover = canEdit && Boolean(onSaveHomeCover) && coverPickable(viewingPhotoId, uploadedPhotoIds ?? new Set());
+  const toggleViewCover = async () => {
+    if (!onSaveHomeCover || !viewingPhotoId) return;
+    const uri = photos.find((photo) => photo.id === viewingPhotoId)?.uri;
+    try {
+      await onSaveHomeCover({ coverPhotoId: viewCover.next }, { [viewingPhotoId]: uri });
+      setPhotoToast(viewCover.done);
+    } catch {
+      // 크게 보는 창이 여행 화면을 덮고 있어 바닥의 토스트는 가려진다.
+      setPhotoToast(COVER_FAIL);
+    }
+  };
   const openDiaryCreate = () => {
     setEditingDiaryId(null);
     setDiaryTitle("");
@@ -9193,6 +9213,10 @@ function Memories({
           waitingText: viewing && uploadingPhotoIds.has(viewing.id)
             ? (blockedPhotoIds.has(viewing.id) ? "아직 못 올린 사진이에요" : "올리는 중이에요")
             : undefined,
+          cover: canSetViewCover || viewCover.on
+            ? { label: viewCover.label, onPress: () => void toggleViewCover() }
+            : undefined,
+          onNotice: setPhotoToast,
         }}
       />
       {/* 고치기도 전용 화면이다. 시트 안에서 사진을 작게 보며 고치던 자리를 옮겼다. */}

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
+import { backClosesMe, dropLayer, raiseLayer } from "./backLayers";
+
 /**
  * 웹에서 브라우저 뒤로 가기로 시트와 여행 상세를 닫는다.
  *
@@ -10,8 +12,13 @@ import { Platform } from "react-native";
  *
  * 그래서 열릴 때 방문 기록을 한 칸 쌓아 두고, 뒤로 가기가 그 칸을 걷어내면 닫는다.
  * 쌓은 칸에는 우리가 만든 표를 넣어 둔다. `popstate` 는 열려 있는 모든 겹에
- * 전해지므로, 표가 아직 맨 위에 남아 있으면 내 칸이 아닌 것이고 가만히 둔다.
- * 시트 위에 시트가 겹쳐도 맨 위의 것 하나만 닫힌다.
+ * 전해지므로 누가 답할지를 가려야 한다. 표가 아직 맨 위에 남아 있는지와, 지금
+ * 열려 있는 것 중 내가 맨 위 겹인지를 함께 본다(`backLayers.ts`).
+ *
+ * 둘째 조건이 없으면 겹이 셋일 때 아래 것까지 함께 닫혔다. 사진 크게 보기 위에
+ * 고치기를 열고 「취소」를 누르면 고치기 칸이 걷히는데, 그때 여행 상세가 보기에도
+ * 「내 표가 맨 위가 아니다」라서 자기가 걷힌 줄 알고 같이 닫혔다. 사진 고치기를
+ * 취소했을 뿐인데 홈으로 떨어졌다.
  *
  * 닫기 버튼이나 바깥 누르기로 닫을 때는 쌓아 둔 칸을 직접 걷어낸다. 안 그러면
  * 쓸모없는 칸이 쌓여 뒤로 가기를 몇 번씩 눌러야 페이지를 벗어난다.
@@ -24,6 +31,9 @@ const isWeb = Platform.OS === "web";
 
 /** 겹칠 때 서로를 구분하려고 붙이는 번호. */
 let 순번 = 0;
+
+/** 지금 열려 있는 겹들의 표. 칸을 쌓은 차례대로고 맨 뒤가 가장 위다. */
+let 겹: string[] = [];
 
 /**
  * 닫기가 정말 닫았는지 확인하기까지 기다리는 시간(ms).
@@ -51,16 +61,19 @@ export function useWebBackClose(active: boolean, onClose: () => void) {
     if (typeof window === "undefined" || !window.history) return;
     순번 += 1;
     const 표 = `daymo-${순번}`;
-    const push = () =>
+    const push = () => {
+      // 겹 목록은 칸을 쌓는 그 자리에서 함께 올린다. 그래야 목록 차례와 방문 기록
+      // 차례가 늘 같다(React 가 어느 겹의 effect 를 먼저 부르든 상관없다).
+      겹 = raiseLayer(겹, 표);
       window.history.pushState({ ...(window.history.state as object | null), daymoBack: 표 }, "");
-    const 내칸이_맨위 = () => (window.history.state as BackState)?.daymoBack === 표;
+    };
     push();
     let 살아있다 = true;
     let 걷혔다 = false;
     let 재확인: ReturnType<typeof setTimeout> | undefined;
     const onPopState = () => {
-      // 내 칸이 아직 맨 위면 다른 겹이 닫힌 것이다. 가만히 둔다.
-      if (내칸이_맨위()) return;
+      // 내 위에 아직 누가 열려 있거나 내 칸이 아직 맨 위면 내 일이 아니다.
+      if (!backClosesMe(표, 겹, (window.history.state as BackState)?.daymoBack)) return;
       걷혔다 = true;
       onCloseRef.current();
       재확인 = setTimeout(() => {
@@ -74,6 +87,9 @@ export function useWebBackClose(active: boolean, onClose: () => void) {
       살아있다 = false;
       clearTimeout(재확인);
       window.removeEventListener("popstate", onPopState);
+      // 겹 목록에서 먼저 빠진다. 아래에서 부르는 `back()` 이 일으킬 `popstate` 가
+      // 올 때는 이미 닫힌 겹이라, 남아 있으면 자기 자리를 두 번 세게 된다.
+      겹 = dropLayer(겹, 표);
       // 뒤로 가기로 닫힌 게 아니라면 쌓아 둔 칸은 아직 남아 있다. 직접 걷어낸다.
       if (!걷혔다) window.history.back();
     };
