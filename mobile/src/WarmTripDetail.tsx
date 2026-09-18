@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { maskClockTime, settleClockTime } from "./clock";
 import { SheetShell, sheetHeadStyles } from "./ui/SheetShell";
 import { Chip, ChipRow } from "./ui/Chip";
 import { Segment, 세그먼트_최대 } from "./ui/Segment";
+import { TimeWheel } from "./ui/TimeWheel";
 import { OptionalFormSection as SharedOptionalFormSection } from "./ui/OptionalFormSection";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
@@ -152,7 +152,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
-import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
@@ -11385,50 +11384,16 @@ function OptionalFormSection(props: Omit<React.ComponentProps<typeof SharedOptio
   return <SharedOptionalFormSection {...props} theme={theme} editable={editable} />;
 }
 
-const timeAsDate = (value: string, fallback: string) => {
-  const [hours, minutes] = (value || fallback).split(":").map(Number);
-  const date = new Date(2000, 0, 1, Number.isFinite(hours) ? hours : 12, Number.isFinite(minutes) ? minutes : 0);
-  return date;
-};
-
-const formatClockTime = (date: Date) =>
-  `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-
-/** 안드로이드의 시·분 돌리기 창. 큰 시간 버튼과 한 줄짜리 시간 행이 같이 쓴다. */
-const openAndroidClock = ({
-  value,
-  fallback,
-  optional,
-  title,
-  onChange,
-}: {
-  value: string;
-  fallback: string;
-  optional: boolean;
-  title: string;
-  onChange: (value: string) => void;
-}) => {
-  if (Platform.OS !== "android") return;
-  DateTimePickerAndroid.open({
-    value: timeAsDate(value, fallback),
-    mode: "time",
-    display: "spinner",
-    is24Hour: true,
-    title,
-    positiveButton: { label: "확인" },
-    negativeButton: { label: "취소" },
-    neutralButton: optional ? { label: "시간 미정" } : undefined,
-    onValueChange: (_, date) => onChange(formatClockTime(date)),
-    onNeutralButtonPress: optional ? () => onChange("") : undefined,
-  });
-};
-
 /**
- * 「시간  11:00 ›」 꼴의 한 줄. 라벨이 왼쪽, 값이 오른쪽이다.
+ * 「시간  11:00 ›」 꼴의 한 줄. 누르면 그 자리에서 시각 고르기가 펼쳐진다.
  *
  * 시간처럼 값 하나만 적는 칸은 라벨 줄 + 입력 상자 두 층(약 80px)보다 이 한 줄이
  * 낮다. 주 입력 아래에 세그먼트 두 줄과 이 줄까지 놓아도 키보드가 올라온 시트에
- * 들어간다. 안드로이드는 눌러서 돌리는 창을 열고, 그 밖에서는 자리에서 친다.
+ * 들어간다.
+ *
+ * 예전에는 안드로이드만 돌리는 창을 열고 아이폰·웹은 맨 글자 칸이었다. 플랫폼마다
+ * 다른 데다, 키패드만 주는 방식은 시장에 거의 없다(`ui/TimeWheel` 머리말 참고).
+ * 이제 세 곳 다 같은 것을 쓴다.
  */
 function TimeRow({
   label,
@@ -11444,37 +11409,37 @@ function TimeRow({
   optional?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
+  const [열림, set열림] = useState(false);
   return (
-    <View style={[styles.valueRow, theme && { borderBottomColor: theme.border }]}>
-      {/* 좁은 폰에서 「출발 시간 (선택)」이 두 줄로 꺾였다. 한 줄로 못 박는다. */}
-      <Text numberOfLines={1} style={[styles.valueRowLabel, theme && { color: theme.text }]}>{label}</Text>
-      {Platform.OS === "android" ? (
+    <>
+      <View style={[styles.valueRow, theme && { borderBottomColor: theme.border }]}>
+        {/* 좁은 폰에서 「출발 시간 (선택)」이 두 줄로 꺾였다. 한 줄로 못 박는다. */}
+        <Text numberOfLines={1} style={[styles.valueRowLabel, theme && { color: theme.text }]}>{label}</Text>
         <Pressable
-          onPress={() => openAndroidClock({ value, fallback, optional, title: label, onChange })}
+          onPress={() => set열림((앞) => !앞)}
           accessibilityRole="button"
+          accessibilityState={{ expanded: 열림 }}
           accessibilityLabel={`${label}, ${value || "시간 미정"}`}
-          accessibilityHint="위아래로 돌려 시와 분을 골라요"
+          accessibilityHint="눌러서 시와 분을 골라요"
           style={({ pressed }) => [styles.valueRowAction, pressed && styles.controlPressed]}
         >
           <Text style={[styles.valueRowValue, theme && { color: value ? theme.text : theme.muted }]}>
             {value || "시간 미정"}
           </Text>
-          <Glyph name="chevronRight" size={16} color={theme?.muted ?? "#9AA1AE"} />
+          <Glyph name={열림 ? "chevronDown" : "chevronRight"} size={16} color={theme?.muted ?? "#9AA1AE"} />
         </Pressable>
-      ) : (
-        <TextInput
-          accessibilityLabel={label}
+      </View>
+      {열림 && (
+        <TimeWheel
+          theme={theme}
+          label={label}
           value={value}
-          onChangeText={(text) => onChange(maskClockTime(text))}
-          onBlur={() => onChange(settleClockTime(value))}
-          placeholder={optional ? "시간 미정" : fallback}
-          placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-          keyboardType="numeric"
-          maxLength={5}
-          style={[styles.valueRowInput, theme && { color: theme.text }]}
+          fallback={fallback}
+          optional={optional}
+          onChange={onChange}
         />
       )}
-    </View>
+    </>
   );
 }
 
