@@ -17,7 +17,7 @@
  *   오전·오후로 두면 같은 시각이 두 가지로 보인다.
  */
 import { useEffect, useRef, useState } from "react";
-import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 
 import { Text } from "../AppText";
 import { maskClockTime, settleClockTime } from "../clock";
@@ -36,6 +36,9 @@ const 기본_분 = Array.from({ length: 12 }, (_, i) => i * 5);
 /** 지금 분이 5의 배수가 아니면(19:44 같은 기차 시각) 그 분도 끼워 넣는다. */
 const 분_목록 = (지금: number) =>
   기본_분.includes(지금) ? 기본_분 : [...기본_분, 지금].sort((a, b) => a - b);
+
+/** 웹에서만 뜻이 있는 스타일. 기기에서는 무시된다. */
+const 굴림_가두기 = Platform.OS === "web" ? ({ overscrollBehavior: "contain" } as object) : null;
 
 const 두자리 = (n: number) => String(n).padStart(2, "0");
 const 시각_읽기 = (value: string, fallback: string) => {
@@ -109,7 +112,8 @@ function WheelColumn({
         // 아무 일도 일어나지 않아서, 높이가 정해진 뒤에 한 번 더 맞춘다.
         onLayout={() => 자리로(고른칸, false)}
         contentContainerStyle={{ paddingVertical: (통_높이 - 칸) / 2 }}
-        style={{ height: 통_높이 }}
+        // 웹: 칸의 끝에 닿아도 시트로 굴림이 넘어가지 않게 막는다.
+        style={[{ height: 통_높이 }, 굴림_가두기]}
       >
         {values.map((item) => {
           const 골랐나 = item === value;
@@ -219,12 +223,15 @@ export function TimeWheel({
           </Pressable>
         )}
       </View>
+      {/* 두 칸이 상자를 반씩 나눠 가진다. 숫자 폭(74)만 손가락을 받던 때에는
+          조금만 빗나가도 시트가 대신 움직였다. 가운뎃점은 띄워 두어 손가락을
+          먹지 않는다. */}
       <View style={styles.wheels}>
         {/* 가운데 한 칸을 띠로 덮어 「여기가 고른 것」임을 보인다. */}
         <View pointerEvents="none" style={[styles.band, theme && { backgroundColor: theme.primarySoft }]} />
         <WheelColumn theme={theme} label="시" values={시_목록} value={시} onChange={(다음) => 맞추기(다음, 분)} />
-        <Text style={[styles.colon, theme && { color: theme.muted }]}>:</Text>
         <WheelColumn theme={theme} label="분" values={분_목록(분)} value={분} onChange={(다음) => 맞추기(시, 다음)} />
+        <Text pointerEvents="none" style={[styles.colon, theme && { color: theme.muted }]}>:</Text>
       </View>
     </View>
   );
@@ -247,12 +254,22 @@ const styles = StyleSheet.create({
   },
   clear: { height: 높이.칩, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   clearText: { fontSize: 12.5, fontFamily: typo.label.family },
-  wheels: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6 },
+  wheels: { flexDirection: "row", alignItems: "center", marginTop: 6 },
   band: { position: "absolute", left: 0, right: 0, top: (통_높이 - 칸) / 2, height: 칸, borderRadius: 10 },
-  column: { width: 74 },
+  column: { flex: 1 },
   cell: { height: 칸, alignItems: "center", justifyContent: "center" },
   cellText: { fontSize: 18, fontFamily: typo.data.family },
   cellTextOn: { fontSize: 22 },
-  colon: { fontSize: 18, fontFamily: typo.data.family, marginBottom: 2 },
+  colon: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: (통_높이 - 칸) / 2,
+    height: 칸,
+    textAlign: "center",
+    lineHeight: 칸,
+    fontSize: 18,
+    fontFamily: typo.data.family,
+  },
   pressed: { opacity: 0.7 },
 });

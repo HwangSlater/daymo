@@ -5033,11 +5033,68 @@ function Places({
               <View style={styles.placeMiniInfo}>
                 <View style={styles.placeMiniTitleRow}>
                   <Text numberOfLines={1} style={[styles.placeMiniName, { color: theme?.text ?? "#17233D" }]}>{place.name}</Text>
-                  <View style={[styles.placeMiniStatus, { backgroundColor: `${statusTone}1E` }]}>
-                    <Text style={[styles.placeMiniStatusText, { color: statusTone }]}>{statusLabel}</Text>
-                  </View>
+                  {/* 오른쪽 위 한 자리. 할 일이 남았으면(아직 일정에 안 담김, 아직 대표
+                      숙소가 아님) 그 일을 작은 알약으로 두고, 아니면 상태 배지를 둔다.
+                      예전에는 「후보」 배지와 진한 「담기」 단추가 나란히 있어 둘이
+                      같은 말을 두 번 하면서 자리를 다퉜다. */}
+                  {!settled && canEdit ? (
+                    place.category === "숙소" ? (
+                      <Pressable
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          onRegisterStay(place);
+                          notify(`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정했어요`);
+                        }}
+                        hitSlop={누름여유(28)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정`}
+                        style={({ pressed }) => [
+                          styles.placeMiniAction,
+                          { backgroundColor: `${theme?.secondary ?? "#2F7F76"}1E` },
+                          pressed && styles.controlPressed,
+                        ]}
+                      >
+                        <Text style={[styles.placeMiniActionText, { color: theme?.secondary ?? "#2F7F76" }]}>＋ 대표 숙소</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={(event) => { event.stopPropagation(); choose(index); }}
+                        hitSlop={누름여유(28)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${place.name} 일정에 담기`}
+                        style={({ pressed }) => [
+                          styles.placeMiniAction,
+                          { backgroundColor: theme?.primarySoft ?? "#E6E9F5" },
+                          pressed && styles.controlPressed,
+                        ]}
+                      >
+                        <Text style={[styles.placeMiniActionText, { color: theme?.primary ?? "#3F4C8F" }]}>＋ 일정에 담기</Text>
+                      </Pressable>
+                    )
+                  ) : (
+                    <View style={[styles.placeMiniStatus, { backgroundColor: `${statusTone}1E` }]}>
+                      <Text style={[styles.placeMiniStatusText, { color: statusTone }]}>{statusLabel}</Text>
+                    </View>
+                  )}
                 </View>
-                <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.category} · {place.area}</Text>
+                {/* 지도는 링크라 글 줄에 붙인다. 오른쪽에 단추로 두면 「담기」와
+                    나란히 쌓여 카드 높이가 곳마다 달라졌다. */}
+                <View style={styles.placeMiniMetaRow}>
+                  <Text numberOfLines={1} style={[styles.placeMiniMeta, { color: theme?.muted ?? "#727C8D" }]}>{place.category} · {place.area}</Text>
+                  {place.mapUrl ? (
+                    <MapLink theme={theme} url={place.mapUrl} small subject={place.name} />
+                  ) : canEdit ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${place.name} 지도 링크 넣기`}
+                      onPress={(event) => { event.stopPropagation(); openEdit(place); }}
+                      hitSlop={누름여유(높이.칩)}
+                      style={[styles.placeMiniMapButton, theme && { backgroundColor: theme.surfaceAlt }]}
+                    >
+                      <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>＋ 링크</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
                 {booked && (
                   <View style={[styles.placeMiniBooking, { backgroundColor: `${theme?.primary ?? "#FF6B63"}1E` }]}>
                     <Text style={[styles.placeMiniBookingText, { color: theme?.primary ?? "#FF6B63" }]}>
@@ -5051,48 +5108,6 @@ function Places({
                 <SyncMark id={place.id} />
                 <PhotoStrip photos={photosLinkedTo(photos, "place", place.id)} label={place.name} />
               </View>
-            </View>
-            <View style={styles.placeMiniActions}>
-              {place.mapUrl ? (
-                <MapLink
-                  theme={theme}
-                  url={place.mapUrl}
-                  compact
-                  subject={place.name}
-                />
-              ) : canEdit ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${place.name} 지도 링크 넣기`}
-                  onPress={(event) => { event.stopPropagation(); openEdit(place); }}
-                  style={[styles.placeMiniMapButton, theme && { backgroundColor: theme.surfaceAlt }]}
-                >
-                  <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>＋ 링크</Text>
-                </Pressable>
-              ) : null}
-              {settled || !canEdit ? null : place.category === "숙소" ? (
-                <Pressable
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    onRegisterStay(place);
-                    notify(`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정했어요`);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정`}
-                  style={[styles.placeMiniPlanButton, { backgroundColor: theme?.secondary }]}
-                >
-                  <Text style={styles.placeMiniPlanText}>대표 숙소로 설정</Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  onPress={() => choose(index)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${place.name} 일정에 담기`}
-                  style={[styles.placeMiniPlanButton, { backgroundColor: theme?.primary }]}
-                >
-                  <Text style={styles.placeMiniPlanText}>일정에 담기</Text>
-                </Pressable>
-              )}
             </View>
           </Pressable>
           );
@@ -11679,9 +11694,7 @@ function InfoPanel({
           </Pressable>
         </View>
       )}
-      // 입력 칸이 없어 키보드를 피할 일이 없고, 안쪽 여백은 패널에 담기는 줄들이
-      // 직접 가지고 있다.
-      keyboardAvoiding={false}
+      // 안쪽 여백은 패널에 담기는 줄들이 직접 가지고 있다.
       padBody={false}
     >
       {children}
@@ -13994,8 +14007,11 @@ const styles = StyleSheet.create({
   placeMiniTitleRow: { flexDirection: "row", alignItems: "center" },
   placeMiniName: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typo.title.family },
   placeMiniStatus: { height: 21, borderRadius: 8, paddingHorizontal: 6, alignItems: "center", justifyContent: "center", marginLeft: 6 },
+  /** 제목 줄 오른쪽의 할 일. 배지와 같은 자리에 놓여 배지보다 조금 크다. 손가락 자리는 hitSlop 으로 채운다. */
+  placeMiniAction: { height: 28, borderRadius: 999, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  placeMiniActionText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniStatusText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
+  placeMiniMeta: { flexShrink: 1, fontSize: 11, fontFamily: typo.caption.family },
   placeMiniMemo: { fontSize: 12, fontFamily: typo.body.family, marginTop: 4 },
   // 예약 배지는 줄 하나를 통째로 쓰지 않는다. 글자만큼만 차지하게 왼쪽에 붙인다.
   placeMiniBooking: { alignSelf: "flex-start", height: 21, borderRadius: 8, paddingHorizontal: 6, justifyContent: "center", marginTop: 4 },
@@ -14004,11 +14020,9 @@ const styles = StyleSheet.create({
   placeMiniTag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
   placeMiniTagText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMore: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 2 },
-  placeMiniActions: { flexShrink: 0, alignItems: "stretch", gap: 6 },
+  placeMiniMetaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
   placeMiniIconButton: { minWidth: 47, height: 44, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniEditText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniMapButton: { minWidth: 63, height: 높이.버튼, borderRadius: 모서리.버튼, paddingHorizontal: 여백.세로좁게, alignItems: "center", justifyContent: "center" },
+  placeMiniMapButton: { height: 28, borderRadius: 7, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniPlanButton: { height: 높이.버튼, borderRadius: 모서리.버튼, paddingHorizontal: 여백.세로좁게, alignItems: "center", justifyContent: "center" },
-  placeMiniPlanText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
 });

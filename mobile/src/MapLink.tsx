@@ -24,13 +24,15 @@ const badges = {
  *   chip    칩 모양. 목록 줄과 카드 안에 쓴다.
  *   inline  바탕 없이 글자만. 다른 글자 버튼과 한 줄에 놓일 때 쓴다.
  */
-export function MapLink({ theme, url, label, shape = "chip", compact = false, subject }: {
+export function MapLink({ theme, url, label, shape = "chip", compact = false, small = false, subject }: {
   theme?: AppTheme;
   url: string;
   /** 없으면 좁을 때 "지도", 아니면 "네이버 지도"·"카카오맵". */
   label?: string;
   shape?: "chip" | "inline";
   compact?: boolean;
+  /** 글 줄 옆에 붙는 가장 작은 판(28). 장소 카드의 분류·지역 줄에 쓴다. */
+  small?: boolean;
   /** 무엇을 여는지. 읽어 주기에 "<subject> 카카오맵에서 보기"로 쓴다. */
   subject: string;
 }) {
@@ -48,18 +50,19 @@ export function MapLink({ theme, url, label, shape = "chip", compact = false, su
         styles.base,
         shape === "chip" && styles.chip,
         shape === "chip" && compact && styles.chipCompact,
+        shape === "chip" && small && styles.chipSmall,
         shape === "chip" && theme && { backgroundColor: theme.surfaceAlt },
         shape === "inline" && styles.inline,
         pressed && styles.pressed,
       ]}
     >
       {badge && (
-        <View style={[styles.mark, compact && styles.markCompact, { backgroundColor: badge.fill }]}>
-          <Text style={[styles.markText, compact && styles.markTextCompact, { color: badge.text }]}>{badge.letter}</Text>
+        <View style={[styles.mark, (compact || small) && styles.markCompact, { backgroundColor: badge.fill }]}>
+          <Text style={[styles.markText, (compact || small) && styles.markTextCompact, { color: badge.text }]}>{badge.letter}</Text>
         </View>
       )}
-      <Text numberOfLines={1} style={[styles.label, compact && styles.labelCompact, { color: ink }]}>
-        {label ?? (compact ? "지도" : mapProviderName[provider])}
+      <Text numberOfLines={1} style={[styles.label, (compact || small) && styles.labelCompact, small && styles.labelSmall, { color: ink }]}>
+        {label ?? (compact || small ? "지도" : mapProviderName[provider])}
       </Text>
     </Pressable>
   );
@@ -69,6 +72,7 @@ const styles = StyleSheet.create({
   base: { flexDirection: "row", alignItems: "center", gap: 4 },
   chip: { alignSelf: "flex-start", minHeight: 44, borderRadius: 8, paddingHorizontal: 10 },
   chipCompact: { minHeight: 36, paddingHorizontal: 8 },
+  chipSmall: { minHeight: 28, paddingHorizontal: 7, borderRadius: 7 },
   inline: { flex: 1, minHeight: 44, justifyContent: "center" },
   pressed: { opacity: 0.7 },
   mark: {
@@ -83,4 +87,5 @@ const styles = StyleSheet.create({
   markTextCompact: { fontSize: 11, lineHeight: 14 },
   label: { fontSize: 14, fontFamily: typo.label.family },
   labelCompact: { fontSize: 13 },
+  labelSmall: { fontSize: 12 },
 });
