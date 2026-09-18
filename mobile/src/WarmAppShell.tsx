@@ -5211,7 +5211,20 @@ function Together({
    * 그 문제), 겹쳐 쌓는 대신 안에 그리는 것을 갈아 끼운다.
    */
   const 설정_안 = ["profile", "relationship", "account", "devices", "theme", "appearance", "help", "licenses", "deleteAccount", "deleteSpace"];
-  const 패널_닫기 = () => setPanel(panel && 설정_안.includes(panel) ? "settings" : null);
+  /**
+   * 설정을 거치지 않고 바로 연 화면. 「우리」 탭 오른쪽 위 동그란 단추는 내 프로필을
+   * 곧장 연다. 이때 닫으면 열어 본 적도 없는 설정 목록이 떠 화면이 안 닫혔다.
+   * 그러면 회색 바탕만 남은 것처럼 보이고, 한 번 더 눌러야 겨우 닫혔다.
+   */
+  const 바로_연_화면 = useRef<string | null>(null);
+  const 패널_닫기 = () => {
+    if (panel && panel === 바로_연_화면.current) {
+      바로_연_화면.current = null;
+      setPanel(null);
+      return;
+    }
+    setPanel(panel && 설정_안.includes(panel) ? "settings" : null);
+  };
   const panelTitle =
     panel === "settings"
       ? "설정"
@@ -5257,7 +5270,10 @@ function Together({
                 내렸는데, 눌러도 「어디로 갔다」는 느낌이 없고 닫을 방법도 없었다.
                 이제 「우리」 탭은 공간·멤버·기록만 맡는다. */}
             <Pressable
-              onPress={() => setPanel("settings")}
+              onPress={() => {
+                바로_연_화면.current = null;
+                setPanel("settings");
+              }}
               accessibilityRole="button"
               accessibilityLabel="설정 열기"
               style={[s.togetherSettingsButton, { backgroundColor: theme.surfaceAlt }]}
@@ -5266,7 +5282,10 @@ function Together({
               <Text style={[s.togetherSettingsText, { color: theme.muted }]}>설정</Text>
             </Pressable>
             <Pressable
-              onPress={() => setPanel("account")}
+              onPress={() => {
+                바로_연_화면.current = "account";
+                setPanel("account");
+              }}
               accessibilityRole="button"
               accessibilityLabel="내 프로필 열기"
               style={[s.togetherAccountButton, { backgroundColor: theme.primarySoft }]}

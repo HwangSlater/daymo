@@ -11445,7 +11445,8 @@ function TimeRow({
   const theme = useContext(DetailThemeContext);
   return (
     <View style={[styles.valueRow, theme && { borderBottomColor: theme.border }]}>
-      <Text style={[styles.valueRowLabel, theme && { color: theme.text }]}>{label}</Text>
+      {/* 좁은 폰에서 「출발 시간 (선택)」이 두 줄로 꺾였다. 한 줄로 못 박는다. */}
+      <Text numberOfLines={1} style={[styles.valueRowLabel, theme && { color: theme.text }]}>{label}</Text>
       {Platform.OS === "android" ? (
         <Pressable
           onPress={() => openAndroidClock({ value, fallback, optional, title: label, onChange })}
@@ -11638,7 +11639,8 @@ function StayDateTimePicker({
         <Text style={[styles.stayPickerValue, theme && { color: theme.primary }]}>{value}</Text>
       </View>
       <OptionField label="날짜" options={dates} value={date} onChange={onDateChange} />
-      <TimePickerField label="시간" value={timeText} onChange={onTimeText} fallback={time} />
+      {/* 시각은 일정·교통편·예약과 같은 한 줄짜리를 쓴다. 숙소만 큰 상자였다. */}
+      <TimeRow label="시간" value={timeText} onChange={onTimeText} fallback={time} />
     </View>
   );
 }
@@ -12508,10 +12510,10 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E2E0DA",
     marginBottom: 12,
   },
-  valueRowLabel: { fontSize: 14, fontFamily: typo.body.family },
-  valueRowAction: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 높이.버튼 },
+  valueRowLabel: { fontSize: 14, fontFamily: typo.body.family, flexShrink: 1 },
+  valueRowAction: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 높이.버튼, flexShrink: 0 },
   valueRowValue: { fontSize: 14, fontFamily: typo.data.family },
-  valueRowInput: { minWidth: 96, height: 높이.버튼, textAlign: "right", fontSize: 14, fontFamily: typo.data.family, paddingHorizontal: 0 },
+  valueRowInput: { minWidth: 96, height: 높이.버튼, textAlign: "right", fontSize: 14, fontFamily: typo.data.family, paddingHorizontal: 0, flexShrink: 0 },
   timePickerButton: {
     minHeight: 높이.저장,
     borderWidth: 1,
