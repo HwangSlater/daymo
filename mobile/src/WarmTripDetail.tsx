@@ -2959,6 +2959,7 @@ function TripOverview({
   const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
   const [transportOwner, setTransportOwner] = useState(participants[0] ?? "");
+  const [transportDirection, setTransportDirection] = useState<Transportation["direction"]>("가는 편");
   const [transportMethod, setTransportMethod] = useState<Transportation["method"]>("KTX");
   const [transportDate, setTransportDate] = useState(firstDay);
   const [transportDeparture, setTransportDeparture] = useState("");
@@ -2972,21 +2973,13 @@ function TripOverview({
   const [transportAmount, setTransportAmount] = useState("");
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
-  /**
-   * 저장할 때 붙이는 방향. 예전에는 사람이 골랐는데, 첫날이면 가는 편·마지막 날이면
-   * 오는 편이라 날짜를 보면 거의 알 수 있고 중간에 도시를 옮기는 편은 둘 중 어느
-   * 쪽도 아니었다. 이제 화면에서는 안 쓰고 서버에 보낼 때만 날짜에서 뽑는다.
-   */
-  const 교통편_방향 = (날짜: string): Transportation["direction"] =>
-    날짜 === lastDay && firstDay !== lastDay ? "오는 편" : "가는 편";
   const transportUnit = currencyOf(currency);
   const transportAmountNumber = parseAmount(transportAmount, transportUnit.fraction);
   /** 고치는 중인 교통편에서 만든 지출. 있으면 저장할 때 다시 묻지 않고 금액만 맞춘다. */
   const linkedTransportExpense = editingTransportId ? transportExpenseOf(expenses, editingTransportId) : undefined;
   const transportDraft = {
     owner: transportOwner,
-    // 서버는 이 값을 계속 받는다. 사람이 고르지 않고 날짜에서 뽑는다.
-    direction: 교통편_방향(transportDate),
+    direction: transportDirection,
     method: transportMethod,
     date: transportDate,
     departure: transportDeparture,
@@ -3121,16 +3114,16 @@ function TripOverview({
   const stayRangeValid = stayMomentOf(stayDraft.checkout, dateOptions) > stayMomentOf(stayDraft.checkin, dateOptions);
   const stayFormValid = Boolean(stayDraft.name.trim()) && stayRangeValid;
   useOrderWarning(sheet === "stay", stayRangeValid, "체크아웃이 체크인보다 빨라요", "체크아웃을 체크인 뒤로 옮겨 주세요.");
-  // 경로 칸의 색. 방향 칸을 없앴으므로 날짜로 고른다 — 마지막 날 떠나는 편은
-  // 대개 돌아오는 편이다.
-  const transportDirectionColor = transportDate === lastDay && firstDay !== lastDay
-    ? theme?.secondary ?? "#55BFB4"
-    : theme?.primary ?? "#FF6B63";
-  const transportDirectionSoft = transportDate === lastDay && firstDay !== lastDay
-    ? `${transportDirectionColor}18`
-    : theme?.primarySoft ?? "#FFF0ED";
-  /** 출발지와 도착지를 맞바꾼다. 경로 칸 가운데 단추가 부른다. */
+  const transportDirectionColor = transportDirection === "가는 편"
+    ? theme?.primary ?? "#FF6B63"
+    : theme?.secondary ?? "#55BFB4";
+  const transportDirectionSoft = transportDirection === "가는 편"
+    ? theme?.primarySoft ?? "#FFF0ED"
+    : `${transportDirectionColor}18`;
   const switchTransportDirection = () => {
+    const nextDirection = transportDirection === "가는 편" ? "오는 편" : "가는 편";
+    setTransportDirection(nextDirection);
+    setTransportDate(nextDirection === "가는 편" ? firstDay : lastDay);
     setTransportDeparture(transportArrival);
     setTransportArrival(transportDeparture);
     setTransportDepartureTime(transportArrivalTime);
@@ -3307,8 +3300,7 @@ function TripOverview({
     const next: Transportation = {
       id: editingTransportId ?? newPlaceId(),
       owner: transportOwner,
-      // 서버는 이 값을 계속 받는다. 사람이 고르지 않고 날짜에서 뽑는다.
-    direction: 교통편_방향(transportDate),
+      direction: transportDirection,
       method: transportMethod,
       date: transportDate,
       departure: transportDeparture.trim(),
@@ -3344,12 +3336,10 @@ function TripOverview({
       }
       setTransportations((current) => [...current, next]);
       syncTransportationSchedule(next);
-      // 마지막 날이 아닌 편을 넣었으면 돌아오는 편이 아직 없을 가능성이 크다.
-      // 예전에는 「방향」 칸에서 가는 편을 골랐는지로 봤다.
-      if (교통편_방향(next.date) === "가는 편") {
+      if (transportDirection === "가는 편") {
         showAlert(
-          "교통편을 추가했어요",
-          "돌아오는 편도 추가할까요?",
+          "가는 편을 추가했어요",
+          "오는 편도 추가할까요?",
           [
             {
               text: "나중에",
@@ -3365,11 +3355,11 @@ function TripOverview({
               },
             },
             {
-              text: "돌아오는 편 추가",
+              text: "오는 편 추가",
               onPress: () => {
                 setTransportDraftBaseline(JSON.stringify({
                   owner: next.owner,
-                  direction: "오는 편" as const,
+                  direction: "오는 편",
                   method: next.method,
                   date: lastDay,
                   departure: next.arrival,
@@ -3381,6 +3371,7 @@ function TripOverview({
                   note: "",
                   amount: "",
                 }));
+                setTransportDirection("오는 편");
                 setTransportNote("");
                 setTransportAmount("");
                 setTransportDate(lastDay);
@@ -3449,23 +3440,15 @@ function TripOverview({
   }, [participants, transportations]);
   /** 카드 차례. 참가자 차례대로 묶고, 한 사람 안에서는 가는 편이 먼저다. */
   const transportLegs = useMemo(() => {
-    // 이른 것부터. 사람으로 먼저 묶지 않는다 — 묶으면 화면 전체로는 시간순이
-    // 아니게 되어, 앞뒤로 무엇을 타는지 읽을 수가 없다. 누구 것인지는 카드의
-    // 이름과 색이 말한다. 시각을 안 적은 편은 그날의 맨 앞에 둔다 — 몇 시인지
-    // 모를 뿐 그날 타는 것은 맞다.
-    const 차례 = (leg: Transportation) => {
-      const 날 = dayOptions.indexOf(leg.date);
-      const 분 = 시각을_분으로(leg.departureTime);
-      return (날 < 0 ? dayOptions.length : 날) * 2000 + (분 ?? -1);
-    };
-    const 사람_자리 = (leg: Transportation) => {
-      const 자리 = transportOwners.indexOf(leg.owner || "");
-      return 자리 < 0 ? transportOwners.length : 자리;
-    };
-    return [...transportations]
-      .sort((a, b) => 차례(a) - 차례(b) || 사람_자리(a) - 사람_자리(b))
-      .map((leg) => ({ leg, ownerIndex: 사람_자리(leg) }));
-  }, [dayOptions, transportOwners, transportations]);
+    const 차례 = (leg: Transportation) => (leg.direction === "가는 편" ? 0 : 1);
+    const 사람들 = [...transportOwners, ""];
+    return 사람들.flatMap((owner, ownerIndex) =>
+      transportations
+        .filter((leg) => (leg.owner || "") === owner)
+        .sort((a, b) => 차례(a) - 차례(b))
+        .map((leg) => ({ leg, ownerIndex })),
+    );
+  }, [transportOwners, transportations]);
   const transportColors = [
     theme?.secondary ?? "#55BFB4",
     theme?.accent ?? "#8B7CF6",
@@ -3489,6 +3472,7 @@ function TripOverview({
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(null);
     setTransportOwner(nextDraft.owner);
+    setTransportDirection("가는 편");
     setTransportMethod(nextDraft.method);
     setTransportDate(firstDay);
     setTransportDeparture("");
@@ -3525,6 +3509,7 @@ function TripOverview({
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(item.id);
     setTransportOwner(item.owner);
+    setTransportDirection(item.direction);
     setTransportMethod(item.method);
     setTransportDate(item.date);
     setTransportDeparture(item.departure);
@@ -4023,7 +4008,7 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "transport"}
         title={editingTransportId ? "교통편 수정" : "교통편 추가"}
-        subtitle="기차·버스·항공편을 적어 두면 일정에도 함께 보여요"
+        subtitle="가는 편과 오는 편을 나눠 적고 한곳에서 확인해요"
         submit={transportSubmitLabel}
         disabledHint={transportDisabledHint}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
@@ -4048,6 +4033,14 @@ function TripOverview({
           onSwap={switchTransportDirection}
           accentColor={transportDirectionColor}
           accentSoft={transportDirectionSoft}
+        />
+        <OptionField
+          label="방향"
+          options={["가는 편", "오는 편"]}
+          value={transportDirection}
+          onChange={(value) => {
+            if (value !== transportDirection) switchTransportDirection();
+          }}
         />
         <OptionField label="교통수단" options={["KTX", "SRT", "무궁화호", "고속버스", "시외버스", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
         <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
@@ -11171,7 +11164,7 @@ function TransportCard({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${owner} ${leg.method} ${leg.departure}에서 ${leg.arrival}`}
+      accessibilityLabel={`${owner} ${leg.direction} ${leg.method} ${leg.departure}에서 ${leg.arrival}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.transportCard,
@@ -11189,7 +11182,10 @@ function TransportCard({
           </Text>
         )}
       </View>
-      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{leg.method}</Text>
+      {/* 「가는 편 · 무궁화호」처럼 길어지면 좁은 기기에서 한 줄에 안 들어간다. 줄여서
+          「무궁화…」로 보이는 것보다 두 줄로 내려가는 쪽이 낫다. 카드 높이는 minHeight 라
+          늘어나고, 옆 카드도 같은 높이로 맞춰진다. */}
+      <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{leg.direction} · {leg.method}</Text>
       <View style={styles.transportRoute}>
         <View style={styles.transportStop}>
           <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{leg.departure}</Text>
