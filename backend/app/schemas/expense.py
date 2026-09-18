@@ -35,6 +35,10 @@ class ExpenseCreateRequest(_Camel):
     memo: str | None = Field(default=None, max_length=2000)
     # 같은 여행에 올린 사진. 영수증 사진을 먼저 만들고(`POST /trips/{id}/photos`) 그 id 를 넣는다.
     receipt_photo_id: uuid.UUID | None = None
+    # 정산과 합계에서 뺀 지출. 목록에는 남는다.
+    excluded: bool = False
+    # 교통편에서 만든 지출이면 그 교통편의 id. 서버는 확인하지 않고 그대로 돌려준다.
+    transport_id: uuid.UUID | None = None
 
 
 class ExpenseUpdateRequest(_Camel):
@@ -48,6 +52,8 @@ class ExpenseUpdateRequest(_Camel):
     shares: list[ShareIn] | None = Field(default=None, max_length=50)
     memo: str | None = Field(default=None, max_length=2000)
     receipt_photo_id: uuid.UUID | None = None
+    excluded: bool | None = None
+    transport_id: uuid.UUID | None = None
 
 
 class ShareOut(_Camel):
@@ -68,6 +74,8 @@ class ExpenseOut(_Camel):
     shares: list[ShareOut]
     memo: str | None
     receipt_photo_id: str | None
+    excluded: bool
+    transport_id: str | None
     version: int
 
 

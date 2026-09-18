@@ -32,6 +32,8 @@ export type ExportExpense = {
   category?: string;
   payer?: string;
   memo?: string;
+  /** 정산에서 뺀 지출. 줄은 남기고 총 지출에만 안 든다. */
+  excluded?: boolean;
 };
 export type ExportPayment = { from: string; to: string; amount: number };
 export type ExportNote = { author?: string; body: string };
@@ -158,12 +160,12 @@ const expenseSection = (
   currency: string | undefined,
 ): string[] => {
   if (!expenses.length && !payments.length) return [];
-  const total = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const total = expenses.filter((item) => !item.excluded).reduce((sum, item) => sum + item.amount, 0);
   const lines = [`### 비용 — 총 지출 ${money(total, currency)}`];
   for (const item of expenses) {
     const payer = clean(item.payer);
     const head = joinDot([item.day, item.title]) || "이름 없는 지출";
-    const tail = joinDot([item.category, payer ? `${payer} 냄` : undefined]);
+    const tail = joinDot([item.category, payer ? `${payer} 냄` : undefined, item.excluded ? "정산 제외" : undefined]);
     lines.push(`- ${head} ${money(item.amount, currency)}${tail ? ` · ${tail}` : ""}`);
     const memo = clean(item.memo);
     if (memo) lines.push(indent(memo));

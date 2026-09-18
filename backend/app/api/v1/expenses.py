@@ -36,6 +36,8 @@ def _지출_응답(view) -> dict:
         shares=[ShareOut(membership_id=str(share.membership_id), weight=float(share.weight)) for share in shares],
         memo=expense.memo,
         receipt_photo_id=str(expense.receipt_photo_id) if expense.receipt_photo_id else None,
+        excluded=expense.excluded,
+        transport_id=str(expense.transport_id) if expense.transport_id else None,
         version=expense.version,
     ).model_dump(by_alias=True, mode="json")
 
