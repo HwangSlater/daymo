@@ -31,6 +31,7 @@ export function Segment({
   value,
   onChange,
   label,
+  disabled,
   style,
 }: {
   theme?: AppTheme;
@@ -39,13 +40,15 @@ export function Segment({
   onChange: (value: string) => void;
   /** 무엇을 고르는 줄인지. 화면에는 안 보이고 각 칸의 접근성 라벨 앞에 붙는다. */
   label?: string;
+  /** 보기만 할 수 있는 화면. 고른 칸은 그대로 두고 흐리게만 해서 무엇이 골라져 있는지는 보인다. */
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
-      style={[styles.track, theme && { backgroundColor: theme.surfaceAlt }, style]}
+      style={[styles.track, theme && { backgroundColor: theme.surfaceAlt }, disabled && styles.disabled, style]}
     >
       {options.map((option) => {
         const on = optionValue(option) === value;
@@ -54,8 +57,9 @@ export function Segment({
           <Pressable
             key={optionValue(option)}
             onPress={() => onChange(optionValue(option))}
+            disabled={disabled}
             accessibilityRole="radio"
-            accessibilityState={{ checked: on, selected: on }}
+            accessibilityState={{ checked: on, selected: on, disabled: Boolean(disabled) }}
             accessibilityLabel={label ? `${label} ${text}` : text}
             style={({ pressed }) => [
               styles.cell,
@@ -114,6 +118,7 @@ export const segmentStyles = StyleSheet.create({
   text: { fontSize: 13, fontFamily: typo.label.family, color: "#646C7A" },
   textOn: { fontFamily: typo.title.family, color: "#17233D" },
   pressed: { opacity: 0.78 },
+  disabled: { opacity: 0.55 },
 });
 
 const styles = segmentStyles;
