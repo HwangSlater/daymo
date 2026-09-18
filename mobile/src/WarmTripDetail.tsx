@@ -43,14 +43,9 @@ import {
   ingredientOriginLabel,
   packingKey,
 } from "./packingNames";
-import {
-  importMessage,
-  pastTripChoices,
-  planPackingImport,
-  planRecipeImport,
-  type PackingDraft,
-  type RecipeDraft,
-} from "./pastTripImport";
+import { importMessage, planPackingImport, planRecipeImport } from "./pastTripImport";
+import { PastTripEntry, PastTripList } from "./PastTripPicker";
+import { usePastPacking, usePastRecipes } from "./usePastTripRows";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { memoryDayCount, memoryFilterChips, memoryHeadCount, type MemoryFilter } from "./memoryFilter";
@@ -61,7 +56,7 @@ import { TripCardsSection, type CardPhoto, type CardTile } from "./TripCards";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
 import { savePhotoFile } from "./photoSave";
-import type { ExpenseSettings, ReportReason, ReportTargetType, ServerTrip } from "./serverData";
+import type { ExpenseSettings, ReportReason, ReportTargetType } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
   createReport,
@@ -82,7 +77,6 @@ import {
   deleteRecipe,
   listChecklistItems,
   listRecipes,
-  listTrips,
   updateChecklistItem,
   updateRecipe,
   createExpense,
@@ -5351,296 +5345,6 @@ function Places({
   );
 }
 
-/** 지난 여행에서 가져올 수 있는 것. */
-type PastImportKind = "준비물" | "요리";
-
-/**
- * 지난 여행에서 준비물이나 요리를 가져오는 단추와 시트.
- *
- * 여행을 고르면 그 여행의 목록만 그때 서버에서 받는다. 기기에는 지금 여행의
- * 목록만 있어서(`useListSync`) 캐시로는 알 수 없고, 받아 온 것으로 지금 목록을
- * 덮지도 않는다.
- */
-function PastTripImport({
-  kind,
-  spaceId,
-  tripId,
-  roster,
-  participants,
-  existingNames,
-  onTakePacking,
-  onTakeRecipes,
-}: {
-  kind: PastImportKind;
-  spaceId: string;
-  /** 지금 보고 있는 여행. 고를 수 있는 목록에서 뺀다. */
-  tripId: string;
-  roster: RosterEntry[];
-  /** 이번 여행에 가는 사람. 담당은 이 안에 있는 이름만 남는다. */
-  participants: string[];
-  /** 이번 여행에 이미 있는 이름. 같은 이름은 가져오지 않는다. */
-  existingNames: string[];
-  onTakePacking?: (items: PackingDraft[]) => void;
-  onTakeRecipes?: (items: RecipeDraft[]) => void;
-}) {
-  const theme = useContext(DetailThemeContext);
-  const notify = useContext(DetailFeedbackContext);
-  const [open, setOpen] = useState(false);
-  const [trips, setTrips] = useState<ServerTrip[] | null>(null);
-  const [picked, setPicked] = useState<ServerTrip | null>(null);
-  const [packingRows, setPackingRows] = useState<PackingRow[]>([]);
-  const [recipeRows, setRecipeRows] = useState<RecipeRow[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const already = useMemo(
-    () => new Set(existingNames.map((name) => name.trim().toLowerCase())),
-    [existingNames],
-  );
-  const choices = pastTripChoices(trips ?? [], tripId);
-  const rows = kind === "준비물"
-    ? packingRows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        meta: [row.quantity, row.owner].map((value) => value.trim()).filter(Boolean).join(" · "),
-      }))
-    : recipeRows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        meta: [`재료 ${row.ingredients.length}개`, 요리메모_읽기(row.note)].filter(Boolean).join(" · "),
-      }));
-  const newRows = rows.filter((row) => !already.has(row.name.trim().toLowerCase()));
-
-  const close = () => {
-    setOpen(false);
-    setPicked(null);
-    setSelected([]);
-    setPackingRows([]);
-    setRecipeRows([]);
-    setError("");
-  };
-  const openSheet = async () => {
-    setOpen(true);
-    setPicked(null);
-    setError("");
-    setLoading(true);
-    try {
-      setTrips(await listTrips(spaceId));
-    } catch {
-      setError("지난 여행을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const pickTrip = async (trip: ServerTrip) => {
-    setPicked(trip);
-    setSelected([]);
-    setError("");
-    setLoading(true);
-    try {
-      if (kind === "준비물") {
-        const codec = packingCodec(roster, new Set());
-        const list = (await listChecklistItems(trip.id)).map(codec.fromServer);
-        setPackingRows(list);
-        setSelected(list.filter((row) => !already.has(row.name.trim().toLowerCase())).map((row) => row.id));
-      } else {
-        const codec = recipeCodec(roster);
-        const list = (await listRecipes(trip.id)).map(codec.fromServer);
-        setRecipeRows(list);
-        setSelected(list.filter((row) => !already.has(row.name.trim().toLowerCase())).map((row) => row.id));
-      }
-    } catch {
-      setError(`${trip.title}의 목록을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요`);
-    } finally {
-      setLoading(false);
-    }
-  };
-  const toggleRow = (id: string) =>
-    setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
-  const toggleAll = () =>
-    setSelected((current) => current.length === newRows.length ? [] : newRows.map((row) => row.id));
-  const submit = () => {
-    if (kind === "준비물") {
-      const plan = planPackingImport(
-        packingRows.filter((row) => selected.includes(row.id)),
-        existingNames,
-        participants,
-        newPlaceId,
-      );
-      if (plan.taken.length) onTakePacking?.(plan.taken);
-      notify(importMessage("준비물", plan));
-    } else {
-      const plan = planRecipeImport(
-        recipeRows.filter((row) => selected.includes(row.id)),
-        existingNames,
-        participants,
-        newPlaceId,
-      );
-      if (plan.taken.length) onTakeRecipes?.(plan.taken);
-      notify(importMessage("요리", plan));
-    }
-    close();
-  };
-
-  return (
-    <>
-      <View style={[styles.packingListTools, theme && { borderTopColor: theme.border }]}>
-        <View style={styles.packingListToolsCopy}>
-          <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>
-            지난 여행에서 가져오기
-          </Text>
-          <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>
-            {kind === "준비물"
-              ? "전에 챙긴 준비물을 그대로 불러와요"
-              : "전에 해 먹은 요리를 재료까지 불러와요"}
-          </Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`지난 여행에서 ${kind} 가져오기`}
-          onPress={openSheet}
-          hitSlop={누름여유(높이.칩)}
-          style={[styles.packingToolButton, theme && { borderColor: theme.border }]}
-        >
-          <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>여행 고르기</Text>
-        </Pressable>
-      </View>
-      <DetailSheet
-        visible={open}
-        title={picked ? `${picked.title}에서 가져오기` : `지난 여행에서 ${kind} 가져오기`}
-        subtitle={picked
-          ? `가져올 ${kind}${josa(kind, "을", "를")} 골라 주세요. 체크는 해제된 상태로 가져와요`
-          : "같은 공간의 다른 여행에서 불러와요"}
-        submit={picked && selected.length ? `${selected.length}개 가져오기` : "닫기"}
-        submitDisabled={Boolean(picked) && !selected.length && newRows.length > 0}
-        disabledHint={picked && !selected.length && newRows.length > 0 ? `가져올 ${kind}${josa(kind, "을", "를")} 골라 주세요` : undefined}
-        onClose={close}
-        onSubmit={picked && selected.length ? submit : close}
-      >
-        {error ? (
-          <Text style={[styles.settingHint, theme && { color: theme.accent }]}>{error}</Text>
-        ) : null}
-        {loading ? (
-          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>불러오는 중이에요</Text>
-        ) : null}
-        {!picked && !loading && !error && choices.length === 0 ? (
-          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-            이 공간에는 아직 다른 여행이 없어요
-          </Text>
-        ) : null}
-        {!picked && choices.length > 0 && (
-          <View style={[styles.recipeList, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {choices.map((trip, index) => (
-              <Pressable
-                key={trip.id}
-                onPress={() => void pickTrip(trip)}
-                accessibilityRole="button"
-                accessibilityLabel={`${trip.title}에서 가져오기`}
-                style={[
-                  styles.recipeListRow,
-                  index > 0 && styles.recipeListRowBorder,
-                  theme && index > 0 && { borderTopColor: theme.border },
-                ]}
-              >
-                <View style={[styles.recipeListNumber, theme && { backgroundColor: theme.surfaceAlt }]}>
-                  <Text style={[styles.recipeListNumberText, theme && { color: theme.muted }]}>{index + 1}</Text>
-                </View>
-                <View style={styles.recipeListCopy}>
-                  <Text numberOfLines={1} style={[styles.recipeListName, theme && { color: theme.text }]}>
-                    {trip.title}
-                  </Text>
-                  <Text numberOfLines={1} style={[styles.recipeListNote, theme && { color: theme.muted }]}>
-                    {trip.startDate.slice(0, 4)}년 {formatTripPeriod(trip.startDate, trip.endDate)}
-                  </Text>
-                </View>
-                <Glyph name="chevronRight" size={14} color={theme?.muted ?? "#646C7A"} />
-              </Pressable>
-            ))}
-          </View>
-        )}
-        {picked && (
-          <>
-            <View style={styles.myIngredientGroupHead}>
-              <Pressable
-                onPress={() => {
-                  setPicked(null);
-                  setSelected([]);
-                  setError("");
-                }}
-                accessibilityRole="button"
-                style={styles.inlineMore}
-              >
-                <Glyph name="chevronLeft" size={13} color={theme?.primary ?? "#3F4C8F"} />
-                <Text style={[styles.aiRecipeText, theme && { color: theme.primary }]}>다른 여행 고르기</Text>
-              </Pressable>
-              {newRows.length > 0 && (
-                <Pressable onPress={toggleAll} accessibilityRole="button">
-                  <Text style={[styles.aiRecipeText, theme && { color: theme.primary }]}>
-                    {selected.length === newRows.length ? "전체 해제" : "전체 선택"}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            {!loading && rows.length === 0 && !error ? (
-              <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-                이 여행에는 적어 둔 {kind}{josa(kind, "이", "가")} 없어요
-              </Text>
-            ) : null}
-            {rows.length > 0 && (
-              <View style={[styles.cookingImportGroup, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                {rows.map((row) => {
-                  const mine = already.has(row.name.trim().toLowerCase());
-                  const checked = selected.includes(row.id);
-                  return (
-                    <Pressable
-                      key={row.id}
-                      disabled={mine}
-                      onPress={() => toggleRow(row.id)}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked, disabled: mine }}
-                      accessibilityLabel={`${row.name}${mine ? " 이미 있음" : ""}`}
-                      style={[
-                        styles.cookingImportRow,
-                        theme && { borderTopColor: theme.border },
-                        checked && theme && { backgroundColor: theme.primarySoft },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.cookingImportCheck,
-                          theme && { borderColor: checked ? theme.primary : theme.border },
-                          checked && theme && { backgroundColor: theme.primary },
-                        ]}
-                      >
-                        {checked && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
-                      </View>
-                      <View style={styles.cookingImportItemCopy}>
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.cookingImportItemName, theme && { color: mine ? theme.muted : theme.text }]}
-                        >
-                          {row.name}
-                        </Text>
-                        <Text numberOfLines={1} style={[styles.cookingImportItemMeta, theme && { color: theme.muted }]}>
-                          {[row.meta, mine ? "이미 있어요" : ""].filter(Boolean).join(" · ")}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-            <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-              담당은 이번 여행 참가자만 유지되고 나머지는 ‘미정’이 돼요.
-            </Text>
-          </>
-        )}
-      </DetailSheet>
-    </>
-  );
-}
-
 function Preparation({
   done,
   toggle,
@@ -5682,6 +5386,17 @@ function Preparation({
   const [quantity, setQuantity] = useState("");
   const [owner, setOwner] = useState(PACKING_UNASSIGNED);
   const [tagText, setTagText] = useState("");
+  // 「준비물 추가」 시트 안에서 내용을 갈아 끼우는 단계. iOS 는 창 위에 창을 못 쌓아서
+  // 지난 여행 목록을 새 창이 아니라 이 시트 안에 보인다.
+  const [packingSheetStep, setPackingSheetStep] = useState<"직접" | "지난 여행">("직접");
+  const [pastPicked, setPastPicked] = useState<string[]>([]);
+  const pastPacking = usePastPacking({
+    spaceId,
+    tripId,
+    roster,
+    active: adding && packingSheetStep === "지난 여행",
+    existingNames: items.map((item) => item.name),
+  });
   const [filter, setFilter] = useState<"전체" | "남은 준비" | "완료">("남은 준비");
   const [ownerFilter, setOwnerFilter] = useState("전체");
   const [tagFilter, setTagFilter] = useState("전체 태그");
@@ -5906,10 +5621,27 @@ function Preparation({
   const closePackingForm = () => {
     setAdding(false);
     setEditingId(null);
+    setPackingSheetStep("직접");
+    setPastPicked([]);
     setNames("");
     setQuantity("");
     setTagText("");
     setOwner(PACKING_UNASSIGNED);
+  };
+  // 체크해 둔 지난 여행 준비물을 한꺼번에 복사한다. 완료 표시는 목록 밖에 있어 저절로
+  // 풀리고, 담당은 이번 여행 참가자만 남는다(`planPackingImport`).
+  const takePastPacking = () => {
+    const rows = pastPacking.groups.flatMap((group) => group.rows).filter((row) => pastPicked.includes(row.key)).map((row) => row.row);
+    const plan = planPackingImport(rows, items.map((item) => item.name), participants, newPlaceId);
+    if (plan.taken.length) setItems((current) => [...current, ...plan.taken]);
+    closePackingForm();
+    notify(importMessage("준비물", plan));
+  };
+  const togglePastPacking = (key: string) =>
+    setPastPicked((current) => (current.includes(key) ? current.filter((value) => value !== key) : [...current, key]));
+  const toggleAllPastPacking = () => {
+    const pickable = pastPacking.groups.flatMap((group) => group.rows).filter((row) => !row.mine).map((row) => row.key);
+    setPastPicked((current) => (pickable.every((key) => current.includes(key)) ? [] : pickable));
   };
   const deletePacking = () => {
     const target = items.find((item) => item.id === editingId);
@@ -6552,7 +6284,7 @@ function Preparation({
           description={items.length === 0
             ? spaceId && tripId
               // 새 여행은 여기서 시작한다. 처음부터 다시 적지 않아도 된다는 걸 이 자리에서 알린다.
-              ? "하나씩 추가하거나, 아래에서 지난 여행 준비물을 그대로 가져올 수 있어요."
+              ? "하나씩 추가하거나, 「준비물 추가」에서 지난 여행 준비물을 그대로 가져올 수 있어요."
               : "여행에 필요한 준비물을 추가해 보세요."
             : "상태·담당·태그 필터를 초기화해 보세요."}
           action={items.length === 0 ? "준비물 추가" : "필터 초기화"}
@@ -6564,17 +6296,6 @@ function Preparation({
               setTagFilter("전체 태그");
             }
           }}
-        />
-      )}
-      {canEdit && spaceId && tripId && (
-        <PastTripImport
-          kind="준비물"
-          spaceId={spaceId}
-          tripId={tripId}
-          roster={roster}
-          participants={participants}
-          existingNames={items.map((item) => item.name)}
-          onTakePacking={(taken) => setItems((current) => [...current, ...taken])}
         />
       )}
       {canEdit && (
@@ -6805,17 +6526,47 @@ function Preparation({
       </DetailSheet>
       <DetailSheet
         visible={adding}
-        title={editingId ? "준비물 수정" : "준비물 추가"}
-        subtitle={editingId ? "이름, 수량, 담당과 태그를 바꿀 수 있어요" : "한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"}
-        submit={newPackingCount && !editingId ? `${newPackingCount}개 추가` : editingId ? "저장" : "준비물 추가"}
-        disabledHint={!newPackingCount ? "준비물을 입력해 주세요" : undefined}
-        submitDisabled={!newPackingCount}
+        title={packingSheetStep === "지난 여행" ? "지난 여행에서 준비물 가져오기" : editingId ? "준비물 수정" : "준비물 추가"}
+        subtitle={packingSheetStep === "지난 여행"
+          ? "가져올 준비물을 골라 주세요. 완료 표시는 해제된 상태로 와요"
+          : editingId ? "이름, 수량, 담당과 태그를 바꿀 수 있어요" : "한 줄에 하나씩 적으면 여러 개를 한 번에 추가할 수 있어요"}
+        submit={packingSheetStep === "지난 여행"
+          ? pastPicked.length ? `${pastPicked.length}개 가져오기` : "준비물 가져오기"
+          : newPackingCount && !editingId ? `${newPackingCount}개 추가` : editingId ? "저장" : "준비물 추가"}
+        disabledHint={packingSheetStep === "지난 여행"
+          ? !pastPicked.length ? "가져올 준비물을 골라 주세요" : undefined
+          : !newPackingCount ? "준비물을 입력해 주세요" : undefined}
+        submitDisabled={packingSheetStep === "지난 여행" ? !pastPicked.length : !newPackingCount}
         destructiveLabel={editingId ? "준비물 삭제" : undefined}
         destructiveMessage={editingId ? `${names || "이 준비물"}${josa(names || "이 준비물", "을", "를")} 목록에서 삭제해요.` : undefined}
         onDestructive={deletePacking}
         onClose={closePackingForm}
-        onSubmit={submit}
+        onSubmit={packingSheetStep === "지난 여행" ? takePastPacking : submit}
       >
+        {packingSheetStep === "지난 여행" ? (
+          <PastTripList
+            theme={theme}
+            label="준비물"
+            mode="여럿"
+            groups={pastPacking.groups}
+            loading={pastPacking.loading}
+            error={pastPacking.error}
+            onRetry={pastPacking.reload}
+            onBack={() => setPackingSheetStep("직접")}
+            selected={pastPicked}
+            onPress={(_row, key) => togglePastPacking(key)}
+            onToggleAll={toggleAllPastPacking}
+            meta={(row) => [row.quantity, row.owner].map((value) => value.trim()).filter(Boolean).join(" · ")}
+            footnote="담당은 이번 여행 참가자만 유지되고 나머지는 ‘미정’이 돼요."
+          />
+        ) : (<>
+        {!editingId && spaceId && tripId && (
+          <PastTripEntry
+            theme={theme}
+            hint="전에 챙긴 준비물을 골라서 그대로 불러와요."
+            onPress={() => setPackingSheetStep("지난 여행")}
+          />
+        )}
         <DetailField
           label="준비물 이름"
           required
@@ -6991,6 +6742,7 @@ function Preparation({
             </Pressable>
           </View>
         )}
+        </>)}
       </DetailSheet>
       <DetailSheet
         visible={cookingPicker}
@@ -7404,6 +7156,16 @@ function Cooking({
   const [recipeName, setRecipeName] = useState("");
   const [recipeNote, setRecipeNote] = useState("");
   const [recipeUrl, setRecipeUrl] = useState("");
+  // 「요리 추가」 시트 안에서 내용을 갈아 끼우는 단계. iOS 는 창 위에 창을 못 쌓아서
+  // 지난 여행 목록을 새 창이 아니라 이 시트 안에 보인다.
+  const [recipeSheetStep, setRecipeSheetStep] = useState<"직접" | "지난 여행">("직접");
+  const pastRecipes = usePastRecipes({
+    spaceId,
+    tripId,
+    roster,
+    active: addingRecipe && recipeSheetStep === "지난 여행",
+    existingNames: recipes.map((recipe) => recipe.name),
+  });
   const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>(() =>
     collapsedGroupsFor(recipes.find((recipe) => recipe.id === "mille") ?? recipes[0]),
   );
@@ -7562,9 +7324,25 @@ function Cooking({
   const closeRecipeSheet = () => {
     setAddingRecipe(false);
     setEditingRecipe(false);
+    setRecipeSheetStep("직접");
     setRecipeName("");
     setRecipeNote("");
     setRecipeUrl("");
+  };
+  // 지난 여행의 요리 하나를 재료까지 그대로 복사한다. 재료의 준비 완료는 목록 밖에
+  // 있어 저절로 풀리고, 담당은 이번 여행 참가자만 남는다(`planRecipeImport`).
+  const takePastRecipe = (row: RecipeRow) => {
+    const plan = planRecipeImport([row], recipes.map((recipe) => recipe.name), participants, newPlaceId);
+    const taken = plan.taken[0];
+    if (!taken) {
+      notify(importMessage("요리", plan));
+      return;
+    }
+    setRecipes((current) => [...current, taken]);
+    setCollapsedCookingGroups([]);
+    setActiveId(taken.id);
+    closeRecipeSheet();
+    notify(`${taken.name}${josa(taken.name, "을", "를")} 재료 ${taken.ingredients.length}개와 함께 가져왔어요`);
   };
   // 넣기 전에 몇 개가 읽혔는지 센다. 붙여넣고 나서 무엇이 들어갈지 모른 채
   // 버튼을 누르던 것이 이 흐름에서 가장 불안한 대목이었다.
@@ -8107,21 +7885,6 @@ function Cooking({
           )}
         </>
       )}
-      {canEdit && spaceId && tripId && (
-        <PastTripImport
-          kind="요리"
-          spaceId={spaceId}
-          tripId={tripId}
-          roster={roster}
-          participants={participants}
-          existingNames={recipes.map((recipe) => recipe.name)}
-          onTakeRecipes={(taken) => {
-            setRecipes((current) => [...current, ...taken]);
-            setCollapsedCookingGroups([]);
-            setActiveId(taken[0].id);
-          }}
-        />
-      )}
       <DetailSheet
         visible={showAllRecipes}
         title="전체 요리 메뉴"
@@ -8347,23 +8110,47 @@ function Cooking({
       </DetailSheet>
       <DetailSheet
         visible={addingRecipe}
-        title={editingRecipe ? "요리 수정" : "요리 추가"}
-        subtitle="이름만 먼저 저장하고 재료는 메뉴 안에서 추가할 수 있어요"
-        submit={editingRecipe ? "저장" : "요리 추가"}
-        disabledHint={!recipeFormValid
+        title={recipeSheetStep === "지난 여행" ? "지난 여행에서 요리 가져오기" : editingRecipe ? "요리 수정" : "요리 추가"}
+        subtitle={recipeSheetStep === "지난 여행"
+          ? "요리를 누르면 재료까지 함께 가져와요. 준비 완료 표시는 해제된 상태로 와요"
+          : "이름만 먼저 저장하고 재료는 메뉴 안에서 추가할 수 있어요"}
+        submit={recipeSheetStep === "지난 여행" ? "닫기" : editingRecipe ? "저장" : "요리 추가"}
+        disabledHint={recipeSheetStep === "직접" && !recipeFormValid
           ? duplicateRecipe
             ? "이미 추가한 요리예요"
             : !recipeUrlValid
               ? "레시피 링크를 확인해 주세요"
               : "요리 이름을 입력해 주세요"
           : undefined}
-        submitDisabled={!recipeFormValid}
+        submitDisabled={recipeSheetStep === "직접" && !recipeFormValid}
         destructiveLabel={editingRecipe ? "요리 삭제" : undefined}
         destructiveMessage={editingRecipe ? `${recipeName || "이 요리"}${josa(recipeName || "이 요리", "과", "와")} 재료 목록을 함께 삭제해요.` : undefined}
         onClose={closeRecipeSheet}
-        onSubmit={addRecipe}
+        onSubmit={recipeSheetStep === "지난 여행" ? closeRecipeSheet : addRecipe}
         onDestructive={deleteRecipe}
       >
+        {recipeSheetStep === "지난 여행" ? (
+          <PastTripList
+            theme={theme}
+            label="요리"
+            mode="하나"
+            groups={pastRecipes.groups}
+            loading={pastRecipes.loading}
+            error={pastRecipes.error}
+            onRetry={pastRecipes.reload}
+            onBack={() => setRecipeSheetStep("직접")}
+            onPress={takePastRecipe}
+            meta={(row) => [`재료 ${row.ingredients.length}개`, 요리메모_읽기(row.note)].filter(Boolean).join(" · ")}
+            footnote="담당은 이번 여행 참가자만 유지되고 나머지는 ‘미정’이 돼요."
+          />
+        ) : (<>
+        {!editingRecipe && spaceId && tripId && (
+          <PastTripEntry
+            theme={theme}
+            hint="전에 해 먹은 요리를 재료까지 그대로 불러와요."
+            onPress={() => setRecipeSheetStep("지난 여행")}
+          />
+        )}
         {!editingRecipe && <View
           style={[
             styles.aiRecipeCallout,
@@ -8407,6 +8194,7 @@ function Cooking({
           onChangeText={setRecipeUrl}
           placeholder="예: https://youtu.be/…"
         />
+        </>)}
       </DetailSheet>
       <DetailSheet
         visible={aiImporting}

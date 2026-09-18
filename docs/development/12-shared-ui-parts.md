@@ -37,6 +37,8 @@
 | `SyncNotice`·`SyncMark` | 못 올린 줄이 있을 때 화면 위 한 줄과 줄 옆 표시 | `mobile/src/SyncMarks.tsx` | 서버와 맞추는 목록을 그리는 화면 |
 | `MapLink` | 지도 링크 칩. 어느 지도 앱으로 열지까지 정해져 있다 | `mobile/src/MapLink.tsx` | 주소·장소를 보여 줄 때 |
 | `ParticipantPicker` | 함께 가는 사람 고르기 | `mobile/src/ParticipantPicker.tsx` | 담당자·참가자를 고를 때 |
+| `PastTripEntry`·`PastTripList` | 추가 시트 맨 위의 「지난 여행에서 가져오기」 진입 줄과, 시트 안에서 내용을 갈아 끼워 보이는 지난 여행 목록(여행별 묶음, 하나 고르기·여럿 체크). 열리면 키보드를 내린다 | `mobile/src/PastTripPicker.tsx` | 요리·준비물 추가 시트. 새 `Modal` 을 띄우지 않고 단계 상태로 갈아 끼운다 |
+| `usePastPacking`·`usePastRecipes` | 같은 공간의 끝난 여행들을 받아 그 준비물·요리를 여행별로 묶는다. 처음 열 때 한 번 받고 둔다 | `mobile/src/usePastTripRows.ts` | 위 목록에 줄을 줄 때. 순수 계산(끝난 여행 고르기·담당 옮기기·완료 풀기)은 `pastTripImport.ts` |
 | `TripDateRangePicker`·`formatTripRange` | 여행 기간 고르기와 `9월 22일 — 9월 24일 · 2박 3일` 표기 | `mobile/src/TripDateRangePicker.tsx` | 기간을 고르거나 적을 때 |
 | `TripRegionPicker` | 지역 고르기 | `mobile/src/TripRegionPicker.tsx` | 여행지를 고를 때 |
 | `SocialLoginButton` | 구글·카카오·네이버 버튼. 각 사의 표기 규정에 맞춰 둔 것 | `mobile/src/SocialLoginButton.tsx` | 로그인 화면 |

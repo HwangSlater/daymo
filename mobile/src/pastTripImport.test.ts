@@ -5,9 +5,12 @@ import type { PackingRow, RecipeRow } from "./cookingSync.ts";
 import {
   importMessage,
   keepOwner,
+  localDateKey,
   pastTripChoices,
+  pastTripGroups,
   planPackingImport,
   planRecipeImport,
+  tripPeriodLabel,
 } from "./pastTripImport.ts";
 
 const participants = ["하늘", "여울"];
@@ -35,15 +38,66 @@ const recipe = (extra: Partial<RecipeRow> = {}): RecipeRow => ({
   ...extra,
 });
 
-test("고를 수 있는 여행은 지금 여행을 빼고 최근 것부터 온다", () => {
+test("고를 수 있는 여행은 지금 여행을 빼고 끝난 것만 최근 것부터 온다", () => {
   const trips = [
-    { id: "a", title: "속초", startDate: "2026-03-01" },
-    { id: "b", title: "지금", startDate: "2026-09-01" },
-    { id: "c", title: "제주", startDate: "2026-07-05" },
+    { id: "a", title: "속초", startDate: "2026-03-01", endDate: "2026-03-03" },
+    { id: "b", title: "지금", startDate: "2026-09-01", endDate: "2026-09-03" },
+    { id: "c", title: "제주", startDate: "2026-07-05", endDate: "2026-07-08" },
+    { id: "d", title: "다가오는", startDate: "2026-10-01", endDate: "2026-10-03" },
+    { id: "e", title: "여행 중", startDate: "2026-09-17", endDate: "2026-09-19" },
   ];
 
-  assert.deepEqual(pastTripChoices(trips, "b").map((trip) => trip.id), ["c", "a"]);
-  assert.deepEqual(pastTripChoices(trips, undefined).map((trip) => trip.id), ["b", "c", "a"]);
+  assert.deepEqual(pastTripChoices(trips, "b", "2026-09-18").map((trip) => trip.id), ["c", "a"]);
+  assert.deepEqual(pastTripChoices(trips, undefined, "2026-09-18").map((trip) => trip.id), ["b", "c", "a"]);
+  // 마지막 날이 오늘이면 아직 끝나지 않은 여행이다.
+  assert.deepEqual(pastTripChoices(trips, undefined, "2026-09-03").map((trip) => trip.id), ["c", "a"]);
+});
+
+test("같은 날 떠난 여행은 이름 차례로 놓는다", () => {
+  const trips = [
+    { id: "x", title: "나", startDate: "2026-03-01", endDate: "2026-03-02" },
+    { id: "y", title: "가", startDate: "2026-03-01", endDate: "2026-03-02" },
+  ];
+
+  assert.deepEqual(pastTripChoices(trips, undefined, "2026-09-18").map((trip) => trip.id), ["y", "x"]);
+});
+
+test("오늘은 기기 시각 기준 YYYY-MM-DD 다", () => {
+  assert.equal(localDateKey(new Date(2026, 0, 5)), "2026-01-05");
+  assert.equal(localDateKey(new Date(2026, 11, 31, 23, 59)), "2026-12-31");
+  assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(localDateKey()));
+});
+
+test("여행 기간은 연도 한 번에 월일 둘로 적고 어긋난 날짜는 비운다", () => {
+  assert.equal(tripPeriodLabel("2026-03-01", "2026-03-03"), "2026년 3월 1일 — 3월 3일");
+  assert.equal(tripPeriodLabel("2026-12-30", "2027-01-02"), "2026년 12월 30일 — 1월 2일");
+  assert.equal(tripPeriodLabel("", "2026-03-03"), "");
+  assert.equal(tripPeriodLabel("2026-03", "2026-03-03"), "");
+});
+
+test("여러 여행의 목록을 여행별로 묶고 빈 이름과 빈 여행은 뺀다", () => {
+  const groups = pastTripGroups(
+    [
+      { trip: { id: "t1", title: "속초", startDate: "2026-03-01", endDate: "2026-03-03" }, rows: [packing(), packing({ id: "old-2", name: "  " })] },
+      { trip: { id: "t2", title: "제주", startDate: "2026-07-05", endDate: "2026-07-08" }, rows: [] },
+      { trip: { id: "t3", title: "강릉", startDate: "2026-05-01", endDate: "2026-05-02" }, rows: [packing({ id: "old-3", name: "안경" })] },
+    ],
+    [],
+  );
+
+  assert.deepEqual(groups.map((group) => [group.tripId, group.title, group.period, group.rows.map((row) => row.key)]), [
+    ["t1", "속초", "2026년 3월 1일 — 3월 3일", ["t1:old-1"]],
+    ["t3", "강릉", "2026년 5월 1일 — 5월 2일", ["t3:old-3"]],
+  ]);
+});
+
+test("이번 여행에 이미 있는 이름은 표시만 하고 줄은 남긴다", () => {
+  const groups = pastTripGroups(
+    [{ trip: { id: "t1", title: "속초", startDate: "2026-03-01", endDate: "2026-03-03" }, rows: [packing(), packing({ id: "old-2", name: "안경" })] }],
+    [" 충전기 "],
+  );
+
+  assert.deepEqual(groups[0].rows.map((row) => [row.row.name, row.mine]), [["충전기", true], ["안경", false]]);
 });
 
 test("담당은 이번 여행 참가자만 남고 사람이 아닌 표시는 그대로다", () => {
