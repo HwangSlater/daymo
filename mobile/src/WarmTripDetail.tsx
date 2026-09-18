@@ -3361,7 +3361,6 @@ function TripOverview({
       note: item.note ?? "",
     };
     setTransportDraftBaseline(JSON.stringify(nextDraft));
-    setSelectedTransport(null);
     setEditingTransportId(item.id);
     setTransportOwner(item.owner);
     setTransportDirection(item.direction);
@@ -3377,7 +3376,15 @@ function TripOverview({
     setTransportDetailsOpen(
       Boolean(item.note) || item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule,
     );
-    setSheet("transport");
+    // 상세 창(InfoPanel)과 수정 시트는 형제 Modal 이다. 같은 프레임에 하나를 닫고 하나를
+    // 열면 iOS 가 뒤엣것을 세우지 못해 창이 그냥 닫혀 버렸다. 상세 창이 열려 있으면
+    // 먼저 닫고, 내려가는 시간을 준 뒤에 수정 시트를 연다.
+    if (selectedTransport) {
+      setSelectedTransport(null);
+      setTimeout(() => setSheet("transport"), Platform.OS === "ios" ? 380 : 0);
+    } else {
+      setSheet("transport");
+    }
   };
   const deleteTransportation = () => {
     const target = transportations.find((item) => item.id === editingTransportId);

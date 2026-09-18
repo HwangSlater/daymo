@@ -19,7 +19,6 @@ import { Glyph } from "../Glyph";
 import { useSheetDrag } from "../sheetDrag";
 import { showAlert } from "../showAlert";
 import { useWebKeyboardFocus } from "./webKeyboardFocus";
-import { KeyboardProbe, 계측을_켤까 } from "./키보드계측";
 import { useWebBackClose } from "../useWebBackClose";
 import { AppTheme } from "../theme";
 import { onAccent, status as statusColor } from "../theme/colors";
@@ -46,8 +45,6 @@ import { sheetHintOf, submitLabelOf } from "./sheetText";
  * 자세한 쓰임새와 함께 쓰는 다른 부품은
  * `docs/development/12-shared-ui-parts.md` 에 있다.
  */
-const 계측_켬 = 계측을_켤까();
-
 export function SheetShell({
   theme,
   visible,
@@ -235,8 +232,6 @@ export function SheetShell({
 
   const inside = (
     <>
-      {/* [임시] 주소에 `?키보드확인=1` 을 붙였을 때만 보인다. 원인을 잡으면 지운다. */}
-      {계측_켬 ? <KeyboardProbe /> : null}
       <Pressable
         style={styles.modalDismiss}
         onPress={requestClose}
