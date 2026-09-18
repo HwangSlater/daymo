@@ -3747,23 +3747,45 @@ function TripOverview({
           없고, 둘 다 없으면 같은 모양의 빈 상태가 두 장 쌓였다. 제목과 개수와
           버튼이 같은 것을 가리키도록 나눈다. */}
       <SectionLabel
-        label="숙소"
-        count={hasStay ? "1곳" : "없음"}
-        action={canEdit ? (hasStay ? "숙소 수정" : "숙소 추가") : undefined}
+        label={hasKitchen ? "숙소와 요리" : "숙소"}
+        // 둘을 나란히 보일 때는 개수를 적지 않는다. 「1곳」이 요리까지 세는 말로
+        // 읽힌다. 카드를 누르면 각자 제 자리로 가므로 버튼도 그때는 두지 않는다.
+        count={hasKitchen ? undefined : hasStay ? "1곳" : "없음"}
+        action={!hasKitchen && canEdit ? (hasStay ? "숙소 수정" : "숙소 추가") : undefined}
         onPress={() => openStay(!hasStay)}
       />
       <View style={styles.travelInfoList}>
-        {hasStay && (
+        {/* 숙소와 요리는 나란히 둔다. 한 장씩 위아래로 쌓으면 그 여행에서 묵는 곳과
+            해 먹을 것이 한눈에 안 들어오고 카드도 덜 예쁘다. 대신 카드마다 「대표
+            숙소」·「요리」라고 적혀 있어 무엇이 무엇인지 헷갈리지 않는다. */}
+        {(hasStay || hasKitchen) && (
           <View style={styles.travelInfoPair}>
-            <TravelMiniCard
-              label="대표 숙소"
-              mark={registeredStay.checkin.match(/(\d+)일/)?.[1] ?? "숙소"}
-              title={registeredStay.name}
-              meta={`${registeredStay.checkin} 체크인`}
-              color={theme?.secondary ?? "#55BFB4"}
-              onPress={() => openStay()}
-              large
-            />
+            {hasStay && (
+              <TravelMiniCard
+                label="대표 숙소"
+                mark={registeredStay.checkin.match(/(\d+)일/)?.[1] ?? "숙소"}
+                title={registeredStay.name}
+                meta={`${registeredStay.checkin} 체크인`}
+                color={theme?.secondary ?? "#55BFB4"}
+                onPress={() => openStay()}
+                large={!hasKitchen}
+              />
+            )}
+            {hasKitchen && (
+              <TravelMiniCard
+                label="요리"
+                mark="한 끼"
+                title={recipes[0]?.name ?? "메뉴 정하기"}
+                meta={
+                  recipes.length
+                    ? `${recipes.length}개 · 재료 ${recipes.reduce((sum, recipe) => sum + recipe.ingredients.length, 0)}개`
+                    : "무엇을 해 먹을까요"
+                }
+                color={theme?.accent ?? "#8B7CF6"}
+                onPress={() => setMode("요리")}
+                large={!hasStay}
+              />
+            )}
           </View>
         )}
         {hasStay && <PhotoStrip photos={stayPhotos} label={registeredStay.name} />}
@@ -3771,37 +3793,6 @@ function TripOverview({
           <EmptyState title="아직 숙소가 없어요" description="체크인·체크아웃 시간을 적어 두면 일정에도 보여요." action="숙소 추가" onPress={canEdit ? () => openStay(true) : undefined} />
         )}
       </View>
-
-      {/* 요리도 제 구역을 갖는다. 숙소 카드 옆에 얹혀 있을 때는 위에 적힌 「1곳」과
-          「숙소 수정」이 요리까지 가리키는 것처럼 보였다. 주방이 있는 여행에서만
-          나오는 것은 그대로다. */}
-      {hasKitchen && (
-        <>
-          <SectionLabel
-            label="요리"
-            count={`${recipes.length}개`}
-            action="요리 보기"
-            onPress={() => setMode("요리")}
-          />
-          <View style={styles.travelInfoList}>
-            <View style={styles.travelInfoPair}>
-              <TravelMiniCard
-                label="요리"
-                mark="한 끼"
-                title={recipes[0]?.name ?? "메뉴 정하기"}
-                meta={
-                  recipes.length
-                    ? `재료 ${recipes.reduce((sum, recipe) => sum + recipe.ingredients.length, 0)}개`
-                    : "무엇을 해 먹을까요"
-                }
-                color={theme?.accent ?? "#8B7CF6"}
-                onPress={() => setMode("요리")}
-                large
-              />
-            </View>
-          </View>
-        </>
-      )}
 
       {/* 목록은 그대로 둔다. 예약을 장소 안에서 적더라도, 놓치면 안 되는 것들을
           한자리에 모아 보여 주는 일은 여전히 이 구역이 한다. */}

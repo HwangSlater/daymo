@@ -103,19 +103,19 @@ def 편지_html(subject: str, body: str | None, link: str | None, 문의: str, �
     <td align="center" style="padding:24px 12px">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"
              style="width:100%;max-width:600px">
+        <!-- 종이를 붙인 테이프. 종이 위쪽에 걸쳐 놓는다. 메일 HTML 은 겹쳐 놓기를
+             못 하니 종이 바로 위 칸에 둔다. 그림을 막아 둔 메일 앱에서도 보이게 색
+             칸으로 그린다. -->
+        <tr>
+          <td align="center" style="padding:0;font-size:0;line-height:0">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr><td width="86" height="14"
+                      style="width:86px;height:14px;background-color:{_테이프};font-size:0;line-height:0">&nbsp;</td></tr>
+            </table>
+          </td>
+        </tr>
         <tr>
           <td style="background-color:{_종이};border:1px solid {_테두리};border-radius:6px">
-            <!-- 종이를 붙인 테이프. 그림을 막아 둔 메일 앱에서도 보이게 색 칸으로 그린다. -->
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td align="center" style="padding:0">
-                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                    <tr><td width="86" height="14"
-                            style="width:86px;height:14px;background-color:{_테이프};font-size:0;line-height:0">&nbsp;</td></tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <!-- 수첩의 왼쪽 여백선 -->
