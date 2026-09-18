@@ -3449,20 +3449,22 @@ function TripOverview({
   }, [participants, transportations]);
   /** 카드 차례. 참가자 차례대로 묶고, 한 사람 안에서는 가는 편이 먼저다. */
   const transportLegs = useMemo(() => {
-    // 이른 것부터. 방향 칸을 없앴으니 순서는 날짜와 출발 시각이 말한다. 시각을
-    // 안 적은 편은 그날의 맨 앞에 둔다 — 몇 시인지 모를 뿐 그날 타는 것은 맞다.
+    // 이른 것부터. 사람으로 먼저 묶지 않는다 — 묶으면 화면 전체로는 시간순이
+    // 아니게 되어, 앞뒤로 무엇을 타는지 읽을 수가 없다. 누구 것인지는 카드의
+    // 이름과 색이 말한다. 시각을 안 적은 편은 그날의 맨 앞에 둔다 — 몇 시인지
+    // 모를 뿐 그날 타는 것은 맞다.
     const 차례 = (leg: Transportation) => {
       const 날 = dayOptions.indexOf(leg.date);
       const 분 = 시각을_분으로(leg.departureTime);
       return (날 < 0 ? dayOptions.length : 날) * 2000 + (분 ?? -1);
     };
-    const 사람들 = [...transportOwners, ""];
-    return 사람들.flatMap((owner, ownerIndex) =>
-      transportations
-        .filter((leg) => (leg.owner || "") === owner)
-        .sort((a, b) => 차례(a) - 차례(b))
-        .map((leg) => ({ leg, ownerIndex })),
-    );
+    const 사람_자리 = (leg: Transportation) => {
+      const 자리 = transportOwners.indexOf(leg.owner || "");
+      return 자리 < 0 ? transportOwners.length : 자리;
+    };
+    return [...transportations]
+      .sort((a, b) => 차례(a) - 차례(b) || 사람_자리(a) - 사람_자리(b))
+      .map((leg) => ({ leg, ownerIndex: 사람_자리(leg) }));
   }, [dayOptions, transportOwners, transportations]);
   const transportColors = [
     theme?.secondary ?? "#55BFB4",
@@ -3760,15 +3762,12 @@ function TripOverview({
           작은 글 한 줄로 붙여서, 위에 「2편」이라 적혀 있는데 카드는 하나만 보였다.
           이용자가 비어 있는 편은 아예 안 그려져 「없음」으로 보이기도 했다. */}
       <View style={styles.transportGrid}>
-        {transportLegs.map(({ leg, ownerIndex }, index) => (
+        {transportLegs.map(({ leg, ownerIndex }) => (
           <TransportCard
             key={leg.id}
             owner={leg.owner || "타는 사람 미정"}
             leg={leg}
             color={transportColors[ownerIndex % transportColors.length]}
-            // 홀수로 남은 마지막 한 장은 가로로 꽉 채운다. 반쪽만 차고 옆이 비면
-            // 빠뜨린 자리처럼 보인다.
-            wide={transportLegs.length % 2 === 1 && index === transportLegs.length - 1}
             onPress={() => setSelectedTransport(leg)}
           />
         ))}
@@ -11161,14 +11160,11 @@ function TransportCard({
   owner,
   leg,
   color,
-  wide = false,
   onPress,
 }: {
   owner: string;
   leg: Transportation;
   color: string;
-  /** 홀수로 남은 마지막 한 장. 한 줄을 가로로 다 쓴다. */
-  wide?: boolean;
   onPress: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -11179,7 +11175,6 @@ function TransportCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.transportCard,
-        wide && styles.transportCardWide,
         theme && { backgroundColor: theme.surface, borderColor: theme.border },
         pressed && styles.packingCardPressed,
       ]}
@@ -12232,7 +12227,6 @@ const styles = StyleSheet.create({
   // 화면 폭까지 늘려, 같은 카드가 상황에 따라 두 배로 커 보인다. 둘일 때의 크기를
   // 그대로 지킨다.
   transportCard: { flexGrow: 1, flexBasis: "46%", maxWidth: "48%", minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
-  transportCardWide: { flexBasis: "100%", maxWidth: "100%" },
   transportCardRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
   transportCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   transportOwner: { fontSize: 12, fontFamily: typo.label.family },
