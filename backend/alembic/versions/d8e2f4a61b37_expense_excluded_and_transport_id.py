@@ -1,7 +1,7 @@
 """expense excluded and transport_id
 
 Revision ID: d8e2f4a61b37
-Revises: c1a7b4e0d962
+Revises: a7d3e9c15b48
 Create Date: 2026-09-18 10:00:00.000000
 """
 from collections.abc import Sequence
@@ -11,7 +11,10 @@ import sqlalchemy as sa
 
 
 revision: str = 'd8e2f4a61b37'
-down_revision: str | None = 'c1a7b4e0d962'
+# 같은 날 다른 갈래에서 만들어져 둘 다 c1a7b4e0d962 를 가리켰다. 머리가 둘이 되어
+# `alembic upgrade head` 가 「Multiple head revisions」로 멈췄다. 먼저 배포된
+# a7d3e9c15b48 뒤로 붙여 한 줄로 만든다.
+down_revision: str | None = 'a7d3e9c15b48'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
