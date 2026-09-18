@@ -32,7 +32,8 @@ import {
   scheduleDayCounts,
   scheduleOfDay,
 } from "./scheduleDays";
-import { reservationCodec, transportCodec } from "./bookingSync";
+import { reservationCodec, transportCodec, type TransportStop } from "./bookingSync";
+import { maskClockTime, settleClockTime } from "./clock";
 import { expenseCodec, paymentCodec } from "./expenseSync";
 import { packingCodec, recipeCodec, type PackingRow, type RecipeRow } from "./cookingSync";
 import {
@@ -537,6 +538,11 @@ export type Transportation = {
   showInSchedule: boolean;
   /** 예매번호·좌석·정류장 안내 같은 것. 옛 기기 기록에는 없다. */
   note?: string;
+  /**
+   * 한 번의 이동에서 갈아타는 곳. 순서대로 담는다. 곧장 가면 비어 있다.
+   * 가는 편·오는 편 둘 다 가질 수 있다. 옛 기기 기록에는 없다.
+   */
+  stops?: TransportStop[];
 };
 
 type Props = {
@@ -2969,6 +2975,8 @@ function TripOverview({
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const [transportShowInSchedule, setTransportShowInSchedule] = useState(true);
   const [transportNote, setTransportNote] = useState("");
+  /** 갈아타는 곳. 「＋ 갈아타는 곳」으로 늘리고 ×로 지운다. */
+  const [transportStops, setTransportStops] = useState<TransportStop[]>([]);
   // 표값. 교통편에는 저장하지 않고 비용 탭의 지출로만 남는다. 고칠 때는 그 지출의 금액이 여기 온다.
   const [transportAmount, setTransportAmount] = useState("");
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
@@ -2989,6 +2997,7 @@ function TripOverview({
     status: transportStatus,
     showInSchedule: transportShowInSchedule,
     note: transportNote,
+    stops: transportStops,
     amount: transportAmount,
   };
   const [transportDraftBaseline, setTransportDraftBaseline] = useState(() =>
@@ -3310,6 +3319,10 @@ function TripOverview({
       status: transportStatus,
       showInSchedule: transportShowInSchedule,
       note: transportNote.trim(),
+      // 이름을 안 적은 줄은 버린다. 「＋ 갈아타는 곳」을 눌러만 두고 만 자리다.
+      stops: transportStops
+        .map((stop) => ({ name: stop.name.trim(), time: stop.time?.trim() || undefined }))
+        .filter((stop) => stop.name.length > 0),
     };
     setTransportDraftBaseline(JSON.stringify(transportDraft));
     /** 교통편을 실제로 저장한다. 지출을 어떻게 했는지에 따라 알림 말만 다르다. */
@@ -3467,10 +3480,12 @@ function TripOverview({
       status: "예매 완료" as const,
       showInSchedule: true,
       note: "",
+      stops: [] as TransportStop[],
       amount: "",
     };
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(null);
+    setTransportStops([]);
     setTransportOwner(nextDraft.owner);
     setTransportDirection("가는 편");
     setTransportMethod(nextDraft.method);
@@ -3504,6 +3519,7 @@ function TripOverview({
       status: item.status,
       showInSchedule: item.showInSchedule,
       note: item.note ?? "",
+      stops: item.stops ?? [],
       amount: linkedAmount,
     };
     setTransportDraftBaseline(JSON.stringify(nextDraft));
@@ -3519,6 +3535,7 @@ function TripOverview({
     setTransportStatus(item.status);
     setTransportShowInSchedule(item.showInSchedule);
     setTransportNote(item.note ?? "");
+    setTransportStops(item.stops ?? []);
     setTransportAmount(linkedAmount);
     setTransportDetailsOpen(
       Boolean(item.note) || Boolean(linkedAmount) || item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule,
@@ -4034,6 +4051,57 @@ function TripOverview({
           accentColor={transportDirectionColor}
           accentSoft={transportDirectionSoft}
         />
+        {/* 갈아타는 곳. 곧장 가면 줄이 없어 지금과 똑같다. 가는 편·오는 편 모두
+            가질 수 있다. */}
+        {transportStops.map((stop, index) => (
+          <View key={index} style={styles.transportStopRow}>
+            <Text style={[styles.transportStopMark, theme && { color: theme.muted }]}>갈아탐</Text>
+            <TextInput
+              accessibilityLabel={`갈아타는 곳 ${index + 1}`}
+              value={stop.name}
+              onChangeText={(name) => setTransportStops((current) =>
+                current.map((item, i) => (i === index ? { ...item, name } : item)))}
+              placeholder="예: 동대구"
+              placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+              maxLength={40}
+              style={[styles.transportStopName, theme && { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }]}
+            />
+            <TextInput
+              accessibilityLabel={`갈아타는 곳 ${index + 1} 시각`}
+              value={stop.time ?? ""}
+              onChangeText={(text) => setTransportStops((current) =>
+                current.map((item, i) => (i === index ? { ...item, time: maskClockTime(text) } : item)))}
+              onBlur={() => setTransportStops((current) =>
+                current.map((item, i) => (i === index ? { ...item, time: settleClockTime(item.time ?? "") } : item)))}
+              placeholder="시각"
+              placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+              keyboardType="numeric"
+              maxLength={5}
+              style={[styles.transportStopTime, theme && { color: theme.text, backgroundColor: theme.surface, borderColor: theme.border }]}
+            />
+            <Pressable
+              onPress={() => setTransportStops((current) => current.filter((_, i) => i !== index))}
+              accessibilityRole="button"
+              accessibilityLabel={`갈아타는 곳 ${index + 1} 지우기`}
+              hitSlop={누름여유(높이.칩)}
+              style={({ pressed }) => [styles.transportStopDelete, pressed && styles.controlPressed]}
+            >
+              <Text style={[styles.transportStopDeleteText, theme && { color: theme.muted }]}>×</Text>
+            </Pressable>
+          </View>
+        ))}
+        {/* 다섯 곳까지. 서버도 그만큼만 받는다. */}
+        {transportStops.length < 5 && (
+          <Pressable
+            onPress={() => setTransportStops((current) => [...current, { name: "" }])}
+            accessibilityRole="button"
+            accessibilityLabel="갈아타는 곳 추가"
+            hitSlop={누름여유(높이.칩)}
+            style={({ pressed }) => [styles.transportStopAdd, pressed && styles.controlPressed]}
+          >
+            <Text style={[styles.transportStopAddText, { color: theme?.primary ?? "#3F4C8F" }]}>＋ 갈아타는 곳</Text>
+          </Pressable>
+        )}
         <OptionField
           label="방향"
           options={["가는 편", "오는 편"]}
@@ -4108,6 +4176,13 @@ function TripOverview({
               <Text style={[styles.transportDetailDirection, theme && { color: theme.primary }]}>{item.direction} · {item.status}</Text>
               <InfoLine label="교통수단" value={item.method} />
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
+              {(item.stops ?? []).filter((stop) => stop.name.trim()).map((stop, index, 곳) => (
+                <InfoLine
+                  key={index}
+                  label={곳.length === 1 ? "갈아탐" : `갈아탐 ${index + 1}`}
+                  value={stop.time ? `${stop.name} ${stop.time}` : stop.name}
+                />
+              ))}
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
               <InfoLine label="여행 일정" value={item.showInSchedule ? "일정에 표시 중" : "교통 정보만 저장"} />
               {linked && <InfoLine label="비용" value={`${money(linked.amount, currency)}${linked.excluded ? " · 정산 제외" : ""}`} />}
@@ -11149,6 +11224,16 @@ function TravelInfoRow({
   );
 }
 
+/**
+ * 카드 오른쪽 위에 적는 갈아타는 곳. 한 곳이면 「동대구 갈아탐」, 여러 곳이면
+ * 「2번 갈아탐」이다. 곧장 가면 빈 글자다 — 「곧장 감」이라고 굳이 적지 않는다.
+ */
+function 갈아타는_곳_말(leg: Transportation): string {
+  const 곳 = (leg.stops ?? []).filter((stop) => stop.name.trim());
+  if (!곳.length) return "";
+  return 곳.length === 1 ? `${곳[0].name.trim()} 갈아탐` : `${곳.length}번 갈아탐`;
+}
+
 function TransportCard({
   owner,
   leg,
@@ -11175,12 +11260,17 @@ function TransportCard({
       <View style={[styles.transportCardRail, { backgroundColor: color }]} />
       <View style={styles.transportCardHead}>
         <Text numberOfLines={1} style={[styles.transportOwner, { color, flexShrink: 1 }]}>{owner}</Text>
-        {/* 다 예매했으면 할 일이 없다. 아직인 것만 눈에 띄게 남긴다. */}
-        {leg.status === "예매 전" && (
+        {/* 오른쪽 위 한 자리. 아직 예매 전이면 그것이 먼저다 — 해야 할 일이라서다.
+            다 예매했으면 갈아타는 곳을 적는다. 곧장 가면 아무것도 안 적는다. */}
+        {leg.status === "예매 전" ? (
           <Text style={[styles.transportStatus, { color: theme?.accent ?? "#B4453C" }]}>
             {leg.status}
           </Text>
-        )}
+        ) : 갈아타는_곳_말(leg) ? (
+          <Text numberOfLines={1} style={[styles.transportStatus, { color: theme?.muted ?? "#727C8D", flexShrink: 1 }]}>
+            {갈아타는_곳_말(leg)}
+          </Text>
+        ) : null}
       </View>
       {/* 「가는 편 · 무궁화호」처럼 길어지면 좁은 기기에서 한 줄에 안 들어간다. 줄여서
           「무궁화…」로 보이는 것보다 두 줄로 내려가는 쪽이 낫다. 카드 높이는 minHeight 라
@@ -12250,6 +12340,14 @@ const styles = StyleSheet.create({
   pairedFieldInput: { flex: 1, minWidth: 0, height: 높이.입력, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14, textAlign: "center" },
   pairedFieldArrow: { width: 27, height: 27, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   pairedFieldArrowText: { fontSize: 14, lineHeight: 16, fontFamily: typo.label.family },
+  transportStopRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  transportStopMark: { width: 33, fontSize: 11, fontFamily: typo.caption.family, textAlign: "center" },
+  transportStopName: { flex: 1, minWidth: 0, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 13.5 },
+  transportStopTime: { width: 74, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 6, fontSize: 13, textAlign: "center" },
+  transportStopDelete: { width: 24, alignItems: "center", justifyContent: "center" },
+  transportStopDeleteText: { fontSize: 17, fontFamily: typo.label.family },
+  transportStopAdd: { alignSelf: "flex-start", minHeight: 높이.칩, justifyContent: "center", marginTop: 6, marginBottom: 6 },
+  transportStopAddText: { fontSize: 13, fontFamily: typo.label.family },
   transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 8, marginBottom: 8 },
   transportDetailDirection: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 2 },
   infoManageButton: { minHeight: 높이.칩, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center", marginTop: 6 },

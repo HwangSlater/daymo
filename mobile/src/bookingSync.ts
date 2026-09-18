@@ -12,9 +12,18 @@ import { blank, safeUrl } from "./placeSync.ts";
 import type { RosterEntry } from "./tripSync.ts";
 
 const NO_TIME = "시간 미정";
+/**
+ * 「8:55」를 「08:55」로. 시각으로 읽을 수 없으면 `null`.
+ *
+ * 있지도 않은 시각(25:00, 07:70)은 버린다. 서버가 `HH:MM` 을 엄격히 보기 때문에
+ * 그대로 보내면 그 줄만 422 로 튕겨 나가고, 무엇이 잘못됐는지 화면에는 안 보인다.
+ */
 const clockOf = (value: string) => {
   const match = value.match(/^(\d{1,2}):(\d{2})$/);
-  return match ? `${match[1].padStart(2, "0")}:${match[2]}` : null;
+  if (!match) return null;
+  const 시 = Number(match[1]);
+  const 분 = Number(match[2]);
+  return 시 <= 23 && 분 <= 59 ? `${match[1].padStart(2, "0")}:${match[2]}` : null;
 };
 
 // ---------------------------------------------------------------------------
@@ -35,7 +44,15 @@ export type AppTransport = {
   showInSchedule: boolean;
   /** 예매번호·좌석·정류장 안내 같은 것. 옛 기기 기록에는 없다. */
   note?: string;
+  /**
+   * 한 번의 이동에서 갈아타는 곳. 순서대로 담는다. 갈아타지 않으면 비어 있다.
+   * 옛 기기 기록에는 없다.
+   */
+  stops?: TransportStop[];
 };
+
+/** 갈아타는 곳 하나. 시각은 몰라도 된다. */
+export type TransportStop = { name: string; time?: string };
 
 type ServerMethod = "ktx" | "srt" | "mugunghwa" | "express_bus" | "intercity_bus" | "bus" | "flight" | "other";
 
@@ -51,6 +68,7 @@ export type ServerTransport = {
   ownerMembershipId: string | null;
   bookingStatus: "booked" | "not_booked";
   note: string | null;
+  stops: { name: string; time: string | null }[];
   showInSchedule: boolean;
   version: number;
 };
@@ -88,6 +106,11 @@ export function transportCodec(
         ownerMembershipId: roster.find((entry) => entry.name === item.owner)?.id ?? null,
         bookingStatus: item.status === "예매 완료" ? "booked" : "not_booked",
         note: blank(item.note, 2000),
+        // 이름이 비었거나 다섯 개를 넘으면 서버가 물린다. 보내기 전에 추려 둔다.
+        stops: (item.stops ?? [])
+          .map((stop) => ({ name: (stop.name ?? "").trim().slice(0, 40), time: clockOf(stop.time ?? "") }))
+          .filter((stop) => stop.name.length > 0)
+          .slice(0, 5),
         showInSchedule: item.showInSchedule,
       };
     },
@@ -103,6 +126,9 @@ export function transportCodec(
       arrivalTime: row.arrivalTime ?? NO_TIME,
       status: row.bookingStatus === "booked" ? "예매 완료" : "예매 전",
       note: row.note ?? "",
+      stops: (row.stops ?? [])
+        .filter((stop) => Boolean(stop?.name))
+        .map((stop) => (stop.time ? { name: stop.name, time: stop.time } : { name: stop.name })),
       showInSchedule: row.showInSchedule,
     }),
   };

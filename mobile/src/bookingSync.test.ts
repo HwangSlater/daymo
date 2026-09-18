@@ -44,8 +44,28 @@ test("교통편을 서버 모양으로 바꾸고 탈 사람은 membership id 로
     ownerMembershipId: "m-yeoul",
     bookingStatus: "booked",
     note: null,
+    stops: [],
     showInSchedule: true,
   });
+});
+
+test("갈아타는 곳은 이름이 있는 것만 다섯 개까지 보낸다", () => {
+  const codec = transportCodec(dates, roster);
+  const 보낸것 = codec.toBody(transport({
+    stops: [
+      { name: "  동대구  ", time: "8:55" },
+      { name: "   " },
+      { name: "대전", time: "25:00" },
+      { name: "가".repeat(50) },
+      { name: "a" }, { name: "b" }, { name: "c" }, { name: "d" },
+    ],
+  })).stops;
+
+  assert.equal(보낸것.length, 5);
+  assert.deepEqual(보낸것[0], { name: "동대구", time: "08:55" });
+  // 읽을 수 없는 시각은 버리고 곳만 남긴다.
+  assert.deepEqual(보낸것[1], { name: "대전", time: null });
+  assert.equal(보낸것[2].name.length, 40);
 });
 
 test("교통편 메모를 적으면 서버로 가고, 서버 메모는 돌아와 그대로 남는다", () => {
@@ -56,7 +76,7 @@ test("교통편 메모를 적으면 서버로 가고, 서버 메모는 돌아와
   const back = codec.fromServer({
     id: A, direction: "outbound", method: "ktx", date: "2026-10-01", departureName: "서울역", departureTime: "08:00",
     arrivalName: "전주역", arrivalTime: null, ownerMembershipId: "m-yeoul", bookingStatus: "booked",
-    note: "3호차 12A", showInSchedule: true, version: 1,
+    note: "3호차 12A", stops: [{ name: "동대구", time: "08:55" }], showInSchedule: true, version: 1,
   });
 
   assert.equal(back.note, "3호차 12A");
@@ -78,13 +98,24 @@ test("공간에 없는 이름은 탈 사람을 비워 보내고, 서버에서 �
 test("서버 교통편은 화면 글자로 돌아온다", () => {
   const back = transportCodec(dates, roster).fromServer({
     id: A, direction: "return", method: "flight", date: "2026-10-03", departureName: "제주", departureTime: "21:40",
-    arrivalName: "김포", arrivalTime: null, ownerMembershipId: "m-me", bookingStatus: "not_booked", note: null, showInSchedule: false, version: 2,
+    arrivalName: "김포", arrivalTime: null, ownerMembershipId: "m-me", bookingStatus: "not_booked", note: null, stops: [], showInSchedule: false, version: 2,
   });
 
   assert.deepEqual(back, {
     id: A, owner: "하늘", direction: "오는 편", method: "항공", date: "3일(토)", departure: "제주", departureTime: "21:40",
-    arrival: "김포", arrivalTime: "시간 미정", status: "예매 전", note: "", showInSchedule: false,
+    arrival: "김포", arrivalTime: "시간 미정", status: "예매 전", note: "", stops: [], showInSchedule: false,
   });
+});
+
+test("서버가 준 갈아타는 곳은 순서대로 돌아오고, 시각이 없으면 곳만 남는다", () => {
+  const back = transportCodec(dates, roster).fromServer({
+    id: A, direction: "outbound", method: "ktx", date: "2026-10-01", departureName: "진주", departureTime: "07:10",
+    arrivalName: "대전", arrivalTime: "10:02", ownerMembershipId: "m-me", bookingStatus: "booked", note: null,
+    stops: [{ name: "동대구", time: "08:55" }, { name: "김천", time: null }],
+    showInSchedule: true, version: 1,
+  });
+
+  assert.deepEqual(back.stops, [{ name: "동대구", time: "08:55" }, { name: "김천" }]);
 });
 
 test("무궁화호·고속버스·시외버스는 서버 값으로 갔다가 같은 글자로 돌아온다", () => {

@@ -200,6 +200,7 @@ test("교통편은 가는 편이면 첫날, 오는 편이면 마지막 날로 �
     ownerMembershipId: "m-하늘",
     bookingStatus: "booked",
     note: null,
+    stops: [],
     showInSchedule: true,
   });
 });

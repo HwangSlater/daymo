@@ -222,6 +222,8 @@ export async function runNoticeImport(
         ownerMembershipId: options.roster.find((entry) => entry.name === transport.owner)?.id ?? null,
         bookingStatus: transport.booked ? "booked" : "not_booked",
         note: null,
+        // 공지에서 가져온 것에는 갈아타는 곳이 없다.
+        stops: [],
         showInSchedule: true,
       }));
   }
