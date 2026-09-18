@@ -276,7 +276,10 @@ export function SheetShell({
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          // 웹에서는 끈다. react-native-web 은 "on-drag" 를 「스크롤이 나면 키보드를 내린다」로
+          // 구현해서, 키보드가 올라온 뒤 입력 칸을 다시 보이게 스크롤하는 순간(webKeyboardFocus)
+          // 키보드가 도로 내려갔다. 끌어서 키보드를 내리는 건 폰 앱의 동작이라 웹엔 필요 없다.
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : Platform.OS === "android" ? "on-drag" : "none"}
           automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           contentContainerStyle={scrollContentStyle}
         >
