@@ -10075,12 +10075,9 @@ function Money({
 
   return (
     <View>
-      <TabActionHeader
-        label="지출"
-        count={`${expenses.length}건`}
-        action="지출 추가"
-        onPress={openCreate}
-      />
+      {/* 맨 위 「지출 N건」 제목줄은 뺐다. 탭 이름이 이미 「비용」이고 탭 줄에
+          건수까지 찍히는데, 같은 말을 한 번 더 하고 아래 「지출 내역」과도
+          겹쳤다. 그 줄에 있던 지출 추가 버튼은 목록 제목 옆으로 내렸다. */}
       <MoneyBlock title="총 지출" action={canEdit ? "예산 수정" : undefined} onAction={openBudget}>
         <Text style={[styles.moneyTotal, theme && { color: theme.text }]}>
           {show(settlement.total)}
@@ -10388,7 +10385,7 @@ function Money({
           </Pressable>
         </View>
         <Text style={[styles.quickAddHint, theme && { color: theme.muted }]}>
-          {draftPayerHint} · 자세히 적으려면 위의 지출 추가를 눌러 주세요
+          {draftPayerHint} · 자세히 적으려면 아래의 지출 추가를 눌러 주세요
         </Text>
       </MoneyBlock>
       )}
@@ -10447,12 +10444,52 @@ function Money({
           </View>
         </MoneyBlock>
       )}
-      <SectionLabel
-        label={categoryFilter === "전체" ? "지출 내역" : `${categoryFilter} 지출`}
-        count={dayFilter === "전체" && categoryFilter === "전체" ? `${sorted.length}건` : `${visible.length}건`}
-        action={categoryFilter === "전체" ? undefined : "전체 보기"}
-        onPress={categoryFilter === "전체" ? undefined : () => setCategoryFilter("전체")}
-      />
+      {/* 지출을 더하는 자리는 목록 바로 위다. 제목·건수·버튼이 모두 이 목록
+          하나를 가리킨다. */}
+      <View style={styles.tabActionHeader}>
+        <View style={styles.tabActionTitleRow}>
+          <Text style={[styles.sectionTitle, theme && { color: theme.text }]}>
+            {categoryFilter === "전체" ? "지출 내역" : `${categoryFilter} 지출`}
+          </Text>
+          <Text style={[styles.tabActionCount, theme && { color: theme.muted, backgroundColor: theme.surfaceAlt }]}>
+            {dayFilter === "전체" && categoryFilter === "전체" ? `${sorted.length}건` : `${visible.length}건`}
+          </Text>
+        </View>
+        <View style={styles.moneyListHeadActions}>
+          {categoryFilter !== "전체" && (
+            <Pressable
+              onPress={() => setCategoryFilter("전체")}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="전체 보기"
+              style={styles.sectionActionHit}
+            >
+              <View style={styles.sectionActionRow}>
+                <Text style={[styles.sectionAction, theme && { color: theme.primary }]}>전체 보기</Text>
+                <Glyph name="arrowRight" size={14} color={theme?.primary ?? "#3F4C8F"} />
+              </View>
+            </Pressable>
+          )}
+          {/* 버튼이 없는 까닭은 탭마다 한 번 알린다. 맨 위 줄이 없어졌으니 이
+              자리가 그 자리다. */}
+          {canEdit ? (
+            <Pressable
+              onPress={openCreate}
+              accessibilityRole="button"
+              accessibilityLabel="지출 추가"
+              style={({ pressed }) => [
+                styles.tabActionButton,
+                theme && { backgroundColor: theme.primary },
+                pressed && styles.packingCardPressed,
+              ]}
+            >
+              <Text style={[styles.tabActionButtonText, theme && { color: onAccent(theme.dark) }]}>＋ 지출 추가</Text>
+            </Pressable>
+          ) : (
+            <Text style={[styles.tabActionReadOnly, theme && { color: theme.muted }]}>보기 전용 공간이에요</Text>
+          )}
+        </View>
+      </View>
       {/* 며칠 치가 쌓였을 때만 날짜로 거른다. 몇 건 안 되면 칩이 목록보다 크다. */}
       {expenses.length > 5 && usedDays.length > 1 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moneyDayRow}>
@@ -12840,6 +12877,9 @@ const styles = StyleSheet.create({
   moneyDayChip: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 여백.가로좁게, minHeight: 높이.버튼, justifyContent: "center" },
   moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
   moneyList: { gap: 14, marginTop: 8 },
+  // 목록 제목줄 오른쪽. 분류를 걸러 둔 동안에는 「전체 보기」와 추가 버튼이
+  // 나란히 선다.
+  moneyListHeadActions: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
   moneyGroup: { gap: 6 },
   moneyGroupHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingHorizontal: 2 },
   moneyGroupDay: { fontSize: 13, fontFamily: typo.title.family },
