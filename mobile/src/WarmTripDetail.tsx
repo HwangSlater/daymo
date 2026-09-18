@@ -11596,6 +11596,25 @@ function StayDateTimePicker({
   const theme = useContext(DetailThemeContext);
   const time = value.match(/\d{1,2}:\d{2}$/)?.[0] ?? "12:00";
   const date = value.replace(/\s*\d{1,2}:\d{2}$/, "").trim() || dates[0];
+  // 치는 동안의 글자는 여기서 들고 있는다. 시각은 「날짜 시각」 한 문자열에 담겨
+  // 부모로 올라가는데, 「15:30」이 되기 전의 「1」「15」「153」은 그 문자열에서 시각으로
+  // 못 읽혀 기본값으로 튕겼다. 그래서 웹에서 체크인 시간을 아예 칠 수 없었다.
+  // 완성된 시각(HH:MM)만 부모에 올리고, 부모 값이 밖에서 바뀌면 다시 받는다.
+  const [timeText, setTimeText] = useState(time);
+  const 올린_시각 = useRef(time);
+  useEffect(() => {
+    if (time !== 올린_시각.current) {
+      올린_시각.current = time;
+      setTimeText(time);
+    }
+  }, [time]);
+  const onTimeText = (next: string) => {
+    setTimeText(next);
+    if (/^\d{2}:\d{2}$/.test(next)) {
+      올린_시각.current = next;
+      onTimeChange(next);
+    }
+  };
   return (
     <View style={[styles.stayPicker, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
       <View style={styles.stayPickerHead}>
@@ -11603,7 +11622,7 @@ function StayDateTimePicker({
         <Text style={[styles.stayPickerValue, theme && { color: theme.primary }]}>{value}</Text>
       </View>
       <OptionField label="날짜" options={dates} value={date} onChange={onDateChange} />
-      <TimePickerField label="시간" value={time} onChange={onTimeChange} fallback={time} />
+      <TimePickerField label="시간" value={timeText} onChange={onTimeText} fallback={time} />
     </View>
   );
 }
