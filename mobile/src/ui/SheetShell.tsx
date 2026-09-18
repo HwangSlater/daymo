@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -10,12 +9,15 @@ import {
   ScrollView,
   StyleProp,
   StyleSheet,
+  TextInput,
   View,
   ViewStyle,
 } from "react-native";
 
 import { Text } from "../AppText";
 import { Glyph } from "../Glyph";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useSheetDrag } from "../sheetDrag";
 import { showAlert } from "../showAlert";
 import { useWebKeyboardFocus, useWebKeyboardOpen } from "./webKeyboardFocus";
@@ -64,7 +66,6 @@ export function SheetShell({
   locked = false,
   lockedHint = "보기 전용 공간이에요",
   hasUnsavedChanges = false,
-  keyboardAvoiding = true,
   padBody = true,
   scrollContentStyle,
   footer,
@@ -112,8 +113,6 @@ export function SheetShell({
   lockedHint?: string;
   /** 작성 중인 값이 있다. 닫으려 하면 먼저 묻는다. */
   hasUnsavedChanges?: boolean;
-  /** iOS 에서 키보드만큼 시트를 밀어 올린다. 입력 칸이 없는 시트는 끈다. */
-  keyboardAvoiding?: boolean;
   /** 본문 좌우에 2px 을 준다. 스크롤 안에서 그림자가 잘리지 않게 두는 여백이다. */
   padBody?: boolean;
   /** 스크롤 안쪽에 더 줄 여백. */
@@ -160,7 +159,98 @@ export function SheetShell({
   useWebKeyboardFocus(visible);
   // 키보드가 올라온 동안에는 손잡이·부제·힌트를 접고 시트를 화면 끝까지 쓴다. 보이는
   // 높이가 300px 남짓이라 그것들이 차지하던 자리가 곧 입력 영역이다.
-  const 키보드_열림 = useWebKeyboardOpen(visible);
+  const 웹_키보드_열림 = useWebKeyboardOpen(visible);
+  // 창을 화면 끝까지 쓸 때도 폰 위쪽의 시계·배터리 줄은 덮지 않는다.
+  const 안전여백 = useSafeAreaInsets();
+  /**
+   * 기기에서 키보드가 올라오면 치고 있는 칸을 보이는 자리로 끌어온다.
+   *
+   * iOS 의 `automaticallyAdjustKeyboardInsets` 는 스크롤 칸의 아래 여백만 늘린다.
+   * 시트가 길면 그것만으로는 칸이 화면 위로 밀려 올라간 채로 남아, 무엇을 치고
+   * 있는지 안 보였다(2026-09-18 「새 여행」에서 여행지를 칠 때). 웹은 이미
+   * `useWebKeyboardFocus` 가 같은 일을 한다.
+   */
+  const 스크롤칸 = useRef<ScrollView>(null);
+  const 스크롤_자리 = useRef(0);
+  /**
+   * 치고 있는 칸이 스크롤 칸의 보이는 상자 안에 들게 딱 그만큼만 옮긴다.
+   * 아래로 가려졌으면 내리고, 위로 밀려났으면 올린다. 안에 있으면 손대지 않는다.
+   *
+   * `measureLayout` 은 새 렌더러에서 「native component 의 ref 여야 한다」며
+   * 터지므로 화면 기준 자리(`measureInWindow`)만 잰다.
+   */
+  const 칸_보이게 = (키보드_위: number) => {
+    const 칸 = TextInput.State.currentlyFocusedInput();
+    const 통 = 스크롤칸.current;
+    const 통_본체 = 통?.getNativeScrollRef?.();
+    if (!칸 || !통 || !통_본체 || typeof 칸.measureInWindow !== "function" || typeof 통_본체.measureInWindow !== "function") return;
+    통_본체.measureInWindow((_tx: number, 통_위: number, _tw: number, 통_높이: number) => {
+      칸.measureInWindow((_x: number, y: number, _w: number, h: number) => {
+        if (![통_위, 통_높이, y, h].every(Number.isFinite)) return;
+        const 여유 = 16;
+        // 스크롤 칸은 키보드 뒤까지 이어진다. 실제로 보이는 바닥은 둘 중 위쪽이다.
+        const 통_아래 = Math.min(통_위 + 통_높이, 키보드_위 > 0 ? 키보드_위 : Number.MAX_SAFE_INTEGER);
+        const 옮길_만큼 = y + h + 여유 > 통_아래
+          ? y + h + 여유 - 통_아래
+          : y < 통_위 + 여유
+            ? y - (통_위 + 여유)
+            : 0;
+        if (Math.abs(옮길_만큼) < 4) return;
+        통.scrollTo({ y: Math.max(0, 스크롤_자리.current + 옮길_만큼), animated: true });
+      });
+    });
+  };
+  /**
+   * 기기에서 키보드가 올라올 때.
+   *
+   * 1. 창을 화면 끝까지 쓴다(아래 `키보드_열림`).
+   * 2. 스크롤 안쪽 바닥에 키보드 높이만큼 여백을 준다. 이건 한 번의 배치 변경이라
+   *    프레임마다 하는 일이 없다.
+   * 3. 다 올라온 뒤에 치고 있는 칸이 키보드에 가리면 그만큼만 **스르륵 스크롤**한다.
+   *    눈에 보이는 움직임은 이 스크롤 하나뿐이고, 그건 기기가 그린다.
+   *
+   * 스크롤 칸의 `automaticallyAdjustKeyboardInsets` 는 쓰지 않는다. 이 창은 Modal
+   * 안이라 그 장치가 키보드를 보지 못해서 아무 일도 일어나지 않았다(2026-09-18).
+   * 그 전에 쓰던 KeyboardAvoidingView 와 직접 만든 여백 애니메이션은 프레임마다
+   * 자바스크립트가 밀어야 해서, 개발 모드에서 한 프레임에 200px 씩 튀며 끊겼다.
+   *
+   * 키보드가 올라온 동안 시트 바닥의 저장 단추는 키보드 밑에 있다. 키보드를 내리면
+   * 나온다. 그래서 그동안은 바깥을 눌러도 창을 닫지 않고 키보드만 내린다.
+   */
+  const [키보드_높이, set키보드_높이] = useState(0);
+  const 키보드_떠있음 = 키보드_높이 > 0;
+  useEffect(() => {
+    if (!visible || Platform.OS === "web") return;
+    let 예약: ReturnType<typeof setTimeout> | null = null;
+    // 크기를 바꾸는 것은 키보드가 **올라오기 시작할 때**다. 다 올라온 뒤에 바꾸면
+    // 키보드가 멈춘 다음 창이 한 번 더 커져 두 번 움직이는 것처럼 보인다.
+    const 시작 = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const 끝 = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const 올라옴 = Keyboard.addListener(시작, (사건) => set키보드_높이(사건.endCoordinates?.height ?? 0));
+    const 내려감 = Keyboard.addListener(끝, () => set키보드_높이(0));
+    // 칸 맞추기는 키보드가 다 올라온 뒤에 한다. 그 전에는 잴 자리가 아직 안 잡힌다.
+    const 자리잡음 = Keyboard.addListener("keyboardDidShow", (사건) => {
+      const 위 = 사건.endCoordinates?.screenY ?? 0;
+      if (예약) clearTimeout(예약);
+      예약 = setTimeout(() => 칸_보이게(위), 60);
+    });
+    return () => {
+      if (예약) clearTimeout(예약);
+      올라옴.remove();
+      내려감.remove();
+      자리잡음.remove();
+      set키보드_높이(0);
+    };
+  }, [visible]);
+  /**
+   * 키보드가 올라온 동안에는 창을 화면 끝까지 쓴다.
+   *
+   * 창이 화면의 91% 까지만 열리면, 키보드가 올라올 때 남은 자리를 찾아 창이 움직여야
+   * 한다. 그 움직임을 무엇으로 그리든(KeyboardAvoidingView, 우리 애니메이션) 개발
+   * 모드에서 프레임이 뭉쳐 뚝뚝 끊겼다. 창이 이미 화면 끝까지 차 있으면 움직일 것이
+   * 없고, 키보드가 만드는 안쪽 여백은 iOS 가 직접 그린다.
+   */
+  const 키보드_열림 = 웹_키보드_열림 || 키보드_떠있음;
   // 웹의 뒤로 가기는 페이지가 아니라 지금 열린 시트가 받는다.
   useWebBackClose(visible, requestClose);
 
@@ -237,13 +327,21 @@ export function SheetShell({
     <>
       <Pressable
         style={styles.modalDismiss}
-        onPress={requestClose}
+        onPress={키보드_떠있음 ? Keyboard.dismiss : requestClose}
         accessibilityRole="button"
-        accessibilityLabel={`${title} 바깥 영역 닫기`}
+        accessibilityLabel={키보드_떠있음 ? "키보드 내리기" : `${title} 바깥 영역 닫기`}
       />
       <Animated.View
         onLayout={drag.onLayout}
-        style={[styles.sheet, theme && { backgroundColor: theme.background }, 키보드_열림 && styles.sheetCompact, drag.sheetStyle]}
+        style={[
+          styles.sheet,
+          theme && { backgroundColor: theme.background },
+          키보드_열림 && styles.sheetCompact,
+          // 키보드가 차지하는 만큼 창 아래에 여백을 준다. 창 바닥의 저장 단추가
+          // 키보드 위에 서고, 스크롤 칸의 보이는 바닥도 키보드 윗변이 된다.
+          키보드_높이 > 0 && { paddingBottom: 키보드_높이 },
+          drag.sheetStyle,
+        ]}
       >
         <View {...drag.panHandlers} style={키보드_열림 ? styles.dragAreaCompact : styles.dragArea}>
           {!키보드_열림 && <View style={styles.handle} />}
@@ -271,6 +369,9 @@ export function SheetShell({
           </View>
         )}
         <ScrollView
+          ref={스크롤칸}
+          onScroll={(사건) => { 스크롤_자리.current = 사건.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -278,7 +379,8 @@ export function SheetShell({
           // 구현해서, 키보드가 올라온 뒤 입력 칸을 다시 보이게 스크롤하는 순간(webKeyboardFocus)
           // 키보드가 도로 내려갔다. 끌어서 키보드를 내리는 건 폰 앱의 동작이라 웹엔 필요 없다.
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : Platform.OS === "android" ? "on-drag" : "none"}
-          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          // Modal 안에서는 이 장치가 키보드를 보지 못한다. 아래 여백은 우리가 준다.
+          automaticallyAdjustKeyboardInsets={false}
           contentContainerStyle={scrollContentStyle}
         >
           <View style={padBody ? styles.body : undefined} pointerEvents={locked ? "none" : "auto"}>
@@ -357,16 +459,8 @@ export function SheetShell({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={requestClose}>
-      {keyboardAvoiding ? (
-        <KeyboardAvoidingView
-          style={styles.modalBack}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          {inside}
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={styles.modalBack}>{inside}</View>
-      )}
+      {/* 키보드가 올라와 창이 화면 끝까지 쓸 때, 폰 위쪽 시계·배터리 줄만큼은 비운다. */}
+      <View style={[styles.modalBack, 키보드_열림 && { paddingTop: 안전여백.top }]}>{inside}</View>
     </Modal>
   );
 }

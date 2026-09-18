@@ -85,7 +85,14 @@ export function useSheetDrag(
           duration: 180,
           useNativeDriver: true,
         }).start(({ finished }) => {
-          if (finished) onClose();
+          if (!finished) return;
+          onClose();
+          // Modal 이 다 내려간 뒤에 제자리로 돌려 둔다. 다음에 열릴 때 되돌리면
+          // 새 렌더러에서 값이 화면에 늦게 닿아, 창은 화면 밖에 있고 회색 바탕만
+          // 보이다가 한 번 눌러야 올라오는 일이 있었다(2026-09-18 아이폰).
+          setTimeout(() => {
+            if (closing.current) offset.setValue(0);
+          }, 450);
         });
       },
       onPanResponderTerminate: settleBack,
