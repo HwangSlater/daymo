@@ -14,7 +14,7 @@
 
 import type { ChecklistItemBody, RecipeBody } from "./cookingSync.ts";
 import type { MemoBody } from "./memorySync.ts";
-import type { TransportBody } from "./bookingSync.ts";
+import { METHOD_TO_SERVER, type TransportBody } from "./bookingSync.ts";
 import type { ScheduleBody, StayBody } from "./scheduleSync.ts";
 import type { PlaceBody } from "./placeSync.ts";
 import type { RosterEntry } from "./tripSync.ts";
@@ -213,10 +213,7 @@ export async function runNoticeImport(
     await attempt("교통편", `교통편 ${transport.departure} → ${transport.arrival}`, () =>
       api.createTransport(tripId, api.newId(), {
         direction: transport.direction === "오는 편" ? "return" : "outbound",
-        method: transport.method === "KTX" ? "ktx"
-          : transport.method === "SRT" ? "srt"
-            : transport.method === "버스" ? "bus"
-              : transport.method === "항공" ? "flight" : "other",
+        method: METHOD_TO_SERVER[transport.method] ?? "other",
         date: date || null,
         departureName: blank(transport.departure, 40),
         departureTime: date ? transport.departureTime : null,

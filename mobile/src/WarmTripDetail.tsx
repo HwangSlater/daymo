@@ -516,7 +516,8 @@ export type Transportation = {
   /** 이 편을 타는 사람. 이번 여행 참가자 가운데 하나다. */
   owner: string;
   direction: "가는 편" | "오는 편";
-  method: "KTX" | "SRT" | "버스" | "항공" | "기타";
+  // 「버스」는 고속·시외를 나누기 전부터 있던 값이다. 그때 적은 교통편이 남아 있어 그대로 둔다.
+  method: "KTX" | "SRT" | "무궁화호" | "고속버스" | "시외버스" | "버스" | "항공" | "기타";
   date: string;
   departure: string;
   departureTime: string;
@@ -3900,7 +3901,7 @@ function TripOverview({
             if (value !== transportDirection) switchTransportDirection();
           }}
         />
-        <OptionField label="교통수단" options={["KTX", "SRT", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
+        <OptionField label="교통수단" options={["KTX", "SRT", "무궁화호", "고속버스", "시외버스", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
         <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
         <PairedDetailField
           label="이동 경로"
@@ -11106,6 +11107,9 @@ function TransportCard({
           </Text>
         )}
       </View>
+      {/* 「가는 편 · 무궁화호」처럼 길어지면 좁은 기기에서 한 줄에 안 들어간다. 줄여서
+          「무궁화…」로 보이는 것보다 두 줄로 내려가는 쪽이 낫다. 카드 높이는 minHeight 라
+          늘어나고, 옆 카드도 같은 높이로 맞춰진다. */}
       <Text style={[styles.transportMethod, theme && { color: theme.text }]}>{leg.direction} · {leg.method}</Text>
       <View style={styles.transportRoute}>
         <View style={styles.transportStop}>

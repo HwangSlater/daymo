@@ -119,14 +119,21 @@ class TransportDirection(StrEnum):
 
 class TransportMethod(StrEnum):
     """
-    앱의 교통수단 목록 그대로다(`KTX`·`SRT`·`버스`·`항공`·`기타`).
+    앱의 교통수단 목록 그대로다(`KTX`·`SRT`·`무궁화호`·`고속버스`·`시외버스`·
+    `버스`·`항공`·`기타`).
 
     KTX 와 SRT 를 `train` 하나로 합치지 않는다. 예매처가 다르고 사용자가
-    화면에서 둘을 구분해 고르고 있다.
+    화면에서 둘을 구분해 고르고 있다. 무궁화호도 같은 까닭으로 따로 둔다.
+
+    `bus` 는 고속·시외를 나누기 전에 쓰던 값이다. 이미 저장된 줄이 있어
+    그대로 두고, 앱에서는 「버스」로 계속 고를 수 있다.
     """
 
     KTX = "ktx"
     SRT = "srt"
+    MUGUNGHWA = "mugunghwa"
+    EXPRESS_BUS = "express_bus"
+    INTERCITY_BUS = "intercity_bus"
     BUS = "bus"
     FLIGHT = "flight"
     OTHER = "other"
