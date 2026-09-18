@@ -572,7 +572,10 @@ const SUPPORT_EMAIL = "support@daymo.xyz";
 
 /**
  * 문의 메일을 연다. 제목과 본문에 앱 버전·기기를 미리 적어 두어 답할 때 되묻지 않게 한다.
- * 메일 앱이 없거나 못 열면 주소만이라도 보여 준다.
+ *
+ * 주소를 먼저 복사하고 무슨 일이 일어났는지 알린다. 브라우저에서 `mailto:` 는
+ * **메일 앱이 없어도 실패하지 않는다** — 그냥 아무 일도 안 일어난다. 눌러도 화면이
+ * 그대로라 고장 난 것처럼 보였다.
  */
 async function 문의_메일_열기(): Promise<void> {
   const 제목 = encodeURIComponent("Daymo 문의");
@@ -580,11 +583,19 @@ async function 문의_메일_열기(): Promise<void> {
 
 ---
 Daymo ${appVersion} · ${Platform.OS}`);
+  const 복사됐다 = await Clipboard.setStringAsync(SUPPORT_EMAIL).then(() => true, () => false);
   const 열렸다 = await Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${제목}&body=${본문}`).then(
     () => true,
     () => false,
   );
-  if (!열렸다) showAlert("메일 앱을 열지 못했어요", `${SUPPORT_EMAIL} 로 보내 주세요.`);
+  if (!열렸다) {
+    showAlert("메일 앱을 열지 못했어요", `${SUPPORT_EMAIL} 로 보내 주세요.${복사됐다 ? " 주소는 복사해 뒀어요." : ""}`);
+    return;
+  }
+  showAlert(
+    "문의 주소를 복사했어요",
+    `메일 앱이 열리지 않으면 ${SUPPORT_EMAIL} 로 보내 주세요. 앱 버전과 기기는 저희가 알 수 있으니 안 적으셔도 돼요.`,
+  );
 }
 
 /**
