@@ -278,6 +278,13 @@ const PLAN_TYPES = ["방문", "식사", "이동", "예약", "행사"];
 const 일정종류_읽기 = (적힌: string) => (적힌 === "장소" ? "방문" : 적힌);
 const 일정종류인가 = (적힌: string) => 적힌 === "장소" || PLAN_TYPES.includes(적힌);
 
+/**
+ * 숙소를 처음 적을 때 잡아 두는 시각. 실제로 자주 쓰는 값이라 그대로 저장해도
+ * 맞는 경우가 많다. 바꾸고 싶으면 체크인·체크아웃 칸에서 고친다.
+ */
+const 기본_체크인_시각 = "14:00";
+const 기본_체크아웃_시각 = "11:00";
+
 const newPlaceId = () => Crypto.randomUUID();
 
 
@@ -1031,7 +1038,7 @@ const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] 
       placeId: "place-eunhaengol",
     },
     {
-      time: `${weekdayOf(dayOptions[0])} · 15:00`,
+      time: `${weekdayOf(dayOptions[0])} · ${기본_체크인_시각}`,
       date: dayOptions[0],
       title: "달빛한옥 체크인",
       note: `${lastDate} 11:00 체크아웃`,
@@ -1084,7 +1091,7 @@ export function sampleTripPlanning(
     schedule: sampleSchedule(dayOptions, last),
     stay: {
       name: "달빛한옥",
-      checkin: `${first} 15:00`,
+      checkin: `${first} ${기본_체크인_시각}`,
       checkout: `${last} 11:00`,
       address: "전주 완산구 은행로 12 달빛한옥",
       placeId: "place-js-hotel",
@@ -2374,14 +2381,14 @@ export function WarmTripDetail({
               visitedAfterTrip={visitedAfterTrip}
               onRegisterStay={(place, times) => {
                 // 장소 시트에서 적은 체크인·체크아웃이 있으면 그대로, 카드의 「대표 숙소로
-                // 설정」처럼 없으면 첫날 15:00·마지막날 11:00 이다. 이미 대표 숙소인 장소를
+                // 설정」처럼 없으면 첫날 14:00·마지막날 11:00 이다. 이미 대표 숙소인 장소를
                 // 다시 저장하는 것이면 서버 id 와 일정 표시 여부는 그대로 두고 값만 고친다.
                 setRegisteredStay((current) => {
                   const same = Boolean(current.name) && (current.placeId === place.id || current.name === place.name);
                   return {
                     id: current.id,
                     name: place.name,
-                    checkin: times?.checkin ?? `${firstTripDate} 15:00`,
+                    checkin: times?.checkin ?? `${firstTripDate} ${기본_체크인_시각}`,
                     checkout: times?.checkout ?? `${lastTripDate} 11:00`,
                     address: place.address || place.area,
                     placeId: place.id,
@@ -3011,7 +3018,7 @@ function TripOverview({
   const [stayAddressOpen, setStayAddressOpen] = useState(false);
   const [stayDraft, setStayDraft] = useState(registeredStay);
   const hasStay = Boolean(registeredStay.name);
-  // 묵는 동안의 날 이름표. 숙소는 `10월 1일 15:00` 로 날을 들고 있어 날짜 칸에서 자리를 찾는다.
+  // 묵는 동안의 날 이름표. 숙소는 `10월 1일 14:00` 로 날을 들고 있어 날짜 칸에서 자리를 찾는다.
   const stayDayLabels = useMemo(() => {
     const first = dateOptions.findIndex((date) => registeredStay.checkin.startsWith(date));
     if (first < 0) return [];
@@ -3079,6 +3086,22 @@ function TripOverview({
     transportDeparture.trim() !== transportArrival.trim(),
   );
   const transportTimesValid = Boolean(transportDepartureTime.trim()) === Boolean(transportArrivalTime.trim());
+  /**
+   * 도착이 출발보다 빠른지. **막지는 않는다** — 밤 버스(23:30 → 05:40)처럼 날을
+   * 넘겨 가는 편이 있고, 교통편은 날짜를 하나만 들고 있어 앱이 둘을 가릴 수 없다.
+   * 알리기만 하고 판단은 사람에게 맡긴다.
+   */
+  const transportTimeOrderOk = (() => {
+    const 출발 = 시각을_분으로(transportDepartureTime);
+    const 도착 = 시각을_분으로(transportArrivalTime);
+    return 출발 === null || 도착 === null || 도착 > 출발;
+  })();
+  useOrderWarning(
+    sheet === "transport",
+    transportTimeOrderOk,
+    "도착이 출발보다 빨라요",
+    "밤을 넘겨 가는 편이면 그대로 두셔도 돼요.",
+  );
   const transportFormValid = transportRouteValid && transportTimesValid;
   const transportSubmitLabel = editingTransportId ? "저장" : "교통편 추가";
   const transportDisabledHint = transportFormValid
@@ -3090,6 +3113,7 @@ function TripOverview({
         : "출발·도착 시간을 모두 입력해 주세요";
   const stayRangeValid = stayMomentOf(stayDraft.checkout, dateOptions) > stayMomentOf(stayDraft.checkin, dateOptions);
   const stayFormValid = Boolean(stayDraft.name.trim()) && stayRangeValid;
+  useOrderWarning(sheet === "stay", stayRangeValid, "체크아웃이 체크인보다 빨라요", "체크아웃을 체크인 뒤로 옮겨 주세요.");
   const transportDirectionColor = transportDirection === "가는 편"
     ? theme?.primary ?? "#FF6B63"
     : theme?.secondary ?? "#55BFB4";
@@ -3571,7 +3595,7 @@ function TripOverview({
   };
   const openStay = (create = false) => {
     const nextDraft = create
-      ? { name: "", checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00`, address: "", showInSchedule: true }
+      ? { name: "", checkin: `${firstDate} ${기본_체크인_시각}`, checkout: `${lastDate} ${기본_체크아웃_시각}`, address: "", showInSchedule: true }
       : registeredStay;
     setStayDraftBaseline(JSON.stringify(nextDraft));
     setStayDraft(nextDraft);
@@ -3585,7 +3609,7 @@ function TripOverview({
   ) => {
     setStayDraft((current) => ({
       ...current,
-      [field]: mergeStayDateTime(current[field], part, value, field === "checkin" ? firstDate : lastDate, field === "checkin" ? "15:00" : "11:00"),
+      [field]: mergeStayDateTime(current[field], part, value, field === "checkin" ? firstDate : lastDate, field === "checkin" ? 기본_체크인_시각 : 기본_체크아웃_시각),
     }));
   };
   const saveStay = () => {
@@ -4366,7 +4390,7 @@ function Places({
   onSheetRequestHandled: () => void;
   /** 이 여행의 대표 숙소. 장소 시트가 체크인·체크아웃을 여기서 읽고 여기로 쓴다. */
   registeredStay: StayInfo;
-  /** 장소를 대표 숙소로 설정한다. 시각을 주지 않으면 첫날 15:00·마지막날 11:00 이다. */
+  /** 장소를 대표 숙소로 설정한다. 시각을 주지 않으면 첫날 14:00·마지막날 11:00 이다. */
   onRegisterStay: (place: PlaceItem, times?: { checkin: string; checkout: string }) => void;
   onRemoveRegisteredStay: () => void;
   /** 기록 탭의 사진. 장소 카드가 자기에게 붙은 사진을 여기서 고른다. */
@@ -4388,7 +4412,7 @@ function Places({
     Boolean(place && registeredStay.name) && (place?.id === registeredStay.placeId || place?.name === registeredStay.name);
   const firstDate = dateOptions[0];
   const lastDate = dateOptions[dateOptions.length - 1];
-  const defaultStayTimes = () => ({ checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00` });
+  const defaultStayTimes = () => ({ checkin: `${firstDate} ${기본_체크인_시각}`, checkout: `${lastDate} ${기본_체크아웃_시각}` });
   const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "다녀옴" | "숙소">("전체");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -4454,7 +4478,7 @@ function Places({
   const [reservationBaseline, setReservationBaseline] = useState(() =>
     reservationDraftKey(false, blankPlaceReservation()),
   );
-  // 분류가 「숙소」일 때 그 칩 바로 아래에서 적는 체크인·체크아웃. 「8월 21일 15:00」 꼴이다.
+  // 분류가 「숙소」일 때 그 칩 바로 아래에서 적는 체크인·체크아웃. 「8월 21일 14:00」 꼴이다.
   // 체크인은 일정 탭 아래 「숙소」 구역에서만 적을 수 있었는데, 그 길을 찾지 못한다는
   // 말을 들었다. 숙소를 고른 자리에서 바로 묻는다.
   const [stayTimes, setStayTimes] = useState(defaultStayTimes);
@@ -4462,7 +4486,7 @@ function Places({
   const updateStayTime = (field: "checkin" | "checkout", part: "date" | "time", value: string) =>
     setStayTimes((current) => ({
       ...current,
-      [field]: mergeStayDateTime(current[field], part, value, field === "checkin" ? firstDate : lastDate, field === "checkin" ? "15:00" : "11:00"),
+      [field]: mergeStayDateTime(current[field], part, value, field === "checkin" ? firstDate : lastDate, field === "checkin" ? 기본_체크인_시각 : 기본_체크아웃_시각),
     }));
   const placeDraftChanged = placeDraftKey(
     name,
@@ -4533,6 +4557,7 @@ function Places({
   const stayRangeValid = category !== "숙소"
     || stayMomentOf(stayTimes.checkout, dateOptions) > stayMomentOf(stayTimes.checkin, dateOptions);
   const placeFormValid = Boolean(name.trim()) && !duplicatePlace && stayRangeValid;
+  useOrderWarning(adding && category === "숙소", stayRangeValid, "체크아웃이 체크인보다 빨라요", "체크아웃을 체크인 뒤로 옮겨 주세요.");
   const addTag = (tag: string) => {
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
@@ -11506,6 +11531,37 @@ function stayMomentOf(value: string, dates: string[]): number {
   const dateIndex = dates.findIndex((date) => value.startsWith(date));
   const time = value.match(/(\d{1,2}):(\d{2})$/);
   return dateIndex < 0 || !time ? -1 : dateIndex * 1440 + Number(time[1]) * 60 + Number(time[2]);
+}
+
+/**
+ * 뒤 시각이 앞 시각보다 빨라지는 순간 한 번 알린다.
+ *
+ * 막지는 않는다. 뒤쪽을 먼저 당겨 놓고 앞쪽을 고치려는 사람도 있어서, 고치는
+ * 도중에 손을 묶으면 더 답답하다. 숙소는 저장 단추가 그대로 잠겨 있고, 교통편은
+ * 밤을 넘겨 가는 편이 있어 잠그지 않는다.
+ *
+ * 「맞다가 어긋나는 순간」에만 알린다. 시각 돌림칸은 돌리는 내내 값을 바꾸는데
+ * 그때마다 알리면 창이 쉴 새 없이 뜬다.
+ */
+function useOrderWarning(볼_때인가: boolean, 제대로인가: boolean, 제목: string, 설명: string): void {
+  const 앞서_제대로였나 = useRef(true);
+  useEffect(() => {
+    if (!볼_때인가) {
+      앞서_제대로였나.current = true;
+      return;
+    }
+    if (앞서_제대로였나.current && !제대로인가) showAlert(제목, 설명);
+    앞서_제대로였나.current = 제대로인가;
+  }, [볼_때인가, 제대로인가, 제목, 설명]);
+}
+
+/** 「09:30」을 분으로. 읽을 수 없으면 `null`. */
+function 시각을_분으로(value: string): number | null {
+  const 맞음 = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!맞음) return null;
+  const 시 = Number(맞음[1]);
+  const 분 = Number(맞음[2]);
+  return 시 <= 23 && 분 <= 59 ? 시 * 60 + 분 : null;
 }
 
 /**
