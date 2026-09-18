@@ -17,7 +17,7 @@
  *   오전·오후로 두면 같은 시각이 두 가지로 보인다.
  */
 import { useEffect, useRef, useState } from "react";
-import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 
 import { Text } from "../AppText";
 import { maskClockTime, settleClockTime } from "../clock";
@@ -61,14 +61,38 @@ function WheelColumn({
 }) {
   const ref = useRef<ScrollView>(null);
   const 고른칸 = Math.max(0, values.indexOf(value));
+  // 손가락이 닿아 있는 동안에는 밖에서 자리를 옮기지 않는다. 옮기면 돌리는 중에
+  // 스크롤이 되돌아가 손 아래에서 숫자가 튄다.
+  const 돌리는중 = useRef(false);
+  const 멈춤_시계 = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const 마지막_자리 = useRef(고른칸);
+  const 자리로 = (자리: number, 부드럽게: boolean) =>
+    ref.current?.scrollTo({ y: 자리 * 칸, animated: 부드럽게 });
   // 밖에서 값이 바뀌면(숫자를 쳐서 고쳤을 때) 그 자리로 옮겨 준다.
   useEffect(() => {
-    ref.current?.scrollTo({ y: 고른칸 * 칸, animated: false });
+    if (돌리는중.current) return;
+    마지막_자리.current = 고른칸;
+    자리로(고른칸, false);
   }, [고른칸]);
-  const 멈췄을때 = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const 자리 = Math.round(event.nativeEvent.contentOffset.y / 칸);
-    const 다음 = values[Math.min(values.length - 1, Math.max(0, 자리))];
+  useEffect(() => () => {
+    if (멈춤_시계.current) clearTimeout(멈춤_시계.current);
+  }, []);
+  /**
+   * 돌리는 내내 값을 바꾼다. 멈춘 뒤에만 바꾸면 칸과 칸 사이에 선 채로 위의 큰
+   * 숫자가 그대로라 「안 고쳐졌다」로 보였다. 웹은 스냅이 걸리지 않아 더 그렇다.
+   * 손을 뗀 뒤에는 가까운 칸에 딱 맞춰 세운다.
+   */
+  const 돌아가는중 = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    돌리는중.current = true;
+    const 자리 = Math.min(values.length - 1, Math.max(0, Math.round(event.nativeEvent.contentOffset.y / 칸)));
+    마지막_자리.current = 자리;
+    const 다음 = values[자리];
     if (다음 !== undefined && 다음 !== value) onChange(다음);
+    if (멈춤_시계.current) clearTimeout(멈춤_시계.current);
+    멈춤_시계.current = setTimeout(() => {
+      돌리는중.current = false;
+      자리로(마지막_자리.current, true);
+    }, 140);
   };
   return (
     <View style={styles.column}>
@@ -79,9 +103,11 @@ function WheelColumn({
         showsVerticalScrollIndicator={false}
         snapToInterval={칸}
         decelerationRate="fast"
-        onMomentumScrollEnd={멈췄을때}
-        // 웹은 관성 스크롤 끝 이벤트가 안 와서 이것으로도 받는다.
-        onScrollEndDrag={Platform.OS === "web" ? 멈췄을때 : undefined}
+        scrollEventThrottle={16}
+        onScroll={돌아가는중}
+        // 처음 그릴 때 이미 적힌 시각이 가운데 오게 한다. 자리를 잡기 전에 옮기면
+        // 아무 일도 일어나지 않아서, 높이가 정해진 뒤에 한 번 더 맞춘다.
+        onLayout={() => 자리로(고른칸, false)}
         contentContainerStyle={{ paddingVertical: (통_높이 - 칸) / 2 }}
         style={{ height: 통_높이 }}
       >
