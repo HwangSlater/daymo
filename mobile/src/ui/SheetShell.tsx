@@ -18,7 +18,7 @@ import { Text } from "../AppText";
 import { Glyph } from "../Glyph";
 import { useSheetDrag } from "../sheetDrag";
 import { showAlert } from "../showAlert";
-import { useWebKeyboardFocus } from "./webKeyboardFocus";
+import { useWebKeyboardFocus, useWebKeyboardOpen } from "./webKeyboardFocus";
 import { useWebBackClose } from "../useWebBackClose";
 import { AppTheme } from "../theme";
 import { onAccent, status as statusColor } from "../theme/colors";
@@ -158,6 +158,9 @@ export function SheetShell({
   const drag = useSheetDrag(requestClose, visible, dirty);
   // 웹에서 키보드가 올라와 시트가 줄어든 뒤에도 입력 중인 칸이 보이게 한다.
   useWebKeyboardFocus(visible);
+  // 키보드가 올라온 동안에는 손잡이·부제·힌트를 접고 시트를 화면 끝까지 쓴다. 보이는
+  // 높이가 300px 남짓이라 그것들이 차지하던 자리가 곧 입력 영역이다.
+  const 키보드_열림 = useWebKeyboardOpen(visible);
   // 웹의 뒤로 가기는 페이지가 아니라 지금 열린 시트가 받는다.
   useWebBackClose(visible, requestClose);
 
@@ -240,10 +243,10 @@ export function SheetShell({
       />
       <Animated.View
         onLayout={drag.onLayout}
-        style={[styles.sheet, theme && { backgroundColor: theme.background }, drag.sheetStyle]}
+        style={[styles.sheet, theme && { backgroundColor: theme.background }, 키보드_열림 && styles.sheetCompact, drag.sheetStyle]}
       >
-        <View {...drag.panHandlers} style={styles.dragArea}>
-          <View style={styles.handle} />
+        <View {...drag.panHandlers} style={키보드_열림 ? styles.dragAreaCompact : styles.dragArea}>
+          {!키보드_열림 && <View style={styles.handle} />}
         </View>
         {/* 머리는 제목과 닫기 한 줄이다. 예전에는 "장소 · 추가" 와 "장소 추가" 가
             위아래로 겹쳐 있었고 그 둘을 테두리 상자로 묶어, 내용이 시작되기도 전에
@@ -281,13 +284,13 @@ export function SheetShell({
           <View style={padBody ? styles.body : undefined} pointerEvents={locked ? "none" : "auto"}>
             {/* 도움말은 머리에 박아 두지 않고 내용의 첫 줄로 둔다. 적기 시작하면
                 같이 밀려 올라가, 다 읽은 안내가 입력 칸 자리를 계속 차지하지 않는다. */}
-            {subtitle ? (
+            {subtitle && !키보드_열림 ? (
               <Text style={[styles.subtitle, theme && { color: theme.muted }]}>{subtitle}</Text>
             ) : null}
             {children}
           </View>
         </ScrollView>
-        {hint ? (
+        {hint && !키보드_열림 ? (
           <Text accessibilityLiveRegion="polite" style={[styles.hint, theme && { color: theme.muted }]}>
             {hint}
           </Text>
@@ -405,6 +408,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     maxHeight: "91%",
   },
+  // 키보드가 올라온 동안. 위아래 여백을 줄이고 화면 끝까지 쓴다.
+  sheetCompact: { maxHeight: "100%", paddingTop: 2, paddingBottom: 8, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  dragAreaCompact: { height: 8, marginHorizontal: -20 },
   // 손잡이는 가늘어서, 실제로 끌 수 있는 자리는 시트 좌우 끝까지 넓혀 둔다.
   dragArea: {
     height: 40,
