@@ -7551,19 +7551,29 @@ function Cooking({
   // 복사한 뒤 브라우저까지 열어 준다. 앱을 나갔다 오는 건 그대로지만 사용자가
   // 직접 찾아 들어가는 한 단계가 줄고, 무엇을 하러 나가는지도 분명해진다.
   const copyPromptAndOpenGpt = async () => {
-    // 브라우저는 누른 직후에만 새 창을 열어 준다. 복사를 기다린 뒤에 열면 막힌다.
+    // 브라우저는 누른 직후에만 복사도 새 창도 허락한다. 둘 다 기다리지 말고 곧장 부른다.
+    // 아이폰 웹에서는 await 뒤의 복사가 조용히 실패해 「복사했어요」가 거짓말이 됐다.
+    const copying = Clipboard.setStringAsync(cookingPrompt).then(
+      () => true,
+      () => false,
+    );
     const opening = Linking.openURL("https://chatgpt.com/").then(
       () => true,
       () => false,
     );
-    await Clipboard.setStringAsync(cookingPrompt);
-    const opened = await opening;
-    notify(opened ? "프롬프트를 복사했어요. 붙여넣고 결과를 다시 가져오세요" : "프롬프트를 복사했어요");
+    const [copied, opened] = await Promise.all([copying, opening]);
+    if (!copied) {
+      notify("복사하지 못했어요. 아래 프롬프트를 길게 눌러 복사해 주세요");
+      return;
+    }
+    notify(opened ? "프롬프트를 복사했어요. 붙여넣고 결과를 다시 가져오세요" : "프롬프트를 복사했어요. ChatGPT 를 열어 붙여넣어 주세요");
   };
   const pasteAiResult = async () => {
+    // 아이폰 웹은 붙여넣기 읽기를 허락하지 않을 때가 많다. 그때 아무 일도 없으면 고장으로
+    // 보이니, 손으로 붙여넣을 칸으로 안내한다.
     const text = await readClipboard();
     if (!text.trim()) {
-      notify("복사한 내용이 없어요");
+      notify("붙여넣기가 막혀 있어요. 아래 「붙여넣은 결과」 칸을 길게 눌러 붙여넣어 주세요");
       return;
     }
     setAiResult(text);
@@ -8363,12 +8373,15 @@ function Cooking({
           <Pressable
             accessibilityRole="button"
             onPress={() => {
+              // 요리 추가 시트와 ChatGPT 시트는 형제 Modal 이다. 같은 프레임에 하나를 닫고
+              // 하나를 열면 iOS 가 뒤엣것을 세우지 못해 아무 일도 없는 것처럼 보였다.
+              // 먼저 닫고, 내려가는 시간을 준 뒤 연다(교통편 수정과 같은 처방).
               setAddingRecipe(false);
-              setAiImporting(true);
+              setTimeout(() => setAiImporting(true), Platform.OS === "ios" ? 380 : 0);
             }}
             style={[styles.aiRecipeButton, theme && { backgroundColor: theme.primarySoft }]}
           >
-            <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>한꺼번에 추가</Text>
+            <Text style={[styles.aiRecipeButtonText, theme && { color: theme.primary }]}>ChatGPT로 추가</Text>
           </Pressable>
         </View>}
         <DetailField
