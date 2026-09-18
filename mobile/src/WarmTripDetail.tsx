@@ -2959,7 +2959,6 @@ function TripOverview({
   const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(false);
   const [selectedTransport, setSelectedTransport] = useState<Transportation | null>(null);
   const [transportOwner, setTransportOwner] = useState(participants[0] ?? "");
-  const [transportDirection, setTransportDirection] = useState<Transportation["direction"]>("가는 편");
   const [transportMethod, setTransportMethod] = useState<Transportation["method"]>("KTX");
   const [transportDate, setTransportDate] = useState(firstDay);
   const [transportDeparture, setTransportDeparture] = useState("");
@@ -3345,10 +3344,12 @@ function TripOverview({
       }
       setTransportations((current) => [...current, next]);
       syncTransportationSchedule(next);
-      if (transportDirection === "가는 편") {
+      // 마지막 날이 아닌 편을 넣었으면 돌아오는 편이 아직 없을 가능성이 크다.
+      // 예전에는 「방향」 칸에서 가는 편을 골랐는지로 봤다.
+      if (교통편_방향(next.date) === "가는 편") {
         showAlert(
-          "가는 편을 추가했어요",
-          "오는 편도 추가할까요?",
+          "교통편을 추가했어요",
+          "돌아오는 편도 추가할까요?",
           [
             {
               text: "나중에",
@@ -3364,11 +3365,11 @@ function TripOverview({
               },
             },
             {
-              text: "오는 편 추가",
+              text: "돌아오는 편 추가",
               onPress: () => {
                 setTransportDraftBaseline(JSON.stringify({
                   owner: next.owner,
-                  direction: "오는 편",
+                  direction: "오는 편" as const,
                   method: next.method,
                   date: lastDay,
                   departure: next.arrival,
@@ -3380,7 +3381,6 @@ function TripOverview({
                   note: "",
                   amount: "",
                 }));
-                setTransportDirection("오는 편");
                 setTransportNote("");
                 setTransportAmount("");
                 setTransportDate(lastDay);
@@ -3487,7 +3487,6 @@ function TripOverview({
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(null);
     setTransportOwner(nextDraft.owner);
-    setTransportDirection("가는 편");
     setTransportMethod(nextDraft.method);
     setTransportDate(firstDay);
     setTransportDeparture("");
@@ -3524,7 +3523,6 @@ function TripOverview({
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(item.id);
     setTransportOwner(item.owner);
-    setTransportDirection(item.direction);
     setTransportMethod(item.method);
     setTransportDate(item.date);
     setTransportDeparture(item.departure);
@@ -3762,12 +3760,15 @@ function TripOverview({
           작은 글 한 줄로 붙여서, 위에 「2편」이라 적혀 있는데 카드는 하나만 보였다.
           이용자가 비어 있는 편은 아예 안 그려져 「없음」으로 보이기도 했다. */}
       <View style={styles.transportGrid}>
-        {transportLegs.map(({ leg, ownerIndex }) => (
+        {transportLegs.map(({ leg, ownerIndex }, index) => (
           <TransportCard
             key={leg.id}
             owner={leg.owner || "타는 사람 미정"}
             leg={leg}
             color={transportColors[ownerIndex % transportColors.length]}
+            // 홀수로 남은 마지막 한 장은 가로로 꽉 채운다. 반쪽만 차고 옆이 비면
+            // 빠뜨린 자리처럼 보인다.
+            wide={transportLegs.length % 2 === 1 && index === transportLegs.length - 1}
             onPress={() => setSelectedTransport(leg)}
           />
         ))}
@@ -4023,7 +4024,7 @@ function TripOverview({
       <DetailSheet
         visible={sheet === "transport"}
         title={editingTransportId ? "교통편 수정" : "교통편 추가"}
-        subtitle="가는 편과 오는 편을 나눠 적고 한곳에서 확인해요"
+        subtitle="기차·버스·항공편을 적어 두면 일정에도 함께 보여요"
         submit={transportSubmitLabel}
         disabledHint={transportDisabledHint}
         destructiveLabel={editingTransportId ? "교통편 삭제" : undefined}
@@ -11160,11 +11161,14 @@ function TransportCard({
   owner,
   leg,
   color,
+  wide = false,
   onPress,
 }: {
   owner: string;
   leg: Transportation;
   color: string;
+  /** 홀수로 남은 마지막 한 장. 한 줄을 가로로 다 쓴다. */
+  wide?: boolean;
   onPress: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
@@ -11175,6 +11179,7 @@ function TransportCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.transportCard,
+        wide && styles.transportCardWide,
         theme && { backgroundColor: theme.surface, borderColor: theme.border },
         pressed && styles.packingCardPressed,
       ]}
@@ -12227,6 +12232,7 @@ const styles = StyleSheet.create({
   // 화면 폭까지 늘려, 같은 카드가 상황에 따라 두 배로 커 보인다. 둘일 때의 크기를
   // 그대로 지킨다.
   transportCard: { flexGrow: 1, flexBasis: "46%", maxWidth: "48%", minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
+  transportCardWide: { flexBasis: "100%", maxWidth: "100%" },
   transportCardRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
   transportCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   transportOwner: { fontSize: 12, fontFamily: typo.label.family },
