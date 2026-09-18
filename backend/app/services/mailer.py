@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from email.message import EmailMessage
 
 from app.core.config import get_settings
+from app.services.mail_template import 편지_html, 편지_글
 
 logger = logging.getLogger("daymo.mail")
 
@@ -25,6 +26,9 @@ class Letter:
     link: str | None = None
     # 링크 위에 붙는 설명. 비어 있으면 제목만 쓴다.
     body: str | None = None
+    # 단추에 적는 말. 링크가 있는 메일만 쓴다. 무엇을 하는지 한눈에 보이는 말을
+    # 보내는 자리에서 준다.
+    action: str = "열어서 확인하기"
 
 
 @dataclass
@@ -62,14 +66,14 @@ class Outbox:
         message["From"] = settings.mail_from
         message["To"] = letter.to
         message["Subject"] = letter.subject
-        문단 = [letter.subject]
-        if letter.body:
-            문단.append(letter.body)
-        if letter.link:
-            문단.append(f"아래 링크는 30분 동안 한 번만 사용할 수 있어요.\n{letter.link}")
-        # 모든 메일의 꼬리. 답장할 곳이 없다는 것과 문의처를 여기 한 번만 적는다.
-        문단.append(f"이 메일은 발신 전용이에요. 문의: {OPERATOR_ADDRESS}")
-        message.set_content("\n\n".join(문단) + "\n")
+        # 글 판을 먼저 담고 그림 판을 덧붙인다. 순서가 뜻을 가진다 — 메일 앱은
+        # 마지막 판을 먼저 고르고, 못 읽으면 앞의 것으로 내려온다. 답장할 곳이
+        # 없다는 것과 문의처는 두 판 모두 꼬리에 한 번씩 적는다.
+        message.set_content(편지_글(letter.subject, letter.body, letter.link, OPERATOR_ADDRESS))
+        message.add_alternative(
+            편지_html(letter.subject, letter.body, letter.link, OPERATOR_ADDRESS, letter.action),
+            subtype="html",
+        )
 
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
             if settings.smtp_starttls:

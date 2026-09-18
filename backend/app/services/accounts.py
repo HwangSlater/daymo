@@ -190,6 +190,7 @@ async def send_email_verification(
             to=user.email,
             subject="이메일을 확인해 주세요",
             link=_link(f"/auth/verify-email?token={원문}"),
+            action="이메일 확인하기",
         )
     )
 
@@ -339,6 +340,7 @@ async def request_password_reset(
             to=user.email,
             subject="Daymo 비밀번호 재설정",
             link=_link(f"/auth/reset-password?token={원문}"),
+            action="새 비밀번호 정하기",
         )
     )
 

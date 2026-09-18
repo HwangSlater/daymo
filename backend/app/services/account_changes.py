@@ -204,6 +204,7 @@ async def request_email_change(
                 subject="이 주소로 이메일을 바꿀까요?",
                 body="Daymo 계정의 이메일을 이 주소로 바꾸려면 아래 링크를 눌러 주세요.",
                 link=_link(f"/auth/confirm-email-change?token={원문}"),
+                action="이 주소로 바꾸기",
             )
         )
 
