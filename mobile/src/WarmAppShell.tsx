@@ -65,6 +65,8 @@ import {
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
+import { Segment } from "./ui/Segment";
+import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
@@ -156,6 +158,11 @@ import {
 type MainView = "홈" | "여행" | "찾기" | "우리";
 /** 권한 이름표. 저장된 값은 「보기만」이지만 화면에는 「보기 전용」으로 적는다. */
 const roleLabel = (role: string) => (role === "보기만" ? "보기 전용" : role);
+/** 공간을 만들 때 고르는 관계. 서버에 보내는 값은 영어라 보이는 말을 따로 적는다. */
+const 관계_선택지 = [
+  { value: "couple", label: "연인" },
+  { value: "friends", label: "친구" },
+];
 type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasPassword" | "linkedProviders"> & { id?: string };
 
 WebBrowser.maybeCompleteAuthSession();
@@ -2100,12 +2107,13 @@ function FirstSpaceScreen({
         <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Field theme={theme} label="공간 이름" value={name} onChangeText={setName} placeholder="예: 우리의 여행" />
           <Text style={[s.sheetCopy, { color: theme.muted }]}>누구와 여행하나요?</Text>
-          {([
-            ["couple", "연인"],
-            ["friends", "친구"],
-          ] as const).map(([value, label]) => (
-            <Choice key={value} theme={theme} selected={relationshipType === value} label={label} onPress={() => setRelationshipType(value)} />
-          ))}
+          <Segment
+            theme={theme}
+            label="누구와 여행하나요"
+            options={관계_선택지}
+            value={relationshipType}
+            onChange={(value) => setRelationshipType(value as ServerSpace["relationshipType"])}
+          />
           {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: statusColor.danger.light }]}>{error}</Text> : null}
           <Pressable
             onPress={submit}
@@ -3340,6 +3348,8 @@ function TripsExplorer({
   const [tripStart, setTripStart] = useState("2026-09-12");
   const [tripEnd, setTripEnd] = useState("2026-09-14");
   const [note, setNote] = useState("");
+  // 한 줄 메모는 적지 않고 만드는 여행이 더 많다. 접어 두고 「＋ 한 줄 메모 더 적기」로 편다.
+  const [noteOpen, setNoteOpen] = useState(false);
   const [newRegion, setNewRegion] = useState("서울");
   // 여행마다 가는 사람이 다르다. 처음에는 공간 멤버 전원으로 두고, 일부만
   // 가는 여행이면 여기서 뺀다. 지출의 몫과 준비물 담당이 이 목록을 쓴다.
@@ -3406,6 +3416,7 @@ function TripsExplorer({
       setItems((current) => [nextTrip, ...current]);
       setPlace("");
       setNote("");
+      setNoteOpen(false);
       setNewPeople(spaceMembers);
       setCreating(false);
       setShowAllRegions(false);
@@ -3739,13 +3750,21 @@ function TripsExplorer({
           setStart={setTripStart}
           setEnd={setTripEnd}
         />
-        <Field
+        <OptionalFormSection
           theme={theme}
-          label="한 줄 메모 (선택)"
-          value={note}
-          onChangeText={setNote}
-          placeholder="예: 골목을 천천히 걷는 여행"
-        />
+          label="한 줄 메모"
+          summary={note.trim() || undefined}
+          open={noteOpen}
+          onToggle={() => setNoteOpen((current) => !current)}
+        >
+          <Field
+            theme={theme}
+            label="한 줄 메모 (선택)"
+            value={note}
+            onChangeText={setNote}
+            placeholder="예: 골목을 천천히 걷는 여행"
+          />
+        </OptionalFormSection>
         {/* 공간에 나 말고 아무도 없으면 고를 것이 없다. */}
         {spaceMembers.length > 1 && (
           <ParticipantPicker
@@ -5538,15 +5557,8 @@ function Together({
         )}
         {panel === "account" && (
           <>
-            <View style={[s.accountPreview, { backgroundColor: theme.primarySoft }]}>
-              <View style={[s.accountAvatar, { backgroundColor: theme.primary }]}>
-                <Text style={[s.accountAvatarText, { color: onAccent(theme.dark) }]}>{user.name.trim().slice(0, 1) || "?"}</Text>
-              </View>
-              <View style={s.accountPreviewCopy}>
-                <Text style={[s.accountPreviewName, { color: theme.text }]}>{user.name}</Text>
-                <Text style={[s.accountPreviewEmail, { color: theme.muted }]}>{user.email}</Text>
-              </View>
-            </View>
+            {/* 이름과 이메일을 다시 보여 주던 미리보기 상자는 뺐다. 바로 아래 두 칸에
+                같은 값이 있고, 키보드가 올라오면 정작 고칠 이름 칸이 밀려났다. */}
             <Field
               theme={theme}
               label="이름 또는 별명"
@@ -5721,19 +5733,14 @@ function Together({
         )}
         {panel === "relationship" && (
           <>
-            <Choice
+            {/* 공간을 만들 때 고르는 것과 같은 두 갈래다. 그때와 같은 모양으로 둔다. */}
+            <Segment
               theme={theme}
-              selected={relationship === "연인"}
-              label="연인"
+              label="누구와 여행하나요"
+              options={["연인", "친구"]}
+              value={relationship}
               disabled={!canEdit}
-              onPress={() => updateActiveSpace({ relationship: "연인" })}
-            />
-            <Choice
-              theme={theme}
-              selected={relationship === "친구"}
-              label="친구"
-              disabled={!canEdit}
-              onPress={() => updateActiveSpace({ relationship: "친구" })}
+              onChange={(value) => updateActiveSpace({ relationship: value as Space["relationship"] })}
             />
             <SpaceSaveNote theme={theme} canEdit={canEdit} state={spaceSaveState} />
           </>
@@ -5879,23 +5886,7 @@ function Together({
         )}
         {panel === "profile" && (
           <>
-            <View style={[s.profileSheetPreview, { backgroundColor: theme.primarySoft }]}>
-              {people.slice(0, 2).map((member, index) => (
-                <View
-                  key={member.name}
-                  style={[
-                    s.profileSheetAvatar,
-                    index > 0 && s.profileSheetAvatarSecond,
-                    { backgroundColor: index > 0 ? theme.accent : theme.primary },
-                  ]}
-                >
-                  <Text style={[s.togetherAvatarText, { color: onAccent(theme.dark) }]}>
-                    {member.name.trim().slice(0, 1) || "?"}
-                  </Text>
-                </View>
-              ))}
-              <Text numberOfLines={1} style={[s.profileSheetName, { color: theme.text }]}>{spaceName}</Text>
-            </View>
+            {/* 공간 이름을 한 번 더 보여 주던 미리보기 상자는 뺐다. 고칠 칸이 첫째여야 한다. */}
             <Field
               theme={theme}
               label="공간 이름"
@@ -6297,8 +6288,13 @@ function SpaceExtras({
       {creating ? (
         <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 8 }]}>
           <Field theme={theme} label="새 공간 이름" value={name} onChangeText={setName} placeholder="예: 대학 동기 여행" />
-          <Choice theme={theme} label="연인" selected={relationshipType === "couple"} onPress={() => setRelationshipType("couple")} />
-          <Choice theme={theme} label="친구" selected={relationshipType === "friends"} onPress={() => setRelationshipType("friends")} />
+          <Segment
+            theme={theme}
+            label="누구와 여행하나요"
+            options={관계_선택지}
+            value={relationshipType}
+            onChange={(value) => setRelationshipType(value as ServerSpace["relationshipType"])}
+          />
           <Pressable
             accessibilityRole="button"
             disabled={!name.trim() || busy}
@@ -7701,7 +7697,6 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-end",
   },
-  togetherAvatarText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   settingGroupLabel: {
     fontSize: 12,
     fontFamily: typo.label.family,
@@ -8151,25 +8146,6 @@ const s = StyleSheet.create({
   togetherQuickLabel: { maxWidth: "100%", fontSize: 12, fontFamily: typo.label.family },
   memberRoleText: { fontSize: 12, fontFamily: typo.label.family, marginTop: -7 },
   memberPermissionLabel: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 8 },
-  profileSheetPreview: {
-    minHeight: 86,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  profileSheetAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  profileSheetAvatarSecond: { marginLeft: -10 },
-  profileSheetName: { flex: 1, fontSize: 14, fontFamily: typo.title.family, marginLeft: 12 },
   settingGroup: {
     borderRadius: 8,
     paddingHorizontal: 16,
@@ -8272,25 +8248,6 @@ const s = StyleSheet.create({
   authConsentTick: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   authConsentText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
   authPrivacy: { fontSize: 12, lineHeight: 15, textAlign: "center", marginTop: 16 },
-  accountPreview: {
-    minHeight: 82,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  accountAvatar: {
-    width: 43,
-    height: 43,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  accountAvatarText: { color: "#FFFFFF", fontSize: 18, fontFamily: typo.label.family },
-  accountPreviewCopy: { flex: 1, marginLeft: 12 },
-  accountPreviewName: { fontSize: 14, fontFamily: typo.title.family },
-  accountPreviewEmail: { fontSize: 12, fontFamily: typo.label.family, marginTop: 4 },
   accountLogout: {
     height: 높이.버튼,
     borderRadius: 모서리.버튼,
