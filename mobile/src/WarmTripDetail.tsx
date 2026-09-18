@@ -4214,19 +4214,11 @@ function TripOverview({
         onDestructive={deleteStay}
       >
         <DetailField label="숙소 이름" required value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: 달빛한옥" />
-        <StayDateTimePicker
-          label="체크인"
-          value={stayDraft.checkin}
+        <StayRangePicker
+          checkin={stayDraft.checkin}
+          checkout={stayDraft.checkout}
           dates={dateOptions}
-          onDateChange={(value) => updateStayDateTime("checkin", "date", value)}
-          onTimeChange={(value) => updateStayDateTime("checkin", "time", value)}
-        />
-        <StayDateTimePicker
-          label="체크아웃"
-          value={stayDraft.checkout}
-          dates={dateOptions}
-          onDateChange={(value) => updateStayDateTime("checkout", "date", value)}
-          onTimeChange={(value) => updateStayDateTime("checkout", "time", value)}
+          onChange={updateStayDateTime}
         />
         <OptionField
           label="여행 일정 표시"
@@ -5303,19 +5295,11 @@ function Places({
             숙소 시트와 같은 부품이라 두 곳의 값이 같은 대표 숙소로 모인다. */}
         {category === "숙소" && (
           <>
-            <StayDateTimePicker
-              label="체크인"
-              value={stayTimes.checkin}
+            <StayRangePicker
+              checkin={stayTimes.checkin}
+              checkout={stayTimes.checkout}
               dates={dateOptions}
-              onDateChange={(value) => updateStayTime("checkin", "date", value)}
-              onTimeChange={(value) => updateStayTime("checkin", "time", value)}
-            />
-            <StayDateTimePicker
-              label="체크아웃"
-              value={stayTimes.checkout}
-              dates={dateOptions}
-              onDateChange={(value) => updateStayTime("checkout", "date", value)}
-              onTimeChange={(value) => updateStayTime("checkout", "time", value)}
+              onChange={updateStayTime}
             />
             <Text style={[styles.stayPickerHint, theme && { color: theme.muted }]}>
               {isStayPlace(places.find((place) => place.id === editingId))
@@ -11524,22 +11508,30 @@ function stayMomentOf(value: string, dates: string[]): number {
   return dateIndex < 0 || !time ? -1 : dateIndex * 1440 + Number(time[1]) * 60 + Number(time[2]);
 }
 
-function StayDateTimePicker({
-  label,
-  value,
+/**
+ * 숙소의 체크인·체크아웃.
+ *
+ * 상자는 하나만 두고 머리에 「체크인 / 체크아웃」 두 이름을 나란히 적는다. 누른
+ * 쪽의 날짜와 시간이 아래에 나온다. 예전에는 같은 상자를 둘로 쌓아, 제목 줄과
+ * 날짜 칩 줄과 시간 줄이 두 벌씩 여섯 줄을 썼다. 고치는 것은 한 번에 한쪽뿐이라
+ * 칩과 시간 줄도 한 벌이면 된다.
+ */
+function StayRangePicker({
+  checkin,
+  checkout,
   dates,
-  onDateChange,
-  onTimeChange,
+  onChange,
 }: {
-  label: string;
-  value: string;
+  checkin: string;
+  checkout: string;
   dates: string[];
-  onDateChange: (value: string) => void;
-  onTimeChange: (value: string) => void;
+  onChange: (쪽: "checkin" | "checkout", part: "date" | "time", value: string) => void;
 }) {
   const theme = useContext(DetailThemeContext);
-  const time = value.match(/\d{1,2}:\d{2}$/)?.[0] ?? "12:00";
-  const date = value.replace(/\s*\d{1,2}:\d{2}$/, "").trim() || dates[0];
+  const [고른쪽, set고른쪽] = useState<"checkin" | "checkout">("checkin");
+  const 값 = 고른쪽 === "checkin" ? checkin : checkout;
+  const time = 값.match(/\d{1,2}:\d{2}$/)?.[0] ?? "12:00";
+  const date = 값.replace(/\s*\d{1,2}:\d{2}$/, "").trim() || dates[0];
   // 치는 동안의 글자는 여기서 들고 있는다. 시각은 「날짜 시각」 한 문자열에 담겨
   // 부모로 올라가는데, 「15:30」이 되기 전의 「1」「15」「153」은 그 문자열에서 시각으로
   // 못 읽혀 기본값으로 튕겼다. 그래서 웹에서 체크인 시간을 아예 칠 수 없었다.
@@ -11556,22 +11548,49 @@ function StayDateTimePicker({
     setTimeText(next);
     if (/^\d{2}:\d{2}$/.test(next)) {
       올린_시각.current = next;
-      onTimeChange(next);
+      onChange(고른쪽, "time", next);
     }
+  };
+  const 이름 = (쪽: "checkin" | "checkout", 글: string) => {
+    const 골랐나 = 고른쪽 === 쪽;
+    return (
+      <Pressable
+        onPress={() => set고른쪽(쪽)}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: 골랐나 }}
+        accessibilityLabel={`${글}, ${쪽 === "checkin" ? checkin : checkout}`}
+        hitSlop={누름여유(높이.칩)}
+        style={({ pressed }) => [pressed && styles.controlPressed]}
+      >
+        <Text
+          style={[
+            styles.stayPickerLabel,
+            theme && { color: theme.muted },
+            골랐나 && styles.stayPickerLabelOn,
+            골랐나 && theme && { color: theme.text },
+          ]}
+        >
+          {글}
+        </Text>
+      </Pressable>
+    );
   };
   return (
     <View style={[styles.stayPicker, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
       <View style={styles.stayPickerHead}>
-        <Text style={[styles.stayPickerLabel, theme && { color: theme.text }]}>{label}</Text>
-        <Text style={[styles.stayPickerValue, theme && { color: theme.primary }]}>{value}</Text>
+        <View style={styles.stayPickerTabs}>
+          {이름("checkin", "체크인")}
+          <Text style={[styles.stayPickerSlash, theme && { color: theme.border }]}>/</Text>
+          {이름("checkout", "체크아웃")}
+        </View>
+        <Text style={[styles.stayPickerValue, theme && { color: theme.primary }]}>{값}</Text>
       </View>
-      <OptionField label="날짜" options={dates} value={date} onChange={onDateChange} />
+      <OptionField label="날짜" options={dates} value={date} onChange={(value) => onChange(고른쪽, "date", value)} />
       {/* 시각은 일정·교통편·예약과 같은 한 줄짜리를 쓴다. 숙소만 큰 상자였다. */}
       <TimeRow label="시간" value={timeText} onChange={onTimeText} fallback={time} />
     </View>
   );
 }
-
 /**
  * 여행 화면의 시트. 껍데기는 `ui/SheetShell` 이 그리고 여기서는 이 화면에만
  * 있는 세 가지만 얹는다.
@@ -12477,7 +12496,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   stayPickerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  stayPickerTabs: { flexDirection: "row", alignItems: "center", gap: 8 },
   stayPickerLabel: { fontSize: 14, fontFamily: typo.label.family },
+  /** 고르고 있는 쪽. 흐린 쪽과 굵기로 가른다. */
+  stayPickerLabelOn: { fontFamily: typo.title.family },
+  stayPickerSlash: { fontSize: 14, fontFamily: typo.body.family },
   stayPickerValue: { fontSize: 14, fontFamily: typo.data.family },
   // 체크아웃 칸 아래 한 줄. 저장하면 대표 숙소가 어떻게 되는지 미리 말해 준다.
   stayPickerHint: { fontSize: 12, fontFamily: typo.body.family, lineHeight: 18, marginTop: -4, marginBottom: 16 },
