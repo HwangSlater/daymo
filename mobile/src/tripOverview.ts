@@ -33,7 +33,7 @@ export type PlanningForHome = {
   places?: readonly { category: string }[];
   packingItems?: readonly { id: string }[];
   packingDone?: readonly string[];
-  expenses?: readonly { amount: number }[];
+  expenses?: readonly { amount: number; excluded?: boolean }[];
   currency?: string;
 };
 
@@ -120,7 +120,8 @@ export function homeSummaryOf(trip: {
     packingTotal: packing.length,
     // 지운 준비물의 체크가 남아 있을 수 있다. 목록에 있는 것만 센다.
     packingDone: (plan?.packingDone ?? []).filter((id) => packingIds.has(id)).length,
-    spent: (plan?.expenses ?? []).reduce((sum, item) => sum + item.amount, 0),
+    // 정산에서 뺀 지출은 비용 탭의 총 지출과 같은 규칙으로 세지 않는다.
+    spent: (plan?.expenses ?? []).filter((item) => !item.excluded).reduce((sum, item) => sum + item.amount, 0),
     currency: plan?.currency,
   };
 }

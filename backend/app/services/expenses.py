@@ -129,6 +129,8 @@ async def create_expense(
         split_mode=values.get("split_mode"),
         memo=_blank(values.get("memo")),
         receipt_photo_id=await _receipt(session, trip, values.get("receipt_photo_id")),
+        excluded=bool(values.get("excluded", False)),
+        transport_id=values.get("transport_id"),
         created_by=actor.user_id,
     )
     session.add(expense)
@@ -161,6 +163,12 @@ async def update_expense(session: AsyncSession, *, trip: Trip, expense: Expense,
         expense.memo = _blank(changes["memo"])
     if "receipt_photo_id" in changes:
         expense.receipt_photo_id = await _receipt(session, trip, changes["receipt_photo_id"])
+    if "excluded" in changes:
+        if changes["excluded"] is None:
+            raise AppError(ErrorCode.VALIDATION_ERROR, fields={"excluded": "비워 둘 수 없어요."})
+        expense.excluded = changes["excluded"]
+    if "transport_id" in changes:
+        expense.transport_id = changes["transport_id"]
     if "shares" in changes:
         await _replace_shares(session, trip, expense, changes["shares"] or [])
     expense.version += 1

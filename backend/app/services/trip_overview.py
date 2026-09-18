@@ -101,7 +101,12 @@ async def overviews_of(session: AsyncSession, trips: list[Trip]) -> dict[uuid.UU
         결과[trip_id].packing_total = 전체
         결과[trip_id].packing_done = 챙긴_수
 
-    지출 = select(Expense.trip_id, func.sum(Expense.amount)).where(Expense.trip_id.in_(ids)).group_by(Expense.trip_id)
+    # 정산에서 뺀 지출은 앱의 총 지출과 같은 규칙으로 세지 않는다.
+    지출 = (
+        select(Expense.trip_id, func.sum(Expense.amount))
+        .where(Expense.trip_id.in_(ids), Expense.excluded.is_(False))
+        .group_by(Expense.trip_id)
+    )
     for trip_id, 합 in (await session.execute(지출)).all():
         결과[trip_id].spent_total = 합 or Decimal(0)
 

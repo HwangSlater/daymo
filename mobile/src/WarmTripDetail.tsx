@@ -119,6 +119,7 @@ import {
   type Payment,
   type SplitMode,
   type Transfer,
+  expenseFromTransport,
   expensesToCsv,
   josa,
   parseAmount,
@@ -128,9 +129,12 @@ import {
   money,
   normalizeExpense,
   shareLabel,
+  spentTotal,
+  splitModeOf,
   toWon,
   totalsByCategory,
   totalsByDay,
+  transportExpenseOf,
   won,
 } from "./tripExpenses";
 import { shareExpenseCsv } from "./tripExpenseExport";
@@ -2299,6 +2303,9 @@ export function WarmTripDetail({
               setReservations={setReservations}
               transportations={transportations}
               setTransportations={setTransportations}
+              expenses={expenses}
+              setExpenses={setExpenses}
+              currency={currency}
               participants={participants}
               recipes={recipes}
               packingRemaining={packingItems.filter((item) => !packingDone.includes(item.id)).length}
@@ -2432,7 +2439,7 @@ export function WarmTripDetail({
               schedule={schedule}
               stay={registeredStay}
               participants={participants}
-              spentTotal={money(expenses.reduce((sum, item) => sum + item.amount, 0), currency)}
+              spentTotal={money(spentTotal(expenses), currency)}
               cardTripId={serverTrip ? tripId : undefined}
               coverPhotoId={coverPhotoId}
               coverCardId={coverCardId}
@@ -2821,6 +2828,9 @@ function TripOverview({
   setReservations,
   transportations,
   setTransportations,
+  expenses,
+  setExpenses,
+  currency,
   participants,
   recipes,
   packingRemaining,
@@ -2843,6 +2853,11 @@ function TripOverview({
   setReservations: React.Dispatch<React.SetStateAction<ReservationInfo[]>>;
   transportations: Transportation[];
   setTransportations: React.Dispatch<React.SetStateAction<Transportation[]>>;
+  /** 비용 탭의 지출. 교통편에 적은 금액을 지출로 넣고, 이미 넣었는지도 여기서 본다. */
+  expenses: Expense[];
+  setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
+  /** 여행 통화. 교통편 금액 칸의 자릿수와 표기에 쓴다. */
+  currency: string;
   /** 이번 여행에 가는 사람. 교통편 이용자를 여기서 고른다. */
   participants: string[];
   /** 요리 카드가 무엇을 가리킬지는 실제 메뉴에서 가져온다. */
@@ -2899,8 +2914,14 @@ function TripOverview({
   const [transportStatus, setTransportStatus] = useState<Transportation["status"]>("예매 완료");
   const [transportShowInSchedule, setTransportShowInSchedule] = useState(true);
   const [transportNote, setTransportNote] = useState("");
+  // 표값. 교통편에는 저장하지 않고 비용 탭의 지출로만 남는다. 고칠 때는 그 지출의 금액이 여기 온다.
+  const [transportAmount, setTransportAmount] = useState("");
   const [transportDetailsOpen, setTransportDetailsOpen] = useState(false);
   const [editingTransportId, setEditingTransportId] = useState<string | null>(null);
+  const transportUnit = currencyOf(currency);
+  const transportAmountNumber = parseAmount(transportAmount, transportUnit.fraction);
+  /** 고치는 중인 교통편에서 만든 지출. 있으면 저장할 때 다시 묻지 않고 금액만 맞춘다. */
+  const linkedTransportExpense = editingTransportId ? transportExpenseOf(expenses, editingTransportId) : undefined;
   const transportDraft = {
     owner: transportOwner,
     direction: transportDirection,
@@ -2913,6 +2934,7 @@ function TripOverview({
     status: transportStatus,
     showInSchedule: transportShowInSchedule,
     note: transportNote,
+    amount: transportAmount,
   };
   const [transportDraftBaseline, setTransportDraftBaseline] = useState(() =>
     JSON.stringify(transportDraft),
@@ -3215,75 +3237,123 @@ function TripOverview({
       note: transportNote.trim(),
     };
     setTransportDraftBaseline(JSON.stringify(transportDraft));
-    if (editingTransportId) {
-      setTransportations((current) => current.map((item) => item.id === editingTransportId ? next : item));
+    /** 교통편을 실제로 저장한다. 지출을 어떻게 했는지에 따라 알림 말만 다르다. */
+    const saveTransport = (expenseNote: "없음" | "추가" | "금액 수정") => {
+      if (editingTransportId) {
+        setTransportations((current) => current.map((item) => item.id === editingTransportId ? next : item));
+        syncTransportationSchedule(next);
+        setEditingTransportId(null);
+        setTransportDeparture("");
+        setTransportDepartureTime("");
+        setTransportArrival("");
+        setTransportArrivalTime("");
+        setTransportNote("");
+        setTransportAmount("");
+        setSheet(null);
+        notify(
+          expenseNote === "추가"
+            ? "교통편을 수정하고 지출을 추가했어요"
+            : expenseNote === "금액 수정"
+              ? "교통편과 지출 금액을 수정했어요"
+              : "교통편을 수정했어요",
+        );
+        return;
+      }
+      setTransportations((current) => [...current, next]);
       syncTransportationSchedule(next);
-      setEditingTransportId(null);
-      setTransportDeparture("");
-      setTransportDepartureTime("");
-      setTransportArrival("");
-      setTransportArrivalTime("");
-      setTransportNote("");
-      setSheet(null);
-      notify("교통편을 수정했어요");
+      if (transportDirection === "가는 편") {
+        showAlert(
+          "가는 편을 추가했어요",
+          "오는 편도 추가할까요?",
+          [
+            {
+              text: "나중에",
+              style: "cancel",
+              onPress: () => {
+                setTransportDeparture("");
+                setTransportDepartureTime("");
+                setTransportArrival("");
+                setTransportArrivalTime("");
+                setTransportNote("");
+                setTransportAmount("");
+                setSheet(null);
+              },
+            },
+            {
+              text: "오는 편 추가",
+              onPress: () => {
+                setTransportDraftBaseline(JSON.stringify({
+                  owner: next.owner,
+                  direction: "오는 편",
+                  method: next.method,
+                  date: lastDay,
+                  departure: next.arrival,
+                  departureTime: "",
+                  arrival: next.departure,
+                  arrivalTime: "",
+                  status: next.status,
+                  showInSchedule: next.showInSchedule,
+                  note: "",
+                  amount: "",
+                }));
+                setTransportDirection("오는 편");
+                setTransportNote("");
+                setTransportAmount("");
+                setTransportDate(lastDay);
+                setTransportDeparture(next.arrival);
+                setTransportArrival(next.departure);
+                setTransportDepartureTime("");
+                setTransportArrivalTime("");
+                setSheet("transport");
+              },
+            },
+          ],
+        );
+      } else {
+        setTransportDeparture("");
+        setTransportDepartureTime("");
+        setTransportArrival("");
+        setTransportArrivalTime("");
+        setTransportNote("");
+        setTransportAmount("");
+        setSheet(null);
+        notify(expenseNote === "추가" ? "오는 편과 지출을 추가했어요" : "오는 편을 추가했어요");
+      }
+    };
+    // 금액을 적었으면 비용 탭에도 넣는다. 이 교통편에서 만든 지출이 이미 있으면 그 금액만
+    // 맞춘다. 다시 저장할 때마다 지출을 또 만들면 정산이 두 배가 된다.
+    const linked = transportExpenseOf(expenses, next.id);
+    if (transportAmountNumber <= 0) {
+      saveTransport("없음");
       return;
     }
-    setTransportations((current) => [...current, next]);
-    syncTransportationSchedule(next);
-    if (transportDirection === "가는 편") {
-      showAlert(
-        "가는 편을 추가했어요",
-        "오는 편도 추가할까요?",
-        [
-          {
-            text: "나중에",
-            style: "cancel",
-            onPress: () => {
-              setTransportDeparture("");
-              setTransportDepartureTime("");
-              setTransportArrival("");
-              setTransportArrivalTime("");
-              setTransportNote("");
-              setSheet(null);
-            },
-          },
-          {
-            text: "오는 편 추가",
-            onPress: () => {
-              setTransportDraftBaseline(JSON.stringify({
-                owner: next.owner,
-                direction: "오는 편",
-                method: next.method,
-                date: lastDay,
-                departure: next.arrival,
-                departureTime: "",
-                arrival: next.departure,
-                arrivalTime: "",
-                status: next.status,
-                showInSchedule: next.showInSchedule,
-                note: "",
-              }));
-              setTransportDirection("오는 편");
-              setTransportNote("");
-              setTransportDate(lastDay);
-              setTransportDeparture(next.arrival);
-              setTransportArrival(next.departure);
-              setTransportDepartureTime("");
-              setTransportArrivalTime("");
-              setSheet("transport");
-            },
-          },
-        ],
-      );
-    } else {
-      setTransportDeparture("");
-      setTransportDepartureTime("");
-      setTransportArrival("");
-      setTransportArrivalTime("");
-      setTransportNote("");
-      setSheet(null);
-      notify("오는 편을 추가했어요");
+    if (linked) {
+      if (linked.amount === transportAmountNumber) {
+        saveTransport("없음");
+        return;
+      }
+      setExpenses((current) => current.map((item) => (
+        item.id === linked.id ? { ...item, amount: transportAmountNumber } : item
+      )));
+      saveTransport("금액 수정");
+      return;
     }
+    // 낸 사람은 타는 사람, 몫은 본인 부담이다. 번호는 값을 바꾸는 안에서 새로 딴다.
+    const draft = expenseFromTransport(next, transportAmountNumber, participants, "");
+    showAlert(
+      "비용에도 지출로 추가할까요?",
+      `${draft.title} ${money(draft.amount, currency)} · ${draft.payer} 본인 부담으로 들어가요. 몫은 비용 탭에서 바꿀 수 있어요.`,
+      [
+        { text: "교통편만 저장", style: "cancel", onPress: () => saveTransport("없음") },
+        {
+          text: "지출 추가",
+          onPress: () => {
+            setExpenses((current) => [...current, { ...draft, id: newPlaceId() }]);
+            saveTransport("추가");
+          },
+        },
+      ],
+    );
   };
   // 교통편 카드는 사람마다 한 장이다. 참가자에서 빠진 사람이 예매해 둔 편도
   // 사라지면 안 되니, 실제로 적힌 이용자를 뒤에 붙인다.
@@ -3322,6 +3392,7 @@ function TripOverview({
       status: "예매 완료" as const,
       showInSchedule: true,
       note: "",
+      amount: "",
     };
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(null);
@@ -3336,10 +3407,16 @@ function TripOverview({
     setTransportStatus("예매 완료");
     setTransportShowInSchedule(true);
     setTransportNote("");
+    setTransportAmount("");
     setTransportDetailsOpen(false);
     setSheet("transport");
   };
   const openTransportEdit = (item: Transportation) => {
+    // 금액은 교통편이 아니라 거기서 만든 지출에 있다. 그 지출의 금액을 칸에 되살린다.
+    const linkedAmount = (() => {
+      const linked = transportExpenseOf(expenses, item.id);
+      return linked ? amountText(linked.amount, transportUnit.fraction) : "";
+    })();
     const nextDraft = {
       owner: item.owner,
       direction: item.direction,
@@ -3352,6 +3429,7 @@ function TripOverview({
       status: item.status,
       showInSchedule: item.showInSchedule,
       note: item.note ?? "",
+      amount: linkedAmount,
     };
     setTransportDraftBaseline(JSON.stringify(nextDraft));
     setEditingTransportId(item.id);
@@ -3366,6 +3444,7 @@ function TripOverview({
     setTransportStatus(item.status);
     setTransportShowInSchedule(item.showInSchedule);
     setTransportNote(item.note ?? "");
+    setTransportAmount(linkedAmount);
     setTransportDetailsOpen(
       Boolean(item.note) || item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule,
     );
@@ -3909,6 +3988,30 @@ function TripOverview({
           onChangeLeft={setTransportDepartureTime}
           onChangeRight={setTransportArrivalTime}
         />
+        {/* 표값은 여기 적고 비용 탭에는 지출로 들어간다. 교통편에 따로 저장하지 않아
+            두 자리의 금액이 어긋날 일이 없다. */}
+        <DetailField
+          label="금액 (선택)"
+          value={transportAmount}
+          onChangeText={(text) => {
+            // 소수를 받는 통화는 "24." 처럼 아직 숫자가 안 된 상태를 지우지 않아야 이어 칠 수 있다.
+            if (transportUnit.fraction > 0 && /[.]\d{0,1}$/.test(text)) {
+              setTransportAmount(text.replace(/[^\d.]/g, ""));
+              return;
+            }
+            const amount = parseAmount(text, transportUnit.fraction);
+            setTransportAmount(amount ? amountText(amount, transportUnit.fraction) : "");
+          }}
+          placeholder="예: 32,000"
+          keyboardType="numeric"
+        />
+        {(transportAmountNumber > 0 || linkedTransportExpense) && (
+          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+            {linkedTransportExpense
+              ? "비용 탭의 지출과 연결돼 있어요. 금액을 바꾸면 그 지출도 같이 바뀌어요"
+              : "저장할 때 비용에도 지출로 추가할지 물어봐요"}
+          </Text>
+        )}
         <OptionalFormSection
           label="타는 사람·예매·메모"
           summary={`${transportOwner} · ${transportStatus}${transportShowInSchedule ? " · 일정 표시" : ""}${transportNote.trim() ? " · 메모" : ""}`}
@@ -3940,13 +4043,16 @@ function TripOverview({
       >
         {transportations
           .filter((item) => (item.owner || "") === (selectedTransport?.owner || ""))
-          .map((item) => (
+          .map((item) => {
+            const linked = transportExpenseOf(expenses, item.id);
+            return (
             <View key={item.id} style={[styles.transportDetailBlock, theme && { borderColor: theme.border }]}>
               <Text style={[styles.transportDetailDirection, theme && { color: theme.primary }]}>{item.direction} · {item.status}</Text>
               <InfoLine label="교통수단" value={item.method} />
               <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
               <InfoLine label="도착" value={`${item.arrival} ${item.arrivalTime}`} />
               <InfoLine label="여행 일정" value={item.showInSchedule ? "일정에 표시 중" : "교통 정보만 저장"} />
+              {linked && <InfoLine label="비용" value={`${money(linked.amount, currency)}${linked.excluded ? " · 정산 제외" : ""}`} />}
               {Boolean(item.note?.trim()) && <InfoLine label="메모" value={item.note ?? ""} />}
               {canEdit && (
               <Pressable
@@ -3955,7 +4061,8 @@ function TripOverview({
               </Pressable>
               )}
             </View>
-          ))}
+            );
+          })}
       </InfoPanel>
       {/* 예약을 적기 전에 어디를 예약했는지부터 고른다. 담아 둔 장소에 붙여야
           그날 일정과 장소 카드에서 같은 예약이 함께 보인다. */}
@@ -9467,6 +9574,9 @@ function Money({
   const [draftDay, setDraftDay] = useState(dayOptions[0] ?? "");
   const [draftMemo, setDraftMemo] = useState("");
   const [draftReceipt, setDraftReceipt] = useState("");
+  // 정산에서 빼기. 지우지 않고 셈에서만 뺀다. 회사에 청구할 영수증이나 선물로 낸 돈처럼
+  // 적어는 두되 나누지 않을 지출이 있다.
+  const [draftExcluded, setDraftExcluded] = useState(false);
   // 누가 내고 누구 몫인지, 그리고 영수증과 메모는 대개 기본값 그대로 둔다.
   // 늘 펼쳐 두면 식당 앞에서 적을 때 제출 단추까지 다섯 줄을 지나야 한다.
   const [payerOpen, setPayerOpen] = useState(false);
@@ -9538,20 +9648,25 @@ function Money({
   );
   // 날짜로 묶고 소제목에 그날 합계를 단다. 여행 중에 가장 자주 하는 질문이
   // "어제 얼마 썼지" 인데, 한 줄로 늘어놓으면 그걸 셀 수가 없다.
+  // 정산에서 뺀 지출만 있는 날도 목록에는 나와야 한다. 그날 합계는 뺀 것을 세지 않는다.
   const grouped = useMemo(
     () =>
-      totalsByDay(visible, dayOptions).map(({ day, amount }) => ({
-        day,
-        amount,
-        items: visible.filter((item) => item.day === day),
-      })),
-    [visible, dayOptions],
+      [...new Set(visible.map((item) => item.day))].map((day) => {
+        const items = visible.filter((item) => item.day === day);
+        return { day, amount: spentTotal(items), items };
+      }),
+    [visible],
   );
   const unit = currencyOf(currency);
   // 금액 칸에서 눌러 더하는 단위. 통화가 원이면 천 단위, 소수를 쓰는 통화면 한 자리 작게 잡는다.
   const quickSteps = unit.fraction > 0 ? [1, 5, 10] : [1000, 5000, 10000];
   // 이 탭 안에서는 늘 여행 통화로 적는다. 원 환산은 합계 옆에만 덧붙인다.
   const show = (amount: number) => money(amount, unit.code);
+  /** 목록 한 줄의 몫 표시. "가람 몫" 인데 본인 부담은 그 말 자체가 몫이라 뒤에 붙이지 않는다. */
+  const shareMeta = (item: Expense) => {
+    const label = shareLabel(item, participants);
+    return label === "본인 부담" ? label : `${label} 몫`;
+  };
   // 내 줄을 먼저, 나머지는 접어서. 내가 참가자가 아니면 전부 남의 일이다.
   const myTransfers = settlement.transfers.filter(
     (transfer) => transfer.from === me || transfer.to === me,
@@ -9686,6 +9801,7 @@ function Money({
   // 고른 방식을 저장 모양(비중)으로 옮긴다. 계산은 한 가지 방식만 알면 된다.
   const draftShares = ((): Record<Participant, number> | undefined => {
     if (draftSplitMode === "균등") return undefined;
+    if (draftSplitMode === "본인") return { [draftPayer]: 1 };
     if (draftSplitMode === "일부") {
       if (!draftPeople.length) return undefined;
       return Object.fromEntries(draftPeople.map((person) => [person, 1]));
@@ -9714,6 +9830,7 @@ function Money({
   const draftShareSummary = (() => {
     const paid = `${draftPayer}${josa(draftPayer, "이", "가")}`;
     const picked = Object.keys(draftShares ?? {});
+    if (draftSplitMode === "본인") return `${draftPayer} 본인 부담이에요`;
     if (!picked.length) {
       return participants.length > 1
         ? `${paid} 내고 ${participants.length}명이 똑같이 나눠요`
@@ -9755,14 +9872,13 @@ function Money({
   /**
    * 저장된 지출을 고칠 때, 적었던 방식 그대로 다시 연다.
    *
-   * 옛 데이터는 방식이 안 적혀 있어서 비중 모양에서 짐작한다. 비중이 전부 같으면
-   * 고른 사람끼리 균등이었던 것이고, 다르면 금액이나 비율을 적은 것이다.
+   * 방식은 `splitModeOf` 가 비중 모양까지 보고 정한다. 서버는 「본인 부담」을 모르고
+   * 낸 사람 혼자 몫인 「일부」로 돌려주는데, 그걸 그대로 열면 헷갈린다.
    */
   const loadSplit = (item: Expense) => {
     const shares = item.shares ?? {};
     const picked = Object.keys(shares);
-    const mode: SplitMode = item.splitMode
-      ?? (!picked.length ? "균등" : picked.every((person) => shares[person] === shares[picked[0]]) ? "일부" : "금액");
+    const mode = splitModeOf(item);
     setDraftSplitMode(mode);
     setDraftPeople(picked.length ? picked : participants);
     setDraftAmounts(mode === "금액"
@@ -9780,6 +9896,7 @@ function Money({
     setDraftDay(dayFilter === "전체" ? todayDay || dayOptions[0] || "" : dayFilter);
     setDraftMemo("");
     setDraftReceipt("");
+    setDraftExcluded(false);
     setPayerOpen(false);
     setExtrasOpen(false);
     setSheetOpen(true);
@@ -9794,6 +9911,7 @@ function Money({
     setDraftDay(item.day);
     setDraftMemo(item.memo);
     setDraftReceipt(item.receiptUri ?? "");
+    setDraftExcluded(Boolean(item.excluded));
     // 기본값과 다른 지출을 고칠 때는 그 자리를 바로 보여준다.
     setPayerOpen(Object.keys(item.shares ?? {}).length > 0);
     setExtrasOpen(Boolean(item.memo || item.receiptUri));
@@ -9815,12 +9933,18 @@ function Money({
         splitMode: draftSplitMode,
         memo: draftMemo.trim(),
         receiptUri: draftReceipt || undefined,
-        // 영수증을 그대로 두었으면 올린 사진 id 도 그대로다. 바꾸거나 떼면 새로 올린다.
+        ...(draftExcluded ? { excluded: true } : {}),
         ...(() => {
           const before = current.find((item) => item.id === editingId);
-          return draftReceipt && before?.receiptPhotoId && before.receiptUri === draftReceipt
-            ? { receiptPhotoId: before.receiptPhotoId }
-            : {};
+          return {
+            // 영수증을 그대로 두었으면 올린 사진 id 도 그대로다. 바꾸거나 떼면 새로 올린다.
+            ...(draftReceipt && before?.receiptPhotoId && before.receiptUri === draftReceipt
+              ? { receiptPhotoId: before.receiptPhotoId }
+              : {}),
+            // 교통편에서 만든 지출이라는 표시는 고쳐도 남는다. 없어지면 그 교통편을 다시
+            // 저장할 때 지출이 하나 더 생긴다.
+            ...(before?.transportId ? { transportId: before.transportId } : {}),
+          };
         })(),
       };
       return editingId
@@ -10325,10 +10449,12 @@ function Money({
                 key={item.id}
                 onPress={() => openEdit(item)}
                 accessibilityRole="button"
-                accessibilityLabel={`${group.day} ${item.title} ${show(item.amount)} 수정`}
+                accessibilityLabel={`${group.day} ${item.title} ${show(item.amount)}${item.excluded ? " 정산 제외" : ""} 수정`}
                 style={({ pressed }) => [
                   styles.moneyRow,
                   theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                  // 정산에서 뺀 줄은 흐리게. 지운 게 아니라 셈에서만 빠진 것이다.
+                  item.excluded && styles.moneyRowExcluded,
                   pressed && styles.packingCardPressed,
                 ]}
               >
@@ -10337,9 +10463,10 @@ function Money({
                   <Text numberOfLines={1} style={[styles.moneyRowMeta, theme && { color: theme.muted }]}>
                     {/* 빠르게 적은 지출은 이름이 분류와 같다. 같은 낱말을 두 번
                         보여 줄 이유가 없다. */}
+                    {item.excluded ? "정산 제외 · " : ""}
                     {item.title === item.category ? "" : `${item.category} · `}
                     {item.payer}{josa(item.payer, "이", "가")} 냄
-                    {item.shares ? ` · ${shareLabel(item, participants)} 몫` : ""}
+                    {item.shares ? ` · ${shareMeta(item)}` : ""}
                     {item.receiptUri ? " · 영수증" : ""}
                   </Text>
                   <SyncMark id={item.id} />
@@ -10463,12 +10590,13 @@ function Money({
               <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>누구 몫</Text>
             </View>
             {/* 방식을 먼저 고르고 그 방식에 맞는 것만 보여 준다. 사람들이
-                실제로 하는 말이 "똑같이 나눠", "쟤는 빼고", "얘는 얼마" 라서
-                그 셋을 그대로 뒀다. 비율이 아니라 금액이다. */}
+                실제로 하는 말이 "내가 낼게", "똑같이 나눠", "쟤는 빼고", "얘는 얼마" 라서
+                그 넷을 그대로 뒀다. 비율이 아니라 금액이다. 본인 부담이 없던 때는
+                「금액 직접」에 자기 이름만 채워 넣어야 했다. */}
             <View style={styles.splitModes}>
-              {(["균등", "일부", "금액"] as const).map((mode) => {
+              {(["본인", "균등", "일부", "금액"] as const).map((mode) => {
                 const active = draftSplitMode === mode;
-                const label = mode === "균등" ? "똑같이" : mode === "일부" ? "일부만" : "금액 직접";
+                const label = mode === "본인" ? "본인 부담" : mode === "균등" ? "똑같이" : mode === "일부" ? "일부만" : "금액 직접";
                 return (
                   <Pressable
                     key={mode}
@@ -10489,6 +10617,11 @@ function Money({
                 );
               })}
             </View>
+            {draftSplitMode === "본인" && (
+              <Text style={[styles.splitEven, theme && { color: theme.muted }]}>
+                {draftPayer}{josa(draftPayer, "이", "가")} 혼자 부담해요. 다른 사람에게 청구하지 않아요
+              </Text>
+            )}
             {draftSplitMode === "균등" && (
               <Text style={[styles.splitEven, theme && { color: theme.muted }]}>
                 {participants.length}명이 {amountNumber > 0 ? `${show(amountNumber / participants.length)}씩` : "똑같이"} 나눠요
@@ -10610,6 +10743,22 @@ function Money({
             placeholder="예: 둘 다 학생 할인"
           />
         </OptionalFormSection>
+        {/* 지우지 않고 셈에서만 빼는 자리. 새로 적을 때는 필요 없어서 고칠 때만 보인다. */}
+        {editingId !== null && (
+          <>
+            <OptionField
+              label="정산"
+              options={["정산에 넣기", "정산에서 빼기"]}
+              value={draftExcluded ? "정산에서 빼기" : "정산에 넣기"}
+              onChange={(value) => setDraftExcluded(value === "정산에서 빼기")}
+            />
+            {draftExcluded && (
+              <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+                총 지출과 정산에서 빠지고 목록에는 흐리게 남아요
+              </Text>
+            )}
+          </>
+        )}
       </DetailSheet>
       <DetailSheet
         visible={paying !== null}
@@ -12846,6 +12995,7 @@ const styles = StyleSheet.create({
   moneyGroupDay: { fontSize: 13, fontFamily: typo.title.family },
   moneyGroupTotal: { fontSize: 12, fontFamily: typo.data.family },
   moneyRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  moneyRowExcluded: { opacity: 0.45 },
   moneyRowBody: { flex: 1, minWidth: 0 },
   moneyRowTitle: { fontSize: 14, fontFamily: typo.title.family },
   moneyRowMeta: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },

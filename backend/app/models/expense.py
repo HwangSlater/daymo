@@ -3,6 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    false,
 )
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -76,6 +78,14 @@ class Expense(Base, TimestampMixin, CreatedByMixin):
     receipt_photo_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("photos.id", ondelete="SET NULL"), nullable=True
     )
+    # 정산과 합계에서 뺀 지출. 지우지는 않는다. 회사에 청구할 영수증이나 한 사람이
+    # 선물로 낸 것처럼, 기록은 남기되 나누지는 않을 돈이 있다. 여행 요약의 총 지출도
+    # 이 값이 참이면 세지 않는다(services/trip_overview.py).
+    excluded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    # 교통편에서 만든 지출이면 그 교통편의 id. 외래키는 두지 않는다. 교통편과 지출은
+    # 따로 올라와서 어느 쪽이 먼저 닿는지 알 수 없고, 교통편을 지워도 돈 기록은
+    # 남아야 해서다. 앱은 이 값으로 같은 교통편의 지출을 두 번 만들지 않는다.
+    transport_id: Mapped[uuid.UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
     # 고칠 때마다 올린다. 두 사람이 같은 지출을 동시에 고치면 409.
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 

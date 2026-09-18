@@ -16,14 +16,18 @@ export type Participant = string;
 /**
  * 몫을 나누는 방식.
  *
+ *   본인  낸 사람이 혼자 다 부담. 남에게 청구하지 않는다.
  *   균등  참가자 전원이 똑같이. 가장 흔해서 기본이다.
  *   일부  고른 사람끼리만 똑같이.
  *   금액  사람마다 얼마씩인지 직접.
  *
  * 사람은 비율보다 금액으로 생각한다. "7 대 3" 이 아니라 "얘는 만오천, 나머지
  * 나눠" 가 실제로 오가는 말이다.
+ *
+ * 「본인」은 서버에 따로 없다. 낸 사람 혼자 몫인 「일부」와 같은 모양으로 보내고,
+ * 다시 열 때 `splitModeOf` 가 모양을 보고 되살린다. 정산은 어느 쪽이든 같다.
  */
-export type SplitMode = "균등" | "일부" | "금액";
+export type SplitMode = "본인" | "균등" | "일부" | "금액";
 
 export type Expense = {
   id: string;
@@ -56,6 +60,15 @@ export type Expense = {
   receiptUri?: string;
   /** 서버에 올라간 영수증 사진 id. 올린 뒤에 생긴다. */
   receiptPhotoId?: string;
+  /**
+   * 정산과 합계에서 뺀 지출. 목록에는 흐리게 남는다.
+   *
+   * 회사에 청구할 영수증이나 한 사람이 선물로 낸 것처럼, 적어는 두되 나누지는
+   * 않을 돈이 있다. 삭제하면 얼마를 썼는지 흔적이 사라진다.
+   */
+  excluded?: boolean;
+  /** 교통편에서 만든 지출이면 그 교통편의 id. 같은 교통편의 지출을 두 번 만들지 않는 근거다. */
+  transportId?: string;
 };
 
 /**
@@ -163,6 +176,71 @@ export function splitAmounts(item: Expense, participants: Participant[]): Record
   return result;
 }
 
+/**
+ * 저장된 지출이 어느 방식으로 적힌 것인지.
+ *
+ * 낸 사람 혼자 몫이면 어떻게 적었든 「본인」이다. 서버가 「본인」을 모르니 「일부」로
+ * 돌아오는데, 그걸 그대로 열면 「일부만」에 낸 사람 하나만 켜진 채로 보여 헷갈린다.
+ * 옛 데이터는 방식이 안 적혀 있어서 비중 모양에서 짐작한다. 비중이 전부 같으면 고른
+ * 사람끼리 균등이고, 다르면 금액을 적은 것이다.
+ */
+export function splitModeOf(item: Expense): SplitMode {
+  const shares = item.shares ?? {};
+  const picked = Object.keys(shares).filter((person) => shares[person] > 0);
+  if (!picked.length) return "균등";
+  if (picked.length === 1 && picked[0] === item.payer) return "본인";
+  if (item.splitMode === "일부" || item.splitMode === "금액") return item.splitMode;
+  return picked.every((person) => shares[person] === shares[picked[0]]) ? "일부" : "금액";
+}
+
+/** 정산과 합계에 드는 지출만. 「정산에서 빼기」 한 줄은 목록에만 남는다. */
+export function counted<T extends { excluded?: boolean }>(expenses: readonly T[]): T[] {
+  return expenses.filter((item) => !item.excluded);
+}
+
+/** 총 지출. 정산에서 뺀 것은 세지 않는다. */
+export function spentTotal(expenses: readonly { amount: number; excluded?: boolean }[]): number {
+  return counted(expenses).reduce((sum, item) => sum + item.amount, 0);
+}
+
+/** 교통편 가운데 지출로 옮기는 데 필요한 것. `Transportation` 이 이 모양을 만족한다. */
+export type TransportLeg = {
+  id: string;
+  date: string;
+  departure: string;
+  arrival: string;
+  method: string;
+  owner: string;
+};
+
+/** 이 교통편에서 만든 지출. 없으면 아직 비용에 안 넣은 것이다. */
+export function transportExpenseOf(expenses: readonly Expense[], transportId: string): Expense | undefined {
+  return expenses.find((item) => item.transportId === transportId);
+}
+
+/**
+ * 교통편 한 편을 지출로 옮긴다.
+ *
+ * 낸 사람은 타는 사람이고 몫도 그 사람 혼자다(본인 부담). 표는 대개 각자 끊으니
+ * 남에게 청구하지 않는 것이 기본이고, 함께 나눌 거면 비용 탭에서 몫을 고치면 된다.
+ * 타는 사람이 참가자가 아니면(미정, 나간 멤버) 첫 참가자가 낸 것으로 둔다.
+ */
+export function expenseFromTransport(leg: TransportLeg, amount: number, participants: Participant[], id: string): Expense {
+  const payer = participants.includes(leg.owner) ? leg.owner : participants[0] ?? leg.owner;
+  return {
+    id,
+    day: leg.date,
+    title: `${leg.departure}→${leg.arrival} ${leg.method}`,
+    amount,
+    category: "교통",
+    payer,
+    shares: { [payer]: 1 },
+    splitMode: "본인",
+    memo: "",
+    transportId: leg.id,
+  };
+}
+
 /** 몫을 지는 사람들. 비중이 없으면 참가자 전원이다. */
 export function shareMembers(item: Expense, participants: Participant[]): Participant[] {
   const named = Object.entries(item.shares ?? {}).filter(([, weight]) => weight > 0);
@@ -172,12 +250,13 @@ export function shareMembers(item: Expense, participants: Participant[]): Partic
 /**
  * 누구 몫인지 읽을 수 있게 적는다.
  *
- * 참가자 전원이 똑같이 지면 `함께`, 한 사람이면 이름만, 나눠 졌으면 비중까지
- * 적는다.
+ * 참가자 전원이 똑같이 지면 `함께`, 낸 사람 혼자면 `본인 부담`, 다른 한 사람이면
+ * 이름만, 나눠 졌으면 비중까지 적는다.
  */
 export function shareLabel(item: Expense, participants: Participant[]): string {
   const named = Object.entries(item.shares ?? {}).filter(([, weight]) => weight > 0);
   if (!named.length) return "함께";
+  if (named.length === 1 && named[0][0] === item.payer) return "본인 부담";
   if (named.length === 1) return named[0][0];
   const even = named.every(([, weight]) => weight === named[0][1]);
   if (even && named.length === participants.length) return "함께";
@@ -284,7 +363,8 @@ export function settle(
     owes[from][to] = (owes[from][to] ?? 0) + amount;
   };
   let total = 0;
-  for (const item of expenses) {
+  // 정산에서 뺀 지출은 합계에도 빚에도 안 든다.
+  for (const item of counted(expenses)) {
     total += item.amount;
     // 참가자에서 빠진 사람이 낸 지출도 잃어버리지 않는다.
     paid[item.payer] = (paid[item.payer] ?? 0) + item.amount;
@@ -381,10 +461,10 @@ export function normalizeExpense(value: Expense & { share?: string; splitSky?: n
   return rest;
 }
 
-/** 분류별 합계. 쓴 게 있는 분류만, 많이 쓴 차례로 낸다. */
+/** 분류별 합계. 쓴 게 있는 분류만, 많이 쓴 차례로 낸다. 정산에서 뺀 지출은 세지 않는다. */
 export function totalsByCategory(expenses: Expense[]): { category: ExpenseCategory; amount: number }[] {
   const sums = new Map<ExpenseCategory, number>();
-  for (const item of expenses) {
+  for (const item of counted(expenses)) {
     sums.set(item.category, (sums.get(item.category) ?? 0) + item.amount);
   }
   return EXPENSE_CATEGORIES.filter((category) => sums.has(category))
@@ -392,10 +472,10 @@ export function totalsByCategory(expenses: Expense[]): { category: ExpenseCatego
     .sort((a, b) => b.amount - a.amount);
 }
 
-/** 날짜별 합계. 여행 날짜 차례를 그대로 따른다. */
+/** 날짜별 합계. 여행 날짜 차례를 그대로 따른다. 정산에서 뺀 지출만 있는 날은 빠진다. */
 export function totalsByDay(expenses: Expense[], days: string[]): { day: string; amount: number }[] {
   const sums = new Map<string, number>();
-  for (const item of expenses) {
+  for (const item of counted(expenses)) {
     sums.set(item.day, (sums.get(item.day) ?? 0) + item.amount);
   }
   const known = days.filter((day) => sums.has(day));
@@ -431,7 +511,8 @@ export function expensesToCsv(
   if (converted) head.splice(4, 0, "원 환산");
   const rows: string[] = [head.join(",")];
   for (const item of expenses) {
-    const line: (string | number)[] = [item.day, item.title, item.category, item.amount, item.payer, shareLabel(item, participants), item.memo];
+    // 정산에서 뺀 줄도 표에는 남긴다. 얼마를 썼는지는 남아야 하고, 아래 합계에만 안 든다.
+    const line: (string | number)[] = [item.day, item.title, item.category, item.amount, item.payer, item.excluded ? "정산 제외" : shareLabel(item, participants), item.memo];
     if (converted) line.splice(4, 0, toWon(item.amount, rate));
     rows.push(line.map(cell).join(","));
   }

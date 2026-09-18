@@ -33,7 +33,28 @@ test("지출을 서버 모양으로 바꾸고 사람은 membership id 로 보낸
     shares: [{ membershipId: "m-me", weight: 30000 }, { membershipId: "m-yeoul", weight: 18000 }],
     memo: null,
     receiptPhotoId: null,
+    excluded: false,
+    transportId: null,
   });
+});
+
+test("본인 부담은 낸 사람 혼자 몫인 일부로 보내고, 정산 제외와 교통편 연결은 그대로 오간다", () => {
+  const codec = expenseCodec(dates, roster);
+  const body = codec.toBody(expense({ shares: { 하늘: 1 }, splitMode: "본인", excluded: true, transportId: "t-1" }));
+  assert.equal(body.splitMode, "subset");
+  assert.deepEqual(body.shares, [{ membershipId: "m-me", weight: 1 }]);
+  assert.equal(body.excluded, true);
+  assert.equal(body.transportId, "t-1");
+
+  const back = codec.fromServer({ id: A, version: 1, ...body });
+  assert.equal(back.excluded, true);
+  assert.equal(back.transportId, "t-1");
+  // 서버는 「본인」을 모른다. 되살리는 건 열 때 모양을 보고 한다(`splitModeOf`).
+  assert.equal(back.splitMode, "일부");
+  // 옛 서버 응답처럼 두 칸이 없으면 기본값으로 본다.
+  const old = codec.fromServer({ id: A, version: 1, ...body, excluded: undefined, transportId: undefined });
+  assert.equal(old.excluded, undefined);
+  assert.equal(old.transportId, undefined);
 });
 
 test("영수증은 같은 사진이거나 아직 올리지 않았을 때만 기기 파일을 지킨다", () => {

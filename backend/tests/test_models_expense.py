@@ -41,6 +41,8 @@ async def test_지출의_기본값(db):
     assert expense.category is ExpenseCategory.OTHER
     # 값이 없으면 shares 모양에서 짐작한다. 기본값을 박아 두면 그럴 수 없다.
     assert expense.split_mode is None
+    # 적은 지출은 정산에 들어가는 것이 기본이다.
+    assert expense.excluded is False and expense.transport_id is None
 
 
 async def test_0원_지출은_적을_수_없다(db):

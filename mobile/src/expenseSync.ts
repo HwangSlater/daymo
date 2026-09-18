@@ -27,6 +27,10 @@ export type ServerExpense = {
   shares: { membershipId: string; weight: number }[];
   memo: string | null;
   receiptPhotoId?: string | null;
+  /** 정산에서 뺀 지출. 옛 서버 응답에는 없을 수 있어 없으면 거짓으로 본다. */
+  excluded?: boolean;
+  /** 교통편에서 만든 지출이면 그 교통편 id. */
+  transportId?: string | null;
   version: number;
 };
 
@@ -38,7 +42,8 @@ const CATEGORY_TO_SERVER: Record<ExpenseCategory, ServerCategory> = {
 const CATEGORY_TO_APP: Record<ServerCategory, ExpenseCategory> = {
   meal: "식비", transport: "교통", lodging: "숙박", admission: "입장료", shopping: "쇼핑", other: "기타",
 };
-const SPLIT_TO_SERVER: Record<SplitMode, ServerSplit> = { 균등: "even", 일부: "subset", 금액: "amount" };
+// 「본인」은 서버에 없다. 낸 사람 혼자 몫인 「일부」로 보내고 다시 열 때 모양으로 되살린다(`splitModeOf`).
+const SPLIT_TO_SERVER: Record<SplitMode, ServerSplit> = { 본인: "subset", 균등: "even", 일부: "subset", 금액: "amount" };
 const SPLIT_TO_APP: Record<ServerSplit, SplitMode> = { even: "균등", subset: "일부", amount: "금액" };
 
 const round = (value: number, digits: number) => Math.round(value * 10 ** digits) / 10 ** digits;
@@ -79,6 +84,8 @@ export function expenseCodec(
         .sort((a, b) => a.membershipId.localeCompare(b.membershipId)),
       memo: blank(item.memo, 2000),
       receiptPhotoId: item.receiptPhotoId ?? null,
+      excluded: Boolean(item.excluded),
+      transportId: item.transportId ?? null,
     }),
     fromServer: (row) => {
       const shares: Record<string, number> = {};
@@ -94,6 +101,8 @@ export function expenseCodec(
         ...(row.splitMode ? { splitMode: SPLIT_TO_APP[row.splitMode] } : {}),
         memo: row.memo ?? "",
         ...(row.receiptPhotoId ? { receiptPhotoId: row.receiptPhotoId } : {}),
+        ...(row.excluded ? { excluded: true } : {}),
+        ...(row.transportId ? { transportId: row.transportId } : {}),
       };
     },
     // 영수증 파일은 기기에 있다. 아직 올리지 않았거나 같은 사진이면 파일 자리를 지킨다.

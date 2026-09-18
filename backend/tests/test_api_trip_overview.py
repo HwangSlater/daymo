@@ -52,6 +52,8 @@ async def 채운_여행(api, db):
     나 = await membership_of(db, space_id, "sky@example.com")
     await 지출을_넣는다(api, headers, trip_id, 나)
     await 지출을_넣는다(api, headers, trip_id, 나, title="카페", amount=12000.5)
+    # 정산에서 뺀 지출은 총 지출에 들어가지 않는다.
+    await 지출을_넣는다(api, headers, trip_id, 나, title="회사에 청구할 택시", amount=999, excluded=True)
     return headers, space_id, trip, 식당
 
 

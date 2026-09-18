@@ -6,6 +6,7 @@ import {
   type Participant,
   amountText,
   currencyOf,
+  expenseFromTransport,
   expensesToCsv,
   josa,
   money,
@@ -13,10 +14,13 @@ import {
   parseAmount,
   settle,
   shareLabel,
+  spentTotal,
   splitAmounts,
+  splitModeOf,
   toWon,
   totalsByCategory,
   totalsByDay,
+  transportExpenseOf,
   won,
 } from "./tripExpenses.ts";
 
@@ -123,10 +127,27 @@ test("참가자가 아무도 없으면 나눌 것이 없다", () => {
 test("누구 몫인지 읽을 수 있게 적는다", () => {
   assert.equal(shareLabel(지출(1, "하늘"), 넷), "함께");
   assert.equal(shareLabel(지출(1, "하늘", { 가람: 1 }), 넷), "가람");
+  // 낸 사람 혼자 몫이면 이름 대신 본인 부담이라고 적는다.
+  assert.equal(shareLabel(지출(1, "하늘", { 하늘: 1 }), 넷), "본인 부담");
   assert.equal(shareLabel(지출(1, "하늘", { 하늘: 7, 여울: 3 }), 둘), "하늘 7 · 여울 3");
   assert.equal(shareLabel(지출(1, "하늘", { 가람: 1, 새봄: 1 }), 넷), "가람 · 새봄 균등");
   // 전원에게 같은 무게를 적어 둔 것도 결국 함께다.
   assert.equal(shareLabel(지출(1, "하늘", { 하늘: 1, 여울: 1 }), 둘), "함께");
+});
+
+test("저장된 지출의 나누기 방식을 모양에서 되살린다", () => {
+  assert.equal(splitModeOf(지출(1, "하늘")), "균등");
+  // 낸 사람 혼자 몫이면 서버가 「일부」로 돌려줘도 본인 부담이다.
+  assert.equal(splitModeOf(지출(1, "하늘", { 하늘: 1 }, { splitMode: "일부" })), "본인");
+  assert.equal(splitModeOf(지출(1, "하늘", { 하늘: 1 })), "본인");
+  // 다른 한 사람 몫은 본인 부담이 아니다.
+  assert.equal(splitModeOf(지출(1, "하늘", { 여울: 1 })), "일부");
+  assert.equal(splitModeOf(지출(1, "하늘", { 하늘: 1, 여울: 1 })), "일부");
+  assert.equal(splitModeOf(지출(1, "하늘", { 하늘: 7, 여울: 3 })), "금액");
+  // 적어 둔 방식이 있으면 그걸 따른다. 같은 금액을 둘에게 직접 적었을 수도 있다.
+  assert.equal(splitModeOf(지출(1, "하늘", { 하늘: 5000, 여울: 5000 }, { splitMode: "금액" })), "금액");
+  // 0 만 적힌 비중은 없는 것과 같다.
+  assert.equal(splitModeOf(지출(1, "하늘", { 하늘: 0 })), "균등");
 });
 
 // --- 정산 -----------------------------------------------------------------
@@ -148,6 +169,28 @@ test("똑같이 내면 주고받을 게 없다", () => {
 
 test("자기가 내고 자기 몫이면 정산이 없다", () => {
   assert.deepEqual(settle([지출(10000, "하늘", { 하늘: 1 })], 둘).transfers, []);
+});
+
+test("본인 부담은 남에게 청구하지 않지만 총 지출에는 든다", () => {
+  const result = settle([지출(40000, "하늘"), 지출(9000, "여울", { 여울: 1 }, { splitMode: "본인" })], 둘);
+  assert.equal(result.total, 49000);
+  assert.equal(result.owed.여울, 20000 + 9000);
+  assert.equal(result.paid.여울, 9000);
+  // 하늘이 낸 4만원의 절반만 오간다. 여울의 표값은 여울 몫이다.
+  assert.deepEqual(result.transfers, [{ from: "여울", to: "하늘", amount: 20000 }]);
+});
+
+test("정산에서 뺀 지출은 합계에도 빚에도 안 들고 목록에만 남는다", () => {
+  const 지출들 = [지출(40000, "하늘"), 지출(30000, "여울", undefined, { excluded: true, title: "회사 청구 택시" })];
+  const result = settle(지출들, 둘);
+  assert.equal(result.total, 40000);
+  assert.equal(result.paid.여울, 0);
+  assert.equal(result.owed.하늘, 20000);
+  assert.deepEqual(result.transfers, [{ from: "여울", to: "하늘", amount: 20000 }]);
+  assert.equal(spentTotal(지출들), 40000);
+  assert.deepEqual(totalsByCategory(지출들), [{ category: "식비", amount: 40000 }]);
+  // 뺀 지출만 있는 날은 날짜별 합계에서 빠진다.
+  assert.deepEqual(totalsByDay([지출(1000, "하늘", undefined, { day: "23일(일)", excluded: true })], ["22일(토)", "23일(일)"]), []);
 });
 
 test("넷이 가고 한 사람이 다 냈으면 셋이 각각 준다", () => {
@@ -262,6 +305,16 @@ test("정산이 여러 줄이면 표에도 여러 줄로 적는다", () => {
   assert.equal(csv.split("\r\n").filter((line) => line.startsWith("정산,")).length, 3);
 });
 
+test("표에서 본인 부담과 정산 제외를 알아볼 수 있고 합계는 뺀 것을 세지 않는다", () => {
+  const csv = expensesToCsv("여행", [
+    지출(10000, "하늘", { 하늘: 1 }, { title: "KTX" }),
+    지출(5000, "여울", undefined, { title: "택시", excluded: true }),
+  ], 둘);
+  assert.ok(csv.includes("KTX,식비,10000,하늘,본인 부담"));
+  assert.ok(csv.includes("택시,식비,5000,여울,정산 제외"));
+  assert.ok(csv.includes("여행 총 지출,10000"));
+});
+
 test("정산할 게 없으면 표에도 그렇게 적는다", () => {
   const csv = expensesToCsv("여행", [지출(10000, "하늘", { 하늘: 1 })], 둘);
   assert.ok(csv.includes("정산,정산할 게 없어요"));
@@ -369,6 +422,38 @@ test("주고받을 목록은 큰 금액부터 나온다", () => {
   const result = settle([지출(40000, "하늘"), 지출(20000, "여울", { 가람: 1 })], 넷);
   const amounts = result.transfers.map((t) => t.amount);
   assert.deepEqual(amounts, [...amounts].sort((a, b) => b - a));
+});
+
+// --- 교통편에서 온 지출 --------------------------------------------------------
+
+const 교통편 = { id: "t1", date: "22일(토)", departure: "서울", arrival: "부산", method: "KTX", owner: "여울" };
+
+test("교통편은 타는 사람이 내고 본인 부담인 교통 지출이 된다", () => {
+  const expense = expenseFromTransport(교통편, 59800, 둘, "e1");
+  assert.deepEqual(expense, {
+    id: "e1",
+    day: "22일(토)",
+    title: "서울→부산 KTX",
+    amount: 59800,
+    category: "교통",
+    payer: "여울",
+    shares: { 여울: 1 },
+    splitMode: "본인",
+    memo: "",
+    transportId: "t1",
+  });
+  assert.deepEqual(settle([expense], 둘).transfers, []);
+});
+
+test("타는 사람이 참가자가 아니면 첫 참가자가 낸 것으로 둔다", () => {
+  assert.equal(expenseFromTransport({ ...교통편, owner: "" }, 1000, 둘, "e1").payer, "하늘");
+  assert.equal(expenseFromTransport({ ...교통편, owner: "나간 멤버" }, 1000, 둘, "e1").payer, "하늘");
+});
+
+test("같은 교통편에서 만든 지출을 찾는다", () => {
+  const made = expenseFromTransport(교통편, 1000, 둘, "e1");
+  assert.equal(transportExpenseOf([지출(1, "하늘"), made], "t1"), made);
+  assert.equal(transportExpenseOf([지출(1, "하늘")], "t1"), undefined);
 });
 
 test("참가자가 아닌 사람에게 보낸 것도 셈에 든다", () => {

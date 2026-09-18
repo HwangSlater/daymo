@@ -125,6 +125,22 @@ async def test_같은_id로_다시_보내도_하나이고_지우면_몫도_사�
     assert await db.scalar(select(func.count()).select_from(ExpenseShare)) == 0
 
 
+async def test_정산에서_뺀_지출은_남고_교통편_id를_그대로_돌려준다(api, db):
+    headers, _, trip, 나, _ = await 두_사람_여행(api, db)
+    교통편 = str(uuid.uuid4())
+
+    기본 = (await 지출을_넣는다(api, headers, trip["id"], 나)).json()["data"]
+    뺀_것 = (await 지출을_넣는다(api, headers, trip["id"], 나, title="KTX", excluded=True, transportId=교통편)).json()["data"]
+    되돌림 = await api.patch(f"/v1/expenses/{뺀_것['id']}", json={"version": 1, "excluded": False}, headers=headers)
+    목록 = (await api.get(f"/v1/trips/{trip['id']}/expenses", headers=headers)).json()["data"]
+
+    assert (기본["excluded"], 기본["transportId"]) == (False, None)
+    assert (뺀_것["excluded"], 뺀_것["transportId"]) == (True, 교통편)
+    assert 되돌림.status_code == 200 and 되돌림.json()["data"]["excluded"] is False
+    # 뺀 지출도 목록에는 그대로 있고, 교통편 연결은 고쳐도 남는다.
+    assert {row["id"]: row["transportId"] for row in 목록} == {기본["id"]: None, 뺀_것["id"]: 교통편}
+
+
 async def test_보기만_하는_멤버는_지출을_적을_수_없다(api, db):
     headers, space_id, trip, 나, _ = await 두_사람_여행(api, db)
     viewer = await 멤버로_넣는다(api, db, space_id, "viewer@example.com", MembershipRole.VIEWER)
