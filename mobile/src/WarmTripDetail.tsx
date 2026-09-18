@@ -284,6 +284,13 @@ const 일정종류인가 = (적힌: string) => 적힌 === "장소" || PLAN_TYPES
 
 const newPlaceId = () => Crypto.randomUUID();
 
+/**
+ * 수정 창에서 고른 「다녀왔어요」를 장소 상태로 옮긴다. 다녀옴을 끄면 일정에
+ * 담겨 있는지에 따라 「일정」이나 「후보」로 돌아간다.
+ */
+const 고친_장소_상태 = (지금: PlaceItem["status"], 다녀옴: boolean, 일정에_있나: boolean): PlaceItem["status"] =>
+  다녀옴 ? "다녀옴" : 지금 === "다녀옴" ? toggleVisited(지금, 일정에_있나) : 지금;
+
 /** 교통편에서 만들어지는 일정 줄. 저장할 때와 목록을 다시 맞출 때 같은 모양이어야 한다. */
 const transportScheduleRow = (transportation: Transportation): ScheduleItem => ({
   time: `${weekdayOf(transportation.date)} · ${transportation.departureTime}`,
@@ -4389,6 +4396,13 @@ function Places({
   const [placeFiltersOpen, setPlaceFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /**
+   * 「다녀왔어요」. 예전에는 카드마다 단추가 있었는데, 지도(링크)와 같은 모양으로
+   * 나란히 있어 같은 종류로 읽혔고, 이미 다녀온 곳은 배지와 단추가 같은 말을 두 번
+   * 했다. 한 장씩 누르는 일도 드물다 — 여행이 끝나면 위의 「한 번에 표시」가 한다.
+   * 그래서 이 값은 수정 창에서만 고친다.
+   */
+  const [visitedDraft, setVisitedDraft] = useState(false);
   const [planningPlace, setPlanningPlace] = useState<PlaceItem | null>(null);
   const [planningDay, setPlanningDay] = useState(dayOptions[Math.min(1, dayOptions.length - 1)]);
   const [planningTime, setPlanningTime] = useState("11:00");
@@ -4467,6 +4481,7 @@ function Places({
     memo,
   ) !== placeDraftBaseline
     || reservationDraftKey(reservationOn, reservationDraft) !== reservationBaseline
+    || (Boolean(editingId) && visitedDraft !== (places.find((place) => place.id === editingId)?.status === "다녀옴"))
     || (category === "숙소" && JSON.stringify(stayTimes) !== stayBaseline);
   const allTags = useMemo(
     () => Array.from(new Set(places.flatMap((place) => place.tags))),
@@ -4578,6 +4593,7 @@ function Places({
   };
   const openCreate = (withReservation = false) => {
     setPlaceDraftBaseline(placeDraftKey("", "", "식당", "", "", ""));
+    setVisitedDraft(false);
     resetForm();
     loadReservationDraft(undefined, withReservation);
     loadStayDraft(undefined);
@@ -4593,6 +4609,7 @@ function Places({
       place.memo ?? "",
     ));
     setEditingId(place.id);
+    setVisitedDraft(place.status === "다녀옴");
     setName(place.name);
     setAddress(place.address ?? "");
     setCategory(place.category);
@@ -4632,7 +4649,11 @@ function Places({
       tags: draftTags,
       memo: memo.trim(),
       status: editingId
-        ? places.find((place) => place.id === editingId)?.status || "후보"
+        ? 고친_장소_상태(
+            places.find((place) => place.id === editingId)?.status || "후보",
+            visitedDraft,
+            schedule.some((item) => item.placeId === editingId),
+          )
         : "후보",
     } as PlaceItem;
     setPlaces((current) =>
@@ -4771,19 +4792,6 @@ function Places({
     const target = visible[index];
     if (target.status !== "후보") return;
     setPlanningPlace(target);
-  };
-  /**
-   * 카드에서 「다녀옴」을 켜고 끈다.
-   *
-   * 일정은 건드리지 않는다. 담아 둔 줄을 지우면 그날 뭘 했는지가 사라진다.
-   */
-  const markVisited = (target: PlaceItem) => {
-    const inSchedule = schedule.some((item) => item.placeId === target.id);
-    const next = toggleVisited(target.status, inSchedule);
-    setPlaces((current) =>
-      current.map((place) => (place.id === target.id ? { ...place, status: next } : place)),
-    );
-    notify(next === "다녀옴" ? `${target.name}${josa(target.name, "을", "를")} 다녀온 곳으로 표시했어요` : "다녀옴 표시를 해제했어요");
   };
   const planCount = scheduledCount(places);
   const visitAllPlanned = () => {
@@ -5043,6 +5051,8 @@ function Places({
               pressed && styles.packingCardPressed,
             ]}
           >
+            {/* 글은 왼쪽, 지금 할 수 있는 것은 오른쪽. 예전에는 단추 세 개가 카드
+                아래에 한 줄을 더 써서 한 화면에 두 곳 반밖에 안 들어왔다. */}
             <View style={styles.placeMiniTop}>
               <View style={styles.placeMiniInfo}>
                 <View style={styles.placeMiniTitleRow}>
@@ -5084,20 +5094,6 @@ function Places({
                   <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>＋ 링크</Text>
                 </Pressable>
               ) : null}
-              {canEdit && (
-                <Pressable
-                  onPress={(event) => { event.stopPropagation(); markVisited(place); }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: visited }}
-                  accessibilityLabel={visited ? `${place.name} 다녀옴 표시 해제` : `${place.name} 다녀온 곳으로 표시`}
-                  style={[
-                    styles.placeMiniMapButton,
-                    theme && { backgroundColor: visited ? theme.primarySoft : theme.surfaceAlt },
-                  ]}
-                >
-                  <Text style={[styles.placeMiniMapText, theme && { color: visited ? theme.primary : theme.muted }]}>다녀옴</Text>
-                </Pressable>
-              )}
               {settled || !canEdit ? null : place.category === "숙소" ? (
                 <Pressable
                   onPress={(event) => {
@@ -5305,6 +5301,25 @@ function Places({
           value={category}
           onChange={setCategory}
         />
+        {/* 다녀왔는지는 여기서만 고친다. 목록 카드에는 단추를 두지 않는다. */}
+        {editingId && (
+          <View style={styles.detailField}>
+            <View style={styles.fieldLabelRow}>
+              <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
+              <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>다녀왔나요</Text>
+            </View>
+            <Segment
+              theme={theme}
+              label="다녀왔나요"
+              options={[
+                { value: "아직", label: "아직" },
+                { value: "다녀옴", label: "다녀왔어요" },
+              ]}
+              value={visitedDraft ? "다녀옴" : "아직"}
+              onChange={(value) => setVisitedDraft(value === "다녀옴")}
+            />
+          </View>
+        )}
         {/* 「숙소」를 고르면 그 칩 바로 아래에서 체크인·체크아웃을 적는다. 일정 탭의
             숙소 시트와 같은 부품이라 두 곳의 값이 같은 대표 숙소로 모인다. */}
         {category === "숙소" && (
@@ -11506,104 +11521,6 @@ function TimeRow({
 }
 
 
-function TimePickerControl({
-  value,
-  onChange,
-  fallback,
-  optional = false,
-  accessibilityLabel,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  fallback: string;
-  optional?: boolean;
-  accessibilityLabel: string;
-}) {
-  const theme = useContext(DetailThemeContext);
-  const openPicker = () => openAndroidClock({ value, fallback, optional, title: accessibilityLabel, onChange });
-
-  if (Platform.OS !== "android") {
-    return (
-      <TextInput
-        accessibilityLabel={accessibilityLabel}
-        value={value}
-        onChangeText={(text) => onChange(maskClockTime(text))}
-        onBlur={() => onChange(settleClockTime(value))}
-        placeholder={optional ? "시간 미정" : fallback}
-        placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-        keyboardType="numeric"
-        maxLength={5}
-        style={[
-          styles.timePickerFallback,
-          theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
-        ]}
-      />
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={openPicker}
-      accessibilityRole="button"
-      accessibilityLabel={`${accessibilityLabel}, ${value || "시간 미정"}`}
-      accessibilityHint="위아래로 돌려 시와 분을 골라요"
-      style={({ pressed }) => [
-        styles.timePickerButton,
-        theme && { backgroundColor: theme.surface, borderColor: theme.border },
-        pressed && styles.controlPressed,
-      ]}
-    >
-      <View style={[styles.timePickerIcon, theme && { backgroundColor: theme.primarySoft }]}>
-        <Glyph name="clock" size={18} color={theme?.primary ?? "#6556D8"} />
-      </View>
-      <View style={styles.timePickerCopy}>
-        <Text style={[styles.timePickerValue, theme && { color: value ? theme.text : theme.muted }]}>
-          {value || "시간 미정"}
-        </Text>
-        <Text style={[styles.timePickerHint, theme && { color: theme.muted }]}>시·분 숫자를 돌려서 선택</Text>
-      </View>
-      <Glyph name="chevronRight" size={16} color={theme?.muted ?? "#9AA1AE"} />
-    </Pressable>
-  );
-}
-
-function TimePickerField({
-  label,
-  value,
-  onChange,
-  fallback = "12:00",
-  optional = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  fallback?: string;
-  optional?: boolean;
-}) {
-  const theme = useContext(DetailThemeContext);
-  return (
-    <View style={styles.detailField}>
-      <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
-        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
-      </View>
-      <TimePickerControl
-        value={value}
-        onChange={onChange}
-        fallback={fallback}
-        optional={optional}
-        accessibilityLabel={label}
-      />
-    </View>
-  );
-}
-
-/**
- * 「8월 21일 15:00」 꼴의 체크인·체크아웃 문자열에서 날짜나 시각 한쪽만 바꾼다.
- *
- * 저장된 값이 비어 있거나 반쪽이면 넘겨받은 기본값으로 채운다. 일정 탭의 숙소
- * 시트와 장소 시트가 같은 문자열을 나눠 쓰므로 계산도 한곳에 둔다.
- */
 function mergeStayDateTime(
   saved: string,
   part: "date" | "time",
@@ -14139,13 +14056,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingVertical: 11,
     overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     position: "relative",
   },
   placeMiniTape: { position: "absolute", width: 38, height: 8, top: -4, left: 18, borderRadius: 2, transform: [{ rotate: "-3deg" }] },
-  placeMiniTop: { flexDirection: "row", alignItems: "center" },
+  placeMiniTop: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center" },
   placeMiniStamp: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-2deg" }] },
   placeMiniNumber: { fontSize: 14, fontFamily: typo.data.family },
   placeMiniInfo: { flex: 1, minWidth: 0 },
@@ -14162,11 +14081,11 @@ const styles = StyleSheet.create({
   placeMiniTag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
   placeMiniTagText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMore: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 2 },
-  placeMiniActions: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10 },
+  placeMiniActions: { flexShrink: 0, alignItems: "stretch", gap: 6 },
   placeMiniIconButton: { minWidth: 47, height: 44, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniEditText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMapButton: { minWidth: 63, height: 높이.버튼, borderRadius: 모서리.버튼, paddingHorizontal: 여백.세로좁게, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniPlanButton: { flex: 1, height: 높이.버튼, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
+  placeMiniPlanButton: { height: 높이.버튼, borderRadius: 모서리.버튼, paddingHorizontal: 여백.세로좁게, alignItems: "center", justifyContent: "center" },
   placeMiniPlanText: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
 });
