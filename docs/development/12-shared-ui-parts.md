@@ -17,7 +17,8 @@
 | `SheetShell` | 아래에서 올라오는 창의 껍데기 전부. 덮개, 시트 상자, 끌어내려 닫기, 제목 줄, 본문 스크롤, 맨 아래 저장 버튼, 잠김 안내, 지우기 확인 | `mobile/src/ui/SheetShell.tsx` | 시트를 만들 때. 예외 없이 |
 | `sheetHeadStyles` | 머리를 직접 그리는 시트가 나눠 쓰는 제목 스타일 | 같은 파일 | `SheetShell` 의 `renderHead` 로 머리를 갈아 끼울 때 |
 | `submitLabelOf`·`sheetHintOf` | 시트 버튼 글과 그 위 한 줄을 고르는 순수 계산 | `mobile/src/ui/sheetText.ts` | 시트 글 규칙을 고칠 때. 시험은 `sheetText.test.ts` |
-| `Chip`·`ChipRow` | 고르는 칩 하나와 칩 줄. 켜짐·꺼짐, 누름 느낌, 접근성 라벨까지 | `mobile/src/ui/Chip.tsx` | 여럿 중에 고르게 할 때 |
+| `Chip`·`ChipRow` | 고르는 칩 하나와 칩 줄. 켜짐·꺼짐, 누름 느낌, 접근성 라벨까지 | `mobile/src/ui/Chip.tsx` | 여섯 개 이상 중에 고르게 할 때 |
+| `Segment`·`세그먼트_최대` | 한 줄 세그먼트. 배경 있는 트랙(높이 `높이.칩`, 모서리 `모서리.버튼`) 안에 같은 폭 칸, 고른 것만 흰 배경에 굵게. 옵션은 문자열이나 `{ value, label }`, 접근성은 `radiogroup`/`radio` | `mobile/src/ui/Segment.tsx` | 선택지가 다섯 개 이하일 때(날짜·종류·방향·나누기 방식). 여섯 개부터는 `Chip` |
 | `높이`·`모서리`·`여백`·`누름여유` | 누르는 것의 크기 토큰. 칩 36, 버튼 44, 입력 52, 저장 56 | `mobile/src/theme/controls.ts` | 스타일시트에 크기를 적을 때마다 |
 | `typo`·`fonts`·`sizes` | 글자 역할(hero·title·data·label·body·caption)과 서체 | `mobile/src/theme/typography.ts` | `fontFamily`·`fontSize` 를 적을 때 |
 | `onAccent`·`status`·`domain`·`kindColor`·`tripTone`·`memoPaper` | 색. 강조색 위 글자색, 위험·경고색, 갈래별 색을 라이트/다크 둘 다 AA 로 맞춰 둔 것 | `mobile/src/theme/colors.ts` | 색값을 적을 때마다 |
@@ -45,8 +46,22 @@
 | `PaperPeel` | 종이를 넘기는 듯한 전환 | `mobile/src/PaperPeel.tsx` | 여행 카드를 넘길 때 |
 | `EmptyState` | 아무것도 없을 때의 안내 상자와 만들기 버튼 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 빈 목록 |
 | `SectionLabel`·`TabActionHeader` | 구역 제목 한 줄과, 제목 + 개수 + 오른쪽 동작 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 목록 위 제목 줄 |
+| `OptionField` | 라벨 + 고르기. 선택지가 다섯 개 이하면 `Segment`, 여섯 개부터는 칩 줄로 스스로 고른다 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 시트 안에서 고르게 할 때 |
+| `TimeRow` | 「시간  11:00 ›」 한 줄. 안드로이드는 눌러서 돌리는 창, 그 밖에서는 자리에서 친다 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 시트 안의 시각 칸 |
+| `OptionalFormSection` | 매번 쓰지 않는 칸을 「＋ 장소 · 메모 더 적기」 한 줄 아래로 접는다. 고칠 때 값이 있으면 부르는 쪽이 펼친 채로 연다 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 시트의 선택 칸 |
 
-마지막 세 줄은 아직 `WarmTripDetail.tsx` 안에 있다. 다른 화면에서 쓰게 되면 그때 `ui/` 로 옮긴다.
+마지막 여섯 줄은 아직 `WarmTripDetail.tsx` 안에 있다. 다른 화면에서 쓰게 되면 그때 `ui/` 로 옮긴다.
+
+## 추가·수정 시트의 배치
+
+2026-09-18 에 여행 화면의 시트를 한 규칙으로 맞췄다(시안 「2번 — 지금 구조 다듬기」). 위에서부터
+**주 입력 → 세그먼트(최대 두 줄) → 한 줄 행(시간) → 더 적기 → 저장 버튼** 이다.
+
+- 주 입력칸(이름·제목·항목)이 머리 바로 아래 첫째다. 미리보기 카드나 고르기 줄을 위에 두지 않는다. 키보드가 올라오면 시트가 좁아지는데(웹 300px 남짓) 첫째 칸이 보여야 적을 수 있다.
+- 자주 고르는 것은 세그먼트 한 줄, 여섯 개부터는 칩 줄. `OptionField` 가 개수로 스스로 고른다.
+- 시각처럼 값 하나인 칸은 `TimeRow` 한 줄.
+- 매번 쓰지 않는 칸은 `OptionalFormSection` 으로 접는다. 필수 칸은 접지 않는다. 수정으로 열 때 그 칸에 값이 있으면 열어 둔다.
+- 「지난 여행에서 가져오기」·지도 링크 붙여넣기 같은 **진입 상자**는 주 입력 위에 그대로 둔다. 입력이 아니라 다른 길로 가는 문이라서다.
 
 ## 쓰는 법
 
