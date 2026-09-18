@@ -10,10 +10,7 @@ import {
   placeFromServer,
   planPlaceSync,
   planned,
-  scheduledCount,
-  toggleVisited,
   unplanned,
-  visitScheduled,
   type AppPlace,
   type Confirmed,
   type ServerPlace,
@@ -97,21 +94,6 @@ test("일정에 담고 빼도 다녀온 기록은 남는다", () => {
   assert.equal(planned("다녀옴"), "다녀옴");
   assert.equal(unplanned("일정"), "후보");
   assert.equal(unplanned("다녀옴"), "다녀옴");
-});
-
-test("다녀옴을 끄면 일정이 남아 있는 곳은 일정으로 돌아간다", () => {
-  assert.equal(toggleVisited("후보", false), "다녀옴");
-  assert.equal(toggleVisited("일정", true), "다녀옴");
-  assert.equal(toggleVisited("다녀옴", true), "일정");
-  assert.equal(toggleVisited("다녀옴", false), "후보");
-});
-
-test("한 번에 표시하면 일정에 담은 곳만 다녀옴이 된다", () => {
-  const places = [place(A), place(B, { status: "일정" }), place(C, { status: "다녀옴" })];
-
-  assert.equal(scheduledCount(places), 1);
-  assert.deepEqual(visitScheduled(places).map((item) => item.status), ["후보", "다녀옴", "다녀옴"]);
-  assert.equal(scheduledCount(visitScheduled(places)), 0);
 });
 
 test("메모를 적으면 서버로 가고, 서버 메모는 돌아와 그대로 남는다", () => {

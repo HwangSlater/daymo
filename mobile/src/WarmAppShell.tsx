@@ -755,7 +755,14 @@ export function WarmAppShell({
   const [appearance, setAppearance] = useState<AppearanceMode>(
     settings.appearance,
   );
-  useSaveSettings({ themeId, appearance, activeGroupId, since: activeSpace.since });
+  /**
+   * 마지막 날이 지난 여행에서 일정에 담은 장소를 다녀온 곳으로 보여 줄지.
+   * 예전에는 장소 카드마다 「다녀옴」 단추가 있었는데, 여행이 끝난 뒤에 앱을 열어
+   * 한 장씩 누르는 사람이 거의 없었다. 여행이 끝났는지와 일정에 담겼는지는 앱이
+   * 이미 아니까 그것으로 대신한다.
+   */
+  const [visitedAfterTrip, setVisitedAfterTrip] = useState(settings.visitedAfterTrip);
+  useSaveSettings({ themeId, appearance, activeGroupId, since: activeSpace.since, visitedAfterTrip });
   const [user, setUser] = useState<DaymoUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authOffline, setAuthOffline] = useState(false);
@@ -1369,6 +1376,7 @@ export function WarmAppShell({
         spaceMembers={activeSpaceMembers}
         me={user?.name ?? activeSpaceMembers[0]}
         appTheme={theme}
+        visitedAfterTrip={visitedAfterTrip}
         canEdit={!selectedTrip.id || activeSpace.myRole !== "보기만"}
         isOwner={activeSpace.myRole === "관리자"}
         myMembershipId={activeSpace.myMembershipId}
@@ -1567,6 +1575,8 @@ export function WarmAppShell({
             setThemeId={setThemeId}
             appearance={appearance}
             setAppearance={setAppearance}
+            visitedAfterTrip={visitedAfterTrip}
+            setVisitedAfterTrip={setVisitedAfterTrip}
             trips={tripItems}
             spaces={spaces}
             setSpaces={setSpaces}
@@ -5048,6 +5058,8 @@ function Together({
   setThemeId,
   appearance,
   setAppearance,
+  visitedAfterTrip,
+  setVisitedAfterTrip,
   trips,
   spaces,
   setSpaces,
@@ -5072,6 +5084,9 @@ function Together({
   setThemeId: (value: ThemeId) => void;
   appearance: AppearanceMode;
   setAppearance: (value: AppearanceMode) => void;
+  /** 마지막 날이 지난 여행에서 일정에 담은 장소를 다녀온 곳으로 보여 줄지. */
+  visitedAfterTrip: boolean;
+  setVisitedAfterTrip: (value: boolean) => void;
   trips: Trip[];
   spaces: Space[];
   setSpaces: React.Dispatch<React.SetStateAction<Space[]>>;
@@ -5507,6 +5522,13 @@ function Together({
                       : "라이트 모드"
                 }
                 onPress={() => setPanel("appearance")}
+              />
+              <Setting
+                theme={theme}
+                label="지난 여행은 다녀온 곳으로"
+                hint="마지막 날이 지난 여행에서 일정에 담은 장소를 다녀온 곳으로 보여 줘요."
+                on={visitedAfterTrip}
+                onPress={() => setVisitedAfterTrip(!visitedAfterTrip)}
               />
               <Setting
                 theme={theme}
@@ -6054,36 +6076,62 @@ function TripArt({
 }
 function Setting({
   label,
+  hint,
   value,
+  on,
   onPress,
   theme,
 }: {
   label: string;
+  /** 무엇이 달라지는지 한 줄. 켜고 끄는 줄처럼 이름만으로 모자랄 때만 적는다. */
+  hint?: string;
   value?: string;
+  /** 켜고 끄는 줄이면 지금 켜졌는지. 주면 오른쪽 화살표 대신 스위치가 그려진다. */
+  on?: boolean;
   onPress: () => void;
   theme?: AppTheme;
 }) {
+  const 스위치 = typeof on === "boolean";
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
+      accessibilityRole={스위치 ? "switch" : "button"}
+      accessibilityState={스위치 ? { checked: on } : undefined}
       accessibilityLabel={value ? `${label}, ${value}` : label}
+      accessibilityHint={hint}
       style={({ pressed }) => [
         s.setting,
         theme && { borderColor: theme.border },
         pressed && s.pressed,
       ]}
     >
-      <Text style={[s.settingName, theme && { color: theme.text }]}>
-        {label}
-      </Text>
+      <View style={s.settingCopy}>
+        <Text style={[s.settingName, theme && { color: theme.text }]}>
+          {label}
+        </Text>
+        {hint && (
+          <Text style={[s.settingHint, theme && { color: theme.muted }]}>{hint}</Text>
+        )}
+      </View>
       <View style={s.settingRight}>
         {value && (
           <Text style={[s.settingValue, theme && { color: theme.primary }]}>
             {value}
           </Text>
         )}
-        <Glyph name="chevronRight" size={18} color={theme?.muted ?? "#646C7A"} />
+        {스위치 ? (
+          <View
+            style={[
+              s.settingSwitch,
+              { backgroundColor: on ? (theme?.primary ?? "#3F4C8F") : (theme?.surfaceAlt ?? "#EFEEE9") },
+              theme && !on && { borderColor: theme.border, borderWidth: 1 },
+            ]}
+          >
+            <View style={[s.settingSwitchKnob, on && s.settingSwitchKnobOn]} />
+          </View>
+        ) : (
+          <Glyph name="chevronRight" size={18} color={theme?.muted ?? "#646C7A"} />
+        )}
       </View>
     </Pressable>
   );
@@ -7027,7 +7075,12 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   settingName: { fontSize: 14, fontFamily: typo.title.family },
+  settingCopy: { flex: 1, minWidth: 0, paddingRight: 10, paddingVertical: 9 },
+  settingHint: { fontSize: 12, fontFamily: typo.body.family, marginTop: 3, lineHeight: 17 },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  settingSwitch: { width: 44, height: 26, borderRadius: 13, padding: 3, justifyContent: "center" },
+  settingSwitchKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#FFFFFF" },
+  settingSwitchKnobOn: { alignSelf: "flex-end" },
   settingValue: { fontSize: 14, fontFamily: typo.data.family },
   notebookHead: {
     flexDirection: "row",

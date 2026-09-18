@@ -14,6 +14,8 @@ export type DeviceSettings = {
   appearance: AppearanceMode;
   activeGroupId: GroupId;
   since: string;
+  /** 마지막 날이 지난 여행에서, 일정에 담은 장소를 다녀온 곳으로 보여 줄지. */
+  visitedAfterTrip: boolean;
 };
 
 /** 저장된 값이 없거나 쓸 수 없을 때의 값. 첫 실행 화면은 이 값으로 그린다. */
@@ -22,6 +24,8 @@ export const defaultDeviceSettings: DeviceSettings = {
   appearance: "system",
   activeGroupId: "friends",
   since: "2023. 10. 20",
+  // 켜 둔다. 여행이 끝나고 장소를 하나씩 눌러 표시하는 사람은 거의 없다.
+  visitedAfterTrip: true,
 };
 
 const storageKey = "daymo.device-settings.v1";
@@ -68,6 +72,9 @@ function parseSettings(raw: string | null): DeviceSettings {
     appearance: oneOf(record.appearance, appearanceModes, defaultDeviceSettings.appearance),
     activeGroupId: groupId(record.activeGroupId),
     since: shortText(record.since, defaultDeviceSettings.since),
+    visitedAfterTrip: typeof record.visitedAfterTrip === "boolean"
+      ? record.visitedAfterTrip
+      : defaultDeviceSettings.visitedAfterTrip,
   };
 }
 
@@ -95,7 +102,7 @@ export function useStoredSettings(): DeviceSettings | null {
 
 /** 값이 바뀔 때만 저장한다. 실패해도 알리지 않고 다음 변경에서 다시 쓴다. */
 export function useSaveSettings(settings: DeviceSettings) {
-  const { themeId, appearance, activeGroupId, since } = settings;
+  const { themeId, appearance, activeGroupId, since, visitedAfterTrip } = settings;
   const written = useRef(false);
   useEffect(() => {
     // 첫 실행은 방금 읽어온 값을 그대로 되쓰는 것뿐이라 건너뛴다.
@@ -104,9 +111,9 @@ export function useSaveSettings(settings: DeviceSettings) {
       return;
     }
     const timer = setTimeout(() => {
-      const value = JSON.stringify({ themeId, appearance, activeGroupId, since });
+      const value = JSON.stringify({ themeId, appearance, activeGroupId, since, visitedAfterTrip });
       AsyncStorage.setItem(storageKey, value).catch(() => {});
     }, writeDelay);
     return () => clearTimeout(timer);
-  }, [themeId, appearance, activeGroupId, since]);
+  }, [themeId, appearance, activeGroupId, since, visitedAfterTrip]);
 }

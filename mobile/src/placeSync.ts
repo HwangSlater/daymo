@@ -36,28 +36,10 @@ export const planned = (status: AppPlaceStatus): AppPlaceStatus =>
 export const unplanned = (status: AppPlaceStatus): AppPlaceStatus =>
   status === "일정" ? "후보" : status;
 
-/**
- * 카드에서 「다녀옴」을 켜고 끈다.
- *
- * 끌 때는 일정에 그 장소를 가리키는 줄이 남아 있으면 일정으로, 없으면 후보로
- * 돌아간다. 담아 둔 일정은 그대로인데 카드만 「저장」으로 보이면 안 된다.
- */
-export const toggleVisited = (status: AppPlaceStatus, inSchedule: boolean): AppPlaceStatus =>
-  status === "다녀옴" ? (inSchedule ? "일정" : "후보") : "다녀옴";
-
-/**
- * 지난 여행을 열었을 때 한 번에 표시하는 길.
- *
- * 일정에 담은 곳만 바꾼다. 담지 않고 후보로만 두고 간 곳은 갔는지 안 갔는지
- * 앱이 알 수 없어서, 한꺼번에 다녀옴으로 만들면 틀린 기록이 남는다.
- */
-export function visitScheduled<T extends { status: AppPlaceStatus }>(places: readonly T[]): T[] {
-  return places.map((place) => (place.status === "일정" ? { ...place, status: "다녀옴" as const } : place));
-}
-
-/** 한 번에 표시할 것이 몇 곳인지. 0 이면 권할 일이 없다. */
-export const scheduledCount = (places: readonly { status: AppPlaceStatus }[]) =>
-  places.filter((place) => place.status === "일정").length;
+// 「다녀옴」을 손으로 켜고 끄던 길(toggleVisited·visitScheduled·scheduledCount)은
+// 2026-09-18에 없앴다. 여행이 끝났는지와 일정에 담겼는지는 앱이 이미 아니까,
+// 지난 여행의 일정에 담긴 곳은 화면에서 다녀온 곳으로 보여 준다. 설정에서 끈다.
+// 예전 자료에 남아 있는 「다녀옴」 상태는 그대로 읽는다.
 
 /** 앱의 장소(WarmTripDetail 의 PlaceItem)와 같은 모양. */
 export type AppPlace = {

@@ -19,10 +19,7 @@ import {
   placeCodec,
   planned,
   safeUrl,
-  scheduledCount,
-  toggleVisited,
   unplanned,
-  visitScheduled,
   UNKNOWN_AREA,
   type AppPlaceStatus,
 } from "./placeSync";
@@ -284,12 +281,6 @@ const 일정종류인가 = (적힌: string) => 적힌 === "장소" || PLAN_TYPES
 
 const newPlaceId = () => Crypto.randomUUID();
 
-/**
- * 수정 창에서 고른 「다녀왔어요」를 장소 상태로 옮긴다. 다녀옴을 끄면 일정에
- * 담겨 있는지에 따라 「일정」이나 「후보」로 돌아간다.
- */
-const 고친_장소_상태 = (지금: PlaceItem["status"], 다녀옴: boolean, 일정에_있나: boolean): PlaceItem["status"] =>
-  다녀옴 ? "다녀옴" : 지금 === "다녀옴" ? toggleVisited(지금, 일정에_있나) : 지금;
 
 /** 교통편에서 만들어지는 일정 줄. 저장할 때와 목록을 다시 맞출 때 같은 모양이어야 한다. */
 const transportScheduleRow = (transportation: Transportation): ScheduleItem => ({
@@ -547,6 +538,11 @@ type Props = {
   onClose: () => void;
   initialDestination?: TripDetailDestination;
   appTheme?: AppTheme;
+  /**
+   * 마지막 날이 지난 여행에서 일정에 담은 장소를 다녀온 곳으로 보여 줄지.
+   * 설정(우리 › 설정)에서 끄고 켠다.
+   */
+  visitedAfterTrip?: boolean;
   tripName?: string;
   tripDate?: string;
   tripStart?: string;
@@ -1131,6 +1127,7 @@ export function WarmTripDetail({
   onClose,
   initialDestination = "overview",
   appTheme,
+  visitedAfterTrip = true,
   tripName = "전주 한옥마을",
   tripDate = "8월 21일 — 23일",
   tripStart,
@@ -2375,6 +2372,7 @@ export function WarmTripDetail({
               dayOptions={tripDayOptions}
               dateOptions={tripDateOptions}
               tripEnded={tripEnded}
+              visitedAfterTrip={visitedAfterTrip}
               onRegisterStay={(place, times) => {
                 // 장소 시트에서 적은 체크인·체크아웃이 있으면 그대로, 카드의 「대표 숙소로
                 // 설정」처럼 없으면 첫날 15:00·마지막날 11:00 이다. 이미 대표 숙소인 장소를
@@ -4356,6 +4354,7 @@ function Places({
   dayOptions,
   dateOptions,
   tripEnded,
+  visitedAfterTrip,
 }: {
   schedule: ScheduleItem[];
   setSchedule: React.Dispatch<React.SetStateAction<ScheduleItem[]>>;
@@ -4377,8 +4376,10 @@ function Places({
   dayOptions: string[];
   /** 「8월 21일」 꼴의 여행 날짜. 체크인·체크아웃 날짜 칩에 쓴다. */
   dateOptions: string[];
-  /** 마지막 날이 지난 여행. 일정에 담은 곳을 한 번에 다녀옴으로 바꿀 것을 권한다. */
+  /** 마지막 날이 지난 여행. 일정에 담은 곳은 다녀온 곳으로 본다. */
   tripEnded: boolean;
+  /** 위 규칙을 쓸지. 설정에서 끄면 저장된 상태만 본다. */
+  visitedAfterTrip: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
@@ -4396,13 +4397,6 @@ function Places({
   const [placeFiltersOpen, setPlaceFiltersOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  /**
-   * 「다녀왔어요」. 예전에는 카드마다 단추가 있었는데, 지도(링크)와 같은 모양으로
-   * 나란히 있어 같은 종류로 읽혔고, 이미 다녀온 곳은 배지와 단추가 같은 말을 두 번
-   * 했다. 한 장씩 누르는 일도 드물다 — 여행이 끝나면 위의 「한 번에 표시」가 한다.
-   * 그래서 이 값은 수정 창에서만 고친다.
-   */
-  const [visitedDraft, setVisitedDraft] = useState(false);
   const [planningPlace, setPlanningPlace] = useState<PlaceItem | null>(null);
   const [planningDay, setPlanningDay] = useState(dayOptions[Math.min(1, dayOptions.length - 1)]);
   const [planningTime, setPlanningTime] = useState("11:00");
@@ -4481,7 +4475,6 @@ function Places({
     memo,
   ) !== placeDraftBaseline
     || reservationDraftKey(reservationOn, reservationDraft) !== reservationBaseline
-    || (Boolean(editingId) && visitedDraft !== (places.find((place) => place.id === editingId)?.status === "다녀옴"))
     || (category === "숙소" && JSON.stringify(stayTimes) !== stayBaseline);
   const allTags = useMemo(
     () => Array.from(new Set(places.flatMap((place) => place.tags))),
@@ -4498,8 +4491,24 @@ function Places({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tagFilter && !allTags.includes(tagFilter)) setTagFilter(null);
   }, [allTags, tagFilter]);
+  /**
+   * 다녀온 곳인가.
+   *
+   * 저장된 상태가 「다녀옴」이면 그렇고(예전에 손으로 표시해 둔 것), 그 밖에는
+   * 마지막 날이 지난 여행에서 일정에 담은 곳을 다녀온 곳으로 본다. 설정에서
+   * 끄면 저장된 상태만 본다. 후보로만 둔 곳은 갔는지 앱이 알 수 없어 건드리지
+   * 않는다.
+   */
+  const 다녀온_곳인가 = useCallback(
+    (place: PlaceItem) =>
+      place.status === "다녀옴"
+      || (visitedAfterTrip && tripEnded && place.status === "일정"),
+    [tripEnded, visitedAfterTrip],
+  );
   const statusPlaces = filter === "전체"
     ? places
+    : filter === "다녀옴"
+      ? places.filter(다녀온_곳인가)
     : filter === "숙소"
       // 대표로 고른 한 곳만 남기면 후보 숙소를 견줄 수가 없다. 숙소를 다 보여
       // 주고 대표인 곳은 카드에서 따로 표시한다.
@@ -4593,7 +4602,6 @@ function Places({
   };
   const openCreate = (withReservation = false) => {
     setPlaceDraftBaseline(placeDraftKey("", "", "식당", "", "", ""));
-    setVisitedDraft(false);
     resetForm();
     loadReservationDraft(undefined, withReservation);
     loadStayDraft(undefined);
@@ -4609,7 +4617,6 @@ function Places({
       place.memo ?? "",
     ));
     setEditingId(place.id);
-    setVisitedDraft(place.status === "다녀옴");
     setName(place.name);
     setAddress(place.address ?? "");
     setCategory(place.category);
@@ -4649,11 +4656,7 @@ function Places({
       tags: draftTags,
       memo: memo.trim(),
       status: editingId
-        ? 고친_장소_상태(
-            places.find((place) => place.id === editingId)?.status || "후보",
-            visitedDraft,
-            schedule.some((item) => item.placeId === editingId),
-          )
+        ? places.find((place) => place.id === editingId)?.status || "후보"
         : "후보",
     } as PlaceItem;
     setPlaces((current) =>
@@ -4792,11 +4795,6 @@ function Places({
     const target = visible[index];
     if (target.status !== "후보") return;
     setPlanningPlace(target);
-  };
-  const planCount = scheduledCount(places);
-  const visitAllPlanned = () => {
-    setPlaces((current) => visitScheduled(current));
-    notify(`일정에 담은 ${planCount}곳을 다녀옴으로 표시했어요`);
   };
   const confirmPlan = () => {
     if (!planningPlace) return;
@@ -4999,34 +4997,13 @@ function Places({
       </>
       )}
       </View>
-      {/* 여행이 끝나면 일정에 담은 곳은 대개 다 다녀온 곳이다. 카드를 하나씩
-          누르게 두지 않는다. 후보로만 둔 곳은 갔는지 알 수 없어 건드리지 않는다. */}
-      {canEdit && tripEnded && planCount > 0 && (
-        <View style={[styles.placeVisitAll, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
-          <View style={styles.packingListToolsCopy}>
-            <Text style={[styles.packingListToolsTitle, theme && { color: theme.text }]}>여행이 끝났어요</Text>
-            <Text style={[styles.packingListToolsHint, theme && { color: theme.muted }]}>
-              일정에 담은 {planCount}곳을 다녀옴으로 표시할까요?
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`일정에 담은 ${planCount}곳을 다녀옴으로 표시`}
-            onPress={visitAllPlanned}
-            hitSlop={누름여유(높이.칩)}
-            style={[styles.placeVisitAllButton, theme && { borderColor: theme.border, backgroundColor: theme.surface }]}
-          >
-            <Text style={[styles.packingToolButtonText, theme && { color: theme.text }]}>한 번에 표시</Text>
-          </Pressable>
-        </View>
-      )}
       <View style={styles.placeList}>
         {displayedPlaces.map((place, index) => {
           // 색은 순서가 아니라 상태를 뜻해야 한다. 예전에는 index % 3으로 돌려서
           // 아무 뜻 없이 카드마다 색이 달라졌다.
           const isStay = place.name === registeredStayName;
           const inPlan = place.status === "일정";
-          const visited = place.status === "다녀옴";
+          const visited = 다녀온_곳인가(place);
           // 다녀온 것이 마지막에 일어난 일이라 배지에서 앞선다. 대표 숙소인지는
           // 아래 버튼이 그대로 말해 준다.
           const statusTone = (visited ? theme?.muted : isStay ? theme?.secondary : inPlan ? theme?.accent : theme?.primary) ?? "#3F4C8F";
@@ -5301,25 +5278,6 @@ function Places({
           value={category}
           onChange={setCategory}
         />
-        {/* 다녀왔는지는 여기서만 고친다. 목록 카드에는 단추를 두지 않는다. */}
-        {editingId && (
-          <View style={styles.detailField}>
-            <View style={styles.fieldLabelRow}>
-              <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
-              <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>다녀왔나요</Text>
-            </View>
-            <Segment
-              theme={theme}
-              label="다녀왔나요"
-              options={[
-                { value: "아직", label: "아직" },
-                { value: "다녀옴", label: "다녀왔어요" },
-              ]}
-              value={visitedDraft ? "다녀옴" : "아직"}
-              onChange={(value) => setVisitedDraft(value === "다녀옴")}
-            />
-          </View>
-        )}
         {/* 「숙소」를 고르면 그 칩 바로 아래에서 체크인·체크아웃을 적는다. 일정 탭의
             숙소 시트와 같은 부품이라 두 곳의 값이 같은 대표 숙소로 모인다. */}
         {category === "숙소" && (
