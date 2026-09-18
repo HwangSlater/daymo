@@ -25,6 +25,7 @@ export function Chip({
   onPress,
   colors,
   maxLines,
+  accessibilityLabel,
 }: {
   theme?: AppTheme;
   label: string;
@@ -40,6 +41,8 @@ export function Chip({
   colors?: { background: string; border?: string; text: string };
   /** 긴 이름을 몇 줄까지 보일지. 주지 않으면 줄 수를 막지 않는다. */
   maxLines?: number;
+  /** 화면 읽기에 들려줄 말. 「후보」처럼 글자만으로 모자랄 때만. 없으면 label 이다. */
+  accessibilityLabel?: string;
 }) {
   const background = colors
     ? colors.background
@@ -54,7 +57,7 @@ export function Chip({
       hitSlop={누름여유(높이.칩)}
       accessibilityRole="button"
       accessibilityState={{ selected: on }}
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       style={({ pressed }) => [
         chipStyles.chip,
         // 테두리 색을 주지 않으면 테두리 자체를 없앤다. 색 없는 1px 은 기기마다

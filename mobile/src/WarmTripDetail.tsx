@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { maskClockTime, settleClockTime } from "./clock";
 import { SheetShell, sheetHeadStyles } from "./ui/SheetShell";
+import { Chip, ChipRow } from "./ui/Chip";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
@@ -2324,25 +2325,27 @@ export function WarmTripDetail({
               setReservations={setReservations}
               sheetRequest={placeSheetRequest}
               onSheetRequestHandled={() => setPlaceSheetRequest(null)}
-              registeredStayName={registeredStay.name}
+              registeredStay={registeredStay}
               dayOptions={tripDayOptions}
+              dateOptions={tripDateOptions}
               tripEnded={tripEnded}
-              onRegisterStay={(place) => {
-                setRegisteredStay({
-                  name: place.name,
-                  checkin: `${firstTripDate} 15:00`,
-                  checkout: `${lastTripDate} 11:00`,
-                  address: place.address || place.area,
-                  placeId: place.id,
-                  showInSchedule: true,
+              onRegisterStay={(place, times) => {
+                // 장소 시트에서 적은 체크인·체크아웃이 있으면 그대로, 카드의 「대표 숙소로
+                // 설정」처럼 없으면 첫날 15:00·마지막날 11:00 이다. 이미 대표 숙소인 장소를
+                // 다시 저장하는 것이면 서버 id 와 일정 표시 여부는 그대로 두고 값만 고친다.
+                setRegisteredStay((current) => {
+                  const same = Boolean(current.name) && (current.placeId === place.id || current.name === place.name);
+                  return {
+                    id: current.id,
+                    name: place.name,
+                    checkin: times?.checkin ?? `${firstTripDate} 15:00`,
+                    checkout: times?.checkout ?? `${lastTripDate} 11:00`,
+                    address: place.address || place.area,
+                    placeId: place.id,
+                    showInSchedule: same ? current.showInSchedule ?? true : true,
+                  };
                 });
-                setFeedback(`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정했어요`);
               }}
-              onUpdateRegisteredStay={(place) => setRegisteredStay((current) => ({
-                ...current,
-                name: place.name,
-                address: place.address || place.area,
-              }))}
               onRemoveRegisteredStay={() => setRegisteredStay({ name: "", checkin: "", checkout: "", address: "", showInSchedule: false })}
             />
           )}
@@ -3017,12 +3020,7 @@ function TripOverview({
       : transportDeparture.trim() === transportArrival.trim()
         ? "출발지와 도착지를 다르게 입력해 주세요"
         : "출발·도착 시간을 모두 입력해 주세요";
-  const stayMoment = (value: string) => {
-    const dateIndex = dateOptions.findIndex((date) => value.startsWith(date));
-    const time = value.match(/(\d{1,2}):(\d{2})$/);
-    return dateIndex < 0 || !time ? -1 : dateIndex * 1440 + Number(time[1]) * 60 + Number(time[2]);
-  };
-  const stayRangeValid = stayMoment(stayDraft.checkout) > stayMoment(stayDraft.checkin);
+  const stayRangeValid = stayMomentOf(stayDraft.checkout, dateOptions) > stayMomentOf(stayDraft.checkin, dateOptions);
   const stayFormValid = Boolean(stayDraft.name.trim()) && stayRangeValid;
   const transportDirectionColor = transportDirection === "가는 편"
     ? theme?.primary ?? "#FF6B63"
@@ -3455,16 +3453,10 @@ function TripOverview({
     part: "date" | "time",
     value: string,
   ) => {
-    setStayDraft((current) => {
-      const saved = current[field];
-      const savedTime = saved.match(/\d{1,2}:\d{2}$/)?.[0];
-      const savedDate = saved.replace(/\s*\d{1,2}:\d{2}$/, "").trim();
-      const fallbackDate = field === "checkin" ? firstDate : lastDate;
-      const fallbackTime = field === "checkin" ? "15:00" : "11:00";
-      const nextDate = part === "date" ? value : savedDate || fallbackDate;
-      const nextTime = part === "time" ? value : savedTime || fallbackTime;
-      return { ...current, [field]: `${nextDate} ${nextTime}` };
-    });
+    setStayDraft((current) => ({
+      ...current,
+      [field]: mergeStayDateTime(current[field], part, value, field === "checkin" ? firstDate : lastDate, field === "checkin" ? "15:00" : "11:00"),
+    }));
   };
   const saveStay = () => {
     const previousName = registeredStay.name;
@@ -4211,12 +4203,12 @@ function Places({
   setReservations,
   sheetRequest,
   onSheetRequestHandled,
-  registeredStayName,
+  registeredStay,
   onRegisterStay,
-  onUpdateRegisteredStay,
   onRemoveRegisteredStay,
   photos,
   dayOptions,
+  dateOptions,
   tripEnded,
 }: {
   schedule: ScheduleItem[];
@@ -4229,19 +4221,29 @@ function Places({
   /** 여행 탭의 「예약 추가」가 열어 달라고 한 장소. `placeId` 가 없으면 새로 만든다. */
   sheetRequest: { placeId: string | null } | null;
   onSheetRequestHandled: () => void;
-  registeredStayName: string;
-  onRegisterStay: (place: PlaceItem) => void;
-  onUpdateRegisteredStay: (place: PlaceItem) => void;
+  /** 이 여행의 대표 숙소. 장소 시트가 체크인·체크아웃을 여기서 읽고 여기로 쓴다. */
+  registeredStay: StayInfo;
+  /** 장소를 대표 숙소로 설정한다. 시각을 주지 않으면 첫날 15:00·마지막날 11:00 이다. */
+  onRegisterStay: (place: PlaceItem, times?: { checkin: string; checkout: string }) => void;
   onRemoveRegisteredStay: () => void;
   /** 기록 탭의 사진. 장소 카드가 자기에게 붙은 사진을 여기서 고른다. */
   photos: MemoryPhoto[];
   dayOptions: string[];
+  /** 「8월 21일」 꼴의 여행 날짜. 체크인·체크아웃 날짜 칩에 쓴다. */
+  dateOptions: string[];
   /** 마지막 날이 지난 여행. 일정에 담은 곳을 한 번에 다녀옴으로 바꿀 것을 권한다. */
   tripEnded: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const canEdit = useContext(DetailEditableContext);
+  const registeredStayName = registeredStay.name;
+  /** 이 장소가 지금 대표 숙소인지. 서버에서 온 숙소는 장소 id 로, 예전 기록은 이름으로 잇는다. */
+  const isStayPlace = (place: PlaceItem | undefined) =>
+    Boolean(place && registeredStay.name) && (place?.id === registeredStay.placeId || place?.name === registeredStay.name);
+  const firstDate = dateOptions[0];
+  const lastDate = dateOptions[dateOptions.length - 1];
+  const defaultStayTimes = () => ({ checkin: `${firstDate} 15:00`, checkout: `${lastDate} 11:00` });
   const [filter, setFilter] = useState<"전체" | "후보" | "일정" | "다녀옴" | "숙소">("전체");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -4307,6 +4309,16 @@ function Places({
   const [reservationBaseline, setReservationBaseline] = useState(() =>
     reservationDraftKey(false, blankPlaceReservation()),
   );
+  // 분류가 「숙소」일 때 그 칩 바로 아래에서 적는 체크인·체크아웃. 「8월 21일 15:00」 꼴이다.
+  // 체크인은 일정 탭 아래 「숙소」 구역에서만 적을 수 있었는데, 그 길을 찾지 못한다는
+  // 말을 들었다. 숙소를 고른 자리에서 바로 묻는다.
+  const [stayTimes, setStayTimes] = useState(defaultStayTimes);
+  const [stayBaseline, setStayBaseline] = useState(() => JSON.stringify(defaultStayTimes()));
+  const updateStayTime = (field: "checkin" | "checkout", part: "date" | "time", value: string) =>
+    setStayTimes((current) => ({
+      ...current,
+      [field]: mergeStayDateTime(current[field], part, value, field === "checkin" ? firstDate : lastDate, field === "checkin" ? "15:00" : "11:00"),
+    }));
   const placeDraftChanged = placeDraftKey(
     name,
     address,
@@ -4314,7 +4326,9 @@ function Places({
     mapUrl,
     tagText,
     memo,
-  ) !== placeDraftBaseline || reservationDraftKey(reservationOn, reservationDraft) !== reservationBaseline;
+  ) !== placeDraftBaseline
+    || reservationDraftKey(reservationOn, reservationDraft) !== reservationBaseline
+    || (category === "숙소" && JSON.stringify(stayTimes) !== stayBaseline);
   const allTags = useMemo(
     () => Array.from(new Set(places.flatMap((place) => place.tags))),
     [places],
@@ -4354,7 +4368,10 @@ function Places({
   const duplicatePlace = places.some(
     (place) => place.id !== editingId && place.name.trim().toLowerCase() === name.trim().toLowerCase(),
   );
-  const placeFormValid = Boolean(name.trim()) && !duplicatePlace;
+  // 숙소면 체크아웃이 체크인보다 뒤여야 한다. 숙소 시트의 검사와 같다.
+  const stayRangeValid = category !== "숙소"
+    || stayMomentOf(stayTimes.checkout, dateOptions) > stayMomentOf(stayTimes.checkin, dateOptions);
+  const placeFormValid = Boolean(name.trim()) && !duplicatePlace && stayRangeValid;
   const addTag = (tag: string) => {
     if (!draftTags.includes(tag))
       setTagText((value) => (value.trim() ? `${value}, ${tag}` : tag));
@@ -4412,10 +4429,19 @@ function Places({
     setReservationOn(켬);
     setReservationBaseline(reservationDraftKey(켬, 초안));
   };
+  /** 시트를 열면서 체크인·체크아웃 칸을 채운다. 대표 숙소면 저장된 값, 아니면 기본값이다. */
+  const loadStayDraft = (place: PlaceItem | undefined) => {
+    const 초안 = isStayPlace(place) && registeredStay.checkin && registeredStay.checkout
+      ? { checkin: registeredStay.checkin, checkout: registeredStay.checkout }
+      : defaultStayTimes();
+    setStayTimes(초안);
+    setStayBaseline(JSON.stringify(초안));
+  };
   const openCreate = (withReservation = false) => {
     setPlaceDraftBaseline(placeDraftKey("", "", "식당", "", "", ""));
     resetForm();
     loadReservationDraft(undefined, withReservation);
+    loadStayDraft(undefined);
     setAdding(true);
   };
   const openEdit = (place: PlaceItem, withReservation = false) => {
@@ -4436,6 +4462,7 @@ function Places({
     setMemo(place.memo ?? "");
     setPlaceDetailsOpen(Boolean(place.address || place.mapUrl || place.tags.length));
     loadReservationDraft(place, withReservation);
+    loadStayDraft(place);
     setAdding(true);
   };
   useEffect(() => {
@@ -4490,11 +4517,14 @@ function Places({
           : item,
       ));
     }
-    const editedRepresentative = previousPlace?.name === registeredStayName;
-    if (editedRepresentative) {
-      if (next.category === "숙소") onUpdateRegisteredStay(next);
-      else onRemoveRegisteredStay();
-    }
+    // 대표 숙소. 여행에 하나뿐이라 세 갈래로 나뉜다.
+    //   이미 대표 숙소인 장소 → 적은 체크인·체크아웃으로 바로 고친다.
+    //   숙소인데 대표가 아닌 장소 → 저장한 뒤 설정할지 묻는다(아래 askToRegisterStay).
+    //   대표 숙소였는데 분류를 바꿈 → 설정을 해제한다. 저장 전에 한 번 물었다.
+    const wasStay = isStayPlace(previousPlace);
+    if (next.category === "숙소" && wasStay) onRegisterStay(next, stayTimes);
+    else if (wasStay) onRemoveRegisteredStay();
+    const askToRegisterStay = next.category === "숙소" && !wasStay;
     const 있던_예약 = reservationOf(next.id);
     if (reservationOn) {
       // 예약 이름은 장소 이름을 따른다. 같은 것을 두 번 적게 하지 않는다.
@@ -4516,6 +4546,44 @@ function Places({
         ? "장소와 예약을 저장했어요"
         : wasEditing ? "장소 정보를 수정했어요" : "장소를 저장했어요",
     );
+    // 숙소를 저장했으면 대표 숙소로 둘지 그 자리에서 묻는다. 「나중에」면 후보로 남고
+    // 카드의 「대표 숙소로 설정」으로 언제든 올릴 수 있다. 방금 적은 체크인·체크아웃을
+    // 그대로 쓰므로 「설정」 한 번이면 끝난다.
+    if (askToRegisterStay) {
+      const 지금 = registeredStay.name;
+      const times = stayTimes;
+      showAlert(
+        지금 ? "대표 숙소를 이 숙소로 바꿀까요?" : "이 숙소를 이번 여행의 대표 숙소로 설정할까요?",
+        지금
+          ? `지금 대표 숙소는 「${지금}」이에요. 바꾸면 체크인 일정도 이 숙소로 옮겨요.`
+          : `${times.checkin} 체크인 일정이 함께 생겨요.`,
+        [
+          { text: "나중에", style: "cancel" },
+          {
+            text: 지금 ? "바꾸기" : "설정",
+            onPress: () => {
+              onRegisterStay(next, times);
+              notify(`${next.name}${josa(next.name, "을", "를")} 대표 숙소로 설정했어요`);
+            },
+          },
+        ],
+      );
+    }
+  };
+  /**
+   * 저장 버튼. 대표 숙소였던 장소의 분류를 바꾸면 체크인 일정이 함께 사라지므로
+   * 저장하기 전에 한 번 묻는다. 그 밖에는 바로 저장한다.
+   */
+  const submitPlace = () => {
+    const previousPlace = places.find((place) => place.id === editingId);
+    if (isStayPlace(previousPlace) && category !== "숙소") {
+      showAlert("대표 숙소 설정을 해제할까요?", "분류를 바꾸면 체크인 일정도 함께 사라져요. 장소는 남아요.", [
+        { text: "취소", style: "cancel" },
+        { text: "설정 해제", style: "destructive", onPress: savePlace },
+      ]);
+      return;
+    }
+    savePlace();
   };
   /**
    * 예약 칸을 켜고 끈다. 끄면 붙어 있던 예약이 사라지므로 한 번 묻는다.
@@ -4676,39 +4744,26 @@ function Places({
       />
       <View style={[styles.placeControlPanel, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <View style={styles.placeToolbar}>
-        <View style={styles.placeFilters}>
+        {/* 기록·준비 탭의 필터 칩과 같은 부품이다. 세 탭이 한 벌로 보여야 한다. */}
+        <ChipRow style={styles.placeFilters}>
           {(["전체", "후보", "일정", "다녀옴", "숙소"] as const).map((item) => (
-            <Pressable
+            <Chip
               key={item}
-              onPress={() => setFilter(item)}
-              accessibilityRole="button"
+              theme={theme}
+              label={item}
               accessibilityLabel={item === "후보" ? "저장한 후보 장소" : item}
-              accessibilityState={{ selected: filter === item }}
-              style={[
-                styles.placeFilter,
-                theme && { borderColor: theme.border },
-                filter === item &&
-                  theme && { backgroundColor: theme.primarySoft },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.placeFilterText,
-                  filter === item && styles.placeFilterTextActive,
-                  filter === item && theme && { color: theme.primary },
-                ]}
-              >
-                  {item}
-              </Text>
-            </Pressable>
+              on={filter === item}
+              onPress={() => setFilter(item)}
+            />
           ))}
-        </View>
+        </ChipRow>
         {(places.length > 5 || allTags.length > 0) && (
           <Pressable
             onPress={() => setPlaceFiltersOpen((value) => !value)}
             accessibilityRole="button"
             accessibilityState={{ expanded: placeFiltersOpen }}
             accessibilityLabel="장소 검색과 태그 필터"
+            hitSlop={누름여유(높이.칩)}
             style={[styles.placeFilterMoreButton, theme && { backgroundColor: theme.surfaceAlt }]}
           >
             <Glyph name={placeFiltersOpen ? "chevronDown" : "search"} size={15} color={theme?.primary ?? "#3F4C8F"} weight={2.2} />
@@ -4906,7 +4961,11 @@ function Places({
               )}
               {settled || !canEdit ? null : place.category === "숙소" ? (
                 <Pressable
-                  onPress={(event) => { event.stopPropagation(); onRegisterStay(place); }}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onRegisterStay(place);
+                    notify(`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정했어요`);
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel={`${place.name}${josa(place.name, "을", "를")} 대표 숙소로 설정`}
                   style={[styles.placeMiniPlanButton, { backgroundColor: theme?.secondary }]}
@@ -5062,14 +5121,16 @@ function Places({
         title={editingId ? "장소 수정" : "장소 추가"}
         subtitle="이름만 입력해도 저장할 수 있어요"
         submit={editingId ? "저장" : "장소 추가"}
-        disabledHint={!placeFormValid ? (duplicatePlace ? "이미 저장한 장소예요" : "장소 이름을 입력해 주세요") : undefined}
+        disabledHint={!placeFormValid
+          ? duplicatePlace ? "이미 저장한 장소예요" : !name.trim() ? "장소 이름을 입력해 주세요" : "체크아웃 시간을 다시 확인해 주세요"
+          : undefined}
         destructiveLabel={editingId ? "장소 삭제" : undefined}
         destructiveMessage={editingId ? "연결된 일정과 대표 숙소 설정도 함께 정리돼요. 예약 기록은 예약 목록에 남아요." : undefined}
         submitDisabled={!placeFormValid}
         hasUnsavedChanges={placeDraftChanged}
         onDestructive={deletePlace}
         onClose={() => setAdding(false)}
-        onSubmit={savePlace}
+        onSubmit={submitPlace}
       >
         {!editingId && !mapUrl && (
           <Pressable
@@ -5105,6 +5166,33 @@ function Places({
           value={category}
           onChange={setCategory}
         />
+        {/* 「숙소」를 고르면 그 칩 바로 아래에서 체크인·체크아웃을 적는다. 일정 탭의
+            숙소 시트와 같은 부품이라 두 곳의 값이 같은 대표 숙소로 모인다. */}
+        {category === "숙소" && (
+          <>
+            <StayDateTimePicker
+              label="체크인"
+              value={stayTimes.checkin}
+              dates={dateOptions}
+              onDateChange={(value) => updateStayTime("checkin", "date", value)}
+              onTimeChange={(value) => updateStayTime("checkin", "time", value)}
+            />
+            <StayDateTimePicker
+              label="체크아웃"
+              value={stayTimes.checkout}
+              dates={dateOptions}
+              onDateChange={(value) => updateStayTime("checkout", "date", value)}
+              onTimeChange={(value) => updateStayTime("checkout", "time", value)}
+            />
+            <Text style={[styles.stayPickerHint, theme && { color: theme.muted }]}>
+              {isStayPlace(places.find((place) => place.id === editingId))
+                ? "이 여행의 대표 숙소예요. 저장하면 체크인 일정도 함께 바뀌어요."
+                : registeredStayName
+                  ? `지금 대표 숙소는 「${registeredStayName}」이에요. 저장할 때 이 숙소로 바꿀지 물어요.`
+                  : "저장할 때 이 숙소를 대표 숙소로 설정할지 물어요."}
+            </Text>
+          </>
+        )}
         <DetailField
           label="메모 (선택)"
           value={memo}
@@ -11580,6 +11668,33 @@ function PairedTimePickerField({
   );
 }
 
+/**
+ * 「8월 21일 15:00」 꼴의 체크인·체크아웃 문자열에서 날짜나 시각 한쪽만 바꾼다.
+ *
+ * 저장된 값이 비어 있거나 반쪽이면 넘겨받은 기본값으로 채운다. 일정 탭의 숙소
+ * 시트와 장소 시트가 같은 문자열을 나눠 쓰므로 계산도 한곳에 둔다.
+ */
+function mergeStayDateTime(
+  saved: string,
+  part: "date" | "time",
+  value: string,
+  fallbackDate: string,
+  fallbackTime: string,
+): string {
+  const savedTime = saved.match(/\d{1,2}:\d{2}$/)?.[0];
+  const savedDate = saved.replace(/\s*\d{1,2}:\d{2}$/, "").trim();
+  const nextDate = part === "date" ? value : savedDate || fallbackDate;
+  const nextTime = part === "time" ? value : savedTime || fallbackTime;
+  return `${nextDate} ${nextTime}`;
+}
+
+/** 체크인·체크아웃 문자열을 여행 첫날 0시부터의 분으로 바꾼다. 못 읽으면 -1 이다. */
+function stayMomentOf(value: string, dates: string[]): number {
+  const dateIndex = dates.findIndex((date) => value.startsWith(date));
+  const time = value.match(/(\d{1,2}):(\d{2})$/);
+  return dateIndex < 0 || !time ? -1 : dateIndex * 1440 + Number(time[1]) * 60 + Number(time[2]);
+}
+
 function StayDateTimePicker({
   label,
   value,
@@ -12546,6 +12661,8 @@ const styles = StyleSheet.create({
   stayPickerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   stayPickerLabel: { fontSize: 14, fontFamily: typo.label.family },
   stayPickerValue: { fontSize: 14, fontFamily: typo.data.family },
+  // 체크아웃 칸 아래 한 줄. 저장하면 대표 숙소가 어떻게 되는지 미리 말해 준다.
+  stayPickerHint: { fontSize: 12, fontFamily: typo.body.family, lineHeight: 18, marginTop: -4, marginBottom: 16 },
   sheetSubmitDisabled: { opacity: 0.38 },
   infoLine: {
     minHeight: 58,
@@ -12735,8 +12852,6 @@ const styles = StyleSheet.create({
   },
   linkState: { color: "#278153", fontSize: 14, fontFamily: typo.label.family, marginTop: 8 },
   mapLinkRow: { marginTop: 6 },
-  placeFilterText: { color: "#7C8390", fontSize: 12, fontFamily: typo.label.family },
-  placeFilterTextActive: { color: "#FFFFFF" },
   placeAddText: { fontSize: 12, fontFamily: typo.label.family },
   placeList: { gap: 8 },
   placeSearchInput: { flex: 1, fontSize: 12 },
@@ -13934,16 +14049,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   // 칩이 다섯이라 좁은 화면에서는 한 줄에 다 들어가지 않는다. 밀려 잘리느니 접는다.
-  placeFilters: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  placeFilter: {
-    minHeight: 높이.버튼,
-    borderRadius: 모서리.원,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
+  placeFilters: { flex: 1 },
+  // 필터 칩과 같은 줄이라 칩 높이에 맞춘다. 모자란 만큼은 hitSlop 으로 채운다.
   placeFilterMoreButton: {
-    minHeight: 높이.버튼,
+    minHeight: 높이.칩,
     borderRadius: 모서리.원,
     paddingHorizontal: 9,
     flexDirection: "row",
