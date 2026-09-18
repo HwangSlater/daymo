@@ -87,6 +87,22 @@ test("서버 교통편은 화면 글자로 돌아온다", () => {
   });
 });
 
+test("무궁화호·고속버스·시외버스는 서버 값으로 갔다가 같은 글자로 돌아온다", () => {
+  const codec = transportCodec(dates, roster);
+  const 짝 = [
+    ["무궁화호", "mugunghwa"],
+    ["고속버스", "express_bus"],
+    ["시외버스", "intercity_bus"],
+    // 나누기 전에 적은 「버스」는 그대로 남는다.
+    ["버스", "bus"],
+  ] as const;
+  for (const [앱, 서버] of 짝) {
+    const body = codec.toBody(transport({ method: 앱 }));
+    assert.equal(body.method, 서버);
+    assert.equal(codec.fromServer({ id: A, version: 1, ...body }).method, 앱);
+  }
+});
+
 const reservation = (extra: Partial<AppReservation> = {}): AppReservation => ({
   id: A,
   name: "소나기식당",

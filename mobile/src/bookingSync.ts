@@ -25,7 +25,7 @@ export type AppTransport = {
   id: string;
   owner: string;
   direction: "가는 편" | "오는 편";
-  method: "KTX" | "SRT" | "버스" | "항공" | "기타";
+  method: "KTX" | "SRT" | "무궁화호" | "고속버스" | "시외버스" | "버스" | "항공" | "기타";
   date: string;
   departure: string;
   departureTime: string;
@@ -37,7 +37,7 @@ export type AppTransport = {
   note?: string;
 };
 
-type ServerMethod = "ktx" | "srt" | "bus" | "flight" | "other";
+type ServerMethod = "ktx" | "srt" | "mugunghwa" | "express_bus" | "intercity_bus" | "bus" | "flight" | "other";
 
 export type ServerTransport = {
   id: string;
@@ -57,11 +57,13 @@ export type ServerTransport = {
 
 export type TransportBody = Omit<ServerTransport, "id" | "version">;
 
-const METHOD_TO_SERVER: Record<AppTransport["method"], ServerMethod> = {
-  KTX: "ktx", SRT: "srt", 버스: "bus", 항공: "flight", 기타: "other",
+export const METHOD_TO_SERVER: Record<AppTransport["method"], ServerMethod> = {
+  KTX: "ktx", SRT: "srt", 무궁화호: "mugunghwa", 고속버스: "express_bus", 시외버스: "intercity_bus",
+  버스: "bus", 항공: "flight", 기타: "other",
 };
 const METHOD_TO_APP: Record<ServerMethod, AppTransport["method"]> = {
-  ktx: "KTX", srt: "SRT", bus: "버스", flight: "항공", other: "기타",
+  ktx: "KTX", srt: "SRT", mugunghwa: "무궁화호", express_bus: "고속버스", intercity_bus: "시외버스",
+  bus: "버스", flight: "항공", other: "기타",
 };
 
 export function transportCodec(

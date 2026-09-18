@@ -51,6 +51,22 @@ async def test_교통편은_날짜와_시각을_공간_시간대로_주고받는
     assert 저장된.departure_at.astimezone(UTC) == datetime(2026, 9, 30, 23, 0, tzinfo=UTC)
 
 
+async def test_무궁화호와_고속_시외버스는_따로_저장되고_그대로_읽힌다(api, db):
+    """「버스」 하나로 뭉뚱그리지 않는다. 옛 값 `bus` 도 계속 받는다."""
+    headers, _, trip = await 여행_하나(api)
+
+    for 값 in ("mugunghwa", "express_bus", "intercity_bus", "bus"):
+        편 = (await 교통편을_넣는다(api, headers, trip["id"], method=값)).json()["data"]
+        assert 편["method"] == 값
+
+    목록 = (await api.get(f"/v1/trips/{trip['id']}/transports", headers=headers)).json()["data"]
+    assert sorted(편["method"] for 편 in 목록) == ["bus", "express_bus", "intercity_bus", "mugunghwa"]
+
+    고침 = await api.patch(f"/v1/transports/{편['id']}", json={"version": 1, "method": "intercity_bus"}, headers=headers)
+    assert 고침.json()["data"]["method"] == "intercity_bus"
+    assert (await db.get(Transport, uuid.UUID(편["id"]))).method == "intercity_bus"
+
+
 async def test_시각을_모르는_교통편도_날짜는_남는다(api, db):
     headers, _, trip = await 여행_하나(api)
 

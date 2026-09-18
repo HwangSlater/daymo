@@ -31,7 +31,7 @@ export type NoticeStay = {
   bookingUrl: string;
 };
 
-export type NoticeTransportMethod = "KTX" | "SRT" | "버스" | "항공" | "기타";
+export type NoticeTransportMethod = "KTX" | "SRT" | "무궁화호" | "고속버스" | "시외버스" | "버스" | "항공" | "기타";
 
 export type NoticeTransport = {
   owner: string;
@@ -469,9 +469,13 @@ function readBooking(lines: readonly string[], sink: Sink) {
   }
 }
 
+// 앞의 것부터 맞춰 본다. 「고속버스」가 「버스」에 먼저 걸리지 않게 나눈 것을 앞에 둔다.
 const METHODS: [RegExp, NoticeTransportMethod][] = [
   [/^KTX/i, "KTX"],
   [/^SRT/i, "SRT"],
+  [/무궁화/, "무궁화호"],
+  [/고속/, "고속버스"],
+  [/시외/, "시외버스"],
   [/버스/, "버스"],
   [/항공|비행/, "항공"],
 ];

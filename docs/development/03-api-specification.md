@@ -536,7 +536,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 - 요청 필드는 `id`(앱 UUID), `date`, `time`, `title`(60자), `type(place|meal|move|rest|other)`, `note`, `tripPlaceId`(같은 여행 장소만), `mapUrl`이다. 목록은 날짜·시각 순이다.
 - 숙소는 `id`, `tripPlaceId`, `checkInAt`·`checkOutAt`(공간 시간대 `YYYY-MM-DDTHH:MM`), `note`, `showInSchedule`. 이름·주소는 연결한 장소의 것이다. 숙소 분류(`lodging`) 검사는 아직 하지 않는다.
 - 둘 다 `version`이 있고 `PATCH`에 필수다. 같은 `id`로 다시 만들면 `200`으로 기존 줄을 돌려준다.
-- 교통은 `id`, `direction`, `method(ktx|srt|bus|flight|other)`, `date`, `departureName`·`departureTime`, `arrivalName`·`arrivalTime`, `ownerMembershipId`(같은 공간 멤버만), `bookingStatus(booked|not_booked)`, `note`, `showInSchedule`. 도착 시각이 출발보다 이르면 다음 날 도착으로 저장한다. 날짜만 있고 시각이 없어도 날짜(`travel_on`)는 남는다.
+- 교통은 `id`, `direction`, `method(ktx|srt|mugunghwa|express_bus|intercity_bus|bus|flight|other)`, `date`, `departureName`·`departureTime`, `arrivalName`·`arrivalTime`, `ownerMembershipId`(같은 공간 멤버만), `bookingStatus(booked|not_booked)`, `note`, `showInSchedule`. 도착 시각이 출발보다 이르면 다음 날 도착으로 저장한다. 날짜만 있고 시각이 없어도 날짜(`travel_on`)는 남는다.
 - 예약은 `id`, `title`, `date`, `time`, `partySize`, `partyLabel`(사람이 적은 인원 글자 그대로), `status(confirmed|needs_check|cancelled)`, `note`, `bookingUrl`(http/https), `showInSchedule`. 날짜는 `reserved_on`에 따로 남는다.
 - 여행 기간을 `PATCH /trips/{id}`로 바꾸면 `trip_days`도 새 기간에 맞춘다. 빠진 날을 가리키던 일정은 날짜가 비고, 앱이 새 날짜로 옮겨 다시 보낸다.
 
