@@ -273,6 +273,11 @@ const 요리메모_읽기 = (적힌: string) => (적힌.trim() === "메모 없�
 const 요리메모_보이기 = (적힌: string) => 요리메모_읽기(적힌) || "메모 없음";
 
 const PLAN_TYPES = ["방문", "식사", "이동", "예약", "행사"];
+/**
+ * 「장소」는 예전 이름이다. 저장된 것을 읽을 때만 「방문」으로 바꾼다. 화면에 쓰는 값은
+ * 늘 `PLAN_TYPES` 안의 것이어야 한다 — 「장소」를 그대로 쓰면 종류 줄에서 아무것도
+ * 골라지지 않은 것처럼 보인다.
+ */
 const 일정종류_읽기 = (적힌: string) => (적힌 === "장소" ? "방문" : 적힌);
 const 일정종류인가 = (적힌: string) => 적힌 === "장소" || PLAN_TYPES.includes(적힌);
 
@@ -3106,7 +3111,7 @@ function TripOverview({
   const openScheduleCreate = () => {
     setScheduleDraftBaseline(scheduleDraftKey(
       defaultPlanDay,
-      "장소",
+      PLAN_TYPES[0],
       "11:00",
       "",
       "",
@@ -3119,7 +3124,7 @@ function TripOverview({
     setPlanMapUrl("");
     setSelectedPlanPlaceId(null);
     setPlanDay(defaultPlanDay);
-    setPlanType("장소");
+    setPlanType(PLAN_TYPES[0]);
     setPlanTime("11:00");
     setScheduleDetailsOpen(false);
     setSheet("schedule");
@@ -3177,7 +3182,7 @@ function TripOverview({
     setNewPlanTitle(place.name);
     setPlanPlace(place.address || place.area);
     setPlanMapUrl(place.mapUrl);
-    setPlanType(place.category === "식당" || place.category === "카페" ? "식사" : "장소");
+    setPlanType(place.category === "식당" || place.category === "카페" ? "식사" : PLAN_TYPES[0]);
     setScheduleDetailsOpen(Boolean(place.address || place.area || place.mapUrl));
   };
   const deleteSchedule = () => {
