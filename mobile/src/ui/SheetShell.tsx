@@ -18,6 +18,7 @@ import { Text } from "../AppText";
 import { Glyph } from "../Glyph";
 import { useSheetDrag } from "../sheetDrag";
 import { showAlert } from "../showAlert";
+import { useWebKeyboardFocus } from "./webKeyboardFocus";
 import { KeyboardProbe, 계측을_켤까 } from "./키보드계측";
 import { useWebBackClose } from "../useWebBackClose";
 import { AppTheme } from "../theme";
@@ -158,6 +159,8 @@ export function SheetShell({
   };
 
   const drag = useSheetDrag(requestClose, visible, dirty);
+  // 웹에서 키보드가 올라와 시트가 줄어든 뒤에도 입력 중인 칸이 보이게 한다.
+  useWebKeyboardFocus(visible);
   // 웹의 뒤로 가기는 페이지가 아니라 지금 열린 시트가 받는다.
   useWebBackClose(visible, requestClose);
 
