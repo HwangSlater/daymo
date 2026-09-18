@@ -2123,6 +2123,18 @@ export function WarmTripDetail({
     // 아무도 안 가는 여행은 없다. 참가자가 비면 몫을 나눌 기준도 사라진다.
     && draftTripPeople.length,
   );
+  /**
+   * 탭 이름 옆에 찍는 개수. 들어가 보지 않아도 어디에 뭐가 있는지 알게 한다.
+   * 0 이면 아무것도 안 찍는다 — 빈 탭까지 「0」을 달면 줄이 시끄럽다.
+   */
+  const 탭_개수: Record<ViewMode, number> = {
+    여행: schedule.length,
+    장소: places.length,
+    준비: packingItems.length,
+    요리: recipes.length,
+    비용: expenses.length,
+    기록: memories.photos.length + memories.diaries.length,
+  };
   return (
     <DetailThemeContext.Provider value={appTheme}>
       <DetailFeedbackContext.Provider value={setFeedback}>
@@ -2268,7 +2280,11 @@ export function WarmTripDetail({
                 key={item}
                 onPress={() => showMode(item)}
                 accessibilityRole="tab"
-                accessibilityLabel={`${modeLabelOf(item)} 탭`}
+                accessibilityLabel={
+                  탭_개수[item] > 0
+                    ? `${modeLabelOf(item)} 탭, ${탭_개수[item]}개`
+                    : `${modeLabelOf(item)} 탭`
+                }
                 accessibilityState={{ selected: mode === item }}
                 style={[
                   styles.mode,
@@ -2291,6 +2307,18 @@ export function WarmTripDetail({
                 >
                   {modeLabelOf(item)}
                 </Text>
+                {탭_개수[item] > 0 && (
+                  <Text
+                    style={[
+                      styles.modeCount,
+                      appTheme && {
+                        color: mode === item ? appTheme.primary : appTheme.muted,
+                      },
+                    ]}
+                  >
+                    {탭_개수[item]}
+                  </Text>
+                )}
               </Pressable>
             ))}
             </View>
@@ -13821,6 +13849,8 @@ const styles = StyleSheet.create({
   },
   headerSpacer: { width: 20 },
   modeText: { color: "#7C8492", fontSize: 14, fontFamily: typo.label.family },
+  /** 탭 이름 옆 개수. 들어가 보지 않아도 어디에 뭐가 있는지 알게 한다. */
+  modeCount: { color: "#8B92A0", fontSize: 10.5, fontFamily: typo.data.family, marginTop: 1 },
   modeTextCurrent: { },
   sectionAction: { fontSize: 14, fontFamily: typo.label.family },
   dot: {
@@ -13860,8 +13890,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 높이.버튼,
     borderRadius: 모서리.버튼,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 3,
   },
   modeCurrent: {
     borderRadius: 8,
