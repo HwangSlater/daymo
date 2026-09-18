@@ -3018,6 +3018,7 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
   // 없으면 없다고 말한다. 그럴듯한 숫자를 채워 두면 눌러 보고 나서야 빈 줄
   // 알게 되고, 그때부터는 카드의 다른 숫자도 못 믿는다.
   // 서버 여행은 서버가 센 요약을, 없으면 기기의 기록을 쓴다(`tripOverview.ts`).
+  const 남은_날 = 남은_날_말(trip.start, todayKey);
   const summary = homeSummaryOf(tripForSummary(trip));
   const scheduleCount = summary.scheduleCount;
   const placeCount = summary.placeCount;
@@ -3085,33 +3086,10 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
         {/* 종이를 붙인 테이프. 사진이 있으면 그 사진을 붙인 테이프가 이 자리를 대신한다.
             둘 다 그리면 같은 자리에 두 장이 겹쳐 지저분하다. */}
         {!coverUri && <View style={[s.paperTape, { backgroundColor: paper.tape }]} />}
-        {/* 비행기가 지나간 자국. 여행 이름이 길면 이름이 이 자리까지 밀고 들어와
-            글자와 점선이 겹친다. 꾸밈이 글자를 이길 이유는 없으므로 이름이 길면
-            자국을 접는다. 여덟 자는 카드에서 이름이 한 줄로 들어오는 길이다. */}
-        {!coverUri && trip.name.length <= 8 && <View pointerEvents="none" style={s.paperTripRoute}>
-          <Svg width="100%" height="100%" viewBox="0 0 112 42">
-            <Path
-              // 점선 끝을 종이비행기 꼬리 홈(90,20) 앞에 맞춘다.
-              // 원래는 (84,17)에서 끝나 위쪽 모서리를 비스듬히 가로질렀다.
-              d="M4 29C28 8 60 34 88 22"
-              fill="none"
-              stroke={theme.primary}
-              strokeWidth={1.4}
-              strokeDasharray="3 5"
-              strokeLinecap="round"
-            />
-            <Path
-              d="m82 17 18-7-7 18-3-8-8-3Z"
-              fill="none"
-              stroke={theme.primary}
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>}
         {/* 사진이 있으면 이 묶음이 종이의 안쪽 여백을 대신 갖는다. 사진은 카드
             모서리까지 닿아야 해서 종이에서 여백을 걷어냈기 때문이다. */}
         <View>
+        <View pointerEvents="none" style={[s.paperTripNotch, { backgroundColor: theme.background }]} />
         <View style={s.paperTripHead}>
           <View style={s.paperTripCopy}>
             <Text style={[s.paperKicker, { color: theme.primary }]}>
@@ -3126,18 +3104,18 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
               {trip.date}
             </Text>
           </View>
-          <View
-            style={[
-              s.paperTripStamp,
-              {
-                backgroundColor: "transparent",
-                borderColor: paper.stampBorder,
-              },
-            ]}
-          >
-            <Text style={[s.paperTripStampMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
-            <Text style={[s.paperTripStampDay, { color: paper.title }]}>{trip.start.slice(-2)}</Text>
-            <View style={[s.paperTripStampRule, { backgroundColor: theme.primary }]} />
+          {/* 표를 뜯는 자리. 이름이 짧아도 이 칸이 늘 같은 자리를 차지해서
+              오른쪽이 비어 보이지 않는다. 예전에는 이 자리에 날짜 도장을 두고
+              그 왼쪽 빈 곳을 종이비행기 자국으로 때웠는데, 이름이 짧으면 자국만
+              동그라니 떠 있고 여덟 자를 넘으면 아예 접혔다. */}
+          <View style={[s.paperTripStub, { borderColor: paper.rule }]}>
+            <Text style={[s.paperTripStubMonth, { color: theme.primary }]}>{Number(trip.start.slice(5, 7))}월</Text>
+            <Text style={[s.paperTripStubDay, { color: paper.title }]}>{trip.start.slice(-2)}</Text>
+            {남은_날 ? (
+              <View style={[s.paperTripStubLeft, { backgroundColor: theme.primarySoft }]}>
+                <Text style={[s.paperTripStubLeftText, { color: theme.primary }]}>{남은_날}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
         <View style={[s.paperRule, { borderColor: paper.rule }]} />
@@ -6085,6 +6063,23 @@ function TripArt({
     </View>
   );
 }
+/**
+ * 홈 카드의 뜯는 쪽지에 찍는 말. 「12일 남음」, 「내일 출발」처럼 적는다.
+ * 이미 시작한 여행과 지난 여행은 비운다 — 머리글이 「여행 중」·「지난 여행」이라고
+ * 이미 말한다.
+ */
+const 남은_날_말 = (start: string, todayKey: string): string => {
+  const 하루 = 86400000;
+  const 오늘 = Date.parse(`${todayKey}T00:00:00`);
+  const 첫날 = Date.parse(`${start}T00:00:00`);
+  if (!Number.isFinite(오늘) || !Number.isFinite(첫날)) return "";
+  const 날 = Math.round((첫날 - 오늘) / 하루);
+  if (날 < 0) return "";
+  if (날 === 0) return "오늘 출발";
+  if (날 === 1) return "내일 출발";
+  return `${날}일 남음`;
+};
+
 function Setting({
   label,
   hint,
@@ -7221,14 +7216,6 @@ const s = StyleSheet.create({
   paperTripBodyDate: { marginTop: 0 },
   paperTripSoftLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(104, 139, 160, .10)" },
   paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .14)" },
-  paperTripRoute: {
-    position: "absolute",
-    width: 112,
-    height: 42,
-    top: 21,
-    right: 62,
-    opacity: 0.3,
-  },
   paperTape: {
     position: "absolute",
     width: 78,
@@ -7247,18 +7234,20 @@ const s = StyleSheet.create({
   paperKicker: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 6 },
   paperTitle: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   paperDate: { fontSize: 11, marginTop: 6 },
-  paperTripStamp: {
-    width: 52,
-    height: 58,
-    borderRadius: 2,
-    borderWidth: 1.2,
+  paperTripStub: {
+    width: 92,
+    paddingLeft: 14,
+    borderLeftWidth: 1.5,
+    borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
-    transform: [{ rotate: "2deg" }],
   },
-  paperTripStampMonth: { fontSize: 14, fontFamily: typo.data.family, letterSpacing: 1 },
-  paperTripStampDay: { fontSize: 20, lineHeight: 23, fontFamily: typo.data.family },
-  paperTripStampRule: { width: 22, height: 2, borderRadius: 2, marginTop: 2 },
+  paperTripStubMonth: { fontSize: 12.5, fontFamily: typo.data.family, letterSpacing: 1 },
+  paperTripStubDay: { fontSize: 24, lineHeight: 28, fontFamily: typo.data.family },
+  paperTripStubLeft: { marginTop: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  paperTripStubLeftText: { fontSize: 11, fontFamily: typo.label.family },
+  // 뜯는 자리 위에 찍힌 홈. 종이 밖 색으로 파서 진짜로 뜯는 선처럼 보이게 한다.
+  paperTripNotch: { position: "absolute", top: -31, right: 105, width: 14, height: 14, borderRadius: 7 },
   paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginTop: 16, marginBottom: 12 },
   paperStayBoard: {
     borderRadius: 12,
