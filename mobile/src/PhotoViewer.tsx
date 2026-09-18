@@ -59,6 +59,7 @@ import { onAccent } from "./theme/colors";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
+import { useWebKeyboardFocus } from "./ui/webKeyboardFocus";
 
 /**
  * 크게 볼 사진 한 장.
@@ -340,6 +341,8 @@ export function PhotoViewerScreen({
    * `ValueXY` 하나로 들면 가로로만 미는 동안에도 두 축을 함께 쓴다. 나누면 미는
    * 동안 손대는 값이 하나뿐이고, 무엇이 무엇을 움직이는지도 읽기 쉽다.
    */
+  // 웹에서 키보드가 올라와 창이 줄어든 뒤에도 사진 정보의 입력 칸이 보이게 한다(SheetShell 과 같은 처방).
+  useWebKeyboardFocus(visible);
   const [slideX] = useState(() => new Animated.Value(0));
   const [slideY] = useState(() => new Animated.Value(0));
   /** 이번에 미는 방향. 「안함」은 좌우로 밀었지만 갈 곳이 없어 흘려보내는 중이다. */
