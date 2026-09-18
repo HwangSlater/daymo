@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { maskClockTime, settleClockTime } from "./clock";
 import { SheetShell, sheetHeadStyles } from "./ui/SheetShell";
 import { Chip, ChipRow } from "./ui/Chip";
+import { Segment, 세그먼트_최대 } from "./ui/Segment";
 import { keepTripPhoto } from "./tripPhotos";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { TripRegionPicker } from "./TripRegionPicker";
@@ -1197,6 +1198,7 @@ export function WarmTripDetail({
   const [draftEnd, setDraftEnd] = useState(currentEnd);
   const [draftRegion, setDraftRegion] = useState(region);
   const [draftNote, setDraftNote] = useState(note);
+  const [tripNoteOpen, setTripNoteOpen] = useState(false);
   const [showAllEditRegions, setShowAllEditRegions] = useState(false);
   const [editingTrip, setEditingTrip] = useState(false);
   // 여행을 고칠 때도 참가자를 바꾼다. 비용 탭 안에만 두면 누가 가는지 정하는
@@ -2155,6 +2157,7 @@ export function WarmTripDetail({
               setDraftEnd(currentEnd);
               setDraftRegion(region);
               setDraftNote(note);
+              setTripNoteOpen(Boolean(note.trim()));
               setDraftTripPeople(participants);
               setShowAllEditRegions(false);
               setEditingTrip(true);
@@ -2732,12 +2735,19 @@ export function WarmTripDetail({
               />
             )}
           </View>
-          <DetailField
-            label="한 줄 메모 (선택)"
-            value={draftNote}
-            onChangeText={setDraftNote}
-            placeholder="예: 골목을 천천히 걷는 여행"
-          />
+          <OptionalFormSection
+            label="한 줄 메모"
+            summary={draftNote.trim() || undefined}
+            open={tripNoteOpen}
+            onToggle={() => setTripNoteOpen((current) => !current)}
+          >
+            <DetailField
+              label="한 줄 메모 (선택)"
+              value={draftNote}
+              onChangeText={setDraftNote}
+              placeholder="예: 골목을 천천히 걷는 여행"
+            />
+          </OptionalFormSection>
           {appTheme && spaceMembers.length > 1 && (
             <View style={[styles.tripEditSection, appTheme && { borderTopColor: appTheme.border }]}>
               <Text style={[styles.tripEditSectionTitle, appTheme && { color: appTheme.text }]}>누가 함께 가나요?</Text>
@@ -2958,6 +2968,9 @@ function TripOverview({
   );
   const [editingReservationId, setEditingReservationId] = useState<string | null>(null);
   const editingReservation = editingReservationId !== null;
+  // 예약·숙소 시트의 「더 적기」가 펼쳐져 있는지. 열 때 값이 있으면 켜서 연다.
+  const [reservationExtrasOpen, setReservationExtrasOpen] = useState(false);
+  const [stayAddressOpen, setStayAddressOpen] = useState(false);
   const [stayDraft, setStayDraft] = useState(registeredStay);
   const hasStay = Boolean(registeredStay.name);
   // 묵는 동안의 날 이름표. 숙소는 `10월 1일 15:00` 로 날을 들고 있어 날짜 칸에서 자리를 찾는다.
@@ -3446,7 +3459,7 @@ function TripOverview({
     setTransportNote(item.note ?? "");
     setTransportAmount(linkedAmount);
     setTransportDetailsOpen(
-      Boolean(item.note) || item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule,
+      Boolean(item.note) || Boolean(linkedAmount) || item.owner !== participants[0] || item.status !== "예매 완료" || !item.showInSchedule,
     );
     // 상세 창(InfoPanel)과 수정 시트는 형제 Modal 이다. 같은 프레임에 하나를 닫고 하나를
     // 열면 iOS 가 뒤엣것을 세우지 못해 창이 그냥 닫혀 버렸다. 상세 창이 열려 있으면
@@ -3472,6 +3485,10 @@ function TripOverview({
     setEditingReservationId(reservation?.id ?? null);
     setReservationDraft(nextDraft);
     setReservationDraftBaseline(JSON.stringify(nextDraft));
+    // 적어 둔 것이 있는 칸은 펼친 채로 연다. 접혀 있으면 값이 있는 줄도 모른다.
+    setReservationExtrasOpen(Boolean(
+      nextDraft.people || nextDraft.place || nextDraft.bookingUrl?.trim() || !nextDraft.showInSchedule,
+    ));
     setSheet("reservation");
   };
   /**
@@ -3520,6 +3537,7 @@ function TripOverview({
       : registeredStay;
     setStayDraftBaseline(JSON.stringify(nextDraft));
     setStayDraft(nextDraft);
+    setStayAddressOpen(Boolean(nextDraft.address.trim()));
     setSheet("stay");
   };
   const updateStayDateTime = (
@@ -3804,65 +3822,9 @@ function TripOverview({
         onSubmit={addSchedule}
         onDestructive={deleteSchedule}
       >
-        <View style={[styles.planPreview, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={[styles.previewDate, theme && { backgroundColor: theme.primary }]}>
-            <Text style={styles.previewDay}>{weekdayOf(planDay)}</Text>
-            <Text style={styles.previewDateNo}>{dayNumberOf(planDay)}</Text>
-          </View>
-          <View style={styles.previewBody}>
-            <Text style={[styles.previewType, theme && { color: theme.primary }]}>
-              {planType} · {planTime || "시간 미정"}
-            </Text>
-            <Text numberOfLines={1} style={[styles.previewTitle, theme && { color: theme.text }]}>
-              {newPlanTitle || "어떤 일정인가요?"}
-            </Text>
-            <Text numberOfLines={1} style={[styles.previewPlace, theme && { color: theme.muted }]}>
-              {planPlace || "장소 미정"}
-            </Text>
-          </View>
-        </View>
-        {places.length > 0 && (
-          <View style={styles.savedPlacePicker}>
-            <View style={styles.savedPlacePickerHead}>
-              <View>
-                <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>저장한 장소에서 선택</Text>
-                <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>고르면 이름과 위치를 바로 채워드려요</Text>
-              </View>
-              {selectedPlanPlaceId && (
-                <Pressable
-                  onPress={() => setSelectedPlanPlaceId(null)}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="저장한 장소 선택 해제"
-                >
-                  <Text style={[styles.savedPlaceClear, theme && { color: theme.primary }]}>선택 해제</Text>
-                </Pressable>
-              )}
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedPlacePickerRow}>
-              {places.map((place) => {
-                const selected = selectedPlanPlaceId === place.id;
-                return (
-                  <Pressable
-                    key={place.id}
-                    onPress={() => chooseSavedPlace(place)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    accessibilityLabel={`${place.name}, ${place.category}`}
-                    style={[
-                      styles.savedPlaceChoice,
-                      theme && { backgroundColor: theme.surface, borderColor: theme.border },
-                      selected && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-                    ]}
-                  >
-                    <Text numberOfLines={1} style={[styles.savedPlaceChoiceName, theme && { color: theme.text }, selected && theme && { color: theme.primary }]}>{place.name}</Text>
-                    <Text numberOfLines={1} style={[styles.savedPlaceChoiceMeta, theme && { color: theme.muted }]}>{place.category} · {place.area}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
+        {/* 이름이 첫째다. 예전에는 미리보기 카드와 저장한 장소 줄이 위를 차지해 정작
+            이름 칸이 넷째였고, 키보드가 올라오면 보이지도 않았다. 저장한 장소 고르기는
+            아래 「더 적기」로 내렸다. */}
         <DetailField
           label="일정 이름"
           required
@@ -3882,7 +3844,7 @@ function TripOverview({
           value={planType}
           onChange={setPlanType}
         />
-        <TimePickerField
+        <TimeRow
           label="시간 (선택)"
           value={planTime}
           onChange={setPlanTime}
@@ -3890,11 +3852,53 @@ function TripOverview({
           optional
         />
         <OptionalFormSection
-          label="장소와 지도"
-          summary={planPlace || planMapUrl ? "입력한 세부 정보가 있어요" : "필요할 때만 펼쳐 주세요"}
+          label="장소 · 지도 링크"
+          summary={[planPlace && "장소", planMapUrl && "지도"].filter(Boolean).join(" · ") || undefined}
           open={scheduleDetailsOpen}
           onToggle={() => setScheduleDetailsOpen((current) => !current)}
         >
+          {places.length > 0 && (
+            <View style={styles.savedPlacePicker}>
+              <View style={styles.savedPlacePickerHead}>
+                <View>
+                  <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>저장한 장소에서 선택</Text>
+                  <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>고르면 이름과 위치를 바로 채워드려요</Text>
+                </View>
+                {selectedPlanPlaceId && (
+                  <Pressable
+                    onPress={() => setSelectedPlanPlaceId(null)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="저장한 장소 선택 해제"
+                  >
+                    <Text style={[styles.savedPlaceClear, theme && { color: theme.primary }]}>선택 해제</Text>
+                  </Pressable>
+                )}
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedPlacePickerRow}>
+                {places.map((place) => {
+                  const selected = selectedPlanPlaceId === place.id;
+                  return (
+                    <Pressable
+                      key={place.id}
+                      onPress={() => chooseSavedPlace(place)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`${place.name}, ${place.category}`}
+                      style={[
+                        styles.savedPlaceChoice,
+                        theme && { backgroundColor: theme.surface, borderColor: theme.border },
+                        selected && theme && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
+                      ]}
+                    >
+                      <Text numberOfLines={1} style={[styles.savedPlaceChoiceName, theme && { color: theme.text }, selected && theme && { color: theme.primary }]}>{place.name}</Text>
+                      <Text numberOfLines={1} style={[styles.savedPlaceChoiceMeta, theme && { color: theme.muted }]}>{place.category} · {place.area}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
           <DetailField
             label="장소 (선택)"
             value={planPlace}
@@ -3946,28 +3950,8 @@ function TripOverview({
         onSubmit={addTransportation}
         onDestructive={deleteTransportation}
       >
-        <View
-          style={[
-            styles.transportFormPreview,
-            { backgroundColor: transportDirectionSoft, borderColor: `${transportDirectionColor}66` },
-          ]}
-        >
-          <Text style={[styles.transportFormOwner, { color: transportDirectionColor }]}>{transportOwner} · {transportDirection}</Text>
-          <View style={styles.transportPreviewRouteRow}>
-            <Text style={[styles.transportFormRoute, theme && { color: theme.text }]}>{transportDeparture || "출발지"} → {transportArrival || "도착지"}</Text>
-          </View>
-          <Text style={[styles.transportFormMeta, theme && { color: theme.muted }]}>{transportMethod} · {transportDepartureTime || "시간 미정"}</Text>
-        </View>
-        <OptionField
-          label="방향"
-          options={["가는 편", "오는 편"]}
-          value={transportDirection}
-          onChange={(value) => {
-            if (value !== transportDirection) switchTransportDirection();
-          }}
-        />
-        <OptionField label="교통수단" options={["KTX", "SRT", "무궁화호", "고속버스", "시외버스", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
-        <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
+        {/* 출발→도착이 첫째다. 미리보기 상자는 뺐다. 적은 것을 다시 보여 줄 뿐인데
+            시트 위 한 뼘을 먹어 키보드가 올라오면 입력 칸이 밀려났다. */}
         <PairedDetailField
           label="이동 경로"
           required
@@ -3981,40 +3965,21 @@ function TripOverview({
           accentColor={transportDirectionColor}
           accentSoft={transportDirectionSoft}
         />
-        <PairedTimePickerField
-          label="출발·도착 시간 (선택)"
-          leftValue={transportDepartureTime}
-          rightValue={transportArrivalTime}
-          onChangeLeft={setTransportDepartureTime}
-          onChangeRight={setTransportArrivalTime}
-        />
-        {/* 표값은 여기 적고 비용 탭에는 지출로 들어간다. 교통편에 따로 저장하지 않아
-            두 자리의 금액이 어긋날 일이 없다. */}
-        <DetailField
-          label="금액 (선택)"
-          value={transportAmount}
-          onChangeText={(text) => {
-            // 소수를 받는 통화는 "24." 처럼 아직 숫자가 안 된 상태를 지우지 않아야 이어 칠 수 있다.
-            if (transportUnit.fraction > 0 && /[.]\d{0,1}$/.test(text)) {
-              setTransportAmount(text.replace(/[^\d.]/g, ""));
-              return;
-            }
-            const amount = parseAmount(text, transportUnit.fraction);
-            setTransportAmount(amount ? amountText(amount, transportUnit.fraction) : "");
+        <OptionField
+          label="방향"
+          options={["가는 편", "오는 편"]}
+          value={transportDirection}
+          onChange={(value) => {
+            if (value !== transportDirection) switchTransportDirection();
           }}
-          placeholder="예: 32,000"
-          keyboardType="numeric"
         />
-        {(transportAmountNumber > 0 || linkedTransportExpense) && (
-          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
-            {linkedTransportExpense
-              ? "비용 탭의 지출과 연결돼 있어요. 금액을 바꾸면 그 지출도 같이 바뀌어요"
-              : "저장할 때 비용에도 지출로 추가할지 물어봐요"}
-          </Text>
-        )}
+        <OptionField label="교통수단" options={["KTX", "SRT", "무궁화호", "고속버스", "시외버스", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
+        <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
+        <TimeRow label="출발 시간 (선택)" value={transportDepartureTime} onChange={setTransportDepartureTime} fallback="09:00" optional />
+        <TimeRow label="도착 시간 (선택)" value={transportArrivalTime} onChange={setTransportArrivalTime} fallback="10:00" optional />
         <OptionalFormSection
-          label="타는 사람·예매·메모"
-          summary={`${transportOwner} · ${transportStatus}${transportShowInSchedule ? " · 일정 표시" : ""}${transportNote.trim() ? " · 메모" : ""}`}
+          label="타는 사람 · 예매 · 메모 · 금액"
+          summary={[transportNote.trim() && "메모", transportAmountNumber > 0 && "금액"].filter(Boolean).join(" · ") || undefined}
           open={transportDetailsOpen}
           onToggle={() => setTransportDetailsOpen((current) => !current)}
         >
@@ -4034,6 +3999,30 @@ function TripOverview({
             maxLength={2000}
             placeholder="예: 예매번호, 좌석, 타는 곳"
           />
+          {/* 표값은 여기 적고 비용 탭에는 지출로 들어간다. 교통편에 따로 저장하지 않아
+              두 자리의 금액이 어긋날 일이 없다. */}
+          <DetailField
+            label="금액 (선택)"
+            value={transportAmount}
+            onChangeText={(text) => {
+              // 소수를 받는 통화는 "24." 처럼 아직 숫자가 안 된 상태를 지우지 않아야 이어 칠 수 있다.
+              if (transportUnit.fraction > 0 && /[.]\d{0,1}$/.test(text)) {
+                setTransportAmount(text.replace(/[^\d.]/g, ""));
+                return;
+              }
+              const amount = parseAmount(text, transportUnit.fraction);
+              setTransportAmount(amount ? amountText(amount, transportUnit.fraction) : "");
+            }}
+            placeholder="예: 32,000"
+            keyboardType="numeric"
+          />
+          {(transportAmountNumber > 0 || linkedTransportExpense) && (
+            <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+              {linkedTransportExpense
+                ? "비용 탭의 지출과 연결돼 있어요. 금액을 바꾸면 그 지출도 같이 바뀌어요"
+                : "저장할 때 비용에도 지출로 추가할지 물어봐요"}
+            </Text>
+          )}
         </OptionalFormSection>
       </DetailSheet>
       <InfoPanel
@@ -4135,28 +4124,35 @@ function TripOverview({
       >
         <DetailField label="예약 이름" required value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 소나기식당" />
         <OptionField label="예약 날짜" options={dayOptions} value={reservationDraft.date} onChange={(date) => setReservationDraft((current) => ({ ...current, date }))} />
-        <TimePickerField label="예약 시간 (선택)" value={reservationDraft.time} onChange={(time) => setReservationDraft((current) => ({ ...current, time }))} fallback="19:00" optional />
-        <DetailField label="인원 (선택)" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
         <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))} />
-        <DetailField label="장소 (선택)" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
-        <DetailField
-          label="예약 링크 (선택)"
-          value={reservationDraft.bookingUrl ?? ""}
-          onChangeText={(bookingUrl) => setReservationDraft((current) => ({ ...current, bookingUrl }))}
-          placeholder="https://"
-          keyboardType="url"
-          autoCapitalize="none"
-          maxLength={2048}
-        />
-        {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
-          <Text style={styles.linkState}>https:// 로 시작하는 링크만 저장돼요</Text>
-        )}
-        <OptionField
-          label="여행 일정 표시"
-          options={["일정에도 표시", "예약 정보만 저장"]}
-          value={reservationDraft.showInSchedule ? "일정에도 표시" : "예약 정보만 저장"}
-          onChange={(value) => setReservationDraft((current) => ({ ...current, showInSchedule: value === "일정에도 표시" }))}
-        />
+        <TimeRow label="예약 시간 (선택)" value={reservationDraft.time} onChange={(time) => setReservationDraft((current) => ({ ...current, time }))} fallback="19:00" optional />
+        <OptionalFormSection
+          label="인원 · 장소 · 예약 링크 · 일정 표시"
+          summary={[reservationDraft.people, reservationDraft.place, reservationDraft.bookingUrl?.trim() && "링크"].filter(Boolean).join(" · ") || undefined}
+          open={reservationExtrasOpen}
+          onToggle={() => setReservationExtrasOpen((current) => !current)}
+        >
+          <DetailField label="인원 (선택)" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
+          <DetailField label="장소 (선택)" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
+          <DetailField
+            label="예약 링크 (선택)"
+            value={reservationDraft.bookingUrl ?? ""}
+            onChangeText={(bookingUrl) => setReservationDraft((current) => ({ ...current, bookingUrl }))}
+            placeholder="https://"
+            keyboardType="url"
+            autoCapitalize="none"
+            maxLength={2048}
+          />
+          {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
+            <Text style={styles.linkState}>https:// 로 시작하는 링크만 저장돼요</Text>
+          )}
+          <OptionField
+            label="여행 일정 표시"
+            options={["일정에도 표시", "예약 정보만 저장"]}
+            value={reservationDraft.showInSchedule ? "일정에도 표시" : "예약 정보만 저장"}
+            onChange={(value) => setReservationDraft((current) => ({ ...current, showInSchedule: value === "일정에도 표시" }))}
+          />
+        </OptionalFormSection>
       </DetailSheet>
       <DetailSheet
         visible={sheet === "stay"}
@@ -4187,13 +4183,20 @@ function TripOverview({
           onDateChange={(value) => updateStayDateTime("checkout", "date", value)}
           onTimeChange={(value) => updateStayDateTime("checkout", "time", value)}
         />
-        <DetailField label="주소 (선택)" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="예: 전주시 완산구 한옥길 12" />
         <OptionField
           label="여행 일정 표시"
           options={["체크인 일정 표시", "숙소 정보만 저장"]}
           value={stayDraft.showInSchedule === false ? "숙소 정보만 저장" : "체크인 일정 표시"}
           onChange={(value) => setStayDraft((current) => ({ ...current, showInSchedule: value === "체크인 일정 표시" }))}
         />
+        <OptionalFormSection
+          label="주소"
+          summary={stayDraft.address.trim() || undefined}
+          open={stayAddressOpen}
+          onToggle={() => setStayAddressOpen((current) => !current)}
+        >
+          <DetailField label="주소 (선택)" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="예: 전주시 완산구 한옥길 12" />
+        </OptionalFormSection>
         {stayPhotos.length > 0 && (
           <>
             <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>이 숙소의 사진</Text>
@@ -4562,7 +4565,7 @@ function Places({
     setMapUrl(place.mapUrl);
     setTagText(place.tags.join(", "));
     setMemo(place.memo ?? "");
-    setPlaceDetailsOpen(Boolean(place.address || place.mapUrl || place.tags.length));
+    setPlaceDetailsOpen(Boolean(place.memo?.trim() || place.address || place.mapUrl || place.tags.length));
     loadReservationDraft(place, withReservation);
     loadStayDraft(place);
     setAdding(true);
@@ -5210,7 +5213,7 @@ function Places({
           value={planningDay}
           onChange={setPlanningDay}
         />
-        <TimePickerField
+        <TimeRow
           label="시간 (선택)"
           value={planningTime}
           onChange={setPlanningTime}
@@ -5295,24 +5298,24 @@ function Places({
             </Text>
           </>
         )}
-        <DetailField
-          label="메모 (선택)"
-          value={memo}
-          onChangeText={setMemo}
-          multiline
-          maxLength={2000}
-          placeholder="예: 웨이팅 30분, 담에 가 보기"
-        />
         <OptionalFormSection
-          label="주소·태그·지도"
+          label="메모 · 주소 · 태그 · 지도"
           summary={
-            [address && "주소", draftTags.length && `태그 ${draftTags.length}개`, mapUrl && "지도"]
+            [memo.trim() && "메모", address && "주소", draftTags.length && `태그 ${draftTags.length}개`, mapUrl && "지도"]
               .filter(Boolean)
-              .join(" · ") || "필요할 때만 펼쳐 주세요"
+              .join(" · ") || undefined
           }
           open={placeDetailsOpen}
           onToggle={() => setPlaceDetailsOpen((current) => !current)}
         >
+          <DetailField
+            label="메모 (선택)"
+            value={memo}
+            onChangeText={setMemo}
+            multiline
+            maxLength={2000}
+            placeholder="예: 웨이팅 30분, 담에 가 보기"
+          />
           <View
             style={[
               styles.naverLinkGuide,
@@ -5456,7 +5459,7 @@ function Places({
             value={reservationDraft.date}
             onChange={(date) => setReservationDraft((current) => ({ ...current, date }))}
           />
-          <TimePickerField
+          <TimeRow
             label="예약 시간 (선택)"
             value={reservationDraft.time}
             onChange={(time) => setReservationDraft((current) => ({ ...current, time }))}
@@ -5518,12 +5521,6 @@ function Places({
         onClose={() => setImporting(false)}
         onSubmit={importPlaces}
       >
-        <OptionField
-          label="목록 반영 방법"
-          options={["교체", "추가"]}
-          value={importMode}
-          onChange={(value) => setImportMode(value as "교체" | "추가")}
-        />
         <DetailField
           label="붙여넣을 장소 목록"
           required
@@ -5531,6 +5528,12 @@ function Places({
           onChangeText={setImportText}
           multiline
           placeholder="한 줄에 장소 하나씩"
+        />
+        <OptionField
+          label="목록 반영 방법"
+          options={["교체", "추가"]}
+          value={importMode}
+          onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
           ‘교체’는 현재 목록을 삭제하고 새 목록으로 바꿔요. 붙여넣은 장소는
@@ -5582,6 +5585,8 @@ function Preparation({
   const [quantity, setQuantity] = useState("");
   const [owner, setOwner] = useState(PACKING_UNASSIGNED);
   const [tagText, setTagText] = useState("");
+  // 「수량 · 태그 더 적기」가 펼쳐져 있는지. 고칠 때 값이 있으면 켜서 연다.
+  const [packingExtrasOpen, setPackingExtrasOpen] = useState(false);
   // 「준비물 추가」 시트 안에서 내용을 갈아 끼우는 단계. iOS 는 창 위에 창을 못 쌓아서
   // 지난 여행 목록을 새 창이 아니라 이 시트 안에 보인다.
   const [packingSheetStep, setPackingSheetStep] = useState<"직접" | "지난 여행">("직접");
@@ -5812,6 +5817,7 @@ function Preparation({
     setQuantity(item.quantity);
     setOwner(item.owner);
     setTagText(packingTags(item).join(", "));
+    setPackingExtrasOpen(Boolean(item.quantity.trim() || packingTags(item).length));
     setAdding(true);
   };
   const closePackingForm = () => {
@@ -5823,6 +5829,7 @@ function Preparation({
     setQuantity("");
     setTagText("");
     setOwner(PACKING_UNASSIGNED);
+    setPackingExtrasOpen(false);
   };
   // 체크해 둔 지난 여행 준비물을 한꺼번에 복사한다. 완료 표시는 목록 밖에 있어 저절로
   // 풀리고, 담당은 이번 여행 참가자만 남는다(`planPackingImport`).
@@ -6776,150 +6783,118 @@ function Preparation({
             이미 있어요 · {duplicateLines(packingHits).join(", ")}
           </Text>
         )}
-        <DetailField
-          label="수량 (선택)"
-          value={quantity}
-          onChangeText={setQuantity}
-          placeholder="예: 각 2개, 250g"
+        <OptionField
+          label="담당 (선택)"
+          options={ownerSections}
+          value={owner}
+          onChange={setOwner}
         />
-        <View style={styles.detailField}>
-          <Text
-            style={[
-              styles.detailFieldLabel,
-              styles.selectorLabel,
-              theme && { color: theme.muted },
-            ]}
-          >
-            담당 (선택)
-          </Text>
-          <View style={styles.packingAssigneeOptions}>
-            {ownerSections.map((ownerName) => (
-              <Pressable
-                accessibilityRole="button"
-                key={ownerName}
-                onPress={() => setOwner(ownerName)}
-                style={[
-                  styles.packingAssigneeOption,
-                  theme && {
-                    backgroundColor:
-                      owner === ownerName
-                        ? theme.primarySoft
-                        : `${theme.primary}10`,
-                    borderColor:
-                      owner === ownerName
-                        ? theme.primary
-                        : `${theme.primary}45`,
-                  },
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.packingAssigneeOptionText,
-                    theme && {
-                      color: owner === ownerName ? theme.primary : theme.text,
-                    },
-                  ]}
-                >
-                  {ownerName}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <View style={styles.tagEditor}>
-          <Text
-            style={[
-              styles.detailFieldLabel,
-              styles.selectorLabel,
-              theme && { color: theme.muted },
-            ]}
-          >
-            태그
-          </Text>
-          <Text style={[styles.placeRecommendLabel, theme && { color: theme.muted }]}>추천 태그</Text>
-          <View style={styles.tagSuggestions}>
-            {["전자기기", "세면", "의류", "숙소", "출발 전"].map((tag) => {
-              const selected = draftPackingTags.includes(tag);
-              return (
+        <OptionalFormSection
+          label="수량 · 태그"
+          summary={[quantity.trim(), draftPackingTags.length && `태그 ${draftPackingTags.length}개`].filter(Boolean).join(" · ") || undefined}
+          open={packingExtrasOpen}
+          onToggle={() => setPackingExtrasOpen((current) => !current)}
+        >
+          <DetailField
+            label="수량 (선택)"
+            value={quantity}
+            onChangeText={setQuantity}
+            placeholder="예: 각 2개, 250g"
+          />
+          <View style={styles.tagEditor}>
+            <Text
+              style={[
+                styles.detailFieldLabel,
+                styles.selectorLabel,
+                theme && { color: theme.muted },
+              ]}
+            >
+              태그
+            </Text>
+            <Text style={[styles.placeRecommendLabel, theme && { color: theme.muted }]}>추천 태그</Text>
+            <View style={styles.tagSuggestions}>
+              {["전자기기", "세면", "의류", "숙소", "출발 전"].map((tag) => {
+                const selected = draftPackingTags.includes(tag);
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    key={tag}
+                    onPress={() =>
+                      setTagText(
+                        selected
+                          ? draftPackingTags
+                              .filter((item) => item !== tag)
+                              .join(", ")
+                          : [...draftPackingTags, tag].join(", "),
+                      )
+                    }
+                    style={[
+                      styles.tagSuggestion,
+                      selected && styles.tagSuggestionActive,
+                      selected &&
+                        theme && {
+                          backgroundColor: theme.primarySoft,
+                          borderColor: theme.primary,
+                        },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.tagSuggestionText,
+                        selected && styles.tagSuggestionTextActive,
+                        selected && theme && { color: theme.primary },
+                      ]}
+                    >
+                      # {tag}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <TextInput
+              value={tagText}
+              onChangeText={setTagText}
+              placeholder="쉼표로 구분 · 예: 전자기기, 출발 전, 숙소"
+              placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+              style={[
+                styles.tagInput,
+                theme && {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+            />
+            <View style={styles.draftTags}>
+              {draftPackingTags.map((tag) => (
                 <Pressable
                   accessibilityRole="button"
                   key={tag}
                   onPress={() =>
                     setTagText(
-                      selected
-                        ? draftPackingTags
-                            .filter((item) => item !== tag)
-                            .join(", ")
-                        : [...draftPackingTags, tag].join(", "),
+                      draftPackingTags
+                        .filter((currentTag) => currentTag !== tag)
+                        .join(", "),
                     )
                   }
                   style={[
-                    styles.tagSuggestion,
-                    selected && styles.tagSuggestionActive,
-                    selected &&
-                      theme && {
-                        backgroundColor: theme.primarySoft,
-                        borderColor: theme.primary,
-                      },
+                    styles.draftTag,
+                    theme && { backgroundColor: theme.primarySoft },
                   ]}
                 >
                   <Text
                     style={[
-                      styles.tagSuggestionText,
-                      selected && styles.tagSuggestionTextActive,
-                      selected && theme && { color: theme.primary },
+                      styles.draftTagText,
+                      theme && { color: theme.primary },
                     ]}
                   >
-                    # {tag}
+                    # {tag} ×
                   </Text>
                 </Pressable>
-              );
-            })}
+              ))}
+            </View>
           </View>
-          <TextInput
-            value={tagText}
-            onChangeText={setTagText}
-            placeholder="쉼표로 구분 · 예: 전자기기, 출발 전, 숙소"
-            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-            style={[
-              styles.tagInput,
-              theme && {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                color: theme.text,
-              },
-            ]}
-          />
-          <View style={styles.draftTags}>
-            {draftPackingTags.map((tag) => (
-              <Pressable
-                accessibilityRole="button"
-                key={tag}
-                onPress={() =>
-                  setTagText(
-                    draftPackingTags
-                      .filter((currentTag) => currentTag !== tag)
-                      .join(", "),
-                  )
-                }
-                style={[
-                  styles.draftTag,
-                  theme && { backgroundColor: theme.primarySoft },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.draftTagText,
-                    theme && { color: theme.primary },
-                  ]}
-                >
-                  # {tag} ×
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        </OptionalFormSection>
         {recipes.some((recipe) => recipe.ingredients.length > 0) && (
           <View style={[styles.cookingImportCallout, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
             <View style={styles.cookingImportCopy}>
@@ -7056,12 +7031,6 @@ function Preparation({
         onClose={() => setImporting(false)}
         onSubmit={importPacking}
       >
-        <OptionField
-          label="목록 반영 방법"
-          options={["교체", "추가"]}
-          value={importMode}
-          onChange={(value) => setImportMode(value as "교체" | "추가")}
-        />
         <DetailField
           label="붙여넣을 준비물 목록"
           required
@@ -7069,6 +7038,12 @@ function Preparation({
           onChangeText={setImportText}
           multiline
           placeholder="한 줄에 준비물 하나씩"
+        />
+        <OptionField
+          label="목록 반영 방법"
+          options={["교체", "추가"]}
+          value={importMode}
+          onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
           담당: {ownerSections.join("·")} / 태그는 #으로 여러 개 적을 수 있어요
@@ -7352,6 +7327,9 @@ function Cooking({
   const [recipeName, setRecipeName] = useState("");
   const [recipeNote, setRecipeNote] = useState("");
   const [recipeUrl, setRecipeUrl] = useState("");
+  // 재료·요리 시트의 「더 적기」가 펼쳐져 있는지. 고칠 때 값이 있으면 켜서 연다.
+  const [ingredientGroupOpen, setIngredientGroupOpen] = useState(false);
+  const [recipeExtrasOpen, setRecipeExtrasOpen] = useState(false);
   // 「요리 추가」 시트 안에서 내용을 갈아 끼우는 단계. iOS 는 창 위에 창을 못 쌓아서
   // 지난 여행 목록을 새 창이 아니라 이 시트 안에 보인다.
   const [recipeSheetStep, setRecipeSheetStep] = useState<"직접" | "지난 여행">("직접");
@@ -7454,6 +7432,7 @@ function Cooking({
     setQuantity(item.quantity);
     setGroup(item.group);
     setOwner(item.owner);
+    setIngredientGroupOpen(Boolean(item.group.trim()) && item.group !== "기본");
     setAddingIngredient(true);
   };
   const closeIngredientSheet = () => {
@@ -7463,6 +7442,7 @@ function Cooking({
     setQuantity("");
     setGroup("기본");
     setOwner(COOKING_UNASSIGNED);
+    setIngredientGroupOpen(false);
   };
   const addRecipe = () => {
     if (!recipeFormValid) return;
@@ -7514,6 +7494,7 @@ function Cooking({
     setRecipeName(activeRecipe.name);
     setRecipeNote(요리메모_읽기(activeRecipe.note));
     setRecipeUrl(activeRecipe.url || "");
+    setRecipeExtrasOpen(Boolean(요리메모_읽기(activeRecipe.note) || activeRecipe.url));
     setEditingRecipe(true);
     setAddingRecipe(true);
   };
@@ -7524,6 +7505,7 @@ function Cooking({
     setRecipeName("");
     setRecipeNote("");
     setRecipeUrl("");
+    setRecipeExtrasOpen(false);
   };
   // 지난 여행의 요리 하나를 재료까지 그대로 복사한다. 재료의 준비 완료는 목록 밖에
   // 있어 저절로 풀리고, 담당은 이번 여행 참가자만 남는다(`planRecipeImport`).
@@ -8239,70 +8221,77 @@ function Cooking({
           onChangeText={setQuantity}
           placeholder="예: 1봉"
         />
-        <View style={styles.tagEditor}>
-          <Text
-            style={[
-              styles.detailFieldLabel,
-              styles.selectorLabel,
-              theme && { color: theme.muted },
-            ]}
-          >
-            분류 (선택)
-          </Text>
-          <View style={styles.tagSuggestions}>
-            {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
-              (category) => {
-                const selected = group === category;
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    key={category}
-                    onPress={() => setGroup(category)}
-                    style={[
-                      styles.tagSuggestion,
-                      selected && styles.tagSuggestionActive,
-                      selected &&
-                        theme && {
-                          backgroundColor: theme.primarySoft,
-                          borderColor: theme.primary,
-                        },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.tagSuggestionText,
-                        selected && styles.tagSuggestionTextActive,
-                        selected && theme && { color: theme.primary },
-                      ]}
-                    >
-                      {category}
-                    </Text>
-                  </Pressable>
-                );
-              },
-            )}
-          </View>
-          <TextInput
-            value={group}
-            onChangeText={setGroup}
-            placeholder="직접 입력 · 예: 유제품"
-            placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-            style={[
-              styles.tagInput,
-              theme && {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                color: theme.text,
-              },
-            ]}
-          />
-        </View>
         <OptionField
           label="담당 (선택)"
           options={cookingOwnerOptions(participants)}
           value={owner}
           onChange={setOwner}
         />
+        <OptionalFormSection
+          label="분류"
+          summary={group.trim() && group !== "기본" ? group : undefined}
+          open={ingredientGroupOpen}
+          onToggle={() => setIngredientGroupOpen((current) => !current)}
+        >
+          <View style={styles.tagEditor}>
+            <Text
+              style={[
+                styles.detailFieldLabel,
+                styles.selectorLabel,
+                theme && { color: theme.muted },
+              ]}
+            >
+              분류 (선택)
+            </Text>
+            <View style={styles.tagSuggestions}>
+              {["채소", "고기", "해산물", "양념", "소스", "토핑"].map(
+                (category) => {
+                  const selected = group === category;
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      key={category}
+                      onPress={() => setGroup(category)}
+                      style={[
+                        styles.tagSuggestion,
+                        selected && styles.tagSuggestionActive,
+                        selected &&
+                          theme && {
+                            backgroundColor: theme.primarySoft,
+                            borderColor: theme.primary,
+                          },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.tagSuggestionText,
+                          selected && styles.tagSuggestionTextActive,
+                          selected && theme && { color: theme.primary },
+                        ]}
+                      >
+                        {category}
+                      </Text>
+                    </Pressable>
+                  );
+                },
+              )}
+            </View>
+            <TextInput
+              value={group}
+              onChangeText={setGroup}
+              placeholder="직접 입력 · 예: 유제품"
+              placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+              style={[
+                styles.tagInput,
+                theme && {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+            />
+          </View>
+        </OptionalFormSection>
       </DetailSheet>
       <DetailSheet
         visible={addingRecipe}
@@ -8378,18 +8367,25 @@ function Cooking({
           onChangeText={setRecipeName}
           placeholder="예: 김치볶음밥"
         />
-        <DetailField
-          label="메모 (선택)"
-          value={recipeNote}
-          onChangeText={setRecipeNote}
-          placeholder="예: 둘째 날 아침 · 남은 재료 활용"
-        />
-        <DetailField
-          label="레시피 링크 (선택)"
-          value={recipeUrl}
-          onChangeText={setRecipeUrl}
-          placeholder="예: https://youtu.be/…"
-        />
+        <OptionalFormSection
+          label="메모 · 레시피 링크"
+          summary={[recipeNote.trim() && "메모", recipeUrl.trim() && "링크"].filter(Boolean).join(" · ") || undefined}
+          open={recipeExtrasOpen}
+          onToggle={() => setRecipeExtrasOpen((current) => !current)}
+        >
+          <DetailField
+            label="메모 (선택)"
+            value={recipeNote}
+            onChangeText={setRecipeNote}
+            placeholder="예: 둘째 날 아침 · 남은 재료 활용"
+          />
+          <DetailField
+            label="레시피 링크 (선택)"
+            value={recipeUrl}
+            onChangeText={setRecipeUrl}
+            placeholder="예: https://youtu.be/…"
+          />
+        </OptionalFormSection>
         </>)}
       </DetailSheet>
       <DetailSheet
@@ -8483,12 +8479,6 @@ function Cooking({
         onClose={() => setImporting(false)}
         onSubmit={importCooking}
       >
-        <OptionField
-          label="목록 반영 방법"
-          options={["교체", "추가"]}
-          value={importMode}
-          onChange={(value) => setImportMode(value as "교체" | "추가")}
-        />
         <DetailField
           label="붙여넣을 재료 목록"
           required
@@ -8496,6 +8486,12 @@ function Cooking({
           onChangeText={setImportText}
           multiline
           placeholder="한 줄에 재료 하나씩"
+        />
+        <OptionField
+          label="목록 반영 방법"
+          options={["교체", "추가"]}
+          value={importMode}
+          onChange={(value) => setImportMode(value as "교체" | "추가")}
         />
       </DetailSheet>
     </View>
@@ -8675,6 +8671,7 @@ function Memories({
   const [diaryWriting, setDiaryWriting] = useState(false);
   const [diaryTitle, setDiaryTitle] = useState("");
   const [diaryBody, setDiaryBody] = useState("");
+  const [diaryTitleOpen, setDiaryTitleOpen] = useState(false);
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
   // 기념 카드에 올릴 사진. 색과 설명만 넘긴다(`TripCards.tsx` 가 나머지를 한다).
   const cardPhotos = useMemo<CardPhoto[]>(
@@ -8999,12 +8996,14 @@ function Memories({
     setEditingDiaryId(null);
     setDiaryTitle("");
     setDiaryBody("");
+    setDiaryTitleOpen(false);
     setDiaryWriting(true);
   };
   const openDiaryEdit = (diary: TravelDiary) => {
     setEditingDiaryId(diary.id);
     setDiaryTitle(diary.title);
     setDiaryBody(diary.body);
+    setDiaryTitleOpen(Boolean(diary.title.trim()));
     setDiaryWriting(true);
   };
   const saveDiary = () => {
@@ -9350,8 +9349,15 @@ function Memories({
         }}
         onSubmit={saveDiary}
       >
-        <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
         <DetailField label="여행 이야기" required value={diaryBody} onChangeText={setDiaryBody} placeholder="예: 오늘 가장 기억에 남는 순간은…" multiline />
+        <OptionalFormSection
+          label="제목"
+          summary={diaryTitle.trim() || undefined}
+          open={diaryTitleOpen}
+          onToggle={() => setDiaryTitleOpen((current) => !current)}
+        >
+          <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
+        </OptionalFormSection>
         {reportSpaceId && editingDiaryId && isServerId(editingDiaryId) && (
           <ReportLink key={editingDiaryId} spaceId={reportSpaceId} targetType="diary" targetId={editingDiaryId} label="이 일기 신고하기" />
         )}
@@ -9579,7 +9585,6 @@ function Money({
   const [draftExcluded, setDraftExcluded] = useState(false);
   // 누가 내고 누구 몫인지, 그리고 영수증과 메모는 대개 기본값 그대로 둔다.
   // 늘 펼쳐 두면 식당 앞에서 적을 때 제출 단추까지 다섯 줄을 지나야 한다.
-  const [payerOpen, setPayerOpen] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
   // 시트 안에서 고른 것은 저장을 눌러야 여행에 들어간다. 고르는 즉시 바꾸면
@@ -9827,20 +9832,6 @@ function Money({
       : draftSplitMode === "금액" && draftAmountLeft !== 0
         ? (draftAmountLeft > 0 ? `${show(draftAmountLeft)}이 남았어요` : `${show(-draftAmountLeft)}을 넘었어요`)
         : undefined;
-  const draftShareSummary = (() => {
-    const paid = `${draftPayer}${josa(draftPayer, "이", "가")}`;
-    const picked = Object.keys(draftShares ?? {});
-    if (draftSplitMode === "본인") return `${draftPayer} 본인 부담이에요`;
-    if (!picked.length) {
-      return participants.length > 1
-        ? `${paid} 내고 ${participants.length}명이 똑같이 나눠요`
-        : `${paid} 냈어요`;
-    }
-    if (draftSplitMode === "금액") return `${paid} 내고 ${picked.length}명이 적은 만큼 나눠요`;
-    if (picked.length === 1) return `${paid} 내고 ${picked[0]} 몫이에요`;
-    const last = picked[picked.length - 1];
-    return `${paid} 내고 ${picked.join(" · ")}${josa(last, "이", "가")} 똑같이 나눠요`;
-  })();
   const draftPayerHint = participants.length > 1
     ? `${quickPayer}${josa(quickPayer, "이", "가")} 내고 ${participants.length}명이 똑같이 나눠요`
     : `${quickPayer}${josa(quickPayer, "이", "가")} 냈어요`;
@@ -9897,7 +9888,6 @@ function Money({
     setDraftMemo("");
     setDraftReceipt("");
     setDraftExcluded(false);
-    setPayerOpen(false);
     setExtrasOpen(false);
     setSheetOpen(true);
   };
@@ -9913,7 +9903,6 @@ function Money({
     setDraftReceipt(item.receiptUri ?? "");
     setDraftExcluded(Boolean(item.excluded));
     // 기본값과 다른 지출을 고칠 때는 그 자리를 바로 보여준다.
-    setPayerOpen(Object.keys(item.shares ?? {}).length > 0);
     setExtrasOpen(Boolean(item.memo || item.receiptUri));
     setSheetOpen(true);
   };
@@ -10572,142 +10561,116 @@ function Money({
           onChange={(value) => setDraftCategory(value as ExpenseCategory)}
         />
         <OptionField label="날짜" options={dayOptions} value={draftDay} onChange={setDraftDay} />
-        <OptionalFormSection
-          label="누가 내고 누구 몫인지"
-          summary={draftShareSummary}
-          open={payerOpen}
-          onToggle={() => setPayerOpen((current) => !current)}
-        >
-          <OptionField
-            label="낸 사람"
-            options={participants}
-            value={draftPayer}
-            onChange={setDraftPayer}
+        <OptionField
+          label="낸 사람"
+          options={participants}
+          value={draftPayer}
+          onChange={setDraftPayer}
+        />
+        <View style={styles.shareField}>
+          <View style={styles.fieldLabelRow}>
+            <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
+            <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>누구 몫</Text>
+          </View>
+          {/* 방식을 먼저 고르고 그 방식에 맞는 것만 보여 준다. 사람들이
+              실제로 하는 말이 "내가 낼게", "똑같이 나눠", "쟤는 빼고", "얘는 얼마" 라서
+              그 넷을 그대로 뒀다. 비율이 아니라 금액이다. 본인 부담이 없던 때는
+              「금액 직접」에 자기 이름만 채워 넣어야 했다. */}
+          <Segment
+            theme={theme}
+            label="누구 몫"
+            options={[
+              { value: "본인", label: "본인 부담" },
+              { value: "균등", label: "똑같이" },
+              { value: "일부", label: "일부만" },
+              { value: "금액", label: "금액 직접" },
+            ]}
+            value={draftSplitMode}
+            onChange={(mode) => setDraftSplitMode(mode as typeof draftSplitMode)}
+            style={styles.splitModeSegment}
           />
-          <View style={styles.shareField}>
-            <View style={styles.fieldLabelRow}>
-              <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
-              <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>누구 몫</Text>
-            </View>
-            {/* 방식을 먼저 고르고 그 방식에 맞는 것만 보여 준다. 사람들이
-                실제로 하는 말이 "내가 낼게", "똑같이 나눠", "쟤는 빼고", "얘는 얼마" 라서
-                그 넷을 그대로 뒀다. 비율이 아니라 금액이다. 본인 부담이 없던 때는
-                「금액 직접」에 자기 이름만 채워 넣어야 했다. */}
-            <View style={styles.splitModes}>
-              {(["본인", "균등", "일부", "금액"] as const).map((mode) => {
-                const active = draftSplitMode === mode;
-                const label = mode === "본인" ? "본인 부담" : mode === "균등" ? "똑같이" : mode === "일부" ? "일부만" : "금액 직접";
+          {draftSplitMode === "본인" && (
+            <Text style={[styles.splitEven, theme && { color: theme.muted }]}>
+              {draftPayer}{josa(draftPayer, "이", "가")} 혼자 부담해요. 다른 사람에게 청구하지 않아요
+            </Text>
+          )}
+          {draftSplitMode === "균등" && (
+            <Text style={[styles.splitEven, theme && { color: theme.muted }]}>
+              {participants.length}명이 {amountNumber > 0 ? `${show(amountNumber / participants.length)}씩` : "똑같이"} 나눠요
+            </Text>
+          )}
+          {draftSplitMode === "일부" && (
+            <View style={styles.splitPeople}>
+              {participants.map((person) => {
+                const joined = draftPeople.includes(person);
                 return (
                   <Pressable
-                    key={mode}
-                    onPress={() => setDraftSplitMode(mode)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={label}
+                    key={person}
+                    onPress={() => setDraftPeople((current) => (
+                      current.includes(person)
+                        ? current.filter((name) => name !== person)
+                        : participants.filter((name) => current.includes(name) || name === person)
+                    ))}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: joined }}
+                    accessibilityLabel={`${person} 몫`}
                     style={({ pressed }) => [
-                      styles.splitMode,
-                      theme && { borderColor: active ? theme.primary : theme.border, backgroundColor: active ? theme.primarySoft : theme.surface },
+                      styles.splitPerson,
+                      theme && { borderColor: joined ? theme.primary : theme.border, backgroundColor: joined ? theme.primarySoft : theme.surface },
                       pressed && styles.controlPressed,
                     ]}
                   >
-                    <Text style={[styles.splitModeText, theme && { color: active ? theme.primary : theme.muted }]}>
-                      {label}
+                    {joined && <Glyph name="check" size={13} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
+                    <Text numberOfLines={1} style={[styles.splitPersonText, theme && { color: joined ? theme.primary : theme.muted }]}>
+                      {person}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
-            {draftSplitMode === "본인" && (
-              <Text style={[styles.splitEven, theme && { color: theme.muted }]}>
-                {draftPayer}{josa(draftPayer, "이", "가")} 혼자 부담해요. 다른 사람에게 청구하지 않아요
+          )}
+          {draftSplitMode === "금액" && (
+            <View style={styles.splitAmountRows}>
+              {participants.map((person) => (
+                <View key={person} style={styles.splitAmountRow}>
+                  <Text numberOfLines={1} style={[styles.splitAmountName, theme && { color: theme.text }]}>{person}</Text>
+                  <TextInput
+                    value={draftAmounts[person] ?? ""}
+                    onChangeText={(text) => setDraftAmounts((current) => ({
+                      ...current,
+                      [person]: amountText(parseAmount(text, unit.fraction), unit.fraction),
+                    }))}
+                    accessibilityLabel={`${person} 몫 금액`}
+                    placeholder="0"
+                    placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+                    keyboardType="numeric"
+                    style={[
+                      styles.splitAmountInput,
+                      theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
+                    ]}
+                  />
+                </View>
+              ))}
+              {/* 남은 돈이 0 이 아니면 저장을 막는다. 합이 안 맞으면 정산이 틀어진다. */}
+              <Text
+                accessibilityLiveRegion="polite"
+                style={[
+                  styles.splitLeft,
+                  theme && { color: draftAmountLeft === 0 ? theme.muted : (theme.dark ? statusColor.danger.dark : statusColor.danger.light) },
+                ]}
+              >
+                {draftAmountLeft === 0
+                  ? "딱 맞아요"
+                  : draftAmountLeft > 0
+                    ? `${show(draftAmountLeft)} 남았어요`
+                    : `${show(-draftAmountLeft)} 넘었어요`}
               </Text>
-            )}
-            {draftSplitMode === "균등" && (
-              <Text style={[styles.splitEven, theme && { color: theme.muted }]}>
-                {participants.length}명이 {amountNumber > 0 ? `${show(amountNumber / participants.length)}씩` : "똑같이"} 나눠요
-              </Text>
-            )}
-            {draftSplitMode === "일부" && (
-              <View style={styles.splitPeople}>
-                {participants.map((person) => {
-                  const joined = draftPeople.includes(person);
-                  return (
-                    <Pressable
-                      key={person}
-                      onPress={() => setDraftPeople((current) => (
-                        current.includes(person)
-                          ? current.filter((name) => name !== person)
-                          : participants.filter((name) => current.includes(name) || name === person)
-                      ))}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: joined }}
-                      accessibilityLabel={`${person} 몫`}
-                      style={({ pressed }) => [
-                        styles.splitPerson,
-                        theme && { borderColor: joined ? theme.primary : theme.border, backgroundColor: joined ? theme.primarySoft : theme.surface },
-                        pressed && styles.controlPressed,
-                      ]}
-                    >
-                      {joined && <Glyph name="check" size={13} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
-                      <Text numberOfLines={1} style={[styles.splitPersonText, theme && { color: joined ? theme.primary : theme.muted }]}>
-                        {person}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-            {draftSplitMode === "금액" && (
-              <View style={styles.splitAmountRows}>
-                {participants.map((person) => (
-                  <View key={person} style={styles.splitAmountRow}>
-                    <Text numberOfLines={1} style={[styles.splitAmountName, theme && { color: theme.text }]}>{person}</Text>
-                    <TextInput
-                      value={draftAmounts[person] ?? ""}
-                      onChangeText={(text) => setDraftAmounts((current) => ({
-                        ...current,
-                        [person]: amountText(parseAmount(text, unit.fraction), unit.fraction),
-                      }))}
-                      accessibilityLabel={`${person} 몫 금액`}
-                      placeholder="0"
-                      placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-                      keyboardType="numeric"
-                      style={[
-                        styles.splitAmountInput,
-                        theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
-                      ]}
-                    />
-                  </View>
-                ))}
-                {/* 남은 돈이 0 이 아니면 저장을 막는다. 합이 안 맞으면 정산이 틀어진다. */}
-                <Text
-                  accessibilityLiveRegion="polite"
-                  style={[
-                    styles.splitLeft,
-                    theme && { color: draftAmountLeft === 0 ? theme.muted : (theme.dark ? statusColor.danger.dark : statusColor.danger.light) },
-                  ]}
-                >
-                  {draftAmountLeft === 0
-                    ? "딱 맞아요"
-                    : draftAmountLeft > 0
-                      ? `${show(draftAmountLeft)} 남았어요`
-                      : `${show(-draftAmountLeft)} 넘었어요`}
-                </Text>
-              </View>
-            )}
-          </View>
-        </OptionalFormSection>
+            </View>
+          )}
+        </View>
         <OptionalFormSection
-          label="영수증과 메모"
-          summary={
-            draftReceipt && draftMemo.trim()
-              ? "영수증과 메모가 있어요"
-              : draftReceipt
-                ? "영수증이 있어요"
-                : draftMemo.trim()
-                  ? "메모가 있어요"
-                  : "필요할 때만 펼쳐 주세요"
-          }
+          label="메모 · 영수증"
+          summary={[draftMemo.trim() && "메모", draftReceipt && "영수증"].filter(Boolean).join(" · ") || undefined}
           open={extrasOpen}
           onToggle={() => setExtrasOpen((current) => !current)}
         >
@@ -11390,6 +11353,13 @@ function DetailField({
   );
 }
 
+/**
+ * 매번 쓰지는 않는 칸들을 한 줄 아래로 접는다.
+ *
+ * 닫혀 있으면 「＋ 장소 · 메모 더 적기」 한 줄뿐이다. 시트가 열릴 때 그 칸에 값이
+ * 있으면(고치는 중) 부르는 쪽이 `open` 을 켜서 연다. 필수 칸은 여기 넣지 않는다.
+ * 예약처럼 펴는 것이 곧 「있어요」 인 칸은 `switchLabel` 을 주면 상자 모양 그대로다.
+ */
 function OptionalFormSection({
   label,
   summary,
@@ -11398,8 +11368,10 @@ function OptionalFormSection({
   switchLabel,
   children,
 }: {
+  /** 안에 든 칸 이름을 「장소 · 메모」처럼 가운뎃점으로 잇는다. 「더 적기」는 여기서 붙인다. */
   label: string;
-  summary: string;
+  /** 접힌 채로 값이 있을 때 줄 끝에 흐리게 보이는 요약. 없으면 비운다. */
+  summary?: string;
   open: boolean;
   onToggle: () => void;
   /**
@@ -11414,6 +11386,28 @@ function OptionalFormSection({
   const theme = useContext(DetailThemeContext);
   // 보기만 하는 시트에서는 펼칠 수 없으니 처음부터 펼쳐 둔다.
   const open = useContext(DetailEditableContext) ? openProp : true;
+  if (!switchLabel) {
+    return (
+      <View style={styles.fold}>
+        <Pressable
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={`${label} ${open ? "접기" : "더 적기"}`}
+          style={({ pressed }) => [styles.foldRow, pressed && styles.controlPressed]}
+        >
+          <Glyph name={open ? "minus" : "plus"} size={14} color={theme?.primary ?? "#6556D8"} />
+          <Text style={[styles.foldText, theme && { color: theme.primary }]}>
+            {open ? `${label} 접기` : `${label} 더 적기`}
+          </Text>
+          {!open && summary ? (
+            <Text numberOfLines={1} style={[styles.foldSummary, theme && { color: theme.muted }]}>{summary}</Text>
+          ) : null}
+        </Pressable>
+        {open && <View style={styles.foldBody}>{children}</View>}
+      </View>
+    );
+  }
   return (
     <View
       style={[
@@ -11433,19 +11427,14 @@ function OptionalFormSection({
       >
         <View style={styles.optionalSectionCopy}>
           <Text style={[styles.optionalSectionLabel, theme && { color: theme.text }]}>{label}</Text>
-          <Text numberOfLines={1} style={[styles.optionalSectionSummary, theme && { color: theme.muted }]}>{summary}</Text>
+          {summary ? (
+            <Text numberOfLines={1} style={[styles.optionalSectionSummary, theme && { color: theme.muted }]}>{summary}</Text>
+          ) : null}
         </View>
-        <View
-          style={[
-            switchLabel ? styles.optionalSectionSwitch : styles.optionalSectionAction,
-            theme && { backgroundColor: theme.surface },
-          ]}
-        >
-          {switchLabel && (
-            <Text numberOfLines={1} style={[styles.optionalSectionSwitchText, theme && { color: theme.primary }]}>
-              {switchLabel(open)}
-            </Text>
-          )}
+        <View style={[styles.optionalSectionSwitch, theme && { backgroundColor: theme.surface }]}>
+          <Text numberOfLines={1} style={[styles.optionalSectionSwitchText, theme && { color: theme.primary }]}>
+            {switchLabel(open)}
+          </Text>
           <Glyph name={open ? "minus" : "plus"} size={16} color={theme?.primary ?? "#6556D8"} />
         </View>
       </Pressable>
@@ -11467,6 +11456,89 @@ const timeAsDate = (value: string, fallback: string) => {
 const formatClockTime = (date: Date) =>
   `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
+/** 안드로이드의 시·분 돌리기 창. 큰 시간 버튼과 한 줄짜리 시간 행이 같이 쓴다. */
+const openAndroidClock = ({
+  value,
+  fallback,
+  optional,
+  title,
+  onChange,
+}: {
+  value: string;
+  fallback: string;
+  optional: boolean;
+  title: string;
+  onChange: (value: string) => void;
+}) => {
+  if (Platform.OS !== "android") return;
+  DateTimePickerAndroid.open({
+    value: timeAsDate(value, fallback),
+    mode: "time",
+    display: "spinner",
+    is24Hour: true,
+    title,
+    positiveButton: { label: "확인" },
+    negativeButton: { label: "취소" },
+    neutralButton: optional ? { label: "시간 미정" } : undefined,
+    onValueChange: (_, date) => onChange(formatClockTime(date)),
+    onNeutralButtonPress: optional ? () => onChange("") : undefined,
+  });
+};
+
+/**
+ * 「시간  11:00 ›」 꼴의 한 줄. 라벨이 왼쪽, 값이 오른쪽이다.
+ *
+ * 시간처럼 값 하나만 적는 칸은 라벨 줄 + 입력 상자 두 층(약 80px)보다 이 한 줄이
+ * 낮다. 주 입력 아래에 세그먼트 두 줄과 이 줄까지 놓아도 키보드가 올라온 시트에
+ * 들어간다. 안드로이드는 눌러서 돌리는 창을 열고, 그 밖에서는 자리에서 친다.
+ */
+function TimeRow({
+  label,
+  value,
+  onChange,
+  fallback,
+  optional = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  fallback: string;
+  optional?: boolean;
+}) {
+  const theme = useContext(DetailThemeContext);
+  return (
+    <View style={[styles.valueRow, theme && { borderBottomColor: theme.border }]}>
+      <Text style={[styles.valueRowLabel, theme && { color: theme.text }]}>{label}</Text>
+      {Platform.OS === "android" ? (
+        <Pressable
+          onPress={() => openAndroidClock({ value, fallback, optional, title: label, onChange })}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}, ${value || "시간 미정"}`}
+          accessibilityHint="위아래로 돌려 시와 분을 골라요"
+          style={({ pressed }) => [styles.valueRowAction, pressed && styles.controlPressed]}
+        >
+          <Text style={[styles.valueRowValue, theme && { color: value ? theme.text : theme.muted }]}>
+            {value || "시간 미정"}
+          </Text>
+          <Glyph name="chevronRight" size={16} color={theme?.muted ?? "#9AA1AE"} />
+        </Pressable>
+      ) : (
+        <TextInput
+          accessibilityLabel={label}
+          value={value}
+          onChangeText={(text) => onChange(maskClockTime(text))}
+          onBlur={() => onChange(settleClockTime(value))}
+          placeholder={optional ? "시간 미정" : fallback}
+          placeholderTextColor={theme?.muted ?? "#9AA1AE"}
+          keyboardType="numeric"
+          maxLength={5}
+          style={[styles.valueRowInput, theme && { color: theme.text }]}
+        />
+      )}
+    </View>
+  );
+}
+
 
 function TimePickerControl({
   value,
@@ -11482,21 +11554,7 @@ function TimePickerControl({
   accessibilityLabel: string;
 }) {
   const theme = useContext(DetailThemeContext);
-  const openPicker = () => {
-    if (Platform.OS !== "android") return;
-    DateTimePickerAndroid.open({
-      value: timeAsDate(value, fallback),
-      mode: "time",
-      display: "spinner",
-      is24Hour: true,
-      title: accessibilityLabel,
-      positiveButton: { label: "확인" },
-      negativeButton: { label: "취소" },
-      neutralButton: optional ? { label: "시간 미정" } : undefined,
-      onValueChange: (_, date) => onChange(formatClockTime(date)),
-      onNeutralButtonPress: optional ? () => onChange("") : undefined,
-    });
-  };
+  const openPicker = () => openAndroidClock({ value, fallback, optional, title: accessibilityLabel, onChange });
 
   if (Platform.OS !== "android") {
     return (
@@ -11570,41 +11628,6 @@ function TimePickerField({
         optional={optional}
         accessibilityLabel={label}
       />
-    </View>
-  );
-}
-
-function PairedTimePickerField({
-  label,
-  leftValue,
-  rightValue,
-  onChangeLeft,
-  onChangeRight,
-}: {
-  label: string;
-  leftValue: string;
-  rightValue: string;
-  onChangeLeft: (value: string) => void;
-  onChangeRight: (value: string) => void;
-}) {
-  const theme = useContext(DetailThemeContext);
-  return (
-    <View style={styles.detailField}>
-      <View style={styles.fieldLabelRow}>
-        <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
-        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>{label}</Text>
-      </View>
-      <View style={styles.pairedTimeRow}>
-        <View style={styles.pairedTimeItem}>
-          <Text style={[styles.pairedTimeLabel, theme && { color: theme.muted }]}>출발</Text>
-          <TimePickerControl value={leftValue} onChange={onChangeLeft} fallback="09:00" optional accessibilityLabel="출발 시간" />
-        </View>
-        <Glyph name="arrowRight" size={17} color={theme?.primary ?? "#6556D8"} />
-        <View style={styles.pairedTimeItem}>
-          <Text style={[styles.pairedTimeLabel, theme && { color: theme.muted }]}>도착</Text>
-          <TimePickerControl value={rightValue} onChange={onChangeRight} fallback="10:00" optional accessibilityLabel="도착 시간" />
-        </View>
-      </View>
     </View>
   );
 }
@@ -12005,6 +12028,14 @@ function ReportLink({
   );
 }
 
+/**
+ * 여럿 중 하나를 고르는 칸.
+ *
+ * 선택지가 다섯 개 이하면 한 줄 세그먼트(`ui/Segment`), 여섯 개부터는 가로로 미는
+ * 칩이다. 날짜·종류·방향처럼 매번 고르는 것은 세그먼트가 칩보다 낮아(36 대 44)
+ * 키보드가 올라와 시트가 좁아져도 주 입력 아래에 들어간다. 부르는 쪽은 개수를
+ * 세지 않고 그냥 넘긴다.
+ */
 function OptionField({
   label,
   options,
@@ -12019,16 +12050,27 @@ function OptionField({
   required?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
+  const labelRow = (
+    <View style={styles.fieldLabelRow}>
+      <View
+        style={[styles.fieldLabelDot, requiredDot(required, theme)]}
+      />
+      <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
+        {label}
+      </Text>
+    </View>
+  );
+  if (options.length <= 세그먼트_최대) {
+    return (
+      <View style={styles.optionField}>
+        {labelRow}
+        <Segment theme={theme} label={label} options={options} value={value} onChange={onChange} />
+      </View>
+    );
+  }
   return (
     <View style={styles.optionField}>
-      <View style={styles.fieldLabelRow}>
-        <View
-          style={[styles.fieldLabelDot, requiredDot(required, theme)]}
-        />
-        <Text style={[styles.detailFieldLabel, theme && { color: theme.text }]}>
-          {label}
-        </Text>
-      </View>
+      {labelRow}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -12562,6 +12604,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 14,
   },
+  // 「＋ 장소 · 메모 더 적기」 한 줄과 펼쳤을 때 그 아래 칸들.
+  fold: { marginBottom: 12 },
+  foldRow: { minHeight: 높이.버튼, flexDirection: "row", alignItems: "center", gap: 6 },
+  foldText: { fontSize: 14, fontFamily: typo.label.family },
+  foldSummary: { flex: 1, minWidth: 0, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
+  foldBody: { paddingTop: 4 },
+  // 「시간  11:00 ›」 한 줄. 라벨 줄과 입력 상자 두 층 대신 버튼 높이 하나다.
+  valueRow: {
+    minHeight: 높이.버튼,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E2E0DA",
+    marginBottom: 12,
+  },
+  valueRowLabel: { fontSize: 14, fontFamily: typo.body.family },
+  valueRowAction: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 높이.버튼 },
+  valueRowValue: { fontSize: 14, fontFamily: typo.data.family },
+  valueRowInput: { minWidth: 96, height: 높이.버튼, textAlign: "right", fontSize: 14, fontFamily: typo.data.family, paddingHorizontal: 0 },
   timePickerButton: {
     minHeight: 높이.저장,
     borderWidth: 1,
@@ -12893,6 +12956,7 @@ const styles = StyleSheet.create({
   participantName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
   participantWarn: { fontSize: 11, fontFamily: typo.caption.family },
   splitModes: { flexDirection: "row", gap: 6, marginTop: 8 },
+  splitModeSegment: { marginTop: 8 },
   splitMode: { flex: 1, minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   splitModeText: { fontSize: 13, fontFamily: typo.label.family },
   splitEven: { fontSize: 13, marginTop: 10, fontFamily: typo.caption.family },
