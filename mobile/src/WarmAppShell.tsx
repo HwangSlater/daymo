@@ -561,6 +561,24 @@ const parseStoredTripData = (raw: string | null) => {
  */
 /** 화면에 적는 버전. package.json 과 app.json 의 version 과 같이 올린다. */
 const appVersion = "0.1.0";
+const SUPPORT_EMAIL = "support@daymo.xyz";
+
+/**
+ * 문의 메일을 연다. 제목과 본문에 앱 버전·기기를 미리 적어 두어 답할 때 되묻지 않게 한다.
+ * 메일 앱이 없거나 못 열면 주소만이라도 보여 준다.
+ */
+async function 문의_메일_열기(): Promise<void> {
+  const 제목 = encodeURIComponent("Daymo 문의");
+  const 본문 = encodeURIComponent(`
+
+---
+Daymo ${appVersion} · ${Platform.OS}`);
+  const 열렸다 = await Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${제목}&body=${본문}`).then(
+    () => true,
+    () => false,
+  );
+  if (!열렸다) showAlert("메일 앱을 열지 못했어요", `${SUPPORT_EMAIL} 로 보내 주세요.`);
+}
 
 /**
  * 이메일 바꾸기를 요청한 뒤 얼마 동안, 얼마마다 서버에 다시 물을지.
@@ -5459,6 +5477,12 @@ function Together({
               />
               <Setting
                 theme={theme}
+                label="문의하기"
+                value={SUPPORT_EMAIL}
+                onPress={() => void 문의_메일_열기()}
+              />
+              <Setting
+                theme={theme}
                 label="오픈소스 라이선스"
                 onPress={() => setPanel("licenses")}
               />
@@ -5808,6 +5832,15 @@ function Together({
                 <Text style={[s.helpAnswer, { color: theme.muted }]}>{topic.a}</Text>
               </View>
             ))}
+            {/* 도움말로 해결이 안 되면 바로 물을 수 있어야 한다. 예전엔 앱 어디에도 문의할 길이 없었다. */}
+            <Pressable
+              onPress={() => void 문의_메일_열기()}
+              accessibilityRole="button"
+              accessibilityLabel="문의 메일 보내기"
+              style={[s.accountLogout, { borderColor: theme.border }]}
+            >
+              <Text style={[s.accountLogoutText, { color: theme.primary }]}>해결이 안 되면 문의하기 · {SUPPORT_EMAIL}</Text>
+            </Pressable>
           </>
         )}
         {panel === "licenses" && (
