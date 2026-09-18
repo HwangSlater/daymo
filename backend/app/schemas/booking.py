@@ -1,7 +1,7 @@
 import uuid
 from datetime import date as Date
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.models import (
     BookingStatus,
@@ -12,6 +12,26 @@ from app.models import (
 )
 from app.schemas.auth import _Camel
 from app.schemas.schedule import _HH_MM
+
+
+# 한 번의 이동에서 갈아타는 곳은 다섯까지 받는다. 그보다 많으면 교통편을
+# 나눠 적는 편이 읽기 쉽고, 앱 카드도 그만큼만 보여 준다.
+_갈아타는_곳_최대 = 5
+
+
+class TransportStop(_Camel):
+    """갈아타는 곳 하나. 이름은 있어야 하고 시각은 몰라도 된다."""
+
+    name: str = Field(min_length=1, max_length=40)
+    time: str | None = Field(default=None, pattern=_HH_MM)
+
+    @field_validator("name")
+    @classmethod
+    def _이름을_다듬는다(cls, 값: str) -> str:
+        다듬은 = 값.strip()
+        if not 다듬은:
+            raise ValueError("갈아타는 곳 이름을 적어 주세요.")
+        return 다듬은
 
 
 class TransportCreateRequest(_Camel):
@@ -25,6 +45,8 @@ class TransportCreateRequest(_Camel):
     departure_time: str | None = Field(default=None, pattern=_HH_MM)
     arrival_name: str | None = Field(default=None, max_length=40)
     arrival_time: str | None = Field(default=None, pattern=_HH_MM)
+    # 갈아타는 곳. 차례가 있는 목록이고, 안 보내면 빈 목록이다.
+    stops: list[TransportStop] = Field(default_factory=list, max_length=_갈아타는_곳_최대)
     owner_membership_id: uuid.UUID | None = None
     booking_status: BookingStatus = BookingStatus.NOT_BOOKED
     note: str | None = Field(default=None, max_length=2000)
@@ -40,6 +62,8 @@ class TransportUpdateRequest(_Camel):
     departure_time: str | None = Field(default=None, pattern=_HH_MM)
     arrival_name: str | None = Field(default=None, max_length=40)
     arrival_time: str | None = Field(default=None, pattern=_HH_MM)
+    # 보내면 통째로 갈아 끼운다(합치지 않는다). 안 보내면 그대로 둔다.
+    stops: list[TransportStop] | None = Field(default=None, max_length=_갈아타는_곳_최대)
     owner_membership_id: uuid.UUID | None = None
     booking_status: BookingStatus | None = None
     note: str | None = Field(default=None, max_length=2000)
@@ -56,6 +80,7 @@ class TransportOut(_Camel):
     departure_time: str | None
     arrival_name: str | None
     arrival_time: str | None
+    stops: list[TransportStop]
     owner_membership_id: str | None
     booking_status: BookingStatus
     note: str | None

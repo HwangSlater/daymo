@@ -43,6 +43,16 @@ def _in_trip(trip: Trip, day: date | None) -> date | None:
 # ---------------------------------------------------------------------------
 
 
+def _갈아타는_곳(값: list[dict] | None) -> list[dict]:
+    """
+    갈아타는 곳을 저장할 꼴로 만든다.
+
+    꼴 검사(이름 길이, `HH:MM`, 개수)는 스키마가 한다. 여기서는 시각이 없는
+    칸의 `time` 을 `null` 로 맞춰, 키가 있고 없고로 값이 갈리지 않게 한다.
+    """
+    return [{"name": 칸["name"], "time": 칸.get("time")} for 칸 in (값 or [])]
+
+
 async def _owner_for(session: AsyncSession, trip: Trip, membership_id: uuid.UUID | None) -> uuid.UUID | None:
     """같은 공간의 살아 있는 멤버만 탈 사람으로 정한다. 외래키로는 "같은 공간" 을 막을 수 없다."""
     if membership_id is None:
@@ -119,6 +129,7 @@ async def create_transport(
         departure_at=출발,
         arrival_name=_blank(values.get("arrival_name")),
         arrival_at=도착,
+        stops=_갈아타는_곳(values.get("stops")),
         booking_status=values["booking_status"],
         note=_blank(values.get("note")),
         show_in_schedule=values.get("show_in_schedule", False),
@@ -145,6 +156,10 @@ async def update_transport(
     for 칸 in ("departure_name", "arrival_name", "note"):
         if 칸 in changes:
             setattr(transport, 칸, _blank(changes[칸]))
+    # 갈아타는 곳은 통째로 갈아 끼운다. 한 칸만 고치는 일이 드물고, 차례가
+    # 있는 목록이라 부분 병합은 어느 칸을 가리키는지부터 정해야 한다.
+    if "stops" in changes:
+        transport.stops = _갈아타는_곳(changes["stops"])
     for 칸 in ("direction", "method", "booking_status", "show_in_schedule"):
         if 칸 in changes and changes[칸] is not None:
             setattr(transport, 칸, changes[칸])

@@ -121,6 +121,88 @@ async def test_교통편을_고치고_버전이_어긋나면_409_지우면_사�
     assert (await api.get(f"/v1/trips/{trip['id']}/transports", headers=headers)).json()["data"] == []
 
 
+async def test_갈아타는_곳을_차례대로_넣고_그대로_읽는다(api, db):
+    """진주 → (동대구에서 갈아탐 08:55) → 대전."""
+    headers, _, trip = await 여행_하나(api)
+
+    편 = (
+        await 교통편을_넣는다(
+            api,
+            headers,
+            trip["id"],
+            departureName="진주역",
+            arrivalName="대전역",
+            stops=[{"name": "동대구", "time": "08:55"}, {"name": "김천구미"}],
+        )
+    ).json()["data"]
+
+    assert 편["stops"] == [{"name": "동대구", "time": "08:55"}, {"name": "김천구미", "time": None}]
+    assert (await db.get(Transport, uuid.UUID(편["id"]))).stops[0]["name"] == "동대구"
+    목록 = (await api.get(f"/v1/trips/{trip['id']}/transports", headers=headers)).json()["data"]
+    assert 목록[0]["stops"] == 편["stops"]
+
+
+async def test_갈아타는_곳을_안_적으면_빈_목록이다(api, db):
+    headers, _, trip = await 여행_하나(api)
+
+    편 = (await 교통편을_넣는다(api, headers, trip["id"])).json()["data"]
+
+    assert 편["stops"] == []
+
+
+async def test_갈아타는_곳은_통째로_갈아_끼우고_안_주면_그대로다(api, db):
+    headers, _, trip = await 여행_하나(api)
+    편 = (
+        await 교통편을_넣는다(
+            api, headers, trip["id"], stops=[{"name": "동대구", "time": "08:55"}, {"name": "김천구미"}]
+        )
+    ).json()["data"]
+
+    갈아끼움 = await api.patch(
+        f"/v1/transports/{편['id']}", json={"version": 1, "stops": [{"name": "오송", "time": "10:20"}]}, headers=headers
+    )
+    그대로 = await api.patch(f"/v1/transports/{편['id']}", json={"version": 2, "method": "bus"}, headers=headers)
+    비움 = await api.patch(f"/v1/transports/{편['id']}", json={"version": 3, "stops": []}, headers=headers)
+
+    assert 갈아끼움.json()["data"]["stops"] == [{"name": "오송", "time": "10:20"}]
+    assert 그대로.json()["data"]["stops"] == [{"name": "오송", "time": "10:20"}]
+    assert 비움.json()["data"]["stops"] == []
+    assert (await db.get(Transport, uuid.UUID(편["id"]))).stops == []
+
+
+async def test_갈아타는_곳의_이름과_시각과_개수를_확인한다(api, db):
+    headers, _, trip = await 여행_하나(api)
+
+    async def 넣어_본다(stops):
+        return await api.post(
+            f"/v1/trips/{trip['id']}/transports",
+            json={"direction": "outbound", "stops": stops},
+            headers=headers,
+        )
+
+    빈_이름 = await 넣어_본다([{"name": "   "}])
+    긴_이름 = await 넣어_본다([{"name": "가" * 41}])
+    이름_없음 = await 넣어_본다([{"time": "08:55"}])
+    틀린_시각 = await 넣어_본다([{"name": "동대구", "time": "25:00"}])
+    여섯_개 = await 넣어_본다([{"name": f"{i}"} for i in range(6)])
+    다섯_개 = await 넣어_본다([{"name": f"{i}"} for i in range(5)])
+
+    assert 빈_이름.status_code == 422
+    assert 긴_이름.status_code == 422
+    assert 이름_없음.status_code == 422
+    assert 틀린_시각.status_code == 422
+    assert 여섯_개.status_code == 422
+    assert 다섯_개.status_code == 201
+    # 고칠 때도 같은 잣대로 본다.
+    편 = 다섯_개.json()["data"]
+    넘침 = await api.patch(
+        f"/v1/transports/{편['id']}",
+        json={"version": 1, "stops": [{"name": f"{i}"} for i in range(6)]},
+        headers=headers,
+    )
+    assert 넘침.status_code == 422
+
+
 async def test_보기만_하는_멤버는_교통편을_넣을_수_없다(api, db):
     headers, space_id, trip = await 여행_하나(api)
     viewer = await 멤버로_넣는다(api, db, space_id, "viewer@example.com", MembershipRole.VIEWER)
