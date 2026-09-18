@@ -31,6 +31,7 @@ async def _교통_응답(db, trip, transport: Transport) -> dict:
         departure_time=시각["departure_time"],
         arrival_name=transport.arrival_name,
         arrival_time=시각["arrival_time"],
+        stops=transport.stops or [],
         owner_membership_id=str(transport.owner_membership_id) if transport.owner_membership_id else None,
         booking_status=transport.booking_status,
         note=transport.note,

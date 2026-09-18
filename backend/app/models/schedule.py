@@ -11,7 +11,9 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -167,6 +169,15 @@ class Transport(Base, TimestampMixin, CreatedByMixin):
     departure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     arrival_name: Mapped[str | None] = mapped_column(String(40), nullable=True)
     arrival_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # 갈아타는 곳. 진주 → (동대구에서 갈아탐) → 대전 처럼 중간에 서는 곳을
+    # 차례대로 담는다. 칼럼을 여럿 두지 않고 JSONB 한 칸인 이유는 개수가
+    # 정해져 있지 않고(다섯까지) 서버가 이 값으로 계산하지 않아서다
+    # (`trip_cards.settings` 와 같은 결이다). 각 칸은 `{"name", "time"}` 이고
+    # 꼴은 스키마에서 본다(app/schemas/booking.py).
+    stops: Mapped[list] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
 
     booking_status: Mapped[BookingStatus] = mapped_column(
         enum_column(BookingStatus), nullable=False, default=BookingStatus.NOT_BOOKED
