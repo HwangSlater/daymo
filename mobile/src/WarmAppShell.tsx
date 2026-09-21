@@ -3128,7 +3128,9 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
             </View>
           </View>
         )}
-        {(
+        {/* 종이 결(가로줄·여백선)은 종이 카드에만 깐다. 사진 카드는 위쪽이 사진이라
+            줄이 사진 위를 가로질러 그어진다. */}
+        {!coverUri && (
           <View pointerEvents="none" style={s.paperTripTexture}>
             {[63, 113, 163].map((top) => (
               <View key={top} style={[s.paperTripSoftLine, { top, backgroundColor: paper.softLine }]} />
@@ -3147,7 +3149,9 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
         {/* 사진이 있으면 이 묶음이 종이의 안쪽 여백을 대신 갖는다. 사진은 카드
             모서리까지 닿아야 해서 종이에서 여백을 걷어냈기 때문이다. */}
         <View>
-        <View pointerEvents="none" style={[s.paperTripNotch, { backgroundColor: theme.background }]} />
+        {/* 표를 뜯는 구멍. 종이 카드의 윗변에 뚫는 것이라, 사진 카드에서는 이 자리가
+            사진 아래 끝이 되어 사진 위에 흰 점이 얹힌다. 그때는 뚫지 않는다. */}
+        {!coverUri && <View pointerEvents="none" style={[s.paperTripNotch, { backgroundColor: theme.background }]} />}
         <View style={s.paperTripHead}>
           <View style={s.paperTripCopy}>
             <Text style={[s.paperKicker, { color: theme.primary }]}>
