@@ -1211,6 +1211,17 @@ export function WarmTripDetail({
   const detailScrollRef = useRef<ScrollView>(null);
   /** 떠 있는 ＋ 단추가 「지출 추가」를 여는 길. 비용 탭이 채운다. */
   const 지출_추가_열기 = useRef<(() => void) | null>(null);
+  /** 화면 위에 붙어 있는 탭 줄의 높이. 어느 자리로 내려 보낼 때 그만큼 덜 내린다. */
+  const 탭줄_높이 = useRef(0);
+  /**
+   * 탭 안의 한 자리로 내려 보낸다. `y` 는 스크롤 내용 맨 위에서 잰 자리다.
+   *
+   * 탭 줄이 화면 위에 붙어 있어서 그대로 보내면 그 줄에 가린다. 줄 높이만큼,
+   * 그리고 숨 쉴 틈만큼 덜 내린다.
+   */
+  const 자리로_내리기 = useCallback((y: number) => {
+    detailScrollRef.current?.scrollTo({ y: Math.max(0, y - 탭줄_높이.current - 8), animated: true });
+  }, []);
   /**
    * 당겨서 새로고침. 열려 있는 목록을 전부 다시 받고, 여행 제목·기간도 서버 것으로 맞춘다.
    *
@@ -2286,6 +2297,9 @@ export function WarmTripDetail({
           </View>
 
           <View
+            onLayout={(event) => {
+              탭줄_높이.current = event.nativeEvent.layout.height;
+            }}
             style={[
               styles.modeSwitch,
               styles.modeSwitchPinned,
@@ -2474,6 +2488,7 @@ export function WarmTripDetail({
           {mode === "비용" && (
             <Money
               addRef={지출_추가_열기}
+              scrollToY={자리로_내리기}
               tripName={title}
               dayOptions={tripDayOptions}
               todayDay={todayTripDay}
@@ -9787,6 +9802,7 @@ function SectionLabel({
 
 function Money({
   addRef,
+  scrollToY,
   tripName,
   dayOptions,
   todayDay,
@@ -9814,6 +9830,8 @@ function Money({
    * 스크롤 안에 두면 단추도 함께 밀려 올라가 화면에 붙어 있지 못한다.
    */
   addRef?: React.RefObject<(() => void) | null>;
+  /** 스크롤 내용 맨 위에서 잰 자리로 내려 보낸다. 「지출 내역」 바로 가기가 쓴다. */
+  scrollToY?: (y: number) => void;
   tripName: string;
   dayOptions: string[];
   /** 여행 날짜 가운데 오늘. 여행 기간이 아니면 빈 문자열. */
@@ -10186,6 +10204,9 @@ function Money({
     setExtrasOpen(false);
     setSheetOpen(true);
   };
+  /** 비용 탭이 스크롤 내용에서 놓인 자리, 그리고 그 안에서 「지출 내역」이 놓인 자리. */
+  const 비용_맨위 = useRef(0);
+  const 내역_자리 = useRef(0);
   // 떠 있는 ＋ 단추는 스크롤 바깥(화면에 고정된 자리)에 있다. 여는 길만 밖으로 내준다.
   // 값이 아니라 함수라 렌더마다 다시 담아야 지금 상태를 보고 연다.
   useEffect(() => {
@@ -10330,14 +10351,34 @@ function Money({
   };
 
   return (
-    <View>
+    <View
+      onLayout={(event) => {
+        비용_맨위.current = event.nativeEvent.layout.y;
+      }}
+    >
       {/* 맨 위 「지출 N건」 제목줄은 뺐다. 탭 이름이 이미 「비용」이고 탭 줄에
           건수까지 찍히는데, 같은 말을 한 번 더 하고 아래 「지출 내역」과도
           겹쳤다. 그 줄에 있던 지출 추가 버튼은 목록 제목 옆으로 내렸다. */}
       <MoneyBlock title="총 지출" action={canEdit ? "예산 수정" : undefined} onAction={openBudget}>
-        <Text style={[styles.moneyTotal, theme && { color: theme.text }]}>
-          {show(settlement.total)}
-        </Text>
+        <View style={styles.moneyTotalRow}>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.moneyTotal, styles.moneyTotalShrink, theme && { color: theme.text }]}>
+            {show(settlement.total)}
+          </Text>
+          {/* 지출 내역은 총 지출·정산·분류별 아래라 한참 내려가야 나온다. 쓴 돈을
+              보다가 무엇에 썼는지 궁금해지는 자리가 여기라, 금액 바로 옆에 길을 낸다. */}
+          {expenses.length > 0 && scrollToY && (
+            <Pressable
+              onPress={() => scrollToY(비용_맨위.current + 내역_자리.current)}
+              accessibilityRole="button"
+              accessibilityLabel={`지출 내역 ${expenses.length}건으로 바로 가기`}
+              hitSlop={8}
+              style={({ pressed }) => [styles.moneyJump, pressed && styles.controlPressed]}
+            >
+              <Text style={[styles.moneyJumpText, theme && { color: theme.primary }]}>내역 {expenses.length}건</Text>
+              <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
+            </Pressable>
+          )}
+        </View>
         <View style={styles.moneyCurrencyRow}>
           {/* 글자만 두면 누를 수 있는 줄 모른다. 테두리와 화살표를 줘서 고르는
               칸이라는 걸 보이게 한다. 자리는 늘 왼쪽으로 고정한다. */}
@@ -10702,7 +10743,12 @@ function Money({
       )}
       {/* 지출을 더하는 자리는 목록 바로 위다. 제목·건수·버튼이 모두 이 목록
           하나를 가리킨다. */}
-      <View style={styles.tabActionHeader}>
+      <View
+        style={styles.tabActionHeader}
+        onLayout={(event) => {
+          내역_자리.current = event.nativeEvent.layout.y;
+        }}
+      >
         <View style={styles.tabActionTitleRow}>
           <Text style={[styles.sectionTitle, theme && { color: theme.text }]}>
             {categoryFilter === "전체" ? "지출 내역" : `${categoryFilter} 지출`}
@@ -14161,7 +14207,8 @@ const styles = StyleSheet.create({
   moneyFab: {
     position: "absolute",
     right: 18,
-    bottom: 22,
+    // 아이폰 아래 막대(홈 인디케이터)에 너무 붙어 있어 조금 올렸다.
+    bottom: 38,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -14176,6 +14223,11 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   moneyFabPressed: { opacity: 0.85 },
+  // 금액이 길어져도 바로 가기가 밀려나지 않게 금액 쪽이 줄어든다.
+  moneyTotalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  moneyJump: { flexDirection: "row", alignItems: "center", gap: 3, paddingVertical: 4, flexShrink: 0 },
+  moneyTotalShrink: { flexShrink: 1 },
+  moneyJumpText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   moneyFabText: { fontSize: 13.5, fontFamily: typo.title.family },
   date: { fontSize: 11, fontFamily: typo.caption.family, letterSpacing: 0, marginBottom: 6 },
   title: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
