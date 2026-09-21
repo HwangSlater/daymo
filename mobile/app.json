@@ -3,7 +3,7 @@
     "name": "Daymo",
     "slug": "daymo",
     "scheme": "daymo",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "icon": "./assets/daymo-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
