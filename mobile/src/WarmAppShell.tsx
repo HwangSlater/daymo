@@ -5,6 +5,7 @@ import {
   AppState,
   Easing,
   Image,
+  LayoutChangeEvent,
   Linking,
   PanResponder,
   Platform,
@@ -65,6 +66,7 @@ import {
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
+import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
 import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
@@ -200,6 +202,8 @@ type Trip = {
   coverPhotoIds?: string[];
   /** 그 카드의 틀 이름. 사진을 어떻게 놓을지 이 값으로 정한다(`homeCoverRows`). */
   coverCardStyle?: string;
+  /** 대표 사진에서 홈 카드 틀에 보여 줄 부분(`coverCrop.ts`). 없으면 가운데다. */
+  coverFocus?: CoverFocus;
   /** 받아 둔 바탕 사진 자리(사진 id → 자리). 못 받은 사진은 없고, 그러면 카드는 종이 그대로다. */
   coverUris?: Record<string, string>;
   /**
@@ -262,6 +266,7 @@ const tripFromServer = (trip: ServerTrip, roster: RosterEntry[] = []): Trip => {
     coverCardId: trip.coverCardId ?? undefined,
     coverPhotoIds: trip.coverPhotoIds ?? [],
     coverCardStyle: trip.coverCardStyle ?? undefined,
+    coverFocus: tidyFocus({ x: trip.coverFocusX ?? undefined, y: trip.coverFocusY ?? undefined, zoom: trip.coverZoom ?? undefined }),
     archived: trip.status === "archived",
     ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
   };
@@ -1420,6 +1425,7 @@ export function WarmAppShell({
         }}
         coverPhotoId={selectedTrip.coverPhotoId}
         coverCardId={selectedTrip.coverCardId}
+        coverFocus={selectedTrip.coverFocus}
         onUpdateHomeCover={selectedTrip.id && selectedTrip.version !== undefined ? async (고른_것, localUris) => {
           const tripId = selectedTrip.id as string;
           let saved: ServerTrip;
@@ -2983,6 +2989,57 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open, onDraggin
   );
 }
 
+/**
+ * 홈 카드의 사진 한 칸.
+ *
+ * 맞춰 둔 자리가 있으면 그대로 놓고, 없으면 지금까지처럼 가운데를 자른다. 사진의
+ * 본디 크기를 알아야 자리를 셈할 수 있는데 그것은 받아 봐야 아는 값이라, 아는 동안만
+ * 맞춰 놓고 모르는 동안에는 가운데로 둔다. 한 번 그린 뒤에 값이 오면 조용히 제자리를
+ * 찾아간다.
+ */
+function CoverCell({ uri, focus }: { uri: string; focus?: CoverFocus }) {
+  const [frame, setFrame] = useState({ width: 0, height: 0 });
+  const [photo, setPhoto] = useState<{ width: number; height: number } | undefined>(undefined);
+  const 맞춘_것 = focus && !sameFocus(focus, COVER_FOCUS_DEFAULT) ? focus : undefined;
+
+  useEffect(() => {
+    if (!맞춘_것 || !uri) return;
+    let 살아있다 = true;
+    Image.getSize(
+      uri,
+      (width, height) => {
+        if (살아있다) setPhoto({ width, height });
+      },
+      () => undefined,
+    );
+    return () => {
+      살아있다 = false;
+    };
+  }, [uri, 맞춘_것]);
+
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setFrame((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
+  }, []);
+
+  if (!맞춘_것 || !photo || !(frame.width > 0)) {
+    return (
+      <View style={s.paperTripSnapCell} onLayout={onLayout}>
+        <Image source={{ uri }} resizeMode="cover" style={s.paperTripSnapFill} />
+      </View>
+    );
+  }
+  const 자리 = coverLayout(photo, frame, 맞춘_것);
+  return (
+    <View style={s.paperTripSnapCell} onLayout={onLayout}>
+      <Image
+        source={{ uri }}
+        style={{ position: "absolute", left: 자리.left, top: 자리.top, width: 자리.width, height: 자리.height }}
+      />
+    </View>
+  );
+}
+
 function HomeTripCard({ trip, theme, todayKey, open }: {
   trip: Trip;
   theme: AppTheme;
@@ -3057,11 +3114,12 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
                 {keepsakeRowSlots(coverRows).map((줄, 줄번호) => (
                   <View key={줄번호} style={s.paperTripSnapRow}>
                     {Array.from({ length: 줄.count }, (_, 칸) => (
-                      <Image
+                      <CoverCell
                         key={칸}
-                        source={{ uri: covers[줄.start + 칸] }}
-                        resizeMode="cover"
-                        style={s.paperTripSnapCell}
+                        uri={covers[줄.start + 칸]}
+                        // 사진 한 장을 깔았을 때만 맞춰 둔 자리를 따른다. 기념 카드는
+                        // 칸이 여럿이고 만든 사람이 고른 배치가 따로 있다.
+                        focus={coverSlots === 1 ? trip.coverFocus : undefined}
                       />
                     ))}
                   </View>
@@ -7166,7 +7224,8 @@ const s = StyleSheet.create({
   // 무엇이 찍힌 사진인지가 먼저 보여야 한다.
   paperTripSnapImage: { width: "100%", aspectRatio: 1.62, borderRadius: 2, overflow: "hidden", gap: 2 },
   paperTripSnapRow: { flex: 1, flexDirection: "row", gap: 2 },
-  paperTripSnapCell: { flex: 1, minWidth: 0, height: "100%" },
+  paperTripSnapCell: { flex: 1, minWidth: 0, height: "100%", overflow: "hidden" },
+  paperTripSnapFill: { width: "100%", height: "100%" },
   paperTripSnapTape: {
     position: "absolute",
     zIndex: 2,

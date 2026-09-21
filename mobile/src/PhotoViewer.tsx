@@ -246,6 +246,7 @@ export function PhotoViewerScreen({
   cover,
   decor,
   editPanel,
+  coverPanel,
   onCloseEdit,
 }: {
   visible: boolean;
@@ -291,6 +292,13 @@ export function PhotoViewerScreen({
    * 닫아야 그제서야 떴다. 카드 꾸미기를 같은 창에서 펼친 것과 같은 방식으로 옮긴다.
    */
   editPanel?: React.ReactNode;
+  /**
+   * 홈에 보일 부분을 맞추는 겹. 사진 정보와 같은 자리에 얹는다.
+   *
+   * iOS 는 이미 떠 있는 Modal 위에 형제 Modal 을 바로 얹지 못한다. 그래서 창을
+   * 새로 띄우지 않고 이 창 안에 한 겹으로 넣는다(`editPanel` 과 같은 까닭이다).
+   */
+  coverPanel?: React.ReactNode;
   /** 그 겹을 닫는다. 안드로이드의 하드웨어 뒤로 가기가 이것부터 부른다. */
   onCloseEdit?: () => void;
 }) {
@@ -509,7 +517,7 @@ export function PhotoViewerScreen({
     <Modal
       visible={visible}
       animationType="fade"
-      onRequestClose={() => (editPanel ? onCloseEdit?.() : decorating ? back() : close())}
+      onRequestClose={() => (coverPanel ? undefined : editPanel ? onCloseEdit?.() : decorating ? back() : close())}
       statusBarTranslucent
     >
       {/* 보기와 꾸미기가 이 한 창을 나눠 쓴다. 창을 갈아 끼우지 않아 「꾸미기」를
@@ -798,6 +806,7 @@ export function PhotoViewerScreen({
         {Boolean(report) && <View style={styles.reportPanel}>{report}</View>}
         {/* 사진 정보는 이 창 위에 한 겹으로 얹힌다. 맨 마지막에 놓아야 위에 온다. */}
         {editPanel}
+        {coverPanel}
         {/* 카드를 찍는 동안 카드를 제 크기로 되돌린다(`CardDecorTools`). 화면 밖으로
             넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. */}
         {Boolean(decorating && decor?.busyText) && (

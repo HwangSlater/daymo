@@ -46,6 +46,10 @@ export type ServerTrip = {
   coverPhotoIds?: string[];
   /** 그 카드의 틀 이름. 사진을 어떻게 놓을지 앱이 이 값으로 정한다. */
   coverCardStyle?: string | null;
+  /** 대표 사진에서 홈 카드 틀 한가운데에 놓을 점과 확대 배수(`coverCrop.ts`). */
+  coverFocusX?: number | null;
+  coverFocusY?: number | null;
+  coverZoom?: number | null;
   archivedAt?: string | null;
   /** 지운 여행일 때만. 이 시각이 지나면 되돌릴 수 없다. */
   deletionScheduledAt?: string | null;
@@ -446,12 +450,23 @@ export const deleteTripCard = (id: string) =>
 /**
  * 홈 화면의 여행 카드에 깔 것. 사진 한 장이거나 기념 카드 하나고, 둘 다 `null` 이면 해제다.
  *
+ * 사진을 고를 때는 홈 카드 틀에 보여 줄 부분도 함께 보낸다. 보내지 않으면 서버가
+ * 가운데(0.5/0.5/1)로 되돌린다 — 다른 사진을 골랐는데 앞 사진의 자리가 남아 있으면
+ * 엉뚱한 데가 보이기 때문이다.
+ */
+export type HomeCoverChoice =
+  | { coverPhotoId: string | null; coverFocusX?: number; coverFocusY?: number; coverZoom?: number }
+  | { coverCardId: string | null };
+
+/**
+ * 홈 화면의 여행 카드에 깔 것. 사진 한 장이거나 기념 카드 하나고, 둘 다 `null` 이면 해제다.
+ *
  * 한쪽을 고르면 서버가 다른 쪽을 푼다. 홈 카드는 여행마다 하나다.
  */
 export const updateHomeCover = (
   tripId: string,
   version: number,
-  고른_것: { coverPhotoId: string | null } | { coverCardId: string | null },
+  고른_것: HomeCoverChoice,
 ) =>
   authenticatedRequest<ServerTrip>(`/v1/trips/${encodeURIComponent(tripId)}`, {
     method: "PATCH",

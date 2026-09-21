@@ -108,6 +108,8 @@ export type CardViewer = {
   onSave: () => void;
   saving: boolean;
   saveBlocked: boolean;
+  /** ⋮ 의 「홈에 보일 부분」. 지금 홈에 깔려 있는 사진일 때만 있다. */
+  onAdjustCover?: () => void;
   /** ✎ 사진 고치기. 고칠 수 없는 사람에게는 주지 않는다. */
   onEditPhoto?: () => void;
   onReport?: () => void;
@@ -120,6 +122,8 @@ export type CardViewer = {
   waitingText?: string;
   /** 「사진 정보」 화면. 창 안의 한 겹으로 얹힌다. */
   editPanel?: React.ReactNode;
+  /** 「홈에 보일 부분」 화면. 같은 자리에 한 겹으로 얹힌다. */
+  coverPanel?: React.ReactNode;
   /** 그 겹을 닫는다. */
   onCloseEditPanel?: () => void;
   /**
@@ -715,6 +719,7 @@ export function TripCardsSection({
     ? []
     : [
         ...(viewer.onEditPhoto ? [{ label: "사진 정보", onPress: viewer.onEditPhoto }] : []),
+        ...(viewer.onAdjustCover ? [{ label: "홈에 보일 부분", onPress: viewer.onAdjustCover }] : []),
         ...(viewer.onReport ? [{ label: "신고", onPress: viewer.onReport }] : []),
       ];
 
@@ -788,6 +793,7 @@ export function TripCardsSection({
       toast={viewer.toast}
       toastAction={viewer.toastAction}
       editPanel={viewer.editPanel}
+      coverPanel={viewer.coverPanel}
       onCloseEdit={viewer.onCloseEditPanel}
       waitingText={viewer.waitingText}
       decor={decor}

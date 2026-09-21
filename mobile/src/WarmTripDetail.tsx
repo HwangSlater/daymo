@@ -57,7 +57,7 @@ import { TripCardsSection, type CardPhoto, type CardTile } from "./TripCards";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
 import { savePhotoFile } from "./photoSave";
-import type { ExpenseSettings, ReportReason, ReportTargetType } from "./serverData";
+import type { ExpenseSettings, HomeCoverChoice, ReportReason, ReportTargetType } from "./serverData";
 import type { RosterEntry } from "./tripSync";
 import {
   createReport,
@@ -166,6 +166,8 @@ import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolv
 import { parseKakaoPlaceShare, resolveKakaoPlaceShare } from "./kakaoPlaceShare";
 import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } from "./mapLinks";
 import { COVER_BADGE, COVER_FAIL, COVER_UNDO, coverNowOf, coverPickable, coverToggleOf, coverUndoBody } from "./coverPhoto";
+import { COVER_FOCUS_DEFAULT, focusBody, type CoverFocus } from "./coverCrop";
+import { CoverFocusScreen } from "./ui/CoverFocusScreen";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
 const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
@@ -600,6 +602,8 @@ type Props = {
   coverPhotoId?: string;
   /** 홈 화면의 여행 카드에 통째로 깔린 기념 카드. 사진 한 장과 둘 중 하나만 있다. */
   coverCardId?: string;
+  /** 대표 사진에서 홈 카드에 보여 주는 부분(`coverCrop.ts`). */
+  coverFocus?: CoverFocus;
   /**
    * 홈 화면에 깔 것을 바꾼다. 사진 한 장이거나 기념 카드 하나고, `null` 이면 해제다.
    *
@@ -607,7 +611,7 @@ type Props = {
    * 홈이 서버에서 썸네일을 받기 전에 바로 바뀐다.
    */
   onUpdateHomeCover?: (
-    고른_것: { coverPhotoId: string | null } | { coverCardId: string | null },
+    고른_것: HomeCoverChoice,
     localUris?: Record<string, string | undefined>,
   ) => Promise<void>;
   initialPlanning?: TripPlanningData;
@@ -1160,6 +1164,7 @@ export function WarmTripDetail({
   onUpdateExpenseSettings,
   coverPhotoId,
   coverCardId,
+  coverFocus,
   onUpdateHomeCover,
   initialPlanning: savedPlanning,
   onSavePlanning,
@@ -2497,6 +2502,7 @@ export function WarmTripDetail({
               cardTripId={serverTrip ? tripId : undefined}
               coverPhotoId={coverPhotoId}
               coverCardId={coverCardId}
+              coverFocus={coverFocus}
               onSaveHomeCover={onUpdateHomeCover}
               uploadedPhotoIds={knownPhotoIds}
               reportSpaceId={reportSpaceId}
@@ -8659,6 +8665,7 @@ function Memories({
   cardTripId,
   coverPhotoId,
   coverCardId,
+  coverFocus,
   onSaveHomeCover,
   uploadedPhotoIds,
   reportSpaceId,
@@ -8691,9 +8698,11 @@ function Memories({
   /** 홈 화면의 여행 카드에 통째로 깔린 기념 카드. */
   coverCardId?: string;
   onSaveHomeCover?: (
-    고른_것: { coverPhotoId: string | null } | { coverCardId: string | null },
+    고른_것: HomeCoverChoice,
     localUris?: Record<string, string | undefined>,
   ) => Promise<void>;
+  /** 대표 사진에서 홈 카드에 보여 주는 부분. 다시 맞출 때 여기서 시작한다. */
+  coverFocus?: CoverFocus;
   /** 서버에 다 올라간 사진. 올라간 사진만 홈 화면에 깔 수 있다. */
   uploadedPhotoIds?: ReadonlySet<string>;
   /** 서버 여행일 때만. 있으면 사진과 일기 수정 시트에 신고가 보인다. */
@@ -8761,6 +8770,8 @@ function Memories({
   };
   /** 크게 보는 화면의 ⋮ 에서 연 신고 폼. */
   const [reporting, setReporting] = useState(false);
+  /** 홈에 보일 부분을 맞추는 중인 사진. 맞추고 나서야 홈에 깔린다. */
+  const [focusing, setFocusing] = useState<{ photoId: string; uri?: string; initial: CoverFocus } | null>(null);
   /** 격자 위의 필터. 사진과 기념 카드를 한 격자에 놓고 여기서 갈라 본다. */
   const [photoFilter, setPhotoFilter] = useState<MemoryFilter>("전체");
   /** 기념 카드 목록과 손잡이. `TripCardsSection` 이 넘겨 준다. */
@@ -9113,11 +9124,39 @@ function Memories({
   const toggleViewCover = async () => {
     if (!onSaveHomeCover || !viewingPhotoId) return;
     const uri = photos.find((photo) => photo.id === viewingPhotoId)?.uri;
+    // 홈 카드의 사진 틀은 가로로 넓다. 깔기 전에 어디를 보여 줄지 먼저 맞춘다.
+    // 내리는 것은 맞출 것이 없으니 바로 보낸다.
+    if (viewCover.next) {
+      setFocusing({ photoId: viewingPhotoId, uri, initial: COVER_FOCUS_DEFAULT });
+      return;
+    }
     try {
       await onSaveHomeCover({ coverPhotoId: viewCover.next }, { [viewingPhotoId]: uri });
       notifyInViewer(viewCover.done, undoCover(viewCover.undo));
     } catch {
       // 크게 보는 창이 여행 화면을 덮고 있어 바닥의 토스트는 가려진다.
+      notifyInViewer(COVER_FAIL);
+    }
+  };
+
+  /**
+   * 맞춘 자리를 저장한다. 처음 깔 때도, 이미 깔린 것을 다시 맞출 때도 여기로 온다.
+   *
+   * 이미 깔려 있던 사진을 다시 맞춘 것뿐이면 무엇이 내려갔다고 말할 것이 없다.
+   */
+  const saveCoverFocus = async (focus: CoverFocus) => {
+    const 맞춘_것 = focusing;
+    setFocusing(null);
+    if (!onSaveHomeCover || !맞춘_것) return;
+    const 이미_깔린_것 = coverPhotoId === 맞춘_것.photoId;
+    try {
+      await onSaveHomeCover(
+        { coverPhotoId: 맞춘_것.photoId, ...focusBody(focus) },
+        { [맞춘_것.photoId]: 맞춘_것.uri },
+      );
+      if (이미_깔린_것) notifyInViewer("홈에 보일 부분을 바꿨어요");
+      else notifyInViewer(viewCover.done, undoCover(viewCover.undo));
+    } catch {
       notifyInViewer(COVER_FAIL);
     }
   };
@@ -9381,6 +9420,11 @@ function Memories({
           saving,
           saveBlocked: Boolean(viewing && uploadingPhotoIds.has(viewing.id)),
           onEditPhoto: viewing && canManagePhoto(viewing) ? () => openPhotoEdit(viewing) : undefined,
+          // 이미 깔린 사진은 ⌂ 를 누르면 내려간다. 다시 맞추는 길은 여기 둔다.
+          onAdjustCover:
+            canEdit && onSaveHomeCover && viewing && viewing.id === coverPhotoId
+              ? () => setFocusing({ photoId: viewing.id, uri: viewing.uri, initial: coverFocus ?? COVER_FOCUS_DEFAULT })
+              : undefined,
           onReport: reportSpaceId && viewing && isServerId(viewing.id) ? () => setReporting(true) : undefined,
           report: reporting && reportSpaceId && viewing && isServerId(viewing.id)
             ? <ReportForm spaceId={reportSpaceId} targetType="photo" targetId={viewing.id} onClose={() => setReporting(false)} />
@@ -9396,6 +9440,15 @@ function Memories({
             ? { on: viewCover.on, label: viewCover.label, onPress: () => void toggleViewCover() }
             : undefined,
           onNotice: notifyInViewer,
+          // 홈에 보일 부분을 맞추는 겹. 사진 정보와 같은 자리에 얹힌다.
+          coverPanel: focusing ? (
+            <CoverFocusScreen
+              uri={focusing.uri}
+              initial={focusing.initial}
+              onCancel={() => setFocusing(null)}
+              onDone={(focus) => void saveCoverFocus(focus)}
+            />
+          ) : undefined,
           /*
            * 사진 정보는 크게 보는 창 **안의 한 겹**으로 얹는다.
            *
