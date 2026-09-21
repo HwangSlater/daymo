@@ -196,6 +196,7 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 
 - `memos`: `trip_id`, `body`, `author_id`, `edited_at`, `deleted_at`, `deleted_by`
 - `diaries`: `trip_id`, `author_id`, `title nullable`, `body`, `written_on`
+- `calendar_notes`: `space_id`, `kind(schedule|memo)`, `membership_id nullable`, `title`, `start_date`, `end_date`, `time nullable`, `created_by_membership_id`, `version` — 여행 탭 캘린더의 멤버 일정과 날짜 메모다. 여행이 아니라 공간에 붙는다. 메모는 사람이 없다(`membership_id` 가 비어 있다). 공간을 지우면 함께 지워지고, 멤버 줄이 지워지면 사람 칸만 비운다
 - `photos`: `trip_id`, `uploader_membership_id`, `original_path`, `display_path`, `thumbnail_path`, `taken_at`, `caption`, `date`, `mime`, `width`, `height`, `original_bytes`, `stored_bytes`, `checksum`, `is_receipt`, `status(uploading|ready|restricted|deleted|failed)`, `deleted_at`, `deleted_by`, `version`
 - `photo_links`: `photo_id`, `target_type(trip|day|place|schedule|stay)`, `target_id` — 표는 있지만 아직 쓰지 않는다. 영수증은 `expenses.receipt_photo_id`로 잇는다
 - `audit_logs`: `space_id`, `actor_membership_id`, `action`, `target_type`, `target_id`, `log_metadata` — 지금 남기는 `action`은 `memo.delete`·`memo.restore`·`photo.delete`·`photo.restore`·`payment.undo`·`member.remove`·`member.leave`·`member.role_change`·`invite.revoke`·`trip.delete`·`trip.restore`다. 공간을 지워도 이 줄은 남으므로 본문·이름·이메일은 `log_metadata`에 넣지 않는다
