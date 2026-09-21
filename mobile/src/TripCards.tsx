@@ -112,6 +112,8 @@ export type CardViewer = {
   onAdjustCover?: () => void;
   /** ✎ 사진 고치기. 고칠 수 없는 사람에게는 주지 않는다. */
   onEditPhoto?: () => void;
+  /** 🗑 사진 삭제. 지울 수 없는 사람에게는 주지 않는다. */
+  onDeletePhoto?: () => void;
   onReport?: () => void;
   report?: React.ReactNode;
   hint?: string;
@@ -718,7 +720,6 @@ export function TripCardsSection({
   const viewMenu: ViewerDecor["viewMenu"] = previewing
     ? []
     : [
-        ...(viewer.onEditPhoto ? [{ label: "사진 정보", onPress: viewer.onEditPhoto }] : []),
         ...(viewer.onAdjustCover ? [{ label: "홈에 보일 부분", onPress: viewer.onAdjustCover }] : []),
         ...(viewer.onReport ? [{ label: "신고", onPress: viewer.onReport }] : []),
       ];
@@ -785,6 +786,7 @@ export function TripCardsSection({
       saving={viewer.saving}
       saveBlocked={viewer.saveBlocked}
       onEdit={viewer.onEditPhoto}
+      onDeletePhoto={viewer.onDeletePhoto}
       onReport={viewer.onReport}
       cover={viewer.cover}
       report={viewer.report}

@@ -35,16 +35,16 @@ const 오류 = (status: number, message = "안 돼요") => Object.assign(new Err
 test("진행 줄은 몇 장 중 몇 장인지 보여 준다", () => {
   assert.equal(photoUploadHeadline(NO_PHOTO_UPLOADS), "");
   assert.equal(
-    photoUploadHeadline({ total: 40, done: 12, blocked: [], running: true }),
+    photoUploadHeadline({ total: 40, done: 12, blocked: [], running: true, progress: {} }),
     "사진 40장 중 12장 업로드 중",
   );
   assert.equal(
-    photoUploadHeadline({ total: 40, done: 12, blocked: ["a", "b"], running: true }),
+    photoUploadHeadline({ total: 40, done: 12, blocked: ["a", "b"], running: true, progress: {} }),
     "사진 40장 중 12장 업로드 중 · 2장 실패",
   );
   // 보낼 것이 더 없고 실패만 남았으면 진행이 아니라 결과를 적는다.
   assert.equal(
-    photoUploadHeadline({ total: 40, done: 38, blocked: ["a", "b"], running: false }),
+    photoUploadHeadline({ total: 40, done: 38, blocked: ["a", "b"], running: false, progress: {} }),
     "사진 2장 업로드에 실패했어요",
   );
 });
@@ -85,7 +85,7 @@ test("한 번에 집어 드는 수를 넘기지 않고, 끝난 수를 센다", a
 
   await 다음_틱();
   assert.equal(가장_많았을_때, 2);
-  assert.deepEqual(uploads.stateOf("trip-1"), { total: 5, done: 0, blocked: [], running: true });
+  assert.deepEqual(uploads.stateOf("trip-1"), { total: 5, done: 0, blocked: [], running: true, progress: {} });
 
   손잡이들.get("p0")!.풀기("row-0");
   await 다음_틱();
@@ -212,4 +212,53 @@ test("구독한 쪽은 진행이 바뀔 때만 듣는다", async () => {
   그만();
   uploads.add([사진("p1")], async () => 손.약속);
   assert.equal(들은_수, 2);
+});
+
+test("보내는 중에는 진행이 실리고, 취소하면 줄에서 빠진다", async () => {
+  const uploads = createPhotoUploads<string>({ atOnce: 1 });
+  const 하나 = 손잡이<string>();
+  let 끊겼다 = false;
+  let 알림: { 진행: (비율: number) => void } | undefined;
+
+  uploads.add([사진("p1")], async (_job, 받은_알림) => {
+    알림 = 받은_알림;
+    받은_알림?.끊기(() => {
+      끊겼다 = true;
+      하나.깨기(new Error("끊음"));
+    });
+    return 하나.약속;
+  });
+  await 다음_틱();
+
+  알림!.진행(0.42);
+  assert.deepEqual(uploads.stateOf("trip-1").progress, { p1: 0.42 });
+
+  uploads.drop("trip-1", "p1");
+  assert.equal(끊겼다, true);
+  await 다음_틱();
+  assert.deepEqual(uploads.stateOf("trip-1"), NO_PHOTO_UPLOADS);
+});
+
+test("멈춘 사진은 한 장만 골라 다시 보낸다", async () => {
+  const uploads = createPhotoUploads<string>({ atOnce: 2 });
+  const 손잡이들 = new Map([["p1", 손잡이<string>()], ["p2", 손잡이<string>()]]);
+  let 보낸_수 = 0;
+
+  uploads.add([사진("p1"), 사진("p2")], async (job) => {
+    보낸_수 += 1;
+    return 손잡이들.get(job.photoId)!.약속;
+  });
+  await 다음_틱();
+  손잡이들.get("p1")!.깨기(오류(422));
+  손잡이들.get("p2")!.깨기(오류(422));
+  await 다음_틱();
+  assert.deepEqual(uploads.stateOf("trip-1").blocked, ["p1", "p2"]);
+
+  손잡이들.set("p1", 손잡이<string>());
+  uploads.retryOne("trip-1", "p1");
+  await 다음_틱();
+
+  // 고른 한 장만 다시 갔다. 다른 한 장은 멈춘 채다.
+  assert.equal(보낸_수, 3);
+  assert.deepEqual(uploads.stateOf("trip-1").blocked, ["p2"]);
 });

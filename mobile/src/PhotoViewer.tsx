@@ -236,6 +236,7 @@ export function PhotoViewerScreen({
   saving,
   saveBlocked,
   onEdit,
+  onDeletePhoto,
   onReport,
   report,
   hint,
@@ -262,6 +263,8 @@ export function PhotoViewerScreen({
   saveBlocked: boolean;
   /** ⋮ 안의 「사진 정보」. 설명·날짜·붙일 곳·삭제를 다루는 화면을 연다. */
   onEdit?: () => void;
+  /** 🗑. 지울 수 없는 사람에게는 주지 않는다. 누르면 확인 창이 한 번 더 뜬다. */
+  onDeletePhoto?: () => void;
   /** ⌂. 보고 있는 사진을 홈 화면에 깔거나 내린다. */
   cover?: ViewerCover;
   /** ⋮ 안의 「신고」. 서버 사진에만 있다. */
@@ -507,15 +510,14 @@ export function PhotoViewerScreen({
    * 크게 보고 있는 것을 홈에 까는 일이라, 고치러 들어가야 보이면 고칠 생각이 없는
    * 사람은 찾지 못한다. 내보내기·삭제는 다 꾸민 뒤에 한 번 쓰는 것이라 꾸미기 쪽이다.
    */
+  /** 홈 화면에 까는 일. 아이콘을 줄에서 빼고 ⋮ 맨 위에 글로 넣었다. */
+  const 홈단추 = previewing ? decor?.cover : cover;
   const menuRows: ViewerMenuRow[] = decorating
     ? decor?.menu ?? []
-    : decor
-      ? decor.viewMenu
-      : onReport
-        ? [{ label: "신고", onPress: () => onReport() }]
-        : [];
-  /** 위 줄의 ⌂ 와 ↓. 사진을 볼 때와 카드를 볼 때가 하는 일만 다르고 자리는 같다. */
-  const 홈단추 = previewing ? decor?.cover : cover;
+    : [
+        ...(홈단추 ? [{ label: 홈단추.label, onPress: () => 홈단추.onPress() }] : []),
+        ...(decor ? decor.viewMenu : onReport ? [{ label: "신고", onPress: () => onReport() }] : []),
+      ];
   const 저장단추 = previewing
     ? decor && { label: decor.exportLabel, onPress: decor.onExport, disabled: false, on: false }
     : { label: "이 사진 저장", onPress: onSave, disabled: saving || saveBlocked, on: saving };
@@ -641,21 +643,14 @@ export function PhotoViewerScreen({
         {/* 「꾸미기」 한 줄이 붙으면 아래가 한 줄 길어진다. 그늘도 그만큼 더 깐다. */}
         {chromeOn && <Scrim place="bottom" tall={Boolean(decor)} />}
 
-        {/* ✕ / n·N / ⌂ / ↓ / ⋮. 자주 쓰는 것만 줄에 둔다. 사진 정보와 신고는 ⋮
-            안으로 넣었다. 예전에는 ✎(사진 고치기)가 여기 있었는데, 아래 「꾸미기」도
-            연필이라 한 화면에 같은 그림이 둘이었다. */}
+        {/* ✕ / n·N / ↓ / ✎ / 🗑 / ⋮. 손이 자주 가는 것만 줄에 둔다. 홈 화면에
+            까는 일은 한 여행에 한 번뿐이라 ⋮ 안으로 옮겼다. ✎ 는 예전에 아래
+            「꾸미기」와 그림이 겹쳐 뺐던 것인데, 카드 쪽이 네모 넷(▦)으로 바뀌어
+            다시 꺼냈다. */}
         {chromeOn && (
         <View style={styles.bar}>
           <BarButton glyph="close" label="크게 보기 닫기" onPress={close} />
           <Text style={styles.count}>{!previewing && photos.length > 1 ? `${index + 1} / ${photos.length}` : ""}</Text>
-          {Boolean(홈단추) && (
-            <BarButton
-              glyph={홈단추?.on ? "home" : "homeOutline"}
-              label={홈단추?.label ?? ""}
-              on={홈단추?.on}
-              onPress={() => 홈단추?.onPress()}
-            />
-          )}
           {Boolean(저장단추) && (
             <BarButton
               glyph="download"
@@ -664,6 +659,13 @@ export function PhotoViewerScreen({
               disabled={저장단추?.disabled}
               onPress={() => 저장단추?.onPress()}
             />
+          )}
+          {!previewing && Boolean(onEdit) && (
+            <BarButton glyph="pencil" label="사진 정보" onPress={() => onEdit?.()} />
+          )}
+          {/* 되돌릴 수 없는 일이라 누르면 확인 창이 한 번 더 뜬다(`confirmPhotoDelete`). */}
+          {!previewing && Boolean(onDeletePhoto) && (
+            <BarButton glyph="trash" label="사진 삭제" onPress={() => onDeletePhoto?.()} />
           )}
           {menuRows.length > 0 && (
             <BarButton glyph="moreVertical" label="더 보기" on={menuOpen} onPress={() => setMenuOpen((열림) => !열림)} />

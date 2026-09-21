@@ -35,8 +35,16 @@ export type PhotoUploadJob = {
   body: PhotoBody;
 };
 
-/** 서버로 실제로 보내는 길. 앱은 `photoTransfer.uploadPhoto`, 시험은 가짜를 넘긴다. */
-export type PhotoUploadSend<R> = (job: PhotoUploadJob) => Promise<R>;
+/**
+ * 서버로 실제로 보내는 길. 앱은 `photoTransfer.uploadPhoto`, 시험은 가짜를 넘긴다.
+ *
+ * `알림` 은 보내는 쪽이 쥐여 주는 두 가지다. `진행` 은 0~1 로 얼마나 갔는지,
+ * `끊기` 는 지금 보내는 것을 중간에 끊는 길이다. 둘 다 없어도 된다.
+ */
+export type PhotoUploadSend<R> = (
+  job: PhotoUploadJob,
+  알림?: { 진행: (비율: number) => void; 끊기: (멈춰: () => void) => void },
+) => Promise<R>;
 
 /** 화면이 진행 줄을 그리는 데 필요한 것 전부. */
 export type PhotoUploadState = {
@@ -48,9 +56,11 @@ export type PhotoUploadState = {
   blocked: readonly string[];
   /** 아직 보내는 중인 것이 남았는지. 실패만 남았으면 false 다. */
   running: boolean;
+  /** 지금 올라가는 중인 사진의 진행(사진 id → 0~1). 끝났거나 멈춘 사진은 없다. */
+  progress: Readonly<Record<string, number>>;
 };
 
-export const NO_PHOTO_UPLOADS: PhotoUploadState = { total: 0, done: 0, blocked: [], running: false };
+export const NO_PHOTO_UPLOADS: PhotoUploadState = { total: 0, done: 0, blocked: [], running: false, progress: {} };
 
 /**
  * 진행 줄 한 줄.
@@ -89,6 +99,10 @@ type Entry<R> = {
   running: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   waiters: Waiter<R>[];
+  /** 지금 얼마나 갔는지(0~1). 보내는 쪽이 알려 줄 때만 움직인다. */
+  ratio: number;
+  /** 보내는 중인 것을 끊는 길. 보내는 쪽이 쥐여 준다. */
+  멈춰: (() => void) | null;
 };
 
 type TripQueue<R> = {
@@ -127,6 +141,14 @@ export type PhotoUploads<R> = {
   join: (job: PhotoUploadJob, send: PhotoUploadSend<R>) => Promise<R>;
   /** 멈춘 사진을 한 번 더 보낸다. 화면의 「다시 시도」가 부른다. */
   retry: (tripId: string) => void;
+  /** 멈춘 사진 한 장만 다시 보낸다. 사진 위의 ↻ 가 부른다. */
+  retryOne: (tripId: string, photoId: string) => void;
+  /**
+   * 이 한 장을 줄에서 뺀다. 보내는 중이면 끊는다.
+   *
+   * 「취소」다. 줄에서만 뺄 뿐 기기의 사진 줄은 부르는 쪽이 지운다.
+   */
+  drop: (tripId: string, photoId: string) => void;
   /** 멈춘 까닭. 서버가 준 문구를 그대로 들고 있는다. */
   reasonOf: (tripId: string, photoId: string) => string | undefined;
   /** 앱이 켜진 뒤 이 여행에서 올린 사진 id. 화면이 없는 동안 올라간 것도 들어 있다. */
@@ -170,7 +192,13 @@ export function createPhotoUploads<R>(options: {
         trip.done.clear();
       }
       const blocked = [...trip.stopped.keys()];
-      const stamp = `${trip.batch.size}|${trip.done.size}|${trip.waiting.size > 0}|${blocked.join(",")}`;
+      // 진행은 1/100 자리까지만 본다. 몇 바이트마다 다시 그리면 화면이 떨린다.
+      const progress: Record<string, number> = {};
+      for (const [id, entry] of trip.waiting) {
+        if (entry.running) progress[id] = Math.round(entry.ratio * 100) / 100;
+      }
+      const 진행_도장 = Object.entries(progress).map(([id, 값]) => `${id}:${값}`).join(",");
+      const stamp = `${trip.batch.size}|${trip.done.size}|${trip.waiting.size > 0}|${blocked.join(",")}|${진행_도장}`;
       if (stamp === trip.stamp) continue;
       trip.stamp = stamp;
       trip.state = {
@@ -178,6 +206,7 @@ export function createPhotoUploads<R>(options: {
         done: trip.done.size,
         blocked,
         running: trip.waiting.size > 0,
+        progress,
       };
       알린다 = true;
     }
@@ -196,8 +225,17 @@ export function createPhotoUploads<R>(options: {
 
   const start = (trip: TripQueue<R>, entry: Entry<R>) => {
     entry.running = true;
+    entry.ratio = 0;
     inFlight += 1;
-    entry.send(entry.job).then(
+    entry.send(entry.job, {
+      진행: (비율) => {
+        entry.ratio = Math.min(1, Math.max(0, 비율));
+        publish();
+      },
+      끊기: (멈춰) => {
+        entry.멈춰 = 멈춰;
+      },
+    }).then(
       (row) => finish(trip, entry, row, null),
       (error: unknown) => finish(trip, entry, null, error ?? new Error("사진을 올리지 못했어요.")),
     );
@@ -205,8 +243,16 @@ export function createPhotoUploads<R>(options: {
 
   const finish = (trip: TripQueue<R>, entry: Entry<R>, row: R | null, error: unknown) => {
     entry.running = false;
+    entry.멈춰 = null;
     inFlight -= 1;
     const id = entry.job.photoId;
+    // 보내는 중에 취소한 것. 줄에서 이미 뺐으니 결과가 어떻든 다시 세우지 않는다.
+    if (trip.waiting.get(id) !== entry && !trip.stopped.has(id)) {
+      entry.waiters = [];
+      publish();
+      pump();
+      return;
+    }
     const 기다리던 = entry.waiters;
     entry.waiters = [];
     if (!error) {
@@ -242,7 +288,7 @@ export function createPhotoUploads<R>(options: {
         const trip = queueOf(job.tripId);
         const id = job.photoId;
         if (trip.waiting.has(id) || trip.stopped.has(id) || trip.uploaded.has(id)) continue;
-        trip.waiting.set(id, { job, send, attempt: 0, running: false, timer: null, waiters: [] });
+        trip.waiting.set(id, { job, send, attempt: 0, running: false, timer: null, waiters: [], ratio: 0, 멈춰: null });
         trip.batch.add(id);
         넣었다 = true;
       }
@@ -259,7 +305,7 @@ export function createPhotoUploads<R>(options: {
         let entry = trip.waiting.get(job.photoId);
         if (!entry) {
           const 멈춘_것 = trip.stopped.get(job.photoId);
-          entry = 멈춘_것?.entry ?? { job, send, attempt: 0, running: false, timer: null, waiters: [] };
+          entry = 멈춘_것?.entry ?? { job, send, attempt: 0, running: false, timer: null, waiters: [], ratio: 0, 멈춰: null };
           entry.job = job;
           entry.send = send;
           entry.attempt = 0;
@@ -287,6 +333,38 @@ export function createPhotoUploads<R>(options: {
         trip.batch.add(id);
       }
       trip.stopped.clear();
+      publish();
+      pump();
+    },
+
+    retryOne(tripId, photoId) {
+      const trip = trips.get(tripId);
+      const 멈춘_것 = trip?.stopped.get(photoId);
+      if (!trip || !멈춘_것) return;
+      멈춘_것.entry.attempt = 0;
+      trip.waiting.set(photoId, 멈춘_것.entry);
+      trip.batch.add(photoId);
+      trip.stopped.delete(photoId);
+      publish();
+      pump();
+    },
+
+    drop(tripId, photoId) {
+      const trip = trips.get(tripId);
+      if (!trip) return;
+      const entry = trip.waiting.get(photoId) ?? trip.stopped.get(photoId)?.entry;
+      if (!entry) return;
+      // 보내는 중이면 끊는다. 끊긴 요청은 실패로 돌아오는데, 그때는 이미 줄에서
+      // 빠져 있어 다시 세우지 않는다.
+      entry.멈춰?.();
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.timer = null;
+      entry.waiters.forEach((하나) => 하나.reject(new Error("업로드를 취소했어요.")));
+      entry.waiters = [];
+      trip.waiting.delete(photoId);
+      trip.stopped.delete(photoId);
+      trip.batch.delete(photoId);
+      trip.done.delete(photoId);
       publish();
       pump();
     },

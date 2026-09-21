@@ -50,7 +50,10 @@ function errorOf(status: number, text: string): DaymoApiError {
   }
 }
 
-async function sendContent(photoId: string, uri: string): Promise<ServerPhoto> {
+/** 올리는 동안 얼마나 갔는지 알리고, 중간에 끊을 길을 쥐여 준다. 없어도 된다. */
+export type UploadNotice = { 진행: (비율: number) => void; 끊기: (멈춰: () => void) => void };
+
+async function sendContent(photoId: string, uri: string, 알림?: UploadNotice): Promise<ServerPhoto> {
   const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content`);
   const contentType = contentTypeOf(uri);
   // 같은 파일을 같은 주소에 다시 놓는 PUT 이라 다시 보내도 결과가 같다.
@@ -68,11 +71,19 @@ async function sendContent(photoId: string, uri: string): Promise<ServerPhoto> {
         status = response.status;
         text = await response.text();
       } else {
-        const response = await FileSystem.uploadAsync(url, uri, {
-          httpMethod: "PUT",
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-          headers,
-        });
+        // 진행을 알리고 중간에 끊을 수 있어야 해서 `uploadAsync` 대신 일감으로 만든다.
+        // 카카오톡처럼 사진 위에 얼마나 갔는지 그리고, 취소도 받는다.
+        const task = FileSystem.createUploadTask(
+          url,
+          uri,
+          { httpMethod: "PUT", uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT, headers },
+          ({ totalBytesSent, totalBytesExpectedToSend }) => {
+            if (totalBytesExpectedToSend > 0) 알림?.진행(totalBytesSent / totalBytesExpectedToSend);
+          },
+        );
+        알림?.끊기(() => void task.cancelAsync().catch(() => undefined));
+        const response = await task.uploadAsync();
+        if (!response) throw new DaymoApiError("업로드를 취소했어요.", 0);
         status = response.status;
         text = response.body;
       }
@@ -94,6 +105,7 @@ export async function uploadPhoto(
   photoId: string,
   uri: string,
   fields: Partial<PhotoBody> & { caption: string | null; date: string | null; isReceipt?: boolean },
+  알림?: UploadNotice,
 ): Promise<ServerPhoto> {
   let buffer: ArrayBuffer;
   try {
@@ -109,7 +121,7 @@ export async function uploadPhoto(
     ...fields, links: fields.links ?? [], bytes: buffer.byteLength, checksum,
   }, { background: true });
   if (reserved.status === "ready") return reserved;
-  return sendContent(photoId, uri);
+  return sendContent(photoId, uri, 알림);
 }
 
 // 웹에서 이번 탭이 만든 사진 주소. blob: 주소는 탭을 새로 열면 죽는다.

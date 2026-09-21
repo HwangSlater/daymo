@@ -55,7 +55,7 @@ import { PhotoEditScreen, confirmPhotoDelete } from "./PhotoViewer";
 import { photoUploadHeadline, photoUploads, usePhotoUploads, type PhotoUploadJob } from "./photoUploads";
 import { TripCardsSection, type CardPhoto, type CardTile } from "./TripCards";
 import { TripTrash } from "./TripTrash";
-import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto } from "./photoTransfer";
+import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto, type UploadNotice } from "./photoTransfer";
 import { savePhotoFile } from "./photoSave";
 import type { ExpenseSettings, HomeCoverChoice, ReportReason, ReportTargetType } from "./serverData";
 import type { RosterEntry } from "./tripSync";
@@ -718,7 +718,16 @@ const PHOTO_PICK_LIMIT = 50;
  * 대기열(`photoUploads.ts`)은 expo 를 가져오지 않아야 `node --test` 로 바로 볼 수 있다.
  * 그래서 보내는 길만 여기서 넘긴다. React 를 붙들지 않는 함수라 화면이 사라져도 산다.
  */
-const sendPhotoFile = (job: PhotoUploadJob) => uploadPhoto(job.tripId, job.photoId, job.uri, job.body);
+/**
+ * 올라가는 사진 위에 적을 한 줄. 진행을 모르면 수는 적지 않는다.
+ *
+ * 말은 문구 사전을 따른다(`docs/development/13-copy-glossary.md`): 업로드 중·업로드 실패.
+ */
+const 업로드_말 = (막혔나: boolean, 진행: number | undefined) =>
+  (막혔나 ? "업로드 실패" : 진행 === undefined ? "업로드 중" : `업로드 중 ${Math.round(진행 * 100)}%`);
+
+const sendPhotoFile = (job: PhotoUploadJob, 알림?: UploadNotice) =>
+  uploadPhoto(job.tripId, job.photoId, job.uri, job.body, 알림);
 
 /** 기기에서 막 고른 사진 한 장. 아직 기록에 들어가기 전이다. */
 type PickedPhoto = {
@@ -9107,6 +9116,35 @@ function Memories({
     setPhotoDrafts([]);
     notify(새_사진.length > 1 ? `사진 ${새_사진.length}장을 기록에 추가했어요` : "사진을 기록에 추가했어요");
   };
+  /** 멈춘 사진 한 장만 다시 보낸다. 사진 위의 ↻ 가 부른다. */
+  const retryOnePhoto = (photoId: string) => {
+    if (cardTripId) photoUploads.retryOne(cardTripId, photoId);
+    retryBlockedRows();
+  };
+  /**
+   * 올리기를 취소한다. 줄에서 빼고 사진도 목록에서 뺀다.
+   *
+   * 올라가다 만 사진을 목록에 남겨 두면 영영 올라가지 않는 줄이 남는다. 서버에 줄만
+   * 만들어 둔 것은 목록 맞추기가 뒤따라 지운다.
+   */
+  const cancelPhotoUpload = (photoId: string) => {
+    if (cardTripId) photoUploads.drop(cardTripId, photoId);
+    const 뺀_것 = photos.find((photo) => photo.id === photoId);
+    setPhotos((current) => current.filter((photo) => photo.id !== photoId));
+    removeStoredPhoto(뺀_것?.uri);
+    if (viewingPhotoId === photoId) setViewingPhotoId(null);
+    notify("업로드를 취소했어요");
+  };
+  /** 한 장을 지운다. 고치기 화면과 크게 보기의 🗑 이 함께 쓴다. */
+  const deletePhotoById = (photoId: string | null) => {
+    const target = photos.find((photo) => photo.id === photoId);
+    if (!target) return;
+    setPhotos((current) => current.filter((photo) => photo.id !== target.id));
+    removeStoredPhoto(target.uri);
+    setPhotoEditing(false);
+    setViewingPhotoId(null);
+    notify("사진을 삭제했어요");
+  };
   const deletePhoto = () => {
     const target = photos.find((photo) => photo.id === editingPhotoId);
     if (!target) return;
@@ -9290,9 +9328,13 @@ function Memories({
         )}
       </View>
       {Boolean(uploadHeadline) && (
+        // 「다시 시도」를 화면 오른쪽 끝으로 보내면 두 글자만 멀찍이 떠서 왼쪽 글과
+        // 짝이 안 맞아 보인다. 글 바로 뒤에 붙여 한 덩이로 읽히게 둔다. 글이 길면
+        // 그대로 다음 줄로 내려간다.
         <View style={styles.uploadLine}>
           <Text accessibilityLiveRegion="polite" style={[styles.settingHint, theme && { color: theme.muted }]}>
             {uploadHeadline}
+            {blockedPhotoIds.size > 0 ? " · " : ""}
           </Text>
           {blockedPhotoIds.size > 0 && (
             <Pressable
@@ -9302,6 +9344,7 @@ function Memories({
                 retryBlockedRows();
               }}
               accessibilityRole="button"
+              accessibilityLabel="올리지 못한 사진 다시 시도"
               hitSlop={8}
             >
               <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>다시 시도</Text>
@@ -9322,11 +9365,43 @@ function Memories({
               {tile.photo.uri && <Image source={{ uri: tile.photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
               <View style={styles.memoryTileGlow} />
               {tile.photo.id === coverPhotoId && <CoverBadge />}
+              {/* 올라가는 중과 실패를 사진 위에 그대로 얹는다. 카카오톡에서 사진이
+                  올라갈 때 보이는 그 자리다. 올라가는 중에는 얼마나 갔는지 띠로
+                  보이고, 실패하면 가운데 ↻ 를 눌러 이 한 장만 다시 보낸다. 둘 다
+                  오른쪽 위 ✕ 로 취소할 수 있다(사진도 목록에서 빠진다). */}
               {uploadingPhotoIds.has(tile.photo.id) && (
-                <View style={[styles.coverBadge, styles.uploadBadge]} pointerEvents="none">
-                  <Text style={styles.coverBadgeText}>
-                    {blockedPhotoIds.has(tile.photo.id) ? "업로드 실패" : "업로드 중"}
+                <View style={styles.uploadCover}>
+                  {blockedPhotoIds.has(tile.photo.id) ? (
+                    <Pressable
+                      onPress={() => retryOnePhoto(tile.photo.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${tile.photo.caption || "사진"} 다시 시도`}
+                      style={({ pressed }) => [styles.uploadRound, pressed && styles.controlPressed]}
+                    >
+                      <Glyph name="retry" size={20} color="#FFFFFF" weight={2.2} />
+                    </Pressable>
+                  ) : (
+                    <View style={styles.uploadBarTrack}>
+                      <View
+                        style={[
+                          styles.uploadBarFill,
+                          { width: `${Math.round((photoUploadState.progress[tile.photo.id] ?? 0) * 100)}%` },
+                        ]}
+                      />
+                    </View>
+                  )}
+                  <Text style={styles.uploadCoverText}>
+                    {업로드_말(blockedPhotoIds.has(tile.photo.id), photoUploadState.progress[tile.photo.id])}
                   </Text>
+                  <Pressable
+                    onPress={() => cancelPhotoUpload(tile.photo.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${tile.photo.caption || "사진"} 업로드 취소`}
+                    hitSlop={8}
+                    style={({ pressed }) => [styles.uploadCancel, pressed && styles.controlPressed]}
+                  >
+                    <Glyph name="close" size={12} color="#FFFFFF" weight={2.6} />
+                  </Pressable>
                 </View>
               )}
             </View>
@@ -9447,6 +9522,10 @@ function Memories({
           saving,
           saveBlocked: Boolean(viewing && uploadingPhotoIds.has(viewing.id)),
           onEditPhoto: viewing && canManagePhoto(viewing) ? () => openPhotoEdit(viewing) : undefined,
+          // 🗑 은 크게 보는 줄에 있다. 되돌릴 수 없어 누르면 확인 창이 한 번 더 뜬다.
+          onDeletePhoto: viewing && canManagePhoto(viewing)
+            ? () => confirmPhotoDelete(() => deletePhotoById(viewing.id))
+            : undefined,
           // 이미 깔린 사진은 ⌂ 를 누르면 내려간다. 다시 맞추는 길은 여기 둔다.
           onAdjustCover:
             canEdit && onSaveHomeCover && viewing && viewing.id === coverPhotoId
@@ -12654,6 +12733,50 @@ const styles = StyleSheet.create({
   // 아직 올라가는 중인 사진. 홈 표시와 같은 자리에 붙지만 둘이 겹칠 일은 없다
   // (올라가지 않은 사진은 홈에 깔 수 없다).
   uploadBadge: { left: 4, right: undefined },
+  // 올라가는 중·실패한 사진 위에 통째로 덮는 겹. 사진은 비쳐 보이되 무슨 일이
+  // 벌어지는 중인지가 먼저 읽혀야 한다.
+  uploadCover: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(17,16,15,0.45)",
+  },
+  uploadRound: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(17,16,15,0.55)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.9)",
+  },
+  uploadBarTrack: {
+    width: "78%",
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.35)",
+  },
+  uploadBarFill: { height: "100%", borderRadius: 2, backgroundColor: "#FFFFFF" },
+  uploadCoverText: { fontSize: 11, color: "#FFFFFF", fontFamily: typo.label.family },
+  uploadCancel: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(17,16,15,0.7)",
+  },
   infoPanelCloseButton: {
     minWidth: 52,
     height: 높이.칩,
@@ -14285,7 +14408,7 @@ const styles = StyleSheet.create({
   // 방금 고른 사진들. 한 줄로 늘어놓고 옆으로 밀어 본다.
   photoDraftRow: { gap: 8, paddingRight: 6, paddingVertical: 2, marginBottom: 14 },
   photoDraft: { width: 104, height: 104, borderRadius: 12, borderWidth: 1, overflow: "hidden" },
-  uploadLine: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  uploadLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", rowGap: 2 },
   photoRepick: { alignItems: "center", paddingVertical: 8 },
   photoRepickText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   // 홈 화면에 쓰는 줄. 켜지면 테두리와 글자 색이 함께 바뀐다.
