@@ -38,6 +38,8 @@ export type CardPhoto = {
   color: string;
   caption: string;
   uri?: string;
+  /** 서버에 원본이 아직 남아 있는지(올린 지 30일 안쪽). 내보낼 때만 본다. */
+  hasOriginal?: boolean;
 };
 
 type KeepsakeLook = { paper: string; ink: string; sub: string; accent: string; frame: string };

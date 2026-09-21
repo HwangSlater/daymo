@@ -6,6 +6,7 @@ import {
   colorOfId,
   PHOTO_PALETTE,
   PHOTO_UNDATED,
+  isOriginalQualityUri,
   originalSaveHint,
   photoCodec,
   photoTakenDate,
@@ -154,4 +155,17 @@ test("원본은 기한까지만 받을 수 있고, 지났으면 화면 크기로
   });
   // 서버가 말해 주지 않으면 아무 말도 하지 않고 원본을 달라고 해 본다.
   assert.deepEqual(originalSaveHint(undefined, "2026-09-16"), { hasOriginal: true, text: "", soon: false });
+});
+
+test("기기에서 고른 사진은 원본, 받아 둔 표시본은 아니다", () => {
+  const 받아_둔_것 = `file:///data/app/trip-photos/server-${A}.jpg`;
+  const 고른_것 = "file:///data/app/trip-photos/photo-1758100000000.jpg";
+
+  assert.equal(isOriginalQualityUri(고른_것, A), true);
+  assert.equal(isOriginalQualityUri(받아_둔_것, A), false);
+  // 웹은 방금 고른 사진만 data: 로 들고 있다. 서버에서 받은 것은 blob: 다.
+  assert.equal(isOriginalQualityUri("data:image/jpeg;base64,AAAA", A), true);
+  assert.equal(isOriginalQualityUri("blob:https://www.daymo.xyz/9f2", A), false);
+  // 파일이 아예 없으면 받아 올 것도 없다.
+  assert.equal(isOriginalQualityUri(undefined, A), false);
 });

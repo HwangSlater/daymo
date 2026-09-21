@@ -195,12 +195,15 @@ export function CardPreview({
   text,
   stats,
   stamp,
+  onPhotoReady,
 }: {
   card: KeepsakeCard;
   photos: CardPhoto[];
   text: { title: string; meta: string; caption: string; people: string };
   stats: { label: string; value: string }[];
   stamp: string;
+  /** 사진이 다 그려졌다고 알린다. 이것이 없으면 「카드 저장」이 사진을 영영 기다린다. */
+  onPhotoReady?: (key: string) => void;
 }) {
   const [칸, 칸재기] = useState({ width: 0, height: 0 });
   const size = keepsakeSizeOf(card.ratio, card.style);
@@ -220,6 +223,7 @@ export function CardPreview({
             stats={stats}
             stamp={stamp}
             big={false}
+            onPhotoReady={onPhotoReady}
           />
         </ScaledCard>
       )}

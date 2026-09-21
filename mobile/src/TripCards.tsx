@@ -31,7 +31,8 @@ import { type CardPhoto } from "./KeepsakeCardView";
 import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
 import { DaymoApiError } from "./auth";
 import type { CardDecor } from "./cardDecor";
-import { isLivePhotoUri, downloadPhoto } from "./photoTransfer";
+import { isLivePhotoUri, downloadPhoto, downloadPhotoToSave, releaseDownloadedPhoto } from "./photoTransfer";
+import { isOriginalQualityUri } from "./photoSync";
 import {
   createTripCard,
   deleteTripCard,
@@ -248,6 +249,13 @@ export function TripCardsSection({
   const [baseline, setBaseline] = useState<KeepsakeCard | null>(null);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /**
+   * 내보낼 때만 쓰는 원본 자리(사진 id → 파일).
+   *
+   * 미리보기는 썸네일이면 충분하지만, 찍는 순간에는 카드가 1080px 넘게 커진다.
+   * 표시본(긴 변 1440px)으로 찍으면 세로 카드에서 1.25배로 늘려 그려 뭉갠다.
+   */
+  const [originals, setOriginals] = useState<Record<string, string>>({});
   const shot = useRef<View>(null);
   // 다 그려진 사진. 화면에 알리는 것과 캡처 전에 기다리는 것 둘 다 쓴다.
   const [drawnKeys, setDrawnKeys] = useState<string[]>([]);
@@ -297,10 +305,13 @@ export function TripCardsSection({
     [listPhotoIds, chosen],
   );
   const thumbs = usePhotoThumbs(받을_사진);
-  // 미리보기는 썸네일, 내보낼 때만 표시본. 둘 다 없으면 색만 깔린다.
+  // 미리보기는 썸네일, 내보낼 때는 원본. 둘 다 없으면 기기에 있는 것, 그것도 없으면 색만 깔린다.
   const drawPhotos = useMemo(
-    () => chosen.map((photo) => ({ ...photo, uri: exporting ? photo.uri : thumbs[photo.id] ?? photo.uri })),
-    [chosen, exporting, thumbs],
+    () => chosen.map((photo) => ({
+      ...photo,
+      uri: exporting ? originals[photo.id] ?? photo.uri : thumbs[photo.id] ?? photo.uri,
+    })),
+    [chosen, exporting, originals, thumbs],
   );
   const text = useMemo(
     () =>
@@ -556,7 +567,32 @@ export function TripCardsSection({
       return;
     }
     setBusy(true);
-    // 표시본으로 바꿔 그린 뒤에 찍는다. 미리보기 내내 1440px 사진을 들고 있지 않는다.
+    // 원본으로 바꿔 그린 뒤에 찍는다. 미리보기 내내 큰 사진을 들고 있지 않는다.
+    //
+    // 기기에서 고른 사진은 파일이 이미 원본이라 그대로 쓴다. 남이 올린 사진만 받아
+    // 오고, 다 찍은 뒤에 버린다. 원본 기한(30일)이 지났으면 서버가 표시본을 주는데
+    // 그것은 화면이 쓰고 있는 파일과 같으니 버리지 않는다.
+    const 받은_것: Record<string, string> = {};
+    const 버릴_것: string[] = [];
+    let 원본_못_받음 = false;
+    try {
+      await Promise.all(chosen.map(async (photo) => {
+        if (isOriginalQualityUri(photo.uri, photo.id)) return;
+        try {
+          const 받음 = await downloadPhotoToSave(photo.id, photo.hasOriginal ?? false);
+          if (!받음) return;
+          받은_것[photo.id] = 받음.uri;
+          if (받음.original) 버릴_것.push(받음.uri);
+          else 원본_못_받음 = true;
+        } catch {
+          // 못 받으면 기기에 있는 것으로 찍는다. 저장 자체를 막지는 않는다.
+          원본_못_받음 = true;
+        }
+      }));
+    } catch {
+      원본_못_받음 = true;
+    }
+    setOriginals(받은_것);
     setExporting(true);
     let 찍은_것: string | undefined;
     const 잰다 = Date.now();
@@ -576,6 +612,9 @@ export function TripCardsSection({
       // 폰은 공유 시트가 뜨는 것으로 끝이다. 시트만 열렸는데 「공유했어요」라고
       // 단정하지 않는다. 웹은 내려받기가 조용히 끝나서 한 줄 알린다.
       if (결과 === "unavailable") viewerRef.current.onNotice("이 기기에서는 카드를 저장하거나 공유할 수 없어요");
+      // 원본 보관 기간(30일)이 지난 사진은 줄인 사본밖에 없다. 저장은 되지만 화질이
+      // 다르니 조용히 넘기지 않고 한 줄 남긴다.
+      else if (원본_못_받음) viewerRef.current.onNotice("원본이 없는 사진은 줄인 화질로 들어갔어요");
       else if (Platform.OS === "web") viewerRef.current.onNotice("카드를 저장했어요");
     } catch {
       viewerRef.current.onNotice("저장할 이미지를 만들지 못했어요");
@@ -583,6 +622,8 @@ export function TripCardsSection({
       // 찍은 그림은 여기서만 쓴다. 화면이 아직 쓰는 사진 주소는 건드리지 않는다
       // (`photoTransfer.ts` 의 liveBlobUris 규칙).
       if (찍은_것) releaseCapture(찍은_것);
+      버릴_것.forEach(releaseDownloadedPhoto);
+      setOriginals({});
       setExporting(false);
       setBusy(false);
     }
@@ -695,7 +736,7 @@ export function TripCardsSection({
           ? { on: cover.on, label: cover.label, onPress: () => void toggleCover() }
           : undefined,
         preview: previewing && card
-          ? <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} />
+          ? <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} onPhotoReady={markDrawn} />
           : undefined,
         // 기간과 지역은 카드 얼굴에 이미 적혀 있다. 아래에는 어떤 틀에 사진 몇 장인지만
         // 둔다. 두 줄이 되면 스트립이 밀린다.

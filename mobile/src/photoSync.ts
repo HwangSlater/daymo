@@ -152,6 +152,19 @@ export function originalSaveHint(
   };
 }
 
+/**
+ * 이 자리에 있는 파일이 원본 화질인지.
+ *
+ * 기기에서 고른 사진은 앱이 제 폴더로 복사해 둔 파일이라 올린 것과 같다. 남이 올린
+ * 사진은 표시본(긴 변 1440px)을 `server-<id>` 라는 이름으로 받아 둔 것이라, 카드로
+ * 내보낼 때 늘려 그리면 뭉갠다. 그때만 원본을 따로 받는다.
+ *
+ * 웹은 기기에 두지 않는다. 방금 고른 사진은 `data:` 로 들고 있어 원본이고, 서버에서
+ * 받은 것은 `blob:` 이라 표시본이다.
+ */
+export const isOriginalQualityUri = (uri: string | undefined, photoId: string): uri is string =>
+  Boolean(uri) && !uri!.startsWith("blob:") && !uri!.includes(`server-${photoId}`);
+
 /** 같은 사진은 어느 기기에서나 같은 색이 되게 id 로 고른다. */
 export function colorOfId(id: string): string {
   let sum = 0;

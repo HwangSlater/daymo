@@ -167,6 +167,21 @@ export async function downloadPhoto(
 }
 
 /**
+ * 잠깐 쓰려고 받은 사진을 버린다. 원본은 몇 MB 라서 들고 있을 까닭이 없다.
+ *
+ * 화면이 쓰고 있는 주소는 넘기지 않는다. 지우면 그 자리에 빈 칸이 남는다
+ * (`downloadPhotoToSave` 가 원본이 없어 표시본을 돌려준 경우가 그렇다).
+ */
+export function releaseDownloadedPhoto(uri: string): void {
+  if (Platform.OS === "web") {
+    liveBlobUris.delete(uri);
+    if (uri.startsWith("blob:")) URL.revokeObjectURL(uri);
+    return;
+  }
+  FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+}
+
+/**
  * 기기에 저장하려고 받는다. 원본이 아직 있으면 원본을, 없으면 표시본(긴 변 1440px)을 준다.
  *
  * 원본은 올린 지 30일까지만 서버에 남는다. 기한이 지나면 서버가 410 으로 답하는데,

@@ -8800,8 +8800,12 @@ function Memories({
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
   // 기념 카드에 올릴 사진. 색과 설명만 넘긴다(`TripCards.tsx` 가 나머지를 한다).
   const cardPhotos = useMemo<CardPhoto[]>(
-    () => photos.map(({ id, color, caption, uri }) => ({ id, color, caption, uri })),
-    [photos],
+    // 카드로 내보낼 때 원본을 받을 수 있는지도 함께 넘긴다. 기한이 지난 사진은
+    // 표시본밖에 없어서 받아 봐야 소용이 없다.
+    () => photos.map(({ id, color, caption, uri, originalUntil }) => ({
+      id, color, caption, uri, hasOriginal: originalSaveHint(originalUntil, todayKey).hasOriginal,
+    })),
+    [photos, todayKey],
   );
   const cardCounts = useMemo(
     () => ({ places: places.length, photos: photos.length, days: dayOptions.length, spent: spentTotal }),
