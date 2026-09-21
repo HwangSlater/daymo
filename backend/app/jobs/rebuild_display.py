@@ -9,9 +9,10 @@
 원본이 아직 남아 있는 사진(올린 지 30일 안쪽)을 원본에서 다시 만든다. 원본이 없는
 사진은 건너뛴다.
 
-DB 는 읽기만 한다. 표시본 경로는 그대로이고, `photos.width`·`height` 는 원본(방향을
-바로잡은) 크기라 표시본과 상관이 없다. `stored_bytes` 는 표시본이 커진 만큼 실제
-디스크보다 작게 남는다. 늘어난 바이트 합을 끝에 적어 둔다.
+DB 는 `stored_bytes` 만 고친다. 공간 한도가 사진마다의 이 값을 더해 세기 때문에,
+표시본이 커진 만큼 더해 두지 않으면 한도가 실제 디스크보다 작게 잡힌다(원본 기한이
+지나 원본을 지울 때 빼 주는 것과 같은 까닭이다, `services.photos`). 표시본 경로는
+그대로이고, `photos.width`·`height` 는 원본(방향을 바로잡은) 크기라 표시본과 상관이 없다.
 
 사진 id 와 경로 말고는 아무것도 출력하지 않는다. 설명·올린 사람은 읽지도 않는다.
 """
@@ -23,7 +24,7 @@ import uuid
 from collections import Counter
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_engine, get_session_factory
@@ -58,7 +59,7 @@ async def targets(session: AsyncSession) -> list[Target]:
     return [Target(row.id, row.original_path, row.display_path) for row in rows]
 
 
-def process(items: list[Target], *, apply: bool) -> Counter[str]:
+def process(items: list[Target], *, apply: bool, grown: dict[uuid.UUID, int] | None = None) -> Counter[str]:
     """
     한 장씩 보고 셈을 돌려준다. `apply` 가 아니면 파일을 건드리지 않는다.
 
@@ -88,6 +89,8 @@ def process(items: list[Target], *, apply: bool) -> Counter[str]:
             continue
         counts[DisplayState.REBUILD.value] += 1
         counts["added-bytes"] += after - before
+        if grown is not None:
+            grown[item.photo_id] = after - before
         logger.info("표시본 다시 만듦: %s %s (%d → %d 바이트)", item.photo_id, item.display_path, before, after)
     return counts
 
@@ -101,7 +104,7 @@ def summary(counts: Counter[str], *, apply: bool) -> str:
         f"실패: {counts['failed']}",
     ]
     if apply:
-        lines.append(f"늘어난 크기: {counts['added-bytes'] / 1024 / 1024:.1f}MB (stored_bytes 에는 반영하지 않았다)")
+        lines.append(f"늘어난 크기: {counts['added-bytes'] / 1024 / 1024:.1f}MB (공간 한도에 더했다)")
     else:
         lines.append("세기만 했다. 실제로 만들려면 --apply 를 붙인다.")
     return "\n".join(lines)
@@ -113,9 +116,32 @@ async def run(*, apply: bool) -> bool:
         items = await targets(session)
     await get_engine().dispose()
     # 이미지 변환은 CPU 를 쓰는 동기 일이다. 이 작업은 따로 도는 프로세스라 그대로 부른다.
-    counts = process(items, apply=apply)
+    grown: dict[uuid.UUID, int] = {}
+    counts = process(items, apply=apply, grown=grown)
+    if apply and grown:
+        async with get_session_factory()() as session:
+            await add_grown_bytes(session, grown)
+            await session.commit()
+        await get_engine().dispose()
     print(summary(counts, apply=apply))
     return counts["failed"] == 0
+
+
+async def add_grown_bytes(session: AsyncSession, grown: dict[uuid.UUID, int]) -> None:
+    """
+    다시 만든 만큼 `stored_bytes` 에 더한다. 부르는 쪽이 한 transaction 으로 commit 한다.
+
+    파일을 다 만든 뒤에 한다. 도중에 멈추면 이미 만든 파일은 새 크기인데 DB 는 옛 값으로
+    남는데, 다시 돌리면 그 사진은 「이미 새 크기」라 건너뛰어 끝내 더해지지 않는다.
+    그 경우는 실패로 로그에 남긴다. 값이 비어 있는(옛) 줄은 원본 크기로 세고 있으므로
+    건드리지 않는다.
+    """
+    for photo_id, delta in grown.items():
+        await session.execute(
+            update(Photo)
+            .where(Photo.id == photo_id, Photo.stored_bytes.is_not(None))
+            .values(stored_bytes=Photo.stored_bytes + delta)
+        )
 
 
 def main(argv: list[str] | None = None) -> int:

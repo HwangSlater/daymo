@@ -7,13 +7,16 @@
 
 import stat
 import sys
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from PIL import Image
+from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.jobs import rebuild_display
+from app.models import Photo
 from app.services import photo_files
 from app.services.photos import ORIGINAL_DAYS, purge_originals
 from tests.test_api_photos import jpeg, 사진을_올린다
@@ -113,3 +116,19 @@ async def test_한_장이_실패해도_다음_사진으로_넘어간다(api, db,
     assert (셈["rebuild"], 셈["failed"]) == (1, 1)
     assert 긴_변(표시본(사진_폴더, trip_id, 멀쩡한_id)) == 2048
     assert 긴_변(표시본(사진_폴더, trip_id, 깨질_id)) == 1440
+
+
+async def test_다시_만든_만큼_공간_한도에_더한다(api, db, monkeypatch, 사진_폴더):
+    _, photo_id, _ = await 옛_크기로_올린다(api, monkeypatch, jpeg(3000, 2000))
+    id_ = uuid.UUID(photo_id)
+    전 = (await db.execute(select(Photo.stored_bytes).where(Photo.id == id_))).scalar_one()
+
+    늘어남: dict[uuid.UUID, int] = {}
+    rebuild_display.process(await rebuild_display.targets(db), apply=True, grown=늘어남)
+    await rebuild_display.add_grown_bytes(db, 늘어남)
+
+    # 공간 한도는 사진마다의 stored_bytes 합이다. 커진 표시본만큼 더해져야 한다.
+    db.expire_all()
+    후 = (await db.execute(select(Photo.stored_bytes).where(Photo.id == id_))).scalar_one()
+    assert 늘어남[id_] > 0
+    assert 후 == 전 + 늘어남[id_]
