@@ -27,6 +27,7 @@ import uuid
 from urllib.parse import quote
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -259,6 +260,93 @@ def store(upload: Path, trip_id: uuid.UUID, photo_id: uuid.UUID, zone: ZoneInfo)
         display_path=f"{base}/display.jpg",
         thumbnail_path=f"{base}/thumbnail.jpg",
     )
+
+
+class DisplayState(StrEnum):
+    """이미 올라간 사진의 표시본을 지금 크기로 다시 만들 수 있는지."""
+
+    REBUILD = "rebuild"
+    NO_ORIGINAL = "no-original"
+    UP_TO_DATE = "up-to-date"
+
+
+def _long_edge(path: Path) -> int | None:
+    """그림의 긴 변. 머리만 읽고 풀지 않는다. 열 수 없으면 None."""
+    try:
+        with Image.open(path) as image:
+            return max(image.size)
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        return None
+
+
+def display_state(original_relative: str | None, display_relative: str) -> DisplayState:
+    """
+    표시본을 다시 만들 일이 있는지 본다. 파일은 머리만 읽는다.
+
+    다시 만들지 않는 경우:
+    - 원본 경로가 비었거나 파일이 없다. 표시본을 다시 줄여 봐야 더 나아지지 않는다.
+    - 표시본의 긴 변이 이미 `DISPLAY_EDGE` 이상이다. 새 크기로 만든 것이다.
+    - 원본의 긴 변이 지금 표시본의 긴 변 이하다. 옛 크기일 때도 줄이지 않고 원본
+      크기 그대로 만들었으니 다시 만들어도 같은 그림이 나온다. 긴 변은 방향과
+      상관없어서 EXIF 방향을 따지지 않고 비교한다.
+
+    표시본 파일이 없거나 열리지 않으면 원본이 있는 한 다시 만든다.
+    """
+    if not original_relative:
+        return DisplayState.NO_ORIGINAL
+    original = absolute(original_relative)
+    original_edge = _long_edge(original) if original.is_file() else None
+    if original_edge is None:
+        return DisplayState.NO_ORIGINAL
+    display = absolute(display_relative)
+    display_edge = _long_edge(display) if display.is_file() else None
+    if display_edge is not None and (display_edge >= DISPLAY_EDGE or original_edge <= display_edge):
+        return DisplayState.UP_TO_DATE
+    return DisplayState.REBUILD
+
+
+def rebuild_display(original_relative: str, display_relative: str) -> tuple[int, int]:
+    """
+    원본에서 표시본만 지금 크기(`DISPLAY_EDGE`, `JPEG_QUALITY`)로 다시 만든다.
+    (예전 크기, 새 크기) 바이트를 돌려준다. 표시본이 없었으면 예전 크기는 0 이다.
+
+    `store()` 와 같은 길로 만든다(방향 바로잡기, 줄이기, EXIF 없는 JPEG, 0640).
+    썸네일은 그대로 둔다. 480px 이라 표시본 크기와 상관이 없다.
+
+    같은 폴더에 다른 이름으로 다 쓴 뒤 `os.replace` 로 바꿔 끼운다. 도중에 죽어도
+    반쯤 쓴 표시본을 내주는 일이 없다. 남은 임시 파일은 다음 실행이 덮어쓰고,
+    사진을 지우면 폴더째 사라진다.
+
+    다시 만들 일이 있는지는 부르는 쪽이 `display_state()` 로 먼저 본다.
+    """
+    original = absolute(original_relative)
+    display = absolute(display_relative)
+    try:
+        with Image.open(original) as image:
+            kind = image.format or ""
+            if kind not in FORMATS:
+                raise NotAPhoto(kind)
+            width, height = image.size
+            if width * height > MAX_PIXELS[kind]:
+                raise NotAPhoto("픽셀이 너무 많다")
+            upright = _upright_rgb(image, kind)
+            image.close()
+        _shrink(upright, DISPLAY_EDGE)
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+        raise NotAPhoto(str(error)) from error
+
+    try:
+        before = display.stat().st_size
+    except FileNotFoundError:
+        before = 0
+    building = display.with_name(f"{display.name}.rebuilding")
+    try:
+        after = _save_jpeg(upright, building)
+        os.replace(building, display)
+    except Exception:
+        building.unlink(missing_ok=True)
+        raise
+    return before, after
 
 
 def remove_original(relative: str) -> int:
