@@ -3,6 +3,7 @@
 
     python store_chat.py iphone <다듬은폴더> <나갈폴더>     # 1290x2796, App Store 10장
     python store_chat.py galaxy <다듬은폴더> <나갈폴더>     # 1080x2160, Play 8장
+    python store_chat.py galaxy-916 <다듬은폴더> <나갈폴더> # 1080x1920, Play 추천 노출 규격
 
 <다듬은폴더> 는 `store_prepare.py` 가 만든 것(`01-홈.png` …). 대화 문구와 짚을 자리는 아래 SHOTS 에 있다.
 - 답이 작은 글자·숫자라 폰 안에서 안 읽히는 화면은 그 부분을 테두리로 짚고 크게 꺼내 폰 위에 얹는다.
@@ -60,6 +61,9 @@ GALAXY_BOX = {
 DEVICE = {
     "iphone": {"screen_x": 59, "screen_y": 44, "phone_w": 1408, "page_h": 2796, "size": (1290, 2796)},
     "galaxy": {"screen_x": 50, "screen_y": 37, "phone_w": 1180, "page_h": 2580, "size": (1080, 2160)},
+    # Play 추천 노출은 세로 9:16(1080x1920 이상)만 받는다. 1:2 보다 짧아 폰을 조금 줄인다.
+    "galaxy-916": {"screen_x": 50, "screen_y": 37, "phone_w": 1180, "page_h": 2293, "size": (1080, 1920),
+                   "phone": (295, 740, 700)},
 }
 
 
@@ -83,7 +87,7 @@ body{{width:1290px;height:{page_h}px;overflow:hidden;font-family:CR,sans-serif;p
 .me{{align-self:flex-end}}
 .me .b{{background:#3F4C8F;color:#fff;border-top-right-radius:12px;box-shadow:0 10px 26px rgba(63,76,143,.28)}}
 .tm{{font-size:32px;color:#8A90A0;white-space:nowrap;padding-bottom:6px}}
-.ph{{position:absolute;left:215px;top:790px;width:860px;filter:drop-shadow(0 40px 60px rgba(23,35,61,.26))}}
+.ph{{position:absolute;filter:drop-shadow(0 40px 60px rgba(23,35,61,.26))}}
 .ring{{position:absolute;border:5px solid #3F4C8F}}
 .zoom{{position:absolute;overflow:hidden;background:#fff;box-shadow:0 30px 60px rgba(23,35,61,.30),0 0 0 5px #3F4C8F}}
 .zoom img{{display:block;width:100%}}
@@ -92,7 +96,7 @@ body{{width:1290px;height:{page_h}px;overflow:hidden;font-family:CR,sans-serif;p
 
 def page(name, shot, dev, work, src):
     who, q, qt, a, at, box, r = shot
-    L, T, W = 215, 790, 860
+    L, T, W = dev.get("phone", (215, 790, 860))
     k = W / dev["phone_w"]
     marks = ""
     if box and name not in PLAIN:
@@ -119,7 +123,7 @@ def page(name, shot, dev, work, src):
     return css(dev["page_h"]) + f"""
 <div class="room"><b>주말 여행 메이트</b> 3</div>
 <div class="chat">{ask}<div class="me line"><div class="tm">읽음 · {at}</div><div class="b">{a}</div></div></div>
-<img class="ph" src="{ph}">
+<img class="ph" style="left:{L}px;top:{T}px;width:{W}px" src="{ph}">
 {marks}"""
 
 
@@ -132,7 +136,7 @@ async def main(kind, src, dst):
             browser = await p.chromium.launch()
             pg = await browser.new_page(viewport={"width": 1290, "height": dev["page_h"]}, device_scale_factor=1)
             for name, shot in shots.items():
-                phone(Image.open(os.path.join(src, name + ".png")).convert("RGB"), kind).save(
+                phone(Image.open(os.path.join(src, name + ".png")).convert("RGB"), kind.split("-")[0]).save(
                     os.path.join(work, f"phone-{name}.png"))
                 html = os.path.join(work, f"{name}.html")
                 with open(html, "w", encoding="utf-8") as f:

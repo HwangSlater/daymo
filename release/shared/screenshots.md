@@ -9,7 +9,7 @@
 | 스토어 | 크기 | 장수 | 비고 |
 | --- | --- | --- | --- |
 | App Store | 1290×2796 원본 / 1284×2778 업로드 사본 | 10장 | App Store Connect가 1242×2688 또는 1284×2778을 요구하는 칸에는 업로드 사본을 쓴다. `~/Downloads/daymo-미리보기/스토어-최종/앱스토어-캡션-1284x2778` |
-| Google Play 스크린샷 | 1080×2160 | 8장 | 긴 변이 짧은 변의 2배를 넘으면 안 된다. 요즘 폰 화면(1080×2340)은 넘어서 모형에 넣어 2:1 로 맞춘다 |
+| Google Play 스크린샷 | 1080×1920 (9:16) | 8장 | 게시만 하려면 긴 변이 짧은 변의 2배 이하면 되지만, 큰 추천 영역에 뜨려면 세로 **9:16, 1080×1920 이상** 4장이 있어야 한다(Play 콘솔 도움말 「미리보기 자산 추가」). 그래서 1:2 가 아니라 9:16 으로 만든다(2026-09-22) |
 | Google Play 그래픽 이미지 | 1024×500, 투명 없음 | 1장 | `release/assets/play-feature-graphic.png` |
 
 ## 화면과 대화
@@ -80,7 +80,7 @@ cd release/scripts
 python store_prepare.py iphone  <아이폰폴더>  <작업>/ip  <아이폰폴더>/차례.txt
 python store_prepare.py galaxy  <갤럭시폴더>  <작업>/ga  <갤럭시폴더>/차례.txt
 python store_chat.py  iphone  <작업>/ip  <나갈폴더>/app-store   # 1290x2796
-python store_chat.py  galaxy  <작업>/ga  <나갈폴더>/play        # 1080x2160
+python store_chat.py  galaxy-916  <작업>/ga  <나갈폴더>/play    # 1080x1920. `galaxy` 는 예전 1:2 판(1080x2160)
 python store_feature_graphic.py  <작업>/ip          # release/assets/play-feature-graphic.png 를 새로 쓴다
 ```
 
@@ -89,6 +89,6 @@ python store_feature_graphic.py  <작업>/ip          # release/assets/play-feat
 ## 두는 곳
 
 - 찍은 원본과 완성본은 **저장소에 넣지 않는다**(장당 1~3MB, 스토어에 올리면 끝이다). 운영자 PC 의 `daymo-미리보기\스토어-최종\` 에
-  `원본\아이폰`, `원본\갤럭시`, `앱스토어-캡션-1290x2796`, `플레이-캡션-1080x2160` 으로 둔다.
+  `원본\아이폰`, `원본\갤럭시`, `앱스토어-캡션-1290x2796`(와 업로드 사본 `앱스토어-캡션-1284x2778`), `플레이-캡션-1080x1920` 으로 둔다.
 - 저장소에는 스크립트와 그래픽 이미지(`release/assets/`)만 둔다.
 - 옛 그래픽 이미지(아이콘 + 글자 배너)는 `python release/scripts/build-store-assets.py --old-banner` 로 다시 만들 수 있다.
