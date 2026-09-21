@@ -7,13 +7,14 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 | --- | --- |
 | [shared/listing-ko.md](shared/listing-ko.md) | 앱 이름, 부제·짧은 설명, 긴 설명, 키워드, URL — 두 스토어 공통 |
 | [shared/data-inventory.md](shared/data-inventory.md) | Daymo가 실제로 수집·저장하는 데이터와 들어 있는 SDK. App Privacy와 데이터 보안 답의 원본 |
-| [shared/screenshots.md](shared/screenshots.md) | 찍을 화면, 캡션, 스토어별 크기 |
+| [shared/screenshots.md](shared/screenshots.md) | 찍을 화면, 캡션, 스토어별 크기, 휴대폰 모형·그래픽 이미지 만드는 법 |
 | [shared/demo-account.md](shared/demo-account.md) | 심사용 데모 계정을 서버에서 만들고 되돌리는 법, 심사자가 보는 내용 |
 | [app-store/app-store-connect.md](app-store/app-store-connect.md) | App Store Connect 필드별 입력값, App Privacy, 연령 등급, 심사 정보 |
 | [app-store/build-and-submit.md](app-store/build-and-submit.md) | iOS 빌드(Xcode 26), TestFlight, 제출 순서 |
 | [play-store/play-console.md](play-store/play-console.md) | Play Console 필드별 입력값, 데이터 보안, 콘텐츠 등급, 앱 콘텐츠 선언 |
 | [play-store/build-and-release.md](play-store/build-and-release.md) | Android 빌드(AAB), 비공개 테스트, 프로덕션 출시 순서 |
-| [assets/](assets/) | Play 아이콘 512px, 그래픽 이미지 1024×500 (`scripts/build-store-assets.py` 로 만든다) |
+| [assets/](assets/) | Play 아이콘 512px(`scripts/build-store-assets.py`), 그래픽 이미지 1024×500(`scripts/store_feature_graphic.py`) |
+| [scripts/](scripts/) | 찍은 화면 다듬기(`store_prepare.py`), 휴대폰 모형·캡션(`store_mockup.py`), 그래픽 이미지(`store_feature_graphic.py`) |
 
 ## 공통 주소
 
@@ -38,7 +39,7 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 | 4 | ~~소셜 로그인 버튼을 공식 에셋으로~~ (2026-09-15 완료) | 개발 | 남은 것: Apple 로고 파일의 사용 조건 확인, 또는 iOS 에서 시스템 Apple 버튼 사용(`mobile/assets/social/README.md`) |
 | 5 | 심사용 데모 계정 | 운영자(이메일·실행) | 두 스토어 모두 로그인이 필요한 앱은 심사 계정을 요구한다. 만드는 작업은 준비됐다(아래 "데모 계정"). 이메일을 정하고 제출 직전에 서버에서 돌린다 |
 | 6 | Google Play 개발자 계정과 비공개 테스트 | 운영자 | 개인 개발자 계정은 테스터 12명 이상이 14일 동안 비공개 테스트를 해야 프로덕션을 신청할 수 있다 |
-| 7 | 실제 기기 스크린샷 | 운영자 + 개발 | 두 스토어 모두 실제 앱 화면이어야 한다 |
+| 7 | ~~실제 기기 스크린샷~~ (2026-09-21 완료) | 운영자 + 개발 | 두 스토어 모두 실제 앱 화면이어야 한다. App Store 10장·Play 8장과 그래픽 이미지를 만들었다(완성본은 저장소 밖) |
 | 8 | 앱 버전 1.0.0 | 개발 | 지금 `mobile/app.json` 은 0.1.0. 첫 스토어 빌드를 만들 때 올린다(빌드 번호는 EAS가 올린다) |
 | 9 | 카카오 비즈 앱 심사(이메일 동의항목) | 카카오 | 2026-09-15 신청, 3~5일 |
 | 10 | 앱 안에서 처리방침·약관 열기 | 개발 | 페이지는 `www.daymo.xyz/privacy`·`/terms` 로 있는데 로그인 화면 아래 문구가 아직 링크가 아니다. App Store 지침 5.1.1 과 Play 정책이 요구한다 |
@@ -55,7 +56,7 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 
 iPhone 앱이 나오기 전까지 같은 앱을 `www.daymo.xyz/app` 에서 쓴다. 스토어 자료와는 별개지만 두 가지가 겹친다.
 
-- 스토어 스크린샷은 웹 화면으로 찍지 않는다. 실기기나 시뮬레이터로 찍는다([shared/screenshots.md](shared/screenshots.md)).
+- 스토어 스크린샷은 웹 화면으로 찍지 않는다. 실기기로 찍는다([shared/screenshots.md](shared/screenshots.md)).
 - 웹에서 Apple 로그인 버튼은 서버에 키가 들어가야 보인다. 지금은 Google·카카오·네이버만 보인다.
 
 ## 정할 것
