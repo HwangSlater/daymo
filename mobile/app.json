@@ -13,6 +13,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.hwangslater.daymo",
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
       "config": {
         "usesNonExemptEncryption": false
       }

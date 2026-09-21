@@ -17,6 +17,10 @@
 4. App Store Connect에서 신규 앱 만들기 — [app-store-connect.md](app-store-connect.md) 1항.
 5. 서명: 처음 `eas build -p ios` 를 돌리면 EAS가 Apple 계정으로 로그인해 배포 인증서와 프로비저닝 프로필을 만들어 보관한다.
 
+Apple 로그인은 웹 OAuth를 쓰지만, App ID를 Services ID의 기본 앱으로 유지해야 한다. `mobile/app.json`의
+`ios.entitlements.com.apple.developer.applesignin`을 빼면 EAS의 capability 동기화가 Apple Developer의
+Sign in with Apple을 끄려 하고, 연결된 앱 때문에 빌드 준비가 실패한다.
+
 ## 빌드
 
 ```sh
