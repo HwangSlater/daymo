@@ -14,7 +14,7 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 | [play-store/play-console.md](play-store/play-console.md) | Play Console 필드별 입력값, 데이터 보안, 콘텐츠 등급, 앱 콘텐츠 선언 |
 | [play-store/build-and-release.md](play-store/build-and-release.md) | Android 빌드(AAB), 비공개 테스트, 프로덕션 출시 순서 |
 | [assets/](assets/) | Play 아이콘 512px(`scripts/build-store-assets.py`), 그래픽 이미지 1024×500(`scripts/store_feature_graphic.py`) |
-| [scripts/](scripts/) | 찍은 화면 다듬기(`store_prepare.py`), 휴대폰 모형·캡션(`store_mockup.py`), 그래픽 이미지(`store_feature_graphic.py`) |
+| [scripts/](scripts/) | 찍은 화면 다듬기(`store_prepare.py`), 말풍선판 스크린샷(`store_chat.py`), 그래픽 이미지(`store_feature_graphic.py`) |
 
 ## 공통 주소
 
