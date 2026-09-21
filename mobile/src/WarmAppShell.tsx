@@ -69,6 +69,8 @@ import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
 import { MEMO_COLOR, dayKeyOf, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
 import { CalendarNoteSheet } from "./CalendarNoteSheet";
+import { FeedbackCard, FeedbackSheet } from "./FeedbackSheet";
+import { useFeedbackCardHidden } from "./feedback";
 import * as ExpoCrypto from "expo-crypto";
 import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
@@ -5306,6 +5308,9 @@ function Together({
   /** 계정 삭제 요청이 받아들여졌다. 서버가 모든 기기를 로그아웃시킨 뒤다. */
   onAccountDeletionRequested: (scheduledAt: string | null) => void;
 }) {
+  const [의견카드_숨김, 의견카드_숨기기] = useFeedbackCardHidden();
+  const [의견창_열림, set의견창] = useState(false);
+  const 의견창 = 의견창_열림 ? <FeedbackSheet theme={theme} onClose={() => set의견창(false)} /> : null;
   const spaceName = activeSpace.name;
   const relationship = activeSpace.relationship;
   const since = activeSpace.since;
@@ -5500,6 +5505,12 @@ function Together({
             </Pressable>
           </View>
         </View>
+        {/* 초기라 쓰는 사람의 목소리를 쉽게 받으려고 맨 위에 둔다. 닫아도 설정의
+            「의견 보내기」로 언제든 보낼 수 있다. */}
+        {!의견카드_숨김 && (
+          <FeedbackCard theme={theme} onOpen={() => set의견창(true)} onHide={의견카드_숨기기} />
+        )}
+        {panel !== "settings" && 의견창}
         <Pressable
           onPress={() => setPanel("groups")}
           accessibilityRole="button"
@@ -5732,6 +5743,13 @@ function Together({
                 value={SUPPORT_EMAIL}
                 onPress={() => void 문의_메일_열기()}
               />
+              <Setting
+                theme={theme}
+                label="의견 보내기"
+                onPress={() => set의견창(true)}
+              />
+              {/* 설정 창 안에서 연다. iOS 는 떠 있는 창 옆에 창을 하나 더 띄우지 못한다. */}
+              {panel === "settings" && 의견창}
               <Setting
                 theme={theme}
                 label="오픈소스 라이선스"

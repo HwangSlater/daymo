@@ -42,6 +42,7 @@ from app.models.enums import (
 )
 from app.models.cooking import Checklist, ChecklistItem, Ingredient, Recipe
 from app.models.expense import Expense, ExpenseShare, Payment
+from app.models.feedback import FEEDBACK_BODY_MAX, FEEDBACK_KINDS, Feedback
 from app.models.memory import AuditLog, Diary, Memo, Photo, PhotoLink
 from app.models.moderation import REPORT_DETAIL_MAX, Report, UserBlock
 from app.models.oauth import OAuthPendingLogin, OAuthState
@@ -65,6 +66,9 @@ from app.models.user import User
 # alembic 이 autogenerate 할 때 여기 없는 모델은 보지 못한다.
 # 새 모델을 만들면 반드시 이 목록에 추가한다.
 __all__ = [
+    "FEEDBACK_BODY_MAX",
+    "FEEDBACK_KINDS",
+    "Feedback",
     "INVITE_DAYS",
     "INVITE_MAX_USES",
     "MAX_MEMBERS_PER_SPACE",

@@ -7,6 +7,7 @@ from app.api.v1 import (
     client_errors,
     cooking,
     expenses,
+    feedback,
     health,
     me,
     members,
@@ -39,5 +40,6 @@ api_router.include_router(cooking.router)
 api_router.include_router(memories.router)
 api_router.include_router(photos.router)
 api_router.include_router(reports.router)
+api_router.include_router(feedback.router)
 api_router.include_router(trash.router)
 api_router.include_router(client_errors.router)

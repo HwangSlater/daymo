@@ -23,6 +23,7 @@ from app.core.runtime import use_selector_event_loop_on_windows
 from app.services import (
     account_deletion,
     audit,
+    feedback,
     memories,
     photos,
     places,
@@ -54,6 +55,8 @@ JOBS: list[tuple[str, Job]] = [
     # 보유기간(6개월)이 지난 감사 기록. 앞의 일들과 순서를 다투지 않는다.
     # 여기서 지우는 것은 오늘 생긴 줄이 아니라 반년 전 줄이다.
     ("audit", lambda session: audit.purge_expired(session)),
+    # 받은 지 1년이 지난 의견.
+    ("feedback", lambda session: feedback.purge_expired(session)),
 ]
 
 

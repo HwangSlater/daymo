@@ -17,6 +17,7 @@ App Store의 App Privacy와 Google Play의 데이터 보안(Data safety) 답은 
 | 사진 촬영 시각 | 사진 원본 EXIF | 사진을 날짜에 놓기 | 예 | `Photo.taken_at` |
 | 그 밖의 사용자 콘텐츠 | 앱에 입력 | 여행을 멤버와 함께 관리 | 예 | 공간·여행·일정·장소·숙소·교통·예약·준비물·요리·지출·정산 기록·메모·일기 |
 | 약관 동의 기록 | 가입 | 법적 증빙 | 예 | `User.terms_version`, `terms_agreed_at` |
+| 의견 | 앱의 「의견 보내기」(선택) | 서비스 개선. 답장은 하지 않는다 | 예 | `POST /v1/feedback`, `Feedback`. 종류·내용·플랫폼·앱 버전. 받은 지 1년 뒤 정리 작업이 지우고, 계정을 지우면 보낸 사람 칸만 비운다 |
 
 | 앱 오류 한 줄 | 앱이 멈추거나 처리되지 않은 오류가 났을 때 | 오류를 찾아 고침 | **아니요** | `POST /v1/client-errors`. 오류 종류·한 줄 설명·어느 화면인지·플랫폼·앱 버전뿐이다. 계정·토큰을 함께 보내지 않아 누가 보냈는지 서버도 모른다. 보내기 전에 앱이 이메일·토큰·초대 링크·사진 파일 이름을 지운다(`mobile/src/errorReport.ts`), 서버가 한 번 더 지운다(`backend/app/core/observability.py`). `EXPO_PUBLIC_DAYMO_ERROR_REPORT=off` 로 끌 수 있다 |
 
