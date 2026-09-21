@@ -8928,6 +8928,11 @@ function Memories({
         // 0.85 에서 올렸다. 여기서 한 번 줄이고 서버가 표시본을 만들며 또 줄여서
         // 두 번 눌렸고, 크게 보면 그것이 보였다(2026-09-21).
         quality: 0.92,
+        // **아이폰 사진은 HEIC 다.** 그냥 두면 고르기가 HEIC 파일을 그대로 줘서
+        // (expo-image-picker 의 iOS 구현은 HEIC 를 다시 담지 않는다) 서버가
+        // "JPEG, PNG, WebP 사진만 올릴 수 있어요" 로 거절했다. 「호환되는 형식」을
+        // 달라고 하면 iOS 가 JPEG 으로 바꿔 준다(2026-09-21에 폰에서 잡았다).
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         base64: Platform.OS === "web",
         // 사진에 적힌 촬영 날짜를 읽어 그날에 넣는다. 수십 장을 한 장씩 고르게 하지 않는다.
         exif: true,
@@ -10179,6 +10184,8 @@ function Money({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.7,
+        // 사진과 같은 까닭으로 HEIC 를 JPEG 으로 받는다.
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         base64: Platform.OS === "web",
       });
       if (result.canceled || !result.assets[0]) return;

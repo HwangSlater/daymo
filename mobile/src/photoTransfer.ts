@@ -101,7 +101,10 @@ export async function uploadPhoto(
   } catch {
     throw new DaymoApiError("사진을 불러오지 못했어요. 다시 골라 주세요.", 422, "VALIDATION_ERROR");
   }
-  const checksum = hex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, buffer));
+  // **TypedArray 로 넘긴다.** iOS 의 `digest` 는 TypedArray 만 받아서, ArrayBuffer 를
+  // 그대로 주면 네이티브 호출이 통째로 실패한다(「사진 1장 업로드에 실패했어요」).
+  // 웹은 `crypto.subtle` 이라 ArrayBuffer 도 받아 여태 웹에서만 됐다(2026-09-21).
+  const checksum = hex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, new Uint8Array(buffer)));
   const reserved = await createPhoto(tripId, photoId, {
     ...fields, links: fields.links ?? [], bytes: buffer.byteLength, checksum,
   }, { background: true });
