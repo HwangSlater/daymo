@@ -10640,22 +10640,10 @@ function Money({
               </View>
             </Pressable>
           )}
-          {/* 버튼이 없는 까닭은 탭마다 한 번 알린다. 맨 위 줄이 없어졌으니 이
-              자리가 그 자리다. */}
-          {canEdit ? (
-            <Pressable
-              onPress={openCreate}
-              accessibilityRole="button"
-              accessibilityLabel="지출 추가"
-              style={({ pressed }) => [
-                styles.tabActionButton,
-                theme && { backgroundColor: theme.primary },
-                pressed && styles.packingCardPressed,
-              ]}
-            >
-              <Text style={[styles.tabActionButtonText, theme && { color: onAccent(theme.dark) }]}>＋ 지출 추가</Text>
-            </Pressable>
-          ) : (
+          {/* 적는 길은 떠 있는 ＋ 단추 하나다. 이 자리에도 같은 단추를 두면 한
+              화면에 「지출 추가」가 둘이라, 지출이 없을 때는 빈 화면의 단추까지
+              셋이 됐다. 버튼이 없는 까닭은 여기서 한 줄로 알린다. */}
+          {!canEdit && (
             <Text style={[styles.tabActionReadOnly, theme && { color: theme.muted }]}>보기 전용 공간이에요</Text>
           )}
         </View>
