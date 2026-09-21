@@ -4666,13 +4666,17 @@ function TripCalendar({
                   accessibilityState={cell.inMonth ? { selected } : undefined}
                   style={s.calDay}
                 >
-                  <View
-                    style={[
-                      s.calNumber,
-                      isToday && { backgroundColor: theme.primary },
-                      selected && { backgroundColor: theme.text },
-                    ]}
-                  >
+                  <View style={s.calNumber}>
+                    {/* 동그라미는 칸에 색을 입히지 않고 따로 붙였다 뗀다. 안드로이드(새 렌더러)는
+                        이미 그려진 칸에 나중에 바탕색을 칠하면 둥근 모서리를 빼먹어, 눌러서 고른
+                        날이 네모로 나왔다(2026-09-21 갤럭시에서 봤다). 처음부터 칠해 둔 오늘은
+                        멀쩡했다. 새로 붙는 칸은 모서리까지 함께 그려진다. */}
+                    {(isToday || selected) && (
+                      <View
+                        key={selected ? "고름" : "오늘"}
+                        style={[s.calDisk, { backgroundColor: selected ? theme.text : theme.primary }]}
+                      />
+                    )}
                     <Text
                       style={[
                         s.calNumberText,
@@ -7374,7 +7378,8 @@ const s = StyleSheet.create({
   calSaturday: { color: "#5A6FA8" },
   calWeek: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, position: "relative" },
   calDay: { flex: 1, alignItems: "center", paddingTop: 3 },
-  calNumber: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  calNumber: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
+  calDisk: { position: "absolute", top: 0, left: 0, width: 28, height: 28, borderRadius: 14 },
   calNumberText: { fontSize: 14, lineHeight: 18, fontFamily: typo.data.family },
   calNumberTextOn: { fontFamily: typo.title.family },
   calDots: { flexDirection: "row", gap: 3, marginTop: 2 },
