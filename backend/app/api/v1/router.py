@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth,
     bookings,
+    calendar_notes,
     client_errors,
     cooking,
     expenses,
@@ -29,6 +30,7 @@ api_router.include_router(me.router)
 api_router.include_router(trips.router)
 api_router.include_router(trip_cards.router)
 api_router.include_router(members.router)
+api_router.include_router(calendar_notes.router)
 api_router.include_router(places.router)
 api_router.include_router(schedule.router)
 api_router.include_router(bookings.router)

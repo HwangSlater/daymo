@@ -7,8 +7,10 @@ from app.models.auth import (
     RefreshToken,
 )
 from app.models.base import Base
+from app.models.calendar import CalendarNote
 from app.models.enums import (
     BookingStatus,
+    CalendarNoteKind,
     ChecklistKind,
     DevicePlatform,
     ExpenseCategory,
@@ -70,6 +72,8 @@ __all__ = [
     "AuditLog",
     "Base",
     "BookingStatus",
+    "CalendarNote",
+    "CalendarNoteKind",
     "Checklist",
     "ChecklistItem",
     "ChecklistKind",
