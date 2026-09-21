@@ -34,7 +34,7 @@ Apple Developer Program 가입 뒤 App Store Connect → 앱 → + 신규 앱에
 
 | 칸 | 값 |
 | --- | --- |
-| 스크린샷 | 6.9형 iPhone 1320×2868(또는 1290×2796) 세로 3~10장 — [../shared/screenshots.md](../shared/screenshots.md) |
+| 스크린샷 | 현재 업로드 칸이 요구하는 1284×2778 세로 3~10장. 10장 업로드 사본은 `~/Downloads/daymo-미리보기/스토어-최종/앱스토어-캡션-1284x2778` — [../shared/screenshots.md](../shared/screenshots.md) |
 | 프로모션 텍스트 | listing-ko.md |
 | 설명 | listing-ko.md |
 | 키워드 | listing-ko.md |
