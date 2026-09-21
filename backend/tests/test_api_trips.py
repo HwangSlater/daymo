@@ -500,6 +500,133 @@ async def test_홈에_깐_카드를_지우면_여행은_남고_홈만_비워진�
     assert 남은_것.json()["data"]["coverPhotoIds"] == []
 
 
+async def test_대표_사진의_보여_줄_부분은_기본이_가운데다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    assert trip["coverFocusX"] == 0.5
+    assert trip["coverFocusY"] == 0.5
+    assert trip["coverZoom"] == 1.0
+
+
+async def test_보여_줄_부분을_보내면_저장되고_다시_읽힌다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    맞췄다 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={
+            "version": trip["version"],
+            "coverFocusX": 0.25,
+            "coverFocusY": 0.123456,
+            "coverZoom": 2.5,
+        },
+        headers=headers,
+    )
+    다시 = await api.get(f"/v1/trips/{trip['id']}", headers=headers)
+
+    assert 맞췄다.json()["data"]["coverFocusX"] == 0.25
+    # 넷째 자리까지만 들고 있는다.
+    assert 맞췄다.json()["data"]["coverFocusY"] == 0.1235
+    assert 맞췄다.json()["data"]["coverZoom"] == 2.5
+    assert 다시.json()["data"]["coverFocusY"] == 0.1235
+    assert 다시.json()["data"]["coverZoom"] == 2.5
+
+
+@pytest.mark.parametrize(
+    "보낸_것",
+    [
+        {"coverFocusX": -0.1},
+        {"coverFocusX": 1.5},
+        {"coverFocusY": 1.0001},
+        {"coverZoom": 0.5},
+        {"coverZoom": 4.5},
+    ],
+)
+async def test_보여_줄_부분이_범위_밖이면_막는다(api, db, 보낸_것):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    응답 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": trip["version"], **보낸_것},
+        headers=headers,
+    )
+
+    assert 응답.status_code == 422, 응답.text
+
+
+async def test_대표_사진을_바꾸면_보여_줄_부분이_기본으로_돌아간다(api, db):
+    """앞 사진에 맞춰 둔 자리를 새 사진에 그대로 쓰면 엉뚱한 데가 보인다."""
+    from tests.test_api_photos import jpeg, 사진을_올린다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    사진들 = [
+        (await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+        for _ in range(2)
+    ]
+
+    맞췄다 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={
+            "version": trip["version"],
+            "coverPhotoId": 사진들[0],
+            "coverFocusY": 0.2,
+            "coverZoom": 1.8,
+        },
+        headers=headers,
+    )
+    같은_사진 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 맞췄다.json()["data"]["version"], "coverPhotoId": 사진들[0]},
+        headers=headers,
+    )
+    다른_사진 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 같은_사진.json()["data"]["version"], "coverPhotoId": 사진들[1]},
+        headers=headers,
+    )
+
+    assert 맞췄다.json()["data"]["coverFocusY"] == 0.2
+    assert 맞췄다.json()["data"]["coverZoom"] == 1.8
+    # 같은 사진을 다시 고른 것뿐이면 맞춰 둔 자리가 그대로다.
+    assert 같은_사진.json()["data"]["coverFocusY"] == 0.2
+    assert 같은_사진.json()["data"]["coverZoom"] == 1.8
+    assert 다른_사진.json()["data"]["coverPhotoId"] == 사진들[1]
+    assert 다른_사진.json()["data"]["coverFocusX"] == 0.5
+    assert 다른_사진.json()["data"]["coverFocusY"] == 0.5
+    assert 다른_사진.json()["data"]["coverZoom"] == 1.0
+
+
+async def test_보여_줄_부분만_보내면_대표_사진은_그대로다(api, db):
+    from tests.test_api_photos import jpeg, 사진을_올린다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    사진 = (await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+    깔았다 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "coverPhotoId": 사진}, headers=headers
+    )
+
+    맞췄다 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 깔았다.json()["data"]["version"], "coverFocusX": 0.7},
+        headers=headers,
+    )
+
+    assert 맞췄다.json()["data"]["coverPhotoId"] == 사진
+    assert 맞췄다.json()["data"]["coverPhotoIds"] == [사진]
+    assert 맞췄다.json()["data"]["coverFocusX"] == 0.7
+    assert 맞췄다.json()["data"]["coverZoom"] == 1.0
+
+
 async def test_먼저_고친_사람이_있으면_막는다(api, db):
     """
     마지막에 저장한 쪽이 앞사람의 수정을 조용히 덮어쓰면, 무엇이 사라졌는지

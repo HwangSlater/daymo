@@ -7,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -89,6 +90,23 @@ class Trip(Base, TimestampMixin, CreatedByMixin):
     # 카드가 지워져도 여행은 남아야 해서 SET NULL 이다.
     cover_card_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("trip_cards.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # 대표 사진의 어디를 홈 카드 틀(가로로 긴 1.62:1)에 보여 줄지. `cover_focus_x`
+    # 와 `cover_focus_y` 는 사진에서 틀 한가운데에 놓을 점의 비율 좌표다(왼쪽 위가
+    # 0,0). `cover_zoom` 은 틀을 꽉 채우는 최소 크기를 1 로 본 확대 배수다.
+    # 0.5/0.5/1.0 이 가운데를 그대로 자른 모습이라 그것을 기본값으로 둔다.
+    #
+    # 기기에 두지 않고 서버가 들고 있는 이유는, 같이 쓰는 사람의 홈에도 똑같은
+    # 자리가 보여야 해서다. 세로 사진은 가운데 띠만 남아 얼굴이 잘리는 일이 흔하다.
+    cover_focus_x: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.5, server_default="0.5"
+    )
+    cover_focus_y: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.5, server_default="0.5"
+    )
+    cover_zoom: Mapped[float] = mapped_column(
+        Float, nullable=False, default=1.0, server_default="1.0"
     )
 
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

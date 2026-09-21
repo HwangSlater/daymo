@@ -27,6 +27,14 @@ MAX_TRIP_DAYS = 60
 # 지운 뒤 되돌릴 수 있는 기간.
 RESTORE_WINDOW = timedelta(days=7)
 
+# 대표 사진에서 홈 카드 틀에 보여 줄 부분의 기본값. 사진 한가운데를 그대로
+# 자른 모습이다. 대표 사진을 다른 것으로 바꾸면 여기로 되돌아간다.
+COVER_FOCUS_DEFAULTS: dict[str, float] = {
+    "cover_focus_x": 0.5,
+    "cover_focus_y": 0.5,
+    "cover_zoom": 1.0,
+}
+
 
 async def check_card_photos(
     session: AsyncSession, trip: Trip, photo_ids: list[str], *, field: str = "photoIds"

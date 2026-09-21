@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.models import RelationshipType, TripStatus
 from app.schemas.auth import _Camel
@@ -162,6 +162,23 @@ class TripUpdateRequest(_Camel):
     # 홈 화면의 여행 카드에 통째로 깔 기념 카드. 그 여행의 카드여야 하고, null 이면 해제다.
     # 사진 한 장과 함께 보낼 수는 없다. 홈 카드는 여행마다 하나다.
     cover_card_id: str | None = None
+    # 대표 사진의 어디를 홈 카드 틀(가로로 긴 1.62:1)에 보여 줄지.
+    # `coverFocusX`·`coverFocusY` 는 사진에서 틀 한가운데에 놓을 점의 비율
+    # 좌표고(왼쪽 위가 0,0), `coverZoom` 은 틀을 꽉 채우는 최소 크기를 1 로 본
+    # 확대 배수다. 0.5/0.5/1.0 이 가운데를 그대로 자른 모습이다.
+    #
+    # 대표 사진이나 카드를 다른 것으로 바꾸면서 이 셋을 하나도 안 보내면
+    # 서버가 기본값으로 되돌린다. 앞 사진에 맞춰 둔 자리를 새 사진에 그대로
+    # 쓰면 엉뚱한 데가 보인다.
+    cover_focus_x: float | None = Field(default=None, ge=0, le=1)
+    cover_focus_y: float | None = Field(default=None, ge=0, le=1)
+    cover_zoom: float | None = Field(default=None, ge=1, le=4)
+
+    @field_validator("cover_focus_x", "cover_focus_y", "cover_zoom")
+    @classmethod
+    def _넷째_자리까지(cls, 값: float | None) -> float | None:
+        # 손가락으로 맞춘 자리라 그보다 잘게 들고 있을 까닭이 없다.
+        return None if 값 is None else round(값, 4)
 
 
 class ParticipantsRequest(_Camel):
@@ -224,6 +241,12 @@ class TripOut(_Camel):
     cover_photo_ids: list[str] = Field(default_factory=list)
     # 그 카드의 틀 이름. 사진을 어떻게 놓을지 앱이 이 값으로 정한다(카드 그림은 기기가 그린다).
     cover_card_style: str | None = None
+    # 대표 사진에서 홈 카드 틀 한가운데에 놓을 점의 비율 좌표(왼쪽 위가 0,0)와,
+    # 틀을 꽉 채우는 최소 크기를 1 로 본 확대 배수. 맞춘 적이 없으면
+    # 0.5/0.5/1.0 이고 그것이 가운데를 그대로 자른 모습이다.
+    cover_focus_x: float = 0.5
+    cover_focus_y: float = 0.5
+    cover_zoom: float = 1.0
     version: int
     archived_at: str | None = None
     # 지운 여행일 때만 있다. 이 시각이 지나면 되돌릴 수 없다.

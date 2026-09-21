@@ -117,6 +117,9 @@ async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | 
         cover_card_id=str(trip.cover_card_id) if trip.cover_card_id else None,
         cover_photo_ids=홈_사진들,
         cover_card_style=홈_틀,
+        cover_focus_x=trip.cover_focus_x,
+        cover_focus_y=trip.cover_focus_y,
+        cover_zoom=trip.cover_zoom,
         version=trip.version,
         archived_at=trip.archived_at.isoformat() if trip.archived_at else None,
         deletion_scheduled_at=trip.deletion_scheduled_at.isoformat() if trip.deleted_at and trip.deletion_scheduled_at else None,
@@ -461,6 +464,19 @@ async def update_trip(
     if 고른_카드:
         보낸_것["cover_card_id"] = await trip_service.check_cover_card(db, trip, 고른_카드)
         보낸_것["cover_photo_id"] = None
+    # 보여 줄 부분은 비울 수 없는 값이다. null 로 보낸 것은 안 보낸 것으로 본다.
+    for 이름 in trip_service.COVER_FOCUS_DEFAULTS:
+        if 이름 in 보낸_것 and 보낸_것[이름] is None:
+            del 보낸_것[이름]
+    # 대표로 깐 것이 달라지는데 보여 줄 부분을 함께 보내지 않았으면 기본값으로
+    # 되돌린다. 앞 사진에 맞춰 둔 자리가 남아 있으면 새 사진의 엉뚱한 데가 보인다.
+    # 같은 것을 다시 고른 것뿐이면(값이 그대로면) 건드리지 않는다.
+    대표가_바뀐다 = any(
+        이름 in 보낸_것 and 보낸_것[이름] != getattr(trip, 이름)
+        for 이름 in ("cover_photo_id", "cover_card_id")
+    )
+    if 대표가_바뀐다 and not any(이름 in 보낸_것 for 이름 in trip_service.COVER_FOCUS_DEFAULTS):
+        보낸_것.update(trip_service.COVER_FOCUS_DEFAULTS)
     for 이름, 값 in 보낸_것.items():
         setattr(trip, 이름, 값)
 
