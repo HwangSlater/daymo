@@ -1,9 +1,14 @@
 """
-Google Play 에 올리는 아이콘(512×512)과 그래픽 이미지(1024×500)를 만든다.
+Google Play 에 올리는 아이콘(512×512)을 만든다.
 
     cd backend && uv run python ../release/scripts/build-store-assets.py
 
-그림은 앱 아이콘(mobile/assets/daymo-icon.png)과 앱의 글꼴·색을 그대로 쓴다. 아이콘을 바꾸면 다시 돌린다.
+그림은 앱 아이콘(mobile/assets/daymo-icon.png)을 그대로 쓴다. 아이콘을 바꾸면 다시 돌린다.
+
+그래픽 이미지(1024×500, `play-feature-graphic.png`)는 여기서 만들지 않는다. 2026-09-21 에
+아이콘만 있던 배너를 실제 앱 화면 세 장을 휴대폰 모형에 넣은 배너로 바꿨다. 그 그림은
+기기에서 찍은 스크린샷으로 만들어서 이 스크립트가 다시 만들 수 없다. 예전 배너를 그리던
+`feature_graphic()` 은 남겨 두되, 기본으로는 부르지 않는다(`--old-banner` 를 줄 때만).
 """
 
 from pathlib import Path
@@ -56,7 +61,10 @@ def feature_graphic() -> Path:
 
 
 if __name__ == "__main__":
+    import sys
+
     OUT.mkdir(parents=True, exist_ok=True)
-    for made in (play_icon(), feature_graphic()):
+    # 지금 배너를 덮어쓰지 않게, 예전 배너는 달라고 할 때만 만든다.
+    for made in (play_icon(), *([feature_graphic()] if "--old-banner" in sys.argv else [])):
         with Image.open(made) as image:
             print(made.relative_to(ROOT), image.size, made.stat().st_size, "bytes")
