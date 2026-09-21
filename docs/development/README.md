@@ -46,7 +46,7 @@
 | 여행 요약 | 여행 응답의 `overview`(대표 숙소·일정 수·장소 수·식당/카페·준비물·쓴 돈). 홈이 기기 기록 대신 이 값을 쓴다 |
 | 휴지통·audit log | 지운 메모·사진을 7일간 `GET /trips/{id}/trash`에서 보고 되돌린다. `audit_logs`에 지우기·되돌리기·권한 변경·초대 폐기를 남긴다 |
 | 신고·차단 | `POST /reports`(메모·일기·사진·멤버·여행), `GET/POST/DELETE /blocks`. 새 신고는 `support@daymo.xyz`로 접수 번호만 메일 |
-| 사진 | 두 번에 올리기(`POST /trips/{id}/photos` → `PUT /photos/{id}/content`), SHA-256 확인, 표시본 1440px·썸네일 480px, 원본에서도 위치정보 제거, `PHOTO_ACCEL_PREFIX`를 넣으면 Nginx가 `X-Accel-Redirect`로 보냄 |
+| 사진 | 두 번에 올리기(`POST /trips/{id}/photos` → `PUT /photos/{id}/content`), SHA-256 확인, 표시본 2048px·썸네일 480px, 원본에서도 위치정보 제거, `PHOTO_ACCEL_PREFIX`를 넣으면 Nginx가 `X-Accel-Redirect`로 보냄 |
 | 앱 인증 | 운영 HTTPS API 로그인, SecureStore 세션, 재실행 시 refresh 회전, 오프라인 프로필 복구 |
 | 웹 버전 | `site/build.mjs`가 앱 웹 빌드를 `dist/app`에 함께 만들어 `www.daymo.xyz/app`에 올린다. 소셜 로그인은 팝업과 `/oauth` 복귀 |
 | 데모 계정 | `python -m app.jobs.seed_demo`가 심사용 계정과 예시 공간·여행 3개를 만들고 다시 돌리면 처음 상태로 되돌린다 |
@@ -106,7 +106,7 @@
 3번 중 사진을 하며 남긴 것:
 
 - **서버:** `POST /trips/{id}/photos`(줄과 한도) → `PUT /photos/{id}/content`(파일 그대로) 두 번에 올린다. 서버가 SHA-256을 맞추고
-  EXIF를 뺀 표시본(1440px)·썸네일(480px)을 만든다. 파일은 `/srv/daymo/uploads/trips/{여행}/{사진}/`, 전달은 API의 `FileResponse`.
+  EXIF를 뺀 표시본(2048px)·썸네일(480px)을 만든다. 파일은 `/srv/daymo/uploads/trips/{여행}/{사진}/`, 전달은 API의 `FileResponse`.
   지운 사진은 7일, 멈춘 올리기는 하루 뒤 정리 작업이 파일째 지운다. VPS 사진 폴더 소유자를 컨테이너 uid 10001로 맞췄다
 - **앱:** 코덱은 `mobile/src/photoSync.ts`(설명·날짜만 오간다), 파일은 `photoTransfer.ts`. 폰은 `FileSystem.uploadAsync`로 파일을 JS에
   올리지 않고 보낸다. 다른 기기의 사진은 표시본을 문서 폴더에 받아 둔다(폰만). 사진 자체를 바꾸면 새 사진으로 올린다

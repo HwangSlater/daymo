@@ -816,7 +816,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 2026-09-16 구현(`backend/app/api/v1/photos.py`):
 
-- 업로드 session 표를 따로 두지 않고 사진 줄이 그 역할을 한다. `POST /trips/{tripId}/photos`에 `{id, bytes, checksum(SHA-256), caption, date, isReceipt}`를 보내면 `status=uploading` 줄이 생기고 한 장·공간·서버 한도를 먼저 본다. 이어서 `PUT /photos/{photoId}/content`에 파일 byte를 그대로(multipart 아님) 보내면 서버가 받으면서 크기를 세고, SHA-256을 맞춘 뒤 표시본(긴 변 1440px)·썸네일(480px) JPEG을 만들고 `ready`로 바꾼다. `complete` 단계는 없다. 끊기면 `PUT`만 다시 보낸다.
+- 업로드 session 표를 따로 두지 않고 사진 줄이 그 역할을 한다. `POST /trips/{tripId}/photos`에 `{id, bytes, checksum(SHA-256), caption, date, isReceipt}`를 보내면 `status=uploading` 줄이 생기고 한 장·공간·서버 한도를 먼저 본다. 이어서 `PUT /photos/{photoId}/content`에 파일 byte를 그대로(multipart 아님) 보내면 서버가 받으면서 크기를 세고, SHA-256을 맞춘 뒤 표시본(긴 변 2048px)·썸네일(480px) JPEG을 만들고 `ready`로 바꾼다. `complete` 단계는 없다. 끊기면 `PUT`만 다시 보낸다.
 - 받는 형식은 JPEG·PNG·WebP다. HEIC는 앱이 JPEG로 바꿔 보낸다. 원본은 그림 데이터를 다시 인코딩하지 않고 메타데이터 조각만 뺀다(JPEG는 방향·찍은 시각만 남긴 EXIF를 새로 넣고, PNG·WebP는 EXIF·XMP·글 조각을 뺀다, 2026-09-15). 표시본·썸네일은 방향을 바로잡고 EXIF를 모두 뺀다. SHA-256은 앱이 보낸 원래 파일로 맞춘다. `takenAt`은 EXIF 촬영 시각이며 시간대가 없으면 공간 시간대로 읽는다. `date`는 앱에서 고른 날로 `trip_days`를 가리키지 않는다.
 - 사진은 장소·일정·숙소에 붙을 수 있다(`photo_links`). 붙은 곳은 사진 줄의 `links`(`[{targetType, targetId}]`)로 오간다. `targetType`은 `place|schedule|stay`이고 `targetId`는 각각 여행 장소·일정·숙소 id다. **날짜는 연결이 아니라 사진 자신의 `date`다**(여행 기간이 바뀌어도 사진이 놓인 날은 그대로여야 해서 `trip_days`를 가리키지 않는다). 붙이고 떼는 주소를 따로 두지 않고 `POST /trips/{tripId}/photos`·`PATCH /photos/{photoId}`가 보낸 목록으로 통째로 바꾼다. 앱이 목록 하나를 통째로 맞추는 방식이라(`mobile/src/listSync.ts`) 사진 줄과 연결이 따로 오면 두 값이 어긋난다. 같은 여행의 것만 받고 아니면 `422`다. 고치는 권한은 설명·날짜와 같다(올린 사람과 owner). 장소·일정·숙소를 지우면 `links.detach_all`이 연결만 뗀다. 사진은 남는다.
 - `GET /trips/{tripId}/photos`에 `targetType`·`targetId`를 함께 주면 그곳에 붙은 사진만, `date`를 주면 그날로 고른 사진만 준다. 둘 중 하나만 준 `targetType`/`targetId`는 `422`다. 숙소 카드가 `targetType=stay`로 한 번, `date`로 한 번 물어 "그 숙소 사진"과 "그날 사진"을 함께 보여 준다(요구사항 7, "숙소 글을 누르면 그날 사진이 보인다").
@@ -847,7 +847,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 2. `POST /trips/{tripId}/photos`가 `status=uploading` 줄을 만들고 한 장·공간·서버 한도를 먼저 본다
 3. `PUT /photos/{photoId}/content`의 body를 서버 메모리에 모으지 않고 `uploads/tmp/`에 stream 저장하며 크기를 센다. 선언한 크기나 한도를 넘는 순간 멈춘다
 4. SHA-256을 맞추고(틀리면 `422`) signature로 형식을 확인한다
-5. 원본에서 위치·기기 메타데이터를 뺀 뒤, 방향을 바로잡고 EXIF를 모두 지운 긴 변 1440px JPEG 표시본과 480px JPEG 썸네일을 만든다. 변환은 워커당 동시 1건이다
+5. 원본에서 위치·기기 메타데이터를 뺀 뒤, 방향을 바로잡고 EXIF를 모두 지운 긴 변 2048px JPEG 표시본과 480px JPEG 썸네일을 만든다. 변환은 워커당 동시 1건이다
 6. `{photoId}.building` 폴더에 다 만든 뒤 한 번에 이름을 바꿔 옮기고 `status=ready`로 바꾼다. 끊기면 `PUT`만 다시 보낸다
 7. 같은 여행의 동일 checksum을 `duplicateCandidate`로 알리는 것은 아직 없다
 
@@ -993,8 +993,8 @@ pending mutation 요청:
 구현은 URL 세 개 대신 `GET /photos/{photoId}/content?variant=thumbnail|display|original` 하나를 쓴다. 매 요청 권한을 다시 보고, `Cache-Control: private, max-age=31536000, immutable`을 준다. 아래는 어느 상황에 어느 `variant`를 요청하는지의 기준이다. Daymo에 추가가 완료된 사진은 30일 동안 원본을 보유한다(위 `originalUntil`).
 
 - 목록: 긴 변 최대 480px JPEG 썸네일만 요청
-- 상세: 긴 변 최대 1440px JPEG 표시본 요청, 사용자가 원본 보기를 선택할 때만 원본 요청
-- 전체 화면: 긴 변 최대 1440px 표시본 요청
+- 상세: 긴 변 최대 2048px JPEG 표시본 요청, 사용자가 원본 보기를 선택할 때만 원본 요청
+- 전체 화면: 긴 변 최대 2048px 표시본 요청
 - 원본: 사용자가 확대하거나 기기에 저장할 때만 다운로드 요청
 - 업로드: 선택한 원본을 VPS에 저장하고 서버 작업이 표시본·썸네일을 생성. 완료 전에는 `uploading` 상태 표시
 - HTTP range, immutable file key와 기기 파일 캐시를 사용

@@ -2,7 +2,7 @@
 사진 파일을 디스크에 두고 꺼내는 일.
 
     {upload_root}/trips/{trip_id}/{photo_id}/original.jpg   올린 지 30일까지만
-                                            display.jpg     긴 변 1440px
+                                            display.jpg     긴 변 2048px
                                             thumbnail.jpg   긴 변 480px
     {upload_root}/tmp/                      받는 중인 파일
 
@@ -36,9 +36,15 @@ from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
 from app.services.photo_metadata import strip_location
 
-DISPLAY_EDGE = 1440
+# 표시본의 긴 변. 화면에서 사진을 크게 볼 때 쓰는 크기다.
+#
+# 1440 이었는데 요즘 폰 화면이 그보다 촘촘하다. 6.1형만 해도 1170x2532 라, 세로 사진을
+# 꽉 채우면 1440 을 2532 까지 1.7배 늘려 그려서 뿌옇게 보였다(2026-09-21에 고쳤다).
+# 2048 이면 늘릴 일이 거의 없다. 파일은 두 배쯤 커지지만 한 번 받아 두고 계속 쓴다.
+DISPLAY_EDGE = 2048
 THUMBNAIL_EDGE = 480
-JPEG_QUALITY = 82
+# 82 에서 올렸다. 앱이 고른 사진을 한 번 줄여 올리고 여기서 또 줄여서 두 번 눌렸다.
+JPEG_QUALITY = 88
 
 # 받는 형식. HEIC 는 서버에서 열 수 없어 앱이 JPEG 로 바꿔 보낸다.
 FORMATS = {"JPEG": ("image/jpeg", "jpg"), "PNG": ("image/png", "png"), "WEBP": ("image/webp", "webp")}

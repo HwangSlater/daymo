@@ -5,11 +5,11 @@
  * 아이폰 사진 한 장이 4MB 를 넘기도 해서, 그대로 두면 아직 못 올린 사진이 브라우저 저장소
  * (5MB 안팎)를 채워 여행 기록 저장이 통째로 막힌다. 그래서 올리기 전에 긴 변을 줄인다.
  *
- * 서버가 표시본을 1440px 로 만들기 때문에 그보다 크게 가질 이유도 없다.
+ * 서버가 표시본을 2048px 로 만들기 때문에 그보다 크게 가질 이유도 없다.
  */
 
 /** 긴 변이 `maxEdge` 를 넘으면 줄인 JPEG 로 바꾼다. 못 읽으면 받은 것을 그대로 준다. */
-export async function shrinkForWeb(uri: string, maxEdge = 1440, quality = 0.8): Promise<string> {
+export async function shrinkForWeb(uri: string, maxEdge = 2048, quality = 0.88): Promise<string> {
   if (typeof document === "undefined" || typeof Image === "undefined") return uri;
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {

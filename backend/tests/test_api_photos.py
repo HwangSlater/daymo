@@ -87,7 +87,7 @@ async def test_사진을_올리면_방향을_바로잡은_표시본과_썸네일
     받은_원본 = await api.get(f"/v1/photos/{사진['id']}/content?variant=original", headers=headers)
     assert 표시본.headers["cache-control"].startswith("private")
     with Image.open(io.BytesIO(표시본.content)) as 그림:
-        assert 그림.size == (960, 1440)
+        assert 그림.size == (1365, 2048)
         assert not 그림.getexif()
     with Image.open(io.BytesIO(썸네일.content)) as 그림:
         assert max(그림.size) == 480
@@ -141,9 +141,9 @@ async def test_큰_PNG는_원본만_그대로_두고_표시본은_줄여서_만�
     썸네일 = await api.get(f"/v1/photos/{사진['id']}/content?variant=thumbnail", headers=headers)
     받은_원본 = await api.get(f"/v1/photos/{사진['id']}/content?variant=original", headers=headers)
     with Image.open(io.BytesIO(표시본.content)) as 그림:
-        assert 그림.size == (1440, 1248)
+        assert 그림.size == (2048, 1775)
         # 귀퉁이 색이 그대로면 줄이는 차례가 어긋나지 않은 것이다.
-        assert 그림.getpixel((100, 100))[0] > 200 and 그림.getpixel((1400, 1200))[2] > 100
+        assert 그림.getpixel((100, 100))[0] > 200 and 그림.getpixel((2000, 1700))[2] > 100
     with Image.open(io.BytesIO(썸네일.content)) as 그림:
         assert max(그림.size) == 480
     # **원본은 그대로 둔다.** 30일 동안 받아 갈 수 있어야 한다.
