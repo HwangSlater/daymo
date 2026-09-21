@@ -143,7 +143,18 @@ export type ViewerDecor = {
    */
   cards: { id: string; label: string; color: string; uri?: string; on: boolean }[];
   onViewCard: (id: string) => void;
+  /**
+   * 옆 칸에 놓을 카드 그림.
+   *
+   * 사진과 카드는 스트립 차례 그대로 한 줄로 이어져서, 밀면 마지막 사진 다음에 첫
+   * 카드가 온다. 밀 때 옆 칸이 비어 있다가 손을 떼는 순간 카드가 튀어나오면 넘기는
+   * 느낌이 끊기므로, 옆 카드도 미리 그려 둔다.
+   */
+  renderCard?: (id: string) => React.ReactNode;
 };
+
+/** 한 줄로 이어진 칸 하나. 사진이거나 카드다. */
+type ViewerSlot = { kind: "사진"; photo: ViewerPhoto } | { kind: "카드"; id: string };
 
 /**
  * 움직이는 줄을 제 레이어로 올리는 값.
@@ -333,6 +344,34 @@ export function PhotoViewerScreen({
   const decorating = Boolean(decor?.open);
   /** 도구는 접힌 채로 카드를 크게 보는 중인지. */
   const previewing = !decorating && Boolean(decor?.preview);
+  /**
+   * 사진과 카드를 스트립 차례 그대로 이은 줄. 밀기와 화살표가 이 줄을 따라간다.
+   *
+   * 예전에는 카드를 보는 동안 좌우 밀기를 막았다. 카드는 사진 줄의 한 칸이 아니라
+   * 밀면 어디로 가는지 알 수 없다고 봤다. 그런데 스트립이 이미 사진 뒤에 카드를
+   * 세워 두고 있어서, 그 차례를 따르면 갈 곳이 분명하다. 사진첩 앱이 사진과 동영상을
+   * 한 줄로 넘기는 것과 같다.
+   */
+  const 카드들 = decor?.cards ?? [];
+  const 칸들: ViewerSlot[] = [
+    ...photos.map((하나) => ({ kind: "사진" as const, photo: 하나 })),
+    ...카드들.map((하나) => ({ kind: "카드" as const, id: 하나.id })),
+  ];
+  const 보는_카드 = 카드들.findIndex((하나) => 하나.on);
+  /** 줄에서 지금 보는 칸. 스트립에 없는 카드를 보는 중이면 -1 이다. */
+  const 지금칸 = previewing ? (보는_카드 < 0 ? -1 : photos.length + 보는_카드) : index;
+  /**
+   * 앞뒤 칸. 끝에서 처음으로 돈다. 몇 번째인지는 위의 `3 / 8` 과 아래 스트립이 늘
+   * 말해 주고, 마지막에서 밀면 첫 칸이 실제로 따라 들어오는 것이 보여 갑작스럽지 않다.
+   */
+  const 이웃칸 = (걸음: number): ViewerSlot | undefined =>
+    칸들.length && 지금칸 >= 0 ? 칸들[(지금칸 + 걸음 + 칸들.length) % 칸들.length] : undefined;
+  const 칸으로 = (칸: ViewerSlot | undefined) => {
+    if (!칸) return;
+    setMenuOpen(false);
+    if (칸.kind === "사진") onMove(칸.photo.id);
+    else decor?.onViewCard(칸.id);
+  };
   const back = () => {
     setMenuOpen(false);
     decor?.onBack();
@@ -370,9 +409,9 @@ export function PhotoViewerScreen({
   /** 이번에 미는 방향. 「안함」은 좌우로 밀었지만 갈 곳이 없어 흘려보내는 중이다. */
   const 축_판정 = useRef<"아직" | "안함" | NonNullable<SwipeAxis>>("아직");
   // 손가락이 움직일 때 필요한 값. PanResponder 를 다시 만들지 않으려고 여기로 읽는다.
-  const latest = useRef({ photos, index, width, move, close, previewing });
+  const latest = useRef({ 칸수: 칸들.length, 이웃칸, 칸으로, width, close });
   useEffect(() => {
-    latest.current = { photos, index, width, move, close, previewing };
+    latest.current = { 칸수: 칸들.length, 이웃칸, 칸으로, width, close };
   });
   // 판은 한 번만 만든다. 끄는 도중에 다시 만들면 여태 끈 거리를 잊어버린다. 안에서
   // 쓰는 값은 모두 위의 `latest` 에서 읽으므로 다시 만들 까닭도 없다.
@@ -399,10 +438,8 @@ export function PhotoViewerScreen({
       if (축_판정.current !== "아직") return;
       const 잡은_축 = swipeAxis(gesture.dx, gesture.dy);
       if (!잡은_축) return;
-      // 사진이 한 장뿐이면 좌우로 밀어도 갈 곳이 없다. 닫기만 받는다. 카드를 보는
-      // 중에도 좌우는 받지 않는다. 카드는 사진 줄의 한 칸이 아니라서, 밀어 넘기면
-      // 어디로 가는 것인지 알 수 없다. 오갈 길은 아래 스트립이다.
-      const 가로_막힘 = latest.current.photos.length < 2 || latest.current.previewing;
+      // 사진과 카드를 합쳐 한 칸뿐이면 좌우로 밀어도 갈 곳이 없다. 닫기만 받는다.
+      const 가로_막힘 = latest.current.칸수 < 2;
       축_판정.current = 잡은_축 === "가로" && 가로_막힘 ? "안함" : 잡은_축;
     };
     return PanResponder.create({
@@ -422,7 +459,7 @@ export function PhotoViewerScreen({
       onPanResponderRelease: (_, gesture) => {
         const 축 = 축_판정.current;
         축_판정.current = "아직";
-        const { photos: 목록, index: 지금, width: 폭, move: 옮긴다, close: 닫는다 } = latest.current;
+        const { width: 폭, close: 닫는다, 이웃칸: 옆칸, 칸으로: 옮긴다 } = latest.current;
         // 밀지 않고 톡 누른 것. 도구를 접거나 편다. 손가락은 늘 조금씩 흔들리므로
         // 몇 점까지는 누른 것으로 본다.
         if (축 === "아직" && Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
@@ -460,7 +497,7 @@ export function PhotoViewerScreen({
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }).start(({ finished }) => {
-          if (finished) 옮긴다(목록[(지금 + 걸음 + 목록.length) % 목록.length].id);
+          if (finished) 옮긴다(옆칸(걸음));
         });
       },
       onPanResponderTerminate: () => {
@@ -488,7 +525,7 @@ export function PhotoViewerScreen({
   useLayoutEffect(() => {
     slideX.setValue(0);
     slideY.setValue(0);
-  }, [index, slideX, slideY]);
+  }, [지금칸, slideX, slideY]);
 
   // 필름 스트립이 지금 보는 사진을 늘 화면에 두게 한다. 스무 장쯤 되면 화살표로
   // 넘길수록 지금 사진이 줄 밖으로 밀려나 어디쯤인지 알 수 없다.
@@ -524,17 +561,6 @@ export function PhotoViewerScreen({
   const 저장단추 = previewing
     ? decor && { label: decor.exportLabel, onPress: decor.onExport, disabled: false, on: false }
     : { label: "이 사진 저장", onPress: onSave, disabled: saving || saveBlocked, on: saving };
-  /** 스트립 끝에 세울 카드. 꾸미는 동안에는 스트립 자체가 없다. */
-  const 카드칸 = decor?.cards ?? [];
-  /**
-   * 줄에 놓을 앞뒤 사진.
-   *
-   * 끝에서 처음으로 돌아간다. 예전부터 화살표와 밀기가 그렇게 돌았고, 몇 번째인지는
-   * 위의 `3 / 8` 과 아래 필름 스트립이 늘 말해 준다. 이제는 마지막에서 밀면 첫 사진이
-   * 실제로 따라 들어오는 것이 보여서, 도는 것이 갑작스럽지 않다.
-   */
-  const 이웃 = (걸음: number) =>
-    photos.length ? photos[(index + 걸음 + photos.length) % photos.length] : undefined;
   return (
     // 안드로이드의 하드웨어 뒤로 가기는 맨 위 겹부터 닫는다. 사진 정보를 열어 둔 채
     // 뒤로 가면 창이 통째로 닫히는 것이 아니라 그 겹만 접혀야 한다.
@@ -601,7 +627,15 @@ export function PhotoViewerScreen({
           ]}
         >
           {[-1, 0, 1].map((자리) => {
-            const 한장 = previewing ? undefined : 이웃(자리);
+            // 한 칸뿐이면 옆 칸은 비운다. 같은 카드를 옆에 두 번 더 그릴 까닭이 없다.
+            const 칸 = 자리 === 0 ? (previewing ? undefined : 이웃칸(0)) : 칸들.length > 1 ? 이웃칸(자리) : undefined;
+            const 한장 = 칸?.kind === "사진" ? 칸.photo : undefined;
+            // 카드는 위 아이콘 줄과 아래 설명·스트립을 비운 칸에 통째로 담는다. 사진처럼
+            // 화면을 꽉 채우면 틀 아래의 글이 스트립에 가린다. 지금 보는 카드도 이 줄의
+            // 한 칸이라 밀면 사진과 똑같이 따라 움직인다.
+            const 카드 = 자리 === 0 && previewing
+              ? decor?.preview
+              : 칸?.kind === "카드" ? decor?.renderCard?.(칸.id) : undefined;
             return (
               <View
                 key={자리}
@@ -613,7 +647,9 @@ export function PhotoViewerScreen({
                   한장 && !한장.uri ? { backgroundColor: 한장.color } : null,
                 ]}
               >
-                {한장?.uri ? (
+                {카드 ? (
+                  <View style={styles.previewBox} pointerEvents="none">{카드}</View>
+                ) : 한장?.uri ? (
                   // 크기를 숫자로 못 박는다. 퍼센트로 두면 줄이 움직일 때마다 칸을
                   // 다시 재고, 표시본(긴 변 2048px)을 그 크기에 다시 맞춰 그린다.
                   <Image
@@ -634,13 +670,10 @@ export function PhotoViewerScreen({
         {/* 손가락을 받는 전용 판. 사진 위에 투명하게 깔리고, 이 줄 뒤에 그리는
             아이콘 줄·화살표·설명은 이 판보다 위라 그대로 눌린다. 밀려 나가는 줄이
             직접 받으면 기기에서 판이 손가락 아래에서 움직이는 순간 추적이 끊긴다. */}
-        {!previewing && <View style={StyleSheet.absoluteFill} {...pan.panHandlers} />}
+        {/* 카드를 보는 중에도 깐다. 밀어서 사진·카드를 넘기고, 톡 눌러 도구를 접는 것이
+            사진과 같아야 한다. */}
+        <View style={StyleSheet.absoluteFill} {...pan.panHandlers} />
 
-        {/* 카드는 위 아이콘 줄과 아래 설명·스트립을 비운 칸에 통째로 담는다. 사진처럼
-            화면을 꽉 채우면 틀 아래의 글이 스트립에 가린다. */}
-        {previewing && (
-          <View style={styles.previewBox} pointerEvents="none">{decor?.preview}</View>
-        )}
         {/* 접었을 때는 그늘도 글도 단추도 없다. 사진만 남는다. */}
         {chromeOn && <Scrim place="top" />}
         {/* 「꾸미기」 한 줄이 붙으면 아래가 한 줄 길어진다. 그늘도 그만큼 더 깐다. */}
@@ -676,21 +709,21 @@ export function PhotoViewerScreen({
         </View>
         )}
 
-        {chromeOn && photos.length > 1 && !previewing && (
+        {chromeOn && 칸들.length > 1 && 지금칸 >= 0 && (
           <>
             <Pressable
-              onPress={() => move(photos[(index + photos.length - 1) % photos.length].id)}
+              onPress={() => 칸으로(이웃칸(-1))}
               accessibilityRole="button"
-              accessibilityLabel="이전 사진"
+              accessibilityLabel={이웃칸(-1)?.kind === "카드" ? "이전 카드" : "이전 사진"}
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepLeft, pressed && styles.pressed]}
             >
               <Glyph name="chevronLeft" size={20} color={INK} />
             </Pressable>
             <Pressable
-              onPress={() => move(photos[(index + 1) % photos.length].id)}
+              onPress={() => 칸으로(이웃칸(1))}
               accessibilityRole="button"
-              accessibilityLabel="다음 사진"
+              accessibilityLabel={이웃칸(1)?.kind === "카드" ? "다음 카드" : "다음 사진"}
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepRight, pressed && styles.pressed]}
             >
@@ -712,7 +745,7 @@ export function PhotoViewerScreen({
           </Text>
           <Text style={styles.meta}>{previewing ? decor?.previewMeta ?? "" : meta}</Text>
           {Boolean(hint) && !previewing && <Text style={[styles.meta, hintSoon && styles.metaSoon]}>{hint}</Text>}
-          {(photos.length > 1 || 카드칸.length > 0) && (
+          {(photos.length > 1 || 카드들.length > 0) && (
             <ScrollView
               ref={strip}
               horizontal
@@ -738,7 +771,7 @@ export function PhotoViewerScreen({
               ))}
               {/* 스트립 끝에 만들어 둔 카드를 세운다. 사진과 카드를 오가는 길이 이
                   한 줄이라, 카드를 보다 사진으로 가려고 창을 닫을 일이 없다. */}
-              {카드칸.map((하나) => (
+              {카드들.map((하나) => (
                 <Pressable
                   key={`card:${하나.id}`}
                   onPress={() => decor?.onViewCard(하나.id)}
@@ -1124,7 +1157,6 @@ const STRIP_GAP = 7;
 const styles = StyleSheet.create({
   // 사진이 주인공이라 바탕이 검다. 앱의 다른 화면과 일부러 다르다.
   screen: { flex: 1, backgroundColor: "#000000" },
-  // [임시] 확인용. 지울 것.
   /**
    * 줄을 담아 넘치는 쪽을 자르는 칸.
    *

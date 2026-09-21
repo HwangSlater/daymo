@@ -724,6 +724,30 @@ export function TripCardsSection({
         ...(viewer.onReport ? [{ label: "신고", onPress: viewer.onReport }] : []),
       ];
 
+  /**
+   * 옆 칸에 미리 그려 둘 카드. 저장된 모습 그대로다.
+   *
+   * 사진과 카드를 밀어 넘길 때 옆 칸이 비어 있다가 손을 떼는 순간 카드가 튀어나오면
+   * 넘기는 느낌이 끊긴다. 받아 둔 썸네일이 없으면 기기에 있는 사진으로 그린다.
+   */
+  const renderCard = (id: string) => {
+    const 줄 = list.find((하나) => 하나.id === id);
+    if (!줄) return null;
+    const 사진들 = 줄.card.photoIds
+      .map((사진id) => cardPhotos.find((photo) => photo.id === 사진id))
+      .filter((photo) => photo !== undefined)
+      .map((photo) => ({ ...photo, uri: thumbs[photo.id] ?? photo.uri }));
+    return (
+      <CardPreview
+        card={줄.card}
+        photos={사진들}
+        text={keepsakeTextOf(줄.card, { name: tripName, period: tripDate, region: tripRegion, people: participants })}
+        stats={keepsakeStatLines(줄.card, counts)}
+        stamp={줄.card.dateStamp ? keepsakeDateStamp(tripStartKey) : ""}
+      />
+    );
+  };
+
   // 꾸밀 수 없는 사람에게는 「꾸미기」 한 줄도 주지 않는다. 다만 남의 카드를 열어
   // 보는 중이면 그 창은 카드 모습이라야 한다.
   const decorReady = canEdit || Boolean(openId);
@@ -750,6 +774,7 @@ export function TripCardsSection({
         previewMeta: open?.meta ?? "아직 저장하지 않은 카드",
         cards: cardStrip,
         onViewCard: openTile,
+        renderCard,
         busyText: busy ? "저장할 이미지를 만드는 중이에요" : undefined,
         body: card ? (
           <CardDecorTools
