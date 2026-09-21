@@ -307,12 +307,20 @@ export function PhotoViewerScreen({
   const photo = photos[index];
   // 창을 닫거나 사진을 넘기면 열어 둔 메뉴도 함께 닫는다. 다음 사진에 그대로 얹혀
   // 있으면 무엇에 대한 메뉴인지 알 수 없다.
+  /**
+   * 아이콘 줄·설명·스트립이 보이는지. 사진을 한 번 누르면 접히고 다시 누르면 펴진다.
+   *
+   * 사진만 보고 싶을 때가 있다. 위아래 그늘과 글이 사진의 위아래를 늘 덮고 있어서,
+   * 한 번 눌러 걷어 내고 사진만 본다. 사진첩 앱들이 하는 그대로다.
+   */
+  const [chromeOn, setChromeOn] = useState(true);
   const move = (photoId: string) => {
     setMenuOpen(false);
     onMove(photoId);
   };
   const close = () => {
     setMenuOpen(false);
+    setChromeOn(true);
     onClose();
   };
   /** 지금 도구가 펼쳐져 있는지. 펼쳐져 있으면 무대에 도구가 딸린 카드가 온다. */
@@ -409,6 +417,17 @@ export function PhotoViewerScreen({
         const 축 = 축_판정.current;
         축_판정.current = "아직";
         const { photos: 목록, index: 지금, width: 폭, move: 옮긴다, close: 닫는다 } = latest.current;
+        // 밀지 않고 톡 누른 것. 도구를 접거나 편다. 손가락은 늘 조금씩 흔들리므로
+        // 몇 점까지는 누른 것으로 본다.
+        if (축 === "아직" && Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
+          setMenuOpen((열림) => {
+            // 메뉴가 펼쳐져 있으면 먼저 접는다. 바깥을 눌러 닫는 것과 같다.
+            if (열림) return false;
+            setChromeOn((보임) => !보임);
+            return false;
+          });
+          return;
+        }
         if (축 === "세로") {
           if (!swipeCloses(gesture.dy, gesture.vy)) return 제자리로();
           slideX.setValue(0);
@@ -591,7 +610,7 @@ export function PhotoViewerScreen({
               >
                 {한장?.uri ? (
                   // 크기를 숫자로 못 박는다. 퍼센트로 두면 줄이 움직일 때마다 칸을
-                  // 다시 재고, 표시본(긴 변 1440px)을 그 크기에 다시 맞춰 그린다.
+                  // 다시 재고, 표시본(긴 변 2048px)을 그 크기에 다시 맞춰 그린다.
                   <Image
                     source={{ uri: 한장.uri }}
                     resizeMode="contain"
@@ -617,13 +636,15 @@ export function PhotoViewerScreen({
         {previewing && (
           <View style={styles.previewBox} pointerEvents="none">{decor?.preview}</View>
         )}
-        <Scrim place="top" />
+        {/* 접었을 때는 그늘도 글도 단추도 없다. 사진만 남는다. */}
+        {chromeOn && <Scrim place="top" />}
         {/* 「꾸미기」 한 줄이 붙으면 아래가 한 줄 길어진다. 그늘도 그만큼 더 깐다. */}
-        <Scrim place="bottom" tall={Boolean(decor)} />
+        {chromeOn && <Scrim place="bottom" tall={Boolean(decor)} />}
 
         {/* ✕ / n·N / ⌂ / ↓ / ⋮. 자주 쓰는 것만 줄에 둔다. 사진 정보와 신고는 ⋮
             안으로 넣었다. 예전에는 ✎(사진 고치기)가 여기 있었는데, 아래 「꾸미기」도
             연필이라 한 화면에 같은 그림이 둘이었다. */}
+        {chromeOn && (
         <View style={styles.bar}>
           <BarButton glyph="close" label="크게 보기 닫기" onPress={close} />
           <Text style={styles.count}>{!previewing && photos.length > 1 ? `${index + 1} / ${photos.length}` : ""}</Text>
@@ -648,8 +669,9 @@ export function PhotoViewerScreen({
             <BarButton glyph="moreVertical" label="더 보기" on={menuOpen} onPress={() => setMenuOpen((열림) => !열림)} />
           )}
         </View>
+        )}
 
-        {photos.length > 1 && !previewing && (
+        {chromeOn && photos.length > 1 && !previewing && (
           <>
             <Pressable
               onPress={() => move(photos[(index + photos.length - 1) % photos.length].id)}
@@ -672,6 +694,7 @@ export function PhotoViewerScreen({
           </>
         )}
 
+        {chromeOn && (
         <View style={styles.foot} pointerEvents="box-none">
           <Text numberOfLines={2} style={styles.caption}>
             {previewing ? decor?.previewTitle || "추억 카드" : photo?.caption || ""}
@@ -745,6 +768,7 @@ export function PhotoViewerScreen({
             </>
           )}
         </View>
+        )}
         </>
         )}
 
