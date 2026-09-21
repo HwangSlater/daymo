@@ -67,6 +67,9 @@ import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
+import { MEMO_COLOR, dayKeyOf, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
+import { CalendarNoteSheet } from "./CalendarNoteSheet";
+import * as ExpoCrypto from "expo-crypto";
 import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
@@ -106,6 +109,9 @@ import {
   listChecklistItems,
   listDiaries,
   listExpenses,
+  createCalendarNote,
+  deleteCalendarNote,
+  listCalendarNotes,
   listMembers,
   listMemos,
   listPhotos,
@@ -116,6 +122,7 @@ import {
   listTripPlaces,
   listTripsPage,
   setTripParticipants,
+  updateCalendarNote,
   updateExpenseSettings,
   updateHomeCover,
   updateSpace,
@@ -1548,6 +1555,16 @@ export function WarmAppShell({
             items={tripItems}
             setItems={setTripItems}
             spaceMembers={activeSpaceMembers}
+            // 서버 공간일 때만 일정·메모를 적는다. 사람 표는 지금 멤버만(나간 사람은 뺀다).
+            calendar={activeSpace.myMembershipId
+              ? {
+                  spaceId: activeSpace.id,
+                  members: rosterOf({ name: user?.name ?? "", membershipId: activeSpace.myMembershipId }, activeSpace.members),
+                  myMembershipId: activeSpace.myMembershipId,
+                  canWrite: activeSpace.myRole === "관리자" || activeSpace.myRole === "편집 가능",
+                  isOwner: activeSpace.myRole === "관리자",
+                }
+              : undefined}
             deletedTrips={activeSpace.myRole === "관리자" && activeSpace.myMembershipId
               ? {
                 load: async (cursor) => {
@@ -3329,7 +3346,23 @@ function TripsExplorer({
   onPasteNotice,
   onCreateTrip,
   deletedTrips,
+  calendar,
 }: {
+  /**
+   * 캘린더의 일정·메모를 쓰는 데 필요한 것. 서버 공간일 때만 있다.
+   *
+   * 예시 공간처럼 서버에 없는 공간이면 일정·메모를 적을 곳이 없어 여행만 보인다.
+   */
+  calendar?: {
+    spaceId: string;
+    /** 지금 공간 멤버(나 먼저). 점 색과 「누구」 칩이 이 차례를 쓴다. */
+    members: RosterEntry[];
+    myMembershipId?: string;
+    /** 적을 수 있는지(보기만 하는 멤버는 못 적는다). */
+    canWrite: boolean;
+    /** 관리자는 남이 적은 것도 고치고 지운다. */
+    isOwner: boolean;
+  };
   /**
    * 공간 관리자에게만. 지운 여행을 한 쪽씩 불러오고 되돌린다.
    *
@@ -3404,6 +3437,45 @@ function TripsExplorer({
     year: initialCalendarDate.getFullYear(),
     value: initialCalendarDate.getMonth() + 1,
   });
+  // 캘린더의 일정·메모. 보이는 달이 바뀌면 그 달 그림에 걸친 것을 다시 받는다.
+  const [calendarNotes, setCalendarNotes] = useState<CalendarNote[]>([]);
+  /** 적는 창. 새로 적을 때는 날짜만, 고칠 때는 그 줄을 든다. */
+  const [noteSheet, setNoteSheet] = useState<{ day: string; editing: CalendarNote | null } | null>(null);
+  const calendarSpaceId = calendar?.spaceId;
+  useEffect(() => {
+    if (display !== "캘린더" || !calendarSpaceId) return;
+    let alive = true;
+    const { from, to } = visibleRange(month.year, month.value);
+    // 받지 못하면 여행만 보인다. 캘린더를 열거나 달을 넘길 때마다 다시 해 본다.
+    listCalendarNotes(calendarSpaceId, from, to)
+      .then((받은) => {
+        if (alive) setCalendarNotes(받은);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [display, calendarSpaceId, month.year, month.value]);
+  const saveCalendarNote = async (draft: CalendarDraft) => {
+    if (!calendarSpaceId || !noteSheet) return;
+    const 몸 = draftBody(draft);
+    const 저장 = noteSheet.editing
+      ? await updateCalendarNote(noteSheet.editing.id, noteSheet.editing.version, 몸)
+      : await createCalendarNote(calendarSpaceId, ExpoCrypto.randomUUID(), 몸);
+    setCalendarNotes((지금) => [...지금.filter((note) => note.id !== 저장.id), 저장]);
+    setNoteSheet(null);
+  };
+  const removeCalendarNote = () => {
+    const 지울_것 = noteSheet?.editing;
+    if (!지울_것) return;
+    setNoteSheet(null);
+    setCalendarNotes((지금) => 지금.filter((note) => note.id !== 지울_것.id));
+    deleteCalendarNote(지울_것.id).catch(() => {
+      // 못 지웠으면 되돌려 놓는다. 사라진 척하다 새로고침에 되살아나면 더 헷갈린다.
+      setCalendarNotes((지금) => [...지금, 지울_것]);
+      showAlert("지우지 못했어요", "잠시 후 다시 시도해 주세요.");
+    });
+  };
   const [creating, setCreating] = useState(false);
   const [place, setPlace] = useState("");
   const [tripStart, setTripStart] = useState("2026-09-12");
@@ -3710,6 +3782,8 @@ function TripsExplorer({
           {display === "캘린더" && (
             <TripCalendar
               trips={items}
+              notes={calendarNotes}
+              members={calendar?.members ?? []}
               month={month}
               setMonth={setMonth}
               selectedDate={selectedDate}
@@ -3723,7 +3797,7 @@ function TripsExplorer({
                 <Text
                   style={[s.calendarResultDate, { color: theme.text }]}
                 >
-                  {Number(selectedDate.slice(5, 7))}월 {Number(selectedDate.slice(-2))}일의 여행
+                  {Number(selectedDate.slice(5, 7))}월 {Number(selectedDate.slice(-2))}일 {["일", "월", "화", "수", "목", "금", "토"][new Date(`${selectedDate}T00:00:00`).getDay()]}요일
                 </Text>
                 <Pressable
                   onPress={() => setSelectedDate(null)}
@@ -3763,9 +3837,64 @@ function TripsExplorer({
                   </Pressable>
                 </View>
               )}
+              {/* 그날의 일정·메모. 여행 아래에 둔다. 누르면 고친다(고칠 수 없으면 보기만). */}
+              {notesOnDay(calendarNotes, selectedDate).map((note) => {
+                const 색 = note.kind === "memo" ? MEMO_COLOR : personColor(note.membershipId, calendar?.members ?? []);
+                const 사람 = calendar?.members.find((person) => person.id === note.membershipId)?.name;
+                return (
+                  <Pressable
+                    key={note.id}
+                    onPress={() => setNoteSheet({ day: selectedDate, editing: note })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${사람 ? `${사람} ` : ""}${note.title}, ${noteMeta(note)}`}
+                    style={({ pressed }) => [
+                      s.calNoteRow,
+                      { backgroundColor: theme.surface, borderColor: theme.border },
+                      pressed && s.pressed,
+                    ]}
+                  >
+                    <View style={[s.calNoteRail, { backgroundColor: 색 }]} />
+                    <View style={s.calNoteCopy}>
+                      <Text numberOfLines={1} style={[s.calNoteTitle, { color: theme.text }]}>{note.title}</Text>
+                      <Text style={[s.calNoteMeta, { color: theme.muted }]}>{noteMeta(note)}</Text>
+                    </View>
+                    {사람 && (
+                      <View style={[s.calNoteWho, { backgroundColor: `${색}1F` }]}>
+                        <Text style={[s.calNoteWhoText, { color: 색 }]}>{사람}</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+              {calendar?.canWrite && (
+                <Pressable
+                  onPress={() => setNoteSheet({ day: selectedDate, editing: null })}
+                  accessibilityRole="button"
+                  accessibilityLabel="이날에 일정·메모 추가"
+                  hitSlop={6}
+                  style={({ pressed }) => [s.calNoteAdd, pressed && s.pressed]}
+                >
+                  <Text style={[s.calNoteAddText, { color: theme.primary }]}>＋ 이날에 일정·메모 추가</Text>
+                </Pressable>
+              )}
             </View>
           )}
         </ScrollView>
+      )}
+      {noteSheet && calendar && (
+        <CalendarNoteSheet
+          theme={theme}
+          day={noteSheet.day}
+          editing={noteSheet.editing}
+          members={calendar.members}
+          myMembershipId={calendar.myMembershipId}
+          locked={Boolean(noteSheet.editing)
+            && !calendar.isOwner
+            && noteSheet.editing?.createdByMembershipId !== calendar.myMembershipId}
+          onSave={saveCalendarNote}
+          onDelete={noteSheet.editing ? removeCalendarNote : undefined}
+          onClose={() => setNoteSheet(null)}
+        />
       )}
       <SheetShell
         theme={theme}
@@ -4408,8 +4537,22 @@ function KoreaTripMap({
   );
 }
 
+/**
+ * 여행 탭의 캘린더. 아이폰 캘린더의 월 보기 결이다.
+ *
+ * 날짜 칸에는 숫자만 크게 두고 칸 테두리 없이 주마다 가는 줄만 긋는다. 오늘은 채운
+ * 동그라미, 고른 날은 짙은 동그라미다. 여행은 이 앱의 주인공이라 이름이 적힌 막대로
+ * 날짜를 건너 잇고, 같이 쓰는 사람들의 일정·메모는 숫자 아래 색 점으로만 찍는다(점
+ * 색이 곧 사람이다, `calendarNotes.personColor`). 자세한 것은 날짜를 누르면 아래 목록에서
+ * 읽는다.
+ *
+ * 앞뒤 달 날짜로 주를 채우되 흐리게 두고 누르지 못하게 한다. 달을 넘는 여행 막대가
+ * 끊겨 보이지 않게 하려는 것이다.
+ */
 function TripCalendar({
   trips,
+  notes,
+  members,
   month,
   setMonth,
   selectedDate,
@@ -4417,27 +4560,21 @@ function TripCalendar({
   theme,
 }: {
   trips: Trip[];
+  /** 이 달 그림에 걸친 일정·메모. */
+  notes: CalendarNote[];
+  /** 공간 멤버(나 먼저). 점 색을 이 차례로 준다. */
+  members: readonly RosterEntry[];
   month: { year: number; value: number };
   setMonth: (value: { year: number; value: number }) => void;
   selectedDate: string | null;
   setSelectedDate: (value: string | null) => void;
   theme: AppTheme;
 }) {
-  const firstDay = new Date(month.year, month.value - 1, 1).getDay();
-  const days = new Date(month.year, month.value, 0).getDate();
-  const cellCount = Math.ceil((firstDay + days) / 7) * 7;
-  const cells = Array.from(
-    { length: cellCount },
-    (_, index) => index - firstDay + 1,
-  );
-  const monthKey = `${month.year}-${String(month.value).padStart(2, "0")}`;
-  const monthStart = `${monthKey}-01`;
-  const monthEnd = `${monthKey}-${String(days).padStart(2, "0")}`;
-  const monthTrips = trips.filter(
-    (trip) => trip.start <= monthEnd && trip.end >= monthStart,
-  );
+  const cells = monthCells(month.year, month.value);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, 주) => cells.slice(주 * 7, 주 * 7 + 7));
+  const bars = tripBars(trips, month.year, month.value);
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayKey = dayKeyOf(today.getFullYear(), today.getMonth() + 1, today.getDate());
   const move = (amount: number) => {
     const next = new Date(month.year, month.value - 1 + amount, 1);
     setMonth({ year: next.getFullYear(), value: next.getMonth() + 1 });
@@ -4447,155 +4584,154 @@ function TripCalendar({
     setMonth({ year: today.getFullYear(), value: today.getMonth() + 1 });
     setSelectedDate(todayKey);
   };
-  const calendarPaper = theme.dark ? "#E8E7E2" : "#FFFEFC";
-  const calendarInk = theme.dark ? "#343B49" : "#283046";
-  const calendarMuted = theme.dark ? "#686D76" : "#7B7A76";
-  const calendarLine = theme.dark ? "#C7C8C5" : "#DFE1E2";
+  const { from, to } = visibleRange(month.year, month.value);
+  // 범례는 이 달에 일정·메모를 적은 사람만. 아무도 없으면 줄 자체를 내지 않는다.
+  const 적은_사람 = new Set(notes.filter((note) => note.endDate >= from && note.startDate <= to).map((note) => note.membershipId));
+  const legend = members.filter((person) => 적은_사람.has(person.id));
+  const hasMemo = 적은_사람.has(null);
   return (
-    <View
-      style={[
-        s.calendarCard,
-        {
-          backgroundColor: calendarPaper,
-          borderColor: theme.dark ? "#A8ADB5" : "#D9D9D5",
-        },
-      ]}
-    >
-      <View
-        pointerEvents="none"
-        style={[
-          s.calendarPageBack,
-          theme.dark && { backgroundColor: "#B9C1BF" },
-        ]}
-      />
-      <View style={s.calendarHead}>
-        <View style={s.calendarTitleBlock}>
-          <Text style={[s.calendarMonth, { color: calendarInk }]}>
-            {month.year}. {String(month.value).padStart(2, "0")}
-          </Text>
-          <Text style={[s.calendarSub, { color: calendarMuted }]}>
-            {monthTrips.length
-              ? `이달 여행 ${monthTrips.length}개`
-              : "이달에는 여행이 없어요"}
-          </Text>
+    <View style={[s.calCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={s.calHead}>
+        <View>
+          <Text style={[s.calYear, { color: theme.primary }]}>{month.year}년</Text>
+          <Text style={[s.calMonth, { color: theme.text }]}>{month.value}월</Text>
         </View>
-        <View style={s.calendarControls}>
+        <View style={s.calControls}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="오늘로 가기"
             onPress={moveToToday}
-            style={[s.calendarTodayButton, { borderColor: theme.dark ? "#B5B5B0" : "#D8D4CA" }]}
+            style={[s.calTodayButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
           >
-            <Text style={[s.calendarTodayText, { color: calendarMuted }]}>오늘</Text>
+            <Text style={[s.calTodayText, { color: theme.primary }]}>오늘</Text>
           </Pressable>
           <Pressable onPress={() => move(-1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="이전 달" style={s.monthArrow}>
-            <Glyph name="chevronLeft" size={20} color={calendarInk} />
+            <Glyph name="chevronLeft" size={20} color={theme.primary} />
           </Pressable>
           <Pressable onPress={() => move(1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="다음 달" style={s.monthArrow}>
-            <Glyph name="chevronRight" size={20} color={calendarInk} />
+            <Glyph name="chevronRight" size={20} color={theme.primary} />
           </Pressable>
         </View>
       </View>
-      {monthTrips.length > 0 && (
-        <View style={s.calendarLegend}>
-          {monthTrips.map((trip) => (
-            <View key={`${trip.name}-${trip.start}`} style={s.calendarLegendItem}>
-              <View
-                style={[
-                  s.calendarLegendLine,
-                  { backgroundColor: tripTone(trip.tone, theme.dark).ink },
-                ]}
-              />
-              <Text style={[s.calendarLegendText, { color: calendarMuted }]}>{trip.name}</Text>
+      {(legend.length > 0 || hasMemo) && (
+        <View style={s.calLegend}>
+          {legend.map((person) => (
+            <View key={person.id} style={s.calLegendItem}>
+              <View style={[s.calLegendDot, { backgroundColor: personColor(person.id, members) }]} />
+              <Text style={[s.calLegendText, { color: theme.muted }]}>{person.name}</Text>
             </View>
           ))}
+          {hasMemo && (
+            <View style={s.calLegendItem}>
+              <View style={[s.calLegendDot, { backgroundColor: MEMO_COLOR }]} />
+              <Text style={[s.calLegendText, { color: theme.muted }]}>메모</Text>
+            </View>
+          )}
         </View>
       )}
-      <View style={[s.weekRow, { borderBottomColor: calendarLine }]}>
+      <View style={s.calWeekNames}>
         {["일", "월", "화", "수", "목", "금", "토"].map((day, index) => (
           <Text
             key={day}
             style={[
-              s.weekName,
-              theme.dark && { color: "#71767E" },
-              index === 0 && s.weekNameSunday,
-              index === 6 && s.weekNameSaturday,
+              s.calWeekName,
+              { color: theme.muted },
+              index === 0 && s.calSunday,
+              index === 6 && s.calSaturday,
             ]}
           >
             {day}
           </Text>
         ))}
       </View>
-      <View style={s.calendarGrid}>
-        {cells.map((day, index) => {
-          const valid = day > 0 && day <= days;
-          const key = valid
-            ? `${month.year}-${String(month.value).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-            : "";
-          const trip = trips.find(
-            (item) => key >= item.start && key <= item.end,
-          );
-          const continuesFromPrevious = Boolean(
-            trip && index % 7 !== 0 && key > trip.start,
-          );
-          const continuesToNext = Boolean(
-            trip && index % 7 !== 6 && key < trip.end,
-          );
-          const selected = key === selectedDate;
-          const isToday = key === todayKey;
-          return (
-            <Pressable
-              key={`${index}-${day}`}
-              disabled={!valid}
-              onPress={() => setSelectedDate(selectedDate === key ? null : key)}
-              accessibilityRole={valid ? "button" : undefined}
-              accessibilityLabel={valid ? `${month.value}월 ${day}일${trip ? `, ${trip.name}` : ""}` : undefined}
-              accessibilityState={valid ? { selected } : undefined}
-              style={[
-                s.dayCell,
-                trip && {
-                  backgroundColor: tripTone(trip.tone, theme.dark).soft,
-                },
-                trip && s.dayRangeCell,
-                trip && !continuesFromPrevious && s.dayRangeStart,
-                trip && !continuesToNext && s.dayRangeEnd,
-                selected && [
-                  s.dayCellSelected,
-                  { borderColor: theme.text },
-                ],
-              ]}
-            >
-              <View
-                style={[
-                  s.dayNumberBadge,
-                  isToday && s.dayNumberToday,
-                ]}
-              >
-                <Text
+      {weeks.map((week, 주) => {
+        const 이_주_막대 = bars.filter((bar) => bar.week === 주);
+        const 층 = 이_주_막대.reduce((가장, bar) => Math.max(가장, bar.lane + 1), 0);
+        return (
+          <View
+            key={week[0].key}
+            style={[s.calWeek, { borderTopColor: theme.border, height: CAL_BAR_TOP + Math.max(1, 층) * CAL_BAR_STEP + 4 }]}
+          >
+            {week.map((cell, index) => {
+              const selected = cell.key === selectedDate;
+              const isToday = cell.key === todayKey;
+              const dots = dotColors(notes, cell.key, members);
+              return (
+                <Pressable
+                  key={cell.key}
+                  disabled={!cell.inMonth}
+                  onPress={() => setSelectedDate(selected ? null : cell.key)}
+                  accessibilityRole={cell.inMonth ? "button" : undefined}
+                  accessibilityLabel={cell.inMonth ? `${month.value}월 ${cell.day}일` : undefined}
+                  accessibilityState={cell.inMonth ? { selected } : undefined}
+                  style={s.calDay}
+                >
+                  <View
+                    style={[
+                      s.calNumber,
+                      isToday && { backgroundColor: theme.primary },
+                      selected && { backgroundColor: theme.text },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.calNumberText,
+                        { color: theme.text },
+                        index === 0 && s.calSunday,
+                        index === 6 && s.calSaturday,
+                        !cell.inMonth && { color: theme.border },
+                        (isToday || selected) && [s.calNumberTextOn, { color: theme.dark ? theme.background : "#FFFFFF" }],
+                      ]}
+                    >
+                      {cell.day}
+                    </Text>
+                  </View>
+                  {dots.length > 0 && cell.inMonth && (
+                    <View style={s.calDots}>
+                      {dots.map((color) => (
+                        <View key={color} style={[s.calDot, { backgroundColor: color }]} />
+                      ))}
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+            {/* 여행 막대. 날짜 칸 위에 얹기만 하고 손가락은 칸이 받는다. */}
+            {이_주_막대.map((bar) => {
+              const tone = tripTone((bar.trip as Trip).tone ?? 0, theme.dark);
+              return (
+                <View
+                  key={`${bar.trip.name}-${bar.trip.start}-${주}`}
+                  pointerEvents="none"
                   style={[
-                    s.dayNumber,
-                    theme.dark && { color: "#4B5260" },
-                    index % 7 === 0 && s.dayNumberSunday,
-                    index % 7 === 6 && s.dayNumberSaturday,
-                    trip && [s.dayNumberTrip, { color: tripTone(trip.tone, theme.dark).ink }],
-                    isToday && s.dayNumberTodayText,
-                    selected && s.dayNumberSelected,
+                    s.calBar,
+                    {
+                      top: CAL_BAR_TOP + bar.lane * CAL_BAR_STEP,
+                      left: `${(bar.startCol / 7) * 100}%`,
+                      width: `${((bar.endCol - bar.startCol + 1) / 7) * 100}%`,
+                      backgroundColor: tone.ink,
+                    },
+                    bar.startsHere && s.calBarStart,
+                    bar.endsHere && s.calBarEnd,
                   ]}
                 >
-                  {valid ? day : ""}
-                </Text>
-              </View>
-              {trip && (
-                <View
-                  style={[s.dayTripDot, { backgroundColor: tripTone(trip.tone, theme.dark).ink }]}
-                />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
+                  <Text numberOfLines={1} style={[s.calBarText, { color: theme.dark ? theme.background : "#FFFFFF" }]}>
+                    {bar.trip.name}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        );
+      })}
     </View>
   );
 }
+
+/** 여행 막대가 놓이는 높이. 숫자(26)와 점 줄 아래다. */
+const CAL_BAR_TOP = 38;
+/** 막대 한 층의 높이(막대 13 + 사이 2). */
+const CAL_BAR_STEP = 15;
 
 function Search({
   open,
@@ -7210,6 +7346,43 @@ const s = StyleSheet.create({
   // 카드 밖으로 나가야 할 것도 없다.
   paperTripPhoto: {},
   // 종이에 붙인 사진. 살짝 기울여 손으로 붙인 것처럼 둔다.
+  // 캘린더 아래, 고른 날의 일정·메모 한 줄.
+  calNoteRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginTop: 8 },
+  calNoteRail: { width: 4, alignSelf: "stretch", borderRadius: 2 },
+  calNoteCopy: { flex: 1, minWidth: 0 },
+  calNoteTitle: { fontSize: 14, fontFamily: typo.title.family },
+  calNoteMeta: { fontSize: 12, marginTop: 2, fontFamily: typo.body.family },
+  calNoteWho: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  calNoteWhoText: { fontSize: 11.5, fontFamily: typo.label.family },
+  calNoteAdd: { alignSelf: "center", paddingVertical: 12 },
+  calNoteAddText: { fontSize: 13.5, fontFamily: typo.label.family },
+  // 여행 탭 캘린더(아이폰 캘린더 결). `TripCalendar` 주석을 본다.
+  calCard: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
+  calHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 10, paddingHorizontal: 4 },
+  calYear: { fontSize: 12, fontFamily: typo.label.family },
+  calMonth: { fontSize: 28, lineHeight: 34, fontFamily: typo.title.family },
+  calControls: { flexDirection: "row", alignItems: "center", gap: 4 },
+  calTodayButton: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, marginRight: 4 },
+  calTodayText: { fontSize: 12.5, fontFamily: typo.label.family },
+  calLegend: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 4, marginBottom: 8 },
+  calLegendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  calLegendDot: { width: 8, height: 8, borderRadius: 4 },
+  calLegendText: { fontSize: 11.5, fontFamily: typo.label.family },
+  calWeekNames: { flexDirection: "row", marginBottom: 4 },
+  calWeekName: { flex: 1, textAlign: "center", fontSize: 11, fontFamily: typo.label.family },
+  calSunday: { color: "#B3413E" },
+  calSaturday: { color: "#5A6FA8" },
+  calWeek: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, position: "relative" },
+  calDay: { flex: 1, alignItems: "center", paddingTop: 3 },
+  calNumber: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  calNumberText: { fontSize: 14, lineHeight: 18, fontFamily: typo.data.family },
+  calNumberTextOn: { fontFamily: typo.title.family },
+  calDots: { flexDirection: "row", gap: 3, marginTop: 2 },
+  calDot: { width: 5, height: 5, borderRadius: 3 },
+  calBar: { position: "absolute", height: 13, justifyContent: "center", paddingHorizontal: 5, marginHorizontal: 1 },
+  calBarStart: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4, marginLeft: 3 },
+  calBarEnd: { borderTopRightRadius: 4, borderBottomRightRadius: 4, marginRight: 3 },
+  calBarText: { fontSize: 9.5, lineHeight: 12, fontFamily: typo.label.family },
   paperTripSnap: { marginTop: 10, marginBottom: 12, alignItems: "center" },
   paperTripSnapFrame: {
     width: "100%",
@@ -7670,27 +7843,6 @@ const s = StyleSheet.create({
   zoomButtonDisabled: { opacity: 0.28 },
   zoomResetText: { fontSize: 12, fontFamily: typo.label.family },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 6 },
-  dayRangeCell: {
-    borderRadius: 0,
-  },
-  dayRangeStart: {
-    borderTopLeftRadius: 11,
-    borderBottomLeftRadius: 11,
-  },
-  dayRangeEnd: {
-    borderTopRightRadius: 11,
-    borderBottomRightRadius: 11,
-  },
-  dayCellSelected: { borderWidth: 2, borderColor: "#17233D" },
-  dayNumberTrip: { fontFamily: typo.label.family },
-  dayNumberSelected: { fontSize: 12 },
-  dayTripDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: "#FFFFFF",
-    marginTop: 2,
-  },
   calendarResults: { marginTop: 16 },
   calendarResultHead: {
     minHeight: 30,
@@ -7989,31 +8141,6 @@ const s = StyleSheet.create({
     marginTop: 12,
   },
   emptyInlineActionText: { fontSize: 14, fontFamily: typo.label.family },
-  calendarCard: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingTop: 20,
-    paddingBottom: 8,
-    borderWidth: 1,
-    position: "relative",
-    marginTop: 6,
-    shadowColor: "#3F4654",
-    shadowOpacity: 0.09,
-    shadowRadius: 8,
-    shadowOffset: { width: 1, height: 5 },
-  },
-  calendarPageBack: {
-    position: "absolute",
-    left: 5,
-    right: 5,
-    bottom: -6,
-    height: 12,
-    borderRadius: 4,
-    backgroundColor: "#DDE5E3",
-    opacity: 0.8,
-    zIndex: -1,
-    transform: [{ rotate: "0.35deg" }],
-  },
   // 달 이름 양옆의 화살표. 달 이름 줄 높이에 맞춰 작게 두고 hitSlop 으로 44 를 채운다.
   monthArrow: {
     width: 27,
@@ -8021,71 +8148,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  calendarHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  calendarTitleBlock: { alignItems: "flex-start" },
-  calendarControls: { flexDirection: "row", alignItems: "center", gap: 2 },
-  calendarTodayButton: {
-    height: 27,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#D8D4CA",
-    paddingHorizontal: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 2,
-  },
-  calendarTodayText: { fontSize: 12, fontFamily: typo.label.family },
   monthArrowText: { color: "#384052", fontSize: 24, fontWeight: "500", lineHeight: 26 },
-  calendarMonth: { fontSize: 20, fontFamily: typo.data.family, textAlign: "left", letterSpacing: 0 },
-  calendarSub: { fontSize: 11, textAlign: "left", marginTop: 2 },
-  calendarLegend: {
-    minHeight: 25,
-    borderTopWidth: 0,
-    marginTop: 0,
-    paddingTop: 0,
-    marginBottom: 6,
-    flexDirection: "row",
-    justifyContent: "center",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  calendarLegendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  calendarLegendLine: { width: 12, height: 3, borderRadius: 2 },
-  calendarLegendText: { fontSize: 12, fontFamily: typo.label.family },
-  weekRow: { flexDirection: "row", marginBottom: 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#DFE1E2", paddingBottom: 4 },
-  weekName: { width: "14.285%", textAlign: "center", color: "#85888D", fontSize: 14, fontFamily: typo.title.family },
-  weekNameSunday: { color: "#C66D68" },
-  weekNameSaturday: { color: "#617EA4" },
-  calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingTop: 2 },
-  // 달력 한 칸. 일곱 칸이 한 줄이라 너비가 가로의 1/7 로 정해져 있고, 높이를
-  // 44 로 올리면 여섯 줄짜리 달은 화면을 넘긴다. hitSlop 대신 옆칸과 맞닿아 있다.
-  dayCell: {
-    width: "14.285%",
-    height: 37,
-    borderRadius: 모서리.버튼,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 2,
-  },
-  dayNumber: { color: "#424957", fontSize: 14, fontFamily: typo.data.family },
-  dayNumberBadge: {
-    width: 21,
-    height: 21,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dayNumberSunday: { color: "#B96863" },
-  dayNumberSaturday: { color: "#5F789A" },
-  dayNumberToday: {
-    backgroundColor: "#FF6A63",
-  },
-  dayNumberTodayText: { color: "#FFFFFF" },
   emptyDate: {
     borderRadius: 16,
     borderWidth: 1,

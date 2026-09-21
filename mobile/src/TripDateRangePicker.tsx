@@ -12,12 +12,14 @@ export function formatTripRange(start: string, end: string) {
   return `${startDate.getMonth() + 1}월 ${startDate.getDate()}일 — ${endDate.getMonth() + 1}월 ${endDate.getDate()}일 · ${nights ? `${nights}박 ${nights + 1}일` : "당일"}`;
 }
 
-export function TripDateRangePicker({ theme, start, end, setStart, setEnd }: {
+export function TripDateRangePicker({ theme, start, end, setStart, setEnd, summaryLabel = "선택한 여행 기간" }: {
   theme: AppTheme;
   start: string;
   end: string;
   setStart: (value: string) => void;
   setEnd: (value: string) => void;
+  /** 요약 판 윗줄. 여행이 아닌 기간(캘린더의 출장·휴가)을 고를 때 바꾼다. */
+  summaryLabel?: string;
 }) {
   const initial = new Date(`${start}T00:00:00`);
   const [calendarMonth, setCalendarMonth] = useState({
@@ -56,7 +58,7 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd }: {
       <View style={[styles.rangeSummary, { backgroundColor: plate }]}>
         <View style={styles.rangeSummaryCopy}>
           <Text style={[styles.rangeSummaryLabel, { color: plateLabel }]}>
-            {selectingEnd ? "마지막 날을 선택해 주세요" : "선택한 여행 기간"}
+            {selectingEnd ? "마지막 날을 선택해 주세요" : summaryLabel}
           </Text>
           <Text numberOfLines={1} style={[styles.rangeSummaryValue, { color: plateText }]}>
             {formatTripRange(start, end)}

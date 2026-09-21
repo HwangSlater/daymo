@@ -10,6 +10,7 @@ import type { PhotoBody, ServerPhoto } from "./photoSync";
 import type { ServerMemberInput, ServerRelationship, ServerRole, SpacePatch } from "./spaceMapping";
 import type { ServerTripOverview } from "./tripOverview";
 import type { SavedKeepsake } from "./tripCard";
+import type { CalendarNote, CalendarNoteBody } from "./calendarNotes";
 
 export type ServerSpace = {
   id: string;
@@ -563,3 +564,29 @@ export const listDevices = () => authenticatedRequest<ServerDevice[]>("/v1/auth/
  */
 export const endDeviceSession = (deviceId: string) =>
   authenticatedRequest<void>(`/v1/auth/sessions/${encodeURIComponent(deviceId)}`, { method: "DELETE" });
+
+/**
+ * 여행 탭 캘린더의 일정·메모. 여행이 아니라 공간에 붙는다(`calendarNotes.ts`).
+ *
+ * 받을 때는 달 그림에 보이는 범위(앞뒤 달 날짜 포함)를 준다. 그 범위에 걸친 것이
+ * 모두 온다.
+ */
+export const listCalendarNotes = (spaceId: string, from: string, to: string) =>
+  authenticatedRequest<CalendarNote[]>(
+    `/v1/spaces/${encodeURIComponent(spaceId)}/calendar-notes?from=${from}&to=${to}`,
+  );
+
+export const createCalendarNote = (spaceId: string, id: string, body: CalendarNoteBody) =>
+  authenticatedRequest<CalendarNote>(`/v1/spaces/${encodeURIComponent(spaceId)}/calendar-notes`, {
+    method: "POST",
+    body: JSON.stringify({ id, ...body }),
+  });
+
+export const updateCalendarNote = (id: string, version: number, body: CalendarNoteBody) =>
+  authenticatedRequest<CalendarNote>(`/v1/calendar-notes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ version, ...body }),
+  });
+
+export const deleteCalendarNote = (id: string) =>
+  authenticatedRequest<void>(`/v1/calendar-notes/${encodeURIComponent(id)}`, { method: "DELETE" });
