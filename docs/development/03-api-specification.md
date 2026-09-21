@@ -419,6 +419,33 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 }
 ```
 
+### 공간 캘린더의 일정·메모
+
+2026-09-21 구현(`backend/app/api/v1/calendar_notes.py`). 여행 탭 캘린더에 여행 말고 멤버의 일정(「부산 출장 9/22~24」, 「야근 19:00」)과 날짜 메모(「숙소 결제 마감」)를 적는다. 여행이 아니라 **공간**에 붙어서, 여행을 지워도 남고 공간을 지우면 함께 지워진다(`calendar_notes.space_id` CASCADE).
+
+| Method | Path | 용도 |
+| --- | --- | --- |
+| GET | `/spaces/{spaceId}/calendar-notes?from=YYYY-MM-DD&to=YYYY-MM-DD` | 기간과 겹치는 것 전부 (멤버 누구나) |
+| POST | `/spaces/{spaceId}/calendar-notes` | 만들기 (owner·editor), 201 |
+| PATCH | `/calendar-notes/{id}` | 고치기 (만든 사람·owner), `version` 필수 |
+| DELETE | `/calendar-notes/{id}` | 지우기 (만든 사람·owner), 204. 휴지통 없음 |
+
+```json
+{
+  "id": "uuid", "spaceId": "uuid", "kind": "schedule", "membershipId": "uuid",
+  "title": "부산 출장", "startDate": "2026-09-22", "endDate": "2026-09-24", "time": null,
+  "createdByMembershipId": "uuid", "version": 1, "createdAt": "2026-09-21T06:00:00Z"
+}
+```
+
+- 목록은 `endDate >= from` 이고 `startDate <= to` 인 것. `startDate`, `time`(시각 없는 하루 종일이 먼저), `createdAt` 순이다. `from > to` 이거나 두 날을 넣어 400일을 넘으면 422.
+- 만들기 본문은 `{id?, kind, membershipId?, title, startDate, endDate, time?}`. `id` 를 보내면 그 id 로 만들고, 같은 공간에 이미 있으면 그 줄을 200 으로 돌려준다(기념 카드·메모와 같다). 다른 공간의 id 면 422.
+- `title` 은 앞뒤 공백을 빼고 1~60자, 기간은 `endDate >= startDate` 에 두 날을 넣어 60일까지, `time` 은 `HH:MM`(없으면 하루 종일).
+- `kind=schedule` 은 `membershipId` 가 지금 그 공간 멤버여야 한다(아니면 422). `kind=memo` 는 `membershipId` 를 보내도 null 로 저장한다.
+- PATCH 는 보낸 칸만 바꾼다. `time: null` 은 하루 종일로 바꾼다. 사람을 바꾸거나 메모를 일정으로 바꿀 때만 멤버인지 다시 본다(같은 사람을 다시 보내면 그 사람이 나갔어도 통과). version 이 어긋나면 `409 VERSION_CONFLICT`.
+- 멤버가 아니거나 지운 공간이면 404, viewer 가 만들면 403, 남이 만든 것을 editor 가 고치거나 지우면 403 이다.
+- 멤버가 나가도 그 사람의 일정은 남는다. membership 줄이 지워지는 것은 공간 정리(`purge_space`) 때뿐이고, 그때 `membership_id`·`created_by_membership_id` 는 SET NULL 된다.
+
 ## 4. 홈과 여행 탐색
 
 | Method | Path | 용도 |

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.models import Checklist, ChecklistItem, Membership, MembershipRole, Space, Trip, TripPlace
+from app.models import CalendarNote, Checklist, ChecklistItem, Membership, MembershipRole, Space, Trip, TripPlace
 
 # 권한 표는 docs/development/02-architecture-and-data-model.md 4장에 있다.
 #
@@ -147,3 +147,29 @@ def require(membership: Membership, *allowed: MembershipRole) -> None:
     """
     if membership.role not in allowed:
         raise AppError(ErrorCode.FORBIDDEN)
+
+
+async def membership_for_calendar_note(
+    session: AsyncSession, *, user_id: uuid.UUID, note_id: uuid.UUID
+) -> tuple[Membership, CalendarNote]:
+    """
+    공간 캘린더의 한 줄과 그 공간에서의 내 자격을 한 질의로 가져온다.
+
+    여행 줄과 같은 이유로 줄을 먼저 찾지 않는다. 남의 공간 것이면 없는 것과 같은 404 다.
+    """
+    줄 = (
+        await session.execute(
+            select(Membership, CalendarNote)
+            .join(Space, Space.id == Membership.space_id)
+            .join(CalendarNote, CalendarNote.space_id == Space.id)
+            .where(
+                CalendarNote.id == note_id,
+                Membership.user_id == user_id,
+                Membership.left_at.is_(None),
+                Space.deleted_at.is_(None),
+            )
+        )
+    ).first()
+    if 줄 is None:
+        raise AppError(ErrorCode.NOT_FOUND)
+    return 줄[0], 줄[1]

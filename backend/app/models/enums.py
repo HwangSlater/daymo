@@ -361,6 +361,18 @@ class ReportStatus(StrEnum):
     RESOLVED = "resolved"
 
 
+class CalendarNoteKind(StrEnum):
+    """
+    공간 캘린더에 적는 것의 종류.
+
+    `schedule` 은 누군가의 일정(출장, 야근)이라 그 사람을 가리킨다.
+    `memo` 는 날짜에 붙는 메모(숙소 결제 마감)라 누구의 것도 아니다.
+    """
+
+    SCHEDULE = "schedule"
+    MEMO = "memo"
+
+
 def enum_column(enum_type: type[StrEnum]) -> SAEnum:
     """
     StrEnum 을 VARCHAR + CHECK 로 저장한다.
