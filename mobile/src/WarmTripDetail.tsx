@@ -1200,6 +1200,8 @@ export function WarmTripDetail({
     destinationMode(initialDestination),
   );
   const detailScrollRef = useRef<ScrollView>(null);
+  /** 떠 있는 ＋ 단추가 「지출 추가」를 여는 길. 비용 탭이 채운다. */
+  const 지출_추가_열기 = useRef<(() => void) | null>(null);
   /**
    * 당겨서 새로고침. 열려 있는 목록을 전부 다시 받고, 여행 제목·기간도 서버 것으로 맞춘다.
    *
@@ -2462,6 +2464,7 @@ export function WarmTripDetail({
           )}
           {mode === "비용" && (
             <Money
+              addRef={지출_추가_열기}
               tripName={title}
               dayOptions={tripDayOptions}
               todayDay={todayTripDay}
@@ -2511,6 +2514,23 @@ export function WarmTripDetail({
             />
           )}
         </ScrollView>
+        {/* 비용 탭에서만 떠 있는 ＋ 단추. 목록을 한참 내려간 자리에서도 한 번에
+            닿는다. 가계부 앱들이 쓰는 자리다. */}
+        {mode === "비용" && canEdit && (
+          <Pressable
+            onPress={() => 지출_추가_열기.current?.()}
+            accessibilityRole="button"
+            accessibilityLabel="지출 추가"
+            style={({ pressed }) => [
+              styles.moneyFab,
+              appTheme && { backgroundColor: appTheme.primary },
+              pressed && styles.moneyFabPressed,
+            ]}
+          >
+            <Glyph name="plus" size={16} color={onAccent(appTheme?.dark ?? false)} weight={2.8} />
+            <Text style={[styles.moneyFabText, { color: onAccent(appTheme?.dark ?? false) }]}>지출 추가</Text>
+          </Pressable>
+        )}
         <DetailSheet
           visible={memoPanel}
           title="여행 메모"
@@ -8905,7 +8925,9 @@ function Memories({
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        quality: 0.85,
+        // 0.85 에서 올렸다. 여기서 한 번 줄이고 서버가 표시본을 만들며 또 줄여서
+        // 두 번 눌렸고, 크게 보면 그것이 보였다(2026-09-21).
+        quality: 0.92,
         base64: Platform.OS === "web",
         // 사진에 적힌 촬영 날짜를 읽어 그날에 넣는다. 수십 장을 한 장씩 고르게 하지 않는다.
         exif: true,
@@ -9680,6 +9702,7 @@ function SectionLabel({
 }
 
 function Money({
+  addRef,
   tripName,
   dayOptions,
   todayDay,
@@ -9701,6 +9724,12 @@ function Money({
   exchangeRate,
   setExchangeRate,
 }: {
+  /**
+   * 「지출 추가」를 여는 길. 떠 있는 ＋ 단추가 스크롤 바깥에 있어서 밖으로 내준다.
+   *
+   * 스크롤 안에 두면 단추도 함께 밀려 올라가 화면에 붙어 있지 못한다.
+   */
+  addRef?: React.RefObject<(() => void) | null>;
   tripName: string;
   dayOptions: string[];
   /** 여행 날짜 가운데 오늘. 여행 기간이 아니면 빈 문자열. */
@@ -10073,6 +10102,15 @@ function Money({
     setExtrasOpen(false);
     setSheetOpen(true);
   };
+  // 떠 있는 ＋ 단추는 스크롤 바깥(화면에 고정된 자리)에 있다. 여는 길만 밖으로 내준다.
+  // 값이 아니라 함수라 렌더마다 다시 담아야 지금 상태를 보고 연다.
+  useEffect(() => {
+    if (!addRef) return;
+    addRef.current = openCreate;
+    return () => {
+      addRef.current = null;
+    };
+  });
   const openEdit = (item: Expense) => {
     setEditingId(item.id);
     setDraftTitle(item.title);
@@ -10517,7 +10555,7 @@ function Money({
           </Pressable>
         </View>
         <Text style={[styles.quickAddHint, theme && { color: theme.muted }]}>
-          {draftPayerHint} · 자세히 적으려면 아래의 지출 추가를 눌러 주세요
+          {draftPayerHint} · 자세히 적으려면 ＋ 지출 추가를 눌러 주세요
         </Text>
       </MoneyBlock>
       )}
@@ -14000,6 +14038,27 @@ const styles = StyleSheet.create({
     fontFamily: typo.label.family,
   },
   page: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 88 },
+  // 비용 탭에 떠 있는 ＋ 단추. 목록 마지막 줄을 가리지 않게 페이지 아래 여백(88)
+  // 안쪽에 앉힌다.
+  moneyFab: {
+    position: "absolute",
+    right: 18,
+    bottom: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderRadius: 999,
+    backgroundColor: "#3F4C8F",
+    shadowColor: "#17233D",
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
+  },
+  moneyFabPressed: { opacity: 0.85 },
+  moneyFabText: { fontSize: 13.5, fontFamily: typo.title.family },
   date: { fontSize: 11, fontFamily: typo.caption.family, letterSpacing: 0, marginBottom: 6 },
   title: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   subtitle: { fontSize: 11, marginTop: 6 },
