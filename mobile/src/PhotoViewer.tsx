@@ -48,6 +48,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import { Text } from "./AppText";
@@ -317,6 +318,8 @@ export function PhotoViewerScreen({
    * 한 번 눌러 걷어 내고 사진만 본다. 사진첩 앱들이 하는 그대로다.
    */
   const [chromeOn, setChromeOn] = useState(true);
+  /** 화면 아래 시스템 막대의 높이. 안드로이드는 창이 그 밑까지 깔린다. */
+  const 아래_막대 = useSafeAreaInsets().bottom;
   const move = (photoId: string) => {
     setMenuOpen(false);
     onMove(photoId);
@@ -696,8 +699,14 @@ export function PhotoViewerScreen({
           </>
         )}
 
+        {/* 안드로이드는 창이 아래 버튼 막대(Ⅲ ○ <) 밑까지 깔린다. 막대 높이만큼 올리지 않으면
+            맨 아래 글과 단추가 막대에 가려진다(2026-09-21 갤럭시에서 봤다). 아이폰은 홈 막대 몫이
+            `foot` 에 이미 들어 있다. */}
         {chromeOn && (
-        <View style={styles.foot} pointerEvents="box-none">
+        <View
+          style={[styles.foot, Platform.OS === "android" && { paddingBottom: 아래_막대 + 16 }]}
+          pointerEvents="box-none"
+        >
           <Text numberOfLines={2} style={styles.caption}>
             {previewing ? decor?.previewTitle || "추억 카드" : photo?.caption || ""}
           </Text>

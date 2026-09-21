@@ -149,7 +149,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
@@ -1211,6 +1211,14 @@ export function WarmTripDetail({
   const detailScrollRef = useRef<ScrollView>(null);
   /** 떠 있는 ＋ 단추가 「지출 추가」를 여는 길. 비용 탭이 채운다. */
   const 지출_추가_열기 = useRef<(() => void) | null>(null);
+  /**
+   * 화면 아래 시스템 막대의 높이. 떠 있는 단추는 이만큼 위에 놓는다.
+   *
+   * 단추는 `position: absolute` 라 화면 맨 아래를 기준으로 놓인다. 아이폰은 그 자리가
+   * 얇은 홈 막대라 티가 안 났지만, 안드로이드의 버튼 막대(Ⅲ ○ <)는 두께가 있어 단추가
+   * 그 위에 걸쳤다(2026-09-21 갤럭시에서 봤다).
+   */
+  const 아래_여백 = useSafeAreaInsets().bottom;
   /** 화면 위에 붙어 있는 탭 줄의 높이. 어느 자리로 내려 보낼 때 그만큼 덜 내린다. */
   const 탭줄_높이 = useRef(0);
   /**
@@ -2547,6 +2555,7 @@ export function WarmTripDetail({
             accessibilityLabel="지출 추가"
             style={({ pressed }) => [
               styles.moneyFab,
+              { bottom: Math.max(38, 아래_여백 + 12) },
               appTheme && { backgroundColor: appTheme.primary },
               pressed && styles.moneyFabPressed,
             ]}
@@ -14207,8 +14216,9 @@ const styles = StyleSheet.create({
   moneyFab: {
     position: "absolute",
     right: 18,
-    // 아이폰 아래 막대(홈 인디케이터)에 너무 붙어 있어 조금 올렸다.
-    bottom: 38,
+    // 실제 자리는 그리는 쪽이 시스템 막대 높이를 더해 정한다(`아래_여백`). 이 값은
+    // 막대가 없는 화면(웹)에서만 쓴다.
+    bottom: 22,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
