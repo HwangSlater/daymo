@@ -349,10 +349,8 @@ HTML 페이지를 직접 보여 주게 했다. GET은 아무것도 바꾸지 않
 
 ### 막혀 있는 것 — 바깥 자격증명이 있어야 한다
 
-- **Sign in with Apple.** 서버 코드는 다 있고 `APPLE_CLIENT_ID`·`APPLE_TEAM_ID`·`APPLE_KEY_ID`·
-  `APPLE_PRIVATE_KEY` 넷이 들어가면 켜진다. Apple Developer Program 가입이 먼저다. iOS에 다른 소셜
-  로그인을 두면 App Store 지침 4.8이 Apple 로그인을 함께 요구한다. Google·카카오·네이버는 키가
-  들어가 운영에서 돌고 있다
+- **Apple 로그인 실기기 확인.** 2026-09-22 Apple Developer 등록과 운영 API 설정을 끝냈다.
+  provider 목록에 Apple이 나타나고 서버의 ES256 서명도 성공했다. 실제 계정 로그인은 TestFlight에서 확인한다.
 - **카카오 이메일 동의항목.** 비즈 앱 심사를 2026-09-15에 신청했다. 이메일을 받지 못하면 카카오로는
   새 계정을 만들지 않는다
 - **bot challenge.** 검증 공급자를 문서가 일부러 미뤄 뒀다(처리 국가·SDK·비용

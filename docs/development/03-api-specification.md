@@ -288,7 +288,7 @@ provider가 반환한 이메일이 기존 계정과 같으면 그 계정에 비�
 
 앱은 기존 계정 비밀번호를 받아 `POST /auth/oauth/link { linkToken, password, device }`로 보낸다. 연결 토큰은 10분·1회용이고, 비밀번호 확인은 로그인과 같은 시도 제한을 받는다. 틀린 비밀번호와 비밀번호가 없는 계정(다른 provider로만 가입)은 같은 `FORBIDDEN(403)` 문구로 거절해 가입 방식을 드러내지 않는다. 연결에 성공하면 provider가 확인한 이메일로 기존 계정의 이메일 확인도 끝낸다.
 
-운영 상태(2026-09-16): **Google·Kakao·Naver가 켜져 있고 Apple은 꺼져 있다.** provider는 설정값이 다 들어간 것만 켜지고(`google_client_id`+`secret`, `kakao_rest_api_key`, `naver_client_id`+`secret`, Apple은 `APPLE_CLIENT_ID`·`APPLE_TEAM_ID`·`APPLE_KEY_ID`·`APPLE_PRIVATE_KEY` 넷), 꺼진 provider는 `GET /auth/oauth/providers` 목록에서 빠지고 `start`도 `404`다. 앱과 웹은 이 목록에 있는 버튼만 보여 준다.
+운영 상태(2026-09-22): **Google·Apple·Kakao·Naver가 켜져 있다.** Apple은 provider 목록 표시와 서버의 ES256 서명까지 확인했고, 실제 Apple 계정 로그인은 TestFlight에서 확인한다. provider는 설정값이 다 들어간 것만 켜지고(`google_client_id`+`secret`, `kakao_rest_api_key`, `naver_client_id`+`secret`, Apple은 `APPLE_CLIENT_ID`·`APPLE_TEAM_ID`·`APPLE_KEY_ID`·`APPLE_PRIVATE_KEY` 넷), 꺼진 provider는 `GET /auth/oauth/providers` 목록에서 빠지고 `start`도 `404`다. 앱과 웹은 이 목록에 있는 버튼만 보여 준다.
 
 웹 빌드도 같은 서버 코드를 쓴다. 다른 것은 `redirectUri`뿐이다. 앱은 `daymo://oauth`, 웹은 같은 출처의 `/oauth`(예: `https://www.daymo.xyz/oauth`)로 돌아오고 그 주소가 `OAUTH_APP_REDIRECT_URIS`에 없으면 `start`가 `422`다. 웹은 사용자가 버튼을 누른 그 순간 팝업 창을 열어 두고 거기서 provider 화면을 띄운다(나중에 열면 Safari가 막는다). `/oauth`에는 서버 페이지가 없고 웹 앱 번들 자체가 그 주소로 리라이트된다(`site/build.mjs`). 번들이 `maybeCompleteAuthSession()`으로 원래 창에 결과를 넘기고 팝업을 닫는다.
 

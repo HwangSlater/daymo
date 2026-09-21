@@ -34,7 +34,7 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 | # | 할 일 | 누가 | 왜 |
 | --- | --- | --- | --- |
 | 1 | Apple Developer Program 가입 | 운영자 | iOS 빌드·TestFlight·제출 모두 필요 |
-| 2 | Sign in with Apple 붙이기 | 운영자(키) + 개발 | Google·카카오·네이버 로그인을 두면 App Store 심사 지침 4.8에 따라 Apple 로그인도 있어야 한다. 서버 코드는 준비돼 있고 키만 넣으면 켜진다 |
+| 2 | ~~Sign in with Apple 서버 설정~~ (2026-09-22 완료) | 운영자(키) + 개발 | Apple Developer의 App ID·Services ID·키를 등록하고 운영 API에 적용했다. 실제 Apple 계정 로그인은 TestFlight에서 확인한다 |
 | 3 | ~~앱 안 신고·차단~~ (2026-09-15 완료) | 개발 | 다른 사람이 쓴 사진·메모가 보이는 앱이라 App Store 지침 1.2(사용자 생성 콘텐츠)가 신고·차단을 요구한다 |
 | 4 | ~~소셜 로그인 버튼을 공식 에셋으로~~ (2026-09-15 완료) | 개발 | 남은 것: Apple 로고 파일의 사용 조건 확인, 또는 iOS 에서 시스템 Apple 버튼 사용(`mobile/assets/social/README.md`) |
 | 5 | 심사용 데모 계정 | 운영자(이메일·실행) | 두 스토어 모두 로그인이 필요한 앱은 심사 계정을 요구한다. 만드는 작업은 준비됐다(아래 "데모 계정"). 이메일을 정하고 제출 직전에 서버에서 돌린다 |
@@ -57,7 +57,7 @@ App Store와 Google Play에 내기 위해 콘솔에 입력하고 올리는 것�
 iPhone 앱이 나오기 전까지 같은 앱을 `www.daymo.xyz/app` 에서 쓴다. 스토어 자료와는 별개지만 두 가지가 겹친다.
 
 - 스토어 스크린샷은 웹 화면으로 찍지 않는다. 실기기로 찍는다([shared/screenshots.md](shared/screenshots.md)).
-- 웹에서 Apple 로그인 버튼은 서버에 키가 들어가야 보인다. 지금은 Google·카카오·네이버만 보인다.
+- 웹과 앱의 Apple 로그인 버튼은 운영 API의 provider 목록에 나타난다. 실제 Apple 계정 로그인은 TestFlight에서 확인한다.
 
 ## 정할 것
 
