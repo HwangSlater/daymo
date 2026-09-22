@@ -100,6 +100,12 @@ writeFileSync(
           headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
         },
         {
+          // 글꼴·그림도 이름에 내용 해시가 붙는다(`CookieRun-Bold.<해시>.ttf`). 빠져 있어서 들어올
+          // 때마다 서버에 다시 물었다. 쿠키런은 라이선스상 잘라 줄일 수 없어서 캐시로 아낀다.
+          source: "/app/assets/(.*)",
+          headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        },
+        {
           source: "/(.*)",
           headers: [
             { key: "X-Content-Type-Options", value: "nosniff" },
