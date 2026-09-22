@@ -24,8 +24,8 @@ export const KEEPSAKE_STICKERS: KeepsakeSticker[] = [
  * 지금 고를 수 있는 스티커.
  *
  * 비행기는 「이상하게 보인다」는 말을 듣고 뺐다. 위의 전체 목록에서는 지우지
- * 않는다. 지우면 이미 비행기를 얹어 둔 카드가 읽힐 때 그 줄이 통째로 버려진다
- * (`decorOf` 는 모르는 이름을 버린다). 그리기는 그대로 두고 새로 고르는 자리에서만
+ * 않는다. 지우면 이미 비행기를 얹어 둔 카드가 읽힐 때 그 줄이 그려지지 않는다
+ * (`decorOf` 는 모르는 이름을 뺀다). 그리기는 그대로 두고 새로 고르는 자리에서만
  * 뺀다. 남의 카드에 있던 비행기도 계속 보인다.
  */
 export const KEEPSAKE_PALETTE: KeepsakeSticker[] = KEEPSAKE_STICKERS.filter(
@@ -52,7 +52,15 @@ export type CardDecor = {
   angle: number;
   /** 겹침 순서. 클수록 위에 있다. 읽을 때 0부터 다시 매긴다. */
   z: number;
+  /**
+   * 이 판이 모르는 칸. 더 새 앱이 붙여 둔 것이라 읽기만 하고 저장할 때 그대로
+   * 돌려보낸다. 버리면 이 앱으로 카드를 한 번 고치는 것만으로 새 앱의 값이 사라진다.
+   */
+  extra?: Record<string, unknown>;
 };
+
+/** 이 판이 아는 칸. 나머지는 `extra` 로 들고 있다가 돌려보낸다. */
+const DECOR_KEYS = new Set(["id", "kind", "text", "x", "y", "size", "angle", "z"]);
 
 /** 한 카드에 얹을 수 있는 수. 서버도 같은 수로 막는다. */
 export const DECOR_MAX = 30;
@@ -79,8 +87,30 @@ export const turnedAngle = (각: number) => (((각 + 180) % 360) + 360) % 360 - 
 const isSticker = (값: unknown): 값 is KeepsakeSticker =>
   KEEPSAKE_STICKERS.includes(값 as KeepsakeSticker);
 
+/** 모르는 칸만 골라 낸다. 하나도 없으면 undefined 라 저장 모양이 예전과 같다. */
+const 모르는_칸 = (값: Record<string, unknown>): Record<string, unknown> | undefined => {
+  const 남은_것 = Object.entries(값).filter(([key]) => !DECOR_KEYS.has(key));
+  return 남은_것.length ? Object.fromEntries(남은_것) : undefined;
+};
+
 /**
- * 저장된 목록을 읽는다. 모양이 틀린 줄은 버린다.
+ * 이 판이 모르는 이름의 줄. 더 새 앱이 붙인 스티커다.
+ *
+ * 그릴 줄 모르니 `decorOf` 는 빼지만 버리지는 않는다. 받은 모양 그대로 들고 있다가
+ * 저장할 때 돌려보낸다(`keepsakeBodyOf`). 이름이 없거나 모양이 틀린 줄은 여기서도 버린다.
+ */
+export function unknownDecorOf(saved: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(saved)) return [];
+  return saved.filter((줄): 줄 is Record<string, unknown> => {
+    if (!줄 || typeof 줄 !== "object" || Array.isArray(줄)) return false;
+    const kind = (줄 as Record<string, unknown>).kind;
+    return typeof kind === "string" && kind !== "" && kind !== "글자" && !isSticker(kind);
+  });
+}
+
+/**
+ * 저장된 목록을 읽는다. 모양이 틀린 줄은 버린다. 모르는 이름의 줄은 빼 두고
+ * `unknownDecorOf` 가 따로 들고 있는다.
  *
  * 겹침 순서는 저장된 `z` 로 줄을 세운 뒤 0부터 다시 매긴다. 손으로 고친 값이나
  * 옛 판이 남긴 값에서 순서가 비거나 겹쳐 있어도 그리는 쪽은 신경 쓸 것이 없다.
@@ -96,6 +126,7 @@ export function decorOf(saved: unknown): CardDecor[] {
       const text = 글자 ? String(값.text ?? "").trim().slice(0, DECOR_TEXT_MAX) : "";
       // 글자를 다 지운 줄은 카드에 아무것도 안 그린다. 자리만 차지한다.
       if (글자 && !text) return null;
+      const extra = 모르는_칸(값);
       return {
         id: typeof 값.id === "string" && 값.id ? 값.id : `d${차례 + 1}`,
         kind: 글자 ? "글자" : (값.kind as KeepsakeSticker),
@@ -105,6 +136,7 @@ export function decorOf(saved: unknown): CardDecor[] {
         size: clamp(숫자(값.size, DECOR_NEW_SIZE), DECOR_MIN_SIZE, DECOR_MAX_SIZE),
         angle: turnedAngle(숫자(값.angle, 0)),
         z: 숫자(값.z, 차례),
+        ...(extra ? { extra } : {}),
       };
     })
     .filter((줄): 줄 is CardDecor => 줄 !== null)
@@ -127,6 +159,8 @@ const 다시_매긴다 = (list: readonly CardDecor[]): CardDecor[] =>
  */
 export function decorBodyOf(list: readonly CardDecor[]): Record<string, unknown>[] {
   return list.filter((줄) => 줄.kind !== "글자" || 줄.text.trim()).slice(0, DECOR_MAX).map((줄) => ({
+    // 모르는 칸을 먼저 깔고 아는 칸으로 덮는다. 이 판이 고친 값이 늘 이긴다.
+    ...줄.extra,
     id: 줄.id,
     kind: 줄.kind,
     text: 줄.kind === "글자" ? 줄.text.slice(0, DECOR_TEXT_MAX) : null,

@@ -356,3 +356,114 @@ test("카드에서 사진을 다른 사진 위에 놓으면 두 사진이 자리
   assert.deepEqual(swapKeepsakePhotos(["a", "b"], 1, 1), ["a", "b"]);
   assert.deepEqual(swapKeepsakePhotos(["a", "b"], 0, 2), ["a", "b"]);
 });
+
+/**
+ * 더 새 앱이 저장한 카드. 이 판이 모르는 스티커·칸·값이 섞여 있다.
+ * 이 판으로 열어 다른 것을 고쳐 저장해도 그것들이 그대로 남아야 한다.
+ */
+const 새_앱이_저장한_것 = {
+  style: "새틀",
+  ratio: "세로",
+  photoIds: ["a"],
+  title: null,
+  caption: "또 가자",
+  parts: ["이름", "날씨"],
+  stats: ["사진", "걸음"],
+  frameColor: "보라",
+  stickers: [],
+  decor: [
+    { id: "d1", kind: "하트", text: null, x: 0.2, y: 0.3, size: 0.2, angle: 0, z: 0, glow: "금색" },
+    { id: "d2", kind: "무지개", text: null, x: 0.5, y: 0.5, size: 0.3, angle: 10, z: 1, 무늬: { 줄: 7 } },
+  ],
+  dateStamp: false,
+  photoCaptions: false,
+  paper: { 결: "한지" },
+};
+
+test("모르는 스티커·칸·값은 그리지 않아도 저장할 때 그대로 돌려보낸다", () => {
+  const card = keepsakeCardOf(새_앱이_저장한_것, "가을 제주", 사진들);
+
+  // 그리는 쪽은 아는 것만 본다.
+  assert.equal(card.style, "필름");
+  assert.equal(card.frameColor, "검정");
+  assert.deepEqual(card.decor.map((하나) => 하나.kind), ["하트"]);
+  assert.deepEqual(card.parts, ["이름"]);
+
+  // 다른 것(한 줄 설명)만 고쳐 저장한다.
+  const body = keepsakeBodyOf({ ...card, caption: "다음엔 겨울에" }, "가을 제주");
+
+  assert.equal(body.caption, "다음엔 겨울에");
+  assert.equal(body.style, "새틀");
+  assert.equal(body.frameColor, "보라");
+  assert.deepEqual(body.parts, ["이름", "날씨"]);
+  assert.deepEqual(body.stats, ["사진", "걸음"]);
+  assert.deepEqual(body.paper, { 결: "한지" });
+  assert.deepEqual(body.decor, 새_앱이_저장한_것.decor);
+});
+
+test("모르는 값을 대신 그린 칸을 사람이 바꾸면 바꾼 값이 간다", () => {
+  const card = keepsakeCardOf(새_앱이_저장한_것, "가을 제주", 사진들);
+  const body = keepsakeBodyOf({ ...card, style: "엽서", frameColor: "크림" }, "가을 제주");
+
+  assert.equal(body.style, "엽서");
+  assert.equal(body.frameColor, "크림");
+  // 바꾸지 않은 모르는 것은 그대로다.
+  assert.deepEqual(body.paper, { 결: "한지" });
+});
+
+test("아는 스티커를 옮기고 지워도 모르는 줄과 모르는 칸은 남는다", () => {
+  const card = keepsakeCardOf(새_앱이_저장한_것, "가을 제주", 사진들);
+  const 옮김 = keepsakeBodyOf(
+    { ...card, decor: card.decor.map((하나) => ({ ...하나, x: 0.7 })) },
+    "가을 제주",
+  );
+  const 지움 = keepsakeBodyOf({ ...card, decor: [] }, "가을 제주");
+
+  assert.deepEqual(옮김.decor, [
+    { glow: "금색", id: "d1", kind: "하트", text: null, x: 0.7, y: 0.3, size: 0.2, angle: 0, z: 0 },
+    새_앱이_저장한_것.decor[1],
+  ]);
+  assert.deepEqual(지움.decor, [새_앱이_저장한_것.decor[1]]);
+});
+
+test("이 앱에서 붙인 스티커가 모르는 줄과 이름이 겹치면 새 이름을 받는다", () => {
+  const card = keepsakeCardOf(
+    { decor: [{ id: "d1", kind: "무지개", x: 0.5, y: 0.5, size: 0.2, angle: 0, z: 0 }] },
+    "가을 제주",
+    사진들,
+  );
+  // 이 앱은 모르는 줄을 못 보니 `d1` 을 고른다.
+  const body = keepsakeBodyOf(
+    { ...card, decor: [{ id: "d1", kind: "별", text: "", x: 0.5, y: 0.5, size: 0.16, angle: 0, z: 0 }] },
+    "가을 제주",
+  );
+
+  assert.deepEqual((body.decor as { id: string; kind: string }[]).map((하나) => [하나.id, 하나.kind]), [
+    ["d2", "별"],
+    ["d1", "무지개"],
+  ]);
+});
+
+test("모르는 것이 든 카드도 손대지 않으면 같은 카드로 본다", () => {
+  const 처음 = keepsakeCardOf(새_앱이_저장한_것, "가을 제주", 사진들);
+  const 다시_읽은_것 = keepsakeCardOf(keepsakeBodyOf(처음, "가을 제주"), "가을 제주", 사진들);
+
+  assert.equal(sameKeepsakeCard(처음, { ...처음 }), true);
+  assert.equal(sameKeepsakeCard(처음, 다시_읽은_것), true);
+  assert.equal(sameKeepsakeCard(처음, { ...처음, caption: "다음엔 겨울에" }), false);
+});
+
+test("모르는 것이 없는 카드는 예전과 같은 모양으로 저장된다", () => {
+  const card = keepsakeCardOf(
+    { style: "네컷", frameColor: "크림", decor: [{ id: "d1", kind: "별", x: 0.5, y: 0.5, size: 0.2, angle: 0, z: 0 }] },
+    "가을 제주",
+    사진들,
+  );
+
+  assert.equal(card.kept, undefined);
+  assert.equal(card.decor[0].extra, undefined);
+  assert.deepEqual(Object.keys(keepsakeBodyOf(card, "가을 제주")), [
+    "style", "ratio", "photoIds", "title", "caption", "parts", "stats", "frameColor",
+    "stickers", "decor", "dateStamp", "photoCaptions",
+  ]);
+});

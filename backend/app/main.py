@@ -176,7 +176,9 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
+        # `X-Daymo-Card-Keeps-Unknown` 은 카드의 모르는 값을 돌려보내는 앱이라는 표시다
+        # (`services/trip_cards.KEEPS_UNKNOWN_HEADER`). 웹 앱도 붙여 보낸다.
+        allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-Daymo-Card-Keeps-Unknown"],
         expose_headers=["X-Request-Id"],
         max_age=600,
     )

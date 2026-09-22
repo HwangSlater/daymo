@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Query, Request, Response, status
+from fastapi import APIRouter, Header, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -56,7 +56,7 @@ async def create_trip_card(
         trip=trip,
         actor=membership,
         card_id=body.id,
-        settings=body.settings.model_dump(by_alias=True),
+        settings=body.settings.stored(),
     )
     if not 만들었다:
         response.status_code = status.HTTP_200_OK
@@ -65,8 +65,19 @@ async def create_trip_card(
 
 @router.patch("/trip-cards/{card_id}")
 async def update_trip_card(
-    card_id: uuid.UUID, body: TripCardUpdateRequest, caller: CurrentCaller, db: DbSession
+    card_id: uuid.UUID,
+    body: TripCardUpdateRequest,
+    caller: CurrentCaller,
+    db: DbSession,
+    keeps_unknown: str | None = Header(default=None, alias=card_service.KEEPS_UNKNOWN_HEADER),
 ) -> dict:
+    """
+    꾸민 값을 통째로 바꾼다.
+
+    `X-Daymo-Card-Keeps-Unknown` 이 없으면 모르는 값을 버리는 옛 앱(1.0.0)이 보낸 것으로
+    보고, 그 앱이 버렸을 값을 지금 저장된 카드에서 되살려 합친다
+    (`card_service.merge_old_app_settings`).
+    """
     membership, trip, card = await membership_for_trip_row(
         db, user_id=caller.user.id, model=TripCard, row_id=card_id
     )
@@ -77,7 +88,8 @@ async def update_trip_card(
         card=card,
         actor=membership,
         version=body.version,
-        settings=body.settings.model_dump(by_alias=True),
+        settings=body.settings.stored(),
+        keeps_unknown=keeps_unknown == "1",
     )
     return ok(_응답(card, membership))
 

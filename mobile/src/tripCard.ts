@@ -5,15 +5,21 @@
  * 꾸민 값 한 덩어리(`trip_cards.settings`)를 들고 있을 뿐이고, 숫자와 배치는 여기서 만든다.
  *
  * 아무것도 고르지 않아도 카드 한 장이 나와야 한다. 그래서 모든 값에 기본이 있고,
- * 모르는 값이 저장돼 있어도(앱이 더 옛 판이거나 손으로 고쳤거나) 기본으로 돌아간다.
+ * 모르는 값이 저장돼 있어도(앱이 더 옛 판이거나 손으로 고쳤거나) 기본으로 그린다.
+ *
+ * 모르는 값을 버리지는 않는다. 더 새 앱이 저장한 스티커·칸·값일 수 있어서, 그리지
+ * 못해도 들고 있다가 저장할 때 그대로 돌려보낸다(`KeepsakeKept`). 버리면 이 앱으로
+ * 카드를 한 번 고치는 것만으로 상대가 붙인 것이 사라진다.
  *
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
 import {
+  DECOR_MAX,
   decorBodyOf,
   decorOf,
   legacyDecorOf,
+  unknownDecorOf,
   KEEPSAKE_STICKERS,
   type CardDecor,
   type KeepsakeSticker,
@@ -105,6 +111,32 @@ export type KeepsakeCard = {
   dateStamp: boolean;
   /** 사진에 적어 둔 짧은 설명을 칸 아래에 넣을지. */
   photoCaptions: boolean;
+  /** 이 판이 모르는 값. 있을 때만 붙는다. */
+  kept?: KeepsakeKept;
+};
+
+/**
+ * 저장된 값 가운데 이 판이 모르는 것. 더 새 앱이 저장한 것이다.
+ *
+ * 그리지는 못해도 저장할 때 그대로 돌려보낸다(`keepsakeBodyOf`). 서버도 모르는
+ * 값을 받아 그대로 둔다(docs/development/03-api-specification.md 10장).
+ */
+export type KeepsakeKept = {
+  /** `settings` 바로 아래의 모르는 칸. */
+  extra?: Record<string, unknown>;
+  /**
+   * 모르는 값이라 기본으로 그린 칸. `shown` 이 대신 그린 값이다. 사람이 그 칸을
+   * 다른 값으로 바꾸지 않았으면 저장할 때 `raw` 를 돌려보낸다.
+   */
+  style?: { raw: string; shown: KeepsakeStyle };
+  ratio?: { raw: string; shown: KeepsakeRatio };
+  frameColor?: { raw: string; shown: KeepsakeFrameColor };
+  /** 목록 칸에 섞여 있던 모르는 값. 켜고 끌 수 없으니 늘 그대로 붙여 보낸다. */
+  parts?: string[];
+  stats?: string[];
+  stickers?: string[];
+  /** 모르는 이름의 스티커 줄. 받은 모양 그대로다. */
+  decor?: Record<string, unknown>[];
 };
 
 /** 서버가 들고 있는 모양(카드 한 줄의 `settings`). 모양이 틀리면 기본값으로 읽는다. */
@@ -130,6 +162,77 @@ const pick = <T extends string>(all: readonly T[], value: unknown, fallback: T):
 const pickMany = <T extends string>(all: readonly T[], value: unknown): T[] =>
   Array.isArray(value) ? all.filter((item) => value.includes(item)) : [];
 
+/** 이 판이 아는 `settings` 칸. 나머지는 `KeepsakeKept.extra` 로 들고 있는다. */
+const KEEPSAKE_KEYS = new Set([
+  "style", "ratio", "photoIds", "title", "caption", "parts", "stats", "frameColor",
+  "stickers", "decor", "dateStamp", "photoCaptions",
+]);
+/** 서버가 받는 값 이름의 길이. 이보다 긴 것은 들고 있어 봐야 저장되지 않는다. */
+const 값_이름_최대 = 20;
+const 값_이름인가 = (값: unknown): 값 is string =>
+  typeof 값 === "string" && 값 !== "" && 값.length <= 값_이름_최대;
+
+/** 모르는 값이면 대신 그린 값과 함께 적어 둔다. */
+const 모르는_하나 = <T extends string>(all: readonly T[], value: unknown, shown: T) =>
+  값_이름인가(value) && !all.includes(value as T) ? { raw: value, shown } : undefined;
+
+const 모르는_여럿 = (all: readonly string[], value: unknown): string[] =>
+  Array.isArray(value)
+    ? [...new Set(value.filter((item): item is string => 값_이름인가(item) && !all.includes(item)))]
+    : [];
+
+/** 모르는 것만 모은다. 하나도 없으면 undefined 라 카드 모양이 예전과 같다. */
+function keptOf(
+  saved: SavedKeepsake | undefined | null,
+  style: KeepsakeStyle,
+  ratio: KeepsakeRatio,
+  frameColor: KeepsakeFrameColor,
+): KeepsakeKept | undefined {
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) return undefined;
+  const 칸들 = Object.entries(saved).filter(([key]) => !KEEPSAKE_KEYS.has(key));
+  const kept: KeepsakeKept = {
+    extra: 칸들.length ? Object.fromEntries(칸들) : undefined,
+    style: 모르는_하나(KEEPSAKE_STYLES, saved.style, style),
+    ratio: 모르는_하나(KEEPSAKE_RATIOS, saved.ratio, ratio),
+    frameColor: 모르는_하나(KEEPSAKE_FRAME_COLORS, saved.frameColor, frameColor),
+    parts: 모르는_여럿(KEEPSAKE_PARTS, saved.parts),
+    stats: 모르는_여럿(KEEPSAKE_STAT_KINDS, saved.stats),
+    stickers: 모르는_여럿(KEEPSAKE_STICKERS, saved.stickers),
+    decor: unknownDecorOf(saved.decor),
+  };
+  const 남긴_것 = Object.entries(kept).filter(([, 값]) =>
+    값 !== undefined && !(Array.isArray(값) && 값.length === 0));
+  return 남긴_것.length ? (Object.fromEntries(남긴_것) as KeepsakeKept) : undefined;
+}
+
+/** 모르는 값을 대신 그렸고 사람이 그 칸을 바꾸지 않았으면 원래 값을 돌려보낸다. */
+const 되돌린_값 = <T extends string>(kept: { raw: string; shown: T } | undefined, 지금: T): string =>
+  kept && kept.shown === 지금 ? kept.raw : 지금;
+
+/**
+ * 스티커 줄을 보낼 모양으로. 모르는 줄은 받은 그대로 뒤에 붙인다.
+ *
+ * 모르는 줄과 이름(`id`)이 겹치는 줄은 이 앱에서 새로 붙인 것이라 이름을 새로 준다.
+ * 이 앱의 `addDecor` 는 모르는 줄을 보지 못해 같은 이름을 고를 수 있다. 둘을 합쳐
+ * 한 카드의 한도(`DECOR_MAX`)를 넘으면 이 앱에서 붙인 것부터 덜어 낸다.
+ */
+function decorWithKept(decor: readonly CardDecor[], 모르는_줄: readonly Record<string, unknown>[]) {
+  const 쓴_이름 = new Set(모르는_줄.map((줄) => 줄.id).filter((id): id is string => typeof id === "string"));
+  const 아는_줄 = decorBodyOf(decor).slice(0, Math.max(0, DECOR_MAX - 모르는_줄.length));
+  for (const 줄 of 아는_줄) 쓴_이름.add(줄.id as string);
+  const 새_이름 = () => {
+    let 수 = 1;
+    while (쓴_이름.has(`d${수}`)) 수 += 1;
+    쓴_이름.add(`d${수}`);
+    return `d${수}`;
+  };
+  const 겹친_이름 = new Set(모르는_줄.map((줄) => 줄.id));
+  return [
+    ...아는_줄.map((줄) => (겹친_이름.has(줄.id) ? { ...줄, id: 새_이름() } : 줄)),
+    ...모르는_줄,
+  ];
+}
+
 /**
  * 저장된 값을 카드로 읽는다. 없거나 모양이 틀리면 기본 카드다.
  *
@@ -150,16 +253,19 @@ export function keepsakeCardOf(
     ? DEFAULT_PARTS
     : pickMany(KEEPSAKE_PARTS, saved.parts);
   const style = pick(KEEPSAKE_STYLES, saved?.style, "필름");
+  const ratio = pick(KEEPSAKE_RATIOS, saved?.ratio, "세로");
+  const frameColor = pick(KEEPSAKE_FRAME_COLORS, saved?.frameColor, "검정");
   const 쓸_사진 = 고른_사진.length ? [...new Set(고른_사진)] : photoIds.slice(0, 1);
+  const kept = keptOf(saved, style, ratio, frameColor);
   return {
     style,
-    ratio: pick(KEEPSAKE_RATIOS, saved?.ratio, "세로"),
+    ratio,
     photoIds: 쓸_사진,
     title: (saved?.title ?? "").trim() || tripName.trim(),
     caption: (saved?.caption ?? "").trim(),
     parts,
     stats: pickMany(KEEPSAKE_STAT_KINDS, saved?.stats),
-    frameColor: pick(KEEPSAKE_FRAME_COLORS, saved?.frameColor, "검정"),
+    frameColor,
     // 새 형식이 있으면 그것을 읽고, 없으면 옛 판이 남긴 스티커를 옮겨 온다.
     decor: Array.isArray(saved?.decor)
       ? decorOf(saved.decor)
@@ -169,25 +275,37 @@ export function keepsakeCardOf(
         ),
     dateStamp: saved?.dateStamp === true,
     photoCaptions: saved?.photoCaptions === true,
+    ...(kept ? { kept } : {}),
   };
 }
 
-/** 서버로 보낼 모양. 제목이 여행 이름 그대로면 비워 보내 여행 이름을 따라가게 한다. */
-export function keepsakeBodyOf(card: KeepsakeCard, tripName: string): Required<SavedKeepsake> {
+/**
+ * 서버로 보낼 모양. 제목이 여행 이름 그대로면 비워 보내 여행 이름을 따라가게 한다.
+ *
+ * 이 판이 모르는 값(`card.kept`)은 받은 그대로 되돌려 보낸다. 모르는 칸을 먼저 깔고
+ * 아는 칸으로 덮어서, 이 앱이 고친 값이 늘 이긴다.
+ */
+export function keepsakeBodyOf(
+  card: KeepsakeCard,
+  tripName: string,
+): Required<SavedKeepsake> & Record<string, unknown> {
   const title = card.title.trim();
+  const kept = card.kept;
   return {
-    style: card.style,
-    ratio: card.ratio,
+    ...kept?.extra,
+    style: 되돌린_값(kept?.style, card.style),
+    ratio: 되돌린_값(kept?.ratio, card.ratio),
     photoIds: card.photoIds.slice(0, KEEPSAKE_MAX_PHOTOS),
     title: title && title !== tripName.trim() ? title.slice(0, 60) : null,
     caption: card.caption.trim().slice(0, 200) || null,
-    parts: card.parts,
-    stats: card.stats,
-    frameColor: card.frameColor,
+    parts: [...card.parts, ...(kept?.parts ?? [])],
+    stats: [...card.stats, ...(kept?.stats ?? [])],
+    frameColor: 되돌린_값(kept?.frameColor, card.frameColor),
     // 옛 칸은 비워 보낸다. 옮긴 값이 `decor` 에 들어 있어서, 둘 다 보내면 새 앱이
-    // 같은 스티커를 두 번 그린다. 옛 앱에서는 스티커가 안 보인다.
-    stickers: [],
-    decor: decorBodyOf(card.decor),
+    // 같은 스티커를 두 번 그린다. 옛 앱에서는 스티커가 안 보인다. 이 판이 모르는
+    // 이름만은 옮기지 못했으니 그대로 둔다.
+    stickers: [...(kept?.stickers ?? [])],
+    decor: decorWithKept(card.decor, kept?.decor ?? []),
     dateStamp: card.dateStamp,
     photoCaptions: card.photoCaptions,
   };
