@@ -35,6 +35,7 @@
 | `apiQueue`·`onGiveUp`·`backoffMs` | 서버로 나가는 요청을 다섯 개씩 줄 세우고, 막히면 쉬었다 다시 보낸다 | `mobile/src/requestQueue.ts` | 새 API 를 부를 때. 줄 밖으로 새는 요청이 있으면 묶는 뜻이 없다 |
 | `photoUploads`·`usePhotoUploads`·`photoUploadHeadline` | 사진 올리기 앱 전역 대기열. 화면을 나가도 계속 올라간다 | `mobile/src/photoUploads.ts` | 사진을 올릴 때 |
 | `uploadPhoto`·`downloadPhoto`·`isLivePhotoUri` | 사진 파일을 실제로 보내고 받는다. 폰은 파일, 웹은 blob | `mobile/src/photoTransfer.ts` | 위 대기열이 부른다. 직접 부를 일은 드물다 |
+| `PhotoGallery` | 사진을 날짜별로 묶어 화면 가득 보여 주는 사진첩. 「선택」·길게 누르기·끌어서 고르기, 아래 줄의 삭제·저장·카드로 만들기, 썸네일 받기(보이는 칸만, 셋씩) | `mobile/src/PhotoGallery.tsx` | 사진을 여러 장 훑거나 한꺼번에 다룰 때. 순수 계산(날짜 묶기·손가락 자리 찾기·끌어서 고르기·삭제 가르기·업로드 한 줄)은 `gallerySelection.ts` |
 | `savePhotoFile` | 받아 둔 사진을 사용자 기기에 저장한다(폰은 공유 시트, 웹은 내려받기) | `mobile/src/photoSave.ts` | 「저장」 버튼 |
 | `SyncNotice`·`SyncMark` | 못 올린 줄이 있을 때 화면 위 한 줄과 줄 옆 표시 | `mobile/src/SyncMarks.tsx` | 서버와 맞추는 목록을 그리는 화면 |
 | `MapLink` | 지도 링크 칩. 어느 지도 앱으로 열지까지 정해져 있다 | `mobile/src/MapLink.tsx` | 주소·장소를 보여 줄 때 |

@@ -54,6 +54,9 @@ import { isStaleDisplayCopy, originalSaveHint, photoCodec, photosLinkedTo, photo
 import { PhotoEditScreen, confirmPhotoDelete } from "./PhotoViewer";
 import { photoUploadHeadline, photoUploads, usePhotoUploads, type PhotoUploadJob } from "./photoUploads";
 import { TripCardsSection, type CardPhoto, type CardTile } from "./TripCards";
+import { PhotoGallery, type GalleryToast } from "./PhotoGallery";
+import { deletedText, memoryPreview, reinsertAt, savedText, uploadStateText } from "./gallerySelection";
+import { KEEPSAKE_MAX_PHOTOS } from "./tripCard";
 import { TripTrash } from "./TripTrash";
 import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, releaseDownloadedPhoto, uploadPhoto, type UploadNotice } from "./photoTransfer";
 import { savePhotoFile } from "./photoSave";
@@ -63,6 +66,8 @@ import {
   createReport,
   deletePhoto as deleteServerPhoto,
   listPhotos,
+  listTrash,
+  restoreFromTrash,
   updatePhoto,
   createDiary,
   createMemo,
@@ -724,9 +729,9 @@ const PHOTO_PICK_LIMIT = 50;
  * 올라가는 사진 위에 적을 한 줄. 진행을 모르면 수는 적지 않는다.
  *
  * 말은 문구 사전을 따른다(`docs/development/13-copy-glossary.md`): 업로드 중·업로드 실패.
+ * 사진첩(`PhotoGallery.tsx`)도 같은 말을 써서 `gallerySelection.ts` 로 옮겼다.
  */
-const 업로드_말 = (막혔나: boolean, 진행: number | undefined) =>
-  (막혔나 ? "업로드 실패" : 진행 === undefined ? "업로드 중" : `업로드 중 ${Math.round(진행 * 100)}%`);
+const 업로드_말 = uploadStateText;
 
 const sendPhotoFile = (job: PhotoUploadJob, 알림?: UploadNotice) =>
   uploadPhoto(job.tripId, job.photoId, job.uri, job.body, 알림);
@@ -2561,6 +2566,11 @@ export function WarmTripDetail({
               isOwner={isOwner}
               myMembershipId={myMembershipId}
               scrollToY={자리로_내리기}
+              onPhotosRestored={(ids) => {
+                // 휴지통 시트의 되돌리기와 같다. 지울 때 기기 파일도 사라져 다시 받게 한다.
+                ids.forEach((id) => photoDownloads.current.delete(id));
+                setTrashReload((current) => ({ ...current, photo: current.photo + 1 }));
+              }}
             />
           )}
         </ScrollView>
@@ -8726,6 +8736,15 @@ function Cooking({
 
 /** 카드가 아직 오지 않았을 때. 렌더마다 새 배열을 만들면 격자가 매번 다시 계산된다. */
 const NO_CARDS: CardTile[] = [];
+/** 올라간 사진이 아직 없을 때. 사진첩에 렌더마다 새 집합을 넘기지 않으려고 둔다. */
+const NO_PHOTO_IDS: ReadonlySet<string> = new Set();
+/** 카드 쪽(`TripCardsSection`)이 기록 탭으로 올려 보내는 목록과 손잡이. */
+type CardHandles = { tiles: CardTile[]; open: (id: string) => void; create: (photoIds?: readonly string[]) => void };
+/**
+ * 사진첩에서 한꺼번에 지운 뒤 기기의 파일을 남겨 두는 시간(ms). 알림의 「되돌리기」가
+ * 떠 있는 동안(5.2초)보다 조금 길게 잡는다.
+ */
+const 사진_되돌리기_여유 = 8000;
 
 /** 격자에 놓이는 칸 하나. 사진이거나 기념 카드다. */
 type MemoryTile =
@@ -8756,9 +8775,15 @@ function Memories({
   isOwner = false,
   myMembershipId,
   scrollToY,
+  onPhotosRestored,
 }: {
   /** 스크롤 내용 맨 위에서 잰 자리로 내려 보낸다. 새 카드 알림의 「보기」가 쓴다. */
   scrollToY?: (y: number) => void;
+  /**
+   * 휴지통에서 사진을 되살렸을 때. 사진첩의 「되돌리기」가 부른다. 부르는 쪽이 사진
+   * 목록을 서버에서 다시 받는다(휴지통 시트의 되돌리기와 같은 길이다).
+   */
+  onPhotosRestored?: (ids: string[]) => void;
   tripName: string;
   tripDate: string;
   tripRegion: string;
@@ -8801,6 +8826,27 @@ function Memories({
   const theme = useContext(DetailThemeContext);
   const notify = useContext(DetailFeedbackContext);
   const canEdit = useContext(DetailEditableContext);
+  /**
+   * 사진첩(`PhotoGallery.tsx`)이 열려 있는지. 사진이 여섯 장을 넘으면 「모두 보기」가 연다.
+   *
+   * 사진첩은 여행 화면을 통째로 덮는 창이라 여행 화면 바닥의 알림이 가려진다. 열려
+   * 있는 동안의 알림은 사진첩 바닥에 띄운다(`알림`).
+   */
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryToast, setGalleryToast] = useState<GalleryToast | null>(null);
+  const galleryOpenRef = useRef(false);
+  useEffect(() => {
+    galleryOpenRef.current = galleryOpen;
+  }, [galleryOpen]);
+  /** 알림을 지금 보이는 자리로 보낸다. */
+  const 알림 = useCallback((message: string, action?: FeedbackAction) => {
+    if (galleryOpenRef.current) setGalleryToast({ message, action });
+    else notify(message, action);
+  }, [notify]);
+  const closeGallery = useCallback(() => {
+    setGalleryOpen(false);
+    setGalleryToast(null);
+  }, []);
   /**
    * 이 사진을 고치고 지울 수 있는지. 서버는 올린 사람과 관리자만 받는다(photos.can_manage).
    *
@@ -8862,8 +8908,8 @@ function Memories({
   /** 격자 위의 필터. 사진과 기념 카드를 한 격자에 놓고 여기서 갈라 본다. */
   const [photoFilter, setPhotoFilter] = useState<MemoryFilter>("전체");
   /** 기념 카드 목록과 손잡이. `TripCardsSection` 이 넘겨 준다. */
-  const [cards, setCards] = useState<{ tiles: CardTile[]; open: (id: string) => void; create: () => void }>();
-  const takeCards = useCallback((것: { tiles: CardTile[]; open: (id: string) => void; create: () => void }) => setCards(것), []);
+  const [cards, setCards] = useState<CardHandles>();
+  const takeCards = useCallback((것: CardHandles) => setCards(것), []);
   const [photoColor, setPhotoColor] = useState("#E7B4A6");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [photoDate, setPhotoDate] = useState(todayDay || dayOptions[0] || UNDATED);
@@ -8945,7 +8991,8 @@ function Memories({
   /** 크게 보고 있는 사진과 그 차례. 지우면 목록에서 사라지므로 창도 닫힌다. */
   const viewIndex = photos.findIndex((photo) => photo.id === viewingPhotoId);
   const viewing = viewIndex < 0 ? undefined : photos[viewIndex];
-  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  /** 카드가 여섯 장을 넘을 때 그 자리에서 다 폈는지. 사진은 펴지 않고 사진첩을 연다. */
+  const [showAllCards, setShowAllCards] = useState(false);
   /**
    * 방금 만든 카드. 잠깐 테두리를 둘러 어디 생겼는지 보여 준다.
    *
@@ -8964,11 +9011,17 @@ function Memories({
   const onCardCreated = useCallback((cardId: string) => {
     setPhotoFilter("카드");
     새_카드_표시(cardId);
-    notify("카드를 저장했어요", {
+    // 사진첩에서 만들었으면 알림이 사진첩 바닥에 뜬다. 「보기」는 사진첩을 닫고 탭의 카드로 간다.
+    // 여기서 사진첩을 바로 닫지 않는다. 카드 창이 사진첩 안에 있어서, 저장이 끝나기 전에
+    // 닫으면 찍을 카드가 사라진다(`TripCards.tsx` 의 `그림_올리기`).
+    알림("카드를 저장했어요", {
       label: "보기",
-      onPress: () => scrollToY?.(기록_맨위.current + 격자_머리.current),
+      onPress: () => {
+        closeGallery();
+        scrollToY?.(기록_맨위.current + 격자_머리.current);
+      },
     });
-  }, [notify, scrollToY]);
+  }, [closeGallery, scrollToY, 알림]);
   const [showAllDiaries, setShowAllDiaries] = useState(false);
   const cardTiles = cards?.tiles ?? NO_CARDS;
   /**
@@ -8988,7 +9041,14 @@ function Memories({
       : cardTiles.map((card): MemoryTile => ({ kind: "card", key: `card:${card.id}`, card }));
     return [...사진, ...카드];
   }, [cardTiles, photoFilter, photos]);
-  const shownTiles = showAllPhotos ? tiles : tiles.slice(0, 6);
+  const 미리보기 = memoryPreview(photoFilter, photos.length, cardTiles.length, showAllCards);
+  const shownTiles = useMemo(
+    () => [
+      ...tiles.filter((tile) => tile.kind === "photo").slice(0, 미리보기.photos),
+      ...tiles.filter((tile) => tile.kind === "card").slice(0, 미리보기.cards),
+    ],
+    [tiles, 미리보기.cards, 미리보기.photos],
+  );
   // 저장했다는 한 줄은 잠깐 뜨고 사라진다. 여행 화면 바닥의 토스트와 같은 시간을 쓴다.
   useEffect(() => {
     if (!photoToast) return;
@@ -9224,7 +9284,105 @@ function Memories({
     removeStoredPhoto(target.uri);
     setPhotoEditing(false);
     setViewingPhotoId(null);
-    notify("사진을 삭제했어요");
+    // 사진첩에서 연 사진이면 사진첩 바닥에 알린다.
+    알림("사진을 삭제했어요");
+  };
+  /**
+   * 사진첩에서 고른 사진을 한꺼번에 삭제한다. 한 장씩 지울 때처럼 7일 휴지통으로 간다.
+   *
+   * 여러 장을 한 번에 지우면 잘못 골랐을 때 잃는 것도 크다. 묻는 창은 한 번뿐이고, 대신
+   * 알림에 「되돌리기」를 붙인다(삼성 갤러리·구글 포토도 그렇다). 되돌릴 수 있는 동안은
+   * 기기에 있는 파일을 남겨 둔다. 아직 올리지 못한 사진은 그 파일이 전부다.
+   */
+  const deleteManyPhotos = (ids: string[], skipped: number) => {
+    const 지울_것 = new Set(ids);
+    const 뺀_것 = photos.flatMap((photo, index) => (지울_것.has(photo.id) ? [{ item: photo, index }] : []));
+    if (!뺀_것.length) return;
+    setPhotos((current) => current.filter((photo) => !지울_것.has(photo.id)));
+    if (viewingPhotoId && 지울_것.has(viewingPhotoId)) setViewingPhotoId(null);
+    let 되돌림 = false;
+    const 파일_치우기 = setTimeout(() => {
+      if (!되돌림) 뺀_것.forEach(({ item }) => removeStoredPhoto(item.uri));
+    }, 사진_되돌리기_여유);
+    알림(deletedText(뺀_것.length, skipped), {
+      label: "되돌리기",
+      onPress: () => {
+        되돌림 = true;
+        clearTimeout(파일_치우기);
+        void undoDeletePhotos(뺀_것);
+      },
+    });
+  };
+  /**
+   * 방금 한꺼번에 지운 사진을 되돌린다.
+   *
+   * 서버에 올라간 사진은 휴지통에서 되살린다. 목록에 도로 넣기만 하면 목록 맞추기가
+   * 새 사진으로 보고 다시 올린다. 지우는 요청은 잠깐 뒤에 나가서(`useListSync`) 그 전에
+   * 되살리면 서버는 할 일이 없다고 답하고, 뒤따라 온 삭제가 결국 지운다. 그래서 휴지통에
+   * 들어온 것을 본 뒤에 되살린다. 아직 올리지 못한 사진은 휴지통에 없으니 원래 자리에 넣는다.
+   */
+  const undoDeletePhotos = async (뺀_것: { item: MemoryPhoto; index: number }[]) => {
+    const 올라간_것 = 뺀_것.filter(({ item }) => Boolean(cardTripId) && Boolean(uploadedPhotoIds?.has(item.id)));
+    const 기기의_것 = 뺀_것.filter((하나) => !올라간_것.includes(하나));
+    if (기기의_것.length) setPhotos((current) => reinsertAt(current, 기기의_것));
+    if (!올라간_것.length || !cardTripId) {
+      알림("사진을 되돌렸어요");
+      return;
+    }
+    알림("사진을 되돌리는 중이에요");
+    const 남은_것 = new Set(올라간_것.map(({ item }) => item.id));
+    const 되살린_것: string[] = [];
+    for (let 번 = 0; 번 < 10 && 남은_것.size; 번 += 1) {
+      if (번 > 0) await new Promise((멈춤) => setTimeout(멈춤, 1000));
+      let 휴지통: Awaited<ReturnType<typeof listTrash>>;
+      try {
+        휴지통 = await listTrash(cardTripId);
+      } catch {
+        continue;
+      }
+      for (const 줄 of 휴지통) {
+        if (줄.type !== "photo" || !남은_것.has(줄.id)) continue;
+        try {
+          await restoreFromTrash("photo", 줄.id);
+          되살린_것.push(줄.id);
+          남은_것.delete(줄.id);
+        } catch {
+          // 다음 차례에 한 번 더 해 본다.
+        }
+      }
+    }
+    if (되살린_것.length) onPhotosRestored?.(되살린_것);
+    알림(남은_것.size
+      ? "사진을 되돌리지 못했어요. 잠시 후 휴지통에서 다시 시도해 주세요"
+      : "사진을 되돌렸어요");
+  };
+  /**
+   * 사진첩에서 고른 사진을 기기에 저장한다. 한 장 저장하는 길(`savePhotoToDevice`)을 차례로 부른다.
+   *
+   * 폰은 한 장마다 공유 시트가 뜬다. 한꺼번에 넘기는 길은 사진첩 권한이 따로 필요해서
+   * 들이지 않았다(`photoSave.ts`). 업로드 중인 사진은 아직 받을 곳이 없어 뺀다.
+   */
+  const saveManyPhotos = async (ids: string[], 진행: (지금: number, 모두: number) => void) => {
+    const 고른_것 = ids
+      .map((id) => photos.find((photo) => photo.id === id))
+      .filter((photo): photo is MemoryPhoto => photo !== undefined);
+    const 할_것 = 고른_것.filter((photo) => !uploadingPhotoIds.has(photo.id));
+    let saved = 0;
+    let failed = 0;
+    for (const [차례, photo] of 할_것.entries()) {
+      진행(차례 + 1, 할_것.length);
+      try {
+        const 결과 = await savePhotoToDevice(photo, photos.indexOf(photo));
+        if (결과 !== "saved") {
+          showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
+          return;
+        }
+        saved += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    알림(savedText({ saved, failed, skipped: ids.length - 할_것.length }));
   };
   const deletePhoto = () => {
     const target = photos.find((photo) => photo.id === editingPhotoId);
@@ -9348,6 +9506,108 @@ function Memories({
     setDiaryWriting(false);
     notify("여행 일기를 삭제했어요");
   };
+  /** 사진을 크게 보는 창과 카드 창. 사진첩이 열렸는지에 따라 놓이는 자리가 다르다(아래). */
+  const 카드_창 = (
+      <TripCardsSection
+        tripId={cardTripId}
+        tripName={tripName}
+        tripDate={tripDate}
+        tripRegion={tripRegion}
+        tripStartKey={tripKeys[0]}
+        photos={cardPhotos}
+        participants={participants}
+        counts={cardCounts}
+        coverCardId={coverCardId}
+        coverPhotoId={coverPhotoId}
+        onSaveHomeCover={onSaveHomeCover}
+        onInline={takeCards}
+        onCreated={onCardCreated}
+        canEdit={canEdit}
+        theme={theme}
+        notify={알림}
+        viewer={{
+          photos,
+          index: viewIndex,
+          photoId: viewingPhotoId,
+          onMove: moveViewing,
+          onSave: () => {
+            if (viewing) void saveOnePhoto(viewing, viewIndex);
+          },
+          saving,
+          saveBlocked: Boolean(viewing && uploadingPhotoIds.has(viewing.id)),
+          onEditPhoto: viewing && canManagePhoto(viewing) ? () => openPhotoEdit(viewing) : undefined,
+          // 🗑 은 크게 보는 줄에 있다. 되돌릴 수 없어 누르면 확인 창이 한 번 더 뜬다.
+          onDeletePhoto: viewing && canManagePhoto(viewing)
+            ? () => confirmPhotoDelete(() => deletePhotoById(viewing.id))
+            : undefined,
+          // 이미 깔린 사진은 ⌂ 를 누르면 내려간다. 다시 맞추는 길은 여기 둔다.
+          onAdjustCover:
+            canEdit && onSaveHomeCover && viewing && viewing.id === coverPhotoId
+              ? () => setFocusing({ photoId: viewing.id, uri: viewing.uri, initial: coverFocus ?? COVER_FOCUS_DEFAULT })
+              : undefined,
+          onReport: reportSpaceId && viewing && isServerId(viewing.id) ? () => setReporting(true) : undefined,
+          report: reporting && reportSpaceId && viewing && isServerId(viewing.id)
+            ? <ReportForm spaceId={reportSpaceId} targetType="photo" targetId={viewing.id} onClose={() => setReporting(false)} />
+            : undefined,
+          hint: viewing ? originalSaveHint(viewing.originalUntil, todayKey).text : undefined,
+          hintSoon: viewing ? originalSaveHint(viewing.originalUntil, todayKey).soon : false,
+          toast: photoToast,
+          toastAction: photoUndo ?? undefined,
+          waitingText: viewing && uploadingPhotoIds.has(viewing.id)
+            ? (blockedPhotoIds.has(viewing.id) ? "아직 업로드되지 않은 사진이에요" : "업로드 중이에요")
+            : undefined,
+          cover: canSetViewCover || viewCover.on
+            ? { on: viewCover.on, label: viewCover.label, onPress: () => void toggleViewCover() }
+            : undefined,
+          onNotice: notifyInViewer,
+          // 홈에 보일 부분을 맞추는 겹. 사진 정보와 같은 자리에 얹힌다.
+          coverPanel: focusing ? (
+            <CoverFocusScreen
+              uri={focusing.uri}
+              initial={focusing.initial}
+              onCancel={() => setFocusing(null)}
+              onDone={(focus) => void saveCoverFocus(focus)}
+            />
+          ) : undefined,
+          /*
+           * 사진 정보는 크게 보는 창 **안의 한 겹**으로 얹는다.
+           *
+           * 예전에는 `Modal` 두 장을 형제로 띄웠다. iOS 는 이미 떠 있는 Modal 위에
+           * 형제 Modal 을 바로 얹지 못해서, ⋮ → 「사진 정보」를 눌러도 아무 일이
+           * 없다가 사진첩을 닫아야 그제서야 떴다.
+           */
+          editPanel: photoEditing && editingPhotoId ? (
+            <PhotoEditScreen
+              visible
+              uri={photoUri}
+              color={photoColor}
+              caption={photoCaption}
+              onCaption={setPhotoCaption}
+              date={photoDate}
+              dateOptions={photoDayOptions}
+              onDate={setPhotoDate}
+              linkLabels={photoLinkOptions.map((option) => option.label)}
+              linkChosen={photoLinkOptions.map((option) => photoLinks.some((link) => sameLink(link, option)))}
+              onToggleLink={(차례) => {
+                const option = photoLinkOptions[차례];
+                setPhotoLinks((지금) => 지금.some((link) => sameLink(link, option))
+                  ? 지금.filter((link) => !sameLink(link, option))
+                  : [...지금, { targetType: option.targetType, targetId: option.targetId }]);
+              }}
+              onRepick={choosePhoto}
+              onDelete={() => confirmPhotoDelete(deletePhoto)}
+              onClose={() => setPhotoEditing(false)}
+              onSubmit={() => void savePhoto()}
+              toast={photoToast}
+              readOnly={!canManagePhoto(photos.find((photo) => photo.id === editingPhotoId))}
+              readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 수정할 수 있어요" : undefined}
+              theme={theme}
+            />
+          ) : undefined,
+          onCloseEditPanel: () => setPhotoEditing(false),
+        }}
+      />
+  );
   return (
     <View onLayout={(event) => { 기록_맨위.current = event.nativeEvent.layout.y; }}>
       {/* 탭 머리는 두 줄이다. 예전에는 제목 줄·요약 줄·섹션 제목 줄·필터 줄 네 줄이
@@ -9526,7 +9786,7 @@ function Memories({
           title="아직 만든 추억 카드가 없어요"
           description="여행 사진 몇 장을 골라 한 장으로 묶어 보세요."
           action="카드 만들기"
-          onPress={canEdit && cards ? cards.create : undefined}
+          onPress={canEdit && cards ? () => cards.create() : undefined}
         />
       ) : (
         <EmptyState
@@ -9536,7 +9796,24 @@ function Memories({
           onPress={canEdit ? openPhotoCreate : undefined}
         />
       ))}
-      {tiles.length > 6 && <ListMoreButton expanded={showAllPhotos} hiddenCount={tiles.length - 6} onPress={() => setShowAllPhotos((value) => !value)} />}
+      {/* 사진은 탭 안에서 늘리지 않고 사진첩을 연다. 수십 장을 두 칸짜리 큰 칸으로
+          늘리면 일기가 한참 아래로 밀리고 훑기도 어렵다. 카드는 그대로 그 자리에서 편다. */}
+      {미리보기.gallery && (
+        <ListMoreButton
+          expanded={false}
+          hiddenCount={photos.length - 미리보기.photos}
+          label={`사진 ${photos.length}장 모두 보기`}
+          opens
+          onPress={() => setGalleryOpen(true)}
+        />
+      )}
+      {미리보기.moreCards > 0 && (
+        <ListMoreButton
+          expanded={showAllCards}
+          hiddenCount={미리보기.moreCards}
+          onPress={() => setShowAllCards((value) => !value)}
+        />
+      )}
       <SectionLabel
         label="여행 일기"
         action={canEdit ? "일기 쓰기" : undefined}
@@ -9580,106 +9857,39 @@ function Memories({
         />
       )}
       {/* 사진을 크게 보는 창과 기념 카드 꾸미기는 한 창이다. 창은 카드 쪽이 그린다
-          (`TripCards.tsx`). 사진 쪽 몫만 여기서 내려 준다. */}
-      <TripCardsSection
-        tripId={cardTripId}
-        tripName={tripName}
-        tripDate={tripDate}
-        tripRegion={tripRegion}
-        tripStartKey={tripKeys[0]}
-        photos={cardPhotos}
-        participants={participants}
-        counts={cardCounts}
-        coverCardId={coverCardId}
-        coverPhotoId={coverPhotoId}
-        onSaveHomeCover={onSaveHomeCover}
-        onInline={takeCards}
-        onCreated={onCardCreated}
-        canEdit={canEdit}
+          (`TripCards.tsx`). 사진 쪽 몫만 여기서 내려 준다.
+
+          사진첩이 열려 있으면 그 안에 들어간다. 사진첩도 화면을 덮는 Modal 이라, 옆에
+          형제로 두면 iOS 가 사진첩 위에 크게 보기를 띄우지 못한다(사진 정보 겹과 같은
+          까닭, `PhotoViewer.tsx`). 자리를 옮기면 카드 쪽이 새로 그려져 카드 목록을
+          다시 받는다. 사진첩을 열고 닫을 때 한 번씩이라 그대로 둔다. */}
+      {!galleryOpen && 카드_창}
+      <PhotoGallery
+        visible={galleryOpen}
+        title={tripName}
+        photos={photos}
+        undated={UNDATED}
         theme={theme}
-        notify={notify}
-        viewer={{
-          photos,
-          index: viewIndex,
-          photoId: viewingPhotoId,
-          onMove: moveViewing,
-          onSave: () => {
-            if (viewing) void saveOnePhoto(viewing, viewIndex);
-          },
-          saving,
-          saveBlocked: Boolean(viewing && uploadingPhotoIds.has(viewing.id)),
-          onEditPhoto: viewing && canManagePhoto(viewing) ? () => openPhotoEdit(viewing) : undefined,
-          // 🗑 은 크게 보는 줄에 있다. 되돌릴 수 없어 누르면 확인 창이 한 번 더 뜬다.
-          onDeletePhoto: viewing && canManagePhoto(viewing)
-            ? () => confirmPhotoDelete(() => deletePhotoById(viewing.id))
-            : undefined,
-          // 이미 깔린 사진은 ⌂ 를 누르면 내려간다. 다시 맞추는 길은 여기 둔다.
-          onAdjustCover:
-            canEdit && onSaveHomeCover && viewing && viewing.id === coverPhotoId
-              ? () => setFocusing({ photoId: viewing.id, uri: viewing.uri, initial: coverFocus ?? COVER_FOCUS_DEFAULT })
-              : undefined,
-          onReport: reportSpaceId && viewing && isServerId(viewing.id) ? () => setReporting(true) : undefined,
-          report: reporting && reportSpaceId && viewing && isServerId(viewing.id)
-            ? <ReportForm spaceId={reportSpaceId} targetType="photo" targetId={viewing.id} onClose={() => setReporting(false)} />
-            : undefined,
-          hint: viewing ? originalSaveHint(viewing.originalUntil, todayKey).text : undefined,
-          hintSoon: viewing ? originalSaveHint(viewing.originalUntil, todayKey).soon : false,
-          toast: photoToast,
-          toastAction: photoUndo ?? undefined,
-          waitingText: viewing && uploadingPhotoIds.has(viewing.id)
-            ? (blockedPhotoIds.has(viewing.id) ? "아직 업로드되지 않은 사진이에요" : "업로드 중이에요")
-            : undefined,
-          cover: canSetViewCover || viewCover.on
-            ? { on: viewCover.on, label: viewCover.label, onPress: () => void toggleViewCover() }
-            : undefined,
-          onNotice: notifyInViewer,
-          // 홈에 보일 부분을 맞추는 겹. 사진 정보와 같은 자리에 얹힌다.
-          coverPanel: focusing ? (
-            <CoverFocusScreen
-              uri={focusing.uri}
-              initial={focusing.initial}
-              onCancel={() => setFocusing(null)}
-              onDone={(focus) => void saveCoverFocus(focus)}
-            />
-          ) : undefined,
-          /*
-           * 사진 정보는 크게 보는 창 **안의 한 겹**으로 얹는다.
-           *
-           * 예전에는 `Modal` 두 장을 형제로 띄웠다. iOS 는 이미 떠 있는 Modal 위에
-           * 형제 Modal 을 바로 얹지 못해서, ⋮ → 「사진 정보」를 눌러도 아무 일이
-           * 없다가 사진첩을 닫아야 그제서야 떴다.
-           */
-          editPanel: photoEditing && editingPhotoId ? (
-            <PhotoEditScreen
-              visible
-              uri={photoUri}
-              color={photoColor}
-              caption={photoCaption}
-              onCaption={setPhotoCaption}
-              date={photoDate}
-              dateOptions={photoDayOptions}
-              onDate={setPhotoDate}
-              linkLabels={photoLinkOptions.map((option) => option.label)}
-              linkChosen={photoLinkOptions.map((option) => photoLinks.some((link) => sameLink(link, option)))}
-              onToggleLink={(차례) => {
-                const option = photoLinkOptions[차례];
-                setPhotoLinks((지금) => 지금.some((link) => sameLink(link, option))
-                  ? 지금.filter((link) => !sameLink(link, option))
-                  : [...지금, { targetType: option.targetType, targetId: option.targetId }]);
-              }}
-              onRepick={choosePhoto}
-              onDelete={() => confirmPhotoDelete(deletePhoto)}
-              onClose={() => setPhotoEditing(false)}
-              onSubmit={() => void savePhoto()}
-              toast={photoToast}
-              readOnly={!canManagePhoto(photos.find((photo) => photo.id === editingPhotoId))}
-              readOnlyHint={canEdit ? "올린 사람과 관리자만 이 사진을 수정할 수 있어요" : undefined}
-              theme={theme}
-            />
-          ) : undefined,
-          onCloseEditPanel: () => setPhotoEditing(false),
+        onClose={closeGallery}
+        onOpen={moveViewing}
+        uploaded={uploadedPhotoIds ?? NO_PHOTO_IDS}
+        uploading={uploadingPhotoIds}
+        blocked={blockedPhotoIds}
+        progress={photoUploadState.progress}
+        canEdit={canEdit}
+        canManage={(id) => {
+          const photo = photos.find((하나) => 하나.id === id);
+          return Boolean(photo) && canManagePhoto(photo);
         }}
-      />
+        onDelete={deleteManyPhotos}
+        onSave={saveManyPhotos}
+        onMakeCard={cards ? (ids) => cards.create(ids) : undefined}
+        maxCardPhotos={KEEPSAKE_MAX_PHOTOS}
+        toast={galleryToast}
+        onToast={setGalleryToast}
+      >
+        {galleryOpen ? 카드_창 : null}
+      </PhotoGallery>
       {/* 새로 고른 사진을 기록에 넣는 시트. 고치기와 달리 여기는 그대로 둔다. 여러 장을
           한꺼번에 고른 뒤 같은 날짜와 설명을 다는 자리라 사진 한 장이 주인공이 아니다. */}
       <DetailSheet
@@ -11415,25 +11625,36 @@ function ListMoreButton({
   expanded,
   hiddenCount,
   onPress,
+  label,
+  opens = false,
 }: {
   expanded: boolean;
   hiddenCount: number;
   onPress: () => void;
+  /** 기본 말(「N개 더 보기」) 대신 적을 말. */
+  label?: string;
+  /** 그 자리에서 펴지 않고 다른 화면을 연다. 화살표가 아래가 아니라 오른쪽을 본다. */
+  opens?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
+  const 말 = label ?? (expanded ? "간단히 보기" : `${hiddenCount}개 더 보기`);
   return (
     <Pressable
       onPress={onPress}
       hitSlop={6}
       accessibilityRole="button"
-      accessibilityLabel={expanded ? "목록 간단히 보기" : `${hiddenCount}개 더 보기`}
-      accessibilityState={{ expanded }}
+      accessibilityLabel={label ?? (expanded ? "목록 간단히 보기" : `${hiddenCount}개 더 보기`)}
+      accessibilityState={opens ? undefined : { expanded }}
       style={[styles.listMoreButton, theme && { borderColor: theme.border }]}
     >
-      <Text style={[styles.listMoreText, theme && { color: theme.text }]}>
-        {expanded ? "간단히 보기" : `${hiddenCount}개 더 보기`}
-      </Text>
-      <Text style={[styles.listMoreChevron, theme && { color: theme.primary }]}>{expanded ? "↑" : "↓"}</Text>
+      <Text style={[styles.listMoreText, theme && { color: theme.text }]}>{말}</Text>
+      {opens ? (
+        <View style={styles.listMoreGlyph}>
+          <Glyph name="chevronRight" size={14} color={theme?.primary ?? "#C0643F"} weight={2.2} />
+        </View>
+      ) : (
+        <Text style={[styles.listMoreChevron, theme && { color: theme.primary }]}>{expanded ? "↑" : "↓"}</Text>
+      )}
     </Pressable>
   );
 }
@@ -14225,6 +14446,7 @@ const styles = StyleSheet.create({
   listMoreButton: { minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, marginTop: 8, marginBottom: 4, paddingHorizontal: 여백.가로좁게, flexDirection: "row", alignItems: "center", justifyContent: "center" },
   listMoreText: { fontSize: 14, fontFamily: typo.label.family },
   listMoreChevron: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 6 },
+  listMoreGlyph: { marginLeft: 4 },
   longPressHint: {
     fontSize: 13,
     textAlign: "center",

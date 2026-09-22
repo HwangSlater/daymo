@@ -58,6 +58,7 @@ import {
   keepsakeTextOf,
   sameKeepsakeCard,
   suggestedStyleOf,
+  KEEPSAKE_MAX_PHOTOS,
   KEEPSAKE_STYLES,
   type KeepsakeCard,
 } from "./tripCard";
@@ -235,7 +236,7 @@ export function TripCardsSection({
    * 카드는 사진 격자에 함께 놓인다. 목록과 열기·만들기만 위로 넘기고 카드를
    * 만들고 고치는 일은 전부 이 파일에 남는다.
    */
-  onInline: (것: { tiles: CardTile[]; open: (id: string) => void; create: () => void }) => void;
+  onInline: (것: { tiles: CardTile[]; open: (id: string) => void; create: (photoIds?: readonly string[]) => void }) => void;
   canEdit: boolean;
   theme?: AppTheme;
   notify: (message: string) => void;
@@ -382,7 +383,7 @@ export function TripCardsSection({
     setToolsOpen(tools);
     setExporting(false);
   }, []);
-  const makeCard = useCallback(() => {
+  const makeCard = useCallback((고른_사진?: readonly string[]) => {
     if (blocked) {
       notify(blocked);
       return;
@@ -390,9 +391,20 @@ export function TripCardsSection({
     // 「카드 만들기」는 만들러 온 것이라 곧바로 도구를 편다. 사진은 비워 두고 직접 고르게 한다.
     // 예전에는 가장 최근 사진이 먼저 들어가 있어, 넣을 사진을 고르려면 그것부터 빼야 했다.
     // 사진을 보다가 만드는 길(아래)은 보던 사진이 들어간다.
-    const 시작 = { ...keepsakeCardOf(undefined, tripName, photoIds), photoIds: [] };
+    //
+    // 사진첩에서 여러 장을 골라 만들면 그 사진이 고른 차례대로 들어간다. 파일이 아직 이
+    // 기기에 없는 사진(업로드 중이거나 웹에서 아직 불러오지 않은 것)은 넣을 수 없어 뺀다.
+    // 부르는 쪽이 넘기지 않으면(버튼의 누름 이벤트 같은 것) 빈 카드로 시작한다.
+    const 고른_것 = Array.isArray(고른_사진) ? 고른_사진 : [];
+    const 쓸_것 = 고른_것.filter((id) => photoIds.includes(id)).slice(0, KEEPSAKE_MAX_PHOTOS);
+    if (고른_것.length && !쓸_것.length) {
+      notify("업로드가 끝나면 카드에 넣을 수 있어요");
+      return;
+    }
+    const 시작 = { ...keepsakeCardOf(undefined, tripName, photoIds), photoIds: 쓸_것 };
     openCard("새 카드", 시작, true);
     viewerRef.current.onMove(null);
+    if (쓸_것.length < 고른_것.length) viewerRef.current.onNotice("업로드 중인 사진은 빼고 넣었어요");
   }, [blocked, notify, openCard, photoIds, tripName]);
   // 사진 격자에 함께 놓을 타일. 대표 사진 한 장의 색과 썸네일만 실어 보낸다.
   // 격자에는 최신 카드가 먼저 온다. 방금 만든 카드가 「더 보기」 뒤 맨 끝에 붙으면 어디 생겼는지
