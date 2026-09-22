@@ -20,6 +20,9 @@ import {
   keepsakeTextOf,
   keepsakePhotoFullReason,
   moveKeepsakePhoto,
+  placeKeepsakePhoto,
+  slideTargetOf,
+  swapKeepsakePhotos,
   peopleLineOf,
   sameKeepsakeCard,
   suggestedStyleOf,
@@ -333,4 +336,23 @@ test("손댄 것이 없으면 같은 카드로 본다", () => {
     }),
     false,
   );
+});
+
+test("차례 줄에서 끌어 옮긴 사진은 놓은 자리에 끼워지고 나머지는 한 칸씩 비킨다", () => {
+  assert.deepEqual(placeKeepsakePhoto(["a", "b", "c", "d"], 0, 2), ["b", "c", "a", "d"]);
+  assert.deepEqual(placeKeepsakePhoto(["a", "b", "c", "d"], 3, 0), ["d", "a", "b", "c"]);
+  assert.deepEqual(placeKeepsakePhoto(["a", "b"], 1, 1), ["a", "b"]);
+  assert.deepEqual(placeKeepsakePhoto(["a", "b"], 0, 5), ["a", "b"]);
+  // 한 칸 폭 60 에서 절반(30)을 넘겨야 옆 칸이다. 줄 끝을 넘지 않는다.
+  assert.equal(slideTargetOf(0, 29, 60, 4), 0);
+  assert.equal(slideTargetOf(0, 31, 60, 4), 1);
+  assert.equal(slideTargetOf(1, -70, 60, 4), 0);
+  assert.equal(slideTargetOf(2, 500, 60, 4), 3);
+  assert.equal(slideTargetOf(2, -500, 60, 4), 0);
+});
+
+test("카드에서 사진을 다른 사진 위에 놓으면 두 사진이 자리를 바꾼다", () => {
+  assert.deepEqual(swapKeepsakePhotos(["a", "b", "c", "d"], 0, 3), ["d", "b", "c", "a"]);
+  assert.deepEqual(swapKeepsakePhotos(["a", "b"], 1, 1), ["a", "b"]);
+  assert.deepEqual(swapKeepsakePhotos(["a", "b"], 0, 2), ["a", "b"]);
 });

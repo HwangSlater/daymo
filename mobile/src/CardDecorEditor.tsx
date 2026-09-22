@@ -27,10 +27,12 @@
  *      그림에서 같은 자리에 찍힌다.
  */
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Image,
   LayoutChangeEvent,
+  PanResponder,
   PixelRatio,
   Platform,
   Pressable,
@@ -42,7 +44,7 @@ import {
 
 import { Text } from "./AppText";
 import { Glyph } from "./Glyph";
-import { KeepsakeCardView, ScaledCard, STICKER_LOOK, type CardPhoto } from "./KeepsakeCardView";
+import { KeepsakeCardView, LIFT_DELAY, ScaledCard, STICKER_LOOK, type CardPhoto } from "./KeepsakeCardView";
 import {
   addDecor,
   fitScaleOf,
@@ -67,6 +69,9 @@ import {
   keepsakeShotScale,
   keepsakeSizeOf,
   moveKeepsakePhoto,
+  placeKeepsakePhoto,
+  slideTargetOf,
+  swapKeepsakePhotos,
   toggleKeepsakePhoto,
   keepsakeFrameColorLabel,
   keepsakeRatioLabel,
@@ -258,6 +263,42 @@ export function CardPreview({
   );
 }
 
+/**
+ * 기록 탭 격자 한 칸에 들어가는 작은 카드. 크게 볼 때와 같은 그림을 칸에 맞게 줄인다.
+ *
+ * 예전에는 첫 사진 한 장에 「카드」 표시만 붙여, 두 장짜리 카드도 한 장처럼 보였다.
+ * 글자는 거의 읽히지 않지만 틀 모양과 사진 배치로 어떤 카드인지 알아본다.
+ */
+export function CardThumb({
+  card,
+  photos,
+  text,
+  stats,
+  stamp,
+}: {
+  card: KeepsakeCard;
+  photos: CardPhoto[];
+  text: { title: string; meta: string; caption: string; people: string };
+  stats: { label: string; value: string }[];
+  stamp: string;
+}) {
+  const [칸, 칸재기] = useState({ width: 0, height: 0 });
+  const size = keepsakeSizeOf(card.ratio, card.style);
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    칸재기((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
+  }, []);
+  return (
+    <View style={styles.thumbStage} onLayout={onLayout} pointerEvents="none">
+      {칸.width > 0 && (
+        <ScaledCard scale={fitScaleOf(size.width, size.height, 칸.width - 4, 칸.height - 4)} width={size.width} height={size.height}>
+          <KeepsakeCardView card={card} photos={photos} text={text} stats={stats} stamp={stamp} big={false} />
+        </ScaledCard>
+      )}
+    </View>
+  );
+}
+
 export function CardDecorTools({
   card,
   tune,
@@ -307,8 +348,6 @@ export function CardDecorTools({
   // 사진 없이 시작한 새 카드는 사진부터 고르게 한다.
   const [tab, setTab] = useState<CardToolTab>(card.photoIds.length ? "프레임" : "사진");
   const [고른_것, 고르기] = useState("");
-  /** 차례를 옮기려고 고른 사진. 「사진」 갈래에서만 쓴다. */
-  const [옮길_사진, 옮길_사진_고르기] = useState("");
   const [칸, 칸재기] = useState({ width: 0, height: 0 });
 
   const accent = theme?.primary ?? "#3F4C8F";
@@ -386,6 +425,10 @@ export function CardDecorTools({
               // 내보내는 동안에는 끈다. 빈 칸이 그림으로 찍히면 고장 난 카드가 된다.
               showEmptySlots={!exporting && !readOnly}
               onPickSlot={() => setTab("사진")}
+              // 사진을 꾹 눌러 다른 사진 위에 놓으면 자리를 바꾼다. 남의 카드와 찍는 중에는 끈다.
+              onSwapPhotos={readOnly || exporting
+                ? undefined
+                : (from, to) => tune({ photoIds: swapKeepsakePhotos(card.photoIds, from, to) })}
               onPhotoReady={onPhotoReady}
             />
           </ScaledCard>
@@ -518,7 +561,7 @@ export function CardDecorTools({
                             ]}
                           >
                             {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
-                            {차례 >= 0 && card.photoIds.length > 1 && (
+                            {차례 >= 0 && (
                               <View style={styles.pickOrder}>
                                 <Text style={styles.pickOrderText}>{차례 + 1}</Text>
                               </View>
@@ -530,54 +573,35 @@ export function CardDecorTools({
                   )}
                   {/* 고른 차례가 곧 카드에 놓이는 차례다. 바꾸려고 전부 뺐다가 다시
                       고르게 하지 않는다. 스티커의 「앞으로·뒤로」와 같은 결이다. */}
-                  {card.photoIds.length > 1 && (
+                  {/* 고른 차례가 곧 카드에 놓이는 차례다. 바꾸려고 전부 뺐다가 다시 고르게 하지 않고
+                      옆으로 끌어 옮긴다(갤러리·인스타그램과 같다). 예전에는 눌러 고른 뒤 아래
+                      「앞으로·뒤로」로 옮겼는데, 단추가 화면 밑에 생겨 눌러도 테두리만 바뀌는 것처럼
+                      보였다. 한 장이어도 둔다. 몇 장이 어디에 놓이는지가 늘 같은 자리에 보여야 한다. */}
+                  {card.photoIds.length > 0 && (
                     <>
                       <PanelLabel text="카드에 놓이는 차례" />
-                      <View style={styles.chipRow}>
-                        {card.photoIds.map((id, 차례) => {
+                      <OrderStrip
+                        ids={card.photoIds}
+                        accent={accent}
+                        onPlace={(from, to) => tune({ photoIds: placeKeepsakePhoto(card.photoIds, from, to) })}
+                        onStep={(id, 앞으로) => tune({ photoIds: moveKeepsakePhoto(card.photoIds, id, 앞으로) })}
+                        renderPhoto={(id) => {
                           const photo = allPhotos.find((하나) => 하나.id === id);
                           const uri = thumbs[id] ?? photo?.uri;
-                          const on = id === 옮길_사진;
                           return (
-                            <Pressable
-                              key={`order-${id}`}
-                              onPress={() => 옮길_사진_고르기(on ? "" : id)}
-                              accessibilityRole="button"
-                              accessibilityState={{ selected: on }}
-                              accessibilityLabel={`${차례 + 1}번째 사진 고르기`}
-                              style={[
-                                styles.pick,
-                                { backgroundColor: photo?.color ?? CHIP },
-                                on && { borderColor: accent },
-                              ]}
-                            >
+                            <View style={[styles.fill, { backgroundColor: photo?.color ?? CHIP }]}>
                               {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
-                              <View style={styles.pickOrder}>
-                                <Text style={styles.pickOrderText}>{차례 + 1}</Text>
-                              </View>
-                            </Pressable>
+                            </View>
                           );
-                        })}
-                      </View>
-                      {Boolean(옮길_사진) && (
-                        <View style={[styles.chipRow, styles.orderTools]}>
-                          <Tool
-                            label="앞으로"
-                            onPress={() => tune({ photoIds: moveKeepsakePhoto(card.photoIds, 옮길_사진, true) })}
-                          />
-                          <Tool
-                            label="뒤로"
-                            onPress={() => tune({ photoIds: moveKeepsakePhoto(card.photoIds, 옮길_사진, false) })}
-                          />
-                        </View>
-                      )}
+                        }}
+                      />
                     </>
                   )}
                   <Text style={styles.panelHint}>
                     {꽉_참
                       || notice
                       || (card.photoIds.length > 1
-                        ? "차례를 바꾸려면 위에서 사진을 누르고 앞뒤로 옮겨요"
+                        ? "사진을 옆으로 끌거나, 카드에서 꾹 눌러 다른 사진 위에 놓으면 차례가 바뀌어요"
                         : "누른 차례가 카드에 놓이는 차례예요")}
                   </Text>
                 </>
@@ -713,17 +737,206 @@ export function CardDecorTools({
   );
 }
 
-/** 고른 것을 만지는 단추. 위험한 것(삭제)만 다른 색이다. */
-function Tool({ label, tone, onPress }: { label: string; tone?: "위험"; onPress: () => void }) {
+/** 차례 줄 한 칸의 폭. 사진(54)과 사이(6)를 더한 것이다(`styles.pick`, `styles.chipRow`). */
+const 차례_칸 = 60;
+
+/**
+ * 카드에 놓이는 차례. 카드의 사진 칸(`KeepsakeCardView` 의 SwapCell)과 같게, 꾹 누르면 들려
+ * 흔들리고 옆으로 끌면 따라온다. 지나가는 자리의 사진이 한 칸씩 비키고, 손을 떼면 그 자리에
+ * 놓인다. 제자리에서 놓으면 돌아간다.
+ *
+ * 들기 전에 손가락이 움직이면 도구 칸의 세로 스크롤에 넘긴다. 화면 낭독기에서는 끌 수 없으니
+ * 「앞으로·뒤로」 동작을 따로 둔다.
+ */
+function OrderStrip({
+  ids,
+  accent,
+  onPlace,
+  onStep,
+  renderPhoto,
+}: {
+  ids: string[];
+  accent: string;
+  onPlace: (from: number, to: number) => void;
+  onStep: (id: string, 앞으로: boolean) => void;
+  renderPhoto: (id: string) => React.ReactNode;
+}) {
+  const [끄는, 끄는_중] = useState<{ from: number; to: number } | null>(null);
   return (
-    <Chip
-      label={label}
-      on={false}
-      onPress={onPress}
-      colors={tone === "위험"
-        ? { background: "#4A2320", border: "#6A3430", text: "#E7A79F" }
-        : { background: CHIP, border: CHIP_EDGE, text: INK }}
-    />
+    <View style={styles.chipRow}>
+      {ids.map((id, 차례) => {
+        const 잡은_것 = 끄는?.from === 차례;
+        // 끄는 사진이 지나간 자리의 사진은 한 칸 비킨다.
+        const 비킴 = !끄는 || 잡은_것
+          ? 0
+          : 끄는.from < 끄는.to && 차례 > 끄는.from && 차례 <= 끄는.to
+            ? -차례_칸
+            : 끄는.from > 끄는.to && 차례 >= 끄는.to && 차례 < 끄는.from
+              ? 차례_칸
+              : 0;
+        return (
+          <OrderItem
+            key={`order-${id}`}
+            index={차례}
+            count={ids.length}
+            lifted={잡은_것}
+            shift={비킴}
+            accent={accent}
+            onMoveTo={(to) => 끄는_중({ from: 차례, to })}
+            onDrop={(to) => {
+              끄는_중(null);
+              if (to !== 차례) onPlace(차례, to);
+            }}
+            onStep={(앞으로) => onStep(id, 앞으로)}
+          >
+            {renderPhoto(id)}
+          </OrderItem>
+        );
+      })}
+    </View>
+  );
+}
+
+/** 차례 줄의 사진 한 칸. 꾹 누르면 들고, 옆으로 끄는 동안 놓일 자리를 위로 알린다. */
+function OrderItem({
+  index,
+  count,
+  lifted,
+  shift,
+  accent,
+  onMoveTo,
+  onDrop,
+  onStep,
+  children,
+}: {
+  index: number;
+  count: number;
+  lifted: boolean;
+  /** 다른 사진이 지나가서 비킨 거리. */
+  shift: number;
+  accent: string;
+  onMoveTo: (to: number) => void;
+  onDrop: (to: number) => void;
+  onStep: (앞으로: boolean) => void;
+  children: React.ReactNode;
+}) {
+  // 처음 한 번만 만든다. 이 뒤로는 손가락 이벤트가 직접 민다.
+  const [움직임] = useState(() => new Animated.Value(0));
+  const [들림] = useState(() => new Animated.Value(0));
+  const [흔들림] = useState(() => new Animated.Value(0));
+  // 손가락 이벤트에서 읽는 값. 렌더 중에는 읽지 않는다.
+  const 지금 = useRef({ index, count, onMoveTo, onDrop });
+  useEffect(() => {
+    지금.current = { index, count, onMoveTo, onDrop };
+  }, [index, count, onMoveTo, onDrop]);
+  /** 한 번 누르는 동안의 값. 손가락 이벤트에서만 고친다. */
+  const 손 = useRef<{
+    타이머?: ReturnType<typeof setTimeout>;
+    들었다: boolean;
+    to: number;
+    흔들기?: Animated.CompositeAnimation;
+  }>({ 들었다: false, to: 0 });
+
+  const pan = useMemo(() => {
+    const 이번 = 손.current;
+    const 끝낸다 = () => {
+      if (이번.타이머) clearTimeout(이번.타이머);
+      이번.타이머 = undefined;
+      if (!이번.들었다) return;
+      이번.들었다 = false;
+      이번.흔들기?.stop();
+      흔들림.setValue(0);
+      const to = 이번.to;
+      if (to !== 지금.current.index) {
+        // 사진이 새 자리로 옮겨 그려진다. 끌던 거리는 바로 지운다.
+        움직임.setValue(0);
+        들림.setValue(0);
+        지금.current.onDrop(to);
+        return;
+      }
+      // 제자리에서 놓으면 돌아간다.
+      const 놓기 = 지금.current.onDrop;
+      Animated.parallel([
+        Animated.spring(움직임, { toValue: 0, useNativeDriver: true, friction: 7 }),
+        Animated.spring(들림, { toValue: 0, useNativeDriver: true, friction: 7 }),
+      ]).start(() => 놓기(to));
+    };
+    // PanResponder 가 이 콜백들을 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
+    // eslint-disable-next-line react-hooks/refs
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => 지금.current.count > 1,
+      // 들기 전에는 스크롤이 가져가도 된다. 든 뒤에는 놓을 때까지 붙든다.
+      onPanResponderTerminationRequest: () => !이번.들었다,
+      onPanResponderGrant: () => {
+        이번.들었다 = false;
+        이번.to = 지금.current.index;
+        이번.타이머 = setTimeout(() => {
+          이번.타이머 = undefined;
+          이번.들었다 = true;
+          움직임.setValue(0);
+          지금.current.onMoveTo(지금.current.index);
+          Animated.spring(들림, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+          이번.흔들기 = Animated.loop(
+            Animated.sequence([
+              Animated.timing(흔들림, { toValue: 1, duration: 90, useNativeDriver: true }),
+              Animated.timing(흔들림, { toValue: -1, duration: 180, useNativeDriver: true }),
+              Animated.timing(흔들림, { toValue: 0, duration: 90, useNativeDriver: true }),
+            ]),
+          );
+          이번.흔들기.start();
+        }, LIFT_DELAY);
+      },
+      onPanResponderMove: (_, g) => {
+        if (!이번.들었다) {
+          // 들기 전에 움직였으면 꾹 누른 것이 아니다.
+          if (이번.타이머 && (Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8)) {
+            clearTimeout(이번.타이머);
+            이번.타이머 = undefined;
+          }
+          return;
+        }
+        움직임.setValue(g.dx);
+        const 다음 = slideTargetOf(지금.current.index, g.dx, 차례_칸, 지금.current.count);
+        if (다음 !== 이번.to) {
+          이번.to = 다음;
+          지금.current.onMoveTo(다음);
+        }
+      },
+      onPanResponderRelease: 끝낸다,
+      onPanResponderTerminate: 끝낸다,
+    });
+  }, [움직임, 들림, 흔들림]);
+
+  return (
+    <Animated.View
+      {...(count > 1 ? pan.panHandlers : {})}
+      accessible
+      accessibilityLabel={`${index + 1}번째 사진`}
+      accessibilityHint={count > 1 ? "꾹 누른 채 옆으로 끌어 차례를 바꿔요" : undefined}
+      accessibilityActions={count > 1 ? [{ name: "decrement", label: "앞으로" }, { name: "increment", label: "뒤로" }] : undefined}
+      onAccessibilityAction={(event) => onStep(event.nativeEvent.actionName === "decrement")}
+      style={[
+        styles.pick,
+        lifted
+          ? [
+              styles.pickLifted,
+              {
+                borderColor: accent,
+                transform: [
+                  { translateX: 움직임 },
+                  { scale: 들림.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
+                  { rotate: 흔들림.interpolate({ inputRange: [-1, 1], outputRange: ["-3deg", "3deg"] }) },
+                ],
+              },
+            ]
+          : { transform: [{ translateX: shift }] },
+      ]}
+    >
+      {children}
+      <View style={styles.pickOrder} pointerEvents="none">
+        <Text style={styles.pickOrderText}>{index + 1}</Text>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -732,6 +945,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.65 },
   // 남는 칸을 다 쓴다. 이 칸의 크기로 카드를 얼마나 줄일지 정한다.
   stage: { flex: 1, alignItems: "center", justifyContent: "center", padding: STAGE_PAD },
+  thumbStage: { flex: 1, alignItems: "center", justifyContent: "center" },
   tabs: { flexDirection: "row", gap: 6, paddingHorizontal: 12, paddingBottom: 9 },
   tab: {
     flex: 1,
@@ -786,8 +1000,9 @@ const styles = StyleSheet.create({
   pick: { width: 54, height: 54, borderRadius: 모서리.버튼, borderWidth: 2, borderColor: "transparent", overflow: "hidden" },
   // 꽉 차서 더 못 고르는 사진. 눌리지 않는다는 것이 눈에 보여야 한다.
   pickBlocked: { opacity: 0.35 },
-  orderTools: { marginTop: 8 },
-  // 고른 차례. 두 장 이상일 때만 보인다.
+  // 차례 줄에서 들고 있는 사진. 옆 사진 위로 지나가도 가리지 않는다.
+  pickLifted: { zIndex: 2, elevation: 6 },
+  // 고른 차례.
   pickOrder: {
     position: "absolute",
     top: 2,

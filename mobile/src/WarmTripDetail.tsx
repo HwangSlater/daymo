@@ -170,7 +170,9 @@ import { COVER_FOCUS_DEFAULT, focusBody, type CoverFocus } from "./coverCrop";
 import { CoverFocusScreen } from "./ui/CoverFocusScreen";
 
 const DetailThemeContext = createContext<AppTheme | undefined>(undefined);
-const DetailFeedbackContext = createContext<(message: string) => void>(() => undefined);
+/** 바닥 알림 한 줄 옆에 붙이는 단추. 저장한 것이 어디 있는지 데려가는 「보기」 같은 것이다. */
+type FeedbackAction = { label: string; onPress: () => void };
+const DetailFeedbackContext = createContext<(message: string, action?: FeedbackAction) => void>(() => undefined);
 /**
  * 이 여행을 고칠 수 있는지. 보기만 하는 멤버에게는 false 다.
  *
@@ -1270,6 +1272,16 @@ export function WarmTripDetail({
   const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
   /**
+   * 알림에 붙은 단추. 어느 알림의 것인지 글과 함께 들고 있다. 다른 곳이 `setFeedback` 으로
+   * 새 알림을 띄우면 글이 달라져 옛 단추가 따라붙지 않는다.
+   */
+  const [feedbackAction, setFeedbackAction] = useState<(FeedbackAction & { message: string }) | null>(null);
+  const 알리기 = useCallback((message: string, action?: FeedbackAction) => {
+    setFeedback(message);
+    setFeedbackAction(action ? { ...action, message } : null);
+  }, [setFeedback]);
+  const 알림_단추 = feedbackAction && feedbackAction.message === feedback ? feedbackAction : null;
+  /**
    * 다른 곳에서 먼저 고친 여행이면 최신 내용으로 화면을 되돌린다. 처리했으면 true.
    *
    * 고치던 값을 그대로 다시 저장하게 두면 남이 고친 것을 모른 채 덮어쓴다.
@@ -2165,9 +2177,10 @@ export function WarmTripDetail({
 
   useEffect(() => {
     if (!feedback) return;
-    const timer = setTimeout(() => setFeedback(""), 2200);
+    // 단추가 붙은 알림은 조금 더 둔다. 읽고 손이 가기까지 시간이 든다(기록 탭의 되돌리기와 같다).
+    const timer = setTimeout(() => setFeedback(""), 알림_단추 ? 5200 : 2200);
     return () => clearTimeout(timer);
-  }, [feedback]);
+  }, [feedback, 알림_단추]);
 
   const tripDraftValid = Boolean(
     draftTitle.trim()
@@ -2192,7 +2205,7 @@ export function WarmTripDetail({
   };
   return (
     <DetailThemeContext.Provider value={appTheme}>
-      <DetailFeedbackContext.Provider value={setFeedback}>
+      <DetailFeedbackContext.Provider value={알리기}>
       <DetailEditableContext.Provider value={canEdit}>
       <SafeAreaView
         style={[
@@ -2547,6 +2560,7 @@ export function WarmTripDetail({
               reportSpaceId={reportSpaceId}
               isOwner={isOwner}
               myMembershipId={myMembershipId}
+              scrollToY={자리로_내리기}
             />
           )}
         </ScrollView>
@@ -2930,6 +2944,19 @@ export function WarmTripDetail({
             <Text style={[styles.feedbackToastText, appTheme?.dark && { color: appTheme.background }]}>
               {feedback}
             </Text>
+            {알림_단추 && (
+              <Pressable
+                onPress={() => {
+                  알림_단추.onPress();
+                  setFeedback("");
+                }}
+                accessibilityRole="button"
+                hitSlop={10}
+                style={({ pressed }) => [styles.feedbackToastAction, pressed && styles.controlPressed]}
+              >
+                <Text style={[styles.feedbackToastActionText, appTheme?.dark && { color: appTheme.background }]}>{알림_단추.label}</Text>
+              </Pressable>
+            )}
           </View>
         )}
       </SafeAreaView>
@@ -8728,7 +8755,10 @@ function Memories({
   reportSpaceId,
   isOwner = false,
   myMembershipId,
+  scrollToY,
 }: {
+  /** 스크롤 내용 맨 위에서 잰 자리로 내려 보낸다. 새 카드 알림의 「보기」가 쓴다. */
+  scrollToY?: (y: number) => void;
   tripName: string;
   tripDate: string;
   tripRegion: string;
@@ -8916,6 +8946,29 @@ function Memories({
   const viewIndex = photos.findIndex((photo) => photo.id === viewingPhotoId);
   const viewing = viewIndex < 0 ? undefined : photos[viewIndex];
   const [showAllPhotos, setShowAllPhotos] = useState(false);
+  /**
+   * 방금 만든 카드. 잠깐 테두리를 둘러 어디 생겼는지 보여 준다.
+   *
+   * 카드는 사진 뒤에 놓여, 새로 만든 카드가 「더 보기」 뒤로 숨어 어디 생겼는지 헷갈렸다.
+   * 저장하면 「카드」 칩으로 바꾸고(카드끼리는 최신이 앞이라 첫 칸이다), 알림의 「보기」로
+   * 격자까지 내려 준다.
+   */
+  const [새_카드, 새_카드_표시] = useState<string | null>(null);
+  const 기록_맨위 = useRef(0);
+  const 격자_머리 = useRef(0);
+  useEffect(() => {
+    if (!새_카드) return;
+    const timer = setTimeout(() => 새_카드_표시(null), 3000);
+    return () => clearTimeout(timer);
+  }, [새_카드]);
+  const onCardCreated = useCallback((cardId: string) => {
+    setPhotoFilter("카드");
+    새_카드_표시(cardId);
+    notify("카드를 저장했어요", {
+      label: "보기",
+      onPress: () => scrollToY?.(기록_맨위.current + 격자_머리.current),
+    });
+  }, [notify, scrollToY]);
   const [showAllDiaries, setShowAllDiaries] = useState(false);
   const cardTiles = cards?.tiles ?? NO_CARDS;
   /**
@@ -9296,7 +9349,7 @@ function Memories({
     notify("여행 일기를 삭제했어요");
   };
   return (
-    <View>
+    <View onLayout={(event) => { 기록_맨위.current = event.nativeEvent.layout.y; }}>
       {/* 탭 머리는 두 줄이다. 예전에는 제목 줄·요약 줄·섹션 제목 줄·필터 줄 네 줄이
           쌓인 뒤에야 사진이 나왔고, 「9개」「8장·1편」「10개」로 같은 것을 세 번 셌다.
           세는 일은 아래 필터 칩이 맡고, 여기서는 며칠에 걸친 기록인지만 알린다.
@@ -9309,7 +9362,7 @@ function Memories({
         action="사진 추가"
         onPress={openPhotoCreate}
       />
-      <View style={styles.memoryFilterLine}>
+      <View style={styles.memoryFilterLine} onLayout={(event) => { 격자_머리.current = event.nativeEvent.layout.y; }}>
         <View style={styles.memoryFilterRow}>
           {memoryFilterChips(photos.length, cardTiles.length).map((칩) => {
             const on = photoFilter === 칩.key;
@@ -9444,11 +9497,16 @@ function Memories({
             onPress={() => cards?.open(tile.card.id)}
             accessibilityRole="button"
             accessibilityLabel={`${tile.card.label} 추억 카드 ${tile.card.onHome ? "· 대표 사진으로 쓰는 중 " : ""}열기`}
-            style={[styles.memoryTile, theme && { backgroundColor: theme.surface, borderColor: theme.border }]}
+            style={[
+              styles.memoryTile,
+              theme && { backgroundColor: theme.surface, borderColor: theme.border },
+              tile.card.id === 새_카드 && [styles.memoryTileNew, theme && { borderColor: theme.primary }],
+            ]}
           >
-            <View style={[styles.memoryTilePhoto, { backgroundColor: tile.card.color }]}>
-              {Boolean(tile.card.uri) && <Image source={{ uri: tile.card.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
-              <View style={styles.memoryTileGlow} />
+            <View style={[styles.memoryTilePhoto, { backgroundColor: tile.card.preview ? theme?.surfaceAlt ?? "#F1ECE3" : tile.card.color }]}>
+              {/* 첫 사진 한 장이 아니라 카드를 작게 그대로 그린다. 두 장짜리 카드가 한 장처럼 보였다. */}
+              {tile.card.preview ?? (Boolean(tile.card.uri) && <Image source={{ uri: tile.card.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />)}
+              {!tile.card.preview && <View style={styles.memoryTileGlow} />}
               {tile.card.onHome && <CoverBadge />}
               {/* 사진과 한 격자에 섞이니 무엇이 카드인지 한눈에 보여야 한다. 홈 표시와
                   같은 모양으로 반대쪽 모서리에 단다. */}
@@ -9536,6 +9594,7 @@ function Memories({
         coverPhotoId={coverPhotoId}
         onSaveHomeCover={onSaveHomeCover}
         onInline={takeCards}
+        onCreated={onCardCreated}
         canEdit={canEdit}
         theme={theme}
         notify={notify}
@@ -12404,6 +12463,8 @@ const styles = StyleSheet.create({
   },
   feedbackToastMark: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FF6B63", marginRight: 8 },
   feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
+  feedbackToastAction: { marginLeft: 12, paddingVertical: 6 },
+  feedbackToastActionText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.title.family, textDecorationLine: "underline" },
   controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
 
   detailTitleRow: {
@@ -14498,6 +14559,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     transform: [{ rotate: "-.5deg" }],
   },
+  // 방금 만든 카드. 잠깐 두르고 사라진다.
+  memoryTileNew: { borderWidth: 2.5, borderColor: "#3F4C8F" },
   detailFieldInput: {
     height: 높이.입력,
     borderRadius: 모서리.버튼,

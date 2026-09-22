@@ -21,12 +21,12 @@
  *   새로 만들면 위에서 상태를 고치고 그 때문에 다시 렌더되는 고리가 생긴다.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Platform, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
-import { CardDecorTools, CardPreview } from "./CardDecorEditor";
+import { CardDecorTools, CardPreview, CardThumb } from "./CardDecorEditor";
 import { downloadCardImage, hasFreshCardImage, releaseCardImage, uploadCardImage } from "./cardImage";
 import { type CardPhoto } from "./KeepsakeCardView";
 import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
@@ -83,6 +83,8 @@ export type CardTile = {
   uri?: string;
   /** 지금 홈 화면에 깔려 있는 카드인지. */
   onHome: boolean;
+  /** 칸에 맞게 줄여 그린 카드(`CardThumb`). 이것이 있으면 `uri` 사진 대신 그린다. */
+  preview?: ReactNode;
 };
 
 /** 카드에 실을 숫자. 기록 탭이 세어 넘긴다. */
@@ -204,6 +206,7 @@ export function TripCardsSection({
   canEdit,
   theme,
   notify,
+  onCreated,
   viewer,
 }: {
   /** 서버 여행 id. 없으면 예시 여행이라 카드가 이 화면에서만 산다. */
@@ -236,6 +239,11 @@ export function TripCardsSection({
   canEdit: boolean;
   theme?: AppTheme;
   notify: (message: string) => void;
+  /**
+   * 새 카드를 저장했을 때. 넘기면 「저장했어요」 알림은 받는 쪽이 띄운다(어디에 생겼는지
+   * 보여 주려고). 안 넘기면 여기서 알린다.
+   */
+  onCreated?: (cardId: string) => void;
   /** 사진을 크게 보는 창의 사진 쪽 몫. */
   viewer: CardViewer;
 }) {
@@ -299,7 +307,11 @@ export function TripCardsSection({
 
   const list = useMemo(() => keepsakeListOf(rows, tripName, photoIds), [rows, tripName, photoIds]);
   // 목록은 카드마다 대표 사진 한 장만 받는다. 나머지는 그 카드를 열 때 받는다.
-  const listPhotoIds = useMemo(() => list.map((줄) => 줄.coverPhotoId).filter(Boolean), [list]);
+  // 격자 칸마다 카드를 작게 그리므로 카드에 든 사진의 썸네일을 모두 받는다.
+  const listPhotoIds = useMemo(
+    () => [...new Set(list.flatMap((줄) => [줄.coverPhotoId, ...줄.card.photoIds]).filter(Boolean))],
+    [list],
+  );
   const open = useMemo(() => list.find((줄) => 줄.id === openId), [list, openId]);
   // 남이 만든 카드는 보기만 한다. 서버도 같은 규칙으로 막는다(사진과 같다).
   const canManage = !open || (rows.find((줄) => 줄.id === open.id)?.canManage ?? true);
@@ -383,16 +395,30 @@ export function TripCardsSection({
     viewerRef.current.onMove(null);
   }, [blocked, notify, openCard, photoIds, tripName]);
   // 사진 격자에 함께 놓을 타일. 대표 사진 한 장의 색과 썸네일만 실어 보낸다.
+  // 격자에는 최신 카드가 먼저 온다. 방금 만든 카드가 「더 보기」 뒤 맨 끝에 붙으면 어디 생겼는지
+  // 찾기 어렵다. 사진 앱(갤러리·구글 포토)도 새것이 앞이다.
   const tiles = useMemo<CardTile[]>(
     () =>
-      list.map((줄) => ({
+      [...list].reverse().map((줄) => ({
         id: 줄.id,
         label: 줄.label,
         color: cardPhotos.find((photo) => photo.id === 줄.coverPhotoId)?.color ?? "#E7DFD2",
         uri: thumbs[줄.coverPhotoId] ?? cardPhotos.find((photo) => photo.id === 줄.coverPhotoId)?.uri,
         onHome: 줄.id === coverCardId,
+        preview: (
+          <CardThumb
+            card={줄.card}
+            photos={줄.card.photoIds
+              .map((사진id) => cardPhotos.find((photo) => photo.id === 사진id))
+              .filter((photo) => photo !== undefined)
+              .map((photo) => ({ ...photo, uri: thumbs[photo.id] ?? photo.uri }))}
+            text={keepsakeTextOf(줄.card, { name: tripName, period: tripDate, region: tripRegion, people: participants })}
+            stats={keepsakeStatLines(줄.card, counts)}
+            stamp={줄.card.dateStamp ? keepsakeDateStamp(tripStartKey) : ""}
+          />
+        ),
       })),
-    [cardPhotos, coverCardId, list, thumbs],
+    [cardPhotos, counts, coverCardId, list, participants, thumbs, tripDate, tripName, tripRegion, tripStartKey],
   );
   /**
    * 카드를 크게 보는 자리를 연다. 격자에서 누를 때와 창 안 스트립에서 누를 때가 같다.
@@ -475,6 +501,10 @@ export function TripCardsSection({
       } else {
         저장된_것 = await createTripCard(tripId, Crypto.randomUUID(), body);
         setRows((current) => (current.some((줄) => 줄.id === 저장된_것.id) ? current : [...current, 저장된_것]));
+        if (onCreated) {
+          onCreated(저장된_것.id);
+          return 저장된_것;
+        }
       }
       notify("카드를 저장했어요");
       return 저장된_것;

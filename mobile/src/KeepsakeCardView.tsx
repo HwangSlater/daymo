@@ -10,7 +10,7 @@
  */
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, PanResponder, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Image, PanResponder, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "./AppText";
 import { Glyph, type GlyphName } from "./Glyph";
@@ -352,6 +352,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   showEmptySlots,
   onPickSlot,
   onPhotoReady,
+  onSwapPhotos,
 }: {
   shotRef?: React.RefObject<View | null>;
   card: KeepsakeCard;
@@ -378,6 +379,11 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   onPickSlot?: (index: number) => void;
   /** 사진 한 장이 다 그려졌을 때. 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. */
   onPhotoReady?: (key: string) => void;
+  /**
+   * 꾸미는 중에만 넘긴다. 사진을 꾹 눌러 다른 사진 위에 놓으면 두 자리를 부른다.
+   * 넘기지 않으면 사진 칸은 손가락에 반응하지 않는다.
+   */
+  onSwapPhotos?: (from: number, to: number) => void;
 }) {
   const look = lookOf(card);
   const size = keepsakeSizeOf(card.ratio, card.style);
@@ -393,6 +399,19 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   const 좁은_띠 = card.style === "네컷 가로";
   // 줄마다 몇 번째 사진부터인지. 그리면서 세면 같은 사진이 두 칸에 들어간다.
   const 줄 = useMemo(() => keepsakeRowSlots(frame.rows), [frame.rows]);
+  /** 꾹 눌러 옮기는 중. 어느 칸을 들었고 지금 어느 칸 위에 있는지. */
+  const [옮김, 옮김_표시] = useState<{ from: number; to: number | null } | null>(null);
+  /** 칸마다의 사진 자리. 들었을 때 화면 좌표를 재서 손가락이 어느 칸 위인지 가른다. */
+  const 칸들 = useRef<(View | null)[]>([]);
+  const 옮길_수_있다 = Boolean(onSwapPhotos) && photos.length > 1;
+  const 칸_등록 = (index: number, view: View | null) => {
+    칸들.current[index] = view;
+  };
+  const 칸_재기 = (each: (자리: { index: number; x: number; y: number; width: number; height: number }) => void) => {
+    칸들.current.forEach((칸, index) => {
+      칸?.measureInWindow((x, y, width, height) => each({ index, x, y, width, height }));
+    });
+  };
 
   const 칸 = (photo: CardPhoto | undefined, 내_자리: number) => {
     const 설명 = 네컷 ? keepsakeSlotCaption(photo?.caption, card.photoCaptions) : "";
@@ -415,7 +434,21 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
     }
     return (
       <View key={photo?.id ?? `blank-${내_자리}`} style={styles.cell}>
-        <View style={[styles.cellPhoto, { backgroundColor: photo?.color ?? look.frame }]}>
+        <SwapCell
+          index={내_자리}
+          enabled={옮길_수_있다 && Boolean(photo)}
+          scale={edit?.scale || 1}
+          onRef={칸_등록}
+          measure={칸_재기}
+          lifted={옮김?.from === 내_자리}
+          onLift={() => 옮김_표시({ from: 내_자리, to: null })}
+          onOver={(to) => 옮김_표시((지금) => (지금 && 지금.to !== to ? { ...지금, to } : 지금))}
+          onDrop={(to) => {
+            옮김_표시(null);
+            if (to !== null && to !== 내_자리) onSwapPhotos?.(내_자리, to);
+          }}
+          style={[styles.cellPhoto, { backgroundColor: photo?.color ?? look.frame }]}
+        >
           {photo?.uri && (
             <Image
               source={{ uri: photo.uri }}
@@ -427,7 +460,11 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           {네컷 && Boolean(stamp) && 마지막_칸 && (
             <Text style={[styles.stamp, 좁은_띠 && styles.stampSmall]}>{stamp}</Text>
           )}
-        </View>
+          {/* 들고 있는 사진을 놓을 칸. 여기서 손을 떼면 두 사진이 자리를 바꾼다. */}
+          {옮김 && 옮김.to === 내_자리 && (
+            <View pointerEvents="none" style={[styles.swapTarget, { borderColor: look.accent }]} />
+          )}
+        </SwapCell>
         {Boolean(설명) && (
           <Text numberOfLines={1} style={[styles.cellCaption, { color: look.sub }]}>{설명}</Text>
         )}
@@ -512,7 +549,16 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
         ]}
       >
         {줄.map((한_줄, index) => (
-          <View key={`row-${index}`} style={[styles.photoRow, 네컷 && styles.photoRowCut, 종이없음 && styles.photoRowBare]}>
+          <View
+            key={`row-${index}`}
+            style={[
+              styles.photoRow,
+              네컷 && styles.photoRowCut,
+              종이없음 && styles.photoRowBare,
+              // 들고 있는 사진이 다른 줄 위로 지나갈 때 가리지 않게 그 줄을 위로 올린다.
+              옮김 && 옮김.from >= 한_줄.start && 옮김.from < 한_줄.start + 한_줄.count && styles.photoRowLifted,
+            ]}
+          >
             {Array.from({ length: 한_줄.count }, (_, slot) => 칸(photos[한_줄.start + slot], 한_줄.start + slot))}
           </View>
         ))}
@@ -541,6 +587,163 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
     </View>
   );
 });
+
+/** 꾹 눌러야 드는 시간. 이보다 먼저 손가락이 움직이면 스크롤이나 스티커에 넘긴다. 차례 줄도 같이 쓴다. */
+export const LIFT_DELAY = 300;
+
+/**
+ * 카드의 사진 칸 하나. 꾹 누르면 들려 올라가 흔들리고, 끌면 따라온다.
+ *
+ * 다른 사진 위에서 놓으면 두 자리를 알리고, 다른 곳에서 놓으면 제자리로 돌아간다.
+ * 끄는 동안 다시 그리지 않도록 자리는 `Animated` 로 민다. 어느 칸 위인지만 위로 알린다.
+ */
+function SwapCell({
+  index,
+  enabled,
+  scale,
+  onRef,
+  measure,
+  lifted,
+  onLift,
+  onOver,
+  onDrop,
+  style,
+  children,
+}: {
+  index: number;
+  enabled: boolean;
+  /** 카드를 화면에 맞추려고 줄인 배. 손가락이 움직인 거리를 이만큼 나눈다. */
+  scale: number;
+  /** 이 칸의 자리를 부모에 맡긴다. 들었을 때 모든 칸의 화면 좌표를 잰다. */
+  onRef: (index: number, view: View | null) => void;
+  measure: (each: (자리: { index: number; x: number; y: number; width: number; height: number }) => void) => void;
+  lifted: boolean;
+  onLift: () => void;
+  onOver: (to: number | null) => void;
+  onDrop: (to: number | null) => void;
+  style: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) {
+  // 처음 한 번만 만든다. 이 뒤로는 손가락 이벤트가 직접 민다.
+  const [자리] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
+  const [들림] = useState(() => new Animated.Value(0));
+  const [흔들림] = useState(() => new Animated.Value(0));
+  // 손가락 이벤트에서 읽는 값. 렌더 중에는 읽지 않는다.
+  const 지금 = useRef({ index, enabled, scale, onLift, onOver, onDrop, measure });
+  useEffect(() => {
+    지금.current = { index, enabled, scale, onLift, onOver, onDrop, measure };
+  }, [index, enabled, scale, onLift, onOver, onDrop, measure]);
+
+  /** 한 번 누르는 동안의 값. 손가락 이벤트에서만 고친다. */
+  const 손 = useRef<{
+    타이머?: ReturnType<typeof setTimeout>;
+    들었다: boolean;
+    칸_자리: { index: number; x: number; y: number; width: number; height: number }[];
+    놓을_칸: number | null;
+    흔들기?: Animated.CompositeAnimation;
+  }>({ 들었다: false, 칸_자리: [], 놓을_칸: null });
+
+  const pan = useMemo(() => {
+    const 이번 = 손.current;
+    const 내려놓기 = (자리를_바꿨다: boolean) => {
+      이번.흔들기?.stop();
+      흔들림.setValue(0);
+      if (자리를_바꿨다) {
+        // 사진이 새 칸으로 옮겨 그려진다. 끌던 거리는 바로 지운다.
+        자리.setValue({ x: 0, y: 0 });
+        들림.setValue(0);
+        return;
+      }
+      // 다른 사진 위가 아니면 제자리로 돌아간다.
+      Animated.parallel([
+        Animated.spring(자리, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }),
+        Animated.spring(들림, { toValue: 0, useNativeDriver: true, friction: 7 }),
+      ]).start();
+    };
+    const 끝낸다 = () => {
+      if (이번.타이머) clearTimeout(이번.타이머);
+      이번.타이머 = undefined;
+      if (!이번.들었다) return;
+      이번.들었다 = false;
+      const 바꿀_칸 = 이번.놓을_칸;
+      이번.놓을_칸 = null;
+      내려놓기(바꿀_칸 !== null);
+      지금.current.onDrop(바꿀_칸);
+    };
+    // PanResponder 가 이 콜백들을 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
+    // eslint-disable-next-line react-hooks/refs
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => 지금.current.enabled,
+      // 들기 전에는 스크롤이 가져가도 된다. 든 뒤에는 놓을 때까지 붙든다.
+      onPanResponderTerminationRequest: () => !이번.들었다,
+      onPanResponderGrant: () => {
+        이번.들었다 = false;
+        이번.놓을_칸 = null;
+        이번.타이머 = setTimeout(() => {
+          이번.타이머 = undefined;
+          이번.들었다 = true;
+          이번.칸_자리 = [];
+          지금.current.measure((자리_하나) => 이번.칸_자리.push(자리_하나));
+          지금.current.onLift();
+          Animated.spring(들림, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+          이번.흔들기 = Animated.loop(
+            Animated.sequence([
+              Animated.timing(흔들림, { toValue: 1, duration: 90, useNativeDriver: true }),
+              Animated.timing(흔들림, { toValue: -1, duration: 180, useNativeDriver: true }),
+              Animated.timing(흔들림, { toValue: 0, duration: 90, useNativeDriver: true }),
+            ]),
+          );
+          이번.흔들기.start();
+        }, LIFT_DELAY);
+      },
+      onPanResponderMove: (_, g) => {
+        if (!이번.들었다) {
+          // 들기 전에 움직였으면 꾹 누른 것이 아니다.
+          if (이번.타이머 && (Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8)) {
+            clearTimeout(이번.타이머);
+            이번.타이머 = undefined;
+          }
+          return;
+        }
+        const 배 = 지금.current.scale || 1;
+        자리.setValue({ x: g.dx / 배, y: g.dy / 배 });
+        const 위 = 이번.칸_자리.find(
+          (칸) => 칸.index !== 지금.current.index
+            && g.moveX >= 칸.x && g.moveX <= 칸.x + 칸.width
+            && g.moveY >= 칸.y && g.moveY <= 칸.y + 칸.height,
+        );
+        const 다음 = 위 ? 위.index : null;
+        if (다음 !== 이번.놓을_칸) {
+          이번.놓을_칸 = 다음;
+          지금.current.onOver(다음);
+        }
+      },
+      onPanResponderRelease: 끝낸다,
+      onPanResponderTerminate: 끝낸다,
+    });
+  }, [자리, 들림, 흔들림]);
+
+  return (
+    <Animated.View
+      ref={(칸: View | null) => onRef(index, 칸)}
+      {...(enabled ? pan.panHandlers : {})}
+      style={[
+        style,
+        lifted && styles.swapLifted,
+        {
+          transform: [
+            { translateX: 자리.x },
+            { translateY: 자리.y },
+            { scale: 들림.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] }) },
+            { rotate: 흔들림.interpolate({ inputRange: [-1, 1], outputRange: ["-2deg", "2deg"] }) },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
 
 /** 카드를 화면에 맞춰 줄여 보여 준다. 줄여도 카드 안의 숫자는 그대로다. */
 export function ScaledCard({
@@ -592,6 +795,17 @@ const styles = StyleSheet.create({
   photoRowCut: { gap: 4 },
   cell: { flex: 1, minWidth: 0 },
   cellPhoto: { flex: 1, overflow: "hidden" },
+  photoRowLifted: { zIndex: 3 },
+  swapTarget: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderWidth: 3, borderRadius: 4 },
+  // 들고 있는 사진. 다른 칸 위에 떠 보이게 그림자를 준다.
+  swapLifted: {
+    zIndex: 3,
+    shadowColor: "#000000",
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
   cellCaption: { fontSize: 7, lineHeight: 10, marginTop: 1, textAlign: "center" },
   // 꾸미는 중의 빈 칸. 점선이라 「아직 안 채운 자리」로 읽힌다.
   cellEmpty: {

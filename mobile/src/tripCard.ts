@@ -236,6 +236,32 @@ export function keepsakePhotoFullReason(photoIds: readonly string[]): string {
  * 고른 차례가 곧 카드에 놓이는 차례다. 예전에는 차례를 바꾸려면 전부 뺐다가 다시
  * 골라야 했다. 스티커의 「앞으로·뒤로」와 같은 결로 한 칸씩 옮긴다.
  */
+/** 두 자리의 사진을 맞바꾼다. 카드에서 사진을 꾹 눌러 다른 사진 위에 놓을 때 쓴다. */
+export function swapKeepsakePhotos(photoIds: readonly string[], a: number, b: number): string[] {
+  if (a === b || a < 0 || b < 0 || a >= photoIds.length || b >= photoIds.length) return [...photoIds];
+  const 바꾼_것 = [...photoIds];
+  [바꾼_것[a], 바꾼_것[b]] = [바꾼_것[b], 바꾼_것[a]];
+  return 바꾼_것;
+}
+
+/**
+ * 사진 하나를 `from` 자리에서 빼 `to` 자리에 끼운다. 차례 줄에서 끌어 옮길 때 쓴다.
+ * 자리가 벗어나면 그대로 돌려준다.
+ */
+export function placeKeepsakePhoto(photoIds: readonly string[], from: number, to: number): string[] {
+  if (from === to || from < 0 || to < 0 || from >= photoIds.length || to >= photoIds.length) return [...photoIds];
+  const 바꾼_것 = [...photoIds];
+  const [옮길_것] = 바꾼_것.splice(from, 1);
+  바꾼_것.splice(to, 0, 옮길_것);
+  return 바꾼_것;
+}
+
+/** 끄는 손이 `dx` 만큼 갔을 때 놓일 자리. 한 칸 폭(`step`)의 절반을 넘으면 다음 칸이다. */
+export function slideTargetOf(from: number, dx: number, step: number, count: number): number {
+  if (count <= 0 || step <= 0) return from;
+  return Math.max(0, Math.min(count - 1, from + Math.round(dx / step)));
+}
+
 export function moveKeepsakePhoto(
   photoIds: readonly string[],
   id: string,
