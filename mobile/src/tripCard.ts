@@ -380,9 +380,10 @@ export const KEEPSAKE_NATIVE_SHOT_FACTOR = 2;
  * iOS 는 그 값을 포인트로 읽어 기기 배율만큼 더 키웠고(가로 카드 5760px, 네컷은 못 찍음),
  * 안드로이드는 작게 찍어 늘렸다. 이제 카드 바깥 상자가 실제로 목표 픽셀이 되게 키우고 그대로 찍는다.
  *
- * 크기는 맞지만 사진 선명도는 아직이다. 카드 안은 화면 단위로 배치하고 transform 으로 키우는데,
- * iOS 는 모서리를 둥글게 자르는 층을 키우기 전 크기로 먼저 그린다. 그래서 사진이 약 900px
- * 수준으로 들어간다(2026-09-22 실기기에서 잼). 찍을 때 처음부터 큰 크기로 배치해야 풀린다.
+ * 처음에는 카드를 화면 단위로 둔 채 transform 으로 키웠는데, iOS 는 모서리를 둥글게 자르는
+ * 층을 키우기 전 크기로 먼저 그려 사진이 약 900px 수준으로 흐려졌다. 그래서 이 배수는
+ * transform 이 아니라 `KeepsakeCardView` 의 `unit` 으로 넘겨, 크기 숫자를 곱한 스타일로
+ * 처음부터 크게 배치한다(`scaleStyle.ts`). 2026-09-22 아이폰에서 표시본에 가까운 선명도를 확인했다.
  */
 export function keepsakeShotScale(
   size: { width: number; exportWidth: number },

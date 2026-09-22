@@ -31,7 +31,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Image,
+  KeyboardAvoidingView,
   LayoutChangeEvent,
+  Modal,
   PanResponder,
   PixelRatio,
   Platform,
@@ -191,14 +193,15 @@ function Toggle({
 }
 
 /**
- * 찍는 동안의 배치. 폰은 카드를 목표 픽셀(가로 2160)까지 실제로 키워 바깥 상자를 찍는다
- * (`keepsakeShotScale`). 웹의 캡처는 화면에 그려진 크기 그대로 찍으므로 예전처럼 제 크기(1)로
- * 두고 카드 자신을 찍는다.
+ * 찍는 동안의 배치. 폰은 카드를 목표 픽셀(가로 2160)이 되는 크기로 **처음부터 크게 배치**해
+ * 바깥 상자를 찍는다(`unit`, `keepsakeShotScale`). transform 으로 키우지 않는다 — iOS 가 둥글게
+ * 자르는 층을 작게 먼저 그려 사진이 흐려졌다. 웹의 캡처는 화면에 그려진 크기 그대로 찍으므로
+ * 예전처럼 제 크기(1)로 두고 카드 자신을 찍는다.
  */
 function shotLayoutOf(size: { width: number; exportWidth: number }, exporting: boolean) {
   const native = Platform.OS !== "web";
-  const scale = exporting && native ? keepsakeShotScale(size, PixelRatio.get()) : 1;
-  return { native, scale };
+  const unit = exporting && native ? keepsakeShotScale(size, PixelRatio.get()) : 1;
+  return { native, unit };
 }
 
 /**
@@ -237,7 +240,7 @@ export function CardPreview({
   const size = keepsakeSizeOf(card.ratio, card.style);
   const 찍기 = shotLayoutOf(size, exporting);
   const scale = exporting
-    ? 찍기.scale
+    ? 1
     : fitScaleOf(size.width, size.height, 칸.width - STAGE_PAD * 2, 칸.height - STAGE_PAD * 2);
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -246,9 +249,10 @@ export function CardPreview({
   return (
     <View style={styles.stage} onLayout={onLayout} accessibilityLabel={`${text.title || "추억 카드"} 크게 보기`}>
       {칸.width > 0 && (
-        <ScaledCard scale={scale} width={size.width} height={size.height} shotRef={찍기.native ? shotRef : undefined}>
+        <ScaledCard scale={scale} width={size.width * 찍기.unit} height={size.height * 찍기.unit} shotRef={찍기.native ? shotRef : undefined}>
           <KeepsakeCardView
             shotRef={찍기.native ? undefined : shotRef}
+            unit={찍기.unit}
             card={card}
             photos={photos}
             text={text}
@@ -362,7 +366,7 @@ export function CardDecorTools({
    */
   const 찍기 = shotLayoutOf(size, exporting);
   const scale = exporting
-    ? 찍기.scale
+    ? 1
     : fitScaleOf(size.width, size.height, 칸.width - STAGE_PAD * 2, 칸.height - STAGE_PAD * 2);
   const onStageLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -384,9 +388,15 @@ export function CardDecorTools({
     },
     [onDecor],
   );
+  /** 글자를 고치는 창에 띄운 글자 스티커. */
+  const [글자_고치는, 글자_고치기] = useState("");
+  const onEdit = useCallback((id: string) => {
+    고르기(id);
+    글자_고치기(id);
+  }, []);
   const edit = useMemo(
-    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove, onResize, onRemove }),
-    [readOnly, 고른_것, scale, onMove, onResize, onRemove],
+    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove, onResize, onRemove, onEdit }),
+    [readOnly, 고른_것, scale, onMove, onResize, onRemove, onEdit],
   );
   const 고른_줄 = card.decor.find((하나) => 하나.id === 고른_것);
   const 네컷 = isCutStyle(card.style);
@@ -397,13 +407,22 @@ export function CardDecorTools({
     if (card.decor.length >= DECOR_MAX) return;
     // 새 목록을 먼저 만들고 그것을 넘긴다. 상태를 고치는 함수 안에서 고르면
     // React 가 그 함수를 두 번 부를 때 엉뚱한 것이 골라진다.
-    const 다음 = addDecor(card.decor, kind, kind === "글자" ? "텍스트 입력" : "");
+    // 글자는 비운 채 붙이고 곧바로 고치는 창을 연다. 예전에는 「텍스트 입력」이 실제 글자로
+    // 들어가, 도구 칸 맨 아래 입력칸을 찾아 그것부터 지워야 했다.
+    const 다음 = addDecor(card.decor, kind, "");
     onDecor(() => 다음);
-    고르기(다음[다음.length - 1].id);
+    const 새것 = 다음[다음.length - 1].id;
+    고르기(새것);
+    if (kind === "글자") 글자_고치기(새것);
   };
-  const 고친다 = (바꿈: (list: CardDecor[], id: string) => CardDecor[]) => {
-    if (!고른_것) return;
-    onDecor((지금) => 바꿈(지금, 고른_것));
+  /** 글자 고치는 창을 닫는다. 비워 두었으면 그 글자는 뗀다. */
+  const 글자_마치기 = () => {
+    const 고친_것 = card.decor.find((하나) => 하나.id === 글자_고치는);
+    if (고친_것 && !고친_것.text.trim()) {
+      onDecor((지금) => removeDecor(지금, 고친_것.id));
+      고르기("");
+    }
+    글자_고치기("");
   };
   const 넣고_빼기 = <T extends string>(고른_목록: readonly T[], 값: T): T[] =>
     고른_목록.includes(값) ? 고른_목록.filter((하나) => 하나 !== 값) : [...고른_목록, 값];
@@ -412,16 +431,18 @@ export function CardDecorTools({
     <>
       <View style={styles.stage} onLayout={onStageLayout} accessibilityLabel="꾸미는 카드">
         {칸.width > 0 && (
-          <ScaledCard scale={scale} width={size.width} height={size.height} shotRef={찍기.native ? shotRef : undefined}>
+          <ScaledCard scale={scale} width={size.width * 찍기.unit} height={size.height * 찍기.unit} shotRef={찍기.native ? shotRef : undefined}>
             <KeepsakeCardView
               shotRef={찍기.native ? undefined : shotRef}
+              unit={찍기.unit}
               card={card}
               photos={drawPhotos}
               text={text}
               stats={stats}
               stamp={stamp}
               big={exporting}
-                edit={edit}
+                // 찍는 동안에는 고른 테두리와 손잡이가 그림에 들어가지 않게 편집을 끈다.
+              edit={exporting ? undefined : edit}
               // 내보내는 동안에는 끈다. 빈 칸이 그림으로 찍히면 고장 난 카드가 된다.
               showEmptySlots={!exporting && !readOnly}
               onPickSlot={() => setTab("사진")}
@@ -717,15 +738,7 @@ export function CardDecorTools({
                           : "위에서 눌러 카드에 붙이고, 붙인 것은 끌어서 옮겨요"}
                   />
                   {고른_줄?.kind === "글자" && (
-                    <TextInput
-                      value={고른_줄.text}
-                      onChangeText={(값) => 고친다((l, id) => setDecorText(l, id, 값))}
-                      placeholder="카드에 적을 짧은 말"
-                      placeholderTextColor={INK_FAINT}
-                      maxLength={DECOR_TEXT_MAX}
-                      accessibilityLabel="카드에 넣을 텍스트"
-                      style={styles.field}
-                    />
+                    <Text style={styles.panelHint}>카드의 글자를 누르면 고칠 수 있어요</Text>
                   )}
                 </>
               )}
@@ -733,6 +746,30 @@ export function CardDecorTools({
           </View>
         </>
       )}
+      {/* 글자 고치기. 인스타그램 스토리처럼 화면을 어둡게 하고 가운데에서 크게 적는다.
+          도구 칸 맨 아래 입력칸은 키보드에 덮여 보이지 않았다. */}
+      <Modal visible={Boolean(글자_고치는)} transparent animationType="fade" onRequestClose={글자_마치기}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.textSheet}>
+          <Pressable onPress={글자_마치기} accessibilityRole="button" style={styles.textSheetDone} hitSlop={10}>
+            <Text style={styles.textSheetDoneText}>완료</Text>
+          </Pressable>
+          <TextInput
+            autoFocus
+            value={card.decor.find((하나) => 하나.id === 글자_고치는)?.text ?? ""}
+            onChangeText={(값) => onDecor((지금) => setDecorText(지금, 글자_고치는, 값))}
+            onSubmitEditing={글자_마치기}
+            returnKeyType="done"
+            placeholder="카드에 적을 짧은 말"
+            placeholderTextColor={INK_FAINT}
+            maxLength={DECOR_TEXT_MAX}
+            accessibilityLabel="카드에 넣을 텍스트"
+            style={styles.textSheetInput}
+          />
+          <Text style={styles.textSheetCount}>
+            {(card.decor.find((하나) => 하나.id === 글자_고치는)?.text ?? "").length} / {DECOR_TEXT_MAX}
+          </Text>
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   );
 }
@@ -985,6 +1022,17 @@ const styles = StyleSheet.create({
   toggleTrack: { width: 38, height: 22, borderRadius: 11, backgroundColor: CHIP, justifyContent: "center" },
   toggleKnob: { width: 16, height: 16, borderRadius: 8, marginLeft: 3, backgroundColor: INK_FAINT },
   toggleKnobOn: { marginLeft: 19, backgroundColor: "#FFFFFF" },
+  textSheet: { flex: 1, backgroundColor: "rgba(10,10,14,0.78)", justifyContent: "center", paddingHorizontal: 24 },
+  textSheetDone: { position: "absolute", top: 56, right: 20, paddingVertical: 8, paddingHorizontal: 12 },
+  textSheetDoneText: { color: "#FFFFFF", fontSize: 16, fontFamily: typo.title.family },
+  textSheetInput: {
+    color: "#FFFFFF",
+    fontSize: 26,
+    textAlign: "center",
+    fontFamily: typo.title.family,
+    paddingVertical: 12,
+  },
+  textSheetCount: { color: INK_FAINT, fontSize: 12, textAlign: "center", marginTop: 6, fontFamily: typo.label.family },
   field: {
     height: 높이.입력,
     borderRadius: 모서리.버튼,

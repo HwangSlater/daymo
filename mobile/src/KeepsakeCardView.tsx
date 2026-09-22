@@ -21,6 +21,7 @@ import {
   type KeepsakeSticker,
 } from "./cardDecor";
 import { typo } from "./theme/typography";
+import { scaleStyles } from "./scaleStyle";
 import {
   isBareStyle,
   isCutStyle,
@@ -131,10 +132,24 @@ export type DecorEdit = {
   onResize: (id: string, size: number, angle: number) => void;
   /** ✕. 이 스티커를 뗀다. */
   onRemove: (id: string) => void;
+  /** 글자를 끌지 않고 눌렀을 때. 글자를 고치는 창을 연다(인스타그램 스토리와 같다). */
+  onEdit?: (id: string) => void;
 };
 
 /** 손잡이를 화면에서 몇 px 로 보이게 할지. 카드가 줄어든 만큼 되돌려 그린다. */
 const HANDLE = 26;
+
+/** 배수마다 한 번만 만든다. 찍을 때 쓰는 배수는 기기마다 하나라 몇 개 쌓이지 않는다. */
+const 시트_캐시 = new Map<number, typeof styles>();
+function sheetOf(unit: number): typeof styles {
+  if (unit === 1) return styles;
+  let 시트 = 시트_캐시.get(unit);
+  if (!시트) {
+    시트 = scaleStyles(styles, unit);
+    시트_캐시.set(unit, 시트);
+  }
+  return 시트;
+}
 
 /**
  * 카드에 얹은 것 하나.
@@ -146,13 +161,17 @@ const DecorItem = memo(function DecorItem({
   decor,
   cardWidth,
   cardHeight,
+  unit = 1,
   edit,
 }: {
   decor: CardDecor;
   cardWidth: number;
   cardHeight: number;
+  /** 카드를 키워 배치한 배(`KeepsakeCardView` 의 `unit`). 글자 그림자도 같이 키운다. */
+  unit?: number;
   edit?: DecorEdit;
 }) {
+  const s = sheetOf(unit);
   // 글자는 글이 차지하는 너비를 재서 그만큼만 상자로 잡는다. 카드 너비만큼
   // 잡아 두면 눈에 안 보이는 띠가 카드를 가로질러 다른 스티커를 못 잡는다.
   const [글자폭, 글자폭재기] = useState(0);
@@ -201,8 +220,14 @@ const DecorItem = memo(function DecorItem({
         });
       },
       // 손을 뗄 때 한 번만 알린다. 화면에 이미 그려진 자리를 그대로 올린다.
-      onPanResponderRelease: () => {
-        지금.current.edit?.onMove(지금.current.decor.id, 끈_자리.current.x, 끈_자리.current.y);
+      onPanResponderRelease: (_, gesture) => {
+        const 상태 = 지금.current;
+        // 거의 움직이지 않았으면 누른 것이다. 글자는 고치는 창을 연다.
+        if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
+          if (상태.decor.kind === "글자") 상태.edit?.onEdit?.(상태.decor.id);
+          return;
+        }
+        상태.edit?.onMove(상태.decor.id, 끈_자리.current.x, 끈_자리.current.y);
       },
       onPanResponderTerminationRequest: () => false,
     });
@@ -275,7 +300,7 @@ const DecorItem = memo(function DecorItem({
       accessible={Boolean(edit)}
       accessibilityLabel={decor.kind === "글자" ? `텍스트 ${decor.text}` : `${decor.kind} 스티커`}
       style={[
-        styles.decor,
+        s.decor,
         {
           // 글자는 재기 전까지 너비를 비워 둔다. 그래야 글만큼만 차지한다.
           width: decor.kind === "글자" ? undefined : box.width,
@@ -296,32 +321,32 @@ const DecorItem = memo(function DecorItem({
           <Text
             numberOfLines={1}
             onLayout={(event) => 글자폭재기(event.nativeEvent.layout.width)}
-            style={[styles.decorText, { fontSize: box.side, lineHeight: box.side * 1.35 }]}
+            style={[s.decorText, { fontSize: box.side, lineHeight: box.side * 1.35 }]}
           >
             {decor.text}
           </Text>
         )}
       {고른_것 && edit && (
         <>
-          <View pointerEvents="none" style={[styles.decorRing, { borderWidth: 테두리 }]} />
+          <View pointerEvents="none" style={[s.decorRing, { borderWidth: 테두리 }]} />
           {/* 왼쪽 위는 떼기. 스티커를 끌어 옮기는 손과 부딪히지 않게 반대쪽 모서리에 둔다. */}
           <Pressable
             onPress={() => edit.onRemove(decor.id)}
             hitSlop={손잡이 / 2}
             accessibilityRole="button"
             accessibilityLabel="스티커 삭제"
-            style={[styles.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, left: -손잡이 / 2, top: -손잡이 / 2, borderWidth: 테두리 }]}
+            style={[s.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, left: -손잡이 / 2, top: -손잡이 / 2, borderWidth: 테두리 }]}
           >
-            <Text style={[styles.decorHandleMark, { fontSize: 손잡이 * 0.55 }]}>✕</Text>
+            <Text style={[s.decorHandleMark, { fontSize: 손잡이 * 0.55 }]}>✕</Text>
           </Pressable>
           {/* 오른쪽 아래는 크기와 각도. 한 손가락으로 되는 길을 먼저 둔다. */}
           <View
             {...corner.panHandlers}
             accessible
             accessibilityLabel="끌어서 크기와 회전 바꾸기"
-            style={[styles.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, right: -손잡이 / 2, bottom: -손잡이 / 2, borderWidth: 테두리 }]}
+            style={[s.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, right: -손잡이 / 2, bottom: -손잡이 / 2, borderWidth: 테두리 }]}
           >
-            <Text style={[styles.decorHandleMark, { fontSize: 손잡이 * 0.5 }]}>⤢</Text>
+            <Text style={[s.decorHandleMark, { fontSize: 손잡이 * 0.5 }]}>⤢</Text>
           </View>
         </>
       )}
@@ -353,6 +378,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   onPickSlot,
   onPhotoReady,
   onSwapPhotos,
+  unit = 1,
 }: {
   shotRef?: React.RefObject<View | null>;
   card: KeepsakeCard;
@@ -384,9 +410,18 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
    * 넘기지 않으면 사진 칸은 손가락에 반응하지 않는다.
    */
   onSwapPhotos?: (from: number, to: number) => void;
+  /**
+   * 카드를 몇 배 크기로 배치할지. 폰에서 찍을 때만 1 보다 크다(`keepsakeShotScale`).
+   *
+   * 화면 단위로 배치하고 transform 으로 키우면 iOS 가 사진을 작게 먼저 그려 흐려진다.
+   * 크기 숫자에 배수를 곱한 스타일(`scaleStyles`)로 처음부터 큰 크기로 배치한다.
+   */
+  unit?: number;
 }) {
+  const s = sheetOf(unit);
   const look = lookOf(card);
-  const size = keepsakeSizeOf(card.ratio, card.style);
+  const 제_크기 = keepsakeSizeOf(card.ratio, card.style);
+  const size = { width: 제_크기.width * unit, height: 제_크기.height * unit };
   const 네컷 = isCutStyle(card.style);
   // 종이가 없으면 사진이 칸을 다 쓴다. 글을 아래에 두면 놓을 종이가 없으므로
   // 가로 카드와 같이 사진 위에 옅은 그늘을 깔고 얹는다.
@@ -424,16 +459,16 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           onPress={() => onPickSlot?.(내_자리)}
           accessibilityRole="button"
           accessibilityLabel={`${내_자리 + 1}번째 칸에 사진 넣기`}
-          style={styles.cell}
+          style={s.cell}
         >
-          <View style={[styles.cellEmpty, { borderColor: look.sub }]}>
-            <Text style={[styles.cellEmptyMark, { color: look.sub }]}>＋</Text>
+          <View style={[s.cellEmpty, { borderColor: look.sub }]}>
+            <Text style={[s.cellEmptyMark, { color: look.sub }]}>＋</Text>
           </View>
         </Pressable>
       );
     }
     return (
-      <View key={photo?.id ?? `blank-${내_자리}`} style={styles.cell}>
+      <View key={photo?.id ?? `blank-${내_자리}`} style={s.cell}>
         <SwapCell
           index={내_자리}
           enabled={옮길_수_있다 && Boolean(photo)}
@@ -447,50 +482,50 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
             옮김_표시(null);
             if (to !== null && to !== 내_자리) onSwapPhotos?.(내_자리, to);
           }}
-          style={[styles.cellPhoto, { backgroundColor: photo?.color ?? look.frame }]}
+          style={[s.cellPhoto, { backgroundColor: photo?.color ?? look.frame }]}
         >
           {photo?.uri && (
             <Image
               source={{ uri: photo.uri }}
               resizeMode="cover"
-              style={styles.fill}
+              style={s.fill}
               onLoad={() => onPhotoReady?.(`${photo.id}:${big ? "d" : "t"}`)}
             />
           )}
           {네컷 && Boolean(stamp) && 마지막_칸 && (
-            <Text style={[styles.stamp, 좁은_띠 && styles.stampSmall]}>{stamp}</Text>
+            <Text style={[s.stamp, 좁은_띠 && s.stampSmall]}>{stamp}</Text>
           )}
           {/* 들고 있는 사진을 놓을 칸. 여기서 손을 떼면 두 사진이 자리를 바꾼다. */}
           {옮김 && 옮김.to === 내_자리 && (
-            <View pointerEvents="none" style={[styles.swapTarget, { borderColor: look.accent }]} />
+            <View pointerEvents="none" style={[s.swapTarget, { borderColor: look.accent }]} />
           )}
         </SwapCell>
         {Boolean(설명) && (
-          <Text numberOfLines={1} style={[styles.cellCaption, { color: look.sub }]}>{설명}</Text>
+          <Text numberOfLines={1} style={[s.cellCaption, { color: look.sub }]}>{설명}</Text>
         )}
       </View>
     );
   };
 
   const copy = (
-    <View style={[styles.copy, 위에_얹는다 && styles.copyOver, 네컷 && styles.copyBand, 좁은_띠 && styles.copyBandNarrow]}>
-      <View style={좁은_띠 ? styles.bandLine : undefined}>
+    <View style={[s.copy, 위에_얹는다 && s.copyOver, 네컷 && s.copyBand, 좁은_띠 && s.copyBandNarrow]}>
+      <View style={좁은_띠 ? s.bandLine : undefined}>
         {Boolean(text.title) && (
           <Text
             numberOfLines={좁은_띠 ? 1 : 2}
-            style={[styles.title, 네컷 && styles.titleCut, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}
+            style={[s.title, 네컷 && s.titleCut, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}
           >
             {text.title}
           </Text>
         )}
         {Boolean(text.meta) && (
-          <Text numberOfLines={1} style={[styles.meta, { color: 위에_얹는다 ? "#E7DFD2" : look.accent }]}>
+          <Text numberOfLines={1} style={[s.meta, { color: 위에_얹는다 ? "#E7DFD2" : look.accent }]}>
             {text.meta}
           </Text>
         )}
       </View>
       {Boolean(text.people) && !좁은_띠 && (
-        <Text numberOfLines={1} style={[styles.meta, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>
+        <Text numberOfLines={1} style={[s.meta, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>
           {text.people}
         </Text>
       )}
@@ -498,9 +533,9 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
         <Text
           numberOfLines={2}
           style={[
-            styles.caption,
+            s.caption,
             // 손글씨 느낌 한 줄. 스크랩북과 네컷 틀에서 기울여 적는다.
-            (card.style === "스크랩북" || 네컷) && styles.hand,
+            (card.style === "스크랩북" || 네컷) && s.hand,
             { color: 위에_얹는다 ? "#E7DFD2" : look.sub },
           ]}
         >
@@ -508,16 +543,16 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
         </Text>
       )}
       {stats.length > 0 && !좁은_띠 && (
-        <View style={styles.statRow}>
+        <View style={s.statRow}>
           {stats.map((stat) => (
             <View key={stat.label}>
-              <Text style={[styles.statValue, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}>{stat.value}</Text>
-              <Text style={[styles.statLabel, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>{stat.label}</Text>
+              <Text style={[s.statValue, { color: 위에_얹는다 ? "#F8F5F0" : look.ink }]}>{stat.value}</Text>
+              <Text style={[s.statLabel, { color: 위에_얹는다 ? "#E7DFD2" : look.sub }]}>{stat.label}</Text>
             </View>
           ))}
         </View>
       )}
-      {네컷 && <Text style={[styles.brand, { color: look.sub }]}>Daymo</Text>}
+      {네컷 && <Text style={[s.brand, { color: look.sub }]}>Daymo</Text>}
     </View>
   );
 
@@ -526,25 +561,25 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
       ref={shotRef}
       collapsable={false}
       style={[
-        styles.card,
-        네컷 && styles.cardCut,
-        종이없음 && styles.cardBare,
+        s.card,
+        네컷 && s.cardCut,
+        종이없음 && s.cardBare,
         { width: size.width, height: size.height, backgroundColor: look.paper },
       ]}
     >
       {card.style === "필름" && (
-        <View style={styles.filmHoles}>
+        <View style={s.filmHoles}>
           {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((hole) => (
-            <View key={hole} style={[styles.filmHole, { backgroundColor: look.frame }]} />
+            <View key={hole} style={[s.filmHole, { backgroundColor: look.frame }]} />
           ))}
         </View>
       )}
       <View
         style={[
-          styles.photoArea,
-          card.style === "스크랩북" && styles.photoAreaTilt,
-          네컷 && styles.photoAreaCut,
-          종이없음 && styles.photoAreaBare,
+          s.photoArea,
+          card.style === "스크랩북" && s.photoAreaTilt,
+          네컷 && s.photoAreaCut,
+          종이없음 && s.photoAreaBare,
           { borderColor: look.frame },
         ]}
       >
@@ -552,22 +587,22 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           <View
             key={`row-${index}`}
             style={[
-              styles.photoRow,
-              네컷 && styles.photoRowCut,
-              종이없음 && styles.photoRowBare,
+              s.photoRow,
+              네컷 && s.photoRowCut,
+              종이없음 && s.photoRowBare,
               // 들고 있는 사진이 다른 줄 위로 지나갈 때 가리지 않게 그 줄을 위로 올린다.
-              옮김 && 옮김.from >= 한_줄.start && 옮김.from < 한_줄.start + 한_줄.count && styles.photoRowLifted,
+              옮김 && 옮김.from >= 한_줄.start && 옮김.from < 한_줄.start + 한_줄.count && s.photoRowLifted,
             ]}
           >
             {Array.from({ length: 한_줄.count }, (_, slot) => 칸(photos[한_줄.start + slot], 한_줄.start + slot))}
           </View>
         ))}
         {card.style === "엽서" && (
-          <View style={[styles.postStamp, { borderColor: look.frame, backgroundColor: look.paper }]}>
-            <Text style={[styles.postStampText, { color: look.accent }]}>DAYMO</Text>
+          <View style={[s.postStamp, { borderColor: look.frame, backgroundColor: look.paper }]}>
+            <Text style={[s.postStampText, { color: look.accent }]}>DAYMO</Text>
           </View>
         )}
-        {card.style === "스크랩북" && <View style={styles.tape} />}
+        {card.style === "스크랩북" && <View style={s.tape} />}
         {위에_얹는다 && <Scrim />}
         {위에_얹는다 && copy}
       </View>
@@ -580,6 +615,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
             decor={하나}
             cardWidth={size.width}
             cardHeight={size.height}
+            unit={unit}
             edit={edit}
           />
         ))}
