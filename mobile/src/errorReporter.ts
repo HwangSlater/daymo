@@ -9,6 +9,7 @@
 
 import { Platform } from "react-native";
 
+import { APP_VERSION } from "./appVersion";
 import {
   buildErrorReport,
   emptyGate,
@@ -18,8 +19,6 @@ import {
   type ReportGate,
 } from "./errorReport";
 
-/** `mobile/package.json` 의 version 과 같아야 한다. 어느 판에서 난 오류인지 세는 값이다. */
-const APP_VERSION = "0.1.0";
 
 // auth.ts 를 가져오지 않는다. auth.ts 가 이 파일을 쓸 수 있어야 해서 서로 부르는
 // 모양을 만들지 않는다. 주소 규칙은 auth.ts 와 같다.

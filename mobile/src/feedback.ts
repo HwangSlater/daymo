@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 
+import { APP_VERSION } from "./appVersion";
 import { authenticatedRequest } from "./auth";
 
 /**
@@ -32,7 +33,7 @@ export const sendFeedback = (kind: FeedbackKind, body: string) =>
       kind,
       body: body.trim(),
       platform: Platform.OS === "ios" || Platform.OS === "android" || Platform.OS === "web" ? Platform.OS : "unknown",
-      appVersion: "0.1.0",
+      appVersion: APP_VERSION,
     }),
   });
 

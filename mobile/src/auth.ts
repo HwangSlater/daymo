@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
+import { APP_VERSION } from "./appVersion";
 import { sendQueued } from "./requestQueue";
 import {
   orderedProviders,
@@ -279,7 +280,7 @@ async function deviceInfo() {
   return {
     installationId: await installationId(),
     platform: Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : "unknown",
-    appVersion: "0.1.0",
+    appVersion: APP_VERSION,
     deviceName: Platform.OS === "ios" ? "iPhone 또는 iPad" : Platform.OS === "android" ? "Android 기기" : "웹 브라우저",
   };
 }

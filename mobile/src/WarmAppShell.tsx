@@ -19,10 +19,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
+import { APP_VERSION } from "./appVersion";
 import { type Expense, money } from "./tripExpenses";
 import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
@@ -580,8 +581,8 @@ const parseStoredTripData = (raw: string | null) => {
  * 예전에는 "도움말" 을 눌러도 한 문장짜리 소개만 떠서, 답을 찾으러 들어온
  * 사람이 아무것도 못 얻고 닫았다. 지금 실제로 헷갈리는 것들만 적는다.
  */
-/** 화면에 적는 버전. package.json 과 app.json 의 version 과 같이 올린다. */
-const appVersion = "0.1.0";
+/** 화면에 적는 버전. */
+const appVersion = APP_VERSION;
 const SUPPORT_EMAIL = "support@daymo.xyz";
 
 /**
@@ -3084,10 +3085,6 @@ function HomeTripCard({ trip, theme, todayKey, open }: {
   const coverUris = coverIds.slice(0, coverSlots).map((id) => trip.coverUris?.[id]);
   const covers = coverUris.length === coverSlots && coverUris.every(isLivePhotoUri) ? (coverUris as string[]) : [];
   const coverUri = covers.length ? covers[0] : undefined;
-  // 사진 위 날짜 도장만은 밝은 종이 위에 얹는다. 어두운 모드의 강조색은 그 밝은
-  // 바탕에서 흐려지니, 도장 안의 글자와 줄만 밝은 모드 값을 쓴다.
-  const stampInk = resolveTheme(theme.id, false).primary;
-  const stampTitleInk = paperCard(false).title;
   const stage = trip.start <= todayKey && trip.end >= todayKey
     ? "여행 중"
     : trip.end < todayKey ? "지난 여행" : "다가오는 여행";
