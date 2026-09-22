@@ -22,6 +22,7 @@ import {
 } from "./cardDecor";
 import { typo } from "./theme/typography";
 import { scaleStyles } from "./scaleStyle";
+import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, type Box, type CoverFocus } from "./coverCrop";
 import {
   isBareStyle,
   isCutStyle,
@@ -378,6 +379,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   onPickSlot,
   onPhotoReady,
   onSwapPhotos,
+  onPhotoTap,
   unit = 1,
 }: {
   shotRef?: React.RefObject<View | null>;
@@ -410,6 +412,11 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
    * 넘기지 않으면 사진 칸은 손가락에 반응하지 않는다.
    */
   onSwapPhotos?: (from: number, to: number) => void;
+  /**
+   * 꾸미는 중에만 넘긴다. 사진 칸을 끌지 않고 누르면 그 사진과 칸의 가로:세로를 알린다.
+   * 칸에 보여 줄 부분을 맞추는 화면을 연다.
+   */
+  onPhotoTap?: (photoId: string, ratio: number) => void;
   /**
    * 카드를 몇 배 크기로 배치할지. 폰에서 찍을 때만 1 보다 크다(`keepsakeShotScale`).
    *
@@ -476,6 +483,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           onRef={칸_등록}
           measure={칸_재기}
           lifted={옮김?.from === 내_자리}
+          onTap={photo && onPhotoTap ? (ratio) => onPhotoTap(photo.id, ratio) : undefined}
           onLift={() => 옮김_표시({ from: 내_자리, to: null })}
           onOver={(to) => 옮김_표시((지금) => (지금 && 지금.to !== to ? { ...지금, to } : 지금))}
           onDrop={(to) => {
@@ -485,11 +493,11 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           style={[s.cellPhoto, { backgroundColor: photo?.color ?? look.frame }]}
         >
           {photo?.uri && (
-            <Image
-              source={{ uri: photo.uri }}
-              resizeMode="cover"
-              style={s.fill}
-              onLoad={() => onPhotoReady?.(`${photo.id}:${big ? "d" : "t"}`)}
+            <FocusedPhoto
+              key={photo.uri}
+              uri={photo.uri}
+              focus={card.photoFocus[photo.id]}
+              onReady={() => onPhotoReady?.(`${photo.id}:${big ? "d" : "t"}`)}
             />
           )}
           {네컷 && Boolean(stamp) && 마지막_칸 && (
@@ -640,6 +648,7 @@ function SwapCell({
   onRef,
   measure,
   lifted,
+  onTap,
   onLift,
   onOver,
   onDrop,
@@ -654,6 +663,8 @@ function SwapCell({
   onRef: (index: number, view: View | null) => void;
   measure: (each: (자리: { index: number; x: number; y: number; width: number; height: number }) => void) => void;
   lifted: boolean;
+  /** 끌지 않고 짧게 눌렀을 때. 칸의 가로:세로를 넘긴다. 한 장뿐인 카드에서도 부른다. */
+  onTap?: (ratio: number) => void;
   onLift: () => void;
   onOver: (to: number | null) => void;
   onDrop: (to: number | null) => void;
@@ -665,10 +676,12 @@ function SwapCell({
   const [들림] = useState(() => new Animated.Value(0));
   const [흔들림] = useState(() => new Animated.Value(0));
   // 손가락 이벤트에서 읽는 값. 렌더 중에는 읽지 않는다.
-  const 지금 = useRef({ index, enabled, scale, onLift, onOver, onDrop, measure });
+  const 지금 = useRef({ index, enabled, scale, onLift, onOver, onDrop, measure, onTap });
   useEffect(() => {
-    지금.current = { index, enabled, scale, onLift, onOver, onDrop, measure };
-  }, [index, enabled, scale, onLift, onOver, onDrop, measure]);
+    지금.current = { index, enabled, scale, onLift, onOver, onDrop, measure, onTap };
+  }, [index, enabled, scale, onLift, onOver, onDrop, measure, onTap]);
+  /** 이 칸의 크기. 누르면 가로:세로를 알린다. */
+  const 칸_크기 = useRef({ width: 1, height: 1 });
 
   /** 한 번 누르는 동안의 값. 손가락 이벤트에서만 고친다. */
   const 손 = useRef<{
@@ -696,9 +709,16 @@ function SwapCell({
         Animated.spring(들림, { toValue: 0, useNativeDriver: true, friction: 7 }),
       ]).start();
     };
-    const 끝낸다 = () => {
+    const 끝낸다 = (_?: unknown, g?: { dx: number; dy: number }) => {
+      // 들기 전에, 움직이지 않고 뗐으면 누른 것이다.
+      const 눌렀다 = Boolean(이번.타이머) && Boolean(g) && Math.abs(g!.dx) < 8 && Math.abs(g!.dy) < 8;
       if (이번.타이머) clearTimeout(이번.타이머);
       이번.타이머 = undefined;
+      if (눌렀다) {
+        const { width, height } = 칸_크기.current;
+        지금.current.onTap?.(width / Math.max(1, height));
+        return;
+      }
       if (!이번.들었다) return;
       이번.들었다 = false;
       const 바꿀_칸 = 이번.놓을_칸;
@@ -709,7 +729,7 @@ function SwapCell({
     // PanResponder 가 이 콜백들을 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
     // eslint-disable-next-line react-hooks/refs
     return PanResponder.create({
-      onStartShouldSetPanResponder: () => 지금.current.enabled,
+      onStartShouldSetPanResponder: () => 지금.current.enabled || Boolean(지금.current.onTap),
       // 들기 전에는 스크롤이 가져가도 된다. 든 뒤에는 놓을 때까지 붙든다.
       onPanResponderTerminationRequest: () => !이번.들었다,
       onPanResponderGrant: () => {
@@ -717,6 +737,8 @@ function SwapCell({
         이번.놓을_칸 = null;
         이번.타이머 = setTimeout(() => {
           이번.타이머 = undefined;
+          // 한 장뿐이거나 옮길 수 없는 카드는 누르기만 받는다.
+          if (!지금.current.enabled) return;
           이번.들었다 = true;
           이번.칸_자리 = [];
           지금.current.measure((자리_하나) => 이번.칸_자리.push(자리_하나));
@@ -755,14 +777,18 @@ function SwapCell({
         }
       },
       onPanResponderRelease: 끝낸다,
-      onPanResponderTerminate: 끝낸다,
+      // 스크롤 같은 다른 것이 손가락을 가져가면 누른 것으로 보지 않는다.
+      onPanResponderTerminate: () => 끝낸다(),
     });
   }, [자리, 들림, 흔들림]);
 
   return (
     <Animated.View
       ref={(칸: View | null) => onRef(index, 칸)}
-      {...(enabled ? pan.panHandlers : {})}
+      {...(enabled || onTap ? pan.panHandlers : {})}
+      onLayout={(event) => {
+        칸_크기.current = event.nativeEvent.layout;
+      }}
       style={[
         style,
         lifted && styles.swapLifted,
@@ -778,6 +804,46 @@ function SwapCell({
     >
       {children}
     </Animated.View>
+  );
+}
+
+/**
+ * 칸 안의 사진 한 장. 칸마다 맞춘 자리(`card.photoFocus`)가 있으면 그 자리대로 놓는다.
+ *
+ * 맞춘 자리가 없으면 예전처럼 가운데를 잘라 채운다. 있으면 홈 대표 사진과 같은 셈
+ * (`coverLayout`)으로 사진 크기와 칸 크기를 재서 놓는다. 둘 다 재기 전에 찍으면 가운데가
+ * 찍히므로, 다 놓은 뒤에야 `onReady` 를 부른다(찍기는 이것을 기다린다).
+ */
+function FocusedPhoto({ uri, focus, onReady }: { uri: string; focus?: CoverFocus; onReady?: () => void }) {
+  const 맞춤 = Boolean(focus) && !sameFocus(focus!, COVER_FOCUS_DEFAULT);
+  const [칸, 칸재기] = useState<Box>({ width: 0, height: 0 });
+  const [사진, 사진재기] = useState<Box | undefined>(undefined);
+  const 다_놓임 = !맞춤 ? Boolean(사진) : Boolean(사진) && 칸.width > 0 && 칸.height > 0;
+  const 알렸다 = useRef(false);
+  useEffect(() => {
+    if (!다_놓임 || 알렸다.current) return;
+    알렸다.current = true;
+    onReady?.();
+  }, [다_놓임, onReady]);
+  const 자리 = 맞춤 && 사진 && 칸.width > 0 ? coverLayout(사진, 칸, focus!) : undefined;
+  return (
+    <View
+      style={styles.fill}
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        칸재기((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
+      }}
+    >
+      <Image
+        source={{ uri }}
+        resizeMode="cover"
+        style={자리 ? { position: "absolute", ...자리 } : styles.fill}
+        onLoad={(event) => {
+          const { width, height } = event.nativeEvent.source ?? {};
+          사진재기(width && height ? { width, height } : { width: 1, height: 1 });
+        }}
+      />
+    </View>
   );
 }
 

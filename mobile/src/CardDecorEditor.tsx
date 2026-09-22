@@ -45,6 +45,9 @@ import {
 } from "react-native";
 
 import { Text } from "./AppText";
+import { useOnceTip } from "./onceTip";
+import { COVER_FOCUS_DEFAULT, sameFocus } from "./coverCrop";
+import { CoverFocusScreen } from "./ui/CoverFocusScreen";
 import { Glyph } from "./Glyph";
 import { KeepsakeCardView, LIFT_DELAY, ScaledCard, STICKER_LOOK, type CardPhoto } from "./KeepsakeCardView";
 import {
@@ -388,6 +391,10 @@ export function CardDecorTools({
     },
     [onDecor],
   );
+  /** 카드 위 사진에서 하는 일을 처음 한 번 알리는 말풍선. */
+  const [사진_안내_봄, 사진_안내_닫기] = useOnceTip("daymo.card-photo-tip.v1");
+  /** 칸에 보여 줄 부분을 맞추는 중인 사진과 그 칸의 가로:세로. */
+  const [맞추는, 맞추기] = useState<{ photoId: string; ratio: number } | null>(null);
   /** 글자를 고치는 창에 띄운 글자 스티커. */
   const [글자_고치는, 글자_고치기] = useState("");
   const onEdit = useCallback((id: string) => {
@@ -450,9 +457,22 @@ export function CardDecorTools({
               onSwapPhotos={readOnly || exporting
                 ? undefined
                 : (from, to) => tune({ photoIds: swapKeepsakePhotos(card.photoIds, from, to) })}
+              // 사진 칸을 누르면 그 칸에 보여 줄 부분을 맞춘다(홈 대표 사진과 같은 화면).
+              onPhotoTap={readOnly || exporting ? undefined : (photoId, ratio) => {
+                사진_안내_닫기();
+                맞추기({ photoId, ratio });
+              }}
               onPhotoReady={onPhotoReady}
             />
           </ScaledCard>
+        )}
+        {!readOnly && !exporting && !사진_안내_봄 && card.photoIds.length > 0 && (
+          <View style={styles.tip} accessibilityLiveRegion="polite">
+            <Text style={styles.tipText}>{"사진을 누르면 보일 부분을,\n꾹 누르면 자리를 바꿔요"}</Text>
+            <Pressable onPress={사진_안내_닫기} accessibilityRole="button" accessibilityLabel="안내 닫기" hitSlop={10} style={styles.tipClose}>
+              <Glyph name="close" size={12} color="#FFFFFF" weight={2.4} />
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -618,11 +638,16 @@ export function CardDecorTools({
                       />
                     </>
                   )}
+                  {/* 카드 위 사진에서 하는 일은 화면에 드러나지 않아, 눌러 보기 전에는 몰랐다.
+                      처음 한 번은 카드 위 말풍선으로, 그 뒤로는 여기서 늘 찾을 수 있게 둔다. */}
+                  {card.photoIds.length > 0 && (
+                    <Text style={styles.panelHint}>카드의 사진을 누르면 보일 부분을, 꾹 누르면 자리를 바꿔요</Text>
+                  )}
                   <Text style={styles.panelHint}>
                     {꽉_참
                       || notice
                       || (card.photoIds.length > 1
-                        ? "사진을 옆으로 끌거나, 카드에서 꾹 눌러 다른 사진 위에 놓으면 차례가 바뀌어요"
+                        ? "차례 줄에서도 사진을 꾹 눌러 옆으로 끌면 차례가 바뀌어요"
                         : "누른 차례가 카드에 놓이는 차례예요")}
                   </Text>
                 </>
@@ -746,6 +771,25 @@ export function CardDecorTools({
           </View>
         </>
       )}
+      {/* 칸에 보여 줄 부분 맞추기. 가로 카드처럼 칸이 넓으면 세로 사진의 위아래가 잘려서,
+          어디를 남길지 사람이 정한다. 칸마다 비율이 달라 그 칸의 비율로 틀을 그린다. */}
+      <Modal visible={Boolean(맞추는)} transparent animationType="fade" onRequestClose={() => 맞추기(null)}>
+        {맞추는 && (
+          <CoverFocusScreen
+            uri={drawPhotos.find((사진) => 사진.id === 맞추는.photoId)?.uri}
+            initial={card.photoFocus[맞추는.photoId]}
+            ratio={맞추는.ratio}
+            title="카드에 보일 부분"
+            hint="밝은 부분이 카드 칸에 들어가요"
+            onCancel={() => 맞추기(null)}
+            onDone={(자리) => {
+              const { [맞추는.photoId]: _옛_자리, ...나머지 } = card.photoFocus;
+              tune({ photoFocus: sameFocus(자리, COVER_FOCUS_DEFAULT) ? 나머지 : { ...나머지, [맞추는.photoId]: 자리 } });
+              맞추기(null);
+            }}
+          />
+        )}
+      </Modal>
       {/* 글자 고치기. 인스타그램 스토리처럼 화면을 어둡게 하고 가운데에서 크게 적는다.
           도구 칸 맨 아래 입력칸은 키보드에 덮여 보이지 않았다. */}
       <Modal visible={Boolean(글자_고치는)} transparent animationType="fade" onRequestClose={글자_마치기}>
@@ -982,6 +1026,22 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.65 },
   // 남는 칸을 다 쓴다. 이 칸의 크기로 카드를 얼마나 줄일지 정한다.
   stage: { flex: 1, alignItems: "center", justifyContent: "center", padding: STAGE_PAD },
+  // 처음 한 번 뜨는 안내. 카드 위쪽 가운데에 얹고, 카드를 가리는 폭은 짧게 둔다.
+  tip: {
+    position: "absolute",
+    top: STAGE_PAD,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingLeft: 14,
+    paddingRight: 10,
+    borderRadius: 14,
+    backgroundColor: "rgba(20,19,26,0.92)",
+  },
+  tipText: { color: "#FFFFFF", fontSize: 13, lineHeight: 19, fontFamily: typo.label.family },
+  tipClose: { padding: 4 },
   thumbStage: { flex: 1, alignItems: "center", justifyContent: "center" },
   tabs: { flexDirection: "row", gap: 6, paddingHorizontal: 12, paddingBottom: 9 },
   tab: {

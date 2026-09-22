@@ -464,6 +464,21 @@ test("모르는 것이 없는 카드는 예전과 같은 모양으로 저장된�
   assert.equal(card.decor[0].extra, undefined);
   assert.deepEqual(Object.keys(keepsakeBodyOf(card, "가을 제주")), [
     "style", "ratio", "photoIds", "title", "caption", "parts", "stats", "frameColor",
-    "stickers", "decor", "dateStamp", "photoCaptions",
+    // 칸별 사진 자리(2026-09-22)는 이 판이 아는 칸이다. 옛 앱(1.0.0)이 버려도 서버가 되살린다.
+    "stickers", "decor", "dateStamp", "photoCaptions", "photoFocus",
   ]);
+});
+
+test("칸마다 맞춘 사진 자리는 사진을 따라 저장되고, 가운데 그대로면 적지 않는다", () => {
+  const 카드 = keepsakeCardOf(
+    { photoIds: ["a", "b"], photoFocus: { a: { x: 0.3, y: 0.62, zoom: 1.8 }, b: { x: 0.5, y: 0.5, zoom: 1 }, z: "이상한 값" } },
+    "강릉",
+    ["a", "b"],
+  );
+  assert.deepEqual(카드.photoFocus, { a: { x: 0.3, y: 0.62, zoom: 1.8 } });
+  // 자리를 바꿔도 사진을 따라간다. 카드에서 뺀 사진의 자리는 보내지 않는다.
+  assert.deepEqual(keepsakeBodyOf({ ...카드, photoIds: ["b", "a"] }, "강릉").photoFocus, { a: { x: 0.3, y: 0.62, zoom: 1.8 } });
+  assert.deepEqual(keepsakeBodyOf({ ...카드, photoIds: ["b"] }, "강릉").photoFocus, {});
+  // 이상한 값은 범위 안으로 붙든다.
+  assert.deepEqual(keepsakeCardOf({ photoIds: ["a"], photoFocus: { a: { x: 3, y: -1, zoom: 9 } } }, "강릉", ["a"]).photoFocus, { a: { x: 1, y: 0, zoom: 4 } });
 });

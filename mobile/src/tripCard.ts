@@ -24,6 +24,7 @@ import {
   type CardDecor,
   type KeepsakeSticker,
 } from "./cardDecor.ts";
+import { COVER_FOCUS_DEFAULT, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop.ts";
 import { safeFileName } from "./filenames.ts";
 
 export { KEEPSAKE_STICKERS };
@@ -111,6 +112,11 @@ export type KeepsakeCard = {
   dateStamp: boolean;
   /** 사진에 적어 둔 짧은 설명을 칸 아래에 넣을지. */
   photoCaptions: boolean;
+  /**
+   * 사진마다 칸에 보여 줄 부분(사진 id → 자리). 홈 대표 사진과 같은 셈이다(`coverCrop.ts`).
+   * 가운데를 자른 기본 모습이면 적지 않는다. 사진 id 로 들고 있어 자리를 바꿔도 따라간다.
+   */
+  photoFocus: Record<string, CoverFocus>;
   /** 이 판이 모르는 값. 있을 때만 붙는다. */
   kept?: KeepsakeKept;
 };
@@ -154,6 +160,7 @@ export type SavedKeepsake = {
   decor?: unknown;
   dateStamp?: boolean | null;
   photoCaptions?: boolean | null;
+  photoFocus?: unknown;
 };
 
 const pick = <T extends string>(all: readonly T[], value: unknown, fallback: T): T =>
@@ -165,8 +172,33 @@ const pickMany = <T extends string>(all: readonly T[], value: unknown): T[] =>
 /** 이 판이 아는 `settings` 칸. 나머지는 `KeepsakeKept.extra` 로 들고 있는다. */
 const KEEPSAKE_KEYS = new Set([
   "style", "ratio", "photoIds", "title", "caption", "parts", "stats", "frameColor",
-  "stickers", "decor", "dateStamp", "photoCaptions",
+  "stickers", "decor", "dateStamp", "photoCaptions", "photoFocus",
 ]);
+
+/** 저장된 칸별 자리를 읽는다. 모양이 틀린 줄과 가운데 그대로인 줄은 버린다. */
+function photoFocusOf(value: unknown): Record<string, CoverFocus> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const 읽은_것: Record<string, CoverFocus> = {};
+  for (const [id, 자리] of Object.entries(value as Record<string, unknown>)) {
+    if (!자리 || typeof 자리 !== "object") continue;
+    const 정리 = tidyFocus(자리 as Partial<CoverFocus>);
+    if (!sameFocus(정리, COVER_FOCUS_DEFAULT)) 읽은_것[id] = 정리;
+  }
+  return 읽은_것;
+}
+
+/** 보낼 모양. 카드에 든 사진의 것만, 넷째 자리까지. */
+function photoFocusBodyOf(card: KeepsakeCard): Record<string, CoverFocus> {
+  const 보낼_것: Record<string, CoverFocus> = {};
+  const 넷째 = (값: number) => Math.round(값 * 10000) / 10000;
+  for (const id of card.photoIds) {
+    const 자리 = card.photoFocus[id];
+    if (자리 && !sameFocus(자리, COVER_FOCUS_DEFAULT)) {
+      보낼_것[id] = { x: 넷째(자리.x), y: 넷째(자리.y), zoom: 넷째(자리.zoom) };
+    }
+  }
+  return 보낼_것;
+}
 /** 서버가 받는 값 이름의 길이. 이보다 긴 것은 들고 있어 봐야 저장되지 않는다. */
 const 값_이름_최대 = 20;
 const 값_이름인가 = (값: unknown): 값 is string =>
@@ -275,6 +307,7 @@ export function keepsakeCardOf(
         ),
     dateStamp: saved?.dateStamp === true,
     photoCaptions: saved?.photoCaptions === true,
+    photoFocus: photoFocusOf(saved?.photoFocus),
     ...(kept ? { kept } : {}),
   };
 }
@@ -308,6 +341,7 @@ export function keepsakeBodyOf(
     decor: decorWithKept(card.decor, kept?.decor ?? []),
     dateStamp: card.dateStamp,
     photoCaptions: card.photoCaptions,
+    photoFocus: photoFocusBodyOf(card),
   };
 }
 

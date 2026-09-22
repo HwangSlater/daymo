@@ -42,6 +42,9 @@ export function CoverFocusScreen({
   initial,
   onCancel,
   onDone,
+  ratio = COVER_FRAME_RATIO,
+  title = "홈에 보일 부분",
+  hint = "밝은 부분이 홈 카드에 들어가요",
 }: {
   /** 맞출 사진. 아직 못 받았으면 빈 틀만 보여 준다. */
   uri?: string;
@@ -49,6 +52,14 @@ export function CoverFocusScreen({
   initial?: CoverFocus;
   onCancel: () => void;
   onDone: (focus: CoverFocus) => void;
+  /**
+   * 틀의 가로:세로. 기본은 홈 카드의 사진 틀이다. 추억 카드의 사진 칸도 이 화면을 쓴다
+   * (칸마다 비율이 달라 그 칸의 비율을 넘긴다).
+   */
+  ratio?: number;
+  title?: string;
+  /** 틀 아래 첫 줄. 밝은 부분이 어디에 들어가는지 알린다. */
+  hint?: string;
 }) {
   const inset = useSafeAreaInsets();
   // 이 겹은 맞출 때만 붙었다 떨어진다. 그래서 처음 값은 붙을 때 한 번만 읽으면 된다.
@@ -78,6 +89,16 @@ export function CoverFocusScreen({
     const { width, height } = event.nativeEvent.layout;
     setFrame((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
   }, []);
+  /**
+   * 틀이 놓일 자리. 세로로 긴 칸(네컷 세로 등)은 폭을 다 쓰면 화면 밖으로 넘치므로
+   * 폭과 높이 가운데 모자란 쪽에 맞춘다.
+   */
+  const [무대, 무대재기] = useState<Box>({ width: 0, height: 0 });
+  const onStageLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    무대재기((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
+  }, []);
+  const 틀_폭 = 무대.width > 0 ? Math.min(무대.width - 32, (무대.height - 16) * ratio) : 0;
 
   // 손가락 이벤트에서 읽는 값. 렌더 중에는 읽지 않는다.
   const 지금 = useRef({ focus, photo, frame });
@@ -143,7 +164,7 @@ export function CoverFocusScreen({
           >
             <Text style={styles.cancel}>취소</Text>
           </Pressable>
-          <Text style={styles.title}>홈에 보일 부분</Text>
+          <Text style={styles.title}>{title}</Text>
           <Pressable
             onPress={() => onDone(focus)}
             accessibilityRole="button"
@@ -154,8 +175,14 @@ export function CoverFocusScreen({
           </Pressable>
         </View>
 
-        <View style={styles.stage}>
-          <View style={styles.frame} onLayout={onFrameLayout} {...pan.panHandlers}>
+        {/* 손가락은 틀이 아니라 틀 둘레 전체에서 받는다. 틀이 작으면(추억 카드의 좁은 칸)
+            두 번째 손가락이 틀 밖 어두운 곳에 닿아 벌리기가 먹지 않았다. */}
+        <View style={styles.stage} onLayout={onStageLayout} {...pan.panHandlers}>
+          <View
+            style={[styles.frame, 틀_폭 > 0 && { width: 틀_폭, height: 틀_폭 / ratio }]}
+            onLayout={onFrameLayout}
+            pointerEvents="none"
+          >
             {/* 틀 밖으로 삐져나온 부분. 잘려 나갈 곳이 어디인지 비쳐 보인다. */}
             {uri && <Image source={{ uri }} style={[styles.spill, 사진_자리]} />}
             <View style={styles.window}>
@@ -171,7 +198,7 @@ export function CoverFocusScreen({
           </View>
         </View>
 
-        <Text style={styles.hint}>밝은 부분이 홈 카드에 들어가요</Text>
+        <Text style={styles.hint}>{hint}</Text>
         <Text style={styles.hintSub}>끌어서 옮기고, 두 손가락으로 벌려서 키워요</Text>
       </View>
   );
@@ -191,10 +218,10 @@ const styles = StyleSheet.create({
   cancel: { fontSize: 15, color: "#C9CCD4", fontFamily: typo.label.family },
   title: { flex: 1, textAlign: "center", fontSize: 16, color: "#FFFFFF", fontFamily: typo.title.family },
   done: { fontSize: 15, color: "#FFFFFF", fontFamily: typo.title.family },
-  stage: { flex: 1, justifyContent: "center", paddingHorizontal: 16 },
+  stage: { flex: 1, justifyContent: "center", alignItems: "center" },
   // 틀 자체는 자르지 않는다. 자르는 것은 안쪽의 `window` 뿐이라, 삐져나온 사진이
   // 위아래로 비쳐 보인다.
-  frame: { width: "100%", aspectRatio: COVER_FRAME_RATIO, justifyContent: "center" },
+  frame: { justifyContent: "center" },
   spill: { position: "absolute", opacity: 0.28 },
   window: {
     position: "absolute",
