@@ -547,15 +547,18 @@ export function ScaledCard({
   scale,
   width,
   height,
+  shotRef,
   children,
 }: {
   scale: number;
   width: number;
   height: number;
+  /** 폰에서 찍을 때 여기를 찍는다. 이 상자가 키운 뒤의 실제 크기라서다. */
+  shotRef?: React.RefObject<View | null>;
   children: React.ReactNode;
 }) {
   return (
-    <View style={[styles.scaleBox, { width: width * scale, height: height * scale }]}>
+    <View ref={shotRef} collapsable={false} style={[styles.scaleBox, { width: width * scale, height: height * scale }]}>
       <View style={{ width, height, transform: [{ scale }] }}>{children}</View>
     </View>
   );

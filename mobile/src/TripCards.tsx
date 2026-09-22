@@ -63,6 +63,9 @@ import {
 } from "./tripCard";
 import { shareTripCard } from "./tripCardExport";
 
+/** 기기가 찍은 카드의 파일 형식. 폰은 JPEG, 웹은 PNG 다. */
+const CAPTURE_KIND = Platform.OS === "web" ? "png" : "jpg";
+
 export type { CardPhoto };
 
 /**
@@ -372,10 +375,12 @@ export function TripCardsSection({
       notify(blocked);
       return;
     }
-    // 「카드 만들기」는 만들러 온 것이라 곧바로 도구를 편다.
-    const 시작 = keepsakeCardOf(undefined, tripName, photoIds);
+    // 「카드 만들기」는 만들러 온 것이라 곧바로 도구를 편다. 사진은 비워 두고 직접 고르게 한다.
+    // 예전에는 가장 최근 사진이 먼저 들어가 있어, 넣을 사진을 고르려면 그것부터 빼야 했다.
+    // 사진을 보다가 만드는 길(아래)은 보던 사진이 들어간다.
+    const 시작 = { ...keepsakeCardOf(undefined, tripName, photoIds), photoIds: [] };
     openCard("새 카드", 시작, true);
-    viewerRef.current.onMove(시작.photoIds[0] ?? null);
+    viewerRef.current.onMove(null);
   }, [blocked, notify, openCard, photoIds, tripName]);
   // 사진 격자에 함께 놓을 타일. 대표 사진 한 장의 색과 썸네일만 실어 보낸다.
   const tiles = useMemo<CardTile[]>(
@@ -516,6 +521,11 @@ export function TripCardsSection({
       return;
     }
     if (busy) return;
+    // 사진 없이 시작한 새 카드. 빈 카드는 저장하지 않는다.
+    if (지금 && 지금.photoIds.length === 0) {
+      viewerRef.current.onNotice("카드에 넣을 사진을 골라 주세요");
+      return;
+    }
     const 저장된_줄 = open ? rows.find((줄) => 줄.id === open.id) : undefined;
     const 그대로다 = Boolean(open && baseline && 지금 && sameKeepsakeCard(baseline, 지금));
     // 손댄 것도 없고 서버의 그림도 지금 카드 그대로면 할 일이 없다.
@@ -638,19 +648,23 @@ export function TripCardsSection({
     } catch {
       원본_못_받음 = true;
     }
+    // 앞서 찍을 때 남은 「다 그렸다」를 지운다. 남아 있으면 이번에 크게 불러올 사진을
+    // 기다리지 않고 찍어, 화면에 있던 썸네일이 카드에 들어간다.
+    drawn.current = new Set([...drawn.current].filter((key) => !key.endsWith(":d")));
     setOriginals(받은_것);
     setExporting(true);
     const 잰다 = Date.now();
     try {
-      await 그려질_때까지(() =>
+      const 다_그림 = await 그려질_때까지(() =>
         drawPhotos.every((photo) => !photo.uri || drawn.current.has(`${photo.id}:d`)));
+      if (__DEV__ && !다_그림) console.log("추억 카드: 사진을 다 기다리지 못하고 찍었다");
       const size = keepsakeSizeOf(card.ratio, card.style);
-      const 찍은_것 = await captureRef(shot, {
-        format: "png",
-        result: Platform.OS === "web" ? "data-uri" : "tmpfile",
-        width: size.exportWidth,
-        height: size.exportHeight,
-      });
+      // 폰은 카드를 이미 찍힐 크기로 키워 두었으니(`keepsakeShotScale`) 크기를 넘기지 않는다.
+      // 넘기면 iOS 는 그 값을 포인트로 읽어 기기 배율만큼 또 키운다. 네컷 2160x6480 을
+      // PNG 로 찍으면 20MB 가까이 되어 JPEG(95)로 찍는다. 서버는 받아서 다시 JPEG 로 쓴다.
+      const 찍은_것 = Platform.OS === "web"
+        ? await captureRef(shot, { format: "png", result: "data-uri", width: size.exportWidth, height: size.exportHeight })
+        : await captureRef(shot, { format: "jpg", quality: 0.95, result: "tmpfile" });
       if (__DEV__) console.log(`추억 카드 캡처 ${card.style} ${Date.now() - 잰다}ms`);
       return { 찍은_것, 원본_못_받음 };
     } finally {
@@ -706,7 +720,7 @@ export function TripCardsSection({
     let 찍음: { 찍은_것: string; 원본_못_받음: boolean } | undefined;
     try {
       찍음 = await 원본으로_찍기();
-      알린다(await shareTripCard(name, 찍음.찍은_것), 찍음.원본_못_받음);
+      알린다(await shareTripCard(name, 찍음.찍은_것, CAPTURE_KIND), 찍음.원본_못_받음);
       // 서버 그림이 없던 카드(이 기능 전에 만든 것)를 원본으로 그렸으면 그 그림도 올려 둔다.
       // 원본이 하나라도 빠진 그림은 올리지 않는다. 나중에 원본이 없어도 이 화질은 남아야 한다.
       if (open && 저장된_줄 && 손댄_것_없다 && canManage && canEdit && !찍음.원본_못_받음) {
@@ -917,10 +931,17 @@ export function TripCardsSection({
 const rowVersionOf = (rows: readonly ServerTripCard[], id: string) =>
   rows.find((줄) => 줄.id === id)?.version ?? 1;
 
-/** 사진이 다 그려질 때까지 기다린다. 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. */
-const 그려질_때까지 = async (다_그렸나: () => boolean) => {
-  for (let 번 = 0; 번 < 60; 번 += 1) {
-    if (다_그렸나()) return;
+/**
+ * 사진이 다 그려질 때까지 기다린다. 다 그렸으면 참이다.
+ *
+ * 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. 폰은 찍는 순간 썸네일을 원본으로 바꿔
+ * 다시 불러오는데, 큰 사진 네 장이면 몇 초가 걸린다. 그전에 찍으면 썸네일이 들어가서 넉넉히
+ * 15초까지 기다린다. 넘기면 그대로 찍는다(저장 자체를 막지 않는다).
+ */
+const 그려질_때까지 = async (다_그렸나: () => boolean): Promise<boolean> => {
+  for (let 번 = 0; 번 < 300; 번 += 1) {
+    if (다_그렸나()) return true;
     await new Promise((멈춤) => setTimeout(멈춤, 50));
   }
+  return 다_그렸나();
 };

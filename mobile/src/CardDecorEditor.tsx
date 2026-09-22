@@ -31,6 +31,8 @@ import { memo, useCallback, useMemo, useState } from "react";
 import {
   Image,
   LayoutChangeEvent,
+  PixelRatio,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -62,6 +64,7 @@ import { typo } from "./theme/typography";
 import {
   isCutStyle,
   keepsakePhotoFullReason,
+  keepsakeShotScale,
   keepsakeSizeOf,
   moveKeepsakePhoto,
   toggleKeepsakePhoto,
@@ -183,6 +186,17 @@ function Toggle({
 }
 
 /**
+ * 찍는 동안의 배치. 폰은 카드를 목표 픽셀(가로 2160)까지 실제로 키워 바깥 상자를 찍는다
+ * (`keepsakeShotScale`). 웹의 캡처는 화면에 그려진 크기 그대로 찍으므로 예전처럼 제 크기(1)로
+ * 두고 카드 자신을 찍는다.
+ */
+function shotLayoutOf(size: { width: number; exportWidth: number }, exporting: boolean) {
+  const native = Platform.OS !== "web";
+  const scale = exporting && native ? keepsakeShotScale(size, PixelRatio.get()) : 1;
+  return { native, scale };
+}
+
+/**
  * 도구 없이 카드만 크게 보여 준다.
  *
  * 격자에서 카드를 누르면 사진과 같은 결로 먼저 이것이 뜬다. 고치는 것은 아래
@@ -216,8 +230,9 @@ export function CardPreview({
 }) {
   const [칸, 칸재기] = useState({ width: 0, height: 0 });
   const size = keepsakeSizeOf(card.ratio, card.style);
+  const 찍기 = shotLayoutOf(size, exporting);
   const scale = exporting
-    ? 1
+    ? 찍기.scale
     : fitScaleOf(size.width, size.height, 칸.width - STAGE_PAD * 2, 칸.height - STAGE_PAD * 2);
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -226,9 +241,9 @@ export function CardPreview({
   return (
     <View style={styles.stage} onLayout={onLayout} accessibilityLabel={`${text.title || "추억 카드"} 크게 보기`}>
       {칸.width > 0 && (
-        <ScaledCard scale={scale} width={size.width} height={size.height}>
+        <ScaledCard scale={scale} width={size.width} height={size.height} shotRef={찍기.native ? shotRef : undefined}>
           <KeepsakeCardView
-            shotRef={shotRef}
+            shotRef={찍기.native ? undefined : shotRef}
             card={card}
             photos={photos}
             text={text}
@@ -289,7 +304,8 @@ export function CardDecorTools({
   readOnlyHint?: string;
   theme?: AppTheme;
 }) {
-  const [tab, setTab] = useState<CardToolTab>("프레임");
+  // 사진 없이 시작한 새 카드는 사진부터 고르게 한다.
+  const [tab, setTab] = useState<CardToolTab>(card.photoIds.length ? "프레임" : "사진");
   const [고른_것, 고르기] = useState("");
   /** 차례를 옮기려고 고른 사진. 「사진」 갈래에서만 쓴다. */
   const [옮길_사진, 옮길_사진_고르기] = useState("");
@@ -305,8 +321,9 @@ export function CardDecorTools({
    * 찍으면 1080px 로 늘릴 때 뭉개진다. 내보내는 동안에는 카드를 제 크기로 되돌리고
    * 부르는 쪽이 「만드는 중」 덮개로 가린다.
    */
+  const 찍기 = shotLayoutOf(size, exporting);
   const scale = exporting
-    ? 1
+    ? 찍기.scale
     : fitScaleOf(size.width, size.height, 칸.width - STAGE_PAD * 2, 칸.height - STAGE_PAD * 2);
   const onStageLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -356,16 +373,16 @@ export function CardDecorTools({
     <>
       <View style={styles.stage} onLayout={onStageLayout} accessibilityLabel="꾸미는 카드">
         {칸.width > 0 && (
-          <ScaledCard scale={scale} width={size.width} height={size.height}>
+          <ScaledCard scale={scale} width={size.width} height={size.height} shotRef={찍기.native ? shotRef : undefined}>
             <KeepsakeCardView
-              shotRef={shotRef}
+              shotRef={찍기.native ? undefined : shotRef}
               card={card}
               photos={drawPhotos}
               text={text}
               stats={stats}
               stamp={stamp}
               big={exporting}
-              edit={edit}
+                edit={edit}
               // 내보내는 동안에는 끈다. 빈 칸이 그림으로 찍히면 고장 난 카드가 된다.
               showEmptySlots={!exporting && !readOnly}
               onPickSlot={() => setTab("사진")}

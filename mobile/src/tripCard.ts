@@ -340,6 +340,32 @@ export function homeCoverRows(style: string | undefined | null, photoCount: numb
 }
 
 /**
+ * 폰에서 찍는 카드는 `exportWidth` 의 몇 배 픽셀인지. 세로 카드면 가로 2160px 이다.
+ *
+ * 웹은 `exportWidth` 그대로 찍는다. 2026-09-22 에 1080·1620·2160 을 견주어 2160 을 골랐다.
+ * 이보다 크면 네컷(2160x6480)이 서버의 픽셀 한도(1600만)를 넘는다.
+ */
+export const KEEPSAKE_NATIVE_SHOT_FACTOR = 2;
+
+/**
+ * 폰에서 찍는 동안 카드를 몇 배로 키워 배치할지.
+ *
+ * 예전에는 카드를 화면 크기(가로 300)로 둔 채 찍으면서 크기만 `captureRef` 에 넘겼다.
+ * iOS 는 그 값을 포인트로 읽어 기기 배율만큼 더 키웠고(가로 카드 5760px, 네컷은 못 찍음),
+ * 안드로이드는 작게 찍어 늘렸다. 이제 카드 바깥 상자가 실제로 목표 픽셀이 되게 키우고 그대로 찍는다.
+ *
+ * 크기는 맞지만 사진 선명도는 아직이다. 카드 안은 화면 단위로 배치하고 transform 으로 키우는데,
+ * iOS 는 모서리를 둥글게 자르는 층을 키우기 전 크기로 먼저 그린다. 그래서 사진이 약 900px
+ * 수준으로 들어간다(2026-09-22 실기기에서 잼). 찍을 때 처음부터 큰 크기로 배치해야 풀린다.
+ */
+export function keepsakeShotScale(
+  size: { width: number; exportWidth: number },
+  pixelRatio: number,
+): number {
+  return (size.exportWidth * KEEPSAKE_NATIVE_SHOT_FACTOR) / (size.width * pixelRatio);
+}
+
+/**
  * 미리보기에 그릴 크기와 내보낼 크기. 내보내기는 화면의 다섯 배 넘게 잡는다.
  *
  * 네컷 틀은 비율 대신 틀이 크기를 정한다. 사진관 스트립은 길쭉해야 스트립처럼 보인다.

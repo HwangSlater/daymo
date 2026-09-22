@@ -13,6 +13,7 @@ import {
   keepsakeLayoutOf,
   keepsakeListOf,
   keepsakeRowSlots,
+  keepsakeShotScale,
   keepsakeSizeOf,
   keepsakeSlotCaption,
   keepsakeStatLines,
@@ -161,6 +162,23 @@ test("네컷 틀은 비율이 아니라 틀이 크기를 정한다", () => {
   assert.deepEqual(keepsakeSizeOf("세로", "세컷"), { width: 200, height: 470, exportWidth: 1080, exportHeight: 2538 });
   assert.deepEqual(keepsakeSizeOf("가로", "네컷 격자"), { width: 300, height: 375, exportWidth: 1080, exportHeight: 1350 });
   assert.deepEqual(keepsakeSizeOf("세로", "네컷 가로"), { width: 300, height: 150, exportWidth: 1920, exportHeight: 960 });
+});
+
+test("폰에서 찍는 카드는 가로 2160px 이고, 네컷도 서버 한도(1600만 픽셀) 안이다", () => {
+  const 스타일들 = [["세로", "필름"], ["정사각", "필름"], ["가로", "필름"], ["가로", "네컷"], ["세로", "세컷"], ["가로", "네컷 격자"], ["세로", "네컷 가로"]] as const;
+  for (const 배율 of [2, 2.625, 2.75, 3, 3.5]) {
+    for (const [ratio, style] of 스타일들) {
+      const size = keepsakeSizeOf(ratio, style);
+      const k = keepsakeShotScale(size, 배율);
+      // 바깥 상자(화면 단위 width * k)를 기기 배율로 찍은 픽셀
+      const 가로 = Math.round(size.width * k * 배율);
+      const 세로 = Math.round(size.height * k * 배율);
+      assert.equal(가로, size.exportWidth * 2);
+      assert.ok(Math.abs(세로 - size.exportHeight * 2) <= 4, `${style}/${ratio} ${세로}`);
+      assert.ok(가로 * 세로 <= 16_000_000, `${style}/${ratio} ${가로}x${세로}`);
+    }
+  }
+  assert.equal(keepsakeShotScale(keepsakeSizeOf("세로"), 3), 2.4);
 });
 
 test("네컷 틀의 칸 배치", () => {

@@ -26,7 +26,7 @@ export async function shareTripCard(
   shot: string,
   kind: "png" | "jpg" = "png",
 ): Promise<"shared" | "unavailable"> {
-  // 기기가 찍은 그림은 PNG, 서버에 저장해 둔 그림은 JPEG 다(`cardImage.ts`).
+  // 폰이 찍은 그림과 서버에 저장해 둔 그림은 JPEG, 웹이 찍은 그림은 PNG 다(`TripCards.tsx`의 CAPTURE_KIND).
   const name = `${safeFileName(fileName, "추억 카드")}.${kind}`;
   if (Platform.OS === "web") {
     if (typeof document === "undefined") return "unavailable";
