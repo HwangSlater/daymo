@@ -32,6 +32,7 @@
  *      고 미리 알려 다시 칠하기 대신 합성으로 가게 한다.
  */
 
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -189,6 +190,22 @@ const DANGER_INK = "#F08A82";
  * 아이콘만 살리려면 끝에서만 짙고 가운데로 가며 사라지는 그늘이 있어야 한다.
  * `expo-linear-gradient` 를 새로 들이지 않고 이미 쓰는 `react-native-svg` 로 그린다.
  */
+/**
+ * 위아래 시스템 막대를 비킬 여백. 이 창은 안드로이드에서 상단바·하단바 밑까지 깔린다(Expo SDK 57 은
+ * 늘 edge-to-edge 다). 전에는 안드로이드 위 여백을 18 로 박아 두어 ✕·되돌리기가 시계 밑에 깔렸다.
+ * 아이폰은 기기에서 맞춘 52 를 그대로 둔다.
+ */
+function useSystemBars() {
+  const 여백 = useSafeAreaInsets();
+  return { 위: Platform.OS === "ios" ? 52 : 여백.top + 8, 아래: 여백.bottom };
+}
+
+/**
+ * 키보드를 피하는 방식. 안드로이드도 창이 막대 밑까지 깔리면 키보드가 떠도 창이 줄지 않아서
+ * (`softwareKeyboardLayoutMode: resize` 가 먹지 않는다) 직접 비켜야 한다.
+ */
+const KEYBOARD_BEHAVIOR = Platform.OS === "web" ? undefined : "padding";
+
 function Scrim({ place, tall = false }: { place: "top" | "bottom"; tall?: boolean }) {
   const id = `photoScrim-${place}`;
   return (
@@ -361,8 +378,7 @@ export function PhotoViewerScreen({
    * 한 번 눌러 걷어 내고 사진만 본다. 사진첩 앱들이 하는 그대로다.
    */
   const [chromeOn, setChromeOn] = useState(true);
-  /** 화면 아래 시스템 막대의 높이. 안드로이드는 창이 그 밑까지 깔린다. */
-  const 아래_막대 = useSafeAreaInsets().bottom;
+  const { 위: 위_여백, 아래: 아래_막대 } = useSystemBars();
   const move = (photoId: string) => {
     setMenuOpen(false);
     onMove(photoId);
@@ -691,13 +707,12 @@ export function PhotoViewerScreen({
     >
       {/* 보기와 꾸미기가 이 한 창을 나눠 쓴다. 창을 갈아 끼우지 않아 「꾸미기」를
           눌러도 화면이 한 번 깜빡이지 않는다. */}
-      <KeyboardAvoidingView
-        style={styles.screen}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      {/* 이 창은 늘 검은 바탕이다. 폰이 밝은 모드여도 시계·배터리 표시는 희게 둔다. */}
+      <StatusBar style="light" />
+      <KeyboardAvoidingView style={styles.screen} behavior={KEYBOARD_BEHAVIOR}>
         {decorating && decor ? (
         <>
-          <View style={styles.decorHead}>
+          <View style={[styles.decorHead, { paddingTop: 위_여백 }]}>
             <Pressable
               onPress={back}
               accessibilityRole="button"
@@ -783,7 +798,7 @@ export function PhotoViewerScreen({
                   ]}
                 >
                 {카드 ? (
-                  <View style={styles.previewBox} pointerEvents="none">{카드}</View>
+                  <View style={[styles.previewBox, { top: 위_여백 + 40 }]} pointerEvents="none">{카드}</View>
                 ) : 한장?.uri ? (
                   // 크기를 숫자로 못 박는다. 퍼센트로 두면 줄이 움직일 때마다 칸을
                   // 다시 재고, 표시본(긴 변 2048px)을 그 크기에 다시 맞춰 그린다.
@@ -820,7 +835,7 @@ export function PhotoViewerScreen({
             「꾸미기」와 그림이 겹쳐 뺐던 것인데, 카드 쪽이 네모 넷(▦)으로 바뀌어
             다시 꺼냈다. */}
         {chromeOn && (
-        <View style={styles.bar}>
+        <View style={[styles.bar, { top: 위_여백 }]}>
           <BarButton glyph="close" label="크게 보기 닫기" onPress={close} />
           <Text style={styles.count}>{!previewing && photos.length > 1 ? `${index + 1} / ${photos.length}` : ""}</Text>
           {Boolean(저장단추) && (
@@ -966,7 +981,7 @@ export function PhotoViewerScreen({
           />
         )}
         {menuOpen && menuRows.length > 0 && (
-          <View style={styles.menu}>
+          <View style={[styles.menu, { top: 위_여백 + 46 }]}>
             {menuRows.map((하나) => (
               <Pressable
                 key={하나.label}
@@ -1087,6 +1102,7 @@ export function PhotoEditScreen({
   readOnlyHint?: string;
   theme?: AppTheme;
 }) {
+  const 막대 = useSystemBars();
   /**
    * 열려 있는 도구 칸.
    *
@@ -1167,11 +1183,8 @@ export function PhotoEditScreen({
     // 창을 스스로 열지 않는다. 크게 보는 창이 이것을 제 안의 한 겹으로 얹는다.
     // iOS 는 이미 떠 있는 Modal 위에 형제 Modal 을 바로 얹지 못한다.
     <View style={StyleSheet.absoluteFill}>
-      <KeyboardAvoidingView
-        style={styles.editScreen}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={styles.editHead}>
+      <KeyboardAvoidingView style={styles.editScreen} behavior={KEYBOARD_BEHAVIOR}>
+        <View style={[styles.editHead, { paddingTop: 막대.위 }]}>
           <Pressable
             onPress={() => leave(onClose)}
             accessibilityRole="button"
@@ -1205,7 +1218,7 @@ export function PhotoEditScreen({
         {Boolean(onRepick) && !readOnly && <Text style={styles.editStageHint}>사진을 누르면 다른 사진으로 바꿔요</Text>}
         {Boolean(readOnly && readOnlyHint) && <Text style={styles.editStageHint}>{readOnlyHint}</Text>}
 
-        <View style={styles.editTools}>
+        <View style={[styles.editTools, Platform.OS === "android" && { paddingBottom: 막대.아래 + 16 }]}>
           {tool === "설명" && (
             <>
               <TextInput
@@ -1320,7 +1333,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    top: Platform.OS === "ios" ? 52 : 18,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
@@ -1333,7 +1345,6 @@ const styles = StyleSheet.create({
   menu: {
     position: "absolute",
     right: 12,
-    top: Platform.OS === "ios" ? 98 : 64,
     minWidth: 120,
     borderRadius: 12,
     backgroundColor: "rgba(28,27,34,0.96)",
@@ -1391,7 +1402,7 @@ const styles = StyleSheet.create({
   },
   stripCardMarkText: { fontSize: 8, color: INK, fontFamily: typo.label.family },
   // 카드를 크게 보는 자리. 아이콘 줄과 아래 설명·스트립·꾸미기 줄을 비워 둔다.
-  previewBox: { position: "absolute", left: 0, right: 0, top: 92, bottom: 280 },
+  previewBox: { position: "absolute", left: 0, right: 0, bottom: 280 },
   // 저장하고 나서 떴다 사라지는 한 줄. 묻는 창을 띄우지 않으려고 둔 자리다.
   toast: {
     position: "absolute",
@@ -1430,7 +1441,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingTop: Platform.OS === "ios" ? 52 : 18,
     paddingBottom: 8,
     gap: 4,
   },
@@ -1461,7 +1471,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 52 : 18,
     paddingBottom: 10,
   },
   editHeadSide: { minWidth: 56, paddingVertical: 6 },

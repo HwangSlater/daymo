@@ -44,6 +44,7 @@ import {
   View,
 } from "react-native";
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "./AppText";
 import { useOnceTip } from "./onceTip";
 import { COVER_FOCUS_DEFAULT, sameFocus } from "./coverCrop";
@@ -368,6 +369,10 @@ export function CardDecorTools({
   readOnlyHint?: string;
   theme?: AppTheme;
 }) {
+  // 안드로이드는 창이 하단바(Ⅲ ○ < 또는 제스처 막대) 밑까지 깔린다. 아래 도구 막대를 그만큼 올린다.
+  // 아이폰은 기기에서 맞춘 여백을 그대로 둔다.
+  const 막대_높이 = useSafeAreaInsets().bottom;
+  const 하단바 = Platform.OS === "android" ? 막대_높이 : 0;
   // 아무것도 안 열면 카드가 화면을 크게 쓴다. 사진 없이 시작한 새 카드만 「사진」부터 연다.
   const [tab, setTab] = useState<CardToolTab | null>(card.photoIds.length ? null : "사진");
   /** 시트를 끌어 올려 크게 봤는지. 스티커를 고를 때처럼 칸이 많이 필요할 때 쓴다. */
@@ -691,7 +696,7 @@ export function CardDecorTools({
       </View>
 
       {readOnly ? (
-        <View style={styles.readOnly}>
+        <View style={[styles.readOnly, { paddingBottom: 12 + 하단바 }]}>
           <Text style={styles.readOnlyText}>{readOnlyHint || "만든 사람과 관리자만 이 카드를 수정할 수 있어요"}</Text>
         </View>
       ) : (
@@ -1045,7 +1050,7 @@ export function CardDecorTools({
             </Animated.View>
             </View>
           )}
-          <View style={styles.toolBar}>
+          <View style={[styles.toolBar, { paddingBottom: 10 + 하단바 }]}>
             {CARD_TOOL_TABS.map((하나) => {
               const on = tab === 하나;
               return (

@@ -75,7 +75,7 @@ export function CardTextEditor({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDone}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[styles.textSheet, { paddingTop: 창_여백.top, paddingBottom: 창_여백.bottom }]}>
+      <KeyboardAvoidingView behavior={Platform.OS === "web" ? undefined : "padding"} style={[styles.textSheet, { paddingTop: 창_여백.top, paddingBottom: 창_여백.bottom }]}>
         <View style={styles.textSheetTop}>
           <Pressable onPress={onCancel} accessibilityRole="button" accessibilityLabel="글자 고치기 취소" hitSlop={10} style={styles.textSheetSide}>
             <Text style={styles.textSheetCancelText}>취소</Text>
