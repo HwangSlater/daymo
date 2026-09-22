@@ -12,7 +12,7 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-import { isKnownSticker, stickerAspect } from "./stickers/catalog.ts";
+import { isKnownSticker, LEGACY_STICKERS, stickerAspect } from "./stickers/catalog.ts";
 
 /**
  * 붙일 수 있는 스티커의 이름. 값은 화면에 보이는 말 그대로다.
@@ -26,9 +26,7 @@ export type KeepsakeSticker = string;
  * 첫 판의 스티커 아홉. 옛 판이 남긴 `stickers` 칸을 옮길 때(`legacyDecorOf`)만 쓴다.
  * 비행기는 「이상하게 보인다」는 말을 듣고 고르는 자리에서 뺐지만, 그려지기는 한다.
  */
-export const KEEPSAKE_STICKERS: KeepsakeSticker[] = [
-  "하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝",
-];
+export const KEEPSAKE_STICKERS: KeepsakeSticker[] = [...LEGACY_STICKERS];
 
 /** 스티커가 붙던 모서리. 이제는 옛 값을 옮길 때만 쓴다. */
 export type KeepsakeCorner = "좌상" | "우상" | "좌하" | "우하";
@@ -85,7 +83,11 @@ export const DECOR_BACKS = ["없음", "띠", "형광펜", "말풍선", "리본",
 export const DECOR_SHAPE_STICKER = {
   리본: "최고의 하루", 태그: "여행 중", 도장: "맛집", 이름표: "또 오자", 딱지: "디데이", 하트: "우리", 풍선: "행복",
 } as const;
-export const DECOR_SHAPE_BACKS = Object.keys(DECOR_SHAPE_STICKER) as (keyof typeof DECOR_SHAPE_STICKER)[];
+export type DecorShapeBack = keyof typeof DECOR_SHAPE_STICKER;
+export const DECOR_SHAPE_BACKS = Object.keys(DECOR_SHAPE_STICKER) as DecorShapeBack[];
+/** 스티커 모양 바탕인지. 카드·글자 창·색 셈이 모두 이것으로 가른다. */
+export const isShapeBack = (back: string | undefined): back is DecorShapeBack =>
+  back !== undefined && (DECOR_SHAPE_BACKS as readonly string[]).includes(back);
 /**
  * 스티커 모양 바탕에 넣을 수 있는 글자 수. 길면 모양이 일그러지거나 글자가 읽히지 않게 작아진다.
  * 띠 모양은 옆으로 늘려 담고(1.6 배까지), 동그란 것(도장·하트)은 늘리지 않는다.
@@ -93,6 +95,9 @@ export const DECOR_SHAPE_BACKS = Object.keys(DECOR_SHAPE_STICKER) as (keyof type
 export const DECOR_SHAPE_TEXT_MAX = { 띠: 12, 동그란: 6 } as const;
 export const decorShapeTextMax = (back: string): number =>
   back === "도장" || back === "하트" ? DECOR_SHAPE_TEXT_MAX.동그란 : DECOR_SHAPE_TEXT_MAX.띠;
+/** 이 바탕에 적을 수 있는 글자 수. 스티커 모양이면 더 짧고, 아니면 `DECOR_TEXT_MAX` 다. */
+export const decorTextMaxOf = (back: string | undefined): number =>
+  isShapeBack(back) ? decorShapeTextMax(back) : DECOR_TEXT_MAX;
 export type DecorBack = (typeof DECOR_BACKS)[number];
 
 /** 어두운 색인지. 그 위에 흰 글자를 쓸지 가른다. */
@@ -110,7 +115,7 @@ export function decorInkOf(decor: Pick<CardDecor, "color" | "back">): { ink: str
   const paint = DECOR_COLOR_HEX[decor.color ?? "흰색"];
   const back = decor.back ?? "없음";
   const 대비 = isDarkColor(paint) ? "#FFFFFF" : "#16151B";
-  const ink = back === "띠" || (DECOR_SHAPE_BACKS as readonly string[]).includes(back)
+  const ink = back === "띠" || isShapeBack(back)
       ? 대비
       : back === "형광펜"
         ? "#16151B"

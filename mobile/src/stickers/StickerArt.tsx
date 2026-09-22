@@ -1,3 +1,4 @@
+import { memo } from "react";
 import Svg, { G, Path, Text as SvgText } from "react-native-svg";
 
 import { fonts } from "../theme/typography";
@@ -79,7 +80,9 @@ function 색모양(모양: StickerShape, i: number) {
   );
 }
 
-export function StickerArt({ name, size, shadow = true, text, fontFamily, measuredWidth }: Props) {
+// 고르는 판에 마흔 개 넘게 늘어놓는다. 카드를 고칠 때마다(모서리를 끄는 동안에도) 판이 다시
+// 그려지므로, 받는 값이 같으면 그리지 않는다. 받는 값은 모두 글자·숫자라 얕게 견주면 된다.
+export const StickerArt = memo(function StickerArt({ name, size, shadow = true, text, fontFamily, measuredWidth }: Props) {
   const 그림 = Object.prototype.hasOwnProperty.call(STICKER_ART, name) ? STICKER_ART[name] : undefined;
   if (!그림) return null;
   const 맞춤 = text !== undefined ? fitStickerText(그림, text, measuredWidth) : undefined;
@@ -113,4 +116,4 @@ export function StickerArt({ name, size, shadow = true, text, fontFamily, measur
       ) : null}
     </Svg>
   );
-}
+});

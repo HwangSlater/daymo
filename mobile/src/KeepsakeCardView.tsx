@@ -17,7 +17,12 @@ import { Glyph } from "./Glyph";
 import {
   clampDecorSpot,
   decorBoxOf,
+  decorInkOf,
+  isDarkColor,
+  isShapeBack,
+  DECOR_SHAPE_STICKER,
   type CardDecor,
+  type DecorShapeBack,
 } from "./cardDecor";
 import { typo } from "./theme/typography";
 import { StickerArt } from "./stickers/StickerArt";
@@ -38,7 +43,6 @@ import {
   type KeepsakePaperPattern,
 } from "./tripCard";
 import Svg, { Circle, Defs, Line, Pattern, Rect } from "react-native-svg";
-import { decorInkOf, DECOR_SHAPE_BACKS, DECOR_SHAPE_STICKER } from "./cardDecor";
 import { DECOR_FONT_FAMILY, useDecorFonts } from "./decorFonts";
 
 /** 카드에 올릴 수 있는 사진 한 장. 기록 탭의 사진에서 필요한 것만 가려 받는다. */
@@ -77,7 +81,6 @@ const KEEPSAKE_FRAME_LOOK: Record<KeepsakeFrameColor, KeepsakeLook> = {
   숲: { paper: "#2C4433", ink: "#F0F5EE", sub: "#AFC2B1", accent: "#C7D493", frame: "#3B5743" },
 };
 
-
 /**
  * 사진 위에 글을 얹을 때 까는 아래쪽 그늘.
  *
@@ -111,7 +114,7 @@ const PAPER_LOOK: Record<Exclude<KeepsakePaperColor, "기본">, KeepsakeLook> = 
 /** 크라프트는 종이 색 대신 갈색 재생지다. 네컷 틀에서도 틀 색을 덮는다. */
 const KRAFT_LOOK: KeepsakeLook = { paper: "#C9A57A", ink: "#3B2A18", sub: "#5A4430", accent: "#7A3B2E", frame: "#B8936A" };
 
-export const lookOf = (card: KeepsakeCard): KeepsakeLook => {
+const lookOf = (card: KeepsakeCard): KeepsakeLook => {
   const 원래 = isCutStyle(card.style)
     ? KEEPSAKE_FRAME_LOOK[card.frameColor]
     : KEEPSAKE_LOOK[card.style as "없음" | "필름" | "엽서" | "스크랩북"];
@@ -122,13 +125,6 @@ export const lookOf = (card: KeepsakeCard): KeepsakeLook => {
   return 원래;
 };
 
-/** 어두운 종이인지. 무늬 선을 밝게 그릴지 어둡게 그릴지 가른다. */
-const 어두운_종이 = (paper: string) => {
-  const 수 = parseInt(paper.slice(1), 16);
-  const 밝기 = ((수 >> 16) & 255) * 0.299 + ((수 >> 8) & 255) * 0.587 + (수 & 255) * 0.114;
-  return 밝기 < 110;
-};
-
 /**
  * 종이 무늬. 카드 바탕 바로 위, 사진과 글 아래에 깐다. 그림 파일 없이 그려서 앱이 커지지
  * 않는다. 칸 크기는 카드 단위라 찍을 때 키운 배수(`unit`)만큼 함께 커진다.
@@ -136,7 +132,8 @@ const 어두운_종이 = (paper: string) => {
 function PaperPattern({ pattern, paper, unit }: { pattern: KeepsakePaperPattern; paper: string; unit: number }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, "");
   if (pattern === "없음") return null;
-  const 선 = 어두운_종이(paper) ? "rgba(255,255,255,0.13)" : "rgba(90,70,45,0.16)";
+  // 어두운 종이는 무늬 선을 밝게 그린다.
+  const 선 = isDarkColor(paper) ? "rgba(255,255,255,0.13)" : "rgba(90,70,45,0.16)";
   const 칸 = (pattern === "줄" ? 16 : pattern === "크라프트" ? 7 : 12) * unit;
   return (
     <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -189,7 +186,7 @@ export type DecorEdit = {
   onResize: (id: string, size: number, angle: number) => void;
   /** ✕. 이 스티커를 뗀다. */
   onRemove: (id: string) => void;
-  /** 글자를 끌지 않고 눌렀을 때. 글자를 고치는 창을 연다(인스타그램 스토리와 같다). */
+  /** ✎. 글자를 고치는 창을 연다. 누르기만 해서는 열지 않는다(옮기려다 창이 뜨는 일이 잦았다). */
   onEdit?: (id: string) => void;
   /** ⧉. 같은 것을 하나 더 붙인다. 하트를 여러 개 붙일 때 하나씩 고르지 않아도 된다. */
   onDuplicate?: (id: string) => void;
@@ -209,6 +206,15 @@ function sheetOf(unit: number): typeof styles {
   }
   return 시트;
 }
+
+/** 얹은 것의 상자. 글자는 잰 폭·높이가 있으면(0 이 아니면) 그것으로 잡는다. */
+const 상자_재기 = (
+  decor: Pick<CardDecor, "kind" | "x" | "y" | "size">,
+  cardWidth: number,
+  cardHeight: number,
+  글자폭: number,
+  글자높이: number,
+) => decorBoxOf(decor, cardWidth, cardHeight, 글자폭 || undefined, 글자높이 || undefined);
 
 /**
  * 카드에 얹은 것 하나.
@@ -240,7 +246,7 @@ const DecorItem = memo(function DecorItem({
     글자폭재기(폭);
     글자높이재기(높이);
   };
-  const box = decorBoxOf(decor, cardWidth, cardHeight, 글자폭 || undefined, 글자높이 || undefined);
+  const box = 상자_재기(decor, cardWidth, cardHeight, 글자폭, 글자높이);
   const left = box.cx - box.width / 2;
   const top = box.cy - box.height / 2;
   // 처음 한 번만 만든다. 이 뒤로는 손가락 이벤트가 직접 민다.
@@ -272,7 +278,7 @@ const DecorItem = memo(function DecorItem({
         const 배 = 상태.edit?.scale || 1;
         // 글자는 잰 폭으로 상자를 잡는다. 빼먹으면 카드 전체 폭으로 셈해 가운데 점이 오른쪽
         // 끝으로 밀리고, 손을 떼면 그 자리에 저장된다(글자를 가운데로 옮겨도 오른쪽으로 돌아갔다).
-        const 상자 = decorBoxOf(상태.decor, 상태.cardWidth, 상태.cardHeight, 상태.글자폭 || undefined, 상태.글자높이 || undefined);
+        const 상자 = 상자_재기(상태.decor, 상태.cardWidth, 상태.cardHeight, 상태.글자폭, 상태.글자높이);
         const 자리 = clampDecorSpot(
           상태.decor,
           (잡은_곳.current.left + gesture.dx / 배 + 상자.width / 2) / 상태.cardWidth,
@@ -320,7 +326,7 @@ const DecorItem = memo(function DecorItem({
       onPanResponderGrant: () => {
         const 상태 = 지금.current;
         const 배 = 상태.edit?.scale || 1;
-        const 상자 = decorBoxOf(상태.decor, 상태.cardWidth, 상태.cardHeight, 상태.글자폭 || undefined, 상태.글자높이 || undefined);
+        const 상자 = 상자_재기(상태.decor, 상태.cardWidth, 상태.cardHeight, 상태.글자폭, 상태.글자높이);
         // 손잡이는 기울어진 상자의 오른쪽 아래 모서리다. 각도만큼 돌려 둔 자리다.
         const 라디안 = (상태.decor.angle * Math.PI) / 180;
         const x = ((상자.width / 2) * Math.cos(라디안) - (상자.height / 2) * Math.sin(라디안)) * 배;
@@ -334,7 +340,7 @@ const DecorItem = memo(function DecorItem({
       onPanResponderMove: (_, gesture) => {
         const 상태 = 지금.current;
         const 배 = 상태.edit?.scale || 1;
-        const 상자 = decorBoxOf({ ...상태.decor, size: 처음.size }, 상태.cardWidth, 상태.cardHeight, 상태.글자폭 || undefined, 상태.글자높이 || undefined);
+        const 상자 = 상자_재기({ ...상태.decor, size: 처음.size }, 상태.cardWidth, 상태.cardHeight, 상태.글자폭, 상태.글자높이);
         const 라디안 = (처음.angle * Math.PI) / 180;
         const x = ((상자.width / 2) * Math.cos(라디안) - (상자.height / 2) * Math.sin(라디안)) * 배 + gesture.dx;
         const y = ((상자.width / 2) * Math.sin(라디안) + (상자.height / 2) * Math.cos(라디안)) * 배 + gesture.dy;
@@ -362,6 +368,9 @@ const DecorItem = memo(function DecorItem({
    */
   const 손잡이 = HANDLE / (edit?.scale || 1);
   const 테두리 = Math.max(1, 1.5 / (edit?.scale || 1));
+  /** 모서리 손잡이 알 하나. 가운데가 모서리에 오게 반만큼 밖으로 낸다. */
+  const 알 = { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, borderWidth: 테두리 };
+  const 밖 = -손잡이 / 2;
   return (
     <Animated.View
       {...(edit ? pan.panHandlers : {})}
@@ -395,7 +404,7 @@ const DecorItem = memo(function DecorItem({
             hitSlop={손잡이 / 2}
             accessibilityRole="button"
             accessibilityLabel="스티커 삭제"
-            style={[s.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, left: -손잡이 / 2, top: -손잡이 / 2, borderWidth: 테두리 }]}
+            style={[s.decorHandle, 알, { left: 밖, top: 밖 }]}
           >
             <Text style={[s.decorHandleMark, { fontSize: 손잡이 * 0.55 }]}>✕</Text>
           </Pressable>
@@ -406,7 +415,7 @@ const DecorItem = memo(function DecorItem({
               hitSlop={손잡이 / 2}
               accessibilityRole="button"
               accessibilityLabel="같은 것 하나 더 붙이기"
-              style={[s.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, right: -손잡이 / 2, top: -손잡이 / 2, borderWidth: 테두리 }]}
+              style={[s.decorHandle, 알, { right: 밖, top: 밖 }]}
             >
               <Glyph name="copy" size={손잡이 * 0.52} color="#23211F" weight={2.2} />
             </Pressable>
@@ -418,7 +427,7 @@ const DecorItem = memo(function DecorItem({
               hitSlop={손잡이 / 2}
               accessibilityRole="button"
               accessibilityLabel="글자 고치기"
-              style={[s.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, left: -손잡이 / 2, bottom: -손잡이 / 2, borderWidth: 테두리 }]}
+              style={[s.decorHandle, 알, { left: 밖, bottom: 밖 }]}
             >
               <Glyph name="pencil" size={손잡이 * 0.5} color="#23211F" weight={2.2} />
             </Pressable>
@@ -428,7 +437,7 @@ const DecorItem = memo(function DecorItem({
             {...corner.panHandlers}
             accessible
             accessibilityLabel="끌어서 크기와 회전 바꾸기"
-            style={[s.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, right: -손잡이 / 2, bottom: -손잡이 / 2, borderWidth: 테두리 }]}
+            style={[s.decorHandle, 알, { right: 밖, bottom: 밖 }]}
           >
             <Text style={[s.decorHandleMark, { fontSize: 손잡이 * 0.5 }]}>⤢</Text>
           </View>
@@ -718,6 +727,25 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
 
 /** 꾹 눌러야 드는 시간. 이보다 먼저 손가락이 움직이면 스크롤이나 스티커에 넘긴다. 차례 줄도 같이 쓴다. */
 export const LIFT_DELAY = 300;
+/** 들기 전에 손가락이 이만큼(px) 넘게 움직였으면 꾹 누른 것이 아니다. */
+export const LIFT_SLOP = 8;
+
+/**
+ * 꾹 눌러 든 칸을 띄우고 흔들기 시작한다. 카드의 사진 칸과 차례 줄(`CardOrderStrip`)이 같이 쓴다.
+ * 흔들기를 돌려주니 놓을 때 멈춘다. 얼마나 키우고 기울일지는 쓰는 쪽이 `들림`·`흔들림` 을 이어 정한다.
+ */
+export function startLift(들림: Animated.Value, 흔들림: Animated.Value): Animated.CompositeAnimation {
+  Animated.spring(들림, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+  const 흔들기 = Animated.loop(
+    Animated.sequence([
+      Animated.timing(흔들림, { toValue: 1, duration: 90, useNativeDriver: true }),
+      Animated.timing(흔들림, { toValue: -1, duration: 180, useNativeDriver: true }),
+      Animated.timing(흔들림, { toValue: 0, duration: 90, useNativeDriver: true }),
+    ]),
+  );
+  흔들기.start();
+  return 흔들기;
+}
 
 /**
  * 카드의 사진 칸 하나. 꾹 누르면 들려 올라가 흔들리고, 끌면 따라온다.
@@ -816,21 +844,13 @@ function SwapCell({
           이번.칸_자리 = [];
           지금.current.measure((자리_하나) => 이번.칸_자리.push(자리_하나));
           지금.current.onLift();
-          Animated.spring(들림, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
-          이번.흔들기 = Animated.loop(
-            Animated.sequence([
-              Animated.timing(흔들림, { toValue: 1, duration: 90, useNativeDriver: true }),
-              Animated.timing(흔들림, { toValue: -1, duration: 180, useNativeDriver: true }),
-              Animated.timing(흔들림, { toValue: 0, duration: 90, useNativeDriver: true }),
-            ]),
-          );
-          이번.흔들기.start();
+          이번.흔들기 = startLift(들림, 흔들림);
         }, LIFT_DELAY);
       },
       onPanResponderMove: (_, g) => {
         if (!이번.들었다) {
           // 들기 전에 움직였으면 꾹 누른 것이 아니다.
-          if (이번.타이머 && (Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8)) {
+          if (이번.타이머 && (Math.abs(g.dx) > LIFT_SLOP || Math.abs(g.dy) > LIFT_SLOP)) {
             clearTimeout(이번.타이머);
             이번.타이머 = undefined;
           }
@@ -932,7 +952,7 @@ function StickerTextBack({
   fontFamily,
   onSize,
 }: {
-  back: (typeof DECOR_SHAPE_BACKS)[number];
+  back: DecorShapeBack;
   text: string;
   side: number;
   fontFamily: string;
@@ -989,9 +1009,8 @@ function DecorText({
   const fontsReady = useDecorFonts();
   const { ink: 글자색, paint: 색 } = decorInkOf(decor);
   const back = decor.back ?? "없음";
-  const 모양 = (DECOR_SHAPE_BACKS as readonly string[]).includes(back) ? (back as (typeof DECOR_SHAPE_BACKS)[number]) : undefined;
   const 글꼴 = decor.font && decor.font !== "기본" && fontsReady ? DECOR_FONT_FAMILY[decor.font] : typo.title.family;
-  if (모양) return <StickerTextBack back={모양} text={decor.text} side={side} fontFamily={글꼴} onSize={onSize} />;
+  if (isShapeBack(back)) return <StickerTextBack back={back} text={decor.text} side={side} fontFamily={글꼴} onSize={onSize} />;
   const 글 = (
     <Text
       numberOfLines={1}
@@ -1045,13 +1064,14 @@ export function DecorTextPreview({ decor, side }: { decor: Pick<CardDecor, "text
  * 글자 창 「바탕」 칩에 넣는 견본. 이름 대신 그 모양을 작게 그려, 고르기 전에 어떻게
  * 보일지 바로 보이게 한다. 카드에 그리는 것과 같은 부품이라 모양이 어긋나지 않는다.
  */
-export function DecorBackSample({ back, color, font }: Pick<CardDecor, "back" | "color" | "font">) {
+// 글자를 한 자 적을 때마다 글자 창이 다시 그려진다. 견본 열한 개는 색·글꼴이 바뀔 때만 다시 그린다.
+export const DecorBackSample = memo(function DecorBackSample({ back, color, font }: Pick<CardDecor, "back" | "color" | "font">) {
   // 스티커 모양은 스티커를 문구까지 그대로 보여 준다. 칩은 어떤 바탕인지 보고 고르는 견본이다.
-  if (back && (DECOR_SHAPE_BACKS as readonly string[]).includes(back)) {
-    return <StickerArt name={DECOR_SHAPE_STICKER[back as (typeof DECOR_SHAPE_BACKS)[number]]} size={58} shadow={false} />;
+  if (isShapeBack(back)) {
+    return <StickerArt name={DECOR_SHAPE_STICKER[back]} size={58} shadow={false} />;
   }
   return <DecorText decor={{ text: "가나다", back, color, font }} side={12} sheet={styles} />;
-}
+});
 
 /** 카드를 화면에 맞춰 줄여 보여 준다. 줄여도 카드 안의 숫자는 그대로다. */
 export function ScaledCard({
@@ -1075,15 +1095,8 @@ export function ScaledCard({
   );
 }
 
-/** 카드 한 장을 가운데에 놓는다. 시트의 미리보기가 쓴다. */
-export function CardStage({ children }: { children: React.ReactNode }) {
-  return <View style={styles.stage}>{children}</View>;
-}
-
 const styles = StyleSheet.create({
   fill: { width: "100%", height: "100%" },
-  // 카드는 기기 폭을 따르지 않는다. 같은 여행이 기기마다 다른 그림이 되면 안 된다.
-  stage: { alignItems: "center", marginBottom: 12 },
   scaleBox: { alignItems: "center", justifyContent: "center" },
   card: { borderRadius: 14, padding: 12, overflow: "hidden" },
   // 사진관에서 뽑는 네컷은 테두리가 얇고 모서리가 각지다.

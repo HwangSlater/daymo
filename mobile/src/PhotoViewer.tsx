@@ -209,6 +209,33 @@ function Scrim({ place, tall = false }: { place: "top" | "bottom"; tall?: boolea
   );
 }
 
+/** 꾸미기 머리줄 가운데의 ↶ ↷ 하나. 할 것이 없으면 흐리게 두고 자리는 그대로 둔다. */
+function HistoryButton({
+  glyph,
+  label,
+  enabled,
+  onPress,
+}: {
+  glyph: GlyphName;
+  label: string;
+  enabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!enabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !enabled }}
+      hitSlop={6}
+      style={({ pressed }) => [styles.decorHistoryButton, !enabled && styles.decorHistoryOff, pressed && styles.pressed]}
+    >
+      <Glyph name={glyph} size={18} color="#F6F4F1" weight={2.2} />
+    </Pressable>
+  );
+}
+
 /** 사진 위의 아이콘 단추 하나. 누르는 자리를 42px 로 넉넉히 잡는다. */
 function BarButton({
   glyph,
@@ -540,7 +567,7 @@ export function PhotoViewerScreen({
             손.앞_누름 = 0;
             // 첫 톡이 도구 줄을 접거나 폈으니 되돌린다. 두 번 치기는 확대만 한다.
             setChromeOn((보임) => !보임);
-            const { width: 폭, 높이 } = latest.current;
+            const { 높이 } = latest.current;
             if (줌_지금.current.배 > 1.01) 줌_두기({ 배: 1, x: 0, y: 0 }, true);
             else 줌_두기(붙들기(2.5, (폭 / 2 - gesture.x0) * 1.5, (높이 / 2 - gesture.y0) * 1.5), true);
             return;
@@ -681,28 +708,8 @@ export function PhotoViewerScreen({
             </Pressable>
             {decor.history ? (
               <View style={styles.decorHistory}>
-                <Pressable
-                  onPress={decor.history.onUndo}
-                  disabled={!decor.history.canUndo}
-                  accessibilityRole="button"
-                  accessibilityLabel="되돌리기"
-                  accessibilityState={{ disabled: !decor.history.canUndo }}
-                  hitSlop={6}
-                  style={({ pressed }) => [styles.decorHistoryButton, !decor.history?.canUndo && styles.decorHistoryOff, pressed && styles.pressed]}
-                >
-                  <Glyph name="undo" size={18} color="#F6F4F1" weight={2.2} />
-                </Pressable>
-                <Pressable
-                  onPress={decor.history.onRedo}
-                  disabled={!decor.history.canRedo}
-                  accessibilityRole="button"
-                  accessibilityLabel="다시하기"
-                  accessibilityState={{ disabled: !decor.history.canRedo }}
-                  hitSlop={6}
-                  style={({ pressed }) => [styles.decorHistoryButton, !decor.history?.canRedo && styles.decorHistoryOff, pressed && styles.pressed]}
-                >
-                  <Glyph name="redo" size={18} color="#F6F4F1" weight={2.2} />
-                </Pressable>
+                <HistoryButton glyph="undo" label="되돌리기" enabled={decor.history.canUndo} onPress={decor.history.onUndo} />
+                <HistoryButton glyph="redo" label="다시하기" enabled={decor.history.canRedo} onPress={decor.history.onRedo} />
               </View>
             ) : (
               <Text style={styles.decorTitle}>카드 꾸미기</Text>

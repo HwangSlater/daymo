@@ -16,7 +16,7 @@
  *
  * 무거워지기 쉬운 화면이라 몇 가지를 지킨다.
  * - 미리보기는 썸네일(480px)을 쓰고 내보낼 때만 원본으로 바꿔 찍는다.
- * - 목록은 카드마다 대표 사진 한 장만 받는다. 나머지는 그 카드를 열 때 받는다.
+ * - 목록(격자의 작은 카드)은 썸네일만 받는다. 한 번에 셋까지, 받은 것은 다시 받지 않는다.
  * - 기록 탭으로 올려 보내는 손잡이(`onInline`)는 붙들어 둔 것만 넘긴다. 매 렌더마다
  *   새로 만들면 위에서 상태를 고치고 그 때문에 다시 렌더되는 고리가 생긴다.
  */
@@ -308,7 +308,6 @@ export function TripCardsSection({
   }, [tripId]);
 
   const list = useMemo(() => keepsakeListOf(rows, tripName, photoIds), [rows, tripName, photoIds]);
-  // 목록은 카드마다 대표 사진 한 장만 받는다. 나머지는 그 카드를 열 때 받는다.
   // 격자 칸마다 카드를 작게 그리므로 카드에 든 사진의 썸네일을 모두 받는다.
   const listPhotoIds = useMemo(
     () => [...new Set(list.flatMap((줄) => [줄.coverPhotoId, ...줄.card.photoIds]).filter(Boolean))],
@@ -361,6 +360,23 @@ export function TripCardsSection({
     [card, chosen.length],
   );
   const blocked = keepsakeAddBlockedReason(list.length, cardPhotos.length);
+  /**
+   * 저장된 카드 한 장을 그릴 것. 격자의 작은 카드와 옆 칸 미리보기가 같이 쓴다. 받아 둔
+   * 썸네일이 없으면 기기에 있는 사진으로 그린다.
+   */
+  const faceOf = useCallback(
+    (saved: KeepsakeCard) => ({
+      card: saved,
+      photos: saved.photoIds
+        .map((사진id) => cardPhotos.find((photo) => photo.id === 사진id))
+        .filter((photo) => photo !== undefined)
+        .map((photo) => ({ ...photo, uri: thumbs[photo.id] ?? photo.uri })),
+      text: keepsakeTextOf(saved, { name: tripName, period: tripDate, region: tripRegion, people: participants }),
+      stats: keepsakeStatLines(saved, counts),
+      stamp: saved.dateStamp ? keepsakeDateStamp(tripStartKey) : "",
+    }),
+    [cardPhotos, counts, participants, thumbs, tripDate, tripName, tripRegion, tripStartKey],
+  );
 
   const markDrawn = useCallback((key: string) => {
     if (drawn.current.has(key)) return;
@@ -451,20 +467,9 @@ export function TripCardsSection({
         color: cardPhotos.find((photo) => photo.id === 줄.coverPhotoId)?.color ?? "#E7DFD2",
         uri: thumbs[줄.coverPhotoId] ?? cardPhotos.find((photo) => photo.id === 줄.coverPhotoId)?.uri,
         onHome: 줄.id === coverCardId,
-        preview: (
-          <CardThumb
-            card={줄.card}
-            photos={줄.card.photoIds
-              .map((사진id) => cardPhotos.find((photo) => photo.id === 사진id))
-              .filter((photo) => photo !== undefined)
-              .map((photo) => ({ ...photo, uri: thumbs[photo.id] ?? photo.uri }))}
-            text={keepsakeTextOf(줄.card, { name: tripName, period: tripDate, region: tripRegion, people: participants })}
-            stats={keepsakeStatLines(줄.card, counts)}
-            stamp={줄.card.dateStamp ? keepsakeDateStamp(tripStartKey) : ""}
-          />
-        ),
+        preview: <CardThumb {...faceOf(줄.card)} />,
       })),
-    [cardPhotos, counts, coverCardId, list, participants, thumbs, tripDate, tripName, tripRegion, tripStartKey],
+    [cardPhotos, coverCardId, faceOf, list, thumbs],
   );
   /**
    * 카드를 크게 보는 자리를 연다. 격자에서 누를 때와 창 안 스트립에서 누를 때가 같다.
@@ -812,13 +817,6 @@ export function TripCardsSection({
     }
   };
 
-  /**
-   * 홈 화면에는 이 카드가 통째로 깔린다. 홈은 사진 배치만 따르고 틀 색·스티커·
-   * 날짜 도장은 그리지 않는다(`WarmAppShell` 의 홈 카드).
-   *
-   * 저장한 카드만 깔 수 있다. 아직 저장하지 않은 카드는 서버에 없어서 다른 기기와
-   * 상대에게 보일 것이 없다.
-   */
   /** 도구는 접힌 채로 카드를 크게 보는 중인지. */
   const previewing = Boolean(openId) && !toolsOpen;
   /**
@@ -853,6 +851,14 @@ export function TripCardsSection({
     () => tiles.map((하나) => ({ ...하나, on: previewing && 하나.id === openId })),
     [openId, previewing, tiles],
   );
+
+  /*
+   * 홈 화면에는 이 카드가 통째로 깔린다. 홈은 사진 배치만 따르고 틀 색·스티커·
+   * 날짜 도장은 그리지 않는다(`WarmAppShell` 의 홈 카드).
+   *
+   * 저장한 카드만 깔 수 있다. 아직 저장하지 않은 카드는 서버에 없어서 다른 기기와
+   * 상대에게 보일 것이 없다.
+   */
 
   /**
    * 지금 홈에 깔린 것. 내려가는 것의 이름을 대려면 종류와 이름이 함께 필요하다.
@@ -932,24 +938,11 @@ export function TripCardsSection({
    * 옆 칸에 미리 그려 둘 카드. 저장된 모습 그대로다.
    *
    * 사진과 카드를 밀어 넘길 때 옆 칸이 비어 있다가 손을 떼는 순간 카드가 튀어나오면
-   * 넘기는 느낌이 끊긴다. 받아 둔 썸네일이 없으면 기기에 있는 사진으로 그린다.
+   * 넘기는 느낌이 끊긴다.
    */
   const renderCard = (id: string) => {
     const 줄 = list.find((하나) => 하나.id === id);
-    if (!줄) return null;
-    const 사진들 = 줄.card.photoIds
-      .map((사진id) => cardPhotos.find((photo) => photo.id === 사진id))
-      .filter((photo) => photo !== undefined)
-      .map((photo) => ({ ...photo, uri: thumbs[photo.id] ?? photo.uri }));
-    return (
-      <CardPreview
-        card={줄.card}
-        photos={사진들}
-        text={keepsakeTextOf(줄.card, { name: tripName, period: tripDate, region: tripRegion, people: participants })}
-        stats={keepsakeStatLines(줄.card, counts)}
-        stamp={줄.card.dateStamp ? keepsakeDateStamp(tripStartKey) : ""}
-      />
-    );
+    return 줄 ? <CardPreview {...faceOf(줄.card)} /> : null;
   };
 
   // 꾸밀 수 없는 사람에게는 「꾸미기」 한 줄도 주지 않는다. 다만 남의 카드를 열어
