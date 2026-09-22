@@ -5,6 +5,10 @@
 값 한 덩어리를 들고 있을 뿐이고, 무엇을 어떻게 그릴지는 앱의 `mobile/src/tripCard.ts`
 가 정한다. 여기서는 그 덩어리를 여행에 매달아 두고, 고른 사진이 그 여행의 사진인지만 본다.
 
+앱이 카드를 완료할 때 원본 화질로 그린 완성 이미지를 올리면 그것도 둔다
+(`PUT /trip-cards/{id}/image`). 사진 원본은 30일 뒤 지워져 그 뒤로는 기기가 원본
+화질로 다시 그릴 수 없어서다. 이미지는 그린 카드 버전(`image_version`)과 함께 둔다.
+
 한 여행에 여러 장이다. 예전에는 `trips.card_settings` 한 칸이라 새로 만들면 앞서
 만든 카드가 조용히 덮였다.
 """
@@ -17,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
 from app.models import Membership, MembershipRole, Trip, TripCard
+from app.services import photo_files
 from app.services.trips import check_card_photos
 
 # 한 여행에 모아 둘 수 있는 카드 수.
@@ -142,12 +147,47 @@ async def update_card(
     return card
 
 
+def check_image_upload(actor: Membership, card: TripCard, version: int) -> None:
+    """
+    완성 이미지를 받기 전에 본다. 권한은 카드 고치기와 같다.
+
+    `version` 은 앱이 이 그림을 그린 카드 버전이다. 그사이 누가 카드를 고쳤으면 옛 그림이라
+    409 로 돌려보낸다. 파일을 다 받기 전에 먼저 봐서 헛되이 받지 않는다.
+    """
+    if not can_manage(actor, card):
+        raise AppError(ErrorCode.FORBIDDEN)
+    if version != card.version:
+        raise AppError(ErrorCode.VERSION_CONFLICT)
+
+
+async def set_image(
+    session: AsyncSession, *, card: TripCard, version: int, path: str, size: int
+) -> str | None:
+    """
+    저장한 완성 이미지를 카드에 적는다. 지워야 할 옛 파일의 경로를 돌려준다(없으면 None).
+
+    `version` 과 `updated_at` 은 올리지 않는다. 이미지는 카드를 고친 것이 아니라 그 버전의
+    그림을 붙인 것이라, 올릴 때마다 버전이 오르면 상대 기기의 수정이 늘 409 로 막힌다.
+    """
+    옛_경로 = card.image_path
+    card.image_path = path
+    card.image_version = version
+    card.image_bytes = size
+    await session.flush()
+    return 옛_경로 if 옛_경로 and 옛_경로 != path else None
+
+
 async def remove_card(session: AsyncSession, *, card: TripCard, actor: Membership) -> None:
     """
     카드는 되살리지 않는다. 그림 자체가 아니라 무엇으로 그릴지 고른 값이라,
     사진이 남아 있으면 같은 카드를 다시 만들 수 있다. 휴지통에 넣지 않는 까닭이다.
+
+    완성 이미지 파일도 함께 지운다. 여행·공간이 통째로 지워질 때는 여행 폴더째
+    지워지므로(`photo_files.remove_trips`) 따로 할 일이 없다.
     """
     if not can_manage(actor, card):
         raise AppError(ErrorCode.FORBIDDEN)
+    이미지 = card.image_path
     await session.delete(card)
     await session.flush()
+    photo_files.remove_file(이미지)

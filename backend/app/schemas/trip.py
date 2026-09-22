@@ -121,6 +121,9 @@ class TripCardOut(_Camel):
     """
     `canManage` 는 이 카드를 고치고 지울 수 있는지다. 사진과 같은 규칙으로
     만든 사람과 owner 만 참이다.
+
+    `imageVersion` 은 서버에 둔 완성 이미지를 그린 카드 버전이다. 이미지가 없으면 null.
+    `imageVersion == version` 일 때만 그 이미지가 지금 카드와 같은 그림이다.
     """
 
     id: str
@@ -131,6 +134,7 @@ class TripCardOut(_Camel):
     can_manage: bool = False
     created_at: datetime
     version: int
+    image_version: int | None = None
 
 
 class TripUpdateRequest(_Camel):

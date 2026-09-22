@@ -1,9 +1,21 @@
-import pytest
+import io
+import uuid
 
+import pytest
+from PIL import Image
+
+from app.core.config import get_settings
 from app.services.trip_cards import MAX_CARDS_PER_TRIP
 from tests.test_api_trips import 공간을_만든다, 로그인한_사람, 여행을_만든다
 
 pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture(autouse=True)
+def 사진_폴더(tmp_path, monkeypatch):
+    """테스트마다 빈 폴더에 둔다. 카드 이미지와 카드에 넣을 사진이 여기에 쌓인다."""
+    monkeypatch.setattr(get_settings(), "upload_root", str(tmp_path))
+    return tmp_path
 
 
 async def 사진_하나(api, headers, trip_id: str) -> str:
@@ -259,3 +271,227 @@ async def test_카드를_고치며_남의_사진을_새로_끼울_수는_없다(
     )
 
     assert 응답.status_code == 422
+
+
+def 카드_그림(width=1200, height=1600, *, 투명=False) -> bytes:
+    """앱이 그려 올리는 카드 한 장. 투명이면 왼쪽 위만 칠하고 나머지는 비운다."""
+    if 투명:
+        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        image.paste((20, 60, 140, 255), (0, 0, width // 2, height // 2))
+        형식 = "PNG"
+    else:
+        image = Image.new("RGB", (width, height), (230, 200, 160))
+        형식 = "JPEG"
+    buffer = io.BytesIO()
+    image.save(buffer, 형식)
+    return buffer.getvalue()
+
+
+async def 이미지를_올린다(api, headers, card_id: str, version: int, content: bytes, 형식="image/png"):
+    return await api.put(
+        f"/v1/trip-cards/{card_id}/image?version={version}",
+        content=content,
+        headers={**headers, "Content-Type": 형식},
+    )
+
+
+async def 둘이_쓰는_여행(api):
+    """주인(owner)과 초대로 들어온 손님(editor)이 함께 쓰는 공간의 여행 하나."""
+    from tests.test_api_members import token_of, 초대를_만든다
+
+    주인 = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, 주인)
+    초대 = await 초대를_만든다(api, 주인, space_id)
+    손님 = await 로그인한_사람(api, "sea@example.com", "여울")
+    await api.post("/v1/invites/accept", json={"token": token_of(초대)}, headers=손님)
+    trip = await 여행을_만든다(api, 주인, space_id)
+    return 주인, 손님, space_id, trip
+
+
+async def test_완성_이미지를_올리면_줄이지_않은_JPEG_로_두고_imageVersion_이_채워진다(api, db, 사진_폴더):
+    from app.services.photos import used_bytes
+
+    주인, 손님, space_id, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="네컷")
+    assert 카드["imageVersion"] is None
+
+    올림 = await 이미지를_올린다(api, 주인, 카드["id"], 카드["version"], 카드_그림(2400, 3200, 투명=True))
+
+    assert 올림.status_code == 200, 올림.text
+    assert 올림.json()["data"]["imageVersion"] == 카드["version"] == 올림.json()["data"]["version"]
+    파일 = 사진_폴더 / "trips" / trip["id"] / "cards" / f"{카드['id']}-v{카드['version']}.jpg"
+    assert 파일.is_file()
+    with Image.open(파일) as 그림:
+        assert 그림.format == "JPEG" and 그림.mode == "RGB"
+        # 긴 변을 줄이지 않는다. 원본 화질로 그린 그림을 남기려는 것이다.
+        assert 그림.size == (2400, 3200)
+        # 투명한 자리는 흰 바탕이다.
+        assert all(값 >= 250 for 값 in 그림.getpixel((2000, 3000)))
+        assert 그림.getpixel((10, 10))[2] > 100
+    # 공간 저장 한도에 사진과 함께 센다.
+    assert await used_bytes(db, space_id=uuid.UUID(space_id)) == 파일.stat().st_size
+
+    # 상대도 목록에서 같은 값을 보고 이미지를 받는다.
+    목록 = (await api.get(f"/v1/trips/{trip['id']}/cards", headers=손님)).json()["data"]
+    받음 = await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=손님)
+    assert 목록[0]["imageVersion"] == 카드["version"]
+    assert 받음.status_code == 200
+    assert 받음.headers["content-type"] == "image/jpeg"
+    assert 받음.headers["cache-control"] == "private, no-cache"
+    assert 받음.content == 파일.read_bytes()
+
+
+async def test_그사이_카드가_바뀌었으면_옛_그림이라_409(api, db, 사진_폴더):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    await api.patch(
+        f"/v1/trip-cards/{카드['id']}",
+        json={"version": 카드["version"], "settings": {"style": "엽서"}},
+        headers=주인,
+    )
+
+    묵은_그림 = await 이미지를_올린다(api, 주인, 카드["id"], 카드["version"], 카드_그림())
+
+    assert 묵은_그림.status_code == 409, 묵은_그림.text
+    assert not (사진_폴더 / "trips" / trip["id"] / "cards").exists()
+
+
+async def test_카드를_고칠_수_없는_사람은_이미지도_못_올린다(api, db):
+    주인, 손님, _, trip = await 둘이_쓰는_여행(api)
+    주인_카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    손님_카드 = await 카드를_만든다(api, 손님, trip["id"], style="엽서")
+
+    손님이_주인_것에 = await 이미지를_올린다(api, 손님, 주인_카드["id"], 1, 카드_그림())
+    손님이_자기_것에 = await 이미지를_올린다(api, 손님, 손님_카드["id"], 1, 카드_그림(), "image/jpeg")
+    # owner 는 남이 만든 카드도 고치므로 이미지도 올린다.
+    주인이_손님_것에 = await 이미지를_올린다(api, 주인, 손님_카드["id"], 1, 카드_그림())
+
+    assert 손님이_주인_것에.status_code == 403, 손님이_주인_것에.text
+    assert 손님이_자기_것에.status_code == 200, 손님이_자기_것에.text
+    assert 주인이_손님_것에.status_code == 200, 주인이_손님_것에.text
+
+
+async def test_이미지가_아니거나_비었거나_너무_크면_받지_않는다(api, db, monkeypatch):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    gif = io.BytesIO()
+    Image.new("RGB", (10, 10)).save(gif, "GIF")
+
+    글자 = await 이미지를_올린다(api, 주인, 카드["id"], 1, b"not an image at all")
+    움짤 = await 이미지를_올린다(api, 주인, 카드["id"], 1, gif.getvalue(), "image/gif")
+    빈_것 = await 이미지를_올린다(api, 주인, 카드["id"], 1, b"")
+    버전_없음 = await api.put(f"/v1/trip-cards/{카드['id']}/image", content=카드_그림(), headers=주인)
+    monkeypatch.setattr(get_settings(), "trip_card_image_max_bytes", 100)
+    큰_것 = await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림())
+
+    assert 글자.status_code == 422, 글자.text
+    assert 움짤.status_code == 422, 움짤.text
+    assert 빈_것.status_code == 422, 빈_것.text
+    assert 버전_없음.status_code == 422, 버전_없음.text
+    assert 큰_것.status_code == 413, 큰_것.text
+    다시_봄 = (await api.get(f"/v1/trips/{trip['id']}/cards", headers=주인)).json()["data"][0]
+    assert 다시_봄["imageVersion"] is None
+
+
+async def test_이미지는_공간_멤버만_받고_없으면_404(api, db):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    남 = await 로그인한_사람(api, "stranger@example.com", "낯선이")
+
+    아직_없음 = await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=주인)
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림())
+    남이_받음 = await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=남)
+    남이_올림 = await 이미지를_올린다(api, 남, 카드["id"], 1, 카드_그림())
+
+    assert 아직_없음.status_code == 404
+    assert 남이_받음.status_code == 404
+    assert 남이_올림.status_code == 404
+
+
+async def test_accel_접두가_있으면_카드_이미지도_nginx_가_보낸다(api, db, monkeypatch):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림())
+    monkeypatch.setattr(get_settings(), "photo_accel_prefix", "/_protected_uploads/")
+
+    받음 = await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=주인)
+
+    assert 받음.status_code == 200 and 받음.content == b""
+    assert 받음.headers["x-accel-redirect"] == f"/_protected_uploads/trips/{trip['id']}/cards/{카드['id']}-v1.jpg"
+    assert 받음.headers["content-type"] == "image/jpeg"
+
+
+async def test_카드를_고치면_이미지가_옛것이_되고_다시_올리면_옛_파일을_지운다(api, db, 사진_폴더):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림())
+    폴더 = 사진_폴더 / "trips" / trip["id"] / "cards"
+
+    고침 = (
+        await api.patch(
+            f"/v1/trip-cards/{카드['id']}",
+            json={"version": 1, "settings": {"style": "엽서"}},
+            headers=주인,
+        )
+    ).json()["data"]
+    # 고친 뒤에는 옛 그림이다. 파일은 다음에 올릴 때까지 둔다.
+    assert (고침["version"], 고침["imageVersion"]) == (2, 1)
+    assert (폴더 / f"{카드['id']}-v1.jpg").is_file()
+    assert (await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=주인)).status_code == 200
+
+    다시 = await 이미지를_올린다(api, 주인, 카드["id"], 2, 카드_그림(900, 900))
+
+    assert 다시.status_code == 200, 다시.text
+    assert 다시.json()["data"]["imageVersion"] == 2
+    assert sorted(파일.name for 파일 in 폴더.iterdir()) == [f"{카드['id']}-v2.jpg"]
+    받음 = await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=주인)
+    with Image.open(io.BytesIO(받음.content)) as 그림:
+        assert 그림.size == (900, 900)
+
+
+async def test_같은_버전을_두_번_올려도_파일은_하나다(api, db, 사진_폴더):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림(800, 800))
+    다시 = await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림(600, 600))
+
+    assert 다시.status_code == 200
+    폴더 = 사진_폴더 / "trips" / trip["id"] / "cards"
+    assert [파일.name for 파일 in 폴더.iterdir()] == [f"{카드['id']}-v1.jpg"]
+    with Image.open(폴더 / f"{카드['id']}-v1.jpg") as 그림:
+        assert 그림.size == (600, 600)
+
+
+async def test_카드를_지우면_이미지_파일도_지운다(api, db, 사진_폴더):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    남는_카드 = await 카드를_만든다(api, 주인, trip["id"], style="엽서")
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림())
+    await 이미지를_올린다(api, 주인, 남는_카드["id"], 1, 카드_그림())
+    폴더 = 사진_폴더 / "trips" / trip["id"] / "cards"
+
+    지움 = await api.delete(f"/v1/trip-cards/{카드['id']}", headers=주인)
+
+    assert 지움.status_code == 204
+    assert [파일.name for 파일 in 폴더.iterdir()] == [f"{남는_카드['id']}-v1.jpg"]
+
+
+async def test_여행을_완전히_지우면_카드_이미지도_여행_폴더째_사라진다(api, db, 사진_폴더):
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import Trip
+    from app.services.trips import purge_deleted_trips
+
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림())
+    assert (사진_폴더 / "trips" / trip["id"] / "cards").is_dir()
+
+    여행 = await db.get(Trip, uuid.UUID(trip["id"]))
+    여행.deleted_at = datetime.now(UTC) - timedelta(days=40)
+    여행.deletion_scheduled_at = datetime.now(UTC) - timedelta(days=1)
+    await db.flush()
+    await purge_deleted_trips(db)
+
+    assert not (사진_폴더 / "trips" / trip["id"]).exists()

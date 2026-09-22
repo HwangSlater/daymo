@@ -39,6 +39,7 @@ from app.models import (
     ScheduleItem,
     Stay,
     Trip,
+    TripCard,
     TripPlace,
 )
 from app.services import photo_files
@@ -66,13 +67,17 @@ async def used_bytes(session: AsyncSession, *, space_id: uuid.UUID | None = None
 
     아직 파일이 오지 않은 줄은 앱이 말한 원본 크기로 센다. 동시에 여러 장을 올려
     한도를 넘기는 일을 막는다.
+
+    추억 카드의 완성 이미지(`trip_cards.image_bytes`)도 같은 디스크를 쓰므로 함께 센다.
     """
     query = select(func.coalesce(func.sum(func.coalesce(Photo.stored_bytes, Photo.original_bytes)), 0)).where(
         Photo.status.in_(_차지하는_상태)
     )
+    카드 = select(func.coalesce(func.sum(TripCard.image_bytes), 0))
     if space_id is not None:
         query = query.join(Trip, Trip.id == Photo.trip_id).where(Trip.space_id == space_id)
-    return int(await session.scalar(query) or 0)
+        카드 = 카드.join(Trip, Trip.id == TripCard.trip_id).where(Trip.space_id == space_id)
+    return int(await session.scalar(query) or 0) + int(await session.scalar(카드) or 0)
 
 
 async def check_quota(session: AsyncSession, trip: Trip, more_bytes: int) -> None:

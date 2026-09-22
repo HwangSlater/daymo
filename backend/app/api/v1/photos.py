@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import uuid
 from datetime import UTC, date as Date, datetime, timedelta
@@ -28,8 +27,8 @@ from app.services.schedule import zone_of
 
 router = APIRouter(tags=["photos"])
 
-# 워커 하나에서 사진 변환은 한 번에 하나만. 큰 사진 여러 장이 겹치면 메모리가 모자란다.
-_변환_차례 = asyncio.Semaphore(1)
+# 워커 하나에서 그림 변환은 한 번에 하나만. 카드 이미지와 함께 쓴다(`photo_files.convert_turn`).
+_변환_차례 = photo_files.convert_turn
 
 # 사진이 붙어 있는 곳. 사진 id 마다 목록이고, 없으면 빈 목록이다.
 Links = dict[uuid.UUID, list[tuple[PhotoTargetType, uuid.UUID]]]

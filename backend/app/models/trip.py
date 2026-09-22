@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -123,9 +124,15 @@ class TripCard(Base, TimestampMixin, CreatedByMixin):
     """
     여행 기념 카드 한 장.
 
-    카드 그림은 기기가 그리고(docs/development/03-api-specification.md 10장) 서버는
-    고른 값만 들고 있는다. 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 보여야
+    카드 그림은 기기가 그린다(docs/development/03-api-specification.md 10장). 서버는
+    고른 값(`settings`)과, 앱이 카드를 완료할 때 원본 화질로 그려 올린 완성 이미지
+    한 장을 들고 있는다. 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 보여야
     해서 기기에만 두지 않는다.
+
+    완성 이미지를 따로 받는 까닭은 사진 원본이 올린 지 30일 뒤 지워지기 때문이다
+    (`services/photos.ORIGINAL_DAYS`). 그 뒤에 기기가 다시 그리면 표시본(긴 변
+    2048px)으로밖에 못 그린다. 카드를 완료할 때 그려 둔 이미지가 있으면 공유·저장에
+    그것을 쓴다. `image_version` 이 `version` 과 같을 때만 지금 카드와 같은 그림이다.
 
     칼럼을 여럿 두지 않고 `settings` JSONB 한 칸인 이유는, 카드에 무엇을 넣고 뺄지가
     화면을 고칠 때마다 바뀌는 값이어서다. 서버는 이 값으로 계산하지 않고 그대로
@@ -157,6 +164,13 @@ class TripCard(Base, TimestampMixin, CreatedByMixin):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # 함께 고치는 대상이라 수정 API 가 이 값을 받는다. 어긋나면 409 VERSION_CONFLICT 다.
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    # 완성 이미지. `upload_root` 아래 상대 경로(`trips/{trip_id}/cards/{id}-v{N}.jpg`)다.
+    # 카드를 고치면 `version` 만 오르고 이미지는 다음에 올릴 때까지 옛것으로 남는다.
+    image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # 이미지를 그린 카드 버전. 앱은 이 값이 `version` 과 같을 때만 저장된 이미지를 쓴다.
+    image_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 파일 크기. 사진의 `stored_bytes` 와 함께 공간 저장 한도에 센다(`services/photos.used_bytes`).
+    image_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover - 디버깅용
         return f"<TripCard {self.id}>"

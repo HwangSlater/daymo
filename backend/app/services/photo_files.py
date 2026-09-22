@@ -4,6 +4,7 @@
     {upload_root}/trips/{trip_id}/{photo_id}/original.jpg   올린 지 30일까지만
                                             display.jpg     긴 변 2048px
                                             thumbnail.jpg   긴 변 480px
+    {upload_root}/trips/{trip_id}/cards/{card_id}-v{N}.jpg   추억 카드 완성 이미지(카드 버전 N)
     {upload_root}/tmp/                      받는 중인 파일
 
 DB 에는 `upload_root` 아래의 상대 경로만 적는다. 운영에서 사진 폴더를 NAS 로 옮겨도
@@ -21,6 +22,7 @@ DB 에는 `upload_root` 아래의 상대 경로만 적는다. 운영에서 사�
 여기 함수는 모두 동기다. 이미지 변환은 CPU 를 쓰므로 API 는 스레드에서 부른다.
 """
 
+import asyncio
 import os
 import shutil
 import uuid
@@ -60,6 +62,19 @@ FORMATS = {"JPEG": ("image/jpeg", "jpg"), "PNG": ("image/png", "png"), "WEBP": (
 #
 # JPEG 은 줄여서 풀 수 있어(draft) 훨씬 커도 괜찮다.
 MAX_PIXELS = {"JPEG": 120_000_000, "PNG": 8_000_000, "WEBP": 8_000_000}
+
+
+# 카드 완성 이미지의 픽셀 상한. 카드는 줄이지 않고 받은 크기 그대로 JPEG 로 다시 쓰므로
+# JPEG 도 draft 로 줄여 풀 수 없다. 16M 픽셀이면 RGB 로 푼 그림이 48MB, 투명 PNG 를 흰 바탕에
+# 올리는 동안이 가장 많아 120MB 남짓이다. 세로 3:4 로 3456x4608, 9:16 으로 2880x5120 까지 들어간다.
+CARD_MAX_PIXELS = 16_000_000
+# 카드 이미지는 사진보다 한 단계 높게 누른다. 글자와 스티커의 가장자리가 뭉개지지 않게 한다.
+CARD_JPEG_QUALITY = 92
+CARD_FORMATS = ("JPEG", "PNG")
+
+# 워커 하나에서 그림 변환은 한 번에 하나만. 큰 그림 여러 장이 겹치면 메모리가 모자란다.
+# 사진과 카드 이미지가 이 차례를 함께 쓴다.
+convert_turn = asyncio.Semaphore(1)
 
 
 class NotAPhoto(Exception):
@@ -363,6 +378,62 @@ def remove_original(relative: str) -> int:
         return 0
     path.unlink(missing_ok=True)
     return size
+
+
+def card_dir(trip_id: uuid.UUID) -> Path:
+    return trip_dir(trip_id) / "cards"
+
+
+def store_card_image(upload: Path, trip_id: uuid.UUID, card_id: uuid.UUID, version: int) -> tuple[str, int]:
+    """
+    받은 카드 이미지를 열어 보고 JPEG(품질 92, RGB)로 다시 쓴다. (상대 경로, 바이트)를 돌려준다.
+
+    긴 변을 줄이지 않는다. 원본 화질로 그린 그림을 남기려고 받는 것이라서다. 투명은 흰 바탕에
+    올리고 EXIF 는 쓰지 않는다. 받은 파일은 그대로 두니 부르는 쪽이 지운다.
+
+    같은 폴더에 다른 이름으로 다 쓴 뒤 `os.replace` 로 바꿔 끼운다. 같은 버전을 두 번 올려도
+    반쯤 쓴 파일을 내주는 일이 없다. 옛 버전 파일은 부르는 쪽이 DB 를 고친 뒤 지운다.
+    """
+    try:
+        with Image.open(upload) as image:
+            kind = image.format or ""
+            if kind not in CARD_FORMATS:
+                raise NotAPhoto(kind)
+            width, height = image.size
+            if width * height > CARD_MAX_PIXELS:
+                raise AppError(ErrorCode.PHOTO_TOO_LARGE, message="카드 이미지가 너무 커요.")
+            # 앱이 그린 그림이라 방향 표시가 없는 것이 보통이지만, 있으면 따른다.
+            if image.getexif().get(ExifTags.Base.Orientation, 1) != 1:
+                image = ImageOps.exif_transpose(image) or image
+            flat = _flatten(image)
+    # 16비트 흑백 PNG 처럼 RGB 로 못 바꾸는 모드는 ValueError 가 난다.
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as error:
+        raise NotAPhoto(str(error)) from error
+
+    folder = card_dir(trip_id)
+    _make_dir(folder)
+    name = f"{card_id}-v{version}.jpg"
+    final = folder / name
+    building = folder / f"{name}.building"
+    try:
+        flat.save(building, "JPEG", quality=CARD_JPEG_QUALITY, optimize=True, progressive=True)
+        os.chmod(building, 0o640)
+        size = building.stat().st_size
+        os.replace(building, final)
+    except Exception:
+        building.unlink(missing_ok=True)
+        raise
+    return f"trips/{trip_id}/cards/{name}", size
+
+
+def remove_file(relative: str | None) -> None:
+    """상대 경로 파일 하나를 지운다. 없으면 그만이다."""
+    if not relative:
+        return
+    try:
+        absolute(relative).unlink(missing_ok=True)
+    except ValueError:
+        pass
 
 
 def remove_photo(trip_id: uuid.UUID, photo_id: uuid.UUID) -> None:

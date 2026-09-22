@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     photo_max_bytes: int = 20 * 1024 * 1024
     photo_space_quota_bytes: int = 1024 * 1024 * 1024
     photo_total_quota_bytes: int = 10 * 1024 * 1024 * 1024
+    # 추억 카드 완성 이미지 한 장. 앱이 원본 화질로 그려 올린다. 공간·서버 한도는 사진과 같이 센다.
+    trip_card_image_max_bytes: int = 20 * 1024 * 1024
     # 비어 있으면 API 가 사진 파일을 직접 보낸다. "/_protected_uploads/" 처럼 넣으면 권한만 보고
     # `X-Accel-Redirect` 로 nginx 에 넘긴다. nginx 에 같은 internal location 이 있어야 한다
     # (infra/production/nginx.conf, docs/development/06-vps-deployment.md 6장).
