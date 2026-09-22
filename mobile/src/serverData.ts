@@ -427,6 +427,8 @@ export type ServerTripCard = {
   canManage: boolean;
   createdAt: string;
   version: number;
+  /** 서버에 저장된 완성 그림이 만들어진 카드 버전. 없으면 null(`cardImage.ts`). */
+  imageVersion?: number | null;
 };
 
 export const listTripCards = (tripId: string) =>

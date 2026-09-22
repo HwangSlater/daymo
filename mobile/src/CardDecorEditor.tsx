@@ -196,6 +196,8 @@ export function CardPreview({
   stats,
   stamp,
   onPhotoReady,
+  shotRef,
+  exporting = false,
 }: {
   card: KeepsakeCard;
   photos: CardPhoto[];
@@ -204,10 +206,19 @@ export function CardPreview({
   stamp: string;
   /** 사진이 다 그려졌다고 알린다. 이것이 없으면 「카드 저장」이 사진을 영영 기다린다. */
   onPhotoReady?: (key: string) => void;
+  /**
+   * 찍을 자리. 보기에서 「카드 공유」를 눌렀는데 서버에 저장된 그림이 없거나 옛것이면
+   * 여기서 찍는다. 옆 칸에 미리 그려 두는 카드에는 주지 않는다.
+   */
+  shotRef?: React.RefObject<View | null>;
+  /** 찍는 중. 꾸미기와 같이 카드를 제 크기로 되돌린다(부르는 쪽이 덮개로 가린다). */
+  exporting?: boolean;
 }) {
   const [칸, 칸재기] = useState({ width: 0, height: 0 });
   const size = keepsakeSizeOf(card.ratio, card.style);
-  const scale = fitScaleOf(size.width, size.height, 칸.width - STAGE_PAD * 2, 칸.height - STAGE_PAD * 2);
+  const scale = exporting
+    ? 1
+    : fitScaleOf(size.width, size.height, 칸.width - STAGE_PAD * 2, 칸.height - STAGE_PAD * 2);
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     칸재기((지금) => (지금.width === width && 지금.height === height ? 지금 : { width, height }));
@@ -217,12 +228,13 @@ export function CardPreview({
       {칸.width > 0 && (
         <ScaledCard scale={scale} width={size.width} height={size.height}>
           <KeepsakeCardView
+            shotRef={shotRef}
             card={card}
             photos={photos}
             text={text}
             stats={stats}
             stamp={stamp}
-            big={false}
+            big={exporting}
             onPhotoReady={onPhotoReady}
           />
         </ScaledCard>

@@ -27,6 +27,7 @@ import * as Crypto from "expo-crypto";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
 import { CardDecorTools, CardPreview } from "./CardDecorEditor";
+import { downloadCardImage, hasFreshCardImage, releaseCardImage, uploadCardImage } from "./cardImage";
 import { type CardPhoto } from "./KeepsakeCardView";
 import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
 import { DaymoApiError } from "./auth";
@@ -254,6 +255,8 @@ export function TripCardsSection({
   /** 꾸미기를 시작할 때의 카드. 「나가기」에서 손댄 것이 있는지 볼 때만 쓴다. */
   const [baseline, setBaseline] = useState<KeepsakeCard | null>(null);
   const [busy, setBusy] = useState(false);
+  /** 덮개에 적을 말. 공유할 그림을 만들 때와 「완료」로 저장할 때가 다르다. */
+  const [busyLabel, setBusyLabel] = useState("저장할 이미지를 만드는 중이에요");
   const [exporting, setExporting] = useState(false);
   /**
    * 내보낼 때만 쓰는 원본 자리(사진 id → 파일).
@@ -454,26 +457,49 @@ export function TripCardsSection({
     else if (!지금.photoId) 지금.onMove(null);
   };
 
-  /** 꾸민 값을 서버에 올린다. */
-  const persist = async (지금: KeepsakeCard | null) => {
+  /** 꾸민 값을 서버에 올린다. 저장된 줄을 돌려준다(못 올렸으면 null). */
+  const persist = async (지금: KeepsakeCard | null): Promise<ServerTripCard | null> => {
     const 고칠_수_있다 = canManage && canEdit;
-    if (!지금 || !tripId || !고칠_수_있다) return;
+    if (!지금 || !tripId || !고칠_수_있다) return null;
     const body = keepsakeBodyOf(지금, tripName);
     try {
+      let 저장된_것: ServerTripCard;
       if (open) {
-        const 저장된_것 = await updateTripCard(open.id, rowVersionOf(rows, open.id), body);
+        저장된_것 = await updateTripCard(open.id, rowVersionOf(rows, open.id), body);
         setRows((current) => current.map((줄) => (줄.id === 저장된_것.id ? 저장된_것 : 줄)));
       } else {
-        const 만든_것 = await createTripCard(tripId, Crypto.randomUUID(), body);
-        setRows((current) => (current.some((줄) => 줄.id === 만든_것.id) ? current : [...current, 만든_것]));
+        저장된_것 = await createTripCard(tripId, Crypto.randomUUID(), body);
+        setRows((current) => (current.some((줄) => 줄.id === 저장된_것.id) ? current : [...current, 저장된_것]));
       }
       notify("카드를 저장했어요");
+      return 저장된_것;
     } catch (caught) {
       notify(
         caught instanceof DaymoApiError && caught.status === 422
           ? caught.message
           : "카드를 저장하지 못했어요. 잠시 뒤에 다시 시도해 주세요",
       );
+      return null;
+    }
+  };
+
+  /**
+   * 저장한 카드를 원본 화질로 그려 서버에 한 장 올려 둔다.
+   *
+   * 사진 원본은 올린 지 30일 뒤 지워진다. 그 뒤에도 카드는 원본 화질로 남아야 해서,
+   * 원본이 있을 때(대개 카드를 만드는 지금) 그린 그림을 서버에 둔다. 못 올려도 카드
+   * 저장은 끝난 것이라 알리지 않는다. 공유할 때 그 자리에서 다시 그린다.
+   */
+  const 그림_올리기 = async (줄: ServerTripCard) => {
+    let 찍음: { 찍은_것: string; 원본_못_받음: boolean } | undefined;
+    try {
+      찍음 = await 원본으로_찍기();
+      const 새_줄 = await uploadCardImage(줄.id, 줄.version, 찍음.찍은_것);
+      setRows((current) => current.map((하나) => (하나.id === 새_줄.id ? 새_줄 : 하나)));
+    } catch (caught) {
+      if (__DEV__) console.log("카드 그림 올리기 실패", caught);
+    } finally {
+      if (찍음) releaseCapture(찍음.찍은_것);
     }
   };
 
@@ -489,8 +515,25 @@ export function TripCardsSection({
       closeAll();
       return;
     }
-    closeAll();
-    await persist(지금);
+    if (busy) return;
+    const 저장된_줄 = open ? rows.find((줄) => 줄.id === open.id) : undefined;
+    const 그대로다 = Boolean(open && baseline && 지금 && sameKeepsakeCard(baseline, 지금));
+    // 손댄 것도 없고 서버의 그림도 지금 카드 그대로면 할 일이 없다.
+    if (그대로다 && hasFreshCardImage(저장된_줄)) {
+      closeAll();
+      return;
+    }
+    // 그리는 동안은 창을 닫지 않는다. 찍을 카드가 이 창에 떠 있어야 한다.
+    setBusyLabel("카드를 저장하는 중이에요");
+    setBusy(true);
+    try {
+      const 저장됨 = 그대로다 ? 저장된_줄 ?? null : await persist(지금);
+      if (저장됨) await 그림_올리기(저장됨);
+    } finally {
+      setBusy(false);
+      setBusyLabel("저장할 이미지를 만드는 중이에요");
+      closeAll();
+    }
   };
 
   /**
@@ -565,19 +608,16 @@ export function TripCardsSection({
     [drawPhotos, drawnKeys],
   );
 
-  /** 화면에 그려 둔 카드를 그대로 찍어 내보낸다. 웹은 내려받고 폰은 공유 시트로 간다. */
-  const exportCard = async () => {
-    if (!card || busy) return;
-    if (!ready) {
-      viewerRef.current.onNotice("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
-      return;
-    }
-    setBusy(true);
-    // 원본으로 바꿔 그린 뒤에 찍는다. 미리보기 내내 큰 사진을 들고 있지 않는다.
-    //
-    // 기기에서 고른 사진은 파일이 이미 원본이라 그대로 쓴다. 남이 올린 사진만 받아
-    // 오고, 다 찍은 뒤에 버린다. 원본 기한(30일)이 지났으면 서버가 표시본을 주는데
-    // 그것은 화면이 쓰고 있는 파일과 같으니 버리지 않는다.
+  /**
+   * 원본으로 바꿔 그린 카드를 찍는다. 찍은 그림은 부르는 쪽이 `releaseCapture` 한다.
+   *
+   * 미리보기 내내 큰 사진을 들고 있지 않고 찍는 순간에만 원본으로 바꾼다. 기기에서 고른
+   * 사진은 파일이 이미 원본이라 그대로 쓴다. 남이 올린 사진만 받아 오고, 다 찍은 뒤에
+   * 버린다. 원본 기한(30일)이 지났으면 서버가 표시본을 주는데 그것은 화면이 쓰고 있는
+   * 파일과 같으니 버리지 않는다.
+   */
+  const 원본으로_찍기 = async (): Promise<{ 찍은_것: string; 원본_못_받음: boolean }> => {
+    if (!card) throw new Error("카드가 없다");
     const 받은_것: Record<string, string> = {};
     const 버릴_것: string[] = [];
     let 원본_못_받음 = false;
@@ -600,37 +640,83 @@ export function TripCardsSection({
     }
     setOriginals(받은_것);
     setExporting(true);
-    let 찍은_것: string | undefined;
     const 잰다 = Date.now();
     try {
       await 그려질_때까지(() =>
         drawPhotos.every((photo) => !photo.uri || drawn.current.has(`${photo.id}:d`)));
       const size = keepsakeSizeOf(card.ratio, card.style);
-      찍은_것 = await captureRef(shot, {
+      const 찍은_것 = await captureRef(shot, {
         format: "png",
         result: Platform.OS === "web" ? "data-uri" : "tmpfile",
         width: size.exportWidth,
         height: size.exportHeight,
       });
       if (__DEV__) console.log(`추억 카드 캡처 ${card.style} ${Date.now() - 잰다}ms`);
-      const 결과 = await shareTripCard(keepsakeFileName(text.title || tripName), 찍은_것);
-      // 창이 떠 있는 동안이라 여행 화면 바닥의 토스트는 가려진다. 창 안에서 알린다.
-      // 폰은 공유 시트가 뜨는 것으로 끝이다. 시트만 열렸는데 「공유했어요」라고
-      // 단정하지 않는다. 웹은 내려받기가 조용히 끝나서 한 줄 알린다.
+      return { 찍은_것, 원본_못_받음 };
+    } finally {
+      // 화면이 아직 쓰는 사진 주소는 건드리지 않는다(`photoTransfer.ts` 의 liveBlobUris 규칙).
+      버릴_것.forEach(releaseDownloadedPhoto);
+      setOriginals({});
+      setExporting(false);
+    }
+  };
+
+  /**
+   * ↓. 카드를 그림으로 내보낸다. 웹은 내려받고 폰은 공유 시트로 간다.
+   *
+   * 서버에 저장된 그림이 지금 카드 그대로면 그것을 받는다. 원본이 지워진 뒤에도 원본
+   * 화질이고, 다시 그리지 않아 빠르다. 없거나 옛것이면 그 자리에서 그린다.
+   */
+  const exportCard = async () => {
+    if (!card || busy) return;
+    const name = keepsakeFileName(text.title || tripName);
+    const 저장된_줄 = open ? rows.find((줄) => 줄.id === open.id) : undefined;
+    const 손댄_것_없다 = !toolsOpen || Boolean(baseline && draft && sameKeepsakeCard(baseline, draft));
+    // 창이 떠 있는 동안이라 여행 화면 바닥의 토스트는 가려진다. 창 안에서 알린다.
+    // 폰은 공유 시트가 뜨는 것으로 끝이다. 시트만 열렸는데 「공유했어요」라고
+    // 단정하지 않는다. 웹은 내려받기가 조용히 끝나서 한 줄 알린다.
+    const 알린다 = (결과: "shared" | "unavailable", 원본_못_받음: boolean) => {
       if (결과 === "unavailable") viewerRef.current.onNotice("이 기기에서는 카드를 저장하거나 공유할 수 없어요");
       // 원본 보관 기간(30일)이 지난 사진은 줄인 사본밖에 없다. 저장은 되지만 화질이
       // 다르니 조용히 넘기지 않고 한 줄 남긴다.
       else if (원본_못_받음) viewerRef.current.onNotice("원본이 없는 사진은 줄인 화질로 들어갔어요");
       else if (Platform.OS === "web") viewerRef.current.onNotice("카드를 저장했어요");
+    };
+    if (open && 저장된_줄 && 손댄_것_없다 && hasFreshCardImage(저장된_줄)) {
+      setBusy(true);
+      try {
+        const 받은 = await downloadCardImage(open.id, 저장된_줄.version).catch(() => undefined);
+        if (받은) {
+          try {
+            알린다(await shareTripCard(name, 받은, "jpg"), false);
+          } finally {
+            releaseCardImage(받은);
+          }
+          return;
+        }
+      } finally {
+        setBusy(false);
+      }
+    }
+    if (!ready) {
+      viewerRef.current.onNotice("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
+      return;
+    }
+    setBusy(true);
+    let 찍음: { 찍은_것: string; 원본_못_받음: boolean } | undefined;
+    try {
+      찍음 = await 원본으로_찍기();
+      알린다(await shareTripCard(name, 찍음.찍은_것), 찍음.원본_못_받음);
+      // 서버 그림이 없던 카드(이 기능 전에 만든 것)를 원본으로 그렸으면 그 그림도 올려 둔다.
+      // 원본이 하나라도 빠진 그림은 올리지 않는다. 나중에 원본이 없어도 이 화질은 남아야 한다.
+      if (open && 저장된_줄 && 손댄_것_없다 && canManage && canEdit && !찍음.원본_못_받음) {
+        const 새_줄 = await uploadCardImage(open.id, 저장된_줄.version, 찍음.찍은_것).catch(() => undefined);
+        if (새_줄) setRows((current) => current.map((하나) => (하나.id === 새_줄.id ? 새_줄 : 하나)));
+      }
     } catch {
       viewerRef.current.onNotice("저장할 이미지를 만들지 못했어요");
     } finally {
-      // 찍은 그림은 여기서만 쓴다. 화면이 아직 쓰는 사진 주소는 건드리지 않는다
-      // (`photoTransfer.ts` 의 liveBlobUris 규칙).
-      if (찍은_것) releaseCapture(찍은_것);
-      버릴_것.forEach(releaseDownloadedPhoto);
-      setOriginals({});
-      setExporting(false);
+      if (찍음) releaseCapture(찍음.찍은_것);
       setBusy(false);
     }
   };
@@ -766,7 +852,7 @@ export function TripCardsSection({
           ? { on: cover.on, label: cover.label, onPress: () => void toggleCover() }
           : undefined,
         preview: previewing && card
-          ? <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} onPhotoReady={markDrawn} />
+          ? <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} onPhotoReady={markDrawn} shotRef={shot} exporting={exporting} />
           : undefined,
         // 기간과 지역은 카드 얼굴에 이미 적혀 있다. 아래에는 어떤 틀에 사진 몇 장인지만
         // 둔다. 두 줄이 되면 스트립이 밀린다.
@@ -775,7 +861,7 @@ export function TripCardsSection({
         cards: cardStrip,
         onViewCard: openTile,
         renderCard,
-        busyText: busy ? "저장할 이미지를 만드는 중이에요" : undefined,
+        busyText: busy ? busyLabel : undefined,
         body: card ? (
           <CardDecorTools
             card={card}

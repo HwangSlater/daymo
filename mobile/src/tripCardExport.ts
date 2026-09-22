@@ -21,8 +21,13 @@ import { safeFileName } from "./filenames";
 /** data URI 의 base64 부분만. 앞의 `data:image/png;base64,` 는 버린다. */
 const base64Of = (uri: string) => uri.slice(uri.indexOf(",") + 1);
 
-export async function shareTripCard(fileName: string, shot: string): Promise<"shared" | "unavailable"> {
-  const name = `${safeFileName(fileName, "추억 카드")}.png`;
+export async function shareTripCard(
+  fileName: string,
+  shot: string,
+  kind: "png" | "jpg" = "png",
+): Promise<"shared" | "unavailable"> {
+  // 기기가 찍은 그림은 PNG, 서버에 저장해 둔 그림은 JPEG 다(`cardImage.ts`).
+  const name = `${safeFileName(fileName, "추억 카드")}.${kind}`;
   if (Platform.OS === "web") {
     if (typeof document === "undefined") return "unavailable";
     const link = document.createElement("a");
@@ -44,6 +49,8 @@ export async function shareTripCard(fileName: string, shot: string): Promise<"sh
   } else {
     new File(shot).copy(file);
   }
-  await Sharing.shareAsync(file.uri, { mimeType: "image/png", UTI: "public.png", dialogTitle: fileName });
+  await Sharing.shareAsync(file.uri, kind === "jpg"
+    ? { mimeType: "image/jpeg", UTI: "public.jpeg", dialogTitle: fileName }
+    : { mimeType: "image/png", UTI: "public.png", dialogTitle: fileName });
   return "shared";
 }

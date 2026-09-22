@@ -875,9 +875,10 @@ export function PhotoViewerScreen({
         {/* 사진 정보는 이 창 위에 한 겹으로 얹힌다. 맨 마지막에 놓아야 위에 온다. */}
         {editPanel}
         {coverPanel}
-        {/* 카드를 찍는 동안 카드를 제 크기로 되돌린다(`CardDecorTools`). 화면 밖으로
-            넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. */}
-        {Boolean(decorating && decor?.busyText) && (
+        {/* 카드를 찍는 동안 카드를 제 크기로 되돌린다(`CardDecorTools`·`CardPreview`). 화면 밖으로
+            넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. 보기에서
+            공유할 때도 찍으므로 꾸미는 중이 아니어도 덮는다. */}
+        {Boolean((decorating || previewing) && decor?.busyText) && (
           <View style={styles.busy} accessibilityLiveRegion="polite">
             <Text style={styles.busyText}>{decor?.busyText}</Text>
           </View>
