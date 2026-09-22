@@ -32,7 +32,7 @@ test("저장된 목록을 읽고 모양이 틀린 줄은 버린다", () => {
   const 읽은_것 = decorOf([
     { id: "d1", kind: "별", x: 0.2, y: 0.3, size: 0.25, angle: 400, z: 5 },
     // 모르는 스티커
-    { kind: "무지개", x: 0.5, y: 0.5 },
+    { kind: "유니콘", x: 0.5, y: 0.5 },
     // 글자를 다 지운 줄은 카드에 아무것도 안 그린다
     { kind: "글자", text: "  ", x: 0.5, y: 0.5 },
     { kind: "글자", text: " 좋았다 ", x: 3, y: -1, size: 9, z: 1 },
@@ -174,7 +174,7 @@ test("옛 스티커 목록을 새 형식으로 옮긴다", () => {
     assert.deepEqual(clampDecorSpot(줄, 줄.x, 줄.y, 200, 600), { x: 줄.x, y: 줄.y });
   });
   assert.deepEqual(legacyDecorOf([], [1, 1, 1, 1]), []);
-  assert.deepEqual(legacyDecorOf(["무지개"], [1]), []);
+  assert.deepEqual(legacyDecorOf(["유니콘"], [1]), []);
   // 칸마다 모서리는 넷뿐이라 그보다 많이 켰으면 뒤쪽은 빠진다.
   assert.equal(legacyDecorOf(["하트", "별", "비행기", "필름", "말풍선", "체크"], [1]).length, 4);
 });
@@ -201,4 +201,34 @@ test("모서리를 끌면 크기와 각도가 함께 놓인다", () => {
   assert.equal(setDecorSize(하나, 하나[0].id, 0, 0)[0].size, DECOR_MIN_SIZE);
   // 다른 줄은 건드리지 않는다.
   assert.deepEqual(setDecorSize(하나, "없는것", 0.3, 45), 하나);
+});
+
+test("글자의 글꼴·색·바탕은 기본이 아닐 때만 저장하고, 모르는 값은 그대로 돌려보낸다", async () => {
+  const { decorOf, decorBodyOf, setDecorStyle } = await import("./cardDecor.ts");
+  const 읽은_것 = decorOf([
+    { id: "d1", kind: "글자", text: "최고의 하루", x: 0.5, y: 0.5, size: 0.1, angle: 0, z: 0, font: "손글씨", color: "크림", back: "띠" },
+    { id: "d2", kind: "글자", text: "기본", x: 0.5, y: 0.5, size: 0.1, angle: 0, z: 1, font: "기본", color: "흰색", back: "없음" },
+    { id: "d3", kind: "글자", text: "새 글꼴", x: 0.5, y: 0.5, size: 0.1, angle: 0, z: 2, font: "붓글씨" },
+  ]);
+  assert.deepEqual([읽은_것[0].font, 읽은_것[0].color, 읽은_것[0].back], ["손글씨", "크림", "띠"]);
+  const 보낼_것 = decorBodyOf(읽은_것);
+  assert.equal(보낼_것[0].font, "손글씨");
+  // 기본만 고른 글자는 예전 모양 그대로다.
+  assert.deepEqual(Object.keys(보낼_것[1]).sort(), ["angle", "id", "kind", "size", "text", "x", "y", "z"]);
+  // 이 판이 모르는 글꼴은 버리지 않는다. 사람이 다른 글꼴을 고르면 그때 바뀐다.
+  assert.equal(보낼_것[2].font, "붓글씨");
+  assert.equal(decorBodyOf(setDecorStyle(읽은_것, "d3", { font: "굵게" }))[2].font, "굵게");
+});
+
+test("복제하면 조금 비껴 맨 위에 새 이름으로 붙고, 한도가 차면 그대로다", async () => {
+  const { addDecor, duplicateDecor, DECOR_MAX } = await import("./cardDecor.ts");
+  const 하나 = addDecor([], "하트");
+  const 둘 = duplicateDecor(하나, 하나[0].id);
+  assert.equal(둘.length, 2);
+  assert.notEqual(둘[1].id, 둘[0].id);
+  assert.equal(둘[1].z, 1);
+  assert.ok(둘[1].x > 둘[0].x && 둘[1].y > 둘[0].y);
+  let 가득 = 하나;
+  while (가득.length < DECOR_MAX) 가득 = addDecor(가득, "별");
+  assert.equal(duplicateDecor(가득, 가득[0].id).length, DECOR_MAX);
 });

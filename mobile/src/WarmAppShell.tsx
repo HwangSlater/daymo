@@ -5240,6 +5240,31 @@ const openSourceNotices: OpenSourceNotice[] = [
     licenseUrl: "https://www.cookierunfont.com/static/download/License_ko_en.pdf",
     linkLabel: "라이선스 전문 보기",
   },
+  {
+    id: "nanum-pen",
+    name: "나눔손글씨 펜",
+    holder: "Copyright (c) 2010, NHN Corporation. SIL Open Font License 1.1",
+    usage:
+      "추억 카드 글자의 「손글씨」에 씁니다. 자주 쓰는 글자만 남겨 줄인 판이라, 라이선스에 따라 글꼴 안의 이름을 DaymoPen으로 바꿨어요.",
+    licenseUrl: "https://openfontlicense.org/open-font-license-official-text/",
+    linkLabel: "라이선스 전문 보기",
+  },
+  {
+    id: "black-han-sans",
+    name: "검은고딕(Black Han Sans)",
+    holder: "Copyright 2015 The Black Han Sans Project Authors. SIL Open Font License 1.1",
+    usage: "추억 카드 글자의 「굵게」에 씁니다. 자주 쓰는 글자만 남겨 줄였어요.",
+    licenseUrl: "https://openfontlicense.org/open-font-license-official-text/",
+    linkLabel: "라이선스 전문 보기",
+  },
+  {
+    id: "gaegu",
+    name: "개구(Gaegu)",
+    holder: "Copyright 2018 The Gaegu Project Authors. SIL Open Font License 1.1",
+    usage: "추억 카드 글자의 「둥글게」에 씁니다.",
+    licenseUrl: "https://openfontlicense.org/open-font-license-official-text/",
+    linkLabel: "라이선스 전문 보기",
+  },
 ];
 
 function Together({

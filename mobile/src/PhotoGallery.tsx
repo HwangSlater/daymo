@@ -550,18 +550,21 @@ function GalleryBody({
       <View style={[styles.head, { paddingTop: insets.top, borderBottomColor: border }]}>
         {selecting ? (
           <>
+            {/* 아이폰 사진 앱처럼 몇 장 골랐는지는 가운데에 굵게, 「취소」는 「선택」이 있던 오른쪽
+                자리에 강조색으로 둔다. 둘 다 왼쪽에 같은 모양으로 붙어 있어 구분이 안 됐다. */}
+            <View style={styles.headSideSpacer} />
+            <Text accessibilityLiveRegion="polite" numberOfLines={1} style={[styles.headTitle, styles.headTitleCenter, { color: ink }]}>
+              {수 ? `${수}장 선택` : "사진 선택"}
+            </Text>
             <Pressable
               onPress={endSelect}
               accessibilityRole="button"
               accessibilityLabel="선택 취소"
               hitSlop={누름여유(높이.칩)}
-              style={({ pressed }) => [styles.headSide, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.headSide, styles.headSideFixed, pressed && styles.pressed]}
             >
-              <Text style={[styles.headAction, { color: ink }]}>취소</Text>
+              <Text style={[styles.headAction, { color: primary }]}>취소</Text>
             </Pressable>
-            <Text accessibilityLiveRegion="polite" numberOfLines={1} style={[styles.headTitle, { color: ink }]}>
-              {수 ? `${수}장 선택` : "사진 선택"}
-            </Text>
           </>
         ) : (
           <>
@@ -806,6 +809,10 @@ const styles = StyleSheet.create({
   headTitle: { flex: 1, fontSize: typo.title.size, fontFamily: typo.title.family },
   headSide: { minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 여백.세로좁게 },
   headAction: { fontSize: 15, fontFamily: typo.title.family },
+  // 선택 중 머리줄. 가운데 제목이 정말 가운데 오도록 양쪽 폭을 같게 잡는다.
+  headTitleCenter: { textAlign: "center" },
+  headSideFixed: { width: 64, alignItems: "flex-end" },
+  headSideSpacer: { width: 64 },
   body: {
     flex: 1,
     // 웹에서 마우스로 끌 때 글자·사진이 파랗게 선택되지 않게 한다.

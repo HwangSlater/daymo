@@ -59,6 +59,16 @@ export const KEEPSAKE_STAT_KINDS: KeepsakeStatKind[] = ["장소", "사진", "날
 export const KEEPSAKE_FRAME_COLORS: KeepsakeFrameColor[] = ["검정", "흰색", "크림", "노을", "바다", "숲"];
 
 /**
+ * 카드 종이(2026-09-22). 네컷 계열이 아닌 틀(기본·필름·엽서·스크랩북)의 바탕이다.
+ * 네컷 계열은 지금처럼 틀 색(`frameColor`)이 바탕을 정하고, 무늬만 얹는다.
+ * 무늬는 그림 파일 없이 그린다(`KeepsakeCardView`).
+ */
+export type KeepsakePaperColor = "기본" | "크림" | "민트" | "하늘" | "분홍" | "먹색";
+export const KEEPSAKE_PAPER_COLORS: KeepsakePaperColor[] = ["기본", "크림", "민트", "하늘", "분홍", "먹색"];
+export type KeepsakePaperPattern = "없음" | "모눈" | "줄" | "점" | "크라프트";
+export const KEEPSAKE_PAPER_PATTERNS: KeepsakePaperPattern[] = ["없음", "모눈", "줄", "점", "크라프트"];
+
+/**
  * 칩과 카드 이름에 적는 말. 저장되는 값은 그대로 두고 보이는 이름만 바꾼다.
  * 「없음」이 카드 이름에 박히면 「없음 카드」가 되고, 「글」「사람」은 무엇인지
  * 뜻이 오지 않아서다(docs/development/13-copy-glossary.md).
@@ -106,6 +116,10 @@ export type KeepsakeCard = {
   stats: KeepsakeStatKind[];
   /** 네컷 틀에서만 쓴다. 다른 스타일에서는 저장만 되고 그려지지 않는다. */
   frameColor: KeepsakeFrameColor;
+  /** 종이 색. 네컷 계열이 아닌 틀에서 쓴다. */
+  paperColor: KeepsakePaperColor;
+  /** 종이 무늬. 모든 틀에서 쓴다. 크라프트는 종이 색 대신 갈색 재생지다. */
+  paperPattern: KeepsakePaperPattern;
   /** 카드 위에 손으로 얹은 스티커와 글자. 어느 스타일에서든 그려진다. */
   decor: CardDecor[];
   /** 필름 카메라가 찍어 주던 날짜 도장(`2026.09.15`). */
@@ -137,6 +151,8 @@ export type KeepsakeKept = {
   style?: { raw: string; shown: KeepsakeStyle };
   ratio?: { raw: string; shown: KeepsakeRatio };
   frameColor?: { raw: string; shown: KeepsakeFrameColor };
+  paperColor?: { raw: string; shown: KeepsakePaperColor };
+  paperPattern?: { raw: string; shown: KeepsakePaperPattern };
   /** 목록 칸에 섞여 있던 모르는 값. 켜고 끌 수 없으니 늘 그대로 붙여 보낸다. */
   parts?: string[];
   stats?: string[];
@@ -161,6 +177,8 @@ export type SavedKeepsake = {
   dateStamp?: boolean | null;
   photoCaptions?: boolean | null;
   photoFocus?: unknown;
+  paperColor?: string | null;
+  paperPattern?: string | null;
 };
 
 const pick = <T extends string>(all: readonly T[], value: unknown, fallback: T): T =>
@@ -172,7 +190,7 @@ const pickMany = <T extends string>(all: readonly T[], value: unknown): T[] =>
 /** 이 판이 아는 `settings` 칸. 나머지는 `KeepsakeKept.extra` 로 들고 있는다. */
 const KEEPSAKE_KEYS = new Set([
   "style", "ratio", "photoIds", "title", "caption", "parts", "stats", "frameColor",
-  "stickers", "decor", "dateStamp", "photoCaptions", "photoFocus",
+  "stickers", "decor", "dateStamp", "photoCaptions", "photoFocus", "paperColor", "paperPattern",
 ]);
 
 /** 저장된 칸별 자리를 읽는다. 모양이 틀린 줄과 가운데 그대로인 줄은 버린다. */
@@ -219,6 +237,8 @@ function keptOf(
   style: KeepsakeStyle,
   ratio: KeepsakeRatio,
   frameColor: KeepsakeFrameColor,
+  paperColor: KeepsakePaperColor,
+  paperPattern: KeepsakePaperPattern,
 ): KeepsakeKept | undefined {
   if (!saved || typeof saved !== "object" || Array.isArray(saved)) return undefined;
   const 칸들 = Object.entries(saved).filter(([key]) => !KEEPSAKE_KEYS.has(key));
@@ -227,6 +247,8 @@ function keptOf(
     style: 모르는_하나(KEEPSAKE_STYLES, saved.style, style),
     ratio: 모르는_하나(KEEPSAKE_RATIOS, saved.ratio, ratio),
     frameColor: 모르는_하나(KEEPSAKE_FRAME_COLORS, saved.frameColor, frameColor),
+    paperColor: 모르는_하나(KEEPSAKE_PAPER_COLORS, saved.paperColor, paperColor),
+    paperPattern: 모르는_하나(KEEPSAKE_PAPER_PATTERNS, saved.paperPattern, paperPattern),
     parts: 모르는_여럿(KEEPSAKE_PARTS, saved.parts),
     stats: 모르는_여럿(KEEPSAKE_STAT_KINDS, saved.stats),
     stickers: 모르는_여럿(KEEPSAKE_STICKERS, saved.stickers),
@@ -287,8 +309,10 @@ export function keepsakeCardOf(
   const style = pick(KEEPSAKE_STYLES, saved?.style, "필름");
   const ratio = pick(KEEPSAKE_RATIOS, saved?.ratio, "세로");
   const frameColor = pick(KEEPSAKE_FRAME_COLORS, saved?.frameColor, "검정");
+  const paperColor = pick(KEEPSAKE_PAPER_COLORS, saved?.paperColor, "기본");
+  const paperPattern = pick(KEEPSAKE_PAPER_PATTERNS, saved?.paperPattern, "없음");
   const 쓸_사진 = 고른_사진.length ? [...new Set(고른_사진)] : photoIds.slice(0, 1);
-  const kept = keptOf(saved, style, ratio, frameColor);
+  const kept = keptOf(saved, style, ratio, frameColor, paperColor, paperPattern);
   return {
     style,
     ratio,
@@ -298,6 +322,8 @@ export function keepsakeCardOf(
     parts,
     stats: pickMany(KEEPSAKE_STAT_KINDS, saved?.stats),
     frameColor,
+    paperColor,
+    paperPattern,
     // 새 형식이 있으면 그것을 읽고, 없으면 옛 판이 남긴 스티커를 옮겨 온다.
     decor: Array.isArray(saved?.decor)
       ? decorOf(saved.decor)
@@ -342,6 +368,8 @@ export function keepsakeBodyOf(
     dateStamp: card.dateStamp,
     photoCaptions: card.photoCaptions,
     photoFocus: photoFocusBodyOf(card),
+    paperColor: 되돌린_값(kept?.paperColor, card.paperColor),
+    paperPattern: 되돌린_값(kept?.paperPattern, card.paperPattern),
   };
 }
 

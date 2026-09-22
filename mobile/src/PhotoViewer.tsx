@@ -104,6 +104,11 @@ export type ViewerDecor = {
   onBack: () => void;
   /** 「저장」. 보기만 하는 카드면 그냥 닫는다. */
   onSave: () => void;
+  /**
+   * 머리줄 가운데 ↶ ↷. 카드에 한 일을 한 단계씩 되돌리고 다시 한다(인스타그램 스토리·캔바와
+   * 같은 자리). 남의 카드를 보기만 할 때는 없다.
+   */
+  history?: { canUndo: boolean; canRedo: boolean; onUndo: () => void; onRedo: () => void };
   /** 오른쪽 위에 적을 말. 보통 `저장`, 남의 카드면 `닫기`. */
   saveLabel: string;
   /** 꾸미기의 ⋮. 위 줄에 올리지 못한 것만 남는다(지금은 삭제 하나). */
@@ -587,7 +592,34 @@ export function PhotoViewerScreen({
             >
               <Text style={styles.decorBack}>취소</Text>
             </Pressable>
-            <Text style={styles.decorTitle}>카드 꾸미기</Text>
+            {decor.history ? (
+              <View style={styles.decorHistory}>
+                <Pressable
+                  onPress={decor.history.onUndo}
+                  disabled={!decor.history.canUndo}
+                  accessibilityRole="button"
+                  accessibilityLabel="되돌리기"
+                  accessibilityState={{ disabled: !decor.history.canUndo }}
+                  hitSlop={6}
+                  style={({ pressed }) => [styles.decorHistoryButton, !decor.history?.canUndo && styles.decorHistoryOff, pressed && styles.pressed]}
+                >
+                  <Glyph name="undo" size={18} color="#F6F4F1" weight={2.2} />
+                </Pressable>
+                <Pressable
+                  onPress={decor.history.onRedo}
+                  disabled={!decor.history.canRedo}
+                  accessibilityRole="button"
+                  accessibilityLabel="다시하기"
+                  accessibilityState={{ disabled: !decor.history.canRedo }}
+                  hitSlop={6}
+                  style={({ pressed }) => [styles.decorHistoryButton, !decor.history?.canRedo && styles.decorHistoryOff, pressed && styles.pressed]}
+                >
+                  <Glyph name="redo" size={18} color="#F6F4F1" weight={2.2} />
+                </Pressable>
+              </View>
+            ) : (
+              <Text style={styles.decorTitle}>카드 꾸미기</Text>
+            )}
             {/* 사진첩의 ↓ 와 같은 자리·같은 그림이다. 배울 것이 하나 줄어든다. */}
             <BarButton glyph="download" label={decor.exportLabel} onPress={decor.onExport} />
             {menuRows.length > 0 && (
@@ -1302,6 +1334,10 @@ const styles = StyleSheet.create({
   decorHeadRight: { alignItems: "flex-end" },
   decorBack: { fontSize: 13.5, color: INK_SOFT, fontFamily: typo.label.family },
   decorTitle: { flex: 1, textAlign: "center", fontSize: 15, color: INK, fontFamily: typo.title.family },
+  decorHistory: { flex: 1, flexDirection: "row", justifyContent: "center", gap: 8 },
+  decorHistoryButton: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#26252E" },
+  // 되돌릴 것이 없으면 흐리게 둔다. 자리는 그대로라 누르던 손이 헤매지 않는다.
+  decorHistoryOff: { opacity: 0.35 },
   decorSave: { fontSize: 14, fontFamily: typo.label.family },
   // 카드를 찍는 동안 덮는 판. 화면 밖으로 넘친 카드를 가린다.
   busy: {

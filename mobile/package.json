@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "export": "expo export -p web",
-    "test": "node --test --experimental-test-isolation=none src/*.test.ts src/ui/*.test.ts api/*.test.js"
+    "test": "node --test --experimental-test-isolation=none src/*.test.ts src/ui/*.test.ts src/stickers/*.test.ts api/*.test.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",

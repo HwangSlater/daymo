@@ -63,6 +63,7 @@ import {
   type KeepsakeCard,
 } from "./tripCard";
 import { shareTripCard } from "./tripCardExport";
+import { emptyHistory, recordChange, redoOnce, undoOnce, type UndoHistory } from "./undoHistory";
 
 /** 기기가 찍은 카드의 파일 형식. 폰은 JPEG, 웹은 PNG 다. */
 const CAPTURE_KIND = Platform.OS === "web" ? "png" : "jpg";
@@ -361,17 +362,44 @@ export function TripCardsSection({
     drawn.current.add(key);
     setDrawnKeys((current) => [...current, key]);
   }, []);
+  /**
+   * 되돌리기 기록(머리줄 ↶ ↷). 카드에 한 모든 일 — 사진·차례·위치·틀·글자·스티커 — 을
+   * 바뀌기 전 모습으로 쌓는다. 잇달아 바뀌는 것은 한 단계로 묶는다(`undoHistory.ts`).
+   * 카드를 새로 열거나 꾸미기를 다시 펴면 비운다.
+   */
+  const [역사, 역사_바꾸기] = useState(() => emptyHistory<KeepsakeCard>());
+  // 바꾸는 순간의 모습. 상태를 고치는 함수 안에서 쌓으면 React 가 두 번 부를 때 두 번 쌓인다.
+  const 지금_카드 = useRef<KeepsakeCard | null>(null);
+  useEffect(() => {
+    지금_카드.current = draft;
+  }, [draft]);
+  const 쌓기 = useCallback(() => {
+    const 전 = 지금_카드.current;
+    if (전) 역사_바꾸기((h) => recordChange(h, 전, Date.now(), sameKeepsakeCard));
+  }, []);
   const tune = useCallback((change: Partial<KeepsakeCard>) => {
     // 사진이 바뀌면 다시 그려질 때까지 기다린다.
     if (change.photoIds) {
       drawn.current = new Set();
       setDrawnKeys([]);
     }
+    쌓기();
     setDraft((current) => (current ? { ...current, ...change } : current));
-  }, []);
+  }, [쌓기]);
   const onDecor = useCallback((change: (list: CardDecor[]) => CardDecor[]) => {
+    쌓기();
     setDraft((current) => (current ? { ...current, decor: change(current.decor) } : current));
-  }, []);
+  }, [쌓기]);
+  /** ↶ ↷. 사진이 바뀌면 다시 그려질 때까지 기다리는 것도 `tune` 과 같다. */
+  const 옮겨_가기 = (결과: { history: UndoHistory<KeepsakeCard>; value: KeepsakeCard } | undefined) => {
+    if (!결과) return;
+    if (draft && 결과.value.photoIds.join() !== draft.photoIds.join()) {
+      drawn.current = new Set();
+      setDrawnKeys([]);
+    }
+    역사_바꾸기(결과.history);
+    setDraft(결과.value);
+  };
 
   /** 카드를 창에 올린다. `tools` 면 도구까지 편다. */
   const openCard = useCallback((id: string, start: KeepsakeCard, tools: boolean) => {
@@ -379,6 +407,7 @@ export function TripCardsSection({
     setDrawnKeys([]);
     setDraft(start);
     setBaseline(start);
+    역사_바꾸기(emptyHistory());
     setOpenId(id);
     setToolsOpen(tools);
     setExporting(false);
@@ -621,6 +650,7 @@ export function TripCardsSection({
     if (openId) {
       setToolsOpen(true);
       setBaseline(draft);
+      역사_바꾸기(emptyHistory());
       return;
     }
     const 보던_사진 = viewerRef.current.photoId;
@@ -900,6 +930,14 @@ export function TripCardsSection({
         onBack: leaveDecor,
         onSave: () => void saveCard(),
         saveLabel: readOnly || !tripId ? "닫기" : "완료",
+        history: toolsOpen && !readOnly && draft
+          ? {
+              canUndo: 역사.past.length > 0,
+              canRedo: 역사.future.length > 0,
+              onUndo: () => 옮겨_가기(draft ? undoOnce(역사, draft) : undefined),
+              onRedo: () => 옮겨_가기(draft ? redoOnce(역사, draft) : undefined),
+            }
+          : undefined,
         menu: cardMenu,
         viewMenu,
         onExport: () => void exportCard(),

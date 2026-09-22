@@ -54,7 +54,7 @@ test("모르는 값이 저장돼 있어도 기본으로 돌아가고 지운 사�
       style: "폴라로이드", ratio: "대각선", photoIds: ["c", "없는것", 7],
       parts: ["이름", "달력"], stats: ["지출", "온도"],
       // 켜고 끄기에 엉뚱한 값이 들어와도 꺼진 것으로 읽는다.
-      frameColor: "형광", stickers: ["하트", "무지개"],
+      frameColor: "형광", stickers: ["하트", "유니콘"],
       dateStamp: "켬" as unknown as boolean, photoCaptions: 1 as unknown as boolean,
     },
     "가을 제주",
@@ -373,7 +373,7 @@ const 새_앱이_저장한_것 = {
   stickers: [],
   decor: [
     { id: "d1", kind: "하트", text: null, x: 0.2, y: 0.3, size: 0.2, angle: 0, z: 0, glow: "금색" },
-    { id: "d2", kind: "무지개", text: null, x: 0.5, y: 0.5, size: 0.3, angle: 10, z: 1, 무늬: { 줄: 7 } },
+    { id: "d2", kind: "유니콘", text: null, x: 0.5, y: 0.5, size: 0.3, angle: 10, z: 1, 무늬: { 줄: 7 } },
   ],
   dateStamp: false,
   photoCaptions: false,
@@ -428,7 +428,7 @@ test("아는 스티커를 옮기고 지워도 모르는 줄과 모르는 칸은 
 
 test("이 앱에서 붙인 스티커가 모르는 줄과 이름이 겹치면 새 이름을 받는다", () => {
   const card = keepsakeCardOf(
-    { decor: [{ id: "d1", kind: "무지개", x: 0.5, y: 0.5, size: 0.2, angle: 0, z: 0 }] },
+    { decor: [{ id: "d1", kind: "유니콘", x: 0.5, y: 0.5, size: 0.2, angle: 0, z: 0 }] },
     "가을 제주",
     사진들,
   );
@@ -440,7 +440,7 @@ test("이 앱에서 붙인 스티커가 모르는 줄과 이름이 겹치면 새
 
   assert.deepEqual((body.decor as { id: string; kind: string }[]).map((하나) => [하나.id, 하나.kind]), [
     ["d2", "별"],
-    ["d1", "무지개"],
+    ["d1", "유니콘"],
   ]);
 });
 
@@ -465,7 +465,7 @@ test("모르는 것이 없는 카드는 예전과 같은 모양으로 저장된�
   assert.deepEqual(Object.keys(keepsakeBodyOf(card, "가을 제주")), [
     "style", "ratio", "photoIds", "title", "caption", "parts", "stats", "frameColor",
     // 칸별 사진 자리(2026-09-22)는 이 판이 아는 칸이다. 옛 앱(1.0.0)이 버려도 서버가 되살린다.
-    "stickers", "decor", "dateStamp", "photoCaptions", "photoFocus",
+    "stickers", "decor", "dateStamp", "photoCaptions", "photoFocus", "paperColor", "paperPattern",
   ]);
 });
 
@@ -481,4 +481,16 @@ test("칸마다 맞춘 사진 자리는 사진을 따라 저장되고, 가운데
   assert.deepEqual(keepsakeBodyOf({ ...카드, photoIds: ["b"] }, "강릉").photoFocus, {});
   // 이상한 값은 범위 안으로 붙든다.
   assert.deepEqual(keepsakeCardOf({ photoIds: ["a"], photoFocus: { a: { x: 3, y: -1, zoom: 9 } } }, "강릉", ["a"]).photoFocus, { a: { x: 1, y: 0, zoom: 4 } });
+});
+
+test("종이 색과 무늬는 기본이 정해져 있고, 모르는 값은 바꾸지 않으면 그대로 돌려보낸다", () => {
+  const 기본 = keepsakeCardOf({}, "강릉", []);
+  assert.equal(기본.paperColor, "기본");
+  assert.equal(기본.paperPattern, "없음");
+  const 고른 = keepsakeCardOf({ paperColor: "민트", paperPattern: "모눈" }, "강릉", []);
+  assert.deepEqual([고른.paperColor, 고른.paperPattern], ["민트", "모눈"]);
+  const 새_무늬 = keepsakeCardOf({ paperPattern: "별무늬" }, "강릉", []);
+  assert.equal(새_무늬.paperPattern, "없음");
+  assert.equal(keepsakeBodyOf(새_무늬, "강릉").paperPattern, "별무늬");
+  assert.equal(keepsakeBodyOf({ ...새_무늬, paperPattern: "점" }, "강릉").paperPattern, "점");
 });

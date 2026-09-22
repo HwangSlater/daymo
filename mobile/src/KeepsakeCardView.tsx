@@ -9,18 +9,18 @@
  * 여기서는 그것이 돌려준 값을 그린다.
  */
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Animated, Image, PanResponder, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "./AppText";
-import { Glyph, type GlyphName } from "./Glyph";
+import { Glyph } from "./Glyph";
 import {
   clampDecorSpot,
   decorBoxOf,
   type CardDecor,
-  type KeepsakeSticker,
 } from "./cardDecor";
 import { typo } from "./theme/typography";
+import { StickerArt } from "./stickers/StickerArt";
 import { scaleStyles } from "./scaleStyle";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, type Box, type CoverFocus } from "./coverCrop";
 import {
@@ -32,7 +32,12 @@ import {
   keepsakeSlotCaption,
   type KeepsakeCard,
   type KeepsakeFrameColor,
+  type KeepsakePaperColor,
+  type KeepsakePaperPattern,
 } from "./tripCard";
+import Svg, { Circle, Defs, Line, Pattern, Rect } from "react-native-svg";
+import { decorInkOf } from "./cardDecor";
+import { DECOR_FONT_FAMILY, useDecorFonts } from "./decorFonts";
 
 /** 카드에 올릴 수 있는 사진 한 장. 기록 탭의 사진에서 필요한 것만 가려 받는다. */
 export type CardPhoto = {
@@ -70,18 +75,6 @@ const KEEPSAKE_FRAME_LOOK: Record<KeepsakeFrameColor, KeepsakeLook> = {
   숲: { paper: "#2C4433", ink: "#F0F5EE", sub: "#AFC2B1", accent: "#C7D493", frame: "#3B5743" },
 };
 
-/** 스티커마다의 그림과 색. 사진 위에 찍히므로 색은 진하게 둔다. */
-export const STICKER_LOOK: Record<KeepsakeSticker, { glyph: GlyphName; color: string }> = {
-  하트: { glyph: "heart", color: "#E2665C" },
-  별: { glyph: "star", color: "#F0B93F" },
-  비행기: { glyph: "plane", color: "#F8F5F0" },
-  필름: { glyph: "film", color: "#F8F5F0" },
-  말풍선: { glyph: "speech", color: "#8FC8D8" },
-  체크: { glyph: "checkSeal", color: "#7FBF6A" },
-  꽃: { glyph: "flower", color: "#E9899B" },
-  구름: { glyph: "cloud", color: "#D5E7F4" },
-  반짝: { glyph: "sparkle", color: "#F2D479" },
-};
 
 /**
  * 사진 위에 글을 얹을 때 까는 아래쪽 그늘.
@@ -102,10 +95,71 @@ function Scrim() {
   );
 }
 
-export const lookOf = (card: KeepsakeCard): KeepsakeLook =>
-  isCutStyle(card.style)
+/**
+ * 종이 색(2026-09-22). 필름·엽서·스크랩북의 종이를 바꾼다. 「기본」은 틀마다의 원래 색이다.
+ * 먹색처럼 어두운 종이는 글자를 밝게 한다.
+ */
+const PAPER_LOOK: Record<Exclude<KeepsakePaperColor, "기본">, KeepsakeLook> = {
+  크림: { paper: "#F6E7D2", ink: "#33302B", sub: "#847A6D", accent: "#C0693F", frame: "#E4D7C0" },
+  민트: { paper: "#E6EEE6", ink: "#2E3A33", sub: "#6E7F74", accent: "#3E8A6E", frame: "#D2DED3" },
+  하늘: { paper: "#E5EAF5", ink: "#2A3140", sub: "#6F7890", accent: "#3F4C8F", frame: "#D0D8EA" },
+  분홍: { paper: "#F5E3E6", ink: "#3A2C30", sub: "#8A7278", accent: "#C4586C", frame: "#E8CFD4" },
+  먹색: { paper: "#2B2A30", ink: "#F4F1EC", sub: "#ABA4A0", accent: "#E7B4A6", frame: "#3A3940" },
+};
+/** 크라프트는 종이 색 대신 갈색 재생지다. 네컷 틀에서도 틀 색을 덮는다. */
+const KRAFT_LOOK: KeepsakeLook = { paper: "#C9A57A", ink: "#3B2A18", sub: "#5A4430", accent: "#7A3B2E", frame: "#B8936A" };
+
+export const lookOf = (card: KeepsakeCard): KeepsakeLook => {
+  const 원래 = isCutStyle(card.style)
     ? KEEPSAKE_FRAME_LOOK[card.frameColor]
     : KEEPSAKE_LOOK[card.style as "없음" | "필름" | "엽서" | "스크랩북"];
+  // 종이 없는 틀은 사진이 카드 전체라 바꿀 종이가 없다.
+  if (card.style === "없음") return 원래;
+  if (card.paperPattern === "크라프트") return KRAFT_LOOK;
+  if (!isCutStyle(card.style) && card.paperColor !== "기본") return PAPER_LOOK[card.paperColor];
+  return 원래;
+};
+
+/** 어두운 종이인지. 무늬 선을 밝게 그릴지 어둡게 그릴지 가른다. */
+const 어두운_종이 = (paper: string) => {
+  const 수 = parseInt(paper.slice(1), 16);
+  const 밝기 = ((수 >> 16) & 255) * 0.299 + ((수 >> 8) & 255) * 0.587 + (수 & 255) * 0.114;
+  return 밝기 < 110;
+};
+
+/**
+ * 종이 무늬. 카드 바탕 바로 위, 사진과 글 아래에 깐다. 그림 파일 없이 그려서 앱이 커지지
+ * 않는다. 칸 크기는 카드 단위라 찍을 때 키운 배수(`unit`)만큼 함께 커진다.
+ */
+function PaperPattern({ pattern, paper, unit }: { pattern: KeepsakePaperPattern; paper: string; unit: number }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, "");
+  if (pattern === "없음") return null;
+  const 선 = 어두운_종이(paper) ? "rgba(255,255,255,0.13)" : "rgba(90,70,45,0.16)";
+  const 칸 = (pattern === "줄" ? 16 : pattern === "크라프트" ? 7 : 12) * unit;
+  return (
+    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <Pattern id={id} width={칸} height={칸} patternUnits="userSpaceOnUse">
+          {pattern === "모눈" && (
+            <>
+              <Line x1={0} y1={0.5 * unit} x2={칸} y2={0.5 * unit} stroke={선} strokeWidth={unit} />
+              <Line x1={0.5 * unit} y1={0} x2={0.5 * unit} y2={칸} stroke={선} strokeWidth={unit} />
+            </>
+          )}
+          {pattern === "줄" && <Line x1={0} y1={칸 - 0.5 * unit} x2={칸} y2={칸 - 0.5 * unit} stroke={선} strokeWidth={unit} />}
+          {pattern === "점" && <Circle cx={칸 / 2} cy={칸 / 2} r={1.2 * unit} fill={선} />}
+          {pattern === "크라프트" && (
+            <>
+              <Circle cx={1.5 * unit} cy={1.5 * unit} r={0.7 * unit} fill="rgba(90,60,30,0.2)" />
+              <Circle cx={5 * unit} cy={4.5 * unit} r={0.6 * unit} fill="rgba(255,255,255,0.14)" />
+            </>
+          )}
+        </Pattern>
+      </Defs>
+      <Rect width="100%" height="100%" fill={`url(#${id})`} />
+    </Svg>
+  );
+}
 
 /**
  * 꾸미기 화면이 넘기는 것. 없으면 그냥 그리기만 한다(미리보기·내보내기).
@@ -135,6 +189,8 @@ export type DecorEdit = {
   onRemove: (id: string) => void;
   /** 글자를 끌지 않고 눌렀을 때. 글자를 고치는 창을 연다(인스타그램 스토리와 같다). */
   onEdit?: (id: string) => void;
+  /** ⧉. 같은 것을 하나 더 붙인다. 하트를 여러 개 붙일 때 하나씩 고르지 않아도 된다. */
+  onDuplicate?: (id: string) => void;
 };
 
 /** 손잡이를 화면에서 몇 px 로 보이게 할지. 카드가 줄어든 만큼 되돌려 그린다. */
@@ -206,7 +262,9 @@ const DecorItem = memo(function DecorItem({
       onPanResponderMove: (_, gesture) => {
         const 상태 = 지금.current;
         const 배 = 상태.edit?.scale || 1;
-        const 상자 = decorBoxOf(상태.decor, 상태.cardWidth, 상태.cardHeight);
+        // 글자는 잰 폭으로 상자를 잡는다. 빼먹으면 카드 전체 폭으로 셈해 가운데 점이 오른쪽
+        // 끝으로 밀리고, 손을 떼면 그 자리에 저장된다(글자를 가운데로 옮겨도 오른쪽으로 돌아갔다).
+        const 상자 = decorBoxOf(상태.decor, 상태.cardWidth, 상태.cardHeight, 상태.글자폭 || undefined);
         const 자리 = clampDecorSpot(
           상태.decor,
           (잡은_곳.current.left + gesture.dx / 배 + 상자.width / 2) / 상태.cardWidth,
@@ -284,7 +342,7 @@ const DecorItem = memo(function DecorItem({
   }, []);
 
   const 고른_것 = edit?.selectedId === decor.id;
-  const look = decor.kind === "글자" ? undefined : STICKER_LOOK[decor.kind];
+  const 스티커 = decor.kind !== "글자";
   /**
    * 손잡이 크기.
    *
@@ -316,17 +374,9 @@ const DecorItem = memo(function DecorItem({
         },
       ]}
     >
-      {look
-        ? <Glyph name={look.glyph} size={box.side} color={look.color} />
-        : (
-          <Text
-            numberOfLines={1}
-            onLayout={(event) => 글자폭재기(event.nativeEvent.layout.width)}
-            style={[s.decorText, { fontSize: box.side, lineHeight: box.side * 1.35 }]}
-          >
-            {decor.text}
-          </Text>
-        )}
+      {스티커
+        ? <StickerArt name={decor.kind} size={box.side} />
+        : <DecorText decor={decor} side={box.side} sheet={s} onWidth={글자폭재기} />}
       {고른_것 && edit && (
         <>
           <View pointerEvents="none" style={[s.decorRing, { borderWidth: 테두리 }]} />
@@ -340,6 +390,18 @@ const DecorItem = memo(function DecorItem({
           >
             <Text style={[s.decorHandleMark, { fontSize: 손잡이 * 0.55 }]}>✕</Text>
           </Pressable>
+          {/* 오른쪽 위는 복제. 떼기와 멀리, 크기 손잡이와는 세로로 떨어뜨린다. */}
+          {edit.onDuplicate && (
+            <Pressable
+              onPress={() => edit.onDuplicate?.(decor.id)}
+              hitSlop={손잡이 / 2}
+              accessibilityRole="button"
+              accessibilityLabel="같은 것 하나 더 붙이기"
+              style={[s.decorHandle, { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, right: -손잡이 / 2, top: -손잡이 / 2, borderWidth: 테두리 }]}
+            >
+              <Glyph name="copy" size={손잡이 * 0.52} color="#23211F" weight={2.2} />
+            </Pressable>
+          )}
           {/* 오른쪽 아래는 크기와 각도. 한 손가락으로 되는 길을 먼저 둔다. */}
           <View
             {...corner.panHandlers}
@@ -575,6 +637,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
         { width: size.width, height: size.height, backgroundColor: look.paper },
       ]}
     >
+      <PaperPattern pattern={card.style === "없음" ? "없음" : card.paperPattern} paper={look.paper} unit={unit} />
       {card.style === "필름" && (
         <View style={s.filmHoles}>
           {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((hole) => (
@@ -847,6 +910,72 @@ function FocusedPhoto({ uri, focus, onReady }: { uri: string; focus?: CoverFocus
   );
 }
 
+/**
+ * 카드 위 글자 하나. 글꼴·색·바탕(없음·띠·형광펜·말풍선)을 입힌다.
+ *
+ * 인스타그램 스토리와 같게 「띠」는 고른 색을 바탕으로 깔고 글자를 대비되는 색으로,
+ * 「형광펜」은 고른 색을 글자 아래쪽 반에 칠하고, 「말풍선」은 흰 풍선 안에 고른 색 글자다.
+ * 바탕이 없으면 예전처럼 그림자만 준다. 너비는 바탕까지 재서 위로 알린다.
+ */
+function DecorText({
+  decor,
+  side,
+  sheet,
+  onWidth,
+}: {
+  decor: CardDecor;
+  side: number;
+  sheet: typeof styles;
+  onWidth: (width: number) => void;
+}) {
+  const fontsReady = useDecorFonts();
+  const { ink: 글자색, paint: 색 } = decorInkOf(decor);
+  const back = decor.back ?? "없음";
+  const 글꼴 = decor.font && decor.font !== "기본" && fontsReady ? DECOR_FONT_FAMILY[decor.font] : typo.title.family;
+  const 글 = (
+    <Text
+      numberOfLines={1}
+      style={[
+        sheet.decorText,
+        { fontSize: side, lineHeight: side * 1.35, fontFamily: 글꼴, color: 글자색 },
+        back !== "없음" && styles.decorTextFlat,
+      ]}
+    >
+      {decor.text}
+    </Text>
+  );
+  return (
+    <View
+      onLayout={(event) => onWidth(event.nativeEvent.layout.width)}
+      style={[
+        back === "띠" && { backgroundColor: 색, paddingHorizontal: side * 0.32, borderRadius: side * 0.18 },
+        back === "말풍선" && { backgroundColor: "#FFFFFF", paddingHorizontal: side * 0.5, borderRadius: side * 0.7 },
+        back === "형광펜" && { paddingHorizontal: side * 0.12 },
+      ]}
+    >
+      {back === "형광펜" && (
+        <View pointerEvents="none" style={[styles.highlight, { backgroundColor: 색, height: side * 0.62, bottom: side * 0.12 }]} />
+      )}
+      {글}
+      {back === "말풍선" && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.bubbleTail,
+            {
+              left: side * 0.7,
+              bottom: -side * 0.26,
+              borderLeftWidth: side * 0.2,
+              borderRightWidth: side * 0.2,
+              borderTopWidth: side * 0.3,
+            },
+          ]}
+        />
+      )}
+    </View>
+  );
+}
+
 /** 카드를 화면에 맞춰 줄여 보여 준다. 줄여도 카드 안의 숫자는 그대로다. */
 export function ScaledCard({
   scale,
@@ -929,6 +1058,17 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(17,16,15,0.65)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
+  },
+  // 바탕을 깐 글자는 그림자를 빼야 바탕 위에서 번지지 않는다.
+  decorTextFlat: { textShadowColor: "transparent", textShadowRadius: 0 },
+  highlight: { position: "absolute", left: 0, right: 0, borderRadius: 2 },
+  bubbleTail: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopColor: "#FFFFFF",
   },
   decorRing: {
     position: "absolute",

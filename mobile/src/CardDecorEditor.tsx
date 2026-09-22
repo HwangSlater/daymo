@@ -1,26 +1,25 @@
 /**
- * 기념 카드 꾸미기 도구 — 카드를 크게 띄우고 그 아래에서 네 갈래로 고친다.
+ * 기념 카드 꾸미기 도구 — 카드를 크게 띄우고, 아래 막대의 도구를 시트로 올려 고친다.
  *
  * 창을 스스로 열지 않는다. 사진을 크게 보는 창(`PhotoViewer.tsx`)이 「꾸미기」를
  * 누르면 그 자리에서 이것을 펼친다. 사진과 카드가 다른 창이면 한 장을 카드로
  * 만들다 말고 나갔다 들어오게 된다. 보던 사진이 그대로 카드가 되어야 한다.
  *
- * 갈래는 넷이다. 예전에는 「카드 설정 고치기」 시트에 틀·사진·글이 있고 스티커만
- * 전용 화면에 있었다. 같은 카드를 두 군데서 고치는 셈이라 무엇이 어디 있는지
- * 외워야 했다. 카드를 보면서 고치는 것이 전부 여기 있다.
- *   모양 — 프레임·비율·프레임 색·날짜 도장·사진 설명
- *   사진 — 어떤 사진을 몇 번째 칸에 넣을지
- *   글 — 제목·한 줄 설명·넣을 항목·통계
- *   스티커 — 붙이기·크기·회전·순서·삭제·글자
+ * 도구는 아래 막대의 다섯이다(2026-09-22, 인스타그램·캔바와 같은 틀). 누른 것만 시트로
+ * 올라오고, 시트는 끌어 올려 크게·내려서 닫는다. 아무것도 안 열면 카드가 화면을 크게 쓴다.
+ *   프레임 — 프레임·비율·프레임 색·날짜 도장·사진 설명
+ *   사진 — 어떤 사진을 몇 번째 칸에 넣을지(카드에서 누르면 보일 부분, 꾹 누르면 자리 바꾸기)
+ *   글자 — 카드에 글자 붙이기, 제목·한 줄 설명·넣을 항목·통계
+ *   스티커 — 갈래별 오려 붙인 스티커(`stickers/`)
+ *   바탕 — 종이 무늬·종이 색
+ * 되돌리기·다시하기는 머리줄 가운데(`PhotoViewer` 의 history), 복제는 스티커 손잡이 ⧉ 다.
  *
  * 부르는 말은 「프레임」으로 맞췄다. 「틀」은 뜻은 맞지만 이 자리에서 무엇을
- * 가리키는지 바로 오지 않고, 네컷 사진을 찍어 본 사람이 실제로 쓰는 말은
- * 프레임이다. 다만 갈래 이름까지 「프레임」으로 하면 그 안에 비율·프레임 색이
- * 같이 있는 것이 어색해서, 갈래는 그것들을 다 덮는 「모양」으로 둔다.
+ * 가리키는지 바로 오지 않고, 네컷 사진을 찍어 본 사람이 실제로 쓰는 말은 프레임이다.
  *
  * 지키는 것 셋.
- *   1. 어느 갈래에서도 카드가 통째로 보인다. 남는 칸을 재서 카드를 그만큼 줄인다
- *      (`fitScaleOf`). 도구 칸은 높이를 고정해서 갈래를 바꿔도 카드가 튀지 않는다.
+ *   1. 어느 도구를 열어도 카드가 통째로 보인다. 남는 칸을 재서 카드를 그만큼 줄인다
+ *      (`fitScaleOf`).
  *   2. 끄는 동안 다시 그리지 않는다. 움직이는 스티커만 `Animated` 로 밀고
  *      (`KeepsakeCardView` 의 `DecorItem`), 손을 뗄 때 한 번 상태로 올린다.
  *   3. 자리는 카드 크기에 대한 비율로만 들고 있는다. 줄여 보여 줘도 내보낸
@@ -41,38 +40,52 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 
 import { Text } from "./AppText";
 import { useOnceTip } from "./onceTip";
+import { DECOR_FONT_FAMILY, useDecorFonts } from "./decorFonts";
 import { COVER_FOCUS_DEFAULT, sameFocus } from "./coverCrop";
 import { CoverFocusScreen } from "./ui/CoverFocusScreen";
-import { Glyph } from "./Glyph";
-import { KeepsakeCardView, LIFT_DELAY, ScaledCard, STICKER_LOOK, type CardPhoto } from "./KeepsakeCardView";
+import { Glyph, type GlyphName } from "./Glyph";
+import { KeepsakeCardView, LIFT_DELAY, ScaledCard, type CardPhoto } from "./KeepsakeCardView";
+import { STICKER_CATEGORIES, stickerAspect } from "./stickers/catalog";
+import { StickerArt } from "./stickers/StickerArt";
 import {
   addDecor,
   fitScaleOf,
   moveDecor,
   removeDecor,
+  duplicateDecor,
+  setDecorStyle,
+  DECOR_BACKS,
+  DECOR_COLORS,
+  DECOR_COLOR_HEX,
+  DECOR_FONTS,
+  decorInkOf,
   setDecorSize,
   setDecorText,
   DECOR_MAX,
   DECOR_TEXT_MAX,
-  KEEPSAKE_PALETTE,
   type CardDecor,
   type KeepsakeSticker,
 } from "./cardDecor";
 import { Chip, ChipRow as SharedChipRow } from "./ui/Chip";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 여백 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import {
   isCutStyle,
   keepsakePhotoFullReason,
   keepsakeShotScale,
   keepsakeSizeOf,
+  KEEPSAKE_PAPER_COLORS,
+  KEEPSAKE_PAPER_PATTERNS,
+  type KeepsakePaperColor,
+  type KeepsakePaperPattern,
   moveKeepsakePhoto,
   placeKeepsakePhoto,
   slideTargetOf,
@@ -111,9 +124,15 @@ const CHIP = "#26252E";
 const CHIP_EDGE = "#3C3A47";
 const ACCENT = "#A7B3EE";
 
-/** 도구의 네 갈래. 값이 곧 탭에 적히는 말이다. 화면 안에서만 쓰고 저장하지 않는다. */
-export const CARD_TOOL_TABS = ["프레임", "사진", "텍스트", "스티커"] as const;
+/**
+ * 아래 막대의 도구(2026-09-22, 인스타그램·캔바와 같은 틀). 누른 것만 시트로 올라온다.
+ * 「글자」는 예전 「텍스트」 갈래(카드 제목·설명)에 글자 스티커 붙이기를 더한 것이다.
+ */
+export const CARD_TOOL_TABS = ["프레임", "사진", "글자", "스티커", "바탕"] as const;
 export type CardToolTab = (typeof CARD_TOOL_TABS)[number];
+const TOOL_GLYPH: Record<CardToolTab, GlyphName> = {
+  프레임: "cardFrame", 사진: "photo", 글자: "textT", 스티커: "sticker", 바탕: "paper",
+};
 
 /** 갈래 안의 작은 제목. 무엇을 고르는 줄인지만 알린다. */
 function PanelLabel({ text }: { text: string }) {
@@ -353,7 +372,34 @@ export function CardDecorTools({
   theme?: AppTheme;
 }) {
   // 사진 없이 시작한 새 카드는 사진부터 고르게 한다.
-  const [tab, setTab] = useState<CardToolTab>(card.photoIds.length ? "프레임" : "사진");
+  // 아무것도 안 열면 카드가 화면을 크게 쓴다. 사진 없이 시작한 새 카드만 「사진」부터 연다.
+  const [tab, setTab] = useState<CardToolTab | null>(card.photoIds.length ? null : "사진");
+  /** 시트를 끌어 올려 크게 봤는지. 스티커를 고를 때처럼 칸이 많이 필요할 때 쓴다. */
+  const [시트_크게, 시트_크게_하기] = useState(false);
+  const { height: 창_높이 } = useWindowDimensions();
+  const 시트_높이 = 시트_크게 ? Math.round(창_높이 * 0.56) : 250;
+  // 손잡이 판. 위로 끌면 크게, 아래로 끌면 작게(작을 때 끌면 닫기). 누르기만 하면 크기를 바꾼다.
+  const 시트_손 = useRef({ 크게: 시트_크게 });
+  useEffect(() => {
+    시트_손.current = { 크게: 시트_크게 };
+  }, [시트_크게]);
+  const 손잡이 = useMemo(
+    () =>
+      // 손가락 이벤트 때만 ref 를 읽는다.
+      // eslint-disable-next-line react-hooks/refs
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onPanResponderRelease: (_, g) => {
+          const 크게 = 시트_손.current.크게;
+          if (g.dy < -24) 시트_크게_하기(true);
+          else if (g.dy > 30) {
+            if (크게) 시트_크게_하기(false);
+            else setTab(null);
+          } else if (Math.abs(g.dy) < 6) 시트_크게_하기(!크게);
+        },
+      }),
+    [],
+  );
   const [고른_것, 고르기] = useState("");
   const [칸, 칸재기] = useState({ width: 0, height: 0 });
 
@@ -393,8 +439,18 @@ export function CardDecorTools({
   );
   /** 카드 위 사진에서 하는 일을 처음 한 번 알리는 말풍선. */
   const [사진_안내_봄, 사진_안내_닫기] = useOnceTip("daymo.card-photo-tip.v1");
+  const [스티커_갈래, 스티커_갈래_고르기] = useState(STICKER_CATEGORIES[0].name);
   /** 칸에 보여 줄 부분을 맞추는 중인 사진과 그 칸의 가로:세로. */
   const [맞추는, 맞추기] = useState<{ photoId: string; ratio: number } | null>(null);
+  const onDuplicate = useCallback(
+    (id: string) => {
+      // 복제한 것을 곧바로 고르게 한다. 새 목록에서 고르면 React 가 두 번 불러도 같다.
+      const 다음 = duplicateDecor(card.decor, id);
+      onDecor(() => 다음);
+      if (다음.length > card.decor.length) 고르기(다음[다음.length - 1].id);
+    },
+    [card.decor, onDecor],
+  );
   /** 글자를 고치는 창에 띄운 글자 스티커. */
   const [글자_고치는, 글자_고치기] = useState("");
   const onEdit = useCallback((id: string) => {
@@ -402,8 +458,8 @@ export function CardDecorTools({
     글자_고치기(id);
   }, []);
   const edit = useMemo(
-    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove, onResize, onRemove, onEdit }),
-    [readOnly, 고른_것, scale, onMove, onResize, onRemove, onEdit],
+    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove, onResize, onRemove, onEdit, onDuplicate }),
+    [readOnly, 고른_것, scale, onMove, onResize, onRemove, onEdit, onDuplicate],
   );
   const 고른_줄 = card.decor.find((하나) => 하나.id === 고른_것);
   const 네컷 = isCutStyle(card.style);
@@ -422,6 +478,10 @@ export function CardDecorTools({
     고르기(새것);
     if (kind === "글자") 글자_고치기(새것);
   };
+  const 고치는_글자 = card.decor.find((하나) => 하나.id === 글자_고치는);
+  const fontsReady = useDecorFonts();
+  // 입력칸 글자는 카드에 찍힐 색과 같게 보인다(`decorInkOf` 를 카드와 같이 쓴다).
+  const { ink: 입력_글자색, paint: 고른_색 } = decorInkOf(고치는_글자 ?? {});
   /** 글자 고치는 창을 닫는다. 비워 두었으면 그 글자는 뗀다. */
   const 글자_마치기 = () => {
     const 고친_것 = card.decor.find((하나) => 하나.id === 글자_고치는);
@@ -482,31 +542,22 @@ export function CardDecorTools({
         </View>
       ) : (
         <>
-          <View style={styles.tabs}>
-            {CARD_TOOL_TABS.map((하나) => {
-              const on = tab === 하나;
-              return (
-                <Pressable
-                  key={하나}
-                  onPress={() => setTab(하나)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${하나} 편집`}
-                  hitSlop={누름여유(높이.칩)}
-                  style={({ pressed }) => [styles.tab, on && styles.tabOn, pressed && styles.pressed]}
-                >
-                  <Text style={[styles.tabText, on && styles.tabTextOn]}>{하나}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
           {/*
-            도구 칸의 높이를 고정한다. 갈래마다 줄 수가 달라 칸이 늘었다 줄면 그때마다
-            카드가 다시 맞춰져 위아래로 튄다. 넘치는 갈래는 이 안에서 밀어 본다.
+            누른 도구만 아래 막대 위로 올라온다. 카드는 남은 자리에 맞춰 줄었다 커진다
+            (`fitScaleOf`). 손잡이를 끌어 올리면 크게, 내리면 작게, 한 번 더 내리면 닫힌다.
           */}
-          <View style={styles.panel}>
-            <ScrollView style={styles.panelScroll} contentContainerStyle={styles.panelPad} keyboardShouldPersistTaps="handled">
+          {tab && (
+            <View style={[styles.sheet, { height: 시트_높이 }]}>
+              <View {...손잡이.panHandlers} style={styles.sheetGrip} accessibilityRole="adjustable" accessibilityLabel={`${tab} 도구 칸 크기`}>
+                <View style={styles.sheetHandle} />
+                <View style={styles.sheetHead}>
+                  <Text style={styles.sheetTitle}>{tab}</Text>
+                  <Pressable onPress={() => setTab(null)} accessibilityRole="button" accessibilityLabel="도구 닫기" hitSlop={10}>
+                    <Glyph name="chevronDown" size={18} color={INK_FAINT} weight={2.2} />
+                  </Pressable>
+                </View>
+              </View>
+              <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.panelPad} keyboardShouldPersistTaps="handled">
               {tab === "프레임" && (
                 <>
                   <PanelLabel text="프레임" />
@@ -653,8 +704,19 @@ export function CardDecorTools({
                 </>
               )}
 
-              {tab === "텍스트" && (
+              {tab === "글자" && (
                 <>
+                  {/* 카드 위에 얹는 글자. 누르면 곧바로 적는 화면이 뜬다(인스타그램 스토리와 같다). */}
+                  <Pressable
+                    onPress={() => 붙이기("글자")}
+                    disabled={스티커_꽉_참}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: 스티커_꽉_참 }}
+                    style={({ pressed }) => [styles.addText, { backgroundColor: accent }, 스티커_꽉_참 && styles.pickBlocked, pressed && styles.pressed]}
+                  >
+                    <Glyph name="textT" size={18} color={accentInk} weight={2.2} />
+                    <Text style={[styles.addTextLabel, { color: accentInk }]}>카드에 글자 붙이기</Text>
+                  </Pressable>
                   {/* 켜고 끄는 줄을 제목보다 위에 둔다. 아래에 있으면 제목을 다 적고
                       저장할 때까지 지나치고, 「적었는데 왜 카드에 없지」가 된다. */}
                   <PanelLabel text="카드에 넣을 것" />
@@ -714,13 +776,66 @@ export function CardDecorTools({
                 </>
               )}
 
+              {tab === "바탕" && (
+                <>
+                  <PanelLabel text="종이 무늬" />
+                  <ChipRow
+                    options={KEEPSAKE_PAPER_PATTERNS}
+                    chosen={(option) => option === card.paperPattern}
+                    accent={accent}
+                    accentInk={accentInk}
+                    onPress={(option) => tune({ paperPattern: option as KeepsakePaperPattern })}
+                  />
+                  {/* 종이 색은 종이가 있는 틀만 바꾼다. 네컷 계열은 「프레임」의 프레임 색이 바탕이다. */}
+                  {card.style !== "없음" && !네컷 && card.paperPattern !== "크라프트" && (
+                    <>
+                      <PanelLabel text="종이 색" />
+                      <View style={styles.swatchRow}>
+                        {KEEPSAKE_PAPER_COLORS.map((색) => (
+                          <Pressable
+                            key={색}
+                            onPress={() => tune({ paperColor: 색 })}
+                            accessibilityRole="button"
+                            accessibilityLabel={`종이 색 ${색}`}
+                            accessibilityState={{ selected: card.paperColor === 색 }}
+                            style={({ pressed }) => [
+                              styles.swatch,
+                              { backgroundColor: PAPER_SWATCH[색] },
+                              card.paperColor === 색 && { borderColor: accent, borderWidth: 3 },
+                              pressed && styles.pressed,
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    </>
+                  )}
+                  <Text style={styles.panelHint}>
+                    {card.style === "없음"
+                      ? "기본 프레임은 사진이 카드 전체라 종이 색이 없어요 · 무늬는 다른 프레임에서 보여요"
+                      : 네컷
+                        ? "네컷 프레임의 바탕 색은 「프레임」에서 골라요"
+                        : card.paperPattern === "크라프트"
+                          ? "크라프트는 갈색 재생지라 종이 색 대신 쓰여요"
+                          : "무늬와 색은 필름·엽서·스크랩북 프레임의 종이에 들어가요"}
+                  </Text>
+                </>
+              )}
+
               {tab === "스티커" && (
                 <>
                   {/* 서른 개까지다. 예전에는 꽉 찬 뒤 눌러도 아무 일이 없어서
                       고장인지 한도인지 알 수 없었다. */}
                   <PanelLabel text={`스티커 · ${card.decor.length}/${DECOR_MAX}`} />
-                  <View style={styles.paletteRow}>
-                    {KEEPSAKE_PALETTE.map((sticker) => (
+                  {/* 갈래로 나눈다. 마흔 개가 넘어 한 판에 늘어놓으면 찾을 수가 없다. */}
+                  <ChipRow
+                    options={STICKER_CATEGORIES.map((갈래) => 갈래.name)}
+                    chosen={(option) => option === 스티커_갈래}
+                    accent={accent}
+                    accentInk={accentInk}
+                    onPress={스티커_갈래_고르기}
+                  />
+                  <View style={styles.stickerGrid}>
+                    {(STICKER_CATEGORIES.find((갈래) => 갈래.name === 스티커_갈래)?.stickers ?? []).map((sticker) => (
                       <Pressable
                         key={sticker}
                         onPress={() => 붙이기(sticker)}
@@ -728,26 +843,16 @@ export function CardDecorTools({
                         accessibilityRole="button"
                         accessibilityLabel={`${sticker} 스티커 붙이기`}
                         accessibilityState={{ disabled: 스티커_꽉_참 }}
-                        style={({ pressed }) => [styles.palette, 스티커_꽉_참 && styles.pickBlocked, pressed && styles.pressed]}
+                        style={({ pressed }) => [
+                          styles.stickerCell,
+                          stickerAspect(sticker) > 1.5 && styles.stickerCellWide,
+                          스티커_꽉_참 && styles.pickBlocked,
+                          pressed && styles.pressed,
+                        ]}
                       >
-                        <Glyph name={STICKER_LOOK[sticker].glyph} size={22} color={STICKER_LOOK[sticker].color} />
+                        <StickerArt name={sticker} size={stickerAspect(sticker) > 1.5 ? 76 : 40} shadow={false} />
                       </Pressable>
                     ))}
-                    <Pressable
-                      onPress={() => 붙이기("글자")}
-                      disabled={스티커_꽉_참}
-                      accessibilityRole="button"
-                      accessibilityLabel="텍스트 추가"
-                      accessibilityState={{ disabled: 스티커_꽉_참 }}
-                      style={({ pressed }) => [
-                        styles.palette,
-                        styles.paletteWide,
-                        스티커_꽉_참 && styles.pickBlocked,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text style={styles.paletteText}>텍스트</Text>
-                    </Pressable>
                   </View>
                   {/* 크기·각도·떼기는 전부 스티커 위 손잡이로 옮겼다(`KeepsakeCardView`).
                       버튼 줄이 화면 맨 아래에 있으면 눈이 카드와 줄 사이를 오가야 하고,
@@ -767,7 +872,26 @@ export function CardDecorTools({
                   )}
                 </>
               )}
-            </ScrollView>
+              </ScrollView>
+            </View>
+          )}
+          <View style={styles.toolBar}>
+            {CARD_TOOL_TABS.map((하나) => {
+              const on = tab === 하나;
+              return (
+                <Pressable
+                  key={하나}
+                  onPress={() => setTab(on ? null : 하나)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${하나} 편집`}
+                  style={({ pressed }) => [styles.toolBarItem, pressed && styles.pressed]}
+                >
+                  <Glyph name={TOOL_GLYPH[하나]} size={22} color={on ? ACCENT : INK_SOFT} weight={1.9} />
+                  <Text style={[styles.toolBarText, on && styles.toolBarTextOn]}>{하나}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </>
       )}
@@ -794,9 +918,48 @@ export function CardDecorTools({
           도구 칸 맨 아래 입력칸은 키보드에 덮여 보이지 않았다. */}
       <Modal visible={Boolean(글자_고치는)} transparent animationType="fade" onRequestClose={글자_마치기}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.textSheet}>
-          <Pressable onPress={글자_마치기} accessibilityRole="button" style={styles.textSheetDone} hitSlop={10}>
-            <Text style={styles.textSheetDoneText}>완료</Text>
-          </Pressable>
+          {/* 위 줄은 글꼴과 바탕, 키보드 바로 위는 색. 인스타그램 스토리와 같은 자리다. */}
+          <View style={styles.textSheetTop}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.textSheetPills} keyboardShouldPersistTaps="always">
+              {DECOR_FONTS.map((글꼴) => {
+                const on = (고치는_글자?.font ?? "기본") === 글꼴;
+                return (
+                  <Pressable
+                    key={글꼴}
+                    onPress={() => onDecor((지금) => setDecorStyle(지금, 글자_고치는, { font: 글꼴 }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`글꼴 ${글꼴}`}
+                    style={[styles.textPill, on && styles.textPillOn]}
+                  >
+                    <Text style={[styles.textPillText, on && styles.textPillTextOn, fontsReady && 글꼴 !== "기본" && { fontFamily: DECOR_FONT_FAMILY[글꼴] }]}>
+                      {글꼴}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              <View style={styles.textPillGap} />
+              {DECOR_BACKS.map((바탕) => {
+                const on = (고치는_글자?.back ?? "없음") === 바탕;
+                return (
+                  <Pressable
+                    key={바탕}
+                    onPress={() => onDecor((지금) => setDecorStyle(지금, 글자_고치는, { back: 바탕 }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`글자 바탕 ${바탕}`}
+                    style={[styles.textPill, on && styles.textPillOn]}
+                  >
+                    <Text style={[styles.textPillText, on && styles.textPillTextOn]}>{바탕 === "없음" ? "바탕 없음" : 바탕}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Pressable onPress={글자_마치기} accessibilityRole="button" style={styles.textSheetDone} hitSlop={10}>
+              <Text style={styles.textSheetDoneText}>완료</Text>
+            </Pressable>
+          </View>
+          <View style={styles.textSheetMiddle}>
           <TextInput
             autoFocus
             value={card.decor.find((하나) => 하나.id === 글자_고치는)?.text ?? ""}
@@ -807,16 +970,49 @@ export function CardDecorTools({
             placeholderTextColor={INK_FAINT}
             maxLength={DECOR_TEXT_MAX}
             accessibilityLabel="카드에 넣을 텍스트"
-            style={styles.textSheetInput}
+            style={[
+              styles.textSheetInput,
+              {
+                color: 입력_글자색,
+                fontFamily: fontsReady && 고치는_글자?.font && 고치는_글자.font !== "기본" ? DECOR_FONT_FAMILY[고치는_글자.font] : typo.title.family,
+              },
+              고치는_글자?.back === "띠" && { backgroundColor: 고른_색, borderRadius: 10, paddingHorizontal: 14 },
+              고치는_글자?.back === "말풍선" && { backgroundColor: "#FFFFFF", borderRadius: 26, paddingHorizontal: 18 },
+              고치는_글자?.back === "형광펜" && { backgroundColor: 고른_색, borderRadius: 4, paddingHorizontal: 8 },
+            ]}
           />
           <Text style={styles.textSheetCount}>
-            {(card.decor.find((하나) => 하나.id === 글자_고치는)?.text ?? "").length} / {DECOR_TEXT_MAX}
+            {(고치는_글자?.text ?? "").length} / {DECOR_TEXT_MAX}
           </Text>
+          {/* 색은 입력칸 바로 아래에 둔다. 화면 맨 아래에 두었더니 키보드가 내려가면 홈 막대
+              근처까지 떨어져 누르기 불편했다. 키보드가 있든 없든 엄지가 닿는 자리다. */}
+          <View style={styles.textSheetColors}>
+            {DECOR_COLORS.map((색) => {
+              const on = (고치는_글자?.color ?? "흰색") === 색;
+              return (
+                <Pressable
+                  key={색}
+                  onPress={() => onDecor((지금) => setDecorStyle(지금, 글자_고치는, { color: 색 }))}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`글자 색 ${색}`}
+                  hitSlop={4}
+                  style={[styles.textColor, { backgroundColor: DECOR_COLOR_HEX[색] }, on && styles.textColorOn]}
+                />
+              );
+            })}
+          </View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </>
   );
 }
+
+/** 종이 색 견본. 카드가 쓰는 색(`KeepsakeCardView` 의 PAPER_LOOK)과 같다. 「기본」은 엽서 종이다. */
+const PAPER_SWATCH: Record<KeepsakePaperColor, string> = {
+  기본: "#FFFFFF", 크림: "#F6E7D2", 민트: "#E6EEE6", 하늘: "#E5EAF5", 분홍: "#F5E3E6", 먹색: "#2B2A30",
+};
 
 /** 차례 줄 한 칸의 폭. 사진(54)과 사이(6)를 더한 것이다(`styles.pick`, `styles.chipRow`). */
 const 차례_칸 = 60;
@@ -1082,8 +1278,19 @@ const styles = StyleSheet.create({
   toggleTrack: { width: 38, height: 22, borderRadius: 11, backgroundColor: CHIP, justifyContent: "center" },
   toggleKnob: { width: 16, height: 16, borderRadius: 8, marginLeft: 3, backgroundColor: INK_FAINT },
   toggleKnobOn: { marginLeft: 19, backgroundColor: "#FFFFFF" },
-  textSheet: { flex: 1, backgroundColor: "rgba(10,10,14,0.78)", justifyContent: "center", paddingHorizontal: 24 },
-  textSheetDone: { position: "absolute", top: 56, right: 20, paddingVertical: 8, paddingHorizontal: 12 },
+  textSheet: { flex: 1, backgroundColor: "rgba(10,10,14,0.78)" },
+  textSheetTop: { flexDirection: "row", alignItems: "center", paddingTop: 56, paddingLeft: 12 },
+  textSheetPills: { gap: 6, paddingRight: 8, alignItems: "center" },
+  textPill: { height: 34, paddingHorizontal: 13, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.12)", justifyContent: "center" },
+  textPillOn: { backgroundColor: "#F6F4F1" },
+  textPillText: { fontSize: 14, color: "#F6F4F1", fontFamily: typo.label.family },
+  textPillTextOn: { color: "#16151B" },
+  textPillGap: { width: 10 },
+  textSheetMiddle: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
+  textSheetColors: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 22, maxWidth: 360 },
+  textColor: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: "rgba(255,255,255,0.35)" },
+  textColorOn: { borderWidth: 3, borderColor: "#FFFFFF", transform: [{ scale: 1.15 }] },
+  textSheetDone: { paddingVertical: 8, paddingHorizontal: 14 },
   textSheetDoneText: { color: "#FFFFFF", fontSize: 16, fontFamily: typo.title.family },
   textSheetInput: {
     color: "#FFFFFF",
@@ -1134,6 +1341,44 @@ const styles = StyleSheet.create({
   },
   paletteWide: { width: 높이.버튼 + 12 },
   paletteText: { fontSize: 13, color: INK, fontFamily: typo.label.family },
+  sheet: {
+    backgroundColor: PANEL,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  sheetGrip: { paddingTop: 8, paddingBottom: 4 },
+  sheetHandle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: "#4A4953" },
+  sheetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 6 },
+  sheetTitle: { fontSize: 15, color: INK, fontFamily: typo.title.family },
+  sheetScroll: { flex: 1 },
+  toolBar: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingTop: 8,
+    paddingBottom: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: CHIP_EDGE,
+  },
+  toolBarItem: { alignItems: "center", gap: 3, minWidth: 56, minHeight: 44, justifyContent: "center" },
+  toolBarText: { fontSize: 11, color: INK_SOFT, fontFamily: typo.label.family },
+  toolBarTextOn: { color: ACCENT, fontFamily: typo.title.family },
+  addText: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
+    marginTop: 12,
+  },
+  addTextLabel: { fontSize: 14, fontFamily: typo.title.family },
+  swatchRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  stickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  stickerCell: { width: 60, height: 60, borderRadius: 12, backgroundColor: CHIP, alignItems: "center", justifyContent: "center" },
+  // 글씨 띠·테이프는 옆으로 길어 두 칸을 쓴다.
+  stickerCellWide: { width: 128 },
+  swatch: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   // 남이 만든 카드. 도구 자리에 왜 못 고치는지만 적는다.
   readOnly: { minHeight: 64, justifyContent: "center", paddingHorizontal: 20, paddingBottom: 12 },
   readOnlyText: { fontSize: 12, color: INK_FAINT, textAlign: "center", fontFamily: typo.caption.family },

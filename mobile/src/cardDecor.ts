@@ -12,25 +12,23 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-/** 붙일 수 있는 스티커. 값은 화면에 보이는 말 그대로다. */
-export type KeepsakeSticker =
-  | "하트" | "별" | "비행기" | "필름" | "말풍선" | "체크" | "꽃" | "구름" | "반짝";
+import { isKnownSticker, stickerAspect } from "./stickers/catalog.ts";
 
+/**
+ * 붙일 수 있는 스티커의 이름. 값은 화면에 보이는 말 그대로다.
+ *
+ * 2026-09-22 에 오려 붙인 스티커 47개로 늘렸다(`stickers/catalog.ts`). 이름은 한 번 내보내면
+ * 바꾸지 않는다. 이 판이 모르는 이름은 `unknownDecorOf` 가 들고 있다가 돌려보낸다.
+ */
+export type KeepsakeSticker = string;
+
+/**
+ * 첫 판의 스티커 아홉. 옛 판이 남긴 `stickers` 칸을 옮길 때(`legacyDecorOf`)만 쓴다.
+ * 비행기는 「이상하게 보인다」는 말을 듣고 고르는 자리에서 뺐지만, 그려지기는 한다.
+ */
 export const KEEPSAKE_STICKERS: KeepsakeSticker[] = [
   "하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝",
 ];
-
-/**
- * 지금 고를 수 있는 스티커.
- *
- * 비행기는 「이상하게 보인다」는 말을 듣고 뺐다. 위의 전체 목록에서는 지우지
- * 않는다. 지우면 이미 비행기를 얹어 둔 카드가 읽힐 때 그 줄이 그려지지 않는다
- * (`decorOf` 는 모르는 이름을 뺀다). 그리기는 그대로 두고 새로 고르는 자리에서만
- * 뺀다. 남의 카드에 있던 비행기도 계속 보인다.
- */
-export const KEEPSAKE_PALETTE: KeepsakeSticker[] = KEEPSAKE_STICKERS.filter(
-  (하나) => 하나 !== "비행기",
-);
 
 /** 스티커가 붙던 모서리. 이제는 옛 값을 옮길 때만 쓴다. */
 export type KeepsakeCorner = "좌상" | "우상" | "좌하" | "우하";
@@ -52,6 +50,10 @@ export type CardDecor = {
   angle: number;
   /** 겹침 순서. 클수록 위에 있다. 읽을 때 0부터 다시 매긴다. */
   z: number;
+  /** 글자의 글꼴·색·바탕. 기본이면 적지 않는다(저장 모양이 예전과 같다). 스티커에는 없다. */
+  font?: DecorFont;
+  color?: DecorColor;
+  back?: DecorBack;
   /**
    * 이 판이 모르는 칸. 더 새 앱이 붙여 둔 것이라 읽기만 하고 저장할 때 그대로
    * 돌려보낸다. 버리면 이 앱으로 카드를 한 번 고치는 것만으로 새 앱의 값이 사라진다.
@@ -59,8 +61,52 @@ export type CardDecor = {
   extra?: Record<string, unknown>;
 };
 
+/**
+ * 글자 꾸미기(2026-09-22). 인스타그램 스토리처럼 적는 자리에서 고른다.
+ *
+ * 값은 보이는 말 그대로 저장한다. 모르는 값(더 새 앱이 더한 글꼴 등)은 버리지 않고
+ * `extra` 에 그대로 들고 있다가 돌려보낸다. 그리는 쪽은 기본으로 그린다.
+ */
+export const DECOR_FONTS = ["기본", "손글씨", "굵게", "둥글게"] as const;
+export type DecorFont = (typeof DECOR_FONTS)[number];
+export const DECOR_COLORS = ["흰색", "검정", "크림", "주황", "빨강", "초록", "파랑", "보라"] as const;
+export type DecorColor = (typeof DECOR_COLORS)[number];
+/** 글자 색. 흰색이 기본이다(사진 위에 얹는 일이 많아서). */
+export const DECOR_COLOR_HEX: Record<DecorColor, string> = {
+  흰색: "#FFFFFF", 검정: "#16151B", 크림: "#FFE7A8", 주황: "#F2A03D",
+  빨강: "#E86A6A", 초록: "#5FA88E", 파랑: "#6F86DA", 보라: "#A77FD0",
+};
+export const DECOR_BACKS = ["없음", "띠", "형광펜", "말풍선"] as const;
+export type DecorBack = (typeof DECOR_BACKS)[number];
+
+/** 어두운 색인지. 그 위에 흰 글자를 쓸지 가른다. */
+export const isDarkColor = (hex: string) => {
+  const 수 = parseInt(hex.slice(1), 16);
+  return ((수 >> 16) & 255) * 0.299 + ((수 >> 8) & 255) * 0.587 + (수 & 255) * 0.114 < 110;
+};
+
+/**
+ * 글자에 칠할 색. 카드(`KeepsakeCardView`)와 글자 입력 창이 같은 셈을 쓴다.
+ * 「띠」는 고른 색을 바탕으로 깔고 대비되는 글자를, 「형광펜」은 늘 어두운 글자를,
+ * 「말풍선」은 흰 풍선 안에 고른 색(흰색이면 어두운 글자)을 쓴다.
+ */
+export function decorInkOf(decor: Pick<CardDecor, "color" | "back">): { ink: string; paint: string } {
+  const paint = DECOR_COLOR_HEX[decor.color ?? "흰색"];
+  const back = decor.back ?? "없음";
+  const ink = back === "띠"
+    ? (isDarkColor(paint) ? "#FFFFFF" : "#16151B")
+    : back === "형광펜"
+      ? "#16151B"
+      : back === "말풍선" && paint === "#FFFFFF" ? "#16151B" : paint;
+  return { ink, paint };
+}
+
 /** 이 판이 아는 칸. 나머지는 `extra` 로 들고 있다가 돌려보낸다. */
-const DECOR_KEYS = new Set(["id", "kind", "text", "x", "y", "size", "angle", "z"]);
+const DECOR_KEYS = new Set(["id", "kind", "text", "x", "y", "size", "angle", "z", "font", "color", "back"]);
+
+/** 아는 값이면 그 값, 기본이거나 없으면 undefined. 모르는 값은 `extra` 로 간다(아래). */
+const 고른_것 = <T extends string>(all: readonly T[], 값: unknown, 기본: T): T | undefined =>
+  all.includes(값 as T) && 값 !== 기본 ? (값 as T) : undefined;
 
 /** 한 카드에 얹을 수 있는 수. 서버도 같은 수로 막는다. */
 export const DECOR_MAX = 30;
@@ -85,12 +131,20 @@ const 반올림 = (값: number) => Math.round(값 * 1000) / 1000;
 export const turnedAngle = (각: number) => (((각 + 180) % 360) + 360) % 360 - 180;
 
 const isSticker = (값: unknown): 값 is KeepsakeSticker =>
-  KEEPSAKE_STICKERS.includes(값 as KeepsakeSticker);
+  typeof 값 === "string" && isKnownSticker(값);
 
 /** 모르는 칸만 골라 낸다. 하나도 없으면 undefined 라 저장 모양이 예전과 같다. */
 const 모르는_칸 = (값: Record<string, unknown>): Record<string, unknown> | undefined => {
   const 남은_것 = Object.entries(값).filter(([key]) => !DECOR_KEYS.has(key));
-  return 남은_것.length ? Object.fromEntries(남은_것) : undefined;
+  // 아는 칸이라도 이 판이 모르는 값(새 글꼴 이름 등)은 들고 있다가 돌려보낸다.
+  const 모르는_값 = ([
+    ["font", DECOR_FONTS],
+    ["color", DECOR_COLORS],
+    ["back", DECOR_BACKS],
+  ] as const).filter(([key, all]) => typeof 값[key] === "string" && !(all as readonly string[]).includes(값[key] as string))
+    .map(([key]) => [key, 값[key]] as const);
+  const 모두 = [...남은_것, ...모르는_값];
+  return 모두.length ? Object.fromEntries(모두) : undefined;
 };
 
 /**
@@ -136,6 +190,7 @@ export function decorOf(saved: unknown): CardDecor[] {
         size: clamp(숫자(값.size, DECOR_NEW_SIZE), DECOR_MIN_SIZE, DECOR_MAX_SIZE),
         angle: turnedAngle(숫자(값.angle, 0)),
         z: 숫자(값.z, 차례),
+        ...(글자 ? 글자_꾸밈(값) : {}),
         ...(extra ? { extra } : {}),
       };
     })
@@ -143,6 +198,14 @@ export function decorOf(saved: unknown): CardDecor[] {
     .slice(0, DECOR_MAX);
   return 다시_매긴다(읽은_것);
 }
+
+/** 글자의 글꼴·색·바탕 가운데 기본이 아닌 것만. */
+const 글자_꾸밈 = (값: Record<string, unknown>): Pick<CardDecor, "font" | "color" | "back"> => {
+  const font = 고른_것(DECOR_FONTS, 값.font, "기본");
+  const color = 고른_것(DECOR_COLORS, 값.color, "흰색");
+  const back = 고른_것(DECOR_BACKS, 값.back, "없음");
+  return { ...(font ? { font } : {}), ...(color ? { color } : {}), ...(back ? { back } : {}) };
+};
 
 /** 겹침 순서로 줄을 세우고 0부터 다시 매긴다. 같은 순서면 먼저 온 것이 아래다. */
 const 다시_매긴다 = (list: readonly CardDecor[]): CardDecor[] =>
@@ -169,6 +232,10 @@ export function decorBodyOf(list: readonly CardDecor[]): Record<string, unknown>
     size: 반올림(줄.size),
     angle: 반올림(줄.angle),
     z: 줄.z,
+    // 기본은 적지 않는다. 적으면 글자를 꾸미지 않은 카드도 저장 모양이 달라진다.
+    ...(줄.kind === "글자" && 줄.font && 줄.font !== "기본" ? { font: 줄.font } : {}),
+    ...(줄.kind === "글자" && 줄.color && 줄.color !== "흰색" ? { color: 줄.color } : {}),
+    ...(줄.kind === "글자" && 줄.back && 줄.back !== "없음" ? { back: 줄.back } : {}),
   }));
 }
 
@@ -186,11 +253,13 @@ export function decorBoxOf(
   textWidth?: number,
 ): { cx: number; cy: number; width: number; height: number; side: number } {
   const side = decor.size * Math.min(width, height);
+  // 스티커는 긴 변이 `side` 다. 탑승권·테이프처럼 가로로 긴 것은 그 비율만큼 납작하다.
+  const 비율 = decor.kind === "글자" ? 1 : stickerAspect(decor.kind);
   return {
     cx: decor.x * width,
     cy: decor.y * height,
-    width: decor.kind === "글자" ? Math.min(width, textWidth ?? width) : side,
-    height: decor.kind === "글자" ? side * 1.4 : side,
+    width: decor.kind === "글자" ? Math.min(width, textWidth ?? width) : 비율 >= 1 ? side : side * 비율,
+    height: decor.kind === "글자" ? side * 1.4 : 비율 >= 1 ? side / 비율 : side,
     side,
   };
 }
@@ -242,11 +311,45 @@ export function addDecor(
     text: kind === "글자" ? text.trim().slice(0, DECOR_TEXT_MAX) : "",
     x: 0.5 + 비낌,
     y: 0.5 + 비낌,
-    size: kind === "글자" ? DECOR_NEW_TEXT_SIZE : DECOR_NEW_SIZE,
+    // 가로로 긴 스티커(글씨 띠·테이프)는 같은 크기로 붙이면 너무 가늘어서 두 배로 붙인다.
+    size: kind === "글자" ? DECOR_NEW_TEXT_SIZE : stickerAspect(kind) > 1.5 ? Math.min(DECOR_MAX_SIZE, DECOR_NEW_SIZE * 2) : DECOR_NEW_SIZE,
     angle: 0,
     z: list.length,
   };
   return [...list, 새것];
+}
+
+/** 글자의 글꼴·색·바탕을 바꾼다. 바꾼 칸의 모르는 옛 값은 버린다(사람이 새로 골랐다). */
+export function setDecorStyle(
+  list: readonly CardDecor[],
+  id: string,
+  change: Partial<Pick<CardDecor, "font" | "color" | "back">>,
+): CardDecor[] {
+  return list.map((줄) => {
+    if (줄.id !== id || 줄.kind !== "글자") return 줄;
+    const extra = 줄.extra ? { ...줄.extra } : undefined;
+    for (const key of Object.keys(change)) delete extra?.[key];
+    const 다음 = { ...줄, ...change, extra: extra && Object.keys(extra).length ? extra : undefined };
+    if (!다음.extra) delete 다음.extra;
+    return 다음;
+  });
+}
+
+/**
+ * 같은 것을 하나 더 붙인다(스티커 손잡이의 ⧉). 조금 비껴 놓고 맨 위에 둔다.
+ * 넘치면 그대로 둔다.
+ */
+export function duplicateDecor(list: readonly CardDecor[], id: string): CardDecor[] {
+  const 원본 = list.find((줄) => 줄.id === id);
+  if (!원본 || list.length >= DECOR_MAX) return [...list];
+  const 복사 = {
+    ...원본,
+    id: 다음_이름(list),
+    x: clamp(원본.x + 0.05, 0, 1),
+    y: clamp(원본.y + 0.05, 0, 1),
+    z: list.length,
+  };
+  return 다시_매긴다([...list, 복사]);
 }
 
 export function removeDecor(list: readonly CardDecor[], id: string): CardDecor[] {
