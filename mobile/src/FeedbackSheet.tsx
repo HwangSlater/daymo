@@ -24,7 +24,7 @@ export function FeedbackSheet({ theme, onClose }: { theme: AppTheme; onClose: ()
     try {
       await sendFeedback(kind, body);
       onClose();
-      showAlert("의견을 보냈어요", "보내 주셔서 고마워요. 하나하나 읽어 볼게요.");
+      showAlert("의견을 보냈어요", "보내 주셔서 감사해요. 하나하나 꼼꼼히 읽어 볼게요.");
     } catch (caught) {
       showAlert(
         "의견을 보내지 못했어요",
@@ -121,7 +121,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingLeft: 16,
     paddingRight: 30,
-    marginBottom: 12,
+    // 머리(설정·프로필)와 떨어뜨린다. 아래 「현재 여행 공간」 카드가 제 위쪽 여백 16을 가지므로
+    // 같은 값을 위에 두면 위아래 간격이 같아진다.
+    marginTop: 16,
   },
   cardCopy: { flex: 1, gap: 4 },
   cardTitle: { fontSize: 14.5, fontFamily: typo.title.family },
