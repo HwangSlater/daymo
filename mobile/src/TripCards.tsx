@@ -22,7 +22,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Platform, View } from "react-native";
+import { Image, Platform, StyleSheet, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
@@ -331,11 +331,16 @@ export function TripCardsSection({
     [listPhotoIds, chosen],
   );
   const thumbs = usePhotoThumbs(받을_사진);
-  // 미리보기는 썸네일, 내보낼 때는 원본. 둘 다 없으면 기기에 있는 것, 그것도 없으면 색만 깔린다.
+  /**
+   * 꾸미기와 카드 보기는 기기에 있는 표시본(긴 변 2048px)으로 그리고, 내보낼 때는 원본으로 그린다.
+   * 썸네일(480px)은 표시본이 없을 때만 쓴다. 예전에는 썸네일부터 써서 꾸미는 동안 사진이 흐렸고,
+   * 확대해 꾸미면 더 눈에 띄었다(2026-09-22). 카드 한 장에 사진은 넷까지라 부담이 적다.
+   * 격자의 작은 카드와 옆 칸 미리보기는 그대로 썸네일을 쓴다.
+   */
   const drawPhotos = useMemo(
     () => chosen.map((photo) => ({
       ...photo,
-      uri: exporting ? originals[photo.id] ?? photo.uri : thumbs[photo.id] ?? photo.uri,
+      uri: exporting ? originals[photo.id] ?? photo.uri : photo.uri ?? thumbs[photo.id],
     })),
     [chosen, exporting, originals, thumbs],
   );
@@ -816,6 +821,33 @@ export function TripCardsSection({
    */
   /** 도구는 접힌 채로 카드를 크게 보는 중인지. */
   const previewing = Boolean(openId) && !toolsOpen;
+  /**
+   * 카드를 볼 때 띄울 완성 그림(2026-09-22, 「카드도 사진으로 보면 좋겠다」). 서버에 둔 그림이
+   * 지금 카드 그대로면(`hasFreshCardImage`) 받아서 사진처럼 띄운다. 가로 2160px 이라 확대해도
+   * 선명하다. 없거나 옛것이면 그 자리에서 그린 카드를 보여 준다.
+   */
+  const [카드_그림, 카드_그림_두기] = useState<{ id: string; version: number; uri: string } | null>(null);
+  const 볼_줄 = previewing && open ? rows.find((줄) => 줄.id === open.id) : undefined;
+  const 받을_그림 = 볼_줄 && hasFreshCardImage(볼_줄) ? { id: 볼_줄.id, version: 볼_줄.version } : null;
+  useEffect(() => {
+    if (!받을_그림) return;
+    let 살아있다 = true;
+    let 받은: string | undefined;
+    downloadCardImage(받을_그림.id, 받을_그림.version)
+      .then((uri) => {
+        받은 = uri;
+        if (살아있다 && uri) 카드_그림_두기({ ...받을_그림, uri });
+        else if (uri) releaseCardImage(uri);
+      })
+      .catch(() => undefined);
+    return () => {
+      살아있다 = false;
+      if (받은) releaseCardImage(받은);
+      카드_그림_두기(null);
+    };
+    // 받을 그림이 바뀔 때만 다시 받는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [받을_그림?.id, 받을_그림?.version]);
   /** 스트립 끝에 세울 카드. 지금 보는 카드에 표가 선다. */
   const cardStrip = useMemo(
     () => tiles.map((하나) => ({ ...하나, on: previewing && 하나.id === openId })),
@@ -946,7 +978,10 @@ export function TripCardsSection({
           ? { on: cover.on, label: cover.label, onPress: () => void toggleCover() }
           : undefined,
         preview: previewing && card
-          ? <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} onPhotoReady={markDrawn} shotRef={shot} exporting={exporting} />
+          // 찍는 중에는 그린 카드가 있어야 한다(공유할 그림을 그 자리에서 찍는 경우).
+          ? 카드_그림 && 카드_그림.id === open?.id && !exporting
+            ? <Image source={{ uri: 카드_그림.uri }} resizeMode="contain" style={styles.cardImage} accessibilityLabel={text.title || "추억 카드"} />
+            : <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} onPhotoReady={markDrawn} shotRef={shot} exporting={exporting} />
           : undefined,
         // 기간과 지역은 카드 얼굴에 이미 적혀 있다. 아래에는 어떤 틀에 사진 몇 장인지만
         // 둔다. 두 줄이 되면 스트립이 밀린다.
@@ -1025,3 +1060,8 @@ const 그려질_때까지 = async (다_그렸나: () => boolean): Promise<boolea
   }
   return 다_그렸나();
 };
+
+const styles = StyleSheet.create({
+  // 카드를 사진처럼 볼 때. 보기 창의 카드 자리를 꽉 채우고 비율은 지킨다.
+  cardImage: { width: "100%", height: "100%" },
+});

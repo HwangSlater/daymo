@@ -411,12 +411,20 @@ export function PhotoViewerScreen({
   useWebKeyboardFocus(visible);
   const [slideX] = useState(() => new Animated.Value(0));
   const [slideY] = useState(() => new Animated.Value(0));
+  /**
+   * 지금 보는 칸의 확대(2026-09-22 요청). 두 손가락으로 벌려 키우고, 키운 채로는 한 손가락으로
+   * 사진 안을 둘러본다. 두 번 톡 치면 2.5 배, 한 번 더 치면 원래대로. 옆 칸으로 가면 푼다.
+   * 손가락을 따라서는 값만 움직인다(상태를 고치지 않는다 — 렌더가 끼면 프레임이 밀린다).
+   */
+  const [줌] = useState(() => ({ 배: new Animated.Value(1), x: new Animated.Value(0), y: new Animated.Value(0) }));
+  const 줌_지금 = useRef({ 배: 1, x: 0, y: 0 });
   /** 이번에 미는 방향. 「안함」은 좌우로 밀었지만 갈 곳이 없어 흘려보내는 중이다. */
   const 축_판정 = useRef<"아직" | "안함" | NonNullable<SwipeAxis>>("아직");
   // 손가락이 움직일 때 필요한 값. PanResponder 를 다시 만들지 않으려고 여기로 읽는다.
-  const latest = useRef({ 칸수: 칸들.length, 이웃칸, 칸으로, width, close });
+  const { height: 창_높이 } = useWindowDimensions();
+  const latest = useRef({ 칸수: 칸들.length, 이웃칸, 칸으로, width, close, 높이: 창_높이 });
   useEffect(() => {
-    latest.current = { 칸수: 칸들.length, 이웃칸, 칸으로, width, close };
+    latest.current = { 칸수: 칸들.length, 이웃칸, 칸으로, width, close, 높이: 창_높이 };
   });
   // 판은 한 번만 만든다. 끄는 도중에 다시 만들면 여태 끈 거리를 잊어버린다. 안에서
   // 쓰는 값은 모두 위의 `latest` 에서 읽으므로 다시 만들 까닭도 없다.
@@ -424,6 +432,33 @@ export function PhotoViewerScreen({
   // 아래 콜백들은 PanResponder 가 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
   // eslint-disable-next-line react-hooks/refs
   const [pan] = useState(() => {
+    /** 확대한 사진이 화면 밖으로 달아나지 않게 옮김을 붙든다. */
+    const 붙들기 = (배: number, x: number, y: number) => {
+      const 가로_끝 = ((배 - 1) * latest.current.width) / 2;
+      const 세로_끝 = ((배 - 1) * latest.current.높이) / 2;
+      return { 배, x: Math.max(-가로_끝, Math.min(가로_끝, x)), y: Math.max(-세로_끝, Math.min(세로_끝, y)) };
+    };
+    const 줌_두기 = (다음: { 배: number; x: number; y: number }, 부드럽게: boolean) => {
+      줌_지금.current = 다음;
+      if (!부드럽게) {
+        줌.배.setValue(다음.배);
+        줌.x.setValue(다음.x);
+        줌.y.setValue(다음.y);
+        return;
+      }
+      Animated.parallel([
+        Animated.spring(줌.배, { toValue: 다음.배, bounciness: 2, useNativeDriver: true }),
+        Animated.spring(줌.x, { toValue: 다음.x, bounciness: 2, useNativeDriver: true }),
+        Animated.spring(줌.y, { toValue: 다음.y, bounciness: 2, useNativeDriver: true }),
+      ]).start();
+    };
+    /** 두 손가락 벌리기의 처음 값, 한 손가락 둘러보기의 처음 값, 두 번 치기를 가를 앞 누름. */
+    const 손 = { 거리: 0, 가운데x: 0, 가운데y: 0, 처음: { 배: 1, x: 0, y: 0 }, 핀치: false, 앞_누름: 0, 앞_x: 0, 앞_y: 0 };
+    const 두_손가락_재기 = (터치: readonly { pageX: number; pageY: number }[]) => ({
+      거리: Math.hypot(터치[0].pageX - 터치[1].pageX, 터치[0].pageY - 터치[1].pageY),
+      가운데x: (터치[0].pageX + 터치[1].pageX) / 2,
+      가운데y: (터치[0].pageY + 터치[1].pageY) / 2,
+    });
     const 제자리로 = () => {
       Animated.parallel([
         Animated.spring(slideX, { toValue: 0, bounciness: 2, useNativeDriver: true }),
@@ -454,8 +489,33 @@ export function PhotoViewerScreen({
       // 끼어들면 그 프레임이 통째로 밀린다. 값 하나만 바꾼다.
       onPanResponderGrant: () => {
         축_판정.current = "아직";
+        손.핀치 = false;
+        손.거리 = 0;
+        손.처음 = { ...줌_지금.current };
       },
-      onPanResponderMove: (_, gesture) => {
+      onPanResponderMove: (event, gesture) => {
+        const 터치 = event.nativeEvent.touches;
+        // 두 손가락: 벌려 키우고, 가운데를 끌어 옮긴다.
+        if (터치.length >= 2) {
+          const 지금 = 두_손가락_재기(터치);
+          if (!손.핀치 || !손.거리) {
+            Object.assign(손, 지금, { 핀치: true, 처음: { ...줌_지금.current } });
+            // 넘기던 중이었으면 줄을 제자리로 둔다.
+            slideX.setValue(0);
+            slideY.setValue(0);
+            축_판정.current = "안함";
+            return;
+          }
+          const 배 = Math.max(1, Math.min(5, 손.처음.배 * (지금.거리 / 손.거리)));
+          줌_두기(붙들기(배, 손.처음.x + (지금.가운데x - 손.가운데x), 손.처음.y + (지금.가운데y - 손.가운데y)), false);
+          return;
+        }
+        if (손.핀치) return;
+        // 키운 채로는 한 손가락으로 사진 안을 둘러본다. 넘기기·닫기는 하지 않는다.
+        if (줌_지금.current.배 > 1.01) {
+          줌_두기(붙들기(줌_지금.current.배, 손.처음.x + gesture.dx, 손.처음.y + gesture.dy), false);
+          return;
+        }
         축_정하기(gesture);
         if (축_판정.current === "가로") slideX.setValue(gesture.dx);
         // 아래로 끄는 만큼만 따라간다. 위로 끌어도 사진은 꿈쩍하지 않는다.
@@ -465,9 +525,29 @@ export function PhotoViewerScreen({
         const 축 = 축_판정.current;
         축_판정.current = "아직";
         const { width: 폭, close: 닫는다, 이웃칸: 옆칸, 칸으로: 옮긴다 } = latest.current;
+        if (손.핀치) {
+          손.핀치 = false;
+          // 거의 안 키웠으면 원래대로 되돌린다.
+          if (줌_지금.current.배 < 1.05) 줌_두기({ 배: 1, x: 0, y: 0 }, true);
+          return;
+        }
         // 밀지 않고 톡 누른 것. 도구를 접거나 편다. 손가락은 늘 조금씩 흔들리므로
         // 몇 점까지는 누른 것으로 본다.
-        if (축 === "아직" && Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
+        if ((축 === "아직" || 줌_지금.current.배 > 1.01) && Math.abs(gesture.dx) < 8 && Math.abs(gesture.dy) < 8) {
+          // 두 번 톡: 2.5 배로 키우거나(친 자리가 가운데 오게) 원래대로.
+          const 지금_시각 = Date.now();
+          if (지금_시각 - 손.앞_누름 < 300 && Math.hypot(gesture.x0 - 손.앞_x, gesture.y0 - 손.앞_y) < 30) {
+            손.앞_누름 = 0;
+            // 첫 톡이 도구 줄을 접거나 폈으니 되돌린다. 두 번 치기는 확대만 한다.
+            setChromeOn((보임) => !보임);
+            const { width: 폭, 높이 } = latest.current;
+            if (줌_지금.current.배 > 1.01) 줌_두기({ 배: 1, x: 0, y: 0 }, true);
+            else 줌_두기(붙들기(2.5, (폭 / 2 - gesture.x0) * 1.5, (높이 / 2 - gesture.y0) * 1.5), true);
+            return;
+          }
+          손.앞_누름 = 지금_시각;
+          손.앞_x = gesture.x0;
+          손.앞_y = gesture.y0;
           setMenuOpen((열림) => {
             // 메뉴가 펼쳐져 있으면 먼저 접는다. 바깥을 눌러 닫는 것과 같다.
             if (열림) return false;
@@ -476,6 +556,8 @@ export function PhotoViewerScreen({
           });
           return;
         }
+        // 키운 채로 끈 것은 둘러보기였다. 넘기거나 닫지 않는다.
+        if (줌_지금.current.배 > 1.01) return;
         if (축 === "세로") {
           if (!swipeCloses(gesture.dy, gesture.vy)) return 제자리로();
           slideX.setValue(0);
@@ -530,7 +612,12 @@ export function PhotoViewerScreen({
   useLayoutEffect(() => {
     slideX.setValue(0);
     slideY.setValue(0);
-  }, [지금칸, slideX, slideY]);
+    // 옆 칸으로 가면 확대는 푼다. 다음 사진은 늘 전체가 보이게 시작한다.
+    줌_지금.current = { 배: 1, x: 0, y: 0 };
+    줌.배.setValue(1);
+    줌.x.setValue(0);
+    줌.y.setValue(0);
+  }, [지금칸, slideX, slideY, 줌]);
 
   // 필름 스트립이 지금 보는 사진을 늘 화면에 두게 한다. 스무 장쯤 되면 화살표로
   // 넘길수록 지금 사진이 줄 밖으로 밀려나 어디쯤인지 알 수 없다.
@@ -679,6 +766,15 @@ export function PhotoViewerScreen({
                   한장 && !한장.uri ? { backgroundColor: 한장.color } : null,
                 ]}
               >
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.fill,
+                    { width },
+                    // 확대는 지금 보는 칸에만 준다. 옆 칸은 늘 원래 크기다.
+                    자리 === 0 && { transform: [{ translateX: 줌.x }, { translateY: 줌.y }, { scale: 줌.배 }] },
+                  ]}
+                >
                 {카드 ? (
                   <View style={styles.previewBox} pointerEvents="none">{카드}</View>
                 ) : 한장?.uri ? (
@@ -693,6 +789,7 @@ export function PhotoViewerScreen({
                 ) : 자리 === 0 && !previewing ? (
                   <Text style={styles.waiting}>{waitingText ?? "사진을 불러오는 중이에요"}</Text>
                 ) : null}
+                </Animated.View>
               </View>
             );
           })}

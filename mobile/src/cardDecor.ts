@@ -76,7 +76,23 @@ export const DECOR_COLOR_HEX: Record<DecorColor, string> = {
   흰색: "#FFFFFF", 검정: "#16151B", 크림: "#FFE7A8", 주황: "#F2A03D",
   빨강: "#E86A6A", 초록: "#5FA88E", 파랑: "#6F86DA", 보라: "#A77FD0",
 };
-export const DECOR_BACKS = ["없음", "띠", "형광펜", "말풍선"] as const;
+/**
+ * 글자 바탕. 뒤의 일곱은 「글씨」 스티커(`stickers/art.ts`)를 그대로 가져와 글자만 적은 말로
+ * 바꿔 끼운다(2026-09-22, 사용자가 「스티커에 있는 걸 그대로」라고 했다). 색은 스티커 그대로다.
+ */
+export const DECOR_BACKS = ["없음", "띠", "형광펜", "말풍선", "리본", "태그", "도장", "이름표", "딱지", "하트", "풍선"] as const;
+/** 스티커 모양 바탕과 그 스티커 이름. */
+export const DECOR_SHAPE_STICKER = {
+  리본: "최고의 하루", 태그: "여행 중", 도장: "맛집", 이름표: "또 오자", 딱지: "디데이", 하트: "우리", 풍선: "행복",
+} as const;
+export const DECOR_SHAPE_BACKS = Object.keys(DECOR_SHAPE_STICKER) as (keyof typeof DECOR_SHAPE_STICKER)[];
+/**
+ * 스티커 모양 바탕에 넣을 수 있는 글자 수. 길면 모양이 일그러지거나 글자가 읽히지 않게 작아진다.
+ * 띠 모양은 옆으로 늘려 담고(1.6 배까지), 동그란 것(도장·하트)은 늘리지 않는다.
+ */
+export const DECOR_SHAPE_TEXT_MAX = { 띠: 12, 동그란: 6 } as const;
+export const decorShapeTextMax = (back: string): number =>
+  back === "도장" || back === "하트" ? DECOR_SHAPE_TEXT_MAX.동그란 : DECOR_SHAPE_TEXT_MAX.띠;
 export type DecorBack = (typeof DECOR_BACKS)[number];
 
 /** 어두운 색인지. 그 위에 흰 글자를 쓸지 가른다. */
@@ -93,11 +109,12 @@ export const isDarkColor = (hex: string) => {
 export function decorInkOf(decor: Pick<CardDecor, "color" | "back">): { ink: string; paint: string } {
   const paint = DECOR_COLOR_HEX[decor.color ?? "흰색"];
   const back = decor.back ?? "없음";
-  const ink = back === "띠"
-    ? (isDarkColor(paint) ? "#FFFFFF" : "#16151B")
-    : back === "형광펜"
-      ? "#16151B"
-      : back === "말풍선" && paint === "#FFFFFF" ? "#16151B" : paint;
+  const 대비 = isDarkColor(paint) ? "#FFFFFF" : "#16151B";
+  const ink = back === "띠" || (DECOR_SHAPE_BACKS as readonly string[]).includes(back)
+      ? 대비
+      : back === "형광펜"
+        ? "#16151B"
+        : back === "말풍선" && paint === "#FFFFFF" ? "#16151B" : paint;
   return { ink, paint };
 }
 
@@ -251,6 +268,8 @@ export function decorBoxOf(
   width: number,
   height: number,
   textWidth?: number,
+  /** 글자를 잰 높이. 바탕 모양(스티커 모양 등)에 따라 달라서 그리는 쪽이 재서 넘긴다. */
+  textHeight?: number,
 ): { cx: number; cy: number; width: number; height: number; side: number } {
   const side = decor.size * Math.min(width, height);
   // 스티커는 긴 변이 `side` 다. 탑승권·테이프처럼 가로로 긴 것은 그 비율만큼 납작하다.
@@ -259,7 +278,7 @@ export function decorBoxOf(
     cx: decor.x * width,
     cy: decor.y * height,
     width: decor.kind === "글자" ? Math.min(width, textWidth ?? width) : 비율 >= 1 ? side : side * 비율,
-    height: decor.kind === "글자" ? side * 1.4 : 비율 >= 1 ? side / 비율 : side,
+    height: decor.kind === "글자" ? textHeight ?? side * 1.4 : 비율 >= 1 ? side / 비율 : side,
     side,
   };
 }
@@ -276,9 +295,13 @@ export function clampDecorSpot(
   y: number,
   width: number,
   height: number,
+  /** 글자를 잰 크기. 있으면 글자 상자가 통째로 카드 안에 머물게 막는다. */
+  textSize?: { width: number; height: number },
 ): { x: number; y: number } {
-  const 상자 = decorBoxOf({ ...decor, x: 0, y: 0 }, width, height);
-  const 가로_여유 = decor.kind === "글자" ? 0.06 : 상자.width / 2 / width;
+  const 상자 = decorBoxOf({ ...decor, x: 0, y: 0 }, width, height, textSize?.width, textSize?.height);
+  const 가로_여유 = decor.kind === "글자"
+    ? Math.min(0.5, textSize?.width ? 상자.width / 2 / width : 0.06)
+    : 상자.width / 2 / width;
   const 세로_여유 = 상자.height / 2 / height;
   return {
     x: clamp(x, 가로_여유, 1 - 가로_여유),
