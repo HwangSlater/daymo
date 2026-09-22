@@ -1,9 +1,10 @@
+import json
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 from app.models import RelationshipType, TripStatus
 from app.schemas.auth import _Camel
@@ -21,31 +22,28 @@ class TripCreateRequest(_Camel):
     participant_membership_ids: list[str] = Field(default_factory=list, max_length=10)
 
 
-# 기념 카드에서 고를 수 있는 것. 값은 앱 화면에 보이는 말 그대로다. 한국어만 쓰는
-# 앱이고, 영어 코드를 따로 두면 화면과 저장된 값을 견주어 볼 때 표를 한 번 더 거쳐야 한다.
+# 기념 카드의 꾸민 값(`trip_cards.settings`). 서버는 이 값으로 아무것도 계산하지 않고
+# 그대로 돌려준다. 카드 그림은 기기가 그린다.
 #
-# 뒤의 넷은 사진관에서 뽑는 네컷 프레임이다. 비율 대신 프레임이 크기를 정한다.
-# 맨 앞의 `없음` 은 종이를 끼우지 않고 사진만 쓰는 것이다. 스티커와 글자만 얹고
-# 싶은 사람에게 필름도 엽서도 거추장스러운 테두리라, 아무것도 안 고를 길을 둔다.
-KeepsakeStyle = Literal["없음", "필름", "엽서", "스크랩북", "네컷", "네컷 격자", "네컷 가로", "세컷"]
-KeepsakeRatio = Literal["세로", "정사각", "가로"]
-# 카드에 넣을 줄. 끄면 그 줄이 안 나온다.
-KeepsakePart = Literal["이름", "기간", "지역", "사람", "문구", "통계"]
-# 통계 줄에 넣을 숫자. `지출` 은 남에게 보여 주는 그림이라 앱이 기본으로 끈다.
-KeepsakeStat = Literal["장소", "사진", "날", "지출"]
-# 네컷 틀의 테두리 색. 앞의 셋은 사진관 색이고 뒤의 셋은 앱에서 쓰는 색이다.
-KeepsakeFrameColor = Literal["검정", "흰색", "크림", "노을", "바다", "숲"]
-# 카드에 붙이는 작은 그림.
-KeepsakeSticker = Literal[
-    "하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝"
-]
-# 카드에 얹는 것. 스티커 이름이거나 글자다.
-KeepsakeDecorKind = Literal[
-    "하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝", "글자"
-]
+# 틀 이름·스티커 이름 같은 값은 목록으로 막지 않는다. 막으면 새 스티커 하나를 더할
+# 때마다 서버를 먼저 올려야 하고, 서버보다 먼저 나간 앱은 그사이 저장이 422 로 막힌다.
+# 모르는 칸도 받아서 그대로 둔다. 무엇을 그릴지는 앱이 정하고, 모르는 값을 만난 앱은
+# 기본으로 그리되 버리지 않고 돌려보낸다(docs/development/03-api-specification.md 10장).
+#
+# 대신 크기는 막는다. 한 카드의 꾸민 값 전체가 `KEEPSAKE_SETTINGS_MAX_BYTES` 를 넘으면
+# 받지 않고, 스티커 수·글자 길이·자리 값의 범위도 그대로 본다.
+KEEPSAKE_SETTINGS_MAX_BYTES = 16 * 1024
+# 틀 이름·스티커 이름 하나의 길이. 값은 앱 화면에 보이는 말 그대로라 짧다.
+KeepsakeName = Annotated[str, StringConstraints(min_length=1, max_length=20)]
 
 
-class KeepsakeDecorIn(_Camel):
+class _KeepsakeOpen(_Camel):
+    """모르는 칸도 받아 그대로 두는 모양. 기념 카드의 꾸민 값에만 쓴다."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class KeepsakeDecorIn(_KeepsakeOpen):
     """
     카드 위에 손으로 얹은 것 하나.
 
@@ -56,7 +54,8 @@ class KeepsakeDecorIn(_Camel):
 
     # 앱이 만드는 이름(`d1`). 한 카드 안에서만 쓴다.
     id: str = Field(default="d1", min_length=1, max_length=20)
-    kind: KeepsakeDecorKind = "하트"
+    # 스티커 이름이거나 `글자`. 서버는 어떤 이름이 있는지 모른다.
+    kind: KeepsakeName = "하트"
     # 글자일 때만 채운다.
     text: str | None = Field(default=None, max_length=24)
     # 가운데 자리. 카드 너비·높이에 대한 비율이다.
@@ -69,33 +68,55 @@ class KeepsakeDecorIn(_Camel):
     z: int = Field(default=0, ge=0, le=99)
 
 
-class KeepsakeCardIn(_Camel):
+class KeepsakeCardIn(_KeepsakeOpen):
     """
     기념 카드를 어떻게 꾸몄는지.
 
     서버는 이 값으로 아무것도 계산하지 않고 그대로 돌려준다. 카드 그림은 기기가
     그린다. `photoIds` 만 그 여행의 사진인지 따로 본다.
+
+    지금 앱이 쓰는 값(적어 두기만 한다. 서버는 이것으로 막지 않는다):
+    - style: 없음·필름·엽서·스크랩북·네컷·네컷 격자·네컷 가로·세컷. `없음` 은 종이를
+      끼우지 않고 사진만 쓰는 것이고, 뒤의 넷은 사진관에서 뽑는 네컷 프레임이다.
+    - ratio: 세로·정사각·가로. 네컷 프레임에서는 프레임이 크기를 정한다.
+    - parts: 이름·기간·지역·사람·문구·통계. 끄면 그 줄이 안 나온다.
+    - stats: 장소·사진·날·지출. `지출` 은 남에게 보여 주는 그림이라 앱이 기본으로 끈다.
+    - frameColor: 검정·흰색·크림(사진관 색)·노을·바다·숲(앱 색).
+    - decor 의 kind: 하트·별·비행기·필름·말풍선·체크·꽃·구름·반짝·글자.
     """
 
-    style: KeepsakeStyle = "필름"
-    ratio: KeepsakeRatio = "세로"
+    style: KeepsakeName = "필름"
+    ratio: KeepsakeName = "세로"
     # 고른 차례가 카드에 놓이는 차례다. 비어 있으면 앱이 가장 최근 사진을 쓴다.
     photo_ids: list[str] = Field(default_factory=list, max_length=4)
     title: str | None = Field(default=None, max_length=60)
     caption: str | None = Field(default=None, max_length=200)
-    parts: list[KeepsakePart] = Field(default_factory=list, max_length=6)
-    stats: list[KeepsakeStat] = Field(default_factory=list, max_length=4)
+    # 목록 칸은 지금 쓰는 값보다 넉넉히 받는다. 새 값이 붙어도 막히지 않게.
+    parts: list[KeepsakeName] = Field(default_factory=list, max_length=20)
+    stats: list[KeepsakeName] = Field(default_factory=list, max_length=20)
     # 아래 넷은 네컷 틀에서만 그려진다. 다른 스타일에서는 저장만 된다.
-    frame_color: KeepsakeFrameColor = "검정"
+    frame_color: KeepsakeName = "검정"
     # 옛 앱이 보내던 정해진 자리 스티커 목록. 새 앱은 늘 빈 목록을 보내고 대신
     # `decor` 를 채운다. 옛 앱이 아직 이 칸으로 보낼 수 있어 받기만 한다.
-    stickers: list[KeepsakeSticker] = Field(default_factory=list, max_length=9)
+    stickers: list[KeepsakeName] = Field(default_factory=list, max_length=20)
     # 손으로 얹은 스티커와 글자. 어느 스타일에서든 그려진다.
     decor: list[KeepsakeDecorIn] = Field(default_factory=list, max_length=30)
     # 필름 카메라가 찍어 주던 날짜 도장(`2026.09.15`).
     date_stamp: bool = False
     # 사진에 적어 둔 짧은 설명을 칸 아래에 넣을지.
     photo_captions: bool = False
+
+    @model_validator(mode="after")
+    def _크기를_본다(self) -> "KeepsakeCardIn":
+        # 모르는 칸을 받는 대신 전체 크기로 막는다. 저장될 모양 그대로 잰다.
+        크기 = len(json.dumps(self.stored(), ensure_ascii=False).encode())
+        if 크기 > KEEPSAKE_SETTINGS_MAX_BYTES:
+            raise ValueError(f"카드 꾸밈 값이 너무 커요({KEEPSAKE_SETTINGS_MAX_BYTES}바이트까지).")
+        return self
+
+    def stored(self) -> dict:
+        """저장할 모양. 모르는 칸도 받은 이름 그대로 들어간다."""
+        return self.model_dump(by_alias=True, mode="json")
 
 
 class TripCardCreateRequest(_Camel):

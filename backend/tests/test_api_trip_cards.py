@@ -81,11 +81,16 @@ async def test_손으로_얹은_스티커는_비율_그대로_오간다(api, db)
     }
     assert 카드["settings"]["decor"][1]["text"] == "좋았다"
 
-    # 카드 밖으로 나간 자리, 모르는 스티커, 뒤집힌 각도는 받지 않는다.
+    # 카드 밖으로 나간 자리, 뒤집힌 각도, 빈 이름·너무 긴 이름·긴 글자는 받지 않는다.
+    # 모르는 스티커 이름은 받는다(`test_새_앱이_보낸_모르는_값은_그대로_두고_돌려준다`).
     for 나쁜_것 in (
         {"kind": "하트", "x": 1.4, "y": 0.5},
-        {"kind": "무지개", "x": 0.5, "y": 0.5},
         {"kind": "하트", "x": 0.5, "y": 0.5, "angle": 400},
+        {"kind": "", "x": 0.5, "y": 0.5},
+        {"kind": "가" * 21, "x": 0.5, "y": 0.5},
+        {"kind": "글자", "text": "가" * 25},
+        {"kind": "하트", "size": 0},
+        {"kind": "하트", "z": 100},
     ):
         응답 = await api.post(
             f"/v1/trips/{trip['id']}/cards", json={"settings": {"decor": [나쁜_것]}}, headers=headers
@@ -133,7 +138,7 @@ async def test_같은_id_로_두_번_보내도_카드가_두_장이_되지_않�
     assert len((await api.get(f"/v1/trips/{trip['id']}/cards", headers=headers)).json()["data"]) == 1
 
 
-async def test_카드_사진은_그_여행의_사진이어야_하고_모르는_값은_거부한다(api, db):
+async def test_카드_사진은_그_여행의_사진이어야_한다(api, db):
     headers = await 로그인한_사람(api, "sky@example.com")
     space_id = await 공간을_만든다(api, headers)
     trip = await 여행을_만든다(api, headers, space_id)
@@ -149,15 +154,14 @@ async def test_카드_사진은_그_여행의_사진이어야_하고_모르는_�
     남의_것 = await api.post(
         f"/v1/trips/{trip['id']}/cards", json={"settings": {"photoIds": [남의_사진]}}, headers=headers
     )
-    모르는_스타일 = await api.post(
-        f"/v1/trips/{trip['id']}/cards", json={"settings": {"style": "폴라로이드"}}, headers=headers
-    )
-    모르는_스티커 = await api.post(
-        f"/v1/trips/{trip['id']}/cards", json={"settings": {"stickers": ["무지개"]}}, headers=headers
+    사진_다섯 = await api.post(
+        f"/v1/trips/{trip['id']}/cards",
+        json={"settings": {"photoIds": [str(uuid.uuid4()) for _ in range(5)]}},
+        headers=headers,
     )
     기본값 = await api.post(f"/v1/trips/{trip['id']}/cards", json={}, headers=headers)
 
-    assert (남의_것.status_code, 모르는_스타일.status_code, 모르는_스티커.status_code) == (422, 422, 422)
+    assert (남의_것.status_code, 사진_다섯.status_code) == (422, 422)
     # 아무것도 고르지 않은 것도 저장된다. 기본값 그대로 쓰겠다는 뜻이다.
     assert 기본값.status_code == 201, 기본값.text
     assert 기본값.json()["data"]["settings"]["style"] == "필름"
@@ -495,3 +499,170 @@ async def test_여행을_완전히_지우면_카드_이미지도_여행_폴더�
     await purge_deleted_trips(db)
 
     assert not (사진_폴더 / "trips" / trip["id"]).exists()
+
+
+# ── 앞뒤 판이 섞여도 모르는 값이 사라지지 않는다 ─────────────────────────────
+#
+# 서버는 모르는 값을 받아 그대로 두고, 새 앱은 모르는 값을 돌려보낸다
+# (`X-Daymo-Card-Keeps-Unknown`). 그 표시가 없는 옛 앱(1.0.0)의 수정에는 서버가
+# 그 앱이 버렸을 값을 되살린다.
+
+새_앱 = {"X-Daymo-Card-Keeps-Unknown": "1"}
+
+# 더 새 앱이 저장한 카드. 옛 앱이 모르는 틀·틀 색·스티커·칸이 섞여 있다.
+새_앱의_카드 = {
+    "style": "새틀",
+    "frameColor": "보라",
+    "parts": ["이름", "날씨"],
+    "caption": "또 가자",
+    "decor": [
+        {"id": "d1", "kind": "하트", "x": 0.2, "y": 0.3, "size": 0.2, "z": 0, "glow": "금색"},
+        {"id": "d2", "kind": "무지개", "x": 0.5, "y": 0.5, "size": 0.3, "z": 1, "무늬": {"줄": 7}},
+    ],
+    "paper": {"결": "한지"},
+}
+
+
+async def _새_앱이_만든_카드(api, headers, trip_id: str) -> dict:
+    응답 = await api.post(
+        f"/v1/trips/{trip_id}/cards",
+        json={"settings": 새_앱의_카드},
+        headers={**headers, **새_앱},
+    )
+    assert 응답.status_code == 201, 응답.text
+    return 응답.json()["data"]
+
+
+async def test_새_앱이_보낸_모르는_값은_그대로_두고_돌려준다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+
+    카드 = await _새_앱이_만든_카드(api, headers, trip["id"])
+    목록 = (await api.get(f"/v1/trips/{trip['id']}/cards", headers=headers)).json()["data"]
+
+    for 설정 in (카드["settings"], 목록[0]["settings"]):
+        assert 설정["style"] == "새틀"
+        assert 설정["frameColor"] == "보라"
+        assert 설정["parts"] == ["이름", "날씨"]
+        assert 설정["paper"] == {"결": "한지"}
+        assert [줄["kind"] for 줄 in 설정["decor"]] == ["하트", "무지개"]
+        assert 설정["decor"][0]["glow"] == "금색"
+        assert 설정["decor"][1]["무늬"] == {"줄": 7}
+
+
+async def test_새_앱이_지운_것은_서버가_되살리지_않는다(api, db):
+    """표시를 붙인 앱은 모르는 값을 스스로 돌려보낸다. 안 보낸 것은 지운 것이다."""
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    카드 = await _새_앱이_만든_카드(api, headers, trip["id"])
+
+    고침 = await api.patch(
+        f"/v1/trip-cards/{카드['id']}",
+        json={"version": 카드["version"], "settings": {"style": "필름", "decor": []}},
+        headers={**headers, **새_앱},
+    )
+
+    설정 = 고침.json()["data"]["settings"]
+    assert 설정["style"] == "필름"
+    assert 설정["decor"] == []
+    assert "paper" not in 설정
+
+
+async def test_옛_앱이_고쳐도_모르는_스티커와_칸과_값이_남는다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    카드 = await _새_앱이_만든_카드(api, headers, trip["id"])
+
+    # 옛 앱이 보내는 모양: 모르는 틀·색은 기본값으로, 모르는 스티커·칸은 빼고,
+    # 아는 스티커 줄의 모르는 칸도 빼고. 사람은 한 줄 설명만 고쳤다.
+    옛_앱이_보낸_것 = {
+        "style": "필름", "ratio": "세로", "photoIds": [], "title": None,
+        "caption": "다음엔 겨울에", "parts": ["이름"], "stats": [], "frameColor": "검정",
+        "stickers": [],
+        "decor": [
+            {"id": "d1", "kind": "하트", "text": None, "x": 0.2, "y": 0.3, "size": 0.2, "angle": 0, "z": 0}
+        ],
+        "dateStamp": False, "photoCaptions": False,
+    }
+    고침 = await api.patch(
+        f"/v1/trip-cards/{카드['id']}",
+        json={"version": 카드["version"], "settings": 옛_앱이_보낸_것},
+        headers=headers,
+    )
+
+    assert 고침.status_code == 200, 고침.text
+    설정 = 고침.json()["data"]["settings"]
+    assert 설정["caption"] == "다음엔 겨울에"
+    assert 설정["style"] == "새틀"
+    assert 설정["frameColor"] == "보라"
+    assert 설정["parts"] == ["이름", "날씨"]
+    assert 설정["paper"] == {"결": "한지"}
+    assert [(줄["id"], 줄["kind"]) for 줄 in 설정["decor"]] == [("d1", "하트"), ("d2", "무지개")]
+    assert 설정["decor"][0]["glow"] == "금색"
+    assert 설정["decor"][1]["무늬"] == {"줄": 7}
+
+
+async def test_옛_앱에서_사람이_바꾼_것은_그대로_들어간다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    카드 = await _새_앱이_만든_카드(api, headers, trip["id"])
+
+    # 틀과 색을 옛 앱이 아는 다른 값으로 골랐고, 하트를 지우고 별을 새로 붙였다.
+    # 옛 앱은 무지개 줄을 못 보니 새 별에 `d1` 을 줄 수 있다.
+    고침 = await api.patch(
+        f"/v1/trip-cards/{카드['id']}",
+        json={
+            "version": 카드["version"],
+            "settings": {
+                "style": "엽서", "frameColor": "크림",
+                "decor": [{"id": "d2", "kind": "별", "x": 0.4, "y": 0.4, "size": 0.2, "z": 0}],
+            },
+        },
+        headers=headers,
+    )
+
+    설정 = 고침.json()["data"]["settings"]
+    assert 설정["style"] == "엽서"
+    assert 설정["frameColor"] == "크림"
+    # 지운 하트는 되살리지 않는다. 무지개는 이름이 겹쳐 새 이름을 받는다.
+    assert [(줄["id"], 줄["kind"]) for 줄 in 설정["decor"]] == [("d2", "별"), ("d1", "무지개")]
+    assert "glow" not in 설정["decor"][0]
+
+
+async def test_꾸민_값이_너무_크거나_한도를_넘으면_받지_않는다(api, db):
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    카드 = await 카드를_만든다(api, headers, trip["id"], style="필름")
+
+    # 한글 한 글자가 3바이트라 6000자면 16KB 를 넘는다.
+    큰_것 = {"paper": "가" * 6000}
+    만들기 = await api.post(
+        f"/v1/trips/{trip['id']}/cards", json={"settings": 큰_것}, headers={**headers, **새_앱}
+    )
+    고치기 = await api.patch(
+        f"/v1/trip-cards/{카드['id']}",
+        json={"version": 카드["version"], "settings": 큰_것},
+        headers={**headers, **새_앱},
+    )
+    스티커_서른하나 = await api.post(
+        f"/v1/trips/{trip['id']}/cards",
+        json={"settings": {"decor": [{"id": f"d{수}", "kind": "하트"} for 수 in range(31)]}},
+        headers=headers,
+    )
+    긴_제목 = await api.post(
+        f"/v1/trips/{trip['id']}/cards", json={"settings": {"title": "가" * 61}}, headers=headers
+    )
+    긴_틀_이름 = await api.post(
+        f"/v1/trips/{trip['id']}/cards", json={"settings": {"style": "가" * 21}}, headers=headers
+    )
+
+    assert 만들기.status_code == 422, 만들기.text
+    assert 고치기.status_code == 422, 고치기.text
+    assert 스티커_서른하나.status_code == 422, 스티커_서른하나.text
+    assert 긴_제목.status_code == 422, 긴_제목.text
+    assert 긴_틀_이름.status_code == 422, 긴_틀_이름.text

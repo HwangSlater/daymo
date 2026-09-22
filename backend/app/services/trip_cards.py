@@ -30,6 +30,44 @@ from app.services.trips import check_card_photos
 # 것부터 느려진다. 앱도 같은 수로 막는다(`mobile/src/tripCard.KEEPSAKE_MAX_CARDS`).
 MAX_CARDS_PER_TRIP = 20
 
+# 이 앱이 카드의 모르는 값을 버리지 않고 돌려보낸다는 표시(`mobile/src/serverData.ts`).
+KEEPS_UNKNOWN_HEADER = "X-Daymo-Card-Keeps-Unknown"
+
+# ── 옛 앱(1.0.0, 빌드 3)이 아는 것 ──────────────────────────────────────────
+#
+# 이 판은 App Store 심사에 이미 들어가 고칠 수 없다. 카드를 열어 저장할 때 모르는
+# 스티커·칸·값을 버리고 보낸다. 그래서 그 앱이 보낸 수정(`KEEPS_UNKNOWN_HEADER` 가
+# 없는 요청)에는 지금 저장된 값에서 그 앱이 버렸을 것을 되살려 합친다
+# (`merge_old_app_settings`).
+#
+# 아래 목록은 **그 빌드가 아는 것**을 적은 것이다. 새 스티커·칸이 생겨도 절대 고치지
+# 않는다. 여기에 더하면 그 이름을 옛 앱이 아는 것으로 보게 되어, 옛 앱이 버린 것을
+# 더는 되살리지 못한다.
+OLD_APP_DECOR_KINDS = frozenset(
+    {"하트", "별", "비행기", "필름", "말풍선", "체크", "꽃", "구름", "반짝", "글자"}
+)
+OLD_APP_KEYS = frozenset(
+    {
+        "style", "ratio", "photoIds", "title", "caption", "parts", "stats", "frameColor",
+        "stickers", "decor", "dateStamp", "photoCaptions",
+    }
+)
+OLD_APP_DECOR_KEYS = frozenset({"id", "kind", "text", "x", "y", "size", "angle", "z"})
+OLD_APP_STYLES = frozenset({"없음", "필름", "엽서", "스크랩북", "네컷", "네컷 격자", "네컷 가로", "세컷"})
+OLD_APP_RATIOS = frozenset({"세로", "정사각", "가로"})
+OLD_APP_FRAME_COLORS = frozenset({"검정", "흰색", "크림", "노을", "바다", "숲"})
+OLD_APP_PARTS = frozenset({"이름", "기간", "지역", "사람", "문구", "통계"})
+OLD_APP_STATS = frozenset({"장소", "사진", "날", "지출"})
+# 모르는 값을 만났을 때 옛 앱이 대신 쓰는 값. 이 값이 왔으면 사람이 고른 것인지
+# 옛 앱이 바꿔 놓은 것인지 알 수 없어, 저장된 값이 모르는 값이면 그쪽을 남긴다.
+OLD_APP_FALLBACKS = {
+    "style": (OLD_APP_STYLES, "필름"),
+    "ratio": (OLD_APP_RATIOS, "세로"),
+    "frameColor": (OLD_APP_FRAME_COLORS, "검정"),
+}
+OLD_APP_LISTS = {"parts": OLD_APP_PARTS, "stats": OLD_APP_STATS}
+DECOR_MAX = 30
+
 
 def can_manage(membership: Membership, card: TripCard) -> bool:
     """
@@ -126,6 +164,77 @@ def _새로_고른_사진(card: TripCard, settings: dict) -> list[str]:
     return [값 for 값 in (settings.get("photoIds") or []) if 값 not in 이미_있던]
 
 
+def merge_old_app_settings(stored: dict | None, incoming: dict) -> dict:
+    """
+    옛 앱(1.0.0)이 보낸 꾸민 값에, 그 앱이 몰라서 버렸을 것을 저장된 값에서 되살린다.
+
+    1. 모르는 이름의 스티커 줄(`decor`)은 저장된 그대로 뒤에 다시 붙인다. 옛 앱이 같은
+       이름(`id`)을 새로 썼으면 되살린 줄에 새 이름을 준다. 합쳐서 30개를 넘으면 넘는
+       만큼은 되살리지 못한다(옛 앱에서 사람이 붙인 것을 먼저 둔다).
+    2. 옛 앱이 모르는 칸(`settings` 바로 아래)은 저장된 값을 다시 넣는다.
+    3. 옛 앱이 아는 스티커 줄에 붙어 있던 모르는 칸은 같은 이름·같은 종류의 줄에 다시 넣는다.
+    4. 틀·비율·틀 색이 옛 앱의 기본값으로 왔는데 저장된 값이 옛 앱이 모르는 값이면
+       저장된 값을 남긴다. 목록 칸(parts·stats)에 섞여 있던 모르는 값도 다시 붙인다.
+
+    옛 앱에서 사람이 고친 것(아는 칸의 아는 값)은 그대로 들어간다. 서버는 이 값들을
+    풀어 보지 않고 옮기기만 한다.
+    """
+    if not isinstance(stored, dict):
+        return incoming
+    결과 = dict(incoming)
+
+    for key, 값 in stored.items():
+        if key not in OLD_APP_KEYS and key not in 결과:
+            결과[key] = 값
+
+    for key, (아는_값, 기본) in OLD_APP_FALLBACKS.items():
+        저장된_값 = stored.get(key)
+        if 결과.get(key) == 기본 and isinstance(저장된_값, str) and 저장된_값 not in 아는_값:
+            결과[key] = 저장된_값
+
+    for key, 아는_값 in OLD_APP_LISTS.items():
+        저장된_목록 = stored.get(key)
+        if not isinstance(저장된_목록, list):
+            continue
+        지금_목록 = list(결과.get(key) or [])
+        for 값 in 저장된_목록:
+            if isinstance(값, str) and 값 not in 아는_값 and 값 not in 지금_목록:
+                지금_목록.append(값)
+        결과[key] = 지금_목록
+
+    저장된_줄 = [줄 for 줄 in (stored.get("decor") or []) if isinstance(줄, dict)]
+    if 저장된_줄:
+        결과["decor"] = _옛_앱_줄에_되살린다(저장된_줄, list(결과.get("decor") or []))
+    return 결과
+
+
+def _옛_앱_줄에_되살린다(저장된_줄: list[dict], 온_줄: list[dict]) -> list[dict]:
+    """`merge_old_app_settings` 의 스티커 줄 몫(1·3)."""
+    이름으로 = {줄.get("id"): 줄 for 줄 in 저장된_줄 if 줄.get("kind") in OLD_APP_DECOR_KINDS}
+    합친_줄 = []
+    for 줄 in 온_줄:
+        예전 = 이름으로.get(줄.get("id"))
+        if 예전 is not None and 예전.get("kind") == 줄.get("kind"):
+            줄 = {
+                **{k: v for k, v in 예전.items() if k not in OLD_APP_DECOR_KEYS},
+                **줄,
+            }
+        합친_줄.append(줄)
+
+    쓴_이름 = {줄.get("id") for 줄 in 합친_줄}
+    for 줄 in 저장된_줄:
+        if 줄.get("kind") in OLD_APP_DECOR_KINDS or len(합친_줄) >= DECOR_MAX:
+            continue
+        if 줄.get("id") in 쓴_이름:
+            수 = 1
+            while f"d{수}" in 쓴_이름:
+                수 += 1
+            줄 = {**줄, "id": f"d{수}"}
+        쓴_이름.add(줄.get("id"))
+        합친_줄.append(줄)
+    return 합친_줄
+
+
 async def update_card(
     session: AsyncSession,
     *,
@@ -134,12 +243,19 @@ async def update_card(
     actor: Membership,
     version: int,
     settings: dict,
+    keeps_unknown: bool = True,
 ) -> TripCard:
+    """
+    `keeps_unknown` 이 거짓이면 옛 앱이 보낸 것이라 버렸을 값을 되살려 합친다
+    (`merge_old_app_settings`).
+    """
     if not can_manage(actor, card):
         raise AppError(ErrorCode.FORBIDDEN)
     if version != card.version:
         raise AppError(ErrorCode.VERSION_CONFLICT)
     await check_card_photos(session, trip, _새로_고른_사진(card, settings))
+    if not keeps_unknown:
+        settings = merge_old_app_settings(card.settings, settings)
     card.settings = settings
     card.version += 1
     card.updated_at = datetime.now(UTC)

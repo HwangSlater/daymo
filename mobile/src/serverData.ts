@@ -434,16 +434,27 @@ export type ServerTripCard = {
 export const listTripCards = (tripId: string) =>
   authenticatedRequest<ServerTripCard[]>(`/v1/trips/${encodeURIComponent(tripId)}/cards`);
 
+/**
+ * 이 앱이 카드의 모르는 값을 버리지 않고 돌려보낸다는 표시.
+ *
+ * 없으면 서버는 옛 앱(1.0.0)으로 보고, 그 앱이 버렸을 값을 저장된 카드에서 되살린다
+ * (`backend/app/services/trip_cards.merge_old_app_settings`). 이 앱은 스스로 들고 있다가
+ * 보내므로, 사람이 지운 것을 서버가 되살리지 않게 이 표시를 붙인다.
+ */
+const 모르는_값을_지킨다 = { "X-Daymo-Card-Keeps-Unknown": "1" };
+
 /** 카드를 한 장 더 만든다. 앱이 만든 id 를 보내 두 번 닿아도 한 장이게 한다. */
 export const createTripCard = (tripId: string, id: string, settings: SavedKeepsake) =>
   authenticatedRequest<ServerTripCard>(`/v1/trips/${encodeURIComponent(tripId)}/cards`, {
     method: "POST",
+    headers: 모르는_값을_지킨다,
     body: JSON.stringify({ id, settings }),
   });
 
 export const updateTripCard = (id: string, version: number, settings: SavedKeepsake) =>
   authenticatedRequest<ServerTripCard>(`/v1/trip-cards/${encodeURIComponent(id)}`, {
     method: "PATCH",
+    headers: 모르는_값을_지킨다,
     body: JSON.stringify({ version, settings }),
   });
 
