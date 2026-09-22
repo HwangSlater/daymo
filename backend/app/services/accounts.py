@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -20,6 +21,8 @@ from app.models import (
 from app.services import throttle
 from app.services.auth_sessions import Session, revoke_all_for_user, start_session
 from app.services.mailer import Letter, get_outbox
+
+logger = logging.getLogger("daymo.accounts")
 
 # 1회용 링크는 30분이다(docs/development/03-api-specification.md 2장).
 ONE_TIME_TTL = timedelta(minutes=30)
@@ -115,7 +118,7 @@ async def sign_up(
 
     기존 = await _find_by_email(session, 정규화된_이메일)
     if 기존 is not None:
-        await get_outbox().send(
+        await _가입_메일(
             Letter(
                 to=정규화된_이메일,
                 subject="이미 Daymo에 가입한 이메일이에요",
@@ -140,7 +143,26 @@ async def sign_up(
     session.add(user)
     await session.flush()
 
-    await send_email_verification(session, email=정규화된_이메일, ip=ip)
+    try:
+        await send_email_verification(session, email=정규화된_이메일, ip=ip)
+    except OSError:
+        # 메일 서버에 닿지 못해도 계정은 만든다. 확인 전에도 로그인은 되고, 확인
+        # 메일은 앱에서 다시 보낼 수 있다. 여기서 실패로 끝내면 가입이 통째로
+        # 되돌려지는데, 곧바로 다시 누르면 재전송 간격(60초)에 걸려 429 까지
+        # 난다(2026-09-22 운영에서 DNS 조회가 한 번 실패해 겪었다).
+        logger.exception("가입 확인 메일을 보내지 못했다")
+
+
+async def _가입_메일(letter: Letter) -> None:
+    """
+    가입 자리에서 보내는 알림 메일. 못 보내도 가입 응답은 그대로 둔다.
+
+    이미 있는 이메일일 때만 오류가 나면 그 차이로 계정이 있는지 알 수 있다.
+    """
+    try:
+        await get_outbox().send(letter)
+    except OSError:
+        logger.exception("가입 알림 메일을 보내지 못했다")
 
 
 async def send_email_verification(

@@ -81,6 +81,31 @@ async def test_이미_있는_이메일이면_주인에게_알린다(api, db):
     assert "이미 Daymo에 가입한" in get_outbox().last.subject
 
 
+async def _메일_서버에_닿지_못한다(letter):
+    raise OSError("Name or service not known")
+
+
+async def test_확인_메일을_못_보내도_가입하고_로그인할_수_있다(api, db, monkeypatch):
+    """2026-09-22 운영에서 메일 서버 주소 조회가 한 번 실패해 가입이 500 으로 끝났다."""
+    monkeypatch.setattr(get_outbox(), "send", _메일_서버에_닿지_못한다)
+
+    응답 = await 가입(api)
+
+    assert 응답.status_code == 202
+    assert await db.scalar(select(func.count()).select_from(User).where(User.email == 이메일)) == 1
+    assert (await 로그인(api)).status_code == 200
+
+
+async def test_이미_있는_이메일에_알림을_못_보내도_같은_응답이다(api, db, monkeypatch):
+    """이미 있는 이메일일 때만 오류가 나면 그것으로 계정이 있는지 알 수 있다."""
+    첫_응답 = await 가입(api)
+    monkeypatch.setattr(get_outbox(), "send", _메일_서버에_닿지_못한다)
+
+    둘째_응답 = await 가입(api)
+
+    assert 둘째_응답.status_code == 첫_응답.status_code == 202
+
+
 async def test_흔한_비밀번호는_전용_코드로_거부한다(api, db):
     응답 = await 가입(api, password="password123")
 
