@@ -165,6 +165,30 @@ export function originalSaveHint(
 export const isOriginalQualityUri = (uri: string | undefined, photoId: string): uri is string =>
   Boolean(uri) && !uri!.startsWith("blob:") && !uri!.includes(`server-${photoId}`);
 
+/**
+ * 표시본의 판(版). 서버가 표시본을 다시 만들면 올린다.
+ *
+ * 받은 표시본은 폰이 파일로, 브라우저가 1년짜리 캐시로 들고 있어서 서버에서
+ * 다시 만들어도 이미 본 사람 화면은 그대로다. 판을 주소와 파일 이름에 넣어
+ * 두면 판이 바뀐 사진만 한 번 새로 받는다.
+ *
+ * 2: 2026-09-21 표시본을 1440px → 2048px 로 키웠다.
+ */
+export const DISPLAY_REVISION = 2;
+
+/** 이 판의 표시본을 받아 둘 파일 이름. */
+export const displayFileName = (photoId: string) => `server-${photoId}-d${DISPLAY_REVISION}.jpg`;
+
+/**
+ * 받아 둔 표시본이 옛 판인지. 옛 판이면 새로 받는다.
+ *
+ * 기기에서 고른 사진(원본)과 웹의 blob 은 해당하지 않는다. 폰의 `server-<id>` 파일
+ * 가운데 지금 판 이름이 아닌 것만 옛 판이다.
+ */
+export const isStaleDisplayCopy = (uri: string | undefined, photoId: string) =>
+  Boolean(uri) && uri!.includes(`server-${photoId}`) && !uri!.endsWith(displayFileName(photoId))
+  && !/-(thumbnail|original)\.jpg$/.test(uri!);
+
 /** 같은 사진은 어느 기기에서나 같은 색이 되게 id 로 고른다. */
 export function colorOfId(id: string): string {
   let sum = 0;

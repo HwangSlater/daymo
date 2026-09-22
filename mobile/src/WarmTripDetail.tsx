@@ -50,12 +50,12 @@ import { usePastPacking, usePastRecipes } from "./usePastTripRows";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { memoryDayCount, memoryFilterChips, memoryHeadCount, type MemoryFilter } from "./memoryFilter";
-import { originalSaveHint, photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
+import { isStaleDisplayCopy, originalSaveHint, photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
 import { PhotoEditScreen, confirmPhotoDelete } from "./PhotoViewer";
 import { photoUploadHeadline, photoUploads, usePhotoUploads, type PhotoUploadJob } from "./photoUploads";
 import { TripCardsSection, type CardPhoto, type CardTile } from "./TripCards";
 import { TripTrash } from "./TripTrash";
-import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, uploadPhoto, type UploadNotice } from "./photoTransfer";
+import { downloadPhoto, downloadPhotoToSave, isLivePhotoUri, releaseDownloadedPhoto, uploadPhoto, type UploadNotice } from "./photoTransfer";
 import { savePhotoFile } from "./photoSave";
 import type { ExpenseSettings, HomeCoverChoice, ReportReason, ReportTargetType } from "./serverData";
 import type { RosterEntry } from "./tripSync";
@@ -1919,10 +1919,13 @@ export function WarmTripDetail({
     return photoUploads.subscribe(비운다);
   }, [tripId]);
   // 다른 기기에서 올린 사진은 표시본을 받아 기기에 둔다. 한 번 받으면 다시 받지 않는다.
+  // 다만 서버가 표시본을 다시 만들어 판이 올라갔으면(`DISPLAY_REVISION`) 한 번 새로 받고
+  // 옛 파일은 지운다. 그러지 않으면 이미 본 사진은 옛 크기 그대로 남는다.
   const photoDownloads = useRef(new Set<string>());
   useEffect(() => {
     if (!serverTrip) return;
-    const missing = memories.photos.filter((photo) => !isLivePhotoUri(photo.uri) && knownPhotoIds.has(photo.id) && !photoDownloads.current.has(photo.id));
+    const 받을_것 = (uri: string | undefined, id: string) => !isLivePhotoUri(uri) || isStaleDisplayCopy(uri, id);
+    const missing = memories.photos.filter((photo) => 받을_것(photo.uri, photo.id) && knownPhotoIds.has(photo.id) && !photoDownloads.current.has(photo.id));
     if (!missing.length) return;
     missing.forEach((photo) => photoDownloads.current.add(photo.id));
     void (async () => {
@@ -1930,9 +1933,10 @@ export function WarmTripDetail({
         try {
           const uri = await downloadPhoto(photo.id);
           if (!uri) continue;
+          if (isStaleDisplayCopy(photo.uri, photo.id)) releaseDownloadedPhoto(photo.uri as string);
           setMemories((current) => ({
             ...current,
-            photos: current.photos.map((item) => (item.id === photo.id && !isLivePhotoUri(item.uri) ? { ...item, uri } : item)),
+            photos: current.photos.map((item) => (item.id === photo.id && 받을_것(item.uri, item.id) ? { ...item, uri } : item)),
           }));
         } catch {
           // 연결이 없으면 다음에 목록이 바뀔 때 다시 받는다.

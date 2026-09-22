@@ -19,7 +19,7 @@ import { Platform } from "react-native";
 import { apiUrlOf, DaymoApiError, withAccessToken } from "./auth";
 import { sendQueued } from "./requestQueue";
 import { createPhoto } from "./serverData";
-import type { PhotoBody, ServerPhoto } from "./photoSync";
+import { DISPLAY_REVISION, displayFileName, type PhotoBody, type ServerPhoto } from "./photoSync";
 
 const PHOTO_DIRECTORY = "trip-photos";
 
@@ -147,7 +147,9 @@ export async function downloadPhoto(
   photoId: string,
   variant: "display" | "thumbnail" | "original" = "display",
 ): Promise<string | undefined> {
-  const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=${variant}`);
+  // 표시본은 판을 주소에 붙인다. 서버가 다시 만들면 주소가 달라져 브라우저 캐시를 비켜 간다.
+  const 판 = variant === "display" ? `&v=${DISPLAY_REVISION}` : "";
+  const url = apiUrlOf(`/v1/photos/${encodeURIComponent(photoId)}/content?variant=${variant}${판}`);
   if (Platform.OS === "web") {
     return withAccessToken((accessToken) => sendQueued(async () => {
       let response: Response;
@@ -165,7 +167,7 @@ export async function downloadPhoto(
   if (!FileSystem.documentDirectory) return undefined;
   const folder = `${FileSystem.documentDirectory}${PHOTO_DIRECTORY}/`;
   await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
-  const target = `${folder}server-${photoId}${variant === "display" ? "" : `-${variant}`}.jpg`;
+  const target = `${folder}${variant === "display" ? displayFileName(photoId) : `server-${photoId}-${variant}.jpg`}`;
   return withAccessToken((accessToken) => sendQueued(async () => {
     let status: number;
     try {

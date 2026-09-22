@@ -6,7 +6,9 @@ import {
   colorOfId,
   PHOTO_PALETTE,
   PHOTO_UNDATED,
+  displayFileName,
   isOriginalQualityUri,
+  isStaleDisplayCopy,
   originalSaveHint,
   photoCodec,
   photoTakenDate,
@@ -168,4 +170,19 @@ test("기기에서 고른 사진은 원본, 받아 둔 표시본은 아니다", 
   assert.equal(isOriginalQualityUri("blob:https://www.daymo.xyz/9f2", A), false);
   // 파일이 아예 없으면 받아 올 것도 없다.
   assert.equal(isOriginalQualityUri(undefined, A), false);
+});
+
+test("옛 판 표시본만 다시 받는다", () => {
+  const 폴더 = "file:///data/app/trip-photos/";
+  // 판을 올리기 전 이름. 서버가 다시 만든 것을 못 봤으니 새로 받는다.
+  assert.equal(isStaleDisplayCopy(`${폴더}server-${A}.jpg`, A), true);
+  // 지금 판 이름이면 그대로 쓴다.
+  assert.equal(isStaleDisplayCopy(`${폴더}${displayFileName(A)}`, A), false);
+  // 썸네일·원본은 표시본이 아니다.
+  assert.equal(isStaleDisplayCopy(`${폴더}server-${A}-thumbnail.jpg`, A), false);
+  assert.equal(isStaleDisplayCopy(`${폴더}server-${A}-original.jpg`, A), false);
+  // 기기에서 고른 사진과 웹의 blob 은 받아 둔 것이 아니다.
+  assert.equal(isStaleDisplayCopy(`${폴더}photo-1758100000000.jpg`, A), false);
+  assert.equal(isStaleDisplayCopy("blob:https://www.daymo.xyz/9f2", A), false);
+  assert.equal(isStaleDisplayCopy(undefined, A), false);
 });
