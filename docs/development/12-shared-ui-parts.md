@@ -36,6 +36,7 @@
 | `photoUploads`·`usePhotoUploads`·`photoUploadHeadline` | 사진 올리기 앱 전역 대기열. 화면을 나가도 계속 올라간다 | `mobile/src/photoUploads.ts` | 사진을 올릴 때 |
 | `uploadPhoto`·`downloadPhoto`·`isLivePhotoUri` | 사진 파일을 실제로 보내고 받는다. 폰은 파일, 웹은 blob | `mobile/src/photoTransfer.ts` | 위 대기열이 부른다. 직접 부를 일은 드물다 |
 | `PhotoGallery` | 사진을 날짜별로 묶어 화면 가득 보여 주는 사진첩. 「선택」·길게 누르기·끌어서 고르기, 아래 줄의 삭제·저장·카드로 만들기, 썸네일 받기(보이는 칸만, 셋씩) | `mobile/src/PhotoGallery.tsx` | 사진을 여러 장 훑거나 한꺼번에 다룰 때. 순수 계산(날짜 묶기·손가락 자리 찾기·끌어서 고르기·삭제 가르기·업로드 한 줄)은 `gallerySelection.ts` |
+| `StickerArt`·`STICKER_CATEGORIES`·`isKnownSticker`·`stickerAspect` | 추억 카드 스티커(오려 붙인 스티커 모양, 갈래 여섯). 긴 변이 `size` 가 되게 그리고 모르는 이름은 그리지 않는다. 그림 자료는 react-native 없는 `art.ts` 라 시험과 시안 그림이 같은 자료를 읽는다 | `mobile/src/stickers/` | 카드에 스티커를 얹거나 고르는 자리를 만들 때. 이름은 저장값이라 바꾸거나 지우지 않는다 |
 | `savePhotoFile` | 받아 둔 사진을 사용자 기기에 저장한다(폰은 공유 시트, 웹은 내려받기) | `mobile/src/photoSave.ts` | 「저장」 버튼 |
 | `SyncNotice`·`SyncMark` | 못 올린 줄이 있을 때 화면 위 한 줄과 줄 옆 표시 | `mobile/src/SyncMarks.tsx` | 서버와 맞추는 목록을 그리는 화면 |
 | `MapLink` | 지도 링크 칩. 어느 지도 앱으로 열지까지 정해져 있다 | `mobile/src/MapLink.tsx` | 주소·장소를 보여 줄 때 |
