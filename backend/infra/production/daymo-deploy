@@ -90,6 +90,21 @@ ln -sfn "$release_dir" "$APP_DIR"
 compose config --quiet
 compose up -d postgres
 
+# DB 가 받을 준비가 될 때까지 기다린다. compose 가 postgres 를 다시 만든 직후에는
+# 아직 「starting up」이라 바로 뒤의 pg_dump 가 FATAL 로 죽는다. 그러면 백업이 없어
+# 배포가 멈추고 실패 알림이 간다(2026-09-22·23에 두 번 겪었다).
+for attempt in {1..30}; do
+  if compose exec -T postgres sh -c 'pg_isready --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --quiet'; then
+    break
+  fi
+  if (( attempt == 30 )); then
+    echo "postgres did not come up in time; aborting before the API is replaced" >&2
+    restore_previous_release
+    exit 1
+  fi
+  sleep 2
+done
+
 # 배포 전 백업. 2026-09-15 에 pg_dump 가 조용히 죽어 20바이트짜리 빈 파일이
 # 만들어졌는데도 배포가 그대로 갔다. 끝난 코드와 파일 크기를 둘 다 본다.
 # 여기서 멈출 때는 current 심볼릭 링크를 되돌린다. 위에서 이미 새 release 로
