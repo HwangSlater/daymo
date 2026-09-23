@@ -1,8 +1,6 @@
 import uuid
-from datetime import date, datetime
 
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import func, select, tuple_
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import (
@@ -12,27 +10,11 @@ from app.api.permissions import (
     membership_in_space,
     require,
 )
-from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError, ErrorCode
-from app.core.responses import ok, page
-from app.models import (
-    Membership,
-    MembershipRole,
-    RelationshipProfile,
-    Space,
-    Trip,
-    TripParticipant,
-    TripStatus,
-    User,
-)
+from app.core.responses import Envelope, Page, ok, page
+from app.models import Trip, TripStatus
 from app.schemas.trip import (
-    DeletedSpaceOut,
     ParticipantsRequest,
-    SpaceCreateRequest,
-    SpaceDeleteRequest,
-    SpaceMemberOut,
-    SpaceOut,
-    SpaceUpdateRequest,
     TripCreateRequest,
     TripOut,
     TripOverviewOut,
@@ -41,38 +23,10 @@ from app.schemas.trip import (
 )
 from app.services import audit
 from app.services import schedule as schedule_service
-from app.services import space_deletion
 from app.services import trip_overview
 from app.services import trips as trip_service
 
 router = APIRouter(tags=["trips"])
-
-
-async def _공간_응답(db, space: Space, membership: Membership) -> dict:
-    started_on = (
-        await db.execute(
-            select(RelationshipProfile.started_on).where(RelationshipProfile.space_id == space.id)
-        )
-    ).scalar_one_or_none()
-    return SpaceOut(
-        id=str(space.id),
-        name=space.name,
-        relationship_type=space.relationship_type,
-        timezone=space.timezone,
-        started_on=started_on,
-        my_role=membership.role,
-    ).model_dump(by_alias=True)
-
-
-async def _참가자_ids(db, trip: Trip) -> list[str]:
-    줄들 = (
-        await db.execute(
-            select(TripParticipant.membership_id)
-            .where(TripParticipant.trip_id == trip.id, TripParticipant.removed_at.is_(None))
-            .order_by(TripParticipant.sort_order)
-        )
-    ).scalars().all()
-    return [str(값) for 값 in 줄들]
 
 
 def _요약_응답(overview: trip_overview.TripOverview) -> TripOverviewOut:
@@ -91,10 +45,10 @@ def _요약_응답(overview: trip_overview.TripOverview) -> TripOverviewOut:
 async def _여행들_응답(db, trips: list[Trip]) -> list[dict]:
     """목록은 요약을 한꺼번에 센다. 여행마다 따로 세면 목록이 길수록 질의가 늘어난다."""
     요약 = await trip_overview.overviews_of(db, trips)
-    return [await _여행_응답(db, trip, 요약[trip.id]) for trip in trips]
+    return [await 여행_응답(db, trip, 요약[trip.id]) for trip in trips]
 
 
-async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | None = None) -> dict:
+async def 여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | None = None) -> dict:
     if overview is None:
         overview = (await trip_overview.overviews_of(db, [trip]))[trip.id]
     홈_사진들, 홈_틀 = await trip_service.home_cover(db, trip)
@@ -123,197 +77,12 @@ async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | 
         version=trip.version,
         archived_at=trip.archived_at.isoformat() if trip.archived_at else None,
         deletion_scheduled_at=trip.deletion_scheduled_at.isoformat() if trip.deleted_at and trip.deletion_scheduled_at else None,
-        participant_membership_ids=await _참가자_ids(db, trip),
+        participant_membership_ids=await trip_service.participant_ids(db, trip),
         overview=_요약_응답(overview),
     ).model_dump(by_alias=True)
 
 
-# ---------------------------------------------------------------------------
-# 공간
-# ---------------------------------------------------------------------------
-
-
-@router.post("/spaces", status_code=status.HTTP_201_CREATED)
-async def create_space(body: SpaceCreateRequest, caller: CurrentCaller, db: DbSession) -> dict:
-    """
-    공간을 만든다. 만든 사람이 owner 가 된다.
-
-    공간과 owner membership 을 한 transaction 에서 만든다. 따로 만들면
-    주인 없는 공간이 생길 수 있고, 그러면 아무도 그 공간을 지울 수 없다.
-    """
-    space = Space(
-        name=body.name,
-        relationship_type=body.relationship_type,
-        owner_id=caller.user.id,
-        timezone=body.timezone,
-        created_by=caller.user.id,
-    )
-    db.add(space)
-    await db.flush()
-
-    db.add(
-        Membership(
-            space_id=space.id,
-            user_id=caller.user.id,
-            role=MembershipRole.OWNER,
-            created_by=caller.user.id,
-        )
-    )
-    if body.started_on:
-        db.add(RelationshipProfile(space_id=space.id, started_on=body.started_on))
-    await db.flush()
-
-    membership = (
-        await db.execute(
-            select(Membership).where(
-                Membership.space_id == space.id,
-                Membership.user_id == caller.user.id,
-                Membership.left_at.is_(None),
-            )
-        )
-    ).scalar_one()
-    return ok(await _공간_응답(db, space, membership))
-
-
-@router.get("/spaces")
-async def list_spaces(caller: CurrentCaller, db: DbSession) -> dict:
-    """내가 들어가 있는 공간 목록. 앱이 처음 여는 화면이 이것으로 시작한다."""
-    줄들 = (
-        await db.execute(
-            select(Space, Membership)
-            .join(Membership, Membership.space_id == Space.id)
-            .where(
-                Membership.user_id == caller.user.id,
-                Membership.left_at.is_(None),
-                Space.deleted_at.is_(None),
-            )
-            .order_by(Space.created_at)
-        )
-    ).all()
-
-    return ok(
-        [
-            await _공간_응답(db, space, membership)
-            for space, membership in 줄들
-        ]
-    )
-
-
-@router.get("/spaces/deleted")
-async def list_deleted_spaces(caller: CurrentCaller, db: DbSession) -> dict:
-    """내가 관리자인, 아직 되돌릴 수 있는 지운 공간."""
-    return ok(
-        [
-            DeletedSpaceOut(
-                id=str(space.id),
-                name=space.name,
-                deletion_scheduled_at=space.deletion_scheduled_at.isoformat(),
-            ).model_dump(by_alias=True)
-            for space in await space_deletion.deleted_spaces_owned_by(db, caller.user.id)
-        ]
-    )
-
-
-@router.delete("/spaces/{space_id}", status_code=status.HTTP_202_ACCEPTED)
-async def delete_space(space_id: uuid.UUID, body: SpaceDeleteRequest, caller: CurrentCaller, db: DbSession) -> dict:
-    """
-    공간을 지운다. 관리자만. 모든 멤버에게서 곧바로 사라지고 7일 뒤 여행·사진까지 지워진다.
-
-    본문이 있는 DELETE 라 이름 확인을 빼먹은 요청은 422 로 막힌다.
-    """
-    membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
-    space = await db.get(Space, space_id)
-    assert space is not None
-    await space_deletion.request_deletion(
-        db,
-        space=space,
-        actor=membership,
-        confirmation_name=body.confirmation_name,
-        impact_acknowledged=body.impact_acknowledged,
-    )
-    return ok({"id": str(space.id), "deletionScheduledAt": space.deletion_scheduled_at.isoformat()})
-
-
-@router.post("/spaces/{space_id}/restore")
-async def restore_space(space_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
-    """지운 공간을 되돌린다. 관리자만, 7일 안에만."""
-    space, membership = await space_deletion.restore(db, space_id=space_id, user_id=caller.user.id)
-    return ok(await _공간_응답(db, space, membership))
-
-
-@router.get("/spaces/{space_id}/members")
-async def list_space_members(
-    space_id: uuid.UUID,
-    caller: CurrentCaller,
-    db: DbSession,
-    include_left: bool = Query(default=False, alias="includeLeft"),
-) -> dict:
-    """
-    공간 멤버. `includeLeft=true` 면 나간 멤버도 `leftAt` 과 함께 뒤에 붙인다.
-
-    지난 여행의 지출·준비물·교통편은 나간 사람을 가리킨다. 앱이 그 이름을 알아야
-    `나간 멤버` 로 뭉개지 않고 누구의 것인지 보여 줄 수 있다. 공간에 함께 있던
-    사람의 표시 이름이라 지금 멤버에게 새로 드러나는 것은 없다.
-    """
-    await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
-    조건 = [Membership.space_id == space_id]
-    if not include_left:
-        조건.append(Membership.left_at.is_(None))
-    줄들 = (
-        await db.execute(
-            select(Membership, User)
-            .join(User, User.id == Membership.user_id)
-            .where(*조건)
-            .order_by(Membership.left_at.is_not(None), Membership.joined_at, Membership.id)
-        )
-    ).all()
-    return ok(
-        [
-            SpaceMemberOut(
-                id=str(membership.id),
-                display_name=membership.nickname or user.display_name,
-                role=membership.role,
-                is_me=membership.user_id == caller.user.id,
-                left_at=membership.left_at,
-            ).model_dump(by_alias=True, mode="json", exclude_none=not include_left)
-            for membership, user in 줄들
-        ]
-    )
-
-
-@router.patch("/spaces/{space_id}")
-async def update_space(
-    space_id: uuid.UUID, body: SpaceUpdateRequest, caller: CurrentCaller, db: DbSession
-) -> dict:
-    membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
-    require(membership, *OWNER_ONLY)
-    space = await db.get(Space, space_id)
-    assert space is not None
-
-    if body.name is not None:
-        space.name = body.name
-    if body.relationship_type is not None:
-        space.relationship_type = body.relationship_type
-    if "started_on" in body.model_fields_set:
-        profile = (
-            await db.execute(
-                select(RelationshipProfile).where(RelationshipProfile.space_id == space_id)
-            )
-        ).scalar_one_or_none()
-        if profile is None:
-            db.add(RelationshipProfile(space_id=space_id, started_on=body.started_on))
-        else:
-            profile.started_on = body.started_on
-    await db.flush()
-    return ok(await _공간_응답(db, space, membership))
-
-
-# ---------------------------------------------------------------------------
-# 여행
-# ---------------------------------------------------------------------------
-
-
-@router.post("/spaces/{space_id}/trips", status_code=status.HTTP_201_CREATED)
+@router.post("/spaces/{space_id}/trips", status_code=status.HTTP_201_CREATED, response_model=Envelope[TripOut])
 async def create_trip(
     space_id: uuid.UUID, body: TripCreateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -333,44 +102,10 @@ async def create_trip(
         cooking_enabled=body.cooking_enabled,
         participant_membership_ids=[uuid.UUID(값) for 값 in body.participant_membership_ids],
     )
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-def _cursor_뒤부터(질의, 정렬칸, cursor: str | None, *, 값을_읽는다):
-    """
-    cursor 가 가리키는 줄 다음부터 읽게 질의에 조건을 붙인다.
-
-    목록은 (정렬칸 DESC, id DESC) 차례라, 그 다음 줄은 (정렬칸, id) 쌍이 cursor 의
-    쌍보다 작은 줄이다. 두 칸을 한 쌍으로 비교해야 정렬칸이 같은 줄들 사이에서도
-    딱 한 줄만 건너뛴다.
-    """
-    if not cursor:
-        return 질의
-    정렬_값, 마지막_id = decode_cursor(cursor)
-    try:
-        기준 = 값을_읽는다(정렬_값)
-    except ValueError as 원인:
-        # 겉모양은 맞지만 이 목록의 cursor 가 아니다(지운 여행 cursor 를 일반 목록에 보낸 때).
-        raise AppError(
-            ErrorCode.VALIDATION_ERROR,
-            fields={"cursor": "목록을 이어 받을 수 없어요. 처음부터 다시 받아 주세요."},
-        ) from 원인
-    return 질의.where(tuple_(정렬칸, Trip.id) < (기준, 마지막_id))
-
-
-def _한_쪽(여행들: list[Trip], limit: int) -> tuple[list[Trip], bool]:
-    """limit + 1 줄을 읽어 둔 결과에서 보여 줄 줄과 '더 있는지' 를 가른다."""
-    return 여행들[:limit], len(여행들) > limit
-
-
-def _다음_cursor(여행들: list[Trip], 더_있다: bool, *, 값을_뽑는다) -> str | None:
-    if not 더_있다 or not 여행들:
-        return None
-    마지막 = 여행들[-1]
-    return encode_cursor(값을_뽑는다(마지막), 마지막.id)
-
-
-@router.get("/spaces/{space_id}/trips")
+@router.get("/spaces/{space_id}/trips", response_model=Page[TripOut])
 async def list_trips(
     space_id: uuid.UUID,
     caller: CurrentCaller,
@@ -396,51 +131,23 @@ async def list_trips(
 
     if trash:
         require(membership, *OWNER_ONLY)
-        질의 = (
-            select(Trip)
-            .where(
-                Trip.space_id == space_id,
-                Trip.deleted_at.is_not(None),
-                Trip.deletion_scheduled_at > func.now(),
-            )
-            .order_by(Trip.deleted_at.desc(), Trip.id.desc())
+        여행들, 다음 = await trip_service.deleted_trips_page(
+            db, space_id=space_id, limit=limit, cursor=cursor
         )
-        질의 = _cursor_뒤부터(질의, Trip.deleted_at, cursor, 값을_읽는다=datetime.fromisoformat)
-        읽은_것 = list((await db.execute(질의.limit(limit + 1))).scalars().all())
-        여행들, 더_있다 = _한_쪽(읽은_것, limit)
-        return page(
-            await _여행들_응답(db, 여행들),
-            next_cursor=_다음_cursor(
-                여행들, 더_있다, 값을_뽑는다=lambda trip: trip.deleted_at.isoformat()
-            ),
+    else:
+        여행들, 다음 = await trip_service.trips_page(
+            db, space_id=space_id, status=status_filter, limit=limit, cursor=cursor
         )
-
-    질의 = (
-        select(Trip)
-        .where(Trip.space_id == space_id, Trip.deleted_at.is_(None))
-        .order_by(Trip.start_date.desc(), Trip.id.desc())
-    )
-    if status_filter is not None:
-        질의 = 질의.where(Trip.status == status_filter)
-    질의 = _cursor_뒤부터(질의, Trip.start_date, cursor, 값을_읽는다=date.fromisoformat)
-
-    읽은_것 = list((await db.execute(질의.limit(limit + 1))).scalars().all())
-    여행들, 더_있다 = _한_쪽(읽은_것, limit)
-    return page(
-        await _여행들_응답(db, 여행들),
-        next_cursor=_다음_cursor(
-            여행들, 더_있다, 값을_뽑는다=lambda trip: trip.start_date.isoformat()
-        ),
-    )
+    return page(await _여행들_응답(db, 여행들), next_cursor=다음)
 
 
-@router.get("/trips/{trip_id}")
+@router.get("/trips/{trip_id}", response_model=Envelope[TripOut])
 async def get_trip(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.patch("/trips/{trip_id}")
+@router.patch("/trips/{trip_id}", response_model=Envelope[TripOut])
 async def update_trip(
     trip_id: uuid.UUID, body: TripUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -493,10 +200,10 @@ async def update_trip(
 
     trip.version += 1
     await db.flush()
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.put("/trips/{trip_id}/participants")
+@router.put("/trips/{trip_id}/participants", response_model=Envelope[TripOut])
 async def set_participants(
     trip_id: uuid.UUID, body: ParticipantsRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -516,23 +223,23 @@ async def set_participants(
     # 참가자도 여행의 내용이다. 버전을 올려야 다른 기기가 낡은 목록으로 덮어쓰지 못한다.
     trip.version += 1
     await db.flush()
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.post("/trips/{trip_id}/archive")
+@router.post("/trips/{trip_id}/archive", response_model=Envelope[TripOut])
 async def archive(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     require(membership, *WRITERS)
     await trip_service.archive_trip(db, trip, archived=True)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.post("/trips/{trip_id}/unarchive")
+@router.post("/trips/{trip_id}/unarchive", response_model=Envelope[TripOut])
 async def unarchive(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     require(membership, *WRITERS)
     await trip_service.archive_trip(db, trip, archived=False)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
 @router.delete("/trips/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -549,7 +256,7 @@ async def delete_trip(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/trips/{trip_id}/restore")
+@router.post("/trips/{trip_id}/restore", response_model=Envelope[TripOut])
 async def restore(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip = await membership_for_trip(
         db, user_id=caller.user.id, trip_id=trip_id, include_deleted=True
@@ -559,4 +266,4 @@ async def restore(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> d
     await trip_service.restore_trip(db, trip)
     if 지웠었다:
         await audit.record(db, space_id=trip.space_id, actor_membership_id=membership.id, action="trip.restore", target_type="trip", target_id=trip.id)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))

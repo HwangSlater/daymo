@@ -11,7 +11,7 @@ from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_row, require
 from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Photo, PhotoStatus, PhotoTargetType
 from app.schemas.photo import (
     PhotoCreateRequest,
@@ -77,7 +77,7 @@ async def _살아_있는_사진(db, caller, photo_id: uuid.UUID):
     return membership, trip, photo
 
 
-@router.get("/trips/{trip_id}/photos")
+@router.get("/trips/{trip_id}/photos", response_model=Page[PhotoOut])
 async def list_photos(
     trip_id: uuid.UUID,
     caller: CurrentCaller,
@@ -105,7 +105,7 @@ async def list_photos(
     return page([_사진_응답(photo, names, links) for photo in photos])
 
 
-@router.post("/trips/{trip_id}/photos", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/photos", status_code=status.HTTP_201_CREATED, response_model=Envelope[PhotoOut])
 async def create_photo(
     trip_id: uuid.UUID, body: PhotoCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -121,7 +121,7 @@ async def create_photo(
     return ok(await _한_장(db, photo))
 
 
-@router.put("/photos/{photo_id}/content")
+@router.put("/photos/{photo_id}/content", response_model=Envelope[PhotoOut])
 async def upload_photo_content(photo_id: uuid.UUID, request: Request, caller: CurrentCaller, db: DbSession) -> dict:
     """
     파일을 그대로 보낸다(multipart 가 아니다). 이미 다 올라온 사진이면 받지 않고 그대로 답한다.
@@ -229,7 +229,7 @@ async def photo_content(
     return FileResponse(파일, media_type=형식, headers=머리)
 
 
-@router.patch("/photos/{photo_id}")
+@router.patch("/photos/{photo_id}", response_model=Envelope[PhotoOut])
 async def update_photo(photo_id: uuid.UUID, body: PhotoUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     """설명·날짜와 붙은 곳. 올린 사람과 owner 만 고친다."""
     membership, _, photo = await _살아_있는_사진(db, caller, photo_id)

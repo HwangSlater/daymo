@@ -17,6 +17,8 @@ from app.api.v1 import (
     places,
     reports,
     schedule,
+    search,
+    spaces,
     trash,
     trip_cards,
     trips,
@@ -28,6 +30,8 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(oauth.router)
 api_router.include_router(me.router)
+api_router.include_router(spaces.router)
+api_router.include_router(search.router)
 api_router.include_router(trips.router)
 api_router.include_router(trip_cards.router)
 api_router.include_router(members.router)

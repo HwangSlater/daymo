@@ -1,11 +1,9 @@
 from fastapi import APIRouter, status
 from pydantic import Field
-from sqlalchemy import select
 
 from app.api.deps import ClientIp, CurrentCaller, DbSession
 from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok
-from app.models import Membership, OAuthAccount, Space
 from app.schemas.auth import (
     DeletionOut,
     EmailChangeRequest,
@@ -15,7 +13,8 @@ from app.schemas.auth import (
     ReauthProofRequest,
     _Camel,
 )
-from app.services import account_changes, account_deletion
+from app.services import account_changes, account_deletion, accounts
+from app.services import spaces as space_service
 from app.services.account_deletion import DeletionState
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -24,18 +23,7 @@ router = APIRouter(prefix="/me", tags=["me"])
 @router.get("")
 async def get_me(caller: CurrentCaller, db: DbSession) -> dict:
     """로그인한 사용자와 현재 참여 중인 공간을 앱 시작에 필요한 만큼 돌려준다."""
-    spaces = (
-        await db.execute(
-            select(Space, Membership)
-            .join(Membership, Membership.space_id == Space.id)
-            .where(
-                Membership.user_id == caller.user.id,
-                Membership.left_at.is_(None),
-                Space.deleted_at.is_(None),
-            )
-            .order_by(Space.created_at)
-        )
-    ).all()
+    spaces = await space_service.spaces_of_user(db, caller.user.id)
 
     return ok(
         MeOut(
@@ -54,11 +42,7 @@ async def get_me(caller: CurrentCaller, db: DbSession) -> dict:
             ],
             deletion_scheduled_at=caller.user.deletion_scheduled_at,
             has_password=bool(caller.user.password_hash),
-            linked_providers=sorted(
-                (
-                    await db.execute(select(OAuthAccount.provider).where(OAuthAccount.user_id == caller.user.id))
-                ).scalars()
-            ),
+            linked_providers=await accounts.linked_providers(db, caller.user.id),
         ).model_dump(by_alias=True)
     )
 

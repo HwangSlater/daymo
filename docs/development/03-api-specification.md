@@ -459,7 +459,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 | POST | `/trips/{tripId}/unarchive` | 보관 해제 (owner·editor) |
 | POST | `/trips/{tripId}/restore` | 삭제 후 7일 이내 여행 복구 (owner) |
 
-여행 목록 query: 지금은 `status`, `trash`(owner만, 지운 여행), `limit`(1~100, 기본 20), `cursor`뿐이다. `from`·`to`·`regionCode`·`q`·`sort`는 아직 없다. 지도·캘린더·검색은 받아 둔 목록을 기기에서 거른다.
+여행 목록 query: 지금은 `status`, `trash`(owner만, 지운 여행), `limit`(1~100, 기본 20), `cursor`뿐이다. `from`·`to`·`regionCode`·`q`·`sort`는 아직 없다. 지도·캘린더는 받아 둔 목록을 기기에서 거르고, 찾기는 11장의 `GET /spaces/{spaceId}/search`가 받는다.
 
 `cursor`는 목록을 이어 받는 자리다. 한 쪽에 다 담기지 않으면 `meta.nextCursor`가 오고(`meta.hasMore`도 `true`), 그 값을 그대로 `cursor`로 다시 보내면 다음 쪽이 온다. 우리가 준 것이 아닌 값은 `VALIDATION_ERROR(422)`다. 몇 번째 줄부터(offset)가 아니라 어느 줄 다음부터(keyset)이므로, 쪽을 넘기는 사이에 여행이 생기거나 지워져도 같은 줄이 두 번 오거나 빠지지 않는다. 그래서 정렬에는 마지막 차례로 `id`가 붙는다. 일반 목록은 `(startDate DESC, id DESC)`, `trash=true`는 `(deletedAt DESC, id DESC)`이고, cursor에는 그 정렬 값과 `id`가 담긴다(`backend/app/core/cursor.py`). 앱은 여행 목록 화면을 아래로 내릴 때 이어 받고(`mobile/src/WarmAppShell.tsx`), 보관·지운 여행도 같은 규칙이다. 목록 전체가 필요 없는 화면(지난 여행에서 가져오기)은 첫 쪽만 받는다.
 
@@ -905,23 +905,38 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 ## 11. 통합 검색과 실시간 이벤트
 
-**아직 하나도 만들지 않았다.** 지금 `찾기` 탭은 기기에 받아 둔 여행·기록을 훑고, 다른 멤버의 변경은 화면을 다시 열 때 목록을 받아 반영한다. 아래는 서버로 옮길 때의 계약이다.
+검색은 2026-09-23 에 만들었다. 실시간 이벤트(SSE)는 아직 없다 — 다른 멤버의 변경은 화면을 다시 열 때 목록을 받아 반영한다.
 
-`GET /spaces/{spaceId}/search?q=소나기식당&types=trip,place,schedule,recipe,packing,diary,photo,memo&limit=20`
+`GET /spaces/{spaceId}/search?q=소나기&types=place,expense&limit=30`
 
-결과 공통 형태:
+| query | 뜻 |
+| --- | --- |
+| `q` | 찾을 말. **두 글자보다 짧으면 빈 목록**이다(오류가 아니다). 60자를 넘으면 `422`. `%`·`_`는 글자 그대로 찾는다 |
+| `types` | 받을 종류를 쉼표로. 생략하면 여덟 가지 전부. 모르는 이름은 그냥 빠진다(옛 앱이 `422`로 막히지 않게) |
+| `limit` | 1~50, 기본 30. 넘으면 거기서 자른다 |
+
+종류는 `trip`·`place`·`schedule`·`packing`·`recipe`·`expense`·`memo`·`diary` 여덟이다. 사진은 아직 없다(설명·날짜만 있어 따로 훑을 것이 적다).
+
+결과 공통 형태(목록 응답이라 `data`가 배열이고 `meta`는 `nextCursor: null`·`hasMore: false`다):
 
 ```json
 {
   "type": "place",
   "id": "uuid",
   "tripId": "uuid",
+  "tripTitle": "가을 제주",
   "title": "소나기식당",
-  "subtitle": "전주 완산구 · 식당",
-  "matchedText": "소나기식당 일요일 예약",
+  "detail": "식당 · 완산구",
   "destination": "places"
 }
 ```
+
+- `detail`은 한 줄로 보여 줄 짧은 맥락이고 종류마다 다르다. 장소는 `분류 · 지역`, 일정·지출은 `날짜 · 메모`, 준비물은 수량, 요리는 메모, 메모는 지은이, 일기는 `날짜 · 지은이`, 여행은 `지역 · 한 줄 요약`이다. 줄 것이 없으면 빈 글자다.
+- `destination`은 이 줄을 눌렀을 때 열 여행 상세의 자리다(`mobile/src/WarmTripDetail.tsx`의 `TripDetailDestination`). `trip`·`schedule`은 `overview`, `place`는 `places`, `packing`은 `preparation`, `recipe`는 `cooking`, `expense`는 `expenses`, `memo`·`diary`는 `memories`다.
+- 차례는 여행이 최근인 것부터, 같은 여행 안에서는 위에 적은 종류 차례다.
+- 지운 여행·지운 메모는 나오지 않는다. 멤버가 아니면 공간이 없는 것과 같은 `404`다. 보기만 하는(viewer) 멤버도 찾을 수 있다.
+- 찾는 방식은 `ILIKE '%말%'`이다(`backend/app/services/search.py`). 여행 수첩 한 채의 크기라 이것으로 충분하고, 표마다 `trip_id` 색인이 이미 있어 새 색인을 만들지 않았다. 느려지면 그때 `pg_trgm`으로 옮긴다 — **먼저 재 보고 옮긴다.**
+- 재료 이름으로도 요리가 나온다. 「대파」로 찾으면 그 재료가 든 요리가 걸린다.
 
 `GET /spaces/{spaceId}/events`는 인증된 SSE 연결이다. 이벤트에는 `entity`, `entityId`, `tripId`, `operation`, `updatedAt`만 담고 상세 데이터는 권한이 적용된 API로 다시 조회한다. 모바일 백그라운드에서는 연결 유지를 보장하지 않고 앱 활성화 시 갱신한다.
 

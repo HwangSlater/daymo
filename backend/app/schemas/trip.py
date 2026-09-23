@@ -300,6 +300,13 @@ class DeletedSpaceOut(_Camel):
     deletion_scheduled_at: str
 
 
+class SpaceDeletionOut(_Camel):
+    """공간을 지우라고 했을 때. 이 시각이 지나면 되돌릴 수 없다."""
+
+    id: str
+    deletion_scheduled_at: str
+
+
 class SpaceUpdateRequest(_Camel):
     name: str | None = Field(default=None, min_length=1, max_length=40)
     relationship_type: RelationshipType | None = None

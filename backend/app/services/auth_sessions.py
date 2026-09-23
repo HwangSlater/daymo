@@ -293,3 +293,46 @@ async def _enforce_device_limit(
     await session.flush()
 
     return [EndedDevice(display_name=d.display_name, last_seen_at=d.last_seen_at) for d in 끊을_것]
+
+
+# ---------------------------------------------------------------------------
+# 기기 목록
+# ---------------------------------------------------------------------------
+
+
+async def devices_of(session: AsyncSession, user_id: uuid.UUID) -> list[Device]:
+    """로그인된 기기. 최근에 쓴 차례다."""
+    return list(
+        (
+            await session.execute(
+                select(Device)
+                .where(Device.user_id == user_id, Device.revoked_at.is_(None))
+                .order_by(Device.last_seen_at.desc())
+            )
+        ).scalars().all()
+    )
+
+
+async def end_device(session: AsyncSession, *, user_id: uuid.UUID, device_id: uuid.UUID) -> None:
+    """
+    다른 기기의 세션을 끊는다.
+
+    남의 기기는 끊을 수 없다. 없는 기기와 남의 기기를 같은 404 로 돌려준다.
+    다르게 답하면 어떤 id 가 존재하는지 알 수 있다.
+    """
+    device = await session.scalar(
+        select(Device).where(
+            Device.id == device_id,
+            Device.user_id == user_id,
+            Device.revoked_at.is_(None),
+        )
+    )
+    if device is None:
+        raise AppError(ErrorCode.NOT_FOUND)
+
+    지금 = datetime.now(UTC)
+    device.revoked_at = 지금
+    await _revoke_where(
+        session, RefreshToken.device_id == device.id, reason=RevokeReason.LOGOUT, 지금=지금
+    )
+    await session.flush()
