@@ -3,17 +3,19 @@ import uuid
 from fastapi import APIRouter, Response, status
 
 from app.api.deps import ClientIp, CurrentCaller, DbSession
-from app.core.responses import ok
+from app.core.responses import Envelope, ok
 from app.core.tokens import ACCESS_TTL
 from app.schemas.auth import (
     DeviceOut,
     EmailRequest,
     LoginRequest,
     PasswordResetRequest,
+    ReauthProofOut,
     RefreshRequest,
     SessionOut,
     ReauthRequest,
     SignUpRequest,
+    StatusOut,
     TokenRequest,
 )
 from app.services import accounts
@@ -54,7 +56,7 @@ def _세션_응답(세션: Session) -> dict:
     ).model_dump(by_alias=True)
 
 
-@router.post("/signup", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/signup", status_code=status.HTTP_202_ACCEPTED, response_model=Envelope[StatusOut])
 async def sign_up(body: SignUpRequest, db: DbSession, ip: ClientIp) -> dict:
     """
     이메일로 가입한다.
@@ -74,20 +76,20 @@ async def sign_up(body: SignUpRequest, db: DbSession, ip: ClientIp) -> dict:
     return ok(_같은_안내)
 
 
-@router.post("/email-verifications", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/email-verifications", status_code=status.HTTP_202_ACCEPTED, response_model=Envelope[StatusOut])
 async def send_email_verification(body: EmailRequest, db: DbSession, ip: ClientIp) -> dict:
     """확인 링크를 보내거나 다시 보낸다. 계정이 없어도 같은 응답이다."""
     await accounts.send_email_verification(db, email=body.email, ip=ip)
     return ok(_같은_안내)
 
 
-@router.post("/email-verifications/confirm")
+@router.post("/email-verifications/confirm", response_model=Envelope[StatusOut])
 async def confirm_email(body: TokenRequest, db: DbSession) -> dict:
     await accounts.confirm_email(db, token=body.token)
     return ok({"status": "verified"})
 
 
-@router.post("/login")
+@router.post("/login", response_model=Envelope[SessionOut])
 async def log_in(body: LoginRequest, db: DbSession, ip: ClientIp) -> dict:
     세션 = await accounts.log_in(
         db,
@@ -102,7 +104,7 @@ async def log_in(body: LoginRequest, db: DbSession, ip: ClientIp) -> dict:
     return ok(_세션_응답(세션))
 
 
-@router.post("/refresh")
+@router.post("/refresh", response_model=Envelope[SessionOut])
 async def refresh(body: RefreshRequest, db: DbSession) -> dict:
     """
     세션을 갱신한다.
@@ -126,20 +128,20 @@ async def log_out(body: RefreshRequest, db: DbSession) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED, response_model=Envelope[StatusOut])
 async def forgot_password(body: EmailRequest, db: DbSession, ip: ClientIp) -> dict:
     await accounts.request_password_reset(db, email=body.email, ip=ip)
     return ok(_같은_안내)
 
 
-@router.post("/password/reset")
+@router.post("/password/reset", response_model=Envelope[StatusOut])
 async def reset_password(body: PasswordResetRequest, db: DbSession) -> dict:
     """비밀번호를 바꾸고 그 계정의 모든 세션을 끊는다."""
     await accounts.reset_password(db, token=body.token, new_password=body.new_password)
     return ok({"status": "reset"})
 
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=Envelope[list[DeviceOut]])
 async def list_sessions(caller: CurrentCaller, db: DbSession) -> dict:
     """
     로그인된 기기 목록.
@@ -176,7 +178,7 @@ async def end_other_session(session_id: uuid.UUID, caller: CurrentCaller, db: Db
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/reauth", status_code=status.HTTP_201_CREATED)
+@router.post("/reauth", status_code=status.HTTP_201_CREATED, response_model=Envelope[ReauthProofOut])
 async def issue_reauth_proof(
     body: ReauthRequest, caller: CurrentCaller, db: DbSession, ip: ClientIp
 ) -> dict:

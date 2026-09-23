@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse, Response
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.auth_pages import _form, _message
@@ -9,9 +10,15 @@ from app.api.deps import ClientIp, CurrentCaller, DbSession
 from app.api.v1.auth import _세션_응답
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.core.responses import error_response, ok
+from app.core.responses import Envelope, error_response, ok
 from app.models import OAuthProvider
-from app.schemas.auth import OAuthExchangeRequest, OAuthLinkRequest, OAuthReauthRequest
+from app.schemas.auth import (
+    OAuthExchangeRequest,
+    OAuthLinkRequest,
+    OAuthReauthRequest,
+    ReauthProofOut,
+    SessionOut,
+)
 from app.services.oauth import flow
 from app.services.reauth import PROOF_TTL
 from app.services.oauth.providers import configured_providers
@@ -33,7 +40,11 @@ def _device(body) -> flow.DeviceArgs:
     )
 
 
-@router.get("/providers")
+class ProvidersOut(BaseModel):
+    providers: list[str]
+
+
+@router.get("/providers", response_model=Envelope[ProvidersOut])
 async def list_providers() -> dict:
     """
     지금 켜져 있는 제공자.
@@ -105,7 +116,7 @@ async def callback_form_post(provider: OAuthProvider, request: Request, db: OAut
     return await _callback(provider, db, await _form(request))
 
 
-@router.post("/exchange", response_model=None)
+@router.post("/exchange", response_model=Envelope[SessionOut])
 async def exchange(body: OAuthExchangeRequest, db: OAuthDb) -> Response | dict:
     """
     앱 주소로 받은 loginCode 를 세션으로 바꾼다.
@@ -129,7 +140,7 @@ async def exchange(body: OAuthExchangeRequest, db: OAuthDb) -> Response | dict:
     return ok(_세션_응답(결과))
 
 
-@router.post("/reauth", status_code=201, response_model=None)
+@router.post("/reauth", status_code=201, response_model=Envelope[ReauthProofOut])
 async def reauth(body: OAuthReauthRequest, caller: CurrentCaller, db: OAuthDb, ip: ClientIp) -> Response | dict:
     """
     로그인한 사람이 연결된 제공자로 다시 로그인한 결과(loginCode)로 증표를 받는다.
@@ -149,7 +160,7 @@ async def reauth(body: OAuthReauthRequest, caller: CurrentCaller, db: OAuthDb, i
     return ok({"proof": 결과, "expiresIn": int(PROOF_TTL.total_seconds())})
 
 
-@router.post("/link")
+@router.post("/link", response_model=Envelope[SessionOut])
 async def link(body: OAuthLinkRequest, db: OAuthDb, ip: ClientIp) -> dict:
     """같은 이메일의 기존 계정 비밀번호로 확인하고, 제공자를 붙인 뒤 로그인한다."""
     세션 = await flow.link_with_password(

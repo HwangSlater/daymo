@@ -183,3 +183,17 @@ class EmailChangeRequest(_Camel):
 class DeletionOut(_Camel):
     requested_at: datetime | None
     scheduled_at: datetime | None
+
+
+class StatusOut(_Camel):
+    """상태 한 마디만 담은 응답. 값은 경로마다 다르다(`accepted`·`verified`·`reset`·`changed`)."""
+
+    status: str
+
+
+class ReauthProofOut(_Camel):
+    """민감한 작업 하나에 쓸 증표. 비밀번호(`/auth/reauth`)로 받든 소셜 로그인
+    (`/auth/oauth/reauth`)으로 받든 모양은 같다."""
+
+    proof: str
+    expires_in: int

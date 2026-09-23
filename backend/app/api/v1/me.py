@@ -3,7 +3,7 @@ from pydantic import Field
 
 from app.api.deps import ClientIp, CurrentCaller, DbSession
 from app.core.errors import AppError, ErrorCode
-from app.core.responses import ok
+from app.core.responses import Envelope, ok
 from app.schemas.auth import (
     DeletionOut,
     EmailChangeRequest,
@@ -11,6 +11,7 @@ from app.schemas.auth import (
     MeSpaceOut,
     PasswordChangeRequest,
     ReauthProofRequest,
+    StatusOut,
     _Camel,
 )
 from app.services import account_changes, account_deletion, accounts
@@ -20,7 +21,7 @@ from app.services.account_deletion import DeletionState
 router = APIRouter(prefix="/me", tags=["me"])
 
 
-@router.get("")
+@router.get("", response_model=Envelope[MeOut])
 async def get_me(caller: CurrentCaller, db: DbSession) -> dict:
     """로그인한 사용자와 현재 참여 중인 공간을 앱 시작에 필요한 만큼 돌려준다."""
     spaces = await space_service.spaces_of_user(db, caller.user.id)
@@ -52,7 +53,7 @@ class MeUpdateRequest(_Camel):
     display_name: str = Field(min_length=1, max_length=20)
 
 
-@router.patch("")
+@router.patch("", response_model=Envelope[MeOut])
 async def update_me(body: MeUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     """
     표시 이름을 바꾼다. 공간마다 둔 별명(`memberships.nickname`)은 그대로다.
@@ -68,7 +69,7 @@ async def update_me(body: MeUpdateRequest, caller: CurrentCaller, db: DbSession)
     return await get_me(caller, db)
 
 
-@router.post("/password")
+@router.post("/password", response_model=Envelope[StatusOut])
 async def change_password(body: PasswordChangeRequest, caller: CurrentCaller, db: DbSession) -> dict:
     """
     비밀번호를 바꾼다. 비밀번호가 없는(소셜 로그인으로만 가입한) 계정은 처음 정한다.
@@ -86,7 +87,7 @@ async def change_password(body: PasswordChangeRequest, caller: CurrentCaller, db
     return ok({"status": "changed"})
 
 
-@router.post("/email", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/email", status_code=status.HTTP_202_ACCEPTED, response_model=Envelope[StatusOut])
 async def request_email_change(
     body: EmailChangeRequest, caller: CurrentCaller, db: DbSession, ip: ClientIp
 ) -> dict:
@@ -109,7 +110,7 @@ def _삭제_상태(상태: DeletionState) -> dict:
     )
 
 
-@router.delete("", status_code=status.HTTP_202_ACCEPTED)
+@router.delete("", status_code=status.HTTP_202_ACCEPTED, response_model=Envelope[DeletionOut])
 async def request_account_deletion(
     body: ReauthProofRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -123,13 +124,13 @@ async def request_account_deletion(
     return _삭제_상태(상태)
 
 
-@router.get("/deletion")
+@router.get("/deletion", response_model=Envelope[DeletionOut])
 async def get_account_deletion(caller: CurrentCaller) -> dict:
     """삭제를 요청해 뒀는지, 언제 지워지는지."""
     return _삭제_상태(account_deletion.state_of(caller.user))
 
 
-@router.post("/deletion/cancel")
+@router.post("/deletion/cancel", response_model=Envelope[DeletionOut])
 async def cancel_account_deletion(
     body: ReauthProofRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
