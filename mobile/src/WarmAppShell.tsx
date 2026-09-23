@@ -59,6 +59,7 @@ import {
   tripFromServer,
 } from "./serverTrips";
 import type { Trip, TripDetailDestination, TripPlanningData } from "./tripPlanning";
+import { 여행_닫기, 여행_열기, 첫_위치, 탭_고르기, type 앱위치, type 탭이름 } from "./appLocation";
 import { shouldRefetch } from "./listSync";
 import { SyncNotice } from "./SyncMarks";
 import { reloadOpenLists } from "./useListSync";
@@ -188,7 +189,6 @@ import {
   type ServerDevice,
 } from "./deviceSessions";
 
-type MainView = "홈" | "여행" | "찾기" | "우리";
 /** 권한 이름표. 저장된 값은 「보기만」이지만 화면에는 「보기 전용」으로 적는다. */
 const roleLabel = (role: string) => (role === "보기만" ? "보기 전용" : role);
 /** 공간을 만들 때 고르는 관계. 서버에 보내는 값은 영어라 보이는 말을 따로 적는다. */
@@ -365,13 +365,17 @@ export function WarmAppShell({
   me?: Me | null;
 }) {
   const systemScheme = useColorScheme();
-  const [view, setView] = useState<MainView>("홈");
-  const [isTripOpen, setTripOpen] = useState(false);
+  /**
+   * 지금 보고 있는 자리. 아래 탭과 열어 둔 여행 상세를 한 객체로 들고 있는다
+   * (`appLocation.ts`). 예전에는 `view`·`isTripOpen`·`tripDestination` 셋으로
+   * 나뉘어 있어서 「지금 어디」를 한 줄로 적을 수 없었고, 주소로도 못 옮겼다.
+   */
+  const [위치, 위치바꾸기] = useState<앱위치>(첫_위치);
+  const 탭으로 = useCallback((탭: 탭이름) => 위치바꾸기((앞) => 탭_고르기(앞, 탭)), []);
+  const 상세_닫기 = useCallback(() => 위치바꾸기(여행_닫기), []);
   const [openTripCreator, setOpenTripCreator] = useState(false);
   // 카카오톡 공지를 통째로 붙여넣어 지난 여행을 채우는 시트. 「여행」 탭에서 연다.
   const [openNoticeImport, setOpenNoticeImport] = useState(false);
-  const [tripDestination, setTripDestination] =
-    useState<TripDetailDestination>("overview");
   const [done, setDone] = useState<string[]>(["charger", "toiletries"]);
   // 공간과 멤버는 앱 전체가 같은 것을 봐야 한다. 예전에는 "우리" 탭 안의
   // state 와 모듈 상수 두 벌로 나뉘어 있어서, 멤버 이름을 고쳐도 여행의 참가자
@@ -742,10 +746,9 @@ export function WarmAppShell({
     setTripCursors({});
     setDone([]);
     setEmailWatch(null);
-    setTripOpen(false);
+    위치바꾸기(첫_위치);
     setOpenTripCreator(false);
     setOpenNoticeImport(false);
-    setView("홈");
   }, []);
   /*
    * 쓰는 도중에 로그인이 풀리면(토큰 갱신 401 — 기한 만료, 다른 기기에서 로그아웃,
@@ -867,7 +870,7 @@ export function WarmAppShell({
       trips: tripItems,
       roster: activeRoster,
       spaceId: activeSpace.id,
-      openTripId: isTripOpen ? selectedTrip.id : undefined,
+      openTripId: 위치.여행 ? selectedTrip.id : undefined,
     };
   });
   const storePrefetched = (spaceId: string, tripId: string, fetched: FetchedTripLists) => {
@@ -928,7 +931,7 @@ export function WarmAppShell({
   // 한 묶음을 다 받으면 올려서 다음 묶음을 부른다.
   const [prefetchRound, setPrefetchRound] = useState(0);
   useEffect(() => {
-    if (view !== "찾기" || !user || !serverDataReady) return;
+    if (위치.탭 !== "찾기" || !user || !serverDataReady) return;
     const { trips: waiting, spaceId, openTripId } = prefetchInputs.current;
     const picked = pickTripsToPrefetch(waiting, {
       done: prefetchedTripIds.current,
@@ -957,7 +960,7 @@ export function WarmAppShell({
     });
     // 탭을 열 때와 공간·여행 목록이 바뀔 때만 본다. 나머지 값은 ref 로 읽는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, activeSpace.id, serverDataReady, tripItems.length, user?.id, prefetchRound]);
+  }, [위치.탭, activeSpace.id, serverDataReady, tripItems.length, user?.id, prefetchRound]);
   /** 서버가 돌려준 여행으로 목록과 열린 여행을 바꾼다. 기기에만 있는 기록은 둔다. */
   const applyServerTrip = (saved: ServerTrip) => {
     const fromServer = tripFromServer(saved, activeRoster);
@@ -1199,8 +1202,8 @@ export function WarmAppShell({
     trip: Trip = tripItems[0] ?? sampleTrips[0],
   ) => {
     setSelectedTrip(trip);
-    setTripDestination(destination);
-    setTripOpen(true);
+    // 서버에 아직 안 올라간 여행은 id 가 없다. 주소로 부를 수 없다는 뜻으로 빈 글을 넣는다.
+    위치바꾸기((앞) => 여행_열기(앞, trip.id ?? "", destination));
   };
   if (!authReady) {
     return <FullScreenNotice theme={theme} busy title="계정을 확인하고 있어요…" />;
@@ -1274,12 +1277,12 @@ export function WarmAppShell({
       />
     );
   }
-  if (isTripOpen)
+  if (위치.여행)
     return (
       <WarmTripDetail
-        key={tripDestination}
+        key={위치.여행.자리}
         done={done}
-        initialDestination={tripDestination}
+        initialDestination={위치.여행.자리}
         tripId={selectedTrip.id}
         spaceId={activeSpace.myMembershipId ? activeSpace.id : undefined}
         canEditRecords={activeSpace.myRole === "관리자" || activeSpace.myRole === "편집 가능"}
@@ -1376,7 +1379,7 @@ export function WarmAppShell({
           // 여행이 사라지면 그 여행에서 꾸미던 카드도 갈 곳이 없다(2026-09-23).
           void removeCardDrafts(tripId);
           setTripItems((current) => current.filter((trip) => trip.id !== tripId));
-          setTripOpen(false);
+          상세_닫기();
         } : undefined}
         onRefreshTrip={selectedTrip.id
           ? async () => applyServerTrip(await getTrip(selectedTrip.id as string))
@@ -1398,7 +1401,7 @@ export function WarmAppShell({
           setSelectedTrip(updated);
         }}
         onClose={() => {
-          setTripOpen(false);
+          상세_닫기();
           refreshOverviewAfterDetail(selectedTrip.id);
         }}
       />
@@ -1433,12 +1436,12 @@ export function WarmAppShell({
         </View>
       )}
       <View style={[s.body, { backgroundColor: "transparent" }]}>
-        {view === "홈" && (
+        {위치.탭 === "홈" && (
           <NotebookHome
             open={openTrip}
             goTrips={() => {
               setOpenTripCreator(true);
-              setView("여행");
+              탭으로("여행");
             }}
             theme={theme}
             trip={homeTrip}
@@ -1450,7 +1453,7 @@ export function WarmAppShell({
             since={activeSpace.since}
           />
         )}
-        {view === "여행" && (
+        {위치.탭 === "여행" && (
           <TripsExplorer
             open={(trip) => openTrip("overview", trip)}
             theme={theme}
@@ -1504,8 +1507,8 @@ export function WarmAppShell({
             }}
           />
         )}
-        {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} loading={searchPrefetching} spaceId={activeSpace.id} />}
-        {view === "우리" && (
+        {위치.탭 === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} loading={searchPrefetching} spaceId={activeSpace.id} />}
+        {위치.탭 === "우리" && (
           <Together
             theme={theme}
             themeId={themeId}
@@ -1561,7 +1564,7 @@ export function WarmAppShell({
           }}
         />
       )}
-      <BottomBar active={view} setActive={setView} theme={theme} />
+      <BottomBar active={위치.탭} setActive={탭으로} theme={theme} />
     </SafeAreaView>
   );
 }
@@ -6192,8 +6195,8 @@ function Together({
   );
 }
 
-function BottomNavIcon({ item, color }: { item: MainView; color: string }) {
-  const paths: Record<MainView, string> = {
+function BottomNavIcon({ item, color }: { item: 탭이름; color: string }) {
+  const paths: Record<탭이름, string> = {
     홈: "M3 9.5 10 3l7 6.5v7a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1z",
     여행: "M9 18v-5.5L3 14v-2l6-3.5V4a1 1 0 0 1 2 0v4.5l6 3.5v2l-6-1.5V18l2 1v1l-3-1-3 1v-1z",
     찾기: "M8.5 14a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11zm4-1.5L17 17",
@@ -6218,8 +6221,8 @@ function BottomBar({
   setActive,
   theme,
 }: {
-  active: MainView;
-  setActive: (view: MainView) => void;
+  active: 탭이름;
+  setActive: (탭: 탭이름) => void;
   theme: AppTheme;
 }) {
   return (
@@ -6229,7 +6232,7 @@ function BottomBar({
         { backgroundColor: theme.surface, borderColor: theme.border },
       ]}
     >
-      {(["홈", "여행", "찾기", "우리"] as MainView[]).map((item) => (
+      {(["홈", "여행", "찾기", "우리"] as 탭이름[]).map((item) => (
         <Pressable
           key={item}
           onPress={() => setActive(item)}
