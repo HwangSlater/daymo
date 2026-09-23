@@ -306,4 +306,4 @@ async def remove_card(session: AsyncSession, *, card: TripCard, actor: Membershi
     이미지 = card.image_path
     await session.delete(card)
     await session.flush()
-    photo_files.remove_card_image(이미지)
+    photo_files.remove_file(이미지)

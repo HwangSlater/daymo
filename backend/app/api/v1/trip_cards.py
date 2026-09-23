@@ -1,5 +1,4 @@
 import uuid
-from typing import Literal
 
 from fastapi import APIRouter, Header, Query, Request, Response, status
 from fastapi.responses import FileResponse
@@ -158,22 +157,14 @@ async def upload_trip_card_image(
         photo_files.discard(임시)
 
     옛_파일 = await card_service.set_image(db, card=card, version=version, path=경로, size=크기)
-    photo_files.remove_card_image(옛_파일)
+    photo_files.remove_file(옛_파일)
     return ok(_응답(card, membership))
 
 
 @router.get("/trip-cards/{card_id}/image")
-async def trip_card_image(
-    card_id: uuid.UUID,
-    caller: CurrentCaller,
-    db: DbSession,
-    size: Literal["full", "small"] = "full",
-) -> Response:
+async def trip_card_image(card_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> Response:
     """
     공간 멤버에게만 준다. 이미지가 없으면 404 다.
-
-    `size=small` 은 긴 변 1080 의 작은 사본이다. 앱이 격자를 띄울 때 미리 받아 두는 것이라
-    작아야 한다(2026-09-23). 작은 사본이 생기기 전에 올린 카드는 여기서 완성본으로 만든다.
 
     같은 주소에서 카드 버전이 바뀌면 다른 파일이 나가므로 사진처럼 오래 캐시하지 않는다.
     어느 버전의 그림인지는 카드의 `imageVersion` 으로 안다.
@@ -185,18 +176,12 @@ async def trip_card_image(
     )
     if not card.image_path:
         raise AppError(ErrorCode.NOT_FOUND)
-    상대 = card.image_path
-    if size == "small":
-        async with photo_files.convert_turn:
-            상대 = await run_in_threadpool(photo_files.ensure_card_small, card.image_path)
-        if not 상대:
-            raise AppError(ErrorCode.NOT_FOUND)
-    파일 = photo_files.absolute(상대)
+    파일 = photo_files.absolute(card.image_path)
     if not 파일.is_file():
         raise AppError(ErrorCode.NOT_FOUND)
     머리 = {"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"}
     접두 = get_settings().photo_accel_prefix
     if 접두:
-        머리["X-Accel-Redirect"] = photo_files.accel_uri(접두, 상대)
+        머리["X-Accel-Redirect"] = photo_files.accel_uri(접두, card.image_path)
         return Response(status_code=status.HTTP_200_OK, media_type="image/jpeg", headers=머리)
     return FileResponse(파일, media_type="image/jpeg", headers=머리)

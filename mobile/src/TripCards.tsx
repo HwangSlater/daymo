@@ -26,13 +26,12 @@ import { Image, Platform, StyleSheet, View } from "react-native";
 import * as Crypto from "expo-crypto";
 import { captureRef, releaseCapture } from "react-native-view-shot";
 
-import { CardDecorTools, CardPreview, CardThumb, STAGE_PAD, shotLayoutOf } from "./CardDecorEditor";
-import { downloadCardImage, forgetCardImage, hasFreshCardImage, prefetchCardImage, releaseCardImage, uploadCardImage } from "./cardImage";
+import { CardDecorTools, CardPreview, CardThumb, shotLayoutOf } from "./CardDecorEditor";
+import { downloadCardImage, hasFreshCardImage, releaseCardImage, uploadCardImage } from "./cardImage";
 import { type CardPhoto } from "./KeepsakeCardView";
 import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
 import { DaymoApiError } from "./auth";
 import type { CardDecor } from "./cardDecor";
-import { savePhotoFile } from "./photoSave";
 import { isLivePhotoUri, downloadPhoto, downloadPhotoToSave, releaseDownloadedPhoto } from "./photoTransfer";
 import { isOriginalQualityUri } from "./photoSync";
 import {
@@ -238,18 +237,7 @@ export function TripCardsSection({
    * 카드는 사진 격자에 함께 놓인다. 목록과 열기·만들기만 위로 넘기고 카드를
    * 만들고 고치는 일은 전부 이 파일에 남는다.
    */
-  onInline: (것: {
-    tiles: CardTile[];
-    open: (id: string) => void;
-    create: (photoIds?: readonly string[]) => void;
-    /** 이 카드를 지울 수 있는지(만든 사람과 관리자). 사진첩이 고른 것을 가를 때 쓴다. */
-    canManage: (id: string) => boolean;
-    /** 사진첩에서 고른 카드를 한꺼번에 지운다. 지운 수와 못 지운 수를 돌려준다. */
-    remove: (ids: readonly string[]) => Promise<{ deleted: number; failed: number }>;
-    /** 사진첩에서 고른 카드를 한 장씩 기기에 저장한다. 아직 그림이 없는 카드는 뺀다. */
-    save: (ids: readonly string[], 진행?: (지금: number, 모두: number) => void)
-      => Promise<{ saved: number; failed: number; skipped: number }>;
-  }) => void;
+  onInline: (것: { tiles: CardTile[]; open: (id: string) => void; create: (photoIds?: readonly string[]) => void }) => void;
   canEdit: boolean;
   theme?: AppTheme;
   notify: (message: string) => void;
@@ -499,66 +487,9 @@ export function TripCardsSection({
     },
     [list, openCard],
   );
-  /**
-   * 사진첩(`PhotoGallery`)이 카드도 함께 다룬다(2026-09-23 요청).
-   *
-   * 지우기는 서버에만 맡긴다. 카드는 휴지통이 없어 바로 없어지고, 묻는 창은 사진첩이 이미
-   * 띄운 뒤다. 저장은 「완료」할 때 서버에 만들어 둔 그림(`hasFreshCardImage`)이 있어야 한다.
-   * 그 그림이 없는 카드는 열어서 한 번 저장해야 만들어지므로, 여기서는 빼고 몇 장 뺐는지 알린다.
-   */
-  const cardCanManage = useCallback(
-    (id: string) => canEdit && (rows.find((줄) => 줄.id === id)?.canManage ?? true),
-    [canEdit, rows],
-  );
-  const removeCards = useCallback(async (ids: readonly string[]) => {
-    const 지울_것 = ids.filter((id) => rows.some((줄) => 줄.id === id));
-    if (!지울_것.length) return { deleted: 0, failed: 0 };
-    const 지울_집합 = new Set(지울_것);
-    // 지운 카드를 열어 두고 있었으면 그 자리를 놓는다. 없는 카드를 보고 있을 수는 없다.
-    setOpenId((지금) => (지금 && 지울_집합.has(지금) ? null : 지금));
-    setRows((current) => current.filter((줄) => !지울_집합.has(줄.id)));
-    let failed = 0;
-    for (const id of 지울_것) {
-      try {
-        await deleteTripCard(id);
-      } catch {
-        failed += 1;
-      }
-    }
-    return { deleted: 지울_것.length - failed, failed };
-  }, [rows]);
-  const saveCards = useCallback(
-    async (ids: readonly string[], 진행?: (지금: number, 모두: number) => void) => {
-      const 줄들 = ids
-        .map((id) => rows.find((줄) => 줄.id === id))
-        .filter((줄) => 줄 !== undefined);
-      const 할_것 = 줄들.filter((줄) => hasFreshCardImage(줄));
-      let saved = 0;
-      let failed = 0;
-      for (const [차례, 줄] of 할_것.entries()) {
-        진행?.(차례 + 1, 할_것.length);
-        const 받은 = await downloadCardImage(줄.id, 줄.version).catch(() => undefined);
-        if (!받은) {
-          failed += 1;
-          continue;
-        }
-        try {
-          const 이름 = keepsakeFileName((줄.settings?.title ?? "").trim() || tripName);
-          if (await savePhotoFile(받은, 이름) === "saved") saved += 1;
-          else failed += 1;
-        } catch {
-          failed += 1;
-        } finally {
-          releaseCardImage(받은);
-        }
-      }
-      return { saved, failed, skipped: 줄들.length - 할_것.length };
-    },
-    [rows, tripName],
-  );
   useEffect(() => {
-    onInline({ tiles, open: openTile, create: makeCard, canManage: cardCanManage, remove: removeCards, save: saveCards });
-  }, [cardCanManage, makeCard, onInline, openTile, removeCards, saveCards, tiles]);
+    onInline({ tiles, open: openTile, create: makeCard });
+  }, [makeCard, onInline, openTile, tiles]);
 
   /**
    * 스트립에서 사진을 눌렀을 때.
@@ -645,16 +576,11 @@ export function TripCardsSection({
    * 원본이 있을 때(대개 카드를 만드는 지금) 그린 그림을 서버에 둔다. 못 올려도 카드
    * 저장은 끝난 것이라 알리지 않는다. 공유할 때 그 자리에서 다시 그린다.
    */
-  const 그림_올리기 = async (줄: ServerTripCard, 아직_그_카드인가: () => boolean = () => true) => {
+  const 그림_올리기 = async (줄: ServerTripCard) => {
     let 찍음: { 찍은_것: string; 원본_못_받음: boolean } | undefined;
     try {
       찍음 = await 원본으로_찍기();
-      // 찍는 사이에 다른 카드로 넘어갔으면 올리지 않는다. 엉뚱한 카드의 그림이 들어간다.
-      if (!아직_그_카드인가()) return;
       const 새_줄 = await uploadCardImage(줄.id, 줄.version, 찍음.찍은_것);
-      // 받아 둔 옛 그림은 버린다. 같은 버전으로 그림만 새로 올린 때가 있다.
-      await forgetCardImage(줄.id);
-      그림_주소_두기((지금) => Object.fromEntries(Object.entries(지금).filter(([열쇠]) => !열쇠.startsWith(`${줄.id}:`))));
       setRows((current) => current.map((하나) => (하나.id === 새_줄.id ? 새_줄 : 하나)));
     } catch (caught) {
       if (__DEV__) console.log("카드 그림 올리기 실패", caught);
@@ -810,7 +736,8 @@ export function TripCardsSection({
     setOriginals(받은_것);
     setExporting(true);
     const 잰다 = Date.now();
-    // 글자는 찍을 배율로 다시 잰 뒤에 찍는다. 그 전에 찍으면 옛 상자에 글자가 잘려 들어간다.
+    // 글자는 찍을 배율로 다시 잰 뒤에 찍는다(`KeepsakeCardView` 의 `onDrawn`). 그 전에 찍으면
+    // 옛 상자 높이에 글자가 잘려 들어갔다(2026-09-23, 「또 가자」의 아래 절반이 없었다).
     const 찍는_배 = shotLayoutOf(keepsakeSizeOf(card.ratio, card.style), true).unit;
     const 글자_열쇠 = card.decor.filter((하나) => 하나.kind === "글자").map((하나) => `글자:${하나.id}:${찍는_배}`);
     try {
@@ -872,8 +799,7 @@ export function TripCardsSection({
         setBusy(false);
       }
     }
-    // 받아 둔 그림으로 보는 중이면 그린 카드가 없어 「다 그렸다」가 올 수 없다. 찍을 때 그린다.
-    if (!ready && !그림으로_본다) {
+    if (!ready) {
       viewerRef.current.onNotice("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
       return;
     }
@@ -903,126 +829,28 @@ export function TripCardsSection({
    * 지금 카드 그대로면(`hasFreshCardImage`) 받아서 사진처럼 띄운다. 가로 2160px 이라 확대해도
    * 선명하다. 없거나 옛것이면 그 자리에서 그린 카드를 보여 준다.
    */
-  /**
-   * 받아 둔 그림의 주소. `카드id:버전:small|full` → 파일 주소.
-   *
-   * 상태로 들고 있어야 카드를 여는 **첫 렌더**에 그림을 바로 그릴 수 있다. 열고 나서 받으면
-   * 아무리 빨라도 그 사이 그린 카드가 한 번 보이고, 작게 그린 스티커가 거칠었다가 또렷해지는
-   * 것이 눈에 띈다(2026-09-23, 영상으로 확인). 사진이 파일을 바로 띄우는 것과 같아야 한다.
-   */
-  const [그림_주소, 그림_주소_두기] = useState<Record<string, string>>({});
-  const 그림_적기 = useCallback((id: string, version: number, size: "small" | "full", uri: string) => {
-    const 열쇠 = `${id}:${version}:${size}`;
-    그림_주소_두기((지금) => (지금[열쇠] === uri ? 지금 : { ...지금, [열쇠]: uri }));
-  }, []);
-
+  const [카드_그림, 카드_그림_두기] = useState<{ id: string; version: number; uri: string } | null>(null);
   const 볼_줄 = previewing && open ? rows.find((줄) => 줄.id === open.id) : undefined;
   const 받을_그림 = 볼_줄 && hasFreshCardImage(볼_줄) ? { id: 볼_줄.id, version: 볼_줄.version } : null;
-  const 작은_그림 = 받을_그림 ? 그림_주소[`${받을_그림.id}:${받을_그림.version}:small`] : undefined;
-  const 완성_그림 = 받을_그림 ? 그림_주소[`${받을_그림.id}:${받을_그림.version}:full`] : undefined;
   useEffect(() => {
     if (!받을_그림) return;
     let 살아있다 = true;
-    // 작은 사본부터(격자를 띄울 때 미리 받아 둔 것이라 대개 이미 있다). 그다음 완성본을 받아
-    // 그 위에 얹는다 — 같은 그림이 또렷해질 뿐이라 바뀌는 것이 보이지 않는다. 두 손가락으로
-    // 키워 볼 때 완성본이 있어야 흐리지 않다.
-    downloadCardImage(받을_그림.id, 받을_그림.version, "small")
+    let 받은: string | undefined;
+    downloadCardImage(받을_그림.id, 받을_그림.version)
       .then((uri) => {
-        if (살아있다 && uri) 그림_적기(받을_그림.id, 받을_그림.version, "small", uri);
-      })
-      .catch(() => undefined)
-      .then(() => downloadCardImage(받을_그림.id, 받을_그림.version, "full"))
-      .then((uri) => {
-        if (살아있다 && uri) 그림_적기(받을_그림.id, 받을_그림.version, "full", uri);
+        받은 = uri;
+        if (살아있다 && uri) 카드_그림_두기({ ...받을_그림, uri });
+        else if (uri) releaseCardImage(uri);
       })
       .catch(() => undefined);
     return () => {
       살아있다 = false;
+      if (받은) releaseCardImage(받은);
+      카드_그림_두기(null);
     };
     // 받을 그림이 바뀔 때만 다시 받는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [받을_그림?.id, 받을_그림?.version]);
-  /** 받아 둔 그림으로 보는 중. 그린 카드는 띄우지 않는다(내보낼 때만 그린다). */
-  const 그림으로_본다 = Boolean(작은_그림 || 완성_그림) && !exporting;
-  /**
-   * 완성본이 없는 카드를 보고 있으면 한 번 만들어 올린다(2026-09-23).
-   *
-   * 완성본은 「완료」할 때 올리므로, 그 기능이 생기기 전에 만든 카드에는 없다. 그런 카드는
-   * 볼 때마다 그려야 해서 열 때 한 번 거칠게 보였다. 만든 사람이 1.5초 넘게 보고 있으면
-   * 그 자리에서 그려 올린다(「완료」와 같은 길). 그 뒤로는 사진처럼 뜬다. 넘기며 지나가는
-   * 카드는 건드리지 않고, 같은 카드는 한 번만 시도한다.
-   */
-  const 그림_올리기_지금 = useRef<typeof 그림_올리기>(async () => undefined);
-  /** 지금 창에 올라온 카드. 찍는 사이에 넘어갔는지 손가락 이벤트 밖에서 본다. */
-  const 열린_카드_지금 = useRef({ openId, toolsOpen });
-  useEffect(() => {
-    열린_카드_지금.current = { openId, toolsOpen };
-  }, [openId, toolsOpen]);
-  /**
-   * 뒤에서 조용히 찍는 중. 덮개(「만드는 중」)를 띄우지 않는다 — 보기만 하는데 그런 말이 뜨면
-   * 무슨 일인지 알 수 없다. 대신 찍을 카드(제 크기로 키운 것)는 뒤에 깔고, 그 위에 보던 모습
-   * 그대로의 카드를 얹어 둔다. 사용자에게는 아무것도 바뀌지 않는다.
-   */
-  const [몰래_찍는_중, 몰래_찍기_두기] = useState(false);
-  useEffect(() => {
-    그림_올리기_지금.current = 그림_올리기;
-  });
-  const 그림_만들어_본_것 = useRef(new Set<string>());
-  const 완성본_없음 = Boolean(볼_줄) && !받을_그림;
-  useEffect(() => {
-    if (!previewing || !완성본_없음 || !볼_줄 || !canManage || !canEdit || !tripId || busy || !ready || toolsOpen) return;
-    const 줄 = 볼_줄;
-    const 열쇠 = `${줄.id}:${줄.version}`;
-    if (그림_만들어_본_것.current.has(열쇠)) return;
-    const timer = setTimeout(() => {
-      그림_만들어_본_것.current.add(열쇠);
-      몰래_찍기_두기(true);
-      // 찍는 동안 다른 단추(꾸미기·공유)는 막는다. 덮개는 띄우지 않는다.
-      setBusy(true);
-      const 아직 = () => 열린_카드_지금.current.openId === 줄.id && !열린_카드_지금.current.toolsOpen;
-      void 그림_올리기_지금.current(줄, 아직).finally(() => {
-        setBusy(false);
-        몰래_찍기_두기(false);
-      });
-    }, 1500);
-    return () => clearTimeout(timer);
-    // 줄은 id·version 으로 가른다. 줄 객체는 목록을 받을 때마다 새것이다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewing, 완성본_없음, 볼_줄?.id, 볼_줄?.version, canManage, canEdit, tripId, busy, ready, toolsOpen]);
-  /**
-   * 작은 사본을 미리 받아 둔다(2026-09-23). 전부가 아니라 **곧 볼 것**만이다.
-   *
-   * - 격자에 놓이는 앞쪽 카드 몇 장(기록 탭은 여섯 장까지 보여 준다).
-   * - 크게 보는 중이면 지금 카드의 양옆 한 장씩. 넘기면 그 다음 옆 것을 받는다.
-   *
-   * 한 번 받은 파일은 두고 쓰므로(`downloadCardImage`) 카드가 백 장이어도 받는 양은 화면에
-   * 보인 만큼이다. 완성본이 없는 카드(고친 뒤 아직 완료하지 않은 것)는 받을 것이 없다.
-   */
-  const 미리_받을_것 = useMemo(() => {
-    const 앞쪽 = [...list].reverse().slice(0, 6);
-    const 지금 = openId ? list.findIndex((줄) => 줄.id === openId) : -1;
-    const 양옆 = 지금 >= 0 ? [list[지금 - 1], list[지금 + 1]].filter((줄) => 줄 !== undefined) : [];
-    return [...양옆, ...앞쪽]
-      .map((줄) => rows.find((행) => 행.id === 줄.id))
-      .filter((행):행 is ServerTripCard => 행 !== undefined && hasFreshCardImage(행))
-      .map((행) => `${행.id}:${행.version}`);
-  }, [list, openId, rows]);
-  useEffect(() => {
-    let 살아있다 = true;
-    const 남은_것 = [...미리_받을_것];
-    const 일꾼 = async () => {
-      for (let 열쇠 = 남은_것.shift(); 열쇠 && 살아있다; 열쇠 = 남은_것.shift()) {
-        const [id, version] = 열쇠.split(":");
-        const uri = await prefetchCardImage(id, Number(version));
-        if (살아있다 && uri) 그림_적기(id, Number(version), "small", uri);
-      }
-    };
-    // 둘씩만 받는다. 사진 썸네일과 같은 줄에 서므로 더 늘리면 격자가 늦게 뜬다.
-    void Promise.all([일꾼(), 일꾼()]);
-    return () => {
-      살아있다 = false;
-    };
-  }, [그림_적기, 미리_받을_것]);
   /** 스트립 끝에 세울 카드. 지금 보는 카드에 표가 선다. */
   const cardStrip = useMemo(
     () => tiles.map((하나) => ({ ...하나, on: previewing && 하나.id === openId })),
@@ -1117,47 +945,9 @@ export function TripCardsSection({
    * 사진과 카드를 밀어 넘길 때 옆 칸이 비어 있다가 손을 떼는 순간 카드가 튀어나오면
    * 넘기는 느낌이 끊긴다.
    */
-  /**
-   * 카드 한 칸의 그림. 옆 칸(`renderCard`)과 가운데 칸(`preview`)이 **같은 짜임**으로 그린다.
-   *
-   * 밀어 넘기면 옆 칸이 가운데 칸이 된다. 그때 두 칸의 짜임이 다르면 React 가 그림 부품을
-   * 새로 만들고, 새 Image 는 같은 파일이라도 뜨기까지 한 프레임 비어 검게 깜빡인다(2026-09-23).
-   * 짜임이 같으면 부품을 그대로 옮겨 쓰므로 그림이 한 번도 안 사라진다. 사진 칸도 같은 까닭으로
-   * 보기 창이 칸을 자리(왼쪽·가운데·오른쪽)가 아니라 **무엇을 담았는지**로 가른다.
-   *
-   * 자리 차례가 곧 짜임이다: 그린 카드 · 덮개 · 작은 사본 · 완성본. 없는 것은 null 로 자리를 지킨다.
-   */
-  const 카드_칸 = (
-    이름: string,
-    그림: { 작은?: string; 완성?: string },
-    그린?: React.ReactNode,
-    덮개?: React.ReactNode,
-  ) => (
-    <View style={styles.cardImage}>
-      {그린 ?? null}
-      {덮개 ?? null}
-      {/* 작은 사본을 깔고 완성본이 오면 그 위에 얹는다. 바꿔 끼우지 않는다 — 한 Image 의
-          주소를 바꾸면 새 그림이 뜰 때까지 빈다. 둘 다 그린 카드와 같은 여백(`STAGE_PAD`)
-          안에 맞춘다. 여백 없이 꽉 채우면 그림이 뜨는 순간 카드가 한 단계 커져 보였다. */}
-      {그림.작은 ? (
-        <View style={styles.cardImageOver} pointerEvents="none">
-          <Image source={{ uri: 그림.작은 }} resizeMode="contain" style={styles.cardImage} accessibilityLabel={이름} />
-        </View>
-      ) : null}
-      {그림.완성 ? (
-        <View style={styles.cardImageOver} pointerEvents="none">
-          <Image source={{ uri: 그림.완성 }} resizeMode="contain" style={styles.cardImage} accessibilityLabel={이름} />
-        </View>
-      ) : null}
-    </View>
-  );
-  /** 옆 칸에 미리 그려 둘 카드. 받아 둔 작은 사본이 있으면 그것, 없으면 저장된 모습을 그린다. */
   const renderCard = (id: string) => {
     const 줄 = list.find((하나) => 하나.id === id);
-    if (!줄) return null;
-    const 행 = rows.find((하나) => 하나.id === id);
-    const 작은 = 행 && hasFreshCardImage(행) ? 그림_주소[`${id}:${행.version}:small`] : undefined;
-    return 카드_칸(줄.label, { 작은 }, 작은 ? undefined : <CardPreview {...faceOf(줄.card)} />);
+    return 줄 ? <CardPreview {...faceOf(줄.card)} /> : null;
   };
 
   // 꾸밀 수 없는 사람에게는 「꾸미기」 한 줄도 주지 않는다. 다만 남의 카드를 열어
@@ -1185,28 +975,11 @@ export function TripCardsSection({
         cover: onSaveHomeCover && open && canEdit
           ? { on: cover.on, label: cover.label, onPress: () => void toggleCover() }
           : undefined,
-        // 그린 카드를 깔아 두고 그 위에 받아 온 그림을 얹는다. 그림이 다 그려진 뒤에야 밑을
-        // 거둬서, 바꿔 끼우는 사이에 빈 자리가 보이지 않는다. 찍는 중에는 그린 카드가 있어야
-        // 한다(공유할 그림을 그 자리에서 찍는 경우).
-        // 받아 둔 그림이 있으면 그것만 띄운다. 사진처럼 첫 렌더부터 그림이다. 그린 카드는 그림이
-        // 없는 카드(고친 뒤 아직 완료하지 않은 것)와 내보낼 때만 그린다. 옆 칸과 같은 짜임(`카드_칸`)이다.
         preview: previewing && card
-          ? 카드_칸(
-            text.title || "추억 카드",
-            그림으로_본다 ? { 작은: 작은_그림, 완성: 완성_그림 } : {},
-            그림으로_본다
-              ? undefined
-              : <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} onPhotoReady={markDrawn} shotRef={shot} exporting={exporting} />,
-            // 뒤에서 조용히 찍는 동안의 덮개. 그린 카드가 찍을 크기로 커져 있으니, 보던 모습
-            // 그대로의 카드를 한 장 더 그려 그 위에 얹는다.
-            몰래_찍는_중
-              ? (
-                <View style={[styles.cardImageCover, { backgroundColor: "#000000" }]} pointerEvents="none">
-                  <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} />
-                </View>
-              )
-              : undefined,
-          )
+          // 찍는 중에는 그린 카드가 있어야 한다(공유할 그림을 그 자리에서 찍는 경우).
+          ? 카드_그림 && 카드_그림.id === open?.id && !exporting
+            ? <Image source={{ uri: 카드_그림.uri }} resizeMode="contain" style={styles.cardImage} accessibilityLabel={text.title || "추억 카드"} />
+            : <CardPreview card={card} photos={drawPhotos} text={text} stats={stats} stamp={stamp} onPhotoReady={markDrawn} shotRef={shot} exporting={exporting} />
           : undefined,
         // 기간과 지역은 카드 얼굴에 이미 적혀 있다. 아래에는 어떤 틀에 사진 몇 장인지만
         // 둔다. 두 줄이 되면 스트립이 밀린다.
@@ -1215,7 +988,7 @@ export function TripCardsSection({
         cards: cardStrip,
         onViewCard: openTile,
         renderCard,
-        busyText: busy && !몰래_찍는_중 ? busyLabel : undefined,
+        busyText: busy ? busyLabel : undefined,
         body: card ? (
           <CardDecorTools
             card={card}
@@ -1288,10 +1061,5 @@ const 그려질_때까지 = async (다_그렸나: () => boolean): Promise<boolea
 
 const styles = StyleSheet.create({
   // 카드를 사진처럼 볼 때. 보기 창의 카드 자리를 꽉 채우고 비율은 지킨다.
-  // 찍을 크기로 키운 카드가 창 밖으로 넘치지 않게 자른다. 찍는 것은 그 카드 자체를 찍으므로 상관없다.
-  cardImage: { width: "100%", height: "100%", overflow: "hidden" },
-  // 조용히 찍는 동안 얹는 덮개. 보던 모습의 카드가 이 안에 다시 그려진다.
-  cardImageCover: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  // 그린 카드 위에 얹는 완성 그림. 다 그려지면 밑의 그린 카드를 거둔다.
-  cardImageOver: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, padding: STAGE_PAD },
+  cardImage: { width: "100%", height: "100%" },
 });

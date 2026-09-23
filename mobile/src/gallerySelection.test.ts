@@ -4,7 +4,6 @@ import { test } from "node:test";
 import {
   allChosen,
   cardFromSelection,
-  CARD_GROUP,
   deleteConfirmText,
   deletedText,
   dragSelect,
@@ -124,46 +123,6 @@ test("저장 결과는 실패와 업로드 중이라 뺀 것을 나눠 말한다
   assert.equal(savedText({ saved: 3, failed: 0, skipped: 0 }), "사진 3장을 저장했어요");
   assert.equal(savedText({ saved: 2, failed: 1, skipped: 1 }), "사진 2장을 저장했어요. 1장은 저장하지 못했어요, 업로드 중인 1장은 뺐어요");
   assert.equal(savedText({ saved: 0, failed: 2, skipped: 0 }), "사진을 저장하지 못했어요");
-});
-
-test("카드도 함께 고르면 사진과 카드를 나눠 말한다", () => {
-  // 사진은 휴지통으로 가고 카드는 바로 없어진다. 섞여 있으면 둘 다 적는다.
-  assert.deepEqual(deleteConfirmText(1, 0, 1), {
-    title: "이 카드를 삭제할까요?",
-    body: "삭제한 카드는 되돌릴 수 없어요. 카드만 없어지고 사진은 그대로 남아요.",
-  });
-  assert.equal(deleteConfirmText(3, 0, 1).title, "사진 2장과 카드 1장을 삭제할까요?");
-  assert.equal(deletedText(2, 0, 1), "사진 2장과 카드 1장을 삭제했어요");
-  assert.equal(deletedText(0, 0, 2), "카드 2장을 삭제했어요");
-  assert.equal(
-    savedText({ saved: 2, failed: 0, skipped: 0, cards: 1 }),
-    "사진 2장과 카드 1장을 저장했어요",
-  );
-  // 아직 그림을 만들어 두지 않은 카드는 빼고, 몇 장을 뺐는지 알린다.
-  assert.equal(
-    savedText({ saved: 0, failed: 0, skipped: 0, cards: 1, cardsSkipped: 2 }),
-    "카드 1장을 저장했어요. 아직 만들지 않은 카드 2장은 뺐어요",
-  );
-});
-
-test("카드를 골라 두면 카드로 만들지 않는다", () => {
-  const 카드다 = (id: string) => id === "card-1";
-  const 결과 = cardFromSelection(["a", "card-1"], 4, 카드다);
-
-  assert.equal(결과.ok, false);
-  assert.equal(!결과.ok && 결과.reason, "카드에 넣을 사진만 골라 주세요");
-  // 사진만 골랐으면 그대로 된다.
-  assert.deepEqual(cardFromSelection(["a", "b"], 4, 카드다), { ok: true, ids: ["a", "b"] });
-});
-
-test("사진첩 맨 위 묶음은 카드다", () => {
-  // 카드를 「카드」 날짜로 두고 앞에 세우면 날짜 묶기가 그대로 맨 위에 놓는다.
-  const 묶음 = groupByDate(
-    [{ id: "card-1", date: CARD_GROUP }, { id: "a", date: "9월 22일" }],
-    "날짜 없음",
-  );
-
-  assert.deepEqual(묶음.map((하나) => 하나.date), [CARD_GROUP, "9월 22일"]);
 });
 
 test("카드는 1~4장일 때만 만들고, 고른 차례를 그대로 쓴다", () => {

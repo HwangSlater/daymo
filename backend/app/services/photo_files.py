@@ -71,10 +71,6 @@ CARD_MAX_PIXELS = 16_000_000
 # 카드 이미지는 사진보다 한 단계 높게 누른다. 글자와 스티커의 가장자리가 뭉개지지 않게 한다.
 CARD_JPEG_QUALITY = 92
 CARD_FORMATS = ("JPEG", "PNG")
-# 카드의 작은 사본(2026-09-23). 앱이 카드 격자를 띄울 때 미리 받아 두는 것이라 폰 화면에 맞는
-# 크기면 된다. 2160 짜리 완성본(300KB 안팎)의 3분의 1이다. 확대하면 그때 완성본을 받는다.
-CARD_SMALL_EDGE = 1080
-CARD_SMALL_QUALITY = 85
 
 # 워커 하나에서 그림 변환은 한 번에 하나만. 큰 그림 여러 장이 겹치면 메모리가 모자란다.
 # 사진과 카드 이미지가 이 차례를 함께 쓴다.
@@ -427,55 +423,7 @@ def store_card_image(upload: Path, trip_id: uuid.UUID, card_id: uuid.UUID, versi
     except Exception:
         building.unlink(missing_ok=True)
         raise
-    relative = f"trips/{trip_id}/cards/{name}"
-    # 작은 사본도 같이 둔다. 여기서 못 만들어도 완성본은 이미 있으니 내주는 쪽이 다시 만든다.
-    size += _build_card_small(flat, absolute(card_small_relative(relative)))
-    return relative, size
-
-
-def card_small_relative(relative: str) -> str:
-    """완성본 상대 경로(`…-vN.jpg`)에서 작은 사본의 상대 경로(`…-vN-small.jpg`)."""
-    return f"{relative[:-4]}-small.jpg" if relative.endswith(".jpg") else f"{relative}-small.jpg"
-
-
-def _build_card_small(full: Image.Image, target: Path) -> int:
-    """완성본에서 작은 사본을 만든다. 다 쓴 뒤에 바꿔 끼워 반쯤 쓴 파일이 나가지 않게 한다."""
-    building = target.with_name(f"{target.name}.building")
-    try:
-        _resized(full, CARD_SMALL_EDGE).save(
-            building, "JPEG", quality=CARD_SMALL_QUALITY, optimize=True, progressive=True
-        )
-        os.chmod(building, 0o640)
-        size = building.stat().st_size
-        os.replace(building, target)
-        return size
-    except Exception:
-        building.unlink(missing_ok=True)
-        raise
-
-
-def ensure_card_small(relative: str) -> str | None:
-    """
-    작은 사본의 상대 경로. 없으면 완성본에서 그 자리에서 만든다(작은 사본이 생기기 전에 올린
-    카드). 완성본도 없으면 None.
-    """
-    small = card_small_relative(relative)
-    if absolute(small).is_file():
-        return small
-    full = absolute(relative)
-    if not full.is_file():
-        return None
-    with Image.open(full) as image:
-        _build_card_small(image.convert("RGB"), absolute(small))
-    return small
-
-
-def remove_card_image(relative: str | None) -> None:
-    """완성본과 작은 사본을 함께 지운다."""
-    if not relative:
-        return
-    remove_file(relative)
-    remove_file(card_small_relative(relative))
+    return f"trips/{trip_id}/cards/{name}", size
 
 
 def remove_file(relative: str | None) -> None:

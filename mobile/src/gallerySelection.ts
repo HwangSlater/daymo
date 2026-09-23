@@ -18,14 +18,6 @@
 /** 사진첩이 알아야 하는 사진의 몫. */
 export type GalleryPhoto = { id: string; date: string };
 
-/**
- * 카드 묶음의 이름. 사진첩 맨 위에 카드만 모아 놓는 자리다(2026-09-23 요청).
- *
- * 날짜 묶음과 같은 길을 쓴다. 카드를 이 이름의 「날짜」로 두고 사진보다 앞에 세우면,
- * 묶기·줄 세우기·끌어서 고르기가 모두 그대로 돌아간다.
- */
-export const CARD_GROUP = "카드";
-
 /** 하루치 묶음. */
 export type GallerySection<T extends GalleryPhoto> = { date: string; photos: T[] };
 
@@ -193,64 +185,27 @@ export function splitManageable(ids: readonly string[], canManage: (id: string) 
   return { allowed, skipped: ids.length - allowed.length };
 }
 
-/**
- * 여러 장을 지우기 전에 묻는 말. 한 장 지울 때(`confirmPhotoDelete`)와 같은 꼴이다.
- *
- * `cards` 는 고른 것 가운데 카드 수다. 사진은 휴지통으로 가지만 카드는 바로 없어져서,
- * 섞여 있으면 둘 다 적는다.
- */
-export function deleteConfirmText(allowed: number, skipped: number, cards = 0): { title: string; body: string } {
-  const 사진 = allowed - cards;
+/** 여러 장을 지우기 전에 묻는 말. 한 장 지울 때(`confirmPhotoDelete`)와 같은 꼴이다. */
+export function deleteConfirmText(allowed: number, skipped: number): { title: string; body: string } {
   const 남 = skipped > 0 ? ` 다른 사람이 올린 사진 ${skipped}장은 삭제되지 않아요.` : "";
-  const 카드_한_줄 = "삭제한 카드는 되돌릴 수 없어요. 카드만 없어지고 사진은 그대로 남아요.";
-  if (cards > 0 && 사진 <= 0) {
-    return {
-      title: cards > 1 ? `카드 ${cards}장을 삭제할까요?` : "이 카드를 삭제할까요?",
-      body: 카드_한_줄,
-    };
-  }
-  const 사진_한_줄 = `삭제한 사진은 휴지통에서 7일 안에 되돌릴 수 있어요.${남}`;
-  if (cards > 0) {
-    return {
-      title: `사진 ${사진}장과 카드 ${cards}장을 삭제할까요?`,
-      body: `${사진_한_줄} ${카드_한_줄}`,
-    };
-  }
   return {
     title: allowed > 1 ? `사진 ${allowed}장을 삭제할까요?` : "이 사진을 삭제할까요?",
-    body: 사진_한_줄,
+    body: `삭제한 사진은 휴지통에서 7일 안에 되돌릴 수 있어요.${남}`,
   };
 }
 
-/** 지운 뒤의 한 줄. `cards` 는 함께 지운 카드 수다. */
-export function deletedText(deleted: number, skipped: number, cards = 0): string {
-  const 사진_말 = deleted > 1 ? `사진 ${deleted}장` : "사진";
-  const 앞 = cards > 0
-    ? deleted > 0
-      ? `${사진_말}과 카드 ${cards}장을 삭제했어요`
-      : cards > 1 ? `카드 ${cards}장을 삭제했어요` : "카드를 삭제했어요"
-    : `${사진_말}을 삭제했어요`;
+/** 지운 뒤의 한 줄. */
+export function deletedText(deleted: number, skipped: number): string {
+  const 앞 = deleted > 1 ? `사진 ${deleted}장을 삭제했어요` : "사진을 삭제했어요";
   return skipped > 0 ? `${앞}. 다른 사람 사진 ${skipped}장은 그대로 뒀어요` : 앞;
 }
 
-/**
- * 저장한 뒤의 한 줄. 업로드 중이라 뺀 것과 실패한 것을 나눠 말한다.
- *
- * `cards` 는 함께 저장한 카드 수, `cardsSkipped` 는 아직 만들어 두지 않아 뺀 카드 수다.
- * 카드 그림은 「완료」로 저장할 때 서버에 만들어 두므로, 그 전에는 여기서 저장할 것이 없다.
- */
-export function savedText(
-  { saved, failed, skipped, cards = 0, cardsSkipped = 0 }:
-    { saved: number; failed: number; skipped: number; cards?: number; cardsSkipped?: number },
-): string {
-  const 저장한_것 = [saved > 0 ? `사진 ${saved}장` : "", cards > 0 ? `카드 ${cards}장` : ""].filter(Boolean);
-  const 앞 = 저장한_것.length
-    ? `${저장한_것.join("과 ")}을 저장했어요`
-    : cards + cardsSkipped > 0 && saved + skipped === 0 ? "카드를 저장하지 못했어요" : "사진을 저장하지 못했어요";
+/** 저장한 뒤의 한 줄. 업로드 중이라 뺀 것과 실패한 것을 나눠 말한다. */
+export function savedText({ saved, failed, skipped }: { saved: number; failed: number; skipped: number }): string {
+  const 앞 = saved > 0 ? `사진 ${saved}장을 저장했어요` : "사진을 저장하지 못했어요";
   const 뒤 = [
-    저장한_것.length && failed > 0 ? `${failed}장은 저장하지 못했어요` : "",
+    saved > 0 && failed > 0 ? `${failed}장은 저장하지 못했어요` : "",
     skipped > 0 ? `업로드 중인 ${skipped}장은 뺐어요` : "",
-    cardsSkipped > 0 ? `아직 만들지 않은 카드 ${cardsSkipped}장은 뺐어요` : "",
   ].filter(Boolean);
   return 뒤.length ? `${앞}. ${뒤.join(", ")}` : 앞;
 }
@@ -264,11 +219,8 @@ export function savedText(
 export function cardFromSelection(
   ids: readonly string[],
   max: number,
-  isCard: (id: string) => boolean = () => false,
 ): { ok: true; ids: string[] } | { ok: false; reason: string } {
   if (!ids.length) return { ok: false, reason: "카드에 넣을 사진을 골라 주세요" };
-  // 카드를 카드에 넣을 수는 없다. 섞여 있으면 사진만 골라 달라고 한다.
-  if (ids.some((id) => isCard(id))) return { ok: false, reason: "카드에 넣을 사진만 골라 주세요" };
   if (ids.length > max) return { ok: false, reason: `카드에는 사진을 ${max}장까지 넣을 수 있어요` };
   return { ok: true, ids: [...ids] };
 }

@@ -110,8 +110,7 @@ import {
 import { josa } from "./tripExpenses";
 
 /** 카드를 띄울 칸의 안쪽 여백. 카드가 화면 끝에 붙지 않게 한다. */
-/** 카드 둘레의 여백. 크게 볼 때 받아 온 그림도 같은 여백에 맞춰야 크기가 튀지 않는다(`TripCards`). */
-export const STAGE_PAD = 16;
+const STAGE_PAD = 16;
 
 /**
  * 아래 막대의 도구(2026-09-22, 인스타그램·캔바와 같은 틀). 누른 것만 시트로 올라온다.
