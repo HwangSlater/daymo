@@ -19,7 +19,7 @@ from fastapi import APIRouter, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.observability import capture_client_error, scrub_text
-from app.core.responses import ok
+from app.core.responses import Envelope, ok
 
 router = APIRouter(prefix="/client-errors", tags=["client-errors"])
 
@@ -74,7 +74,11 @@ class ClientErrorIn(BaseModel):
     where: str = Field(default="", max_length=120)
 
 
-@router.post("", status_code=status.HTTP_202_ACCEPTED)
+class AcceptedOut(BaseModel):
+    status: str
+
+
+@router.post("", status_code=status.HTTP_202_ACCEPTED, response_model=Envelope[AcceptedOut])
 async def receive_client_error(body: ClientErrorIn) -> dict:
     """
     앱 오류 한 줄을 받는다. 무엇을 받았든 같은 응답을 준다.

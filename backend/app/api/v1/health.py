@@ -1,15 +1,23 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.core.db import check_database
 from app.core.errors import ErrorCode
-from app.core.responses import error_response, ok
+from app.core.responses import Envelope, error_response, ok
 
 router = APIRouter(tags=["health"])
 
 
-# response_model=None: 성공과 실패의 본문 모양이 달라 하나의 스키마로 못 묶는다.
-@router.get("/health", summary="내부 health check", response_model=None)
+class HealthOut(BaseModel):
+    status: str
+    database: str
+
+
+# 실패는 error_response() 가 만드는 JSONResponse 를 그대로 돌려준다. Response 를
+# 직접 돌려주면 FastAPI 가 response_model 로 다시 거르지 않으므로, 성공 모양만
+# 스키마로 두면 된다(실패 쪽 모양은 error_response 가 공통으로 낸다).
+@router.get("/health", summary="내부 health check", response_model=Envelope[HealthOut])
 async def health() -> JSONResponse | dict:
     """
     프로세스와 DB 연결 상태를 함께 본다.

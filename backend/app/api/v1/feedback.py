@@ -11,7 +11,7 @@ from pydantic import Field
 
 from app.api.deps import CurrentCaller, DbSession
 from app.core.errors import AppError, ErrorCode
-from app.core.responses import ok
+from app.core.responses import Envelope, ok
 from app.models import FEEDBACK_BODY_MAX
 from app.schemas.auth import _Camel
 from app.services import feedback as feedback_service
@@ -31,7 +31,7 @@ class FeedbackOut(_Camel):
     received_at: datetime
 
 
-@router.post("/feedback", status_code=status.HTTP_201_CREATED)
+@router.post("/feedback", status_code=status.HTTP_201_CREATED, response_model=Envelope[FeedbackOut])
 async def send_feedback(body: FeedbackRequest, caller: CurrentCaller, db: DbSession) -> dict:
     글 = body.body.strip()
     if not 글:
