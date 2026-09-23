@@ -376,7 +376,6 @@ export function WarmAppShell({
   const [openTripCreator, setOpenTripCreator] = useState(false);
   // 카카오톡 공지를 통째로 붙여넣어 지난 여행을 채우는 시트. 「여행」 탭에서 연다.
   const [openNoticeImport, setOpenNoticeImport] = useState(false);
-  const [done, setDone] = useState<string[]>(["charger", "toiletries"]);
   // 공간과 멤버는 앱 전체가 같은 것을 봐야 한다. 예전에는 "우리" 탭 안의
   // state 와 모듈 상수 두 벌로 나뉘어 있어서, 멤버 이름을 고쳐도 여행의 참가자
   // 목록에는 옛 이름이 남았다.
@@ -744,7 +743,6 @@ export function WarmAppShell({
     setSpaces([]);
     setTripsByGroup({} as Record<GroupId, Trip[]>);
     setTripCursors({});
-    setDone([]);
     setEmailWatch(null);
     위치바꾸기(첫_위치);
     setOpenTripCreator(false);
@@ -1111,14 +1109,12 @@ export function WarmAppShell({
           setSpaces([]);
           setTripsByGroup({} as Record<GroupId, Trip[]>);
           setTripCursors({});
-          setDone([]);
-        }
+              }
       } else {
         const saved = await readTripData(AsyncStorage).catch(() => null);
         if (saved) 적힌_것.current = saved.적힌_것;
         if (active && saved) {
           setTripsByGroup(saved.tripsByGroup);
-          setDone(saved.done);
         }
       }
       if (myId) await AsyncStorage.setItem(deviceOwnerKey, myId).catch(() => undefined);
@@ -1143,7 +1139,7 @@ export function WarmAppShell({
    * 이제 600ms 를 모아 한 번만 적는다. 대신 **강제 종료로 마지막 몇 초가 날아가면
    * 안 되므로**, 앱이 뒤로 가거나(홈 버튼·탭 전환) 화면이 사라질 때 곧바로 적는다.
    */
-  const 적을_것 = useRef<{ tripsByGroup: Record<GroupId, Trip[]>; done: string[] } | null>(null);
+  const 적을_것 = useRef<{ tripsByGroup: Record<GroupId, Trip[]> } | null>(null);
   const 적기_타이머 = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** __DEV__ 에서 실제로 몇 번 적었는지. 디바운스 전후를 숫자로 견주려고 센다. */
   const 적은_횟수 = useRef(0);
@@ -1160,7 +1156,7 @@ export function WarmAppShell({
     적은_횟수.current += 1;
     if (__DEV__) console.log(`[저장] 여행 기록 ${적은_횟수.current}번째`);
     // 여행마다 제 열쇠에 적는다. 지난번에 적은 것을 들고 있다가 바뀐 여행만 다시 적는다.
-    writeTripData(AsyncStorage, storableTrips(것.tripsByGroup, Platform.OS === "web"), 것.done, 적힌_것.current)
+    writeTripData(AsyncStorage, storableTrips(것.tripsByGroup, Platform.OS === "web"), 적힌_것.current)
       .then((적힌) => {
         적힌_것.current = 적힌;
         setTripStorageFailed(false);
@@ -1169,10 +1165,10 @@ export function WarmAppShell({
   }, []);
   useEffect(() => {
     if (!tripStorageReady) return;
-    적을_것.current = { tripsByGroup, done };
+    적을_것.current = { tripsByGroup };
     if (적기_타이머.current) clearTimeout(적기_타이머.current);
     적기_타이머.current = setTimeout(지금_적기, 600);
-  }, [done, tripStorageReady, tripsByGroup, 지금_적기]);
+  }, [tripStorageReady, tripsByGroup, 지금_적기]);
   useEffect(() => {
     // 뒤로 가는 순간이 마지막 기회다. 여기서 안 적으면 그대로 꺼질 수 있다.
     const subscription = AppState.addEventListener("change", (state) => {
@@ -1281,7 +1277,6 @@ export function WarmAppShell({
     return (
       <WarmTripDetail
         key={위치.여행.자리}
-        done={done}
         initialDestination={위치.여행.자리}
         tripId={selectedTrip.id}
         spaceId={activeSpace.myMembershipId ? activeSpace.id : undefined}

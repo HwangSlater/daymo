@@ -121,10 +121,7 @@ export const isStoredPlanning = (value: unknown): value is TripPlanningData => {
 export const parseStoredTripData = (raw: string | null) => {
   if (!raw) return null;
   try {
-    const saved = JSON.parse(raw) as {
-      tripsByGroup?: Record<string, unknown>;
-      done?: unknown;
-    };
+    const saved = JSON.parse(raw) as { tripsByGroup?: Record<string, unknown> };
     if (!saved.tripsByGroup) return null;
     const restored: Record<string, Trip[]> = {};
     Object.entries(saved.tripsByGroup).forEach(([groupId, groupTrips]) => {
@@ -137,12 +134,7 @@ export const parseStoredTripData = (raw: string | null) => {
       }
     });
     if (!Object.keys(restored).length) return null;
-    return {
-      tripsByGroup: restored,
-      done: Array.isArray(saved.done)
-        ? saved.done.filter((item): item is string => typeof item === "string")
-        : ["charger", "toiletries"],
-    };
+    return { tripsByGroup: restored };
   } catch {
     return null;
   }
@@ -220,8 +212,8 @@ export function migrateTripDaysToKeys(trip: Trip): Trip {
 }
 
 /** 여행을 한 열쇠에 몰아 적던 v2 의 글. 옮길 때만 쓴다. */
-export const tripDataText = (tripsByGroup: Record<string, Trip[]>, done: readonly string[]) =>
-  JSON.stringify({ version: 2, tripsByGroup, done });
+export const tripDataText = (tripsByGroup: Record<string, Trip[]>) =>
+  JSON.stringify({ version: 2, tripsByGroup });
 
 /** `AsyncStorage` 가운데 여기서 쓰는 것만. 시험이 가짜 저장소를 넣는다. */
 export type TripDataStore = {
@@ -250,7 +242,7 @@ const 여럿_지우기 = async (store: TripDataStore, keys: string[]) => {
 };
 
 /** 여행 목록 열쇠에 적는 모양. 여행 자체는 여기 없고 열쇠 이름만 차례대로 있다. */
-type TripIndex = { version?: number; groups?: Record<string, unknown>; done?: unknown };
+type TripIndex = { version?: number; groups?: Record<string, unknown> };
 
 /**
  * 여행 하나를 적을 열쇠 이름.
@@ -266,7 +258,6 @@ export const tripEntryName = (trip: Trip, groupId: string, 자리: number) =>
 export async function writeTripData(
   store: TripDataStore,
   tripsByGroup: Record<string, Trip[]>,
-  done: readonly string[],
   /** 지난번에 적은 글. 있으면 바뀐 것만 적는다. 없으면 전부 적는다. */
    지난번?: Map<string, string>,
 ): Promise<Map<string, string>> {
@@ -291,7 +282,7 @@ export async function writeTripData(
   await 여럿_쓰기(store, 적을_것);
   // 목록을 여행보다 나중에 적는다. 중간에 끊기면 목록이 가리키는 여행이 없는 것보다
   // 아직 목록에 없는 여행이 남는 편이 낫다 — 다음 쓰기에서 정리된다.
-  await store.setItem(TRIP_INDEX_KEY, JSON.stringify({ version: 3, groups, done }));
+  await store.setItem(TRIP_INDEX_KEY, JSON.stringify({ version: 3, groups }));
   await 여럿_지우기(store, 지울_것);
   return 이번;
 }
@@ -334,13 +325,7 @@ async function readV3(store: TripDataStore, 적힌: string) {
     tripsByGroup[groupId] = trips;
   });
   if (!Object.keys(tripsByGroup).length) return null;
-  return {
-    tripsByGroup,
-    done: Array.isArray(index.done)
-      ? index.done.filter((item): item is string => typeof item === "string")
-      : ["charger", "toiletries"],
-    적힌_것: 캐시,
-  };
+  return { tripsByGroup, 적힌_것: 캐시 };
 }
 
 /**
@@ -364,7 +349,7 @@ export async function readTripData(store: TripDataStore) {
   const v2 = parseStoredTripData(적힌_v2);
   if (적힌_v2 && v2) {
     await store.setItem(TRIP_DATA_BACKUP_V2, 적힌_v2);
-    const 적힌_것 = await writeTripData(store, v2.tripsByGroup, v2.done);
+    const 적힌_것 = await writeTripData(store, v2.tripsByGroup);
     await store.removeItem(TRIP_DATA_KEY);
     return { ...v2, 적힌_것 };
   }
@@ -375,7 +360,7 @@ export async function readTripData(store: TripDataStore) {
   const tripsByGroup = Object.fromEntries(
     Object.entries(v1.tripsByGroup).map(([id, trips]) => [id, trips.map(migrateTripDaysToKeys)]),
   );
-  const 적힌_것 = await writeTripData(store, tripsByGroup, v1.done);
+  const 적힌_것 = await writeTripData(store, tripsByGroup);
   await store.removeItem(TRIP_DATA_KEY_V1);
-  return { tripsByGroup, done: v1.done, 적힌_것 };
+  return { tripsByGroup, 적힌_것 };
 }

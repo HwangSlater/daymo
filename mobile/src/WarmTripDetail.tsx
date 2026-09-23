@@ -167,7 +167,6 @@ const saveErrorMessage = (caught: unknown) =>
     : "저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요";
 
 type Props = {
-  done: string[];
   onClose: () => void;
   initialDestination?: TripDetailDestination;
   appTheme?: AppTheme;
@@ -271,7 +270,6 @@ const sendPhotoFile = (job: PhotoUploadJob, 알림?: UploadNotice) =>
   uploadPhoto(job.tripId, job.photoId, job.uri, job.body, 알림);
 
 export function WarmTripDetail({
-  done,
   onClose,
   initialDestination = "overview",
   appTheme,
