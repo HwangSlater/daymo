@@ -86,7 +86,7 @@ import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, type CoverFocus } from "./coverCrop";
 import { MEMO_COLOR, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
-import { dateKey, dayTextOf, daysSince, shiftDateKey, tripDateKeys } from "./dates";
+import { dateKey, daysSince, shiftDateKey, tripDateKeys } from "./dates";
 import { CalendarNoteSheet } from "./CalendarNoteSheet";
 import { FeedbackCard, FeedbackSheet } from "./FeedbackSheet";
 import { useFeedbackCardHidden } from "./feedback";
@@ -95,6 +95,11 @@ import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
 import { clearPhotoCache, photoCacheUsage } from "./photoCache";
+import { useSpaceSearch } from "./searchApi";
+import {
+  SEARCH_KIND_LABEL, SEARCH_OFFLINE_NOTICE, deviceSearchRows, filterByChip,
+  filterSearchRows, mergeSearchRows, searchChipCounts, tripOfRow, type SearchChip,
+} from "./searchResults";
 import { cacheSizeText } from "./photoCachePlan";
 import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 , 글자누름여유} from "./theme/controls";
 import { typo } from "./theme/typography";
@@ -1497,7 +1502,7 @@ export function WarmAppShell({
             }}
           />
         )}
-        {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} loading={searchPrefetching} />}
+        {view === "찾기" && <Search open={openTrip} theme={theme} trips={tripItems} loading={searchPrefetching} spaceId={activeSpace.id} />}
         {view === "우리" && (
           <Together
             theme={theme}
@@ -4815,15 +4820,18 @@ function Search({
   theme,
   trips,
   loading,
+  spaceId,
 }: {
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
   theme: AppTheme;
   trips: Trip[];
   /** 아직 받아 본 적 없는 여행의 기록을 받아 오는 중인지. 받는 동안은 결과가 는다. */
   loading: boolean;
+  /** 서버에 물을 때 쓰는 공간. 이 공간 밖은 찾지 않는다. */
+  spaceId: string;
 }) {
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("전체");
+  const [category, setCategory] = useState<SearchChip>("전체");
   // 처음에는 아무것도 검색해 보지 않은 상태다. 남이 찾은 말을 미리 넣어 두면
   // 내 기록이 아니고, 지워야 할 것부터 생긴다.
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -4831,110 +4839,23 @@ function Search({
   /**
    * 이 공간의 기록을 한 줄씩 펼친다.
    *
-   * 예전에는 고정된 예시 여섯 개만 찾을 수 있어서, 화면이 "이 공간의 모든 기록"
-   * 이라고 말해 놓고 내가 적은 것은 어떤 말로도 안 나왔다. 한 번 안 나오면
-   * 검색을 다시 안 쓰게 된다.
+   * 기기에 받아 둔 여행은 여기서 바로 찾고(오프라인에서도 된다), 아직 안 받은 여행은
+   * 서버에 물어 더한다(`searchApi`). 예전에는 받아 둔 것만 찾을 수 있어서, 화면이
+   * "이 공간의 모든 기록"이라고 말해 놓고 안 열어 본 여행은 어떤 말로도 안 나왔다.
    */
-  const allResults = useMemo(() => trips.flatMap((trip) => {
-    const plan = trip.planning;
-    const rows: { id: string; title: string; type: string; trip: string; detail: string; tags: string[] }[] = [];
-    for (const place of plan?.places ?? []) {
-      rows.push({
-        id: `place-${trip.start}-${place.id}`,
-        title: place.name,
-        type: "장소",
-        trip: trip.name,
-        detail: [place.category, place.area].filter(Boolean).join(" · "),
-        tags: place.tags ?? [],
-      });
-    }
-    for (const item of plan?.schedule ?? []) {
-      rows.push({
-        id: `plan-${trip.start}-${item.date ?? ""}-${item.title}`,
-        title: item.title,
-        type: "일정",
-        trip: trip.name,
-        detail: [dayTextOf(item.date ?? ""), item.time].filter(Boolean).join(" · "),
-        tags: [],
-      });
-    }
-    for (const recipe of plan?.recipes ?? []) {
-      rows.push({
-        id: `cook-${trip.start}-${recipe.id}`,
-        title: recipe.name,
-        type: "요리",
-        trip: trip.name,
-        detail: `재료 ${recipe.ingredients.length}개${recipe.note ? ` · ${recipe.note}` : ""}`,
-        // 재료는 모두 찾을 수 있어야 한다. 앞 3개만 넣던 때는 "돼지고기" 로는
-        // 나오는데 "대파" 로는 안 나왔다.
-        tags: recipe.ingredients.map((item) => item.name),
-      });
-    }
-    for (const item of plan?.packingItems ?? []) {
-      rows.push({
-        id: `pack-${trip.start}-${item.id}`,
-        title: item.name,
-        type: "준비",
-        trip: trip.name,
-        detail: [item.quantity, item.owner].filter(Boolean).join(" · "),
-        tags: item.tags ?? [],
-      });
-    }
-    for (const item of plan?.expenses ?? []) {
-      rows.push({
-        id: `cost-${trip.start}-${item.id}`,
-        title: item.title,
-        type: "비용",
-        trip: trip.name,
-        detail: [dayTextOf(item.day), money(item.amount, plan?.currency), item.category, item.payer && `${item.payer} 냄`]
-          .filter(Boolean)
-          .join(" · "),
-        tags: item.memo ? [item.memo] : [],
-      });
-    }
-    for (const note of plan?.tripNotes ?? []) {
-      rows.push({
-        id: `note-${trip.start}-${note.id}`,
-        title: note.body,
-        type: "기록",
-        trip: trip.name,
-        detail: note.author,
-        tags: [],
-      });
-    }
-    for (const diary of plan?.memories?.diaries ?? []) {
-      rows.push({
-        id: `diary-${trip.start}-${diary.id}`,
-        title: diary.title,
-        type: "기록",
-        trip: trip.name,
-        detail: diary.date,
-        tags: [],
-      });
-    }
-    return rows;
-  }), [trips]);
-  const searchableResults = allResults.filter((item) =>
-    `${item.title} ${item.trip} ${item.detail} ${item.tags.join(" ")}`
-      .toLocaleLowerCase("ko-KR")
-      .includes(query.trim().toLocaleLowerCase("ko-KR")),
+  const deviceRows = useMemo(() => deviceSearchRows(trips), [trips]);
+  const 서버 = useSpaceSearch(spaceId, query);
+  // 기기 것은 여기서 거르고, 서버 것은 서버가 이미 걸러서 온다.
+  const searchableResults = useMemo(
+    () => mergeSearchRows(filterSearchRows(deviceRows, query), 서버.rows),
+    [deviceRows, query, 서버.rows],
   );
-  const matched = searchableResults.filter(
-    (item) => category === "전체" || item.type === category,
-  );
+  const matched = filterByChip(searchableResults, category);
   // 공간에 여행이 쌓이면 기록은 수백 줄이 된다. 아무것도 안 친 상태에서 그걸
   // 다 쏟으면 훑을 수가 없어서, 먼저 조금만 보여 주고 눌러서 펼치게 한다.
   const [showAllResults, setShowAllResults] = useState(false);
   const results = showAllResults ? matched : matched.slice(0, 12);
-  const searchFilters = ["전체", "장소", "일정", "요리", "준비", "비용", "기록"].map(
-    (label) => ({
-      label,
-      count:
-        label === "전체"
-          ? searchableResults.length
-          : searchableResults.filter((item) => item.type === label).length,
-    }),
-  );
+  const searchFilters = searchChipCounts(searchableResults);
   const runSearch = (value: string) => {
     const next = value.trim();
     if (!next) return;
@@ -5076,10 +4997,12 @@ function Search({
       {results.length > 0 && (
       <View style={s.searchResultsSheet}>
       {results.map((item, index) => {
-        const tone = kindColor(item.type, theme.dark, theme.primary);
+        // 갈래는 영어로 들고 다니고(저장·전송 값) 보이는 말은 여기서 만든다.
+        const 갈래 = SEARCH_KIND_LABEL[item.type];
+        const tone = kindColor(갈래, theme.dark, theme.primary);
         return (
         <View
-          key={item.id}
+          key={item.key}
           style={[
             s.searchResultCard,
             {
@@ -5098,23 +5021,14 @@ function Search({
           />
           <Pressable
             onPress={() => {
-              const trip = trips.find((candidate) => candidate.name === item.trip);
-              const destination: TripDetailDestination =
-                item.type === "장소"
-                  ? "places"
-                  : item.type === "준비"
-                    ? "preparation"
-                    : item.type === "요리"
-                      ? "cooking"
-                      : item.type === "비용"
-                        ? "expenses"
-                        : item.type === "기록"
-                          ? "memories"
-                          : "overview";
-              open(destination, trip);
+              const trip = tripOfRow(item, trips);
+              // 아직 목록에 없는 여행이면 아무 일도 하지 않는다. 예전에는 이름이 안
+              // 맞으면 첫 여행이 열렸다.
+              if (!trip) return;
+              open(item.destination, trip);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`${item.trip} 여행의 ${item.type} ${item.title} 열기`}
+            accessibilityLabel={`${item.tripTitle} 여행의 ${갈래} ${item.title} 열기`}
             style={s.searchResultMain}
           >
             <View style={s.searchResultCopy}>
@@ -5128,12 +5042,12 @@ function Search({
                     },
                   ]}
                 >
-                  <Text style={[s.searchResultType, { color: tone }]}>{item.type}</Text>
+                  <Text style={[s.searchResultType, { color: tone }]}>{갈래}</Text>
                 </View>
               </View>
               <Text numberOfLines={1} style={[s.searchResultDetail, { color: theme.muted }]}>{item.detail}</Text>
               <View style={s.searchResultMetaRow}>
-                <Text numberOfLines={1} style={[s.searchResultTrip, { color: theme.muted }]}>{item.trip}</Text>
+                <Text numberOfLines={1} style={[s.searchResultTrip, { color: theme.muted }]}>{item.tripTitle}</Text>
                 {item.tags.slice(0, 2).map((tag) => (
                   <Text key={tag} style={[s.searchResultTag, { color: tone }]}># {tag}</Text>
                 ))}
@@ -5141,7 +5055,7 @@ function Search({
             </View>
             <Glyph name="chevronRight" size={아이콘.보통} color={theme.muted} />
           </Pressable>
-          {item.type === "장소" && (
+          {item.type === "place" && (
             <View
               style={[
                 s.searchResultActions,
@@ -5165,9 +5079,12 @@ function Search({
                 <Text style={[s.searchResultActionText, { color: savedTitles.has(item.title) ? theme.secondary : theme.muted }]}>{savedTitles.has(item.title) ? "저장됨" : "저장"}</Text>
               </Pressable>
               <Pressable
-                onPress={() => open("schedule-add", trips.find((trip) => trip.name === item.trip))}
+                onPress={() => {
+                  const trip = tripOfRow(item, trips);
+                  if (trip) open("schedule-add", trip);
+                }}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.trip} 여행의 일정 추가 화면 열기`}
+                accessibilityLabel={`${item.tripTitle} 여행의 일정 추가 화면 열기`}
                 style={s.searchResultAction}
               >
                 <Text style={[s.searchResultActionText, { color: theme.primary }]}>일정 추가</Text>
@@ -5197,12 +5114,17 @@ function Search({
       )}
       </View>
       )}
+      {서버.failed && (
+        <Text accessibilityLiveRegion="polite" style={[s.searchRecentEmpty, { color: theme.muted }]}>
+          {SEARCH_OFFLINE_NOTICE}
+        </Text>
+      )}
       {!results.length && (
         <EmptyState
           theme={theme}
           모양="세로"
-          title={loading ? "기록을 불러오는 중이에요" : "찾는 기록이 없어요"}
-          description={loading
+          title={loading || 서버.loading ? "기록을 불러오는 중이에요" : "찾는 기록이 없어요"}
+          description={loading || 서버.loading
             ? "여행 기록을 불러오는 중이에요."
             : "다른 단어나 카테고리로 검색해 보세요."}
           action={query || category !== "전체" ? "검색 초기화" : undefined}
