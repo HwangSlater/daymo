@@ -9,7 +9,7 @@ import { typo } from "../theme/typography";
 export const 세그먼트_최대 = 5;
 
 /** 값과 보이는 글이 다를 때만 객체로. 같으면 문자열 하나로 넘긴다. */
-export type SegmentOption = string | { value: string; label: string };
+type SegmentOption = string | { value: string; label: string };
 
 const optionValue = (option: SegmentOption) => (typeof option === "string" ? option : option.value);
 const optionLabel = (option: SegmentOption) => (typeof option === "string" ? option : option.label);

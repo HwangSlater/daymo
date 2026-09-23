@@ -1,4 +1,4 @@
-export type ResolvedNaverPlace = {
+type ResolvedNaverPlace = {
   name: string;
   address: string;
   category?: string;

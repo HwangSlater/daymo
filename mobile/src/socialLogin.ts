@@ -67,7 +67,7 @@ export function socialWindowBlockedMessage(purpose: SocialPurpose): string {
   return `${무엇} 창이 차단됐어요. 이 사이트의 팝업을 허용하고 다시 시도해 주세요.`;
 }
 
-export type SocialReturn =
+type SocialReturn =
   | { kind: "code"; loginCode: string }
   | { kind: "cancelled" }
   | { kind: "failed"; message: string };

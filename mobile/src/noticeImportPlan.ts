@@ -34,7 +34,7 @@ export type NoticeImportApi = {
   createMemo: (tripId: string, id: string, body: MemoBody) => Promise<unknown>;
 };
 
-export type NoticeImportOptions = {
+type NoticeImportOptions = {
   tripId: string;
   /**
    * 여행 기간의 날짜. 서버는 기간 밖 날짜를 받지 않으므로 여기 없는 날은

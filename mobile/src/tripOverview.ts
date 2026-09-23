@@ -27,7 +27,7 @@ export type ServerTripOverview = {
 };
 
 /** 홈이 읽는 기록의 칸. 화면의 `TripPlanningData` 중 쓰는 것만. */
-export type PlanningForHome = {
+type PlanningForHome = {
   stay?: { name: string; checkin: string };
   schedule?: readonly unknown[];
   places?: readonly { category: string }[];
@@ -37,7 +37,7 @@ export type PlanningForHome = {
   currency?: string;
 };
 
-export type HomeTripSummary = {
+type HomeTripSummary = {
   /** 비어 있으면 숙소가 없다. */
   stayName: string;
   /** `10월 1일 15:00`. 비어 있으면 미정이다. */

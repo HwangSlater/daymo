@@ -10,7 +10,7 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-export type ScrollPosition = {
+type ScrollPosition = {
   /** 지금까지 내려온 거리. */
   offsetY: number;
   /** 화면에 보이는 높이. */

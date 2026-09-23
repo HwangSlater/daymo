@@ -10,8 +10,8 @@
 
 export type ServerRole = "owner" | "editor" | "viewer";
 export type ServerRelationship = "couple" | "friends" | "family" | "other";
-export type AppRole = "관리자" | "편집 가능" | "보기만";
-export type AppRelationship = "연인" | "친구";
+type AppRole = "관리자" | "편집 가능" | "보기만";
+type AppRelationship = "연인" | "친구";
 
 export type ServerMemberInput = {
   id: string;
@@ -22,7 +22,7 @@ export type ServerMemberInput = {
   leftAt?: string | null;
 };
 
-export type AppMember = { id: string; name: string; role: AppRole };
+type AppMember = { id: string; name: string; role: AppRole };
 
 const roleNames: Record<ServerRole, AppRole> = {
   owner: "관리자",

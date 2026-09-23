@@ -38,7 +38,7 @@ export type StoredCardDraft = {
 };
 
 /** 화면이 쓰는 초안 한 장. */
-export type CardDraft = {
+type CardDraft = {
   id: string;
   card: KeepsakeCard;
   createdAt: string;
@@ -94,7 +94,7 @@ export function removeDraft(list: readonly StoredCardDraft[], id: string): Store
 }
 
 /** 서버에 남아 있는 카드 한 장. 옛 앱(1.0.0)이 만들어 둔 것이다. */
-export type ServerCardLike = {
+type ServerCardLike = {
   id: string;
   settings: unknown;
   /** 서버가 적어 둔 만든 시각(ISO). */

@@ -24,7 +24,7 @@ export function textWidthOf(text: string, size: number): number {
   return 폭 * size;
 }
 
-export type FittedStickerText = {
+type FittedStickerText = {
   /** 늘린 뒤 그림의 viewBox 너비. 높이는 그대로다. */
   w: number;
   h: number;

@@ -14,7 +14,7 @@
 
 import { dayKeyOf, todayKey, weekdayOfKey, 두자리 } from "./dates.ts";
 
-export type NoticePlace = {
+type NoticePlace = {
   name: string;
   address: string;
   mapUrl: string;
@@ -22,7 +22,7 @@ export type NoticePlace = {
   note: string;
 };
 
-export type NoticeStay = {
+type NoticeStay = {
   name: string;
   address: string;
   mapUrl: string;
@@ -33,7 +33,7 @@ export type NoticeStay = {
   bookingUrl: string;
 };
 
-export type NoticeTransportMethod = "KTX" | "SRT" | "무궁화호" | "고속버스" | "시외버스" | "버스" | "항공" | "기타";
+type NoticeTransportMethod = "KTX" | "SRT" | "무궁화호" | "고속버스" | "시외버스" | "버스" | "항공" | "기타";
 
 export type NoticeTransport = {
   owner: string;
@@ -46,7 +46,7 @@ export type NoticeTransport = {
   booked: boolean;
 };
 
-export type NoticeIngredient = {
+type NoticeIngredient = {
   name: string;
   quantity: string;
   /** `[기본]`·`[육수]` 같은 분류. */
@@ -55,23 +55,23 @@ export type NoticeIngredient = {
   buy: boolean;
 };
 
-export type NoticeRecipe = {
+type NoticeRecipe = {
   name: string;
   /** 조리 순서와 곁글. */
   note: string;
   ingredients: NoticeIngredient[];
 };
 
-export type NoticePacking = {
+type NoticePacking = {
   name: string;
   quantity: string;
   /** 공지에 적힌 이름 그대로. 공간 사람 표와 맞추는 것은 화면이 한다. */
   owner: string;
 };
 
-export type NoticeScheduleType = "place" | "meal" | "move" | "rest" | "other";
+type NoticeScheduleType = "place" | "meal" | "move" | "rest" | "other";
 
-export type NoticeSchedule = {
+type NoticeSchedule = {
   /** `YYYY-MM-DD`. 요일만 적혀 있고 기간에 그 요일이 없으면 빈 값. */
   date: string;
   /** `HH:MM`. 없으면 빈 값. */

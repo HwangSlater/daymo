@@ -1,4 +1,4 @@
-export type MapProvider = "naver" | "kakao" | "other";
+type MapProvider = "naver" | "kakao" | "other";
 
 /** 링크 주소의 호스트. React Native의 URL은 hostname을 못 읽는 판이 있어 직접 자른다. */
 const hostOf = (url: string) => url.trim().match(/^https?:\/\/([^/?#:\s]+)/i)?.[1]?.toLowerCase() ?? "";

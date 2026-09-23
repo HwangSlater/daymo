@@ -13,9 +13,9 @@ export const ALL_DAYS = "전체";
 export const UNDATED_DAY = "날짜 미정";
 
 /** 날짜 칸만 본다. 일정 줄이든 숙소 줄이든 같다. */
-export type DatedItem = { date?: string };
+type DatedItem = { date?: string };
 
-export type ScheduleDayCount = { day: string; count: number };
+type ScheduleDayCount = { day: string; count: number };
 
 const dayOf = (item: DatedItem) => item.date || UNDATED_DAY;
 

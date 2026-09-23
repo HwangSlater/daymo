@@ -42,7 +42,7 @@ import {
 import type { RosterEntry } from "./tripSync";
 
 /** 채워 넣을 수 있는 여행 한 줄. 「여행」 탭이 들고 있는 것 그대로다. */
-export type NoticeImportTrip = {
+type NoticeImportTrip = {
   id: string;
   name: string;
   /** `9월 22일 — 9월 24일 · 2박 3일` */

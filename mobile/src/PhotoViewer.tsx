@@ -89,7 +89,7 @@ export type ViewerPhoto = {
  * 어떻게 그릴지는 이 화면이 모른다. 부르는 쪽(`TripCards.tsx`)이 `body` 에 도구를
  * 통째로 넣어 준다.
  */
-export type ViewerMenuRow = { label: string; tone?: "위험"; onPress: () => void };
+type ViewerMenuRow = { label: string; tone?: "위험"; onPress: () => void };
 
 /**
  * ⌂ 단추 하나.
@@ -97,7 +97,7 @@ export type ViewerMenuRow = { label: string; tone?: "위험"; onPress: () => voi
  * 홈 화면에 쓰는 일은 ⋮ 안에 있었다. 지금 크게 보고 있는 것을 홈에 까는 일이라
  * 자주 쓰는데, 메뉴를 열어 봐야 있는 줄 알 수 있었다. 위 줄로 올린다.
  */
-export type ViewerCover = { on: boolean; label: string; onPress: () => void };
+type ViewerCover = { on: boolean; label: string; onPress: () => void };
 
 export type ViewerDecor = {
   /** 도구가 펼쳐져 있는지. 펼쳐지면 무대에 도구가 딸린 카드가 온다. */

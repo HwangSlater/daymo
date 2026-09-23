@@ -15,18 +15,18 @@ import { useEffect, useRef, useState } from "react";
  * 이름을 고쳐도 여행의 참가자 목록에는 옛 이름이 그대로 남았다.
  */
 
-export type MemberRole = "관리자" | "편집 가능" | "보기만";
+type MemberRole = "관리자" | "편집 가능" | "보기만";
 
 const memberRoles: readonly MemberRole[] = ["관리자", "편집 가능", "보기만"];
 
-export type Member = {
+type Member = {
   /** 서버의 membership id. 서버에서 받은 멤버에만 있다. */
   id?: string;
   name: string;
   role: MemberRole;
 };
 
-export type Relationship = "연인" | "친구";
+type Relationship = "연인" | "친구";
 
 export type Space = {
   id: string;

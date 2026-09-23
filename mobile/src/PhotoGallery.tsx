@@ -47,7 +47,7 @@ import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
 
 /** 사진첩이 그리는 사진 한 장. 기록 탭의 `MemoryPhoto` 에서 필요한 몫만 받는다. */
-export type GalleryItem = { id: string; date: string; color: string; caption: string; uri?: string };
+type GalleryItem = { id: string; date: string; color: string; caption: string; uri?: string };
 
 /** 사진첩 바닥에 뜨는 한 줄. 되돌리기처럼 누를 것이 붙을 수 있다. */
 export type GalleryToast = { message: string; action?: { label: string; onPress: () => void } };

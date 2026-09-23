@@ -43,10 +43,10 @@ export function dedupePackingNames(names: readonly string[]): string[] {
   return kept;
 }
 
-export type PackingLike = { id: string; name: string; owner: string };
+type PackingLike = { id: string; name: string; owner: string };
 
 /** 적으려는 이름 하나와, 목록에서 그와 비슷한 줄들. */
-export type SimilarPacking<T extends PackingLike> = { name: string; matches: T[] };
+type SimilarPacking<T extends PackingLike> = { name: string; matches: T[] };
 
 /**
  * 적으려는 이름마다 이미 있는 비슷한 준비물을 찾는다.

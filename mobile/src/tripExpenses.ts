@@ -79,7 +79,7 @@ export type Expense = {
  * `rate` 는 1 단위가 몇 원인지의 기본값이다. 환율은 매일 바뀌므로 여행마다
  * 고쳐 쓰라고 두는 출발점일 뿐이고, 실제 값은 사용자가 적는다.
  */
-export type Currency = {
+type Currency = {
   code: string;
   label: string;
   symbol: string;
@@ -204,7 +204,7 @@ export function spentTotal(expenses: readonly { amount: number; excluded?: boole
 }
 
 /** 교통편 가운데 지출로 옮기는 데 필요한 것. `Transportation` 이 이 모양을 만족한다. */
-export type TransportLeg = {
+type TransportLeg = {
   id: string;
   date: string;
   departure: string;
@@ -300,7 +300,7 @@ export type Payment = {
   at: number;
 };
 
-export type Settlement = {
+type Settlement = {
   total: number;
   /** 각자 실제로 낸 돈. */
   paid: Record<Participant, number>;
@@ -322,7 +322,7 @@ export type Settlement = {
   transfers: Transfer[];
 };
 
-export type SettleOptions = {
+type SettleOptions = {
   /** 이미 주고받았다고 적어 둔 것. 잔액에서 뺀다. */
   payments?: Payment[];
   /**

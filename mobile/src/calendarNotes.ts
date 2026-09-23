@@ -31,7 +31,7 @@ export type CalendarNote = {
 };
 
 /** 캘린더가 쓰는 여행의 몫. 앱의 여행 모양을 그대로 넘겨도 된다. */
-export type CalendarTrip = { name: string; start: string; end: string };
+type CalendarTrip = { name: string; start: string; end: string };
 
 /**
  * 사람마다의 색. 공간 멤버 표의 차례대로 준다(나는 늘 첫째라 늘 같은 색이다).
@@ -81,7 +81,7 @@ export function visibleRange(year: number, month: number): { from: string; to: s
  * 나온다. 이름은 여행이 시작하는 토막과, 주가 바뀌어 새 줄에서 이어지는 토막에만 적는다
  * (아이폰 캘린더도 줄마다 이름을 다시 적는다). `lane` 은 같은 줄에 여행이 겹칠 때의 층이다.
  */
-export type TripBar = {
+type TripBar = {
   trip: CalendarTrip;
   week: number;
   startCol: number;
