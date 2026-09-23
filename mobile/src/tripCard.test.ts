@@ -34,7 +34,9 @@ const 사진들 = ["a", "b", "c", "d", "e"];
 test("아무것도 고르지 않아도 카드 한 장이 나온다", () => {
   const card = keepsakeCardOf(undefined, "가을 제주", 사진들);
 
-  assert.equal(card.style, "필름");
+  // 새 카드는 틀 없이 사진만으로 시작한다. 검은 필름으로 시작하면 종이 색을 밝게 골라도
+  // 겉테두리가 검게 남는다. 「카드에 넣을 것」 글자는 사진 위에 얹혀 그대로 나온다.
+  assert.equal(card.style, "없음");
   assert.equal(card.ratio, "세로");
   assert.equal(card.title, "가을 제주");
   // 가장 최근 사진 한 장으로 시작한다. 쓴 돈과 함께 간 사람은 꺼져 있다.
@@ -46,6 +48,13 @@ test("아무것도 고르지 않아도 카드 한 장이 나온다", () => {
   assert.deepEqual(card.decor, []);
   assert.equal(card.dateStamp, false);
   assert.equal(card.photoCaptions, false);
+});
+
+test("틀을 적어 두지 않은 옛 카드는 그때 쓰던 필름 그대로다", () => {
+  // 새 카드의 기본을 바꿔도 남이 만들어 둔 카드의 모습은 달라지면 안 된다.
+  const card = keepsakeCardOf({ photoIds: ["a"] }, "가을 제주", 사진들);
+
+  assert.equal(card.style, "필름");
 });
 
 test("모르는 값이 저장돼 있어도 기본으로 돌아가고 지운 사진은 빠진다", () => {

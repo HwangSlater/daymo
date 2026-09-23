@@ -30,9 +30,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  Easing,
   Image,
   LayoutChangeEvent,
   Modal,
+  type GestureResponderEvent,
   PanResponder,
   PixelRatio,
   Platform,
@@ -382,35 +384,64 @@ export function CardDecorTools({
   const 큰_높이 = Math.max(보통_높이 + 80, Math.round(창_높이 * 0.56));
   const 시트_높이 = 시트_크게 ? 큰_높이 : 보통_높이;
   /**
-   * 끄는 동안 더해진 높이. 손가락을 그대로 따라온다(2026-09-22 요청). 끄는 동안에는 시트만
-   * 카드 위로 겹쳐 올라가고 자리(레이아웃)는 그대로라, 카드가 매 순간 다시 맞춰지지 않는다.
-   * 손을 떼면 가까운 높이(닫기·보통·크게)로 붙은 뒤에 자리를 한 번 바꾼다.
+   * 끄는 동안 시트가 내려간(올라간) 거리. 손가락을 그대로 따라온다(2026-09-22 요청).
+   *
+   * 전에는 높이를 매 순간 바꿨는데, 그때마다 시트 안의 스티커 47개가 다시 자리를 잡느라
+   * 끌어 내릴 때 깜빡였다(2026-09-23 갤럭시). 지금은 높이는 그대로 두고 **옮기기만** 한다.
+   * 기기가 직접 그리는 값이라 자바스크립트가 프레임마다 할 일이 없다. 손을 떼면 가까운
+   * 높이(닫기·보통·크게)로 붙은 뒤에 그때 한 번만 높이를 바꾼다.
    */
-  const [끌림] = useState(() => new Animated.Value(0));
-  const 보이는_높이 = useMemo(() => Animated.add(new Animated.Value(시트_높이), 끌림), [시트_높이, 끌림]);
-  const 시트_손 = useRef({ 높이: 시트_높이, 보통: 보통_높이, 크게: 큰_높이 });
+  const [끌기] = useState(() => new Animated.Value(0));
+  /** 위로 끌 때 시트 아래에 빈 곳이 보이지 않게 덧댄 꼬리. 화면 밖으로 내려가 있다. */
+  const 꼬리 = Math.max(0, 큰_높이 - 시트_높이) + 56;
+  /**
+   * 닫히며 내려가는 중. 그동안 시트가 차지하던 자리를 먼저 비워 카드가 커지고, 시트는 그 위를
+   * 덮으며 내려간다. 자리를 나중에 비우면 내려가는 동안 뒤가 검게 비어 보였다(2026-09-23).
+   */
+  const [닫는_중, 닫는_중_두기] = useState(false);
+  const 시트_손 = useRef({ 높이: 시트_높이, 보통: 보통_높이, 크게: 큰_높이, 꼬리 });
   useEffect(() => {
-    시트_손.current = { 높이: 시트_높이, 보통: 보통_높이, 크게: 큰_높이 };
-  }, [시트_높이, 보통_높이, 큰_높이]);
+    시트_손.current = { 높이: 시트_높이, 보통: 보통_높이, 크게: 큰_높이, 꼬리 };
+  }, [시트_높이, 보통_높이, 큰_높이, 꼬리]);
   const 손잡이 = useMemo(
     () => {
       /** 이 높이로 붙인다. 0 이면 닫는다. */
       const 붙이기 = (목표: number) => {
         const { 높이 } = 시트_손.current;
-        Animated.spring(끌림, { toValue: 목표 - 높이, useNativeDriver: false, friction: 9, tension: 80 }).start(() => {
+        닫는_중_두기(목표 === 0);
+        // 기기가 그리는 값(native driver)과 손가락을 따라가며 넣는 값을 섞으면, 끝난 뒤에
+        // 시트가 한 번 위로 튀었다가 다시 내려갔다(2026-09-23, 두 번에 한 번꼴). 둘 다 같은
+        // 자바스크립트 값으로 그린다. 옮기기만 하는 것이라 자리를 다시 재지 않는다.
+        Animated.timing(끌기, {
+          toValue: 높이 - 목표,
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start(({ finished }) => {
+          // 끝나기 전에 손가락이 다시 잡았으면 그쪽에 맡긴다.
+          if (!finished) {
+            닫는_중_두기(false);
+            return;
+          }
           if (목표 === 0) setTab(null);
           else 시트_크게_하기(목표 > 시트_손.current.보통);
-          끌림.setValue(0);
+          닫는_중_두기(false);
+          // 옮긴 값은 여기서 되돌리지 않는다. 화면이 새 자리로 바뀌기 전에 되돌리면 시트가
+          // 한 프레임 동안 제자리로 돌아와 깜빡였다(2026-09-23). 아래 useEffect 가 맡는다.
         });
       };
       // 손가락 이벤트 때만 ref 를 읽는다.
       // eslint-disable-next-line react-hooks/refs
       return PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          끌기.stopAnimation();
+          닫는_중_두기(false);
+        },
         onPanResponderMove: (_, g) => {
-          const { 높이, 크게 } = 시트_손.current;
-          // 위로는 큰 높이 조금 너머까지, 아래로는 닫힐 만큼만 따라간다.
-          끌림.setValue(Math.max(-높이, Math.min(크게 + 40 - 높이, -g.dy)));
+          const { 높이, 꼬리 } = 시트_손.current;
+          // 아래로는 닫힐 만큼만, 위로는 덧댄 꼬리가 가려 주는 만큼만 따라간다.
+          끌기.setValue(Math.max(-꼬리, Math.min(높이, g.dy)));
         },
         onPanResponderRelease: (_, g) => {
           const { 높이, 보통, 크게 } = 시트_손.current;
@@ -428,8 +459,13 @@ export function CardDecorTools({
         onPanResponderTerminate: () => 붙이기(시트_손.current.높이),
       });
     },
-    [끌림],
+    [끌기],
   );
+  // 시트가 닫히거나 높이가 바뀐 **뒤에** 옮긴 값을 되돌린다. 화면이 이미 새 자리로 그려져 있어
+  // 눈에는 아무 일도 일어나지 않는다.
+  useEffect(() => {
+    끌기.setValue(0);
+  }, [tab, 시트_높이, 끌기]);
   const [고른_것, 고르기] = useState("");
   const [칸, onStageLayout] = useBoxSize();
 
@@ -465,8 +501,15 @@ export function CardDecorTools({
     핀치.x.setValue(0);
     핀치.y.setValue(0);
   }, [확대, 핀치]);
+  /** 열린 도구 칸. 손가락 이벤트에서만 읽는다. */
+  const 열린_탭 = useRef(tab);
+  useEffect(() => {
+    열린_탭.current = tab;
+  }, [tab]);
   const 두_손가락 = useMemo(() => {
     const 처음 = { 거리: 0, 가운데x: 0, 가운데y: 0, 배: 1, x: 0, y: 0 };
+    /** 톡 누른 것인지 가리는 자취. 눌렀다 뗄 때까지 8px 넘게 움직이지 않으면 누른 것이다. */
+    const 누름 = { x: 0, y: 0, 움직임: false };
     /** 손을 뗄 때 상태로 옮길 값. */
     const 끝 = { 배: 1, x: 0, y: 0, 움직임: false };
     /** 손을 떼거나 빼앗겼을 때. 벌린 것이 있으면 한 번만 상태로 옮긴다. */
@@ -481,19 +524,30 @@ export function CardDecorTools({
       가운데y: (터치[0].pageY + 터치[1].pageY) / 2,
     });
     // 손가락 이벤트 때만 ref 를 읽는다.
-    // eslint-disable-next-line react-hooks/refs
-    return PanResponder.create({
-      // 두 손가락일 때만 가져온다. 한 손가락은 스티커 끌기·사진 꾹 누르기에 그대로 간다.
-      onStartShouldSetPanResponderCapture: (event) => event.nativeEvent.touches.length >= 2,
-      onMoveShouldSetPanResponderCapture: (event) => event.nativeEvent.touches.length >= 2,
-      onPanResponderGrant: (event) => {
+    return {
+      // 벌리기는 손가락 이벤트를 그대로 듣는다(PanResponder 아님).
+      //
+      // 전에는 두 손가락일 때 판을 빼앗는 PanResponder 였는데, 첫 손가락이 이미 스티커나
+      // 사진 칸을 잡고 있으면 빼앗아 오지 못할 때가 있어 **될 때도 있고 안 될 때도 있었다**
+      // (2026-09-23 갤럭시). `onTouch*` 는 누가 판을 쥐고 있든 위로 올라와서 늘 온다.
+      // 그동안 스티커·사진이 딸려 움직이지 않게, 그쪽에서 손가락이 둘이면 물러난다
+      // (`KeepsakeCardView` 의 `두_손가락_이면_물러난다`).
+      onTouchStart: (event: GestureResponderEvent) => {
         const 터치 = event.nativeEvent.touches;
-        if (터치.length < 2) return;
+        if (터치.length < 2) {
+          Object.assign(누름, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY, 움직임: false });
+          return;
+        }
+        누름.움직임 = true;
         Object.assign(처음, 재기(터치), 확대_지금.current);
       },
-      onPanResponderMove: (event) => {
+      onTouchMove: (event: GestureResponderEvent) => {
         const 터치 = event.nativeEvent.touches;
-        if (터치.length < 2) return;
+        if (터치.length < 2) {
+          if (Math.hypot(event.nativeEvent.pageX - 누름.x, event.nativeEvent.pageY - 누름.y) > 8) 누름.움직임 = true;
+          return;
+        }
+        누름.움직임 = true;
         const 지금 = 재기(터치);
         if (!처음.거리) {
           Object.assign(처음, 지금, 확대_지금.current);
@@ -508,10 +562,19 @@ export function CardDecorTools({
         핀치.y.setValue(y - 처음.y);
         Object.assign(끝, { 배, x, y, 움직임: true });
       },
-      onPanResponderRelease: 놓기,
-      onPanResponderTerminate: 놓기,
-      onPanResponderTerminationRequest: () => false,
-    });
+      // 손가락 하나라도 떨어지면 거기서 끝낸다. 남은 손가락으로 이어서 벌리면 새로 잡는다.
+      onTouchEnd: () => {
+        놓기();
+        // 카드 쪽을 톡 누르면 열려 있던 도구 칸을 닫는다(2026-09-23 요청). 끌어 내리는
+        // 길만 두면 한 손으로 쓰기 불편하다. 끌거나 벌린 것은 누른 것으로 보지 않는다.
+        if (!누름.움직임 && 열린_탭.current) setTab(null);
+        누름.움직임 = true;
+      },
+      onTouchCancel: () => {
+        놓기();
+        누름.움직임 = true;
+      },
+    };
   }, [확대하기, 핀치]);
 
   const onMove = useCallback(
@@ -634,7 +697,7 @@ export function CardDecorTools({
         style={[styles.stage, !exporting && styles.stageEdit]}
         onLayout={onStageLayout}
         accessibilityLabel="꾸미는 카드"
-        {...(exporting ? {} : 두_손가락.panHandlers)}
+        {...(exporting ? {} : 두_손가락)}
       >
         {칸.width > 0 && (
           <Animated.View
@@ -706,8 +769,14 @@ export function CardDecorTools({
             (`fitScaleOf`). 손잡이를 끌어 올리면 크게, 내리면 작게, 한 번 더 내리면 닫힌다.
           */}
           {tab && (
-            <View style={[styles.sheetSlot, { height: 시트_높이 }]}>
-            <Animated.View style={[styles.sheet, styles.sheetFloat, { height: 보이는_높이 }]}>
+            <View style={[styles.sheetSlot, { height: 닫는_중 ? 0 : 시트_높이 }]}>
+            <Animated.View
+              style={[
+                styles.sheet,
+                styles.sheetFloat,
+                { height: 시트_높이 + 꼬리, bottom: -꼬리, transform: [{ translateY: 끌기 }] },
+              ]}
+            >
               <View {...손잡이.panHandlers} style={styles.sheetGrip} accessibilityRole="adjustable" accessibilityLabel={`${tab} 도구 칸 크기`}>
                 <View style={styles.sheetHandle} />
                 <View style={styles.sheetHead}>
@@ -1207,6 +1276,8 @@ const styles = StyleSheet.create({
   sheetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 6 },
   sheetTitle: { fontSize: 15, color: INK, fontFamily: typo.title.family },
   sheetScroll: { flex: 1 },
+  // 도구 고르는 줄. 시트가 열려도 늘 이 자리에 보인다. 시트를 위로 끌 때 아래에 빈 곳이
+  // 보이지 않게 덧댄 꼬리가 이 줄 뒤로 지나가므로, 바탕을 깔고 이 줄을 위에 둔다.
   toolBar: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -1214,6 +1285,8 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: CHIP_EDGE,
+    backgroundColor: "#000000",
+    zIndex: 6,
   },
   toolBarItem: { alignItems: "center", gap: 3, minWidth: 56, minHeight: 44, justifyContent: "center" },
   toolBarText: { fontSize: 11, color: INK_SOFT, fontFamily: typo.label.family },

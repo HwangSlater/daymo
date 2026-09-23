@@ -306,7 +306,10 @@ export function keepsakeCardOf(
   const parts = saved?.parts === undefined || saved?.parts === null
     ? DEFAULT_PARTS
     : pickMany(KEEPSAKE_PARTS, saved.parts);
-  const style = pick(KEEPSAKE_STYLES, saved?.style, "필름");
+  // 새 카드는 틀 없이 사진만으로 시작한다(2026-09-23 요청). 검은 필름으로 시작하면 종이 색을
+  // 밝게 골라도 겉테두리가 검어서, 처음 연 사람이 「왜 검지?」 하고 묻게 된다. 저장된 카드에
+  // 틀이 적혀 있지 않으면 그때 쓰던 필름 그대로 둔다 — 남이 만들어 둔 카드의 모양은 바뀌면 안 된다.
+  const style = pick(KEEPSAKE_STYLES, saved?.style, saved ? "필름" : "없음");
   const ratio = pick(KEEPSAKE_RATIOS, saved?.ratio, "세로");
   const frameColor = pick(KEEPSAKE_FRAME_COLORS, saved?.frameColor, "검정");
   const paperColor = pick(KEEPSAKE_PAPER_COLORS, saved?.paperColor, "기본");

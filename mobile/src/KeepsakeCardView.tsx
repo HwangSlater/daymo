@@ -10,7 +10,7 @@
  */
 
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Animated, Image, PanResponder, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, Image, PanResponder, Pressable, StyleSheet, View, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
 
 import { Text } from "./AppText";
 import { Glyph } from "./Glyph";
@@ -273,7 +273,8 @@ const DecorItem = memo(function DecorItem({
         끈_자리.current = { x: 지금.current.decor.x, y: 지금.current.decor.y };
         지금.current.edit?.onSelect(지금.current.decor.id);
       },
-      onPanResponderMove: (_, gesture) => {
+      onPanResponderMove: (event, gesture) => {
+        if (두_손가락_이면_물러난다(event)) return;
         const 상태 = 지금.current;
         const 배 = 상태.edit?.scale || 1;
         // 글자는 잰 폭으로 상자를 잡는다. 빼먹으면 카드 전체 폭으로 셈해 가운데 점이 오른쪽
@@ -337,7 +338,8 @@ const DecorItem = memo(function DecorItem({
         처음.angle = 상태.decor.angle;
         상태.edit?.onSelect(상태.decor.id);
       },
-      onPanResponderMove: (_, gesture) => {
+      onPanResponderMove: (event, gesture) => {
+        if (두_손가락_이면_물러난다(event)) return;
         const 상태 = 지금.current;
         const 배 = 상태.edit?.scale || 1;
         const 상자 = 상자_재기({ ...상태.decor, size: 처음.size }, 상태.cardWidth, 상태.cardHeight, 상태.글자폭, 상태.글자높이);
@@ -729,6 +731,11 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
 export const LIFT_DELAY = 300;
 /** 들기 전에 손가락이 이만큼(px) 넘게 움직였으면 꾹 누른 것이 아니다. */
 export const LIFT_SLOP = 8;
+/**
+ * 손가락이 둘이면 이 판은 물러난다. 카드를 벌려 키우는 것(`CardDecorEditor` 의 `두_손가락`)이
+ * 손가락 이벤트를 직접 듣기 때문에, 여기서 같이 끌면 스티커·사진이 딸려 움직인다.
+ */
+const 두_손가락_이면_물러난다 = (event: GestureResponderEvent) => event.nativeEvent.touches.length >= 2;
 
 /**
  * 꾹 눌러 든 칸을 띄우고 흔들기 시작한다. 카드의 사진 칸과 차례 줄(`CardOrderStrip`)이 같이 쓴다.
@@ -847,7 +854,16 @@ function SwapCell({
           이번.흔들기 = startLift(들림, 흔들림);
         }, LIFT_DELAY);
       },
-      onPanResponderMove: (_, g) => {
+      onPanResponderMove: (event, g) => {
+        // 벌려 키우는 중이면 들지 않는다. 들고 있었으면 제자리로 돌려놓는다.
+        if (두_손가락_이면_물러난다(event)) {
+          if (이번.타이머) {
+            clearTimeout(이번.타이머);
+            이번.타이머 = undefined;
+          }
+          if (이번.들었다) 끝낸다();
+          return;
+        }
         if (!이번.들었다) {
           // 들기 전에 움직였으면 꾹 누른 것이 아니다.
           if (이번.타이머 && (Math.abs(g.dx) > LIFT_SLOP || Math.abs(g.dy) > LIFT_SLOP)) {
