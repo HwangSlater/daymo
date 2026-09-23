@@ -9,7 +9,6 @@
  */
 
 import { isServerId, type Codec } from "./listSync.ts";
-import { dayLabelOf } from "./dates.ts";
 import { blank } from "./placeSync.ts";
 import type { Expense, ExpenseCategory, Payment, SplitMode } from "./tripExpenses.ts";
 import type { RosterEntry } from "./tripSync.ts";
@@ -56,18 +55,17 @@ export function expenseCodec(
   tripDates: readonly string[],
   roster: readonly RosterEntry[],
 ): Codec<Expense, ExpenseBody, ServerExpense> {
-  const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
+  const 기간_안 = new Set(tripDates);
   const idOfName = (name: string) => roster.find((entry) => entry.name === name)?.id;
   const nameOfId = (id: string) => roster.find((entry) => entry.id === id)?.name ?? UNKNOWN_PERSON;
   /**
-   * 적어 둔 날짜 이름표를 이번 기간에서 못 찾는지.
+   * 적어 둔 날짜가 이번 기간 밖인지.
    *
-   * 여행 기간을 옮기면 「3일(금)」 같은 옛 이름표가 새 기간에 없어진다. 그대로 보내면
-   * `date: null` 이 서버에 올라가 날짜가 지워졌다(2026-09-23). 화면이 이름표를 옮기기
-   * 전에 맞추기가 돌 수도 있어서, 못 찾는 이름표는 아예 올리지 않는다. 날짜를 아직
-   * 고르지 않은 지출(빈 이름표)은 여기 해당하지 않는다.
+   * 날짜는 앱 안에서도 `2026-09-23` 같은 키라 되찾을 것이 없지만, 다른 기기가 여행
+   * 기간을 줄였으면 기간 밖의 날이 남는다. 그대로 보내면 서버가 거부하거나 날짜가
+   * 지워진다(2026-09-23). 날짜를 아직 고르지 않은 지출(빈 값)은 여기 해당하지 않는다.
    */
-  const 날짜를_잃음 = (day: string) => Boolean(day) && !keyByDayLabel.has(day);
+  const 날짜를_잃음 = (day: string) => Boolean(day) && !기간_안.has(day);
   return {
     syncable: (item) =>
       isServerId(item.id)
@@ -84,7 +82,7 @@ export function expenseCodec(
     },
     idOf: (item) => item.id,
     toBody: (item) => ({
-      date: keyByDayLabel.get(item.day) ?? null,
+      date: 기간_안.has(item.day) ? item.day : null,
       title: item.title.trim().slice(0, 60) || "이름 없는 지출",
       amount: round(item.amount, 2),
       category: CATEGORY_TO_SERVER[item.category] ?? "other",
@@ -104,7 +102,7 @@ export function expenseCodec(
       for (const share of row.shares) shares[nameOfId(share.membershipId)] = share.weight;
       return {
         id: row.id,
-        day: row.date && tripDates.includes(row.date) ? dayLabelOf(row.date) : "",
+        day: row.date && 기간_안.has(row.date) ? row.date : "",
         title: row.title,
         amount: row.amount,
         category: CATEGORY_TO_APP[row.category] ?? "기타",

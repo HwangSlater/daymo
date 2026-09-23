@@ -10,7 +10,6 @@
 
 import { blank } from "./placeSync.ts";
 import { isServerId, type Codec } from "./listSync.ts";
-import { dayLabelOf } from "./dates.ts";
 
 /** 사진이 붙을 수 있는 곳. 날짜는 연결이 아니라 사진 자신의 `date` 다. */
 export type PhotoLinkTarget = "place" | "schedule" | "stay";
@@ -47,12 +46,12 @@ export function photosLinkedTo<T extends { links?: PhotoLink[] }>(
 export function photosOfStay<T extends { id: string; date: string; links?: PhotoLink[] }>(
   photos: readonly T[],
   stayId: string | undefined,
-  dayLabels: readonly string[],
+  dayKeys: readonly string[],
 ): T[] {
   const 붙은_것 = photosLinkedTo(photos, "stay", stayId);
   const 이미 = new Set(붙은_것.map((photo) => photo.id));
-  const 그날 = dayLabels.length
-    ? photos.filter((photo) => !이미.has(photo.id) && dayLabels.includes(photo.date))
+  const 그날 = dayKeys.length
+    ? photos.filter((photo) => !이미.has(photo.id) && dayKeys.includes(photo.date))
     : [];
   return [...붙은_것, ...그날];
 }
@@ -208,15 +207,15 @@ export function photoCodec(
   knownIds: ReadonlySet<string>,
   serverTargetIds: ReadonlySet<string> = new Set(),
 ): Codec<PhotoRow, PhotoBody, ServerPhoto> {
-  const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
+  const 기간_안 = new Set(tripDates);
   /**
-   * 적어 둔 날짜 이름표를 이번 기간에서 못 찾는지.
+   * 적어 둔 날짜가 이번 기간 밖인지.
    *
-   * 지출과 같은 사정이다. 여행 기간을 옮기면 옛 이름표가 새 기간에 없어지는데, 그대로
+   * 지출과 같은 사정이다. 다른 기기가 여행 기간을 줄이면 기간 밖의 날이 남는데, 그대로
    * 보내면 `date: null` 이 올라가 서버의 날짜가 지워졌다(2026-09-23). 날짜를 고르지
    * 않은 사진(`날짜 미정`)과는 구별한다.
    */
-  const 날짜를_잃음 = (date: string) => Boolean(date) && date !== PHOTO_UNDATED && !keyByDayLabel.has(date);
+  const 날짜를_잃음 = (date: string) => Boolean(date) && date !== PHOTO_UNDATED && !기간_안.has(date);
   return {
     syncable: (photo) =>
       isServerId(photo.id) && (Boolean(photo.uri) || knownIds.has(photo.id)) && !날짜를_잃음(photo.date),
@@ -226,13 +225,13 @@ export function photoCodec(
     idOf: (photo) => photo.id,
     toBody: (photo) => ({
       caption: blank(photo.caption, 200),
-      date: keyByDayLabel.get(photo.date) ?? null,
+      date: 기간_안.has(photo.date) ? photo.date : null,
       links: tidyLinks(photo.links).filter((link) => serverTargetIds.has(link.targetId)),
     }),
     fromServer: (row) => ({
       id: row.id,
       color: colorOfId(row.id),
-      date: row.date && tripDates.includes(row.date) ? dayLabelOf(row.date) : PHOTO_UNDATED,
+      date: row.date && 기간_안.has(row.date) ? row.date : PHOTO_UNDATED,
       caption: row.caption ?? "",
       links: tidyLinks(row.links),
       // 올린 사람과 원본 기한은 받아 두기만 한다. 서버로 보내는 칸(toBody)에는 없다.

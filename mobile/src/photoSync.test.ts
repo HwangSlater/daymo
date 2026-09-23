@@ -34,7 +34,7 @@ test("파일이 있거나 서버에 이미 있는 사진만 맞춘다", () => {
 
 test("날짜 줄은 여행 날짜로 오가고 파일 자리와 색은 기기 것을 지킨다", () => {
   const codec = photoCodec(dates, new Set([A]));
-  const local: PhotoRow = { id: A, color: "#123456", date: "2일(금)", caption: " 느린 점심 ", uri: "file:///p.jpg" };
+  const local: PhotoRow = { id: A, color: "#123456", date: "2026-10-02", caption: " 느린 점심 ", uri: "file:///p.jpg" };
 
   assert.deepEqual(codec.toBody(local), { caption: "느린 점심", date: "2026-10-02", links: [] });
   const row = {
@@ -43,7 +43,7 @@ test("날짜 줄은 여행 날짜로 오가고 파일 자리와 색은 기기 �
   };
   const back = codec.fromServer(row);
   assert.deepEqual(codec.keepLocal?.(back, local), {
-    id: A, color: "#123456", date: "2일(금)", caption: "느린 점심", uri: "file:///p.jpg", links: [], uploaderMembershipId: null,
+    id: A, color: "#123456", date: "2026-10-02", caption: "느린 점심", uri: "file:///p.jpg", links: [], uploaderMembershipId: null,
     uploaderName: "하늘",
   });
   assert.equal(codec.fromServer({ ...row, date: "2026-12-25" }).date, PHOTO_UNDATED);
@@ -64,18 +64,18 @@ test("올린 사람은 서버에서 받아 두지만 서버로 보내지 않는�
   // 이름이 비면 칸 자체를 만들지 않는다. 크게 보는 화면이 빈 `올림` 줄을 내지 않게 한다.
   assert.equal("uploaderName" in codec.fromServer({ ...row, uploaderName: "" }), false);
   // 이 기기에서 막 올린 사진은 올린 사람이 비어 있다. 서버 줄과 합치면 서버 것을 따른다.
-  const local: PhotoRow = { id: A, color: "#123456", date: "1일(목)", caption: "바다", uri: "file:///p.jpg" };
+  const local: PhotoRow = { id: A, color: "#123456", date: "2026-10-01", caption: "바다", uri: "file:///p.jpg" };
   assert.equal(codec.keepLocal?.(back, local).uploaderMembershipId, B);
   assert.deepEqual(codec.toBody(back), codec.toBody(local));
   const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(back)), version: 1 }]]);
   assert.equal(hasWork(planListSync([local], codec, confirmed)), false);
 });
 
-test("기간 밖 이름표는 올리지 않고, 날짜를 옮기면 새 이름표로 간다", () => {
+test("기간 밖 날짜는 올리지 않고, 기간을 옮기면 그 날짜로 올라간다", () => {
   const codec = photoCodec(dates, new Set([A]));
-  // 여행 기간을 옮기면 옛 이름표가 기간에서 사라진다. 그때 date: null 로 올려 서버의
-  // 날짜를 지우던 것을 막는다(2026-09-23).
-  const 잃은_것: PhotoRow = { id: A, color: "#fff", date: "9일(금)", caption: "", uri: "file:///p.jpg" };
+  // 다른 기기가 여행 기간을 줄이면 기간 밖의 날이 남는다. 그때 date: null 로 올려
+  // 서버의 날짜를 지우던 것을 막는다(2026-09-23).
+  const 잃은_것: PhotoRow = { id: A, color: "#fff", date: "2026-10-09", caption: "", uri: "file:///p.jpg" };
   assert.equal(codec.syncable(잃은_것), false);
   assert.equal(codec.blockReason?.(잃은_것), "여행 기간 밖의 날짜예요");
   assert.deepEqual(planListSync([잃은_것], codec, new Map()), { creates: [], updates: [], deletes: [] });
@@ -85,7 +85,7 @@ test("기간 밖 이름표는 올리지 않고, 날짜를 옮기면 새 이름�
   assert.equal(codec.toBody(미정).date, null);
   assert.equal(photoCodec(dates, new Set()).blockReason?.({ id: A, color: "#fff", date: "", caption: "" }), undefined);
 
-  // 화면이 이름표를 새 기간으로 옮기고 나면 그 날짜로 올라간다.
+  // 여행 기간이 그 날을 다시 품으면 그대로 올라간다.
   const 옮긴_뒤 = photoCodec(tripDateKeys("2026-10-08", "2026-10-10"), new Set([A]));
   assert.equal(옮긴_뒤.syncable(잃은_것), true);
   assert.equal(옮긴_뒤.toBody(잃은_것).date, "2026-10-09");
@@ -106,7 +106,7 @@ const STAY = "44444444-4444-4444-8444-444444444444";
 test("붙은 곳은 늘 같은 차례로 오가고 아직 못 올린 곳은 보내지 않는다", () => {
   const codec = photoCodec(dates, new Set([A]), new Set([PLACE]));
   const local: PhotoRow = {
-    id: A, color: "#fff", date: "2일(금)", caption: "", uri: "file:///p.jpg",
+    id: A, color: "#fff", date: "2026-10-02", caption: "", uri: "file:///p.jpg",
     links: [{ targetType: "stay", targetId: STAY }, { targetType: "place", targetId: PLACE }],
   };
 
@@ -126,7 +126,7 @@ test("붙은 곳은 늘 같은 차례로 오가고 아직 못 올린 곳은 보�
 test("서버가 준 차례가 달라도 다시 보내지 않는다", () => {
   const codec = photoCodec(dates, new Set([A]), new Set([PLACE, STAY]));
   const local: PhotoRow = {
-    id: A, color: "#fff", date: "2일(금)", caption: "", uri: "file:///p.jpg",
+    id: A, color: "#fff", date: "2026-10-02", caption: "", uri: "file:///p.jpg",
     links: [{ targetType: "stay", targetId: STAY }, { targetType: "place", targetId: PLACE }],
   };
   const row = {
@@ -141,17 +141,17 @@ test("서버가 준 차례가 달라도 다시 보내지 않는다", () => {
 
 test("장소·일정은 붙은 사진만, 숙소는 묵는 동안의 사진까지 본다", () => {
   const 사진 = [
-    { id: "1", date: "1일(목)", links: [{ targetType: "place" as const, targetId: PLACE }] },
-    { id: "2", date: "2일(금)", links: [{ targetType: "stay" as const, targetId: STAY }] },
-    { id: "3", date: "2일(금)" },
-    { id: "4", date: "3일(토)" },
+    { id: "1", date: "2026-10-01", links: [{ targetType: "place" as const, targetId: PLACE }] },
+    { id: "2", date: "2026-10-02", links: [{ targetType: "stay" as const, targetId: STAY }] },
+    { id: "3", date: "2026-10-02" },
+    { id: "4", date: "2026-10-03" },
   ];
 
   assert.deepEqual(photosLinkedTo(사진, "place", PLACE).map((photo) => photo.id), ["1"]);
   assert.deepEqual(photosLinkedTo(사진, "place", undefined), []);
   // 붙인 사진이 먼저 오고 그날 사진이 뒤에 온다. 같은 사진이 두 번 오지 않는다.
-  assert.deepEqual(photosOfStay(사진, STAY, ["2일(금)"]).map((photo) => photo.id), ["2", "3"]);
-  assert.deepEqual(photosOfStay(사진, undefined, ["3일(토)"]).map((photo) => photo.id), ["4"]);
+  assert.deepEqual(photosOfStay(사진, STAY, ["2026-10-02"]).map((photo) => photo.id), ["2", "3"]);
+  assert.deepEqual(photosOfStay(사진, undefined, ["2026-10-03"]).map((photo) => photo.id), ["4"]);
 });
 
 test("사진에 찍힌 날짜를 EXIF 에서 읽는다", () => {

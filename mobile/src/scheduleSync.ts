@@ -1,16 +1,16 @@
 /**
  * 일정 줄과 숙소를 서버와 오가는 모양. 맞추는 계산은 `listSync.ts` 가 한다.
  *
- * 앱은 날짜와 시각을 화면 글자로 들고 있다(일정 `2일(금)`·`금 · 12:30`, 숙소
- * `10월 1일 15:00`). 서버는 공간 시간대의 `YYYY-MM-DD` 와 `HH:MM` 을 받는다.
- * 글자와 날짜를 오가려면 여행 기간이 필요해서 코덱을 기간마다 만든다.
+ * 일정의 날짜는 앱 안에서도 `2026-09-23` 같은 날짜 키라 서버와 그대로 오간다. 시각만
+ * 화면 글자(`금 · 12:30`)에서 꺼낸다. 숙소 체크인·체크아웃은 아직 `10월 1일 15:00`
+ * 같은 글자라 여행 기간이 있어야 읽을 수 있어서, 코덱을 기간마다 만든다.
  *
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
 import { blank, safeUrl } from "./placeSync.ts";
 import { isServerId, type Codec } from "./listSync.ts";
-import { dateLabelOf, dayLabelOf } from "./dates.ts";
+import { dateLabelOf, weekdayOfKey } from "./dates.ts";
 
 // ---------------------------------------------------------------------------
 // 일정
@@ -71,12 +71,13 @@ export function scheduleCodec(
   /** 서버와 맞춘 장소 id. 아직 안 올라간 장소를 가리키면 서버가 거부하므로 그때는 연결을 비워 보낸다. */
   serverPlaceIds: ReadonlySet<string>,
 ): Codec<AppScheduleItem, ScheduleBody, ServerScheduleItem> {
-  const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
+  const 기간_안 = new Set(tripDates);
   return {
     syncable: (item) => isServerId(item.id) && !isDerivedScheduleItem(item),
     idOf: (item) => item.id ?? "",
     toBody: (item) => {
-      const date = item.date ? keyByDayLabel.get(item.date) ?? null : null;
+      // 다른 기기가 여행 기간을 줄였으면 기간 밖의 날이 남는다. 그때는 날짜 없이 올린다.
+      const date = item.date && 기간_안.has(item.date) ? item.date : null;
       const clock = item.time.match(/(\d{1,2}):(\d{2})/);
       const time = date && clock ? `${clock[1].padStart(2, "0")}:${clock[2]}` : null;
       const label = item.note.split(" · ")[0]?.trim() ?? "";
@@ -91,11 +92,11 @@ export function scheduleCodec(
       };
     },
     fromServer: (row) => {
-      const dayLabel = row.date && tripDates.includes(row.date) ? dayLabelOf(row.date) : undefined;
-      const weekday = dayLabel?.match(/\(([^)]+)\)/)?.[1] ?? "";
+      const date = row.date && 기간_안.has(row.date) ? row.date : undefined;
+      const weekday = date ? weekdayOfKey(date) : "";
       return {
         id: row.id,
-        date: dayLabel,
+        date,
         time: `${weekday} · ${row.time ?? NO_TIME}`,
         title: row.title,
         note: row.note ?? "",

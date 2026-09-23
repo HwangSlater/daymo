@@ -13,7 +13,7 @@ const dates = tripDateKeys("2026-10-01", "2026-10-03");
 const item = (extra: Partial<AppScheduleItem> = {}): AppScheduleItem => ({
   id: A,
   time: "금 · 12:30",
-  date: "2일(금)",
+  date: "2026-10-02",
   title: "소나기식당에서 점심",
   note: "식사 · 전주",
   mapUrl: "",
@@ -43,7 +43,7 @@ test("시간 미정이거나 날짜가 기간 밖이면 비워 보낸다", () =>
   const codec = scheduleCodec(dates, new Set());
 
   assert.equal(codec.toBody(item({ time: "금 · 시간 미정" })).time, null);
-  const outside = codec.toBody(item({ date: "9일(금)" }));
+  const outside = codec.toBody(item({ date: "2026-10-09" }));
   assert.equal(outside.date, null);
   assert.equal(outside.time, null);
 });
@@ -63,7 +63,7 @@ test("서버 일정은 화면 글자로 돌아오고 다시 보내도 같은 모
     id: A, date: "2026-10-03", time: null, title: "체크아웃", type: "other", note: null, tripPlaceId: P, mapUrl: null, version: 3,
   });
 
-  assert.deepEqual(local, { id: A, date: "3일(토)", time: "토 · 시간 미정", title: "체크아웃", note: "", mapUrl: "", placeId: P });
+  assert.deepEqual(local, { id: A, date: "2026-10-03", time: "토 · 시간 미정", title: "체크아웃", note: "", mapUrl: "", placeId: P });
   const confirmed = new Map<string, Confirmed>([[A, { key: bodyKey(codec.toBody(local)), version: 3 }]]);
   assert.equal(hasWork(planListSync([local], codec, confirmed)), false);
 });
