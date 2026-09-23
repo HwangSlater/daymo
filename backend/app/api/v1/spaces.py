@@ -4,12 +4,13 @@ from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import OWNER_ONLY, membership_in_space, require
-from app.core.responses import ok
+from app.core.responses import Envelope, ok
 from app.models import Membership, Space
 from app.schemas.trip import (
     DeletedSpaceOut,
     SpaceCreateRequest,
     SpaceDeleteRequest,
+    SpaceDeletionOut,
     SpaceMemberOut,
     SpaceOut,
     SpaceUpdateRequest,
@@ -31,7 +32,7 @@ async def 공간_응답(db, space: Space, membership: Membership) -> dict:
     ).model_dump(by_alias=True)
 
 
-@router.post("/spaces", status_code=status.HTTP_201_CREATED)
+@router.post("/spaces", status_code=status.HTTP_201_CREATED, response_model=Envelope[SpaceOut])
 async def create_space(body: SpaceCreateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     """공간을 만든다. 만든 사람이 owner 가 된다."""
     space, membership = await space_service.create_space(
@@ -45,7 +46,7 @@ async def create_space(body: SpaceCreateRequest, caller: CurrentCaller, db: DbSe
     return ok(await 공간_응답(db, space, membership))
 
 
-@router.get("/spaces")
+@router.get("/spaces", response_model=Envelope[list[SpaceOut]])
 async def list_spaces(caller: CurrentCaller, db: DbSession) -> dict:
     """내가 들어가 있는 공간 목록. 앱이 처음 여는 화면이 이것으로 시작한다."""
     return ok(
@@ -56,7 +57,7 @@ async def list_spaces(caller: CurrentCaller, db: DbSession) -> dict:
     )
 
 
-@router.get("/spaces/deleted")
+@router.get("/spaces/deleted", response_model=Envelope[list[DeletedSpaceOut]])
 async def list_deleted_spaces(caller: CurrentCaller, db: DbSession) -> dict:
     """내가 관리자인, 아직 되돌릴 수 있는 지운 공간."""
     return ok(
@@ -71,7 +72,11 @@ async def list_deleted_spaces(caller: CurrentCaller, db: DbSession) -> dict:
     )
 
 
-@router.delete("/spaces/{space_id}", status_code=status.HTTP_202_ACCEPTED)
+@router.delete(
+    "/spaces/{space_id}",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=Envelope[SpaceDeletionOut],
+)
 async def delete_space(space_id: uuid.UUID, body: SpaceDeleteRequest, caller: CurrentCaller, db: DbSession) -> dict:
     """
     공간을 지운다. 관리자만. 모든 멤버에게서 곧바로 사라지고 7일 뒤 여행·사진까지 지워진다.
@@ -91,13 +96,17 @@ async def delete_space(space_id: uuid.UUID, body: SpaceDeleteRequest, caller: Cu
     return ok({"id": str(space.id), "deletionScheduledAt": space.deletion_scheduled_at.isoformat()})
 
 
-@router.post("/spaces/{space_id}/restore")
+@router.post("/spaces/{space_id}/restore", response_model=Envelope[SpaceOut])
 async def restore_space(space_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """지운 공간을 되돌린다. 관리자만, 7일 안에만."""
     space, membership = await space_deletion.restore(db, space_id=space_id, user_id=caller.user.id)
     return ok(await 공간_응답(db, space, membership))
 
 
+# 이 하나만 `response_model` 이 없다. `includeLeft` 없이 물었을 때 `leftAt` 을
+# **칸째로 빼서** 답하는데, 스키마를 달면 FastAPI 가 `null` 을 되살려 넣는다.
+# 나가지 않은 사람에게 `leftAt: null` 이 붙으면 앱이 볼 자리가 하나 늘어난다.
+# 나중에 「나간 멤버 포함」을 따로 뗀 경로로 나누면 그때 붙인다.
 @router.get("/spaces/{space_id}/members")
 async def list_space_members(
     space_id: uuid.UUID,
@@ -129,7 +138,7 @@ async def list_space_members(
     )
 
 
-@router.patch("/spaces/{space_id}")
+@router.patch("/spaces/{space_id}", response_model=Envelope[SpaceOut])
 async def update_space(
     space_id: uuid.UUID, body: SpaceUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:

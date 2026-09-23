@@ -4,8 +4,8 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_row, require
-from app.api.v1.trips import _여행_응답
-from app.core.responses import ok, page
+from app.api.v1.trips import 여행_응답
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Expense, Payment
 from app.schemas.expense import (
     ExpenseCreateRequest,
@@ -16,6 +16,7 @@ from app.schemas.expense import (
     PaymentOut,
     ShareOut,
 )
+from app.schemas.trip import TripOut
 from app.services import audit
 from app.services import expenses as expense_service
 
@@ -58,13 +59,13 @@ def _기록_응답(payment: Payment) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/expenses")
+@router.get("/trips/{trip_id}/expenses", response_model=Page[ExpenseOut])
 async def list_expenses(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([_지출_응답(view) for view in await expense_service.list_expenses(db, trip)])
 
 
-@router.post("/trips/{trip_id}/expenses", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/expenses", status_code=status.HTTP_201_CREATED, response_model=Envelope[ExpenseOut])
 async def create_expense(
     trip_id: uuid.UUID, body: ExpenseCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -78,7 +79,7 @@ async def create_expense(
     return ok(_지출_응답(await expense_service.expense_view(db, expense)))
 
 
-@router.patch("/expenses/{expense_id}")
+@router.patch("/expenses/{expense_id}", response_model=Envelope[ExpenseOut])
 async def update_expense(expense_id: uuid.UUID, body: ExpenseUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip, expense = await membership_for_trip_row(db, user_id=caller.user.id, model=Expense, row_id=expense_id)
     require(membership, *WRITERS)
@@ -101,14 +102,14 @@ async def delete_expense(expense_id: uuid.UUID, caller: CurrentCaller, db: DbSes
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/payments")
+@router.get("/trips/{trip_id}/payments", response_model=Page[PaymentOut])
 async def list_payments(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """되돌리지 않은 기록만 준다."""
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([_기록_응답(payment) for payment in await expense_service.list_payments(db, trip)])
 
 
-@router.post("/trips/{trip_id}/payments", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/payments", status_code=status.HTTP_201_CREATED, response_model=Envelope[PaymentOut])
 async def create_payment(
     trip_id: uuid.UUID, body: PaymentCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -138,7 +139,7 @@ async def undo_payment(payment_id: uuid.UUID, caller: CurrentCaller, db: DbSessi
 # ---------------------------------------------------------------------------
 
 
-@router.patch("/trips/{trip_id}/expense-settings")
+@router.patch("/trips/{trip_id}/expense-settings", response_model=Envelope[TripOut])
 async def update_expense_settings(
     trip_id: uuid.UUID, body: ExpenseSettingsRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -148,4 +149,4 @@ async def update_expense_settings(
     await expense_service.update_settings(
         db, trip=trip, version=body.version, changes=body.model_dump(exclude_unset=True, exclude={"version"})
     )
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))

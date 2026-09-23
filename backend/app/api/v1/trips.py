@@ -11,7 +11,7 @@ from app.api.permissions import (
     require,
 )
 from app.core.errors import AppError, ErrorCode
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Trip, TripStatus
 from app.schemas.trip import (
     ParticipantsRequest,
@@ -45,10 +45,10 @@ def _요약_응답(overview: trip_overview.TripOverview) -> TripOverviewOut:
 async def _여행들_응답(db, trips: list[Trip]) -> list[dict]:
     """목록은 요약을 한꺼번에 센다. 여행마다 따로 세면 목록이 길수록 질의가 늘어난다."""
     요약 = await trip_overview.overviews_of(db, trips)
-    return [await _여행_응답(db, trip, 요약[trip.id]) for trip in trips]
+    return [await 여행_응답(db, trip, 요약[trip.id]) for trip in trips]
 
 
-async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | None = None) -> dict:
+async def 여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | None = None) -> dict:
     if overview is None:
         overview = (await trip_overview.overviews_of(db, [trip]))[trip.id]
     홈_사진들, 홈_틀 = await trip_service.home_cover(db, trip)
@@ -82,7 +82,7 @@ async def _여행_응답(db, trip: Trip, overview: trip_overview.TripOverview | 
     ).model_dump(by_alias=True)
 
 
-@router.post("/spaces/{space_id}/trips", status_code=status.HTTP_201_CREATED)
+@router.post("/spaces/{space_id}/trips", status_code=status.HTTP_201_CREATED, response_model=Envelope[TripOut])
 async def create_trip(
     space_id: uuid.UUID, body: TripCreateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -102,10 +102,10 @@ async def create_trip(
         cooking_enabled=body.cooking_enabled,
         participant_membership_ids=[uuid.UUID(값) for 값 in body.participant_membership_ids],
     )
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.get("/spaces/{space_id}/trips")
+@router.get("/spaces/{space_id}/trips", response_model=Page[TripOut])
 async def list_trips(
     space_id: uuid.UUID,
     caller: CurrentCaller,
@@ -141,13 +141,13 @@ async def list_trips(
     return page(await _여행들_응답(db, 여행들), next_cursor=다음)
 
 
-@router.get("/trips/{trip_id}")
+@router.get("/trips/{trip_id}", response_model=Envelope[TripOut])
 async def get_trip(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.patch("/trips/{trip_id}")
+@router.patch("/trips/{trip_id}", response_model=Envelope[TripOut])
 async def update_trip(
     trip_id: uuid.UUID, body: TripUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -200,10 +200,10 @@ async def update_trip(
 
     trip.version += 1
     await db.flush()
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.put("/trips/{trip_id}/participants")
+@router.put("/trips/{trip_id}/participants", response_model=Envelope[TripOut])
 async def set_participants(
     trip_id: uuid.UUID, body: ParticipantsRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -223,23 +223,23 @@ async def set_participants(
     # 참가자도 여행의 내용이다. 버전을 올려야 다른 기기가 낡은 목록으로 덮어쓰지 못한다.
     trip.version += 1
     await db.flush()
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.post("/trips/{trip_id}/archive")
+@router.post("/trips/{trip_id}/archive", response_model=Envelope[TripOut])
 async def archive(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     require(membership, *WRITERS)
     await trip_service.archive_trip(db, trip, archived=True)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
-@router.post("/trips/{trip_id}/unarchive")
+@router.post("/trips/{trip_id}/unarchive", response_model=Envelope[TripOut])
 async def unarchive(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     require(membership, *WRITERS)
     await trip_service.archive_trip(db, trip, archived=False)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
 
 
 @router.delete("/trips/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -256,7 +256,7 @@ async def delete_trip(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/trips/{trip_id}/restore")
+@router.post("/trips/{trip_id}/restore", response_model=Envelope[TripOut])
 async def restore(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip = await membership_for_trip(
         db, user_id=caller.user.id, trip_id=trip_id, include_deleted=True
@@ -266,4 +266,4 @@ async def restore(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> d
     await trip_service.restore_trip(db, trip)
     if 지웠었다:
         await audit.record(db, space_id=trip.space_id, actor_membership_id=membership.id, action="trip.restore", target_type="trip", target_id=trip.id)
-    return ok(await _여행_응답(db, trip))
+    return ok(await 여행_응답(db, trip))
