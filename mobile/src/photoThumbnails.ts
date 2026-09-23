@@ -131,6 +131,25 @@ export function retryThumbnails(ids: readonly string[]): void {
 }
 
 /**
+ * 들고 있던 썸네일을 통째로 잊는다. **로그아웃·계정 전환에서 부른다.**
+ *
+ * 이 지도는 앱이 사는 동안 메모리에 남아 있어, 로그아웃만으로는 앞사람이 보던 사진이
+ * 그대로 남는다. 다음 사람이 그 사진을 열 수는 없지만 같은 id 를 만나면 앞사람의 것이
+ * 곧바로 떠 버린다. 웹은 blob 주소도 함께 풀어 준다 — 안 풀면 탭이 살아 있는 동안
+ * 그 주소로 사진을 계속 볼 수 있다.
+ *
+ * 폰의 파일은 여기서 지우지 않는다. `photoCache.clearPhotoCache` 가 폴더째 맡는다.
+ */
+export function clearThumbnails(): void {
+  if (Platform.OS === "web") {
+    for (const uri of 받은_것.values()) releaseDownloadedPhoto(uri);
+  }
+  받은_것.clear();
+  못_받은_것.clear();
+  쓰는_수.clear();
+}
+
+/**
  * 칸 하나에 깔 썸네일.
  *
  * @param uploaded 서버에 다 올라가 받을 수 있는 사진인지. 아직 이 기기에만 있는 사진은
