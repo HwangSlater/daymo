@@ -110,57 +110,17 @@ export type ViewerDecor = {
    * 같은 자리). 남의 카드를 보기만 할 때는 없다.
    */
   history?: { canUndo: boolean; canRedo: boolean; onUndo: () => void; onRedo: () => void };
-  /** 오른쪽 위에 적을 말. 보통 `저장`, 남의 카드면 `닫기`. */
+  /** 오른쪽 위에 적을 말. 「완료」. */
   saveLabel: string;
   /** 꾸미기의 ⋮. 위 줄에 올리지 못한 것만 남는다(지금은 삭제 하나). */
   menu: ViewerMenuRow[];
-  /**
-   * ↓. 카드를 그림으로 내보낸다.
-   *
-   * 사진첩의 ↓ 와 같은 자리·같은 그림이다. 카드에서만 ⋮ 안에 숨겨 두면 「이 카드
-   * 내려받기」를 사진과 다른 데서 찾아야 한다. 같은 일은 같은 자리에 둔다.
-   */
-  onExport: () => void;
-  exportLabel: string;
-  /** ⌂. 이 카드를 홈 화면에 깔거나 내린다. 깔 수 없으면 없다. */
-  cover?: ViewerCover;
-  /** 보기의 ⋮. 홈 화면에 쓰기와 신고가 들어간다. */
+  /** 보기의 ⋮. 홈에 보일 부분과 신고가 들어간다. */
   viewMenu: ViewerMenuRow[];
   /** 카드와 도구. 펼쳤을 때만 그린다. */
   body: React.ReactNode;
   /** 무언가 하는 중이라 화면을 통째로 덮어야 할 때 적을 말. */
   busyText?: string;
-  /**
-   * 보기에서 사진 대신 무대에 놓을 카드 그림. 카드를 보는 중일 때만 온다.
-   *
-   * 격자에서 카드를 눌렀을 때 곧바로 도구를 펴지 않는다. 격자는 누르면 크게 보는
-   * 자리라, 카드만 도구부터 열리면 「눌렀더니 갑자기 고치는 화면」이 된다. 사진과
-   * 같은 결로 먼저 크게 보여 주고, 고치는 것은 아래 「꾸미기」 한 번 더다.
-   */
-  preview?: React.ReactNode;
-  /** 카드를 보는 중일 때 아래에 적을 이름과 한 줄. */
-  previewTitle?: string;
-  previewMeta?: string;
-  /**
-   * 필름 스트립 끝에 세울 카드들.
-   *
-   * 한 창 안에서 사진과 카드를 오가는 길이다. 창을 닫고 격자로 돌아갔다 다시
-   * 들어오게 하면 「같은 창」이라고 한 뜻이 없다.
-   */
-  cards: { id: string; label: string; color: string; uri?: string; on: boolean }[];
-  onViewCard: (id: string) => void;
-  /**
-   * 옆 칸에 놓을 카드 그림.
-   *
-   * 사진과 카드는 스트립 차례 그대로 한 줄로 이어져서, 밀면 마지막 사진 다음에 첫
-   * 카드가 온다. 밀 때 옆 칸이 비어 있다가 손을 떼는 순간 카드가 튀어나오면 넘기는
-   * 느낌이 끊기므로, 옆 카드도 미리 그려 둔다.
-   */
-  renderCard?: (id: string) => React.ReactNode;
 };
-
-/** 한 줄로 이어진 칸 하나. 사진이거나 카드다. */
-type ViewerSlot = { kind: "사진"; photo: ViewerPhoto } | { kind: "카드"; id: string };
 
 /**
  * 움직이는 줄을 제 레이어로 올리는 값.
@@ -390,35 +350,19 @@ export function PhotoViewerScreen({
   };
   /** 지금 도구가 펼쳐져 있는지. 펼쳐져 있으면 무대에 도구가 딸린 카드가 온다. */
   const decorating = Boolean(decor?.open);
-  /** 도구는 접힌 채로 카드를 크게 보는 중인지. */
-  const previewing = !decorating && Boolean(decor?.preview);
-  /**
-   * 사진과 카드를 스트립 차례 그대로 이은 줄. 밀기와 화살표가 이 줄을 따라간다.
-   *
-   * 예전에는 카드를 보는 동안 좌우 밀기를 막았다. 카드는 사진 줄의 한 칸이 아니라
-   * 밀면 어디로 가는지 알 수 없다고 봤다. 그런데 스트립이 이미 사진 뒤에 카드를
-   * 세워 두고 있어서, 그 차례를 따르면 갈 곳이 분명하다. 사진첩 앱이 사진과 동영상을
-   * 한 줄로 넘기는 것과 같다.
-   */
-  const 카드들 = decor?.cards ?? [];
-  const 칸들: ViewerSlot[] = [
-    ...photos.map((하나) => ({ kind: "사진" as const, photo: 하나 })),
-    ...카드들.map((하나) => ({ kind: "카드" as const, id: 하나.id })),
-  ];
-  const 보는_카드 = 카드들.findIndex((하나) => 하나.on);
-  /** 줄에서 지금 보는 칸. 스트립에 없는 카드를 보는 중이면 -1 이다. */
-  const 지금칸 = previewing ? (보는_카드 < 0 ? -1 : photos.length + 보는_카드) : index;
+  /** 사진을 스트립 차례 그대로 이은 줄. 밀기와 화살표가 이 줄을 따라간다. */
+  const 칸들 = photos;
+  const 지금칸 = index;
   /**
    * 앞뒤 칸. 끝에서 처음으로 돈다. 몇 번째인지는 위의 `3 / 8` 과 아래 스트립이 늘
    * 말해 주고, 마지막에서 밀면 첫 칸이 실제로 따라 들어오는 것이 보여 갑작스럽지 않다.
    */
-  const 이웃칸 = (걸음: number): ViewerSlot | undefined =>
+  const 이웃칸 = (걸음: number): ViewerPhoto | undefined =>
     칸들.length && 지금칸 >= 0 ? 칸들[(지금칸 + 걸음 + 칸들.length) % 칸들.length] : undefined;
-  const 칸으로 = (칸: ViewerSlot | undefined) => {
+  const 칸으로 = (칸: ViewerPhoto | undefined) => {
     if (!칸) return;
     setMenuOpen(false);
-    if (칸.kind === "사진") onMove(칸.photo.id);
-    else decor?.onViewCard(칸.id);
+    onMove(칸.id);
   };
   const back = () => {
     setMenuOpen(false);
@@ -677,28 +621,26 @@ export function PhotoViewerScreen({
 
   // 도구를 펼쳐 둔 동안에는 볼 사진이 없어도 창이 남아 있어야 한다. 카드에 넣은
   // 사진을 다 빼도 카드는 그대로 꾸미는 중이다.
-  if (!photo && !decorating && !previewing) return null;
+  if (!photo && !decorating) return null;
   const meta = photo
     ? [photo.date, photo.uploaderName ? `${photo.uploaderName} 올림` : ""].filter(Boolean).join(" · ")
     : "";
   /**
    * ⋮ 안에 들어갈 것.
    *
-   * 보기와 꾸미기가 서로 다른 것을 담는다. 홈 화면에 쓰는 것은 보기 쪽이다. 지금
-   * 크게 보고 있는 것을 홈에 까는 일이라, 고치러 들어가야 보이면 고칠 생각이 없는
-   * 사람은 찾지 못한다. 내보내기·삭제는 다 꾸민 뒤에 한 번 쓰는 것이라 꾸미기 쪽이다.
+   * 보기와 꾸미기가 서로 다른 것을 담는다. 대표 사진으로 쓰는 것은 보기 쪽이다. 지금
+   * 크게 보고 있는 것에 대한 일이라, 고치러 들어가야 보이면 고칠 생각이 없는
+   * 사람은 찾지 못한다. 삭제는 꾸미기 쪽이다.
    */
-  /** 홈 화면에 까는 일. 아이콘을 줄에서 빼고 ⋮ 맨 위에 글로 넣었다. */
-  const 홈단추 = previewing ? decor?.cover : cover;
+  /** 대표 사진으로 설정하는 일. 아이콘을 줄에서 빼고 ⋮ 맨 위에 글로 넣었다. */
+  const 홈단추 = cover;
   const menuRows: ViewerMenuRow[] = decorating
     ? decor?.menu ?? []
     : [
         ...(홈단추 ? [{ label: 홈단추.label, onPress: () => 홈단추.onPress() }] : []),
         ...(decor ? decor.viewMenu : onReport ? [{ label: "신고", onPress: () => onReport() }] : []),
       ];
-  const 저장단추 = previewing
-    ? decor && { label: decor.exportLabel, onPress: decor.onExport, disabled: false, on: false }
-    : { label: "이 사진 저장", onPress: onSave, disabled: saving || saveBlocked, on: saving };
+  const 저장단추 = { label: "이 사진 저장", onPress: onSave, disabled: saving || saveBlocked, on: saving };
   return (
     // 안드로이드의 하드웨어 뒤로 가기는 맨 위 겹부터 닫는다. 사진 정보를 열어 둔 채
     // 뒤로 가면 창이 통째로 닫히는 것이 아니라 그 겹만 접혀야 한다.
@@ -732,8 +674,6 @@ export function PhotoViewerScreen({
             ) : (
               <Text style={styles.decorTitle}>카드 꾸미기</Text>
             )}
-            {/* 사진첩의 ↓ 와 같은 자리·같은 그림이다. 배울 것이 하나 줄어든다. */}
-            <BarButton glyph="download" label={decor.exportLabel} onPress={decor.onExport} />
             {menuRows.length > 0 && (
               <BarButton
                 glyph="moreVertical"
@@ -771,8 +711,8 @@ export function PhotoViewerScreen({
           ]}
         >
           {[-1, 0, 1].map((자리) => {
-            // 한 칸뿐이면 옆 칸은 비운다. 같은 카드를 옆에 두 번 더 그릴 까닭이 없다.
-            const 칸 = 자리 === 0 ? (previewing ? undefined : 이웃칸(0)) : 칸들.length > 1 ? 이웃칸(자리) : undefined;
+            // 한 칸뿐이면 옆 칸은 비운다. 같은 사진을 옆에 두 번 더 그릴 까닭이 없다.
+            const 칸 = 자리 === 0 ? 이웃칸(0) : 칸들.length > 1 ? 이웃칸(자리) : undefined;
             /*
              * 칸의 열쇠는 자리(왼쪽·가운데·오른쪽)가 아니라 **무엇을 담았는지**다.
              *
@@ -782,17 +722,10 @@ export function PhotoViewerScreen({
              * 옮겨 쓰므로 그림이 한 번도 안 사라진다. 두 칸뿐일 때는 양옆이 같은 것이라
              * 자리를 덧붙여 가른다.
              */
-            const 담은_것 = 자리 === 0 && previewing ? 이웃칸(0) : 칸;
-            const 열쇠 = 담은_것
-              ? `${담은_것.kind === "사진" ? "사진" : "카드"}:${담은_것.kind === "사진" ? 담은_것.photo.id : 담은_것.id}${칸들.length <= 2 && 자리 !== 0 ? `:${자리}` : ""}`
+            const 열쇠 = 칸
+              ? `사진:${칸.id}${칸들.length <= 2 && 자리 !== 0 ? `:${자리}` : ""}`
               : `빈:${자리}`;
-            const 한장 = 칸?.kind === "사진" ? 칸.photo : undefined;
-            // 카드는 위 아이콘 줄과 아래 설명·스트립을 비운 칸에 통째로 담는다. 사진처럼
-            // 화면을 꽉 채우면 틀 아래의 글이 스트립에 가린다. 지금 보는 카드도 이 줄의
-            // 한 칸이라 밀면 사진과 똑같이 따라 움직인다.
-            const 카드 = 자리 === 0 && previewing
-              ? decor?.preview
-              : 칸?.kind === "카드" ? decor?.renderCard?.(칸.id) : undefined;
+            const 한장 = 칸;
             return (
               <View
                 key={열쇠}
@@ -813,9 +746,7 @@ export function PhotoViewerScreen({
                     자리 === 0 && { transform: [{ translateX: 줌.x }, { translateY: 줌.y }, { scale: 줌.배 }] },
                   ]}
                 >
-                {카드 ? (
-                  <View style={[styles.previewBox, { top: 위_여백 + 40 }]} pointerEvents="none">{카드}</View>
-                ) : 한장?.uri ? (
+                {한장?.uri ? (
                   // 크기를 숫자로 못 박는다. 퍼센트로 두면 줄이 움직일 때마다 칸을
                   // 다시 재고, 표시본(긴 변 2048px)을 그 크기에 다시 맞춰 그린다.
                   <Image
@@ -824,7 +755,7 @@ export function PhotoViewerScreen({
                     style={[styles.fill, { width }]}
                     accessibilityLabel={자리 === 0 ? 한장.caption || "여행 사진" : ""}
                   />
-                ) : 자리 === 0 && !previewing ? (
+                ) : 자리 === 0 ? (
                   <Text style={styles.waiting}>{waitingText ?? "사진을 불러오는 중이에요"}</Text>
                 ) : null}
                 </Animated.View>
@@ -837,8 +768,6 @@ export function PhotoViewerScreen({
         {/* 손가락을 받는 전용 판. 사진 위에 투명하게 깔리고, 이 줄 뒤에 그리는
             아이콘 줄·화살표·설명은 이 판보다 위라 그대로 눌린다. 밀려 나가는 줄이
             직접 받으면 기기에서 판이 손가락 아래에서 움직이는 순간 추적이 끊긴다. */}
-        {/* 카드를 보는 중에도 깐다. 밀어서 사진·카드를 넘기고, 톡 눌러 도구를 접는 것이
-            사진과 같아야 한다. */}
         <View style={StyleSheet.absoluteFill} {...pan.panHandlers} />
 
         {/* 접었을 때는 그늘도 글도 단추도 없다. 사진만 남는다. */}
@@ -853,21 +782,19 @@ export function PhotoViewerScreen({
         {chromeOn && (
         <View style={[styles.bar, { top: 위_여백 }]}>
           <BarButton glyph="close" label="크게 보기 닫기" onPress={close} />
-          <Text style={styles.count}>{!previewing && photos.length > 1 ? `${index + 1} / ${photos.length}` : ""}</Text>
-          {Boolean(저장단추) && (
-            <BarButton
-              glyph="download"
-              label={저장단추?.label ?? ""}
-              on={저장단추?.on}
-              disabled={저장단추?.disabled}
-              onPress={() => 저장단추?.onPress()}
-            />
-          )}
-          {!previewing && Boolean(onEdit) && (
+          <Text style={styles.count}>{photos.length > 1 ? `${index + 1} / ${photos.length}` : ""}</Text>
+          <BarButton
+            glyph="download"
+            label={저장단추.label}
+            on={저장단추.on}
+            disabled={저장단추.disabled}
+            onPress={() => 저장단추.onPress()}
+          />
+          {Boolean(onEdit) && (
             <BarButton glyph="pencil" label="사진 정보" onPress={() => onEdit?.()} />
           )}
           {/* 되돌릴 수 없는 일이라 누르면 확인 창이 한 번 더 뜬다(`confirmPhotoDelete`). */}
-          {!previewing && Boolean(onDeletePhoto) && (
+          {Boolean(onDeletePhoto) && (
             <BarButton glyph="trash" label="사진 삭제" onPress={() => onDeletePhoto?.()} />
           )}
           {menuRows.length > 0 && (
@@ -881,7 +808,7 @@ export function PhotoViewerScreen({
             <Pressable
               onPress={() => 칸으로(이웃칸(-1))}
               accessibilityRole="button"
-              accessibilityLabel={이웃칸(-1)?.kind === "카드" ? "이전 카드" : "이전 사진"}
+              accessibilityLabel="이전 사진"
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepLeft, pressed && styles.pressed]}
             >
@@ -890,7 +817,7 @@ export function PhotoViewerScreen({
             <Pressable
               onPress={() => 칸으로(이웃칸(1))}
               accessibilityRole="button"
-              accessibilityLabel={이웃칸(1)?.kind === "카드" ? "다음 카드" : "다음 사진"}
+              accessibilityLabel="다음 사진"
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepRight, pressed && styles.pressed]}
             >
@@ -908,11 +835,11 @@ export function PhotoViewerScreen({
           pointerEvents="box-none"
         >
           <Text numberOfLines={2} style={styles.caption}>
-            {previewing ? decor?.previewTitle || "추억 카드" : photo?.caption || ""}
+            {photo?.caption || ""}
           </Text>
-          <Text style={styles.meta}>{previewing ? decor?.previewMeta ?? "" : meta}</Text>
-          {Boolean(hint) && !previewing && <Text style={[styles.meta, hintSoon && styles.metaSoon]}>{hint}</Text>}
-          {(photos.length > 1 || 카드들.length > 0) && (
+          <Text style={styles.meta}>{meta}</Text>
+          {Boolean(hint) && <Text style={[styles.meta, hintSoon && styles.metaSoon]}>{hint}</Text>}
+          {photos.length > 1 && (
             <ScrollView
               ref={strip}
               horizontal
@@ -925,32 +852,15 @@ export function PhotoViewerScreen({
                   key={하나.id}
                   onPress={() => move(하나.id)}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: !previewing && 차례 === index }}
+                  accessibilityState={{ selected: 차례 === index }}
                   accessibilityLabel={`${하나.caption || `사진 ${차례 + 1}`} 보기`}
                   style={[
                     styles.stripThumb,
                     { backgroundColor: 하나.color },
-                    !previewing && 차례 === index && styles.stripThumbOn,
+                    차례 === index && styles.stripThumbOn,
                   ]}
                 >
                   {Boolean(하나.uri) && <Image source={{ uri: 하나.uri }} resizeMode="cover" style={styles.fill} />}
-                </Pressable>
-              ))}
-              {/* 스트립 끝에 만들어 둔 카드를 세운다. 사진과 카드를 오가는 길이 이
-                  한 줄이라, 카드를 보다 사진으로 가려고 창을 닫을 일이 없다. */}
-              {카드들.map((하나) => (
-                <Pressable
-                  key={`card:${하나.id}`}
-                  onPress={() => decor?.onViewCard(하나.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: 하나.on }}
-                  accessibilityLabel={`${하나.label} 보기`}
-                  style={[styles.stripThumb, { backgroundColor: 하나.color }, 하나.on && styles.stripThumbOn]}
-                >
-                  {Boolean(하나.uri) && <Image source={{ uri: 하나.uri }} resizeMode="cover" style={styles.fill} />}
-                  <View style={styles.stripCardMark} pointerEvents="none">
-                    <Text style={styles.stripCardMarkText}>카드</Text>
-                  </View>
                 </Pressable>
               ))}
             </ScrollView>
@@ -963,19 +873,15 @@ export function PhotoViewerScreen({
               <Pressable
                 onPress={() => decor?.onOpen()}
                 accessibilityRole="button"
-                accessibilityLabel={previewing ? "카드 꾸미기" : "이 사진으로 카드 만들기"}
+                accessibilityLabel="이 사진으로 카드 만들기"
                 style={({ pressed }) => [styles.decorate, pressed && styles.pressed]}
               >
                 {/* 연필이 아니라 네모 넷이다. 연필은 「고치기」고 이것은 사진을
                     모아 카드를 만드는 일이다(`Glyph` 의 grid 주석). */}
                 <Glyph name="grid" size={17} color={INK} weight={1.8} />
-                <Text style={styles.decorateText}>{previewing ? "카드 꾸미기" : "카드 만들기"}</Text>
+                <Text style={styles.decorateText}>카드 만들기</Text>
               </Pressable>
-              <Text style={styles.decorateHint}>
-                {previewing
-                  ? "프레임·사진·텍스트·스티커를 바꿀 수 있어요"
-                  : "이 사진으로 추억 카드를 만들 수 있어요"}
-              </Text>
+              <Text style={styles.decorateHint}>이 사진으로 추억 카드를 만들 수 있어요</Text>
             </>
           )}
         </View>
@@ -1042,10 +948,9 @@ export function PhotoViewerScreen({
         {/* 사진 정보는 이 창 위에 한 겹으로 얹힌다. 맨 마지막에 놓아야 위에 온다. */}
         {editPanel}
         {coverPanel}
-        {/* 카드를 찍는 동안 카드를 제 크기로 되돌린다(`CardDecorTools`·`CardPreview`). 화면 밖으로
-            넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. 보기에서
-            공유할 때도 찍으므로 꾸미는 중이 아니어도 덮는다. */}
-        {Boolean((decorating || previewing) && decor?.busyText) && (
+        {/* 카드를 찍는 동안 카드를 제 크기로 되돌린다(`CardDecorTools`). 화면 밖으로
+            넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. */}
+        {Boolean(decorating && decor?.busyText) && (
           <View style={styles.busy} accessibilityLiveRegion="polite">
             <Text style={styles.busyText}>{decor?.busyText}</Text>
           </View>
@@ -1407,18 +1312,6 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   stripThumbOn: { opacity: 1, borderColor: INK },
-  // 스트립 안에서 카드와 사진을 가르는 표. 기록 탭 격자의 「카드」 배지와 같은 말이다.
-  stripCardMark: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    backgroundColor: "rgba(17,16,15,0.72)",
-  },
-  stripCardMarkText: { fontSize: 8, color: INK, fontFamily: typo.label.family },
-  // 카드를 크게 보는 자리. 아이콘 줄과 아래 설명·스트립·꾸미기 줄을 비워 둔다.
-  previewBox: { position: "absolute", left: 0, right: 0, bottom: 280 },
   // 저장하고 나서 떴다 사라지는 한 줄. 묻는 창을 띄우지 않으려고 둔 자리다.
   toast: {
     position: "absolute",
