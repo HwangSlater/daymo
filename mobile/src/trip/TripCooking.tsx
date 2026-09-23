@@ -1581,9 +1581,3 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
-
-/**
- * 옛 이름. `WarmTripDetail.tsx` 가 아직 이 이름으로 부른다.
- * 부르는 쪽을 새 이름으로 바꾸면 이 줄을 지운다.
- */
-export { TripCooking as Cooking };

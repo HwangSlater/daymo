@@ -1421,9 +1421,3 @@ const styles = StyleSheet.create({
   placeMiniMapButton: { height: 28, borderRadius: 모서리.상자, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 12, fontFamily: typo.label.family },
 });
-
-/**
- * 옛 이름. `WarmTripDetail.tsx` 가 아직 이 이름으로 부른다.
- * 부르는 쪽을 새 이름으로 바꾸면 이 줄을 지운다.
- */
-export { TripPlaces as Places };

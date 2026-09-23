@@ -138,9 +138,9 @@ import {
   newPlaceId,
 } from "./trip/parts";
 import { TripOverview } from "./trip/TripOverview";
-import { Places } from "./trip/TripPlaces";
-import { Preparation } from "./trip/TripPreparation";
-import { Cooking } from "./trip/TripCooking";
+import { TripPlaces } from "./trip/TripPlaces";
+import { TripPreparation } from "./trip/TripPreparation";
+import { TripCooking } from "./trip/TripCooking";
 import { Memories } from "./trip/TripMemories";
 import { Money } from "./trip/TripMoney";
 
@@ -1725,7 +1725,7 @@ export function WarmTripDetail({
             />
           )}
           {mode === "장소" && (
-            <Places
+            <TripPlaces
               photos={memories.photos}
               schedule={schedule}
               setSchedule={setSchedule}
@@ -1761,7 +1761,7 @@ export function WarmTripDetail({
             />
           )}
           {mode === "준비" && (
-            <Preparation
+            <TripPreparation
               done={packingDone}
               toggle={togglePacking}
               participants={participants}
@@ -1779,7 +1779,7 @@ export function WarmTripDetail({
             />
           )}
           {mode === "요리" && (
-            <Cooking
+            <TripCooking
               recipes={recipes}
               setRecipes={setRecipes}
               readyIngredientIds={cookingReadyIngredientIds}
