@@ -28,7 +28,23 @@ import { showAlert } from "../showAlert";
 import { 높이, 모서리, 불투명도, 아이콘, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 import { 공용스타일 } from "./styles";
-import { DetailEditableContext, DetailFeedbackContext, DetailField, DetailSheet, DetailThemeContext, EmptyState, OptionField, OptionalFormSection, TabActionHeader, newPlaceId, readClipboard, useDraftChanged, 금액_치기, 금액_키보드, 붙여넣기_한도 } from "./parts";
+import {
+  DetailEditableContext,
+  DetailFeedbackContext,
+  DetailField,
+  DetailSheet,
+  DetailThemeContext,
+  EmptyState,
+  OptionField,
+  OptionalFormSection,
+  TabActionHeader,
+  newPlaceId,
+  readClipboard,
+  useDraftChanged,
+  금액_치기,
+  금액_키보드,
+  붙여넣기_한도,
+} from "./parts";
 
 /** 여행 상세의 「요리」 탭. 해 먹을 것과 장 볼 것을 본다. */
 

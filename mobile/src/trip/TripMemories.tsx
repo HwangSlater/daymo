@@ -42,7 +42,27 @@ import { COVER_FAIL, COVER_UNDO, coverNowOf, coverPickable, coverToggleOf, cover
 import { COVER_FOCUS_DEFAULT, focusBody, type CoverFocus } from "../coverCrop";
 import { CoverFocusScreen } from "../ui/CoverFocusScreen";
 import { 공용스타일 } from "./styles";
-import { CoverBadge, DetailEditableContext, DetailFeedbackContext, DetailField, DetailSheet, DetailThemeContext, EmptyState, FeedbackAction, ListMoreButton, NO_IDS, OptionField, OptionalFormSection, ReportForm, ReportLink, SectionLabel, TabActionHeader, newPlaceId, requiredDot, useDraftChanged } from "./parts";
+import {
+  CoverBadge,
+  DetailEditableContext,
+  DetailFeedbackContext,
+  DetailField,
+  DetailSheet,
+  DetailThemeContext,
+  EmptyState,
+  FeedbackAction,
+  ListMoreButton,
+  NO_IDS,
+  OptionField,
+  OptionalFormSection,
+  ReportForm,
+  ReportLink,
+  SectionLabel,
+  TabActionHeader,
+  newPlaceId,
+  requiredDot,
+  useDraftChanged,
+} from "./parts";
 
 /** 여행 상세의 「기록」 탭. 사진·일기·메모와 추억 카드를 본다. */
 

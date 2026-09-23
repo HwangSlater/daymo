@@ -54,7 +54,34 @@ import { typo } from "../theme/typography";
 import { naverInk } from "../theme/colors";
 import { mapProviderName, mapProviderOf } from "../mapLinks";
 import { 공용스타일 } from "./styles";
-import { DetailEditableContext, DetailFeedbackContext, DetailField, DetailSheet, DetailThemeContext, EmptyState, InfoLine, InfoPanel, Moment, NO_PHOTOS, OptionField, OptionalFormSection, PairedDetailField, PhotoStrip, SectionLabel, StayRangePicker, TabActionHeader, TimeRow, TransportCard, TravelInfoRow, TravelMiniCard, ViewMode, newPlaceId, useOrderWarning, 금액_치기, 금액_키보드 } from "./parts";
+import {
+  DetailEditableContext,
+  DetailFeedbackContext,
+  DetailField,
+  DetailSheet,
+  DetailThemeContext,
+  EmptyState,
+  InfoLine,
+  InfoPanel,
+  Moment,
+  NO_PHOTOS,
+  OptionField,
+  OptionalFormSection,
+  PairedDetailField,
+  PhotoStrip,
+  SectionLabel,
+  StayRangePicker,
+  TabActionHeader,
+  TimeRow,
+  TransportCard,
+  TravelInfoRow,
+  TravelMiniCard,
+  ViewMode,
+  newPlaceId,
+  useOrderWarning,
+  금액_치기,
+  금액_키보드,
+} from "./parts";
 
 /** 여행 상세의 「일정」 탭. 날짜별 일정과 교통편·숙소·예약을 한 곳에서 본다. */
 

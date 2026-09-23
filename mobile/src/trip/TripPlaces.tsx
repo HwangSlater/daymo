@@ -31,7 +31,27 @@ import { parseNaverPlaceShare, resolveNaverPlaceShare } from "../naverPlaceResol
 import { parseKakaoPlaceShare, resolveKakaoPlaceShare } from "../kakaoPlaceShare";
 import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } from "../mapLinks";
 import { 공용스타일 } from "./styles";
-import { DetailEditableContext, DetailFeedbackContext, DetailField, DetailSheet, DetailThemeContext, EmptyState, ListMoreButton, NO_PHOTOS, OptionField, OptionalFormSection, PhotoStrip, StayRangePicker, TabActionHeader, TimeRow, newPlaceId, readClipboard, useDraftChanged, useOrderWarning, 붙여넣기_한도 } from "./parts";
+import {
+  DetailEditableContext,
+  DetailFeedbackContext,
+  DetailField,
+  DetailSheet,
+  DetailThemeContext,
+  EmptyState,
+  ListMoreButton,
+  NO_PHOTOS,
+  OptionField,
+  OptionalFormSection,
+  PhotoStrip,
+  StayRangePicker,
+  TabActionHeader,
+  TimeRow,
+  newPlaceId,
+  readClipboard,
+  useDraftChanged,
+  useOrderWarning,
+  붙여넣기_한도,
+} from "./parts";
 
 /** 여행 상세의 「장소」 탭. 가 볼 곳을 모으고 일정에 담는다. */
 

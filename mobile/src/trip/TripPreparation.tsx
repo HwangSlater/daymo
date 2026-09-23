@@ -33,7 +33,21 @@ import { showAlert } from "../showAlert";
 import { 높이, 모서리, 불투명도, 아이콘, 여백, 누름여유, 글자누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 import { 공용스타일 } from "./styles";
-import { DetailEditableContext, DetailFeedbackContext, DetailField, DetailSheet, DetailThemeContext, EmptyState, OptionField, OptionalFormSection, TabActionHeader, newPlaceId, readClipboard, useDraftChanged, 붙여넣기_한도 } from "./parts";
+import {
+  DetailEditableContext,
+  DetailFeedbackContext,
+  DetailField,
+  DetailSheet,
+  DetailThemeContext,
+  EmptyState,
+  OptionField,
+  OptionalFormSection,
+  TabActionHeader,
+  newPlaceId,
+  readClipboard,
+  useDraftChanged,
+  붙여넣기_한도,
+} from "./parts";
 
 /** 여행 상세의 「준비」 탭. 챙길 것과 메모를 사람별로 본다. */
 
