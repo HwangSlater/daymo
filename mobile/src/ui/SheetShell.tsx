@@ -19,6 +19,7 @@ import { Glyph } from "../Glyph";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSheetDrag } from "../sheetDrag";
+import { SheetHandle } from "./SheetHandle";
 import { showAlert } from "../showAlert";
 import { useWebKeyboardFocus, useWebKeyboardOpen } from "./webKeyboardFocus";
 import { useWebBackClose } from "../useWebBackClose";
@@ -344,7 +345,7 @@ export function SheetShell({
         ]}
       >
         <View {...drag.panHandlers} style={키보드_열림 ? styles.dragAreaCompact : styles.dragArea}>
-          {!키보드_열림 && <View style={styles.handle} />}
+          {!키보드_열림 && <SheetHandle />}
         </View>
         {/* 머리는 제목과 닫기 한 줄이다. 예전에는 "장소 · 추가" 와 "장소 추가" 가
             위아래로 겹쳐 있었고 그 둘을 테두리 상자로 묶어, 내용이 시작되기도 전에
@@ -514,7 +515,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  handle: { width: 54, height: 5, borderRadius: 모서리.원, backgroundColor: "#C7C7C3" },
   headMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
   // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
   kindBar: { width: 3, height: 19, borderRadius: 모서리.표식 },

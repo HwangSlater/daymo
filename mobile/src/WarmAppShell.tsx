@@ -67,6 +67,9 @@ import {
   useSaveSettings,
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
+import { CheckBox } from "./ui/CheckBox";
+import { SheetHandle } from "./ui/SheetHandle";
+import { Switch } from "./ui/Switch";
 import { Chip } from "./ui/Chip";
 import { EmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
@@ -2183,9 +2186,7 @@ function AuthScreen({
                 accessibilityState={{ checked: termsAgreed && privacyAgreed && ageAgreed }}
                 style={[s.authConsentRow, s.authConsentAll, { borderBottomColor: theme.border }]}
               >
-                <View style={[s.authConsentCheck, { borderColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.surface }]}>
-                  {termsAgreed && privacyAgreed && ageAgreed && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
-                </View>
+                <CheckBox theme={theme} on={termsAgreed && privacyAgreed && ageAgreed} style={s.체크칸} />
                 <Text style={[s.authConsentAllText, { color: theme.text }]}>모두 동의</Text>
               </Pressable>
               {/* 광고·마케팅 알림은 보내지 않아서 선택 동의 칸을 두지 않는다(개인정보 처리방침 1항). */}
@@ -2201,9 +2202,7 @@ function AuthScreen({
                     accessibilityState={{ checked: consent.checked }}
                     style={[s.authConsentRow, { flex: 1 }]}
                   >
-                    <View style={[s.authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
-                      {consent.checked && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
-                    </View>
+                    <CheckBox theme={theme} on={consent.checked} style={s.체크칸} />
                     <Text style={[s.authConsentText, { color: theme.text }]}>{consent.label}</Text>
                   </Pressable>
                   {consent.url && (
@@ -2606,9 +2605,7 @@ function AccountDeletionPanel({
         accessibilityState={{ checked: understood }}
         style={s.authConsentRow}
       >
-        <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
-          {understood && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
-        </View>
+        <CheckBox theme={theme} on={understood} tone={danger} style={s.체크칸} />
         <Text style={[s.authConsentText, { color: theme.text }]}>위 내용을 확인했어요</Text>
       </Pressable>
       <ReconfirmField
@@ -4774,11 +4771,11 @@ function KoreaTripMap({
         viewBox={viewBox}
         preserveAspectRatio="xMidYMid meet"
       >
-        <Path d={koreaLandPath} fill={theme.dark ? "#17302F" : "#DDF4EF"} stroke="none" />
+        <Path d={koreaLandPath} fill={theme.dark ? theme.surface : theme.primarySoft} stroke="none" />
         <Path
           d={koreaOutlinePath}
           fill="none"
-          stroke={theme.dark ? theme.secondary : "#159D8D"}
+          stroke={theme.secondary}
           strokeWidth={2.2 / zoom}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -4786,7 +4783,7 @@ function KoreaTripMap({
         <Path
           d={koreaAdminPath}
           fill="none"
-          stroke={theme.dark ? "#4D837E" : "#4DA99E"}
+          stroke={`${theme.secondary}99`}
           strokeWidth={0.75 / zoom}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -4795,7 +4792,7 @@ function KoreaTripMap({
           <Path
             d={cityPath!}
             fill="none"
-            stroke={theme.dark ? "#315C58" : "#8CCFC7"}
+            stroke={`${theme.secondary}55`}
             strokeWidth={0.38 / zoom}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -4826,25 +4823,26 @@ function KoreaTripMap({
             accessibilityState={{ selected: active }}
             style={[
               s.mapPin,
-              { left, top },
-              theme.dark && { backgroundColor: theme.surface, borderColor: theme.secondary },
-              count > 0 && s.mapPinVisited,
-              active && s.mapPinActive,
+              { left, top, backgroundColor: theme.surface, borderColor: theme.border },
+              // 다녀온 곳은 보조색, 고른 곳은 강조색이다. 색만으로 갈리지 않게
+              // 고른 것은 한 뼘 크게 그린다.
+              count > 0 && { backgroundColor: theme.secondary, borderColor: theme.surface },
+              active && [s.mapPinActive, { backgroundColor: theme.accent, borderColor: theme.surface }],
             ]}
           >
             <Text
               numberOfLines={1}
               style={[
                 s.mapPinText,
-                theme.dark && { color: theme.secondary },
-                (count > 0 || active) && s.mapPinTextVisited,
+                { color: theme.muted },
+                (count > 0 || active) && { color: onAccent(theme.dark) },
               ]}
             >
               {pin.name}
             </Text>
             {count > 0 && (
-              <View style={s.pinCount}>
-                <Text style={s.pinCountText}>{count}</Text>
+              <View style={[s.pinCount, { backgroundColor: theme.surface }]}>
+                <Text style={[s.pinCountText, { color: theme.text }]}>{count}</Text>
               </View>
             )}
           </Pressable>
@@ -4858,7 +4856,7 @@ function KoreaTripMap({
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          <View style={[s.mapTrayHandle, { backgroundColor: theme.border }]} />
+          <SheetHandle color={theme.border} style={s.mapTrayHandle} />
           <View style={s.mapTrayHead}>
             <View>
               <Text style={[s.mapTrayTitle, { color: theme.text }]}>{selected} 여행</Text>
@@ -6752,15 +6750,7 @@ function Setting({
           </Text>
         )}
         {스위치 ? (
-          <View
-            style={[
-              s.settingSwitch,
-              { backgroundColor: on ? (theme?.primary ?? "#3F4C8F") : (theme?.surfaceAlt ?? "#EFEEE9") },
-              theme && !on && { borderColor: theme.border, borderWidth: 1 },
-            ]}
-          >
-            <View style={[s.settingSwitchKnob, on && s.settingSwitchKnobOn]} />
-          </View>
+          <Switch theme={theme ?? undefined} on={on} />
         ) : (
           <Glyph name="chevronRight" size={아이콘.보통} color={theme?.muted ?? "#646C7A"} />
         )}
@@ -6928,9 +6918,7 @@ function SpaceDeletionPanel({
         accessibilityState={{ checked: understood }}
         style={s.authConsentRow}
       >
-        <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
-          {understood && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
-        </View>
+        <CheckBox theme={theme} on={understood} tone={danger} style={s.체크칸} />
         <Text style={[s.authConsentText, { color: theme.text }]}>삭제되는 범위를 확인했어요</Text>
       </Pressable>
       {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
@@ -7734,9 +7722,6 @@ const s = StyleSheet.create({
   settingCopy: { flex: 1, minWidth: 0, paddingRight: 10, paddingVertical: 9 },
   settingHint: { fontSize: 12, fontFamily: typo.body.family, marginTop: 3, lineHeight: 17 },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  settingSwitch: { width: 44, height: 26, borderRadius: 모서리.원, padding: 3, justifyContent: "center" },
-  settingSwitchKnob: { width: 20, height: 20, borderRadius: 모서리.원, backgroundColor: "#FFFFFF" },
-  settingSwitchKnobOn: { alignSelf: "flex-end" },
   settingValue: { fontSize: 14, fontFamily: typo.data.family },
   notebookHead: {
     flexDirection: "row",
@@ -7887,7 +7872,7 @@ const s = StyleSheet.create({
   paperTripHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   paperTripCopy: { flex: 1, paddingRight: 12 },
   paperKicker: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 6 },
-  paperTitle: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  paperTitle: { fontSize: 28, lineHeight: 39, fontFamily: typo.title.family, letterSpacing: -0.5 },
   paperDate: { fontSize: 11, marginTop: 6 },
   paperTripStub: {
     width: 92,
@@ -7967,7 +7952,7 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   noteTitleSmall: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 4 },
-  noteTitle: { fontSize: 20, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  noteTitle: { fontSize: 20, lineHeight: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   memoPaper: {
     marginTop: 0,
     borderWidth: 1,
@@ -8005,7 +7990,7 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   homeArchiveEyebrow: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 4 },
-  homeArchiveTitle: { fontSize: 18, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  homeArchiveTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family, letterSpacing: -0.5 },
   homeArchiveMore: { fontSize: 14, fontFamily: typo.label.family },
   homeArchiveRow: { flexDirection: "row", gap: 8 },
   homeArchiveCard: {
@@ -8054,6 +8039,7 @@ const s = StyleSheet.create({
   },
   logo: {
     fontSize: 34,
+    lineHeight: 48,
     letterSpacing: -0.5,
     fontFamily: typo.hero.family,
   },
@@ -8109,14 +8095,7 @@ const s = StyleSheet.create({
     ...그림자.뜬것,
     shadowOffset: { width: 0, height: -4 },
   },
-  mapTrayHandle: {
-    alignSelf: "center",
-    width: 34,
-    height: 4,
-    borderRadius: 모서리.원,
-    backgroundColor: "#D8DEDC",
-    marginBottom: 8,
-  },
+  mapTrayHandle: { alignSelf: "center", marginBottom: 8 },
   mapTrayHead: {
     flexDirection: "row",
     alignItems: "center",
@@ -8124,7 +8103,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 8,
   },
-  mapTrayTitle: { fontSize: 18, fontFamily: typo.title.family },
+  mapTrayTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   mapTrayCount: { fontSize: 14, marginTop: 2 },
   // 지도 위에 얹히는 닫기라 지도를 가리지 않게 작게 둔다. hitSlop 으로 44 를 채운다.
   mapTrayClose: {
@@ -8169,28 +8148,21 @@ const s = StyleSheet.create({
     width: 40,
     height: 25,
     borderRadius: 모서리.행,
-    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#A9D9D1",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 2,
   },
-  mapPinVisited: { backgroundColor: "#19B6A3", borderColor: "#FFFFFF" },
   mapPinActive: {
-    backgroundColor: "#FF6B5F",
-    borderColor: "#FFFFFF",
     transform: [{ translateX: -20 }, { translateY: -12 }, { scale: 1.08 }],
   },
   mapPinText: {
-    color: "#438178",
     fontSize: 12,
     lineHeight: 15,
     fontFamily: typo.label.family,
     maxWidth: 34,
     textAlign: "center",
   },
-  mapPinTextVisited: { color: "#FFFFFF" },
   pinCount: {
     position: "absolute",
     right: -5,
@@ -8198,11 +8170,10 @@ const s = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 모서리.원,
-    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
-  pinCountText: { color: "#17233D", fontSize: 14, fontFamily: typo.data.family },
+  pinCountText: { fontSize: 14, fontFamily: typo.data.family },
   zoomControls: {
     position: "absolute",
     right: 5,
@@ -8305,6 +8276,7 @@ const s = StyleSheet.create({
   },
   screenTitle: {
     fontSize: 28,
+    lineHeight: 39,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
     marginTop: 2,
@@ -8520,7 +8492,7 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   historyEyebrow: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 0.5 },
-  historyTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 4 },
+  historyTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family, marginTop: 4 },
   historyPeriod: { fontSize: 12, fontFamily: typo.label.family },
   historyUnit: { fontSize: 12, fontFamily: typo.label.family },
   togetherQuickRow: { flexDirection: "row", gap: 6, marginTop: 8 },
@@ -8613,10 +8585,10 @@ const s = StyleSheet.create({
     ...그림자.뜬것,
   },
   authAppIcon: { width: "100%", height: "100%" },
-  authLogo: { fontSize: 28, fontFamily: typo.hero.family, letterSpacing: -0.5 },
+  authLogo: { fontSize: 28, lineHeight: 39, fontFamily: typo.hero.family, letterSpacing: -0.5 },
   authTagline: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 6 },
   authCard: { borderRadius: 모서리.구역, borderWidth: 1, padding: 20 },
-  authTitle: { fontSize: 20, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  authTitle: { fontSize: 20, lineHeight: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   authDescription: { fontSize: 14, lineHeight: 22, marginTop: 6, marginBottom: 20 },
   // 버튼 모양은 SocialLoginButton 이 제공자 가이드대로 정한다. 여기서는 세로로 쌓기만 한다.
   oauthGrid: { gap: 8 },
@@ -8651,7 +8623,8 @@ const s = StyleSheet.create({
   authConsentRow: { minHeight: 높이.버튼, flexDirection: "row", alignItems: "center" },
   authConsentAll: { borderBottomWidth: 1, marginBottom: 4 },
   authConsentAllText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
-  authConsentCheck: { width: 22, height: 22, borderRadius: 모서리.상자, borderWidth: 1, alignItems: "center", justifyContent: "center", marginRight: 8 },
+  /** 체크 칸을 줄에서 띄우는 여백. 칸 자체는 `ui/CheckBox` 가 그린다. */
+  체크칸: { marginRight: 8 },
   authConsentText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
   authPrivacy: { fontSize: 12, lineHeight: 15, textAlign: "center", marginTop: 16 },
   accountLogout: {
@@ -8714,7 +8687,7 @@ const s = StyleSheet.create({
   workspaceSwitchBadge: { height: 29, borderRadius: 모서리.상자, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   workspaceSwitchBadgeText: { fontSize: 12, fontFamily: typo.label.family },
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
-  memberSectionTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 2 },
+  memberSectionTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family, marginTop: 2 },
   memberManageHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.가로좁게 },
   memberManageText: { fontSize: 12, fontFamily: typo.label.family, paddingVertical: 4 },
   memberStrip: { minHeight: 84, borderRadius: 모서리.행, borderWidth: 1 },
@@ -8749,7 +8722,7 @@ const s = StyleSheet.create({
   historyLatestName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
   historyLatestDate: { fontSize: 11, fontFamily: typo.caption.family },
   memberManagerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  memberManagerTitle: { fontSize: 18, fontFamily: typo.title.family },
+  memberManagerTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   memberManagerCopy: { fontSize: 14, fontFamily: typo.body.family, marginTop: 4 },
   memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 여백.가로좁게, marginBottom: 여백.세로 },
   // 한 줄에 둘. `48.8%` 와 `gap: 8` 을 함께 쓰면 둘을 더한 값이 칸보다 넓어져

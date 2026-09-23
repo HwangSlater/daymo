@@ -72,6 +72,8 @@ import {
   type KeepsakeSticker,
 } from "./cardDecor";
 import { Chip, ChipRow as SharedChipRow } from "./ui/Chip";
+import { SheetHandle } from "./ui/SheetHandle";
+import { Switch } from "./ui/Switch";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
 import { 높이, 모서리, 불투명도, 아이콘, 여백 } from "./theme/controls";
@@ -220,9 +222,7 @@ function Toggle({
       style={({ pressed }) => [styles.toggleRow, pressed && styles.pressed]}
     >
       <Text style={styles.toggleLabel}>{label}</Text>
-      <View style={[styles.toggleTrack, on && { backgroundColor: accent }]}>
-        <View style={[styles.toggleKnob, on && styles.toggleKnobOn]} />
-      </View>
+      <Switch on={on} tone={accent} colors={{ off: CHIP, knob: on ? "#FFFFFF" : INK_FAINT }} />
     </Pressable>
   );
 }
@@ -857,7 +857,7 @@ export function CardDecorTools({
               ]}
             >
               <View {...손잡이.panHandlers} style={styles.sheetGrip} accessibilityRole="adjustable" accessibilityLabel={`${tab} 도구 칸 크기`}>
-                <View style={styles.sheetHandle} />
+                <SheetHandle color="#4A4953" />
                 <View style={styles.sheetHead}>
                   <Text style={styles.sheetTitle}>{tab}</Text>
                   <Pressable onPress={() => setTab(null)} accessibilityRole="button" accessibilityLabel="도구 닫기" hitSlop={10}>
@@ -1275,7 +1275,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minHeight: 44,
+    minHeight: 높이.버튼,
     marginTop: 12,
     paddingHorizontal: 14,
     borderRadius: 모서리.행,
@@ -1326,9 +1326,6 @@ const styles = StyleSheet.create({
     minHeight: 높이.버튼,
   },
   toggleLabel: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
-  toggleTrack: { width: 38, height: 22, borderRadius: 모서리.원, backgroundColor: CHIP, justifyContent: "center" },
-  toggleKnob: { width: 16, height: 16, borderRadius: 모서리.원, marginLeft: 3, backgroundColor: INK_FAINT },
-  toggleKnobOn: { marginLeft: 19, backgroundColor: "#FFFFFF" },
   field: {
     height: 높이.입력,
     borderRadius: 모서리.버튼,
@@ -1351,7 +1348,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   sheetGrip: { paddingTop: 8, paddingBottom: 4 },
-  sheetHandle: { alignSelf: "center", width: 40, height: 5, borderRadius: 모서리.원, backgroundColor: "#4A4953" },
   sheetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 6 },
   sheetTitle: { fontSize: 15, color: INK, fontFamily: typo.title.family },
   sheetScroll: { flex: 1 },
@@ -1367,7 +1363,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
     zIndex: 6,
   },
-  toolBarItem: { alignItems: "center", gap: 3, minWidth: 56, minHeight: 44, justifyContent: "center" },
+  toolBarItem: { alignItems: "center", gap: 3, minWidth: 56, minHeight: 높이.버튼, justifyContent: "center" },
   toolBarText: { fontSize: 11, color: INK_SOFT, fontFamily: typo.label.family },
   toolBarTextOn: { color: ACCENT, fontFamily: typo.title.family },
   addText: {

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./AppText";
 import { Glyph } from "./Glyph";
 import { AppTheme } from "./theme";
-import { 모서리, 아이콘 } from "./theme/controls";
+import { 높이, 모서리, 아이콘 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 /**
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   monthPicker: { paddingBottom: 4 },
   monthGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   // 한 줄에 넷씩. 셋씩 놓으면 칸이 커져 달력보다 판이 길어지고, 여섯씩이면 손가락에 모자란다.
-  monthCell: { width: "23.5%", height: 44, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
+  monthCell: { width: "23.5%", height: 높이.버튼, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   monthCellText: { fontSize: 14, fontFamily: typo.label.family },
   rangeWeek: { flexDirection: "row", marginBottom: 2 },
   rangeWeekday: { width: "14.285%", fontSize: 12, fontFamily: typo.label.family, textAlign: "center" },

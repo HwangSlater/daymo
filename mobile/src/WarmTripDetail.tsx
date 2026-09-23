@@ -162,6 +162,7 @@ import * as ImagePicker from "expo-image-picker";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
 import { Toast } from "./ui/Toast";
+import { CheckBox } from "./ui/CheckBox";
 import { EmptyState as SharedEmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
@@ -169,7 +170,7 @@ import { shrinkForWeb } from "./webImage";
 import { useWebBackClose } from "./useWebBackClose";
 import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
-import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
+import { kakaoInk, memoPaper, naverInk, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
 import { parseKakaoPlaceShare, resolveKakaoPlaceShare } from "./kakaoPlaceShare";
 import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } from "./mapLinks";
@@ -4354,7 +4355,7 @@ function TripOverview({
               style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
             />
             {planMapUrl.length > 0 && (
-              <Text style={styles.linkState}>
+              <Text style={[styles.linkState, { color: naverInk(Boolean(theme?.dark)) }]}>
                 {mapProviderOf(planMapUrl) !== "other"
                   ? `${mapProviderName[mapProviderOf(planMapUrl)]} 링크가 연결돼요`
                   : "네이버 지도나 카카오맵 공유 링크인지 확인해 주세요"}
@@ -4624,7 +4625,7 @@ function TripOverview({
             maxLength={2048}
           />
           {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
-            <Text style={styles.linkState}>https:// 로 시작하는 링크만 저장돼요</Text>
+            <Text style={[styles.linkState, { color: naverInk(Boolean(theme?.dark)) }]}>https:// 로 시작하는 링크만 저장돼요</Text>
           )}
           <OptionField
             label="여행 일정 표시"
@@ -5905,7 +5906,7 @@ function Places({
             maxLength={2048}
           />
           {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
-            <Text style={styles.linkState}>https:// 로 시작하는 링크만 저장돼요</Text>
+            <Text style={[styles.linkState, { color: naverInk(Boolean(theme?.dark)) }]}>https:// 로 시작하는 링크만 저장돼요</Text>
           )}
           <DetailField
             label="예약 메모 (선택)"
@@ -6431,17 +6432,9 @@ function Preparation({
           accessibilityLabel={`${item.name} ${completed ? "완료 해제" : "완료"}`}
           // 원은 22px 안팎이라 손가락에 모자란다. 둘레로 누름 여유를 준다.
           hitSlop={11}
-          style={[
-            styles.packingV2Check,
-            theme && {
-              borderColor: completed ? theme.primary : theme.border,
-              backgroundColor: completed ? theme.primary : theme.surface,
-            },
-          ]}
+          style={styles.체크칸}
         >
-          {completed && (
-            <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
-          )}
+          <CheckBox theme={theme ?? undefined} on={completed} 모양="원" />
         </Pressable>
         <View style={styles.packingV2Body}>
           <View style={styles.packingV2TitleRow}>
@@ -7369,20 +7362,7 @@ function Preparation({
                       theme && { backgroundColor: theme.primarySoft },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.cookingImportCheck,
-                      theme && {
-                        borderColor: selected ? theme.primary : theme.border,
-                      },
-                      selected &&
-                        theme && { backgroundColor: theme.primary },
-                    ]}
-                  >
-                    {selected && (
-                      <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
-                    )}
-                  </View>
+                  <CheckBox theme={theme ?? undefined} on={selected} style={styles.체크칸} />
                   <View style={styles.cookingImportItemCopy}>
                     <Text
                       style={[
@@ -8366,17 +8346,9 @@ function Cooking({
                       accessibilityLabel={`${item.name} ${readyIngredientIds.includes(item.id) ? "준비 완료 해제" : "준비 완료"}`}
                       disabled={!canEdit}
                       hitSlop={11}
-                      style={[
-                        styles.cookV2IngredientCheck,
-                        theme && {
-                          borderColor: readyIngredientIds.includes(item.id) ? theme.primary : theme.border,
-                          backgroundColor: readyIngredientIds.includes(item.id) ? theme.primary : theme.surface,
-                        },
-                      ]}
+                      style={styles.체크칸}
                     >
-                      {readyIngredientIds.includes(item.id) && (
-                        <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
-                      )}
+                      <CheckBox theme={theme ?? undefined} on={readyIngredientIds.includes(item.id)} 모양="원" />
                     </Pressable>
                     <View style={styles.ingredientBody}>
                       <Text
@@ -13262,10 +13234,10 @@ const styles = StyleSheet.create({
   memoAddHint: { fontSize: 11, marginTop: 2 },
   memoEditor: { borderWidth: 1, borderRadius: 모서리.행, padding: 12, marginBottom: 12 },
   memoEditorHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
-  memoEditorTitle: { fontSize: 18, fontFamily: typo.title.family },
+  memoEditorTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   memoEditorCancel: { fontSize: 12, fontFamily: typo.label.family },
   memoEmpty: { alignItems: "center", paddingVertical: 20 },
-  memoEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
+  memoEmptyTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   memoEmptyHint: { fontSize: 11, marginTop: 4 },
   travelTimelineCard: { padding: 0, marginBottom: 22, overflow: "hidden" },
   travelTimelineHead: {
@@ -13312,8 +13284,8 @@ const styles = StyleSheet.create({
   pairedFieldArrow: { width: 27, height: 27, borderRadius: 모서리.상자, alignItems: "center", justifyContent: "center" },
   transportStopRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
   transportStopMark: { width: 33, fontSize: 11, fontFamily: typo.caption.family, textAlign: "center" },
-  transportStopName: { flex: 1, minWidth: 0, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14 },
-  transportStopTime: { width: 74, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 6, fontSize: 13, textAlign: "center" },
+  transportStopName: { flex: 1, minWidth: 0, height: 높이.입력, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14 },
+  transportStopTime: { width: 74, height: 높이.입력, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 6, fontSize: 14, textAlign: "center" },
   transportStopDelete: { width: 24, alignItems: "center", justifyContent: "center" },
   transportStopAdd: { alignSelf: "flex-start", minHeight: 높이.칩, justifyContent: "center", marginTop: 6, marginBottom: 6 },
   transportStopAddText: { fontSize: 13, fontFamily: typo.label.family },
@@ -13764,7 +13736,9 @@ const styles = StyleSheet.create({
     color: "#184D36",
     fontSize: 12,
   },
-  linkState: { color: "#278153", fontSize: 14, fontFamily: typo.label.family, marginTop: 8 },
+  // 색은 부르는 쪽에서 `naverInk(dark)` 로 준다. 여기 고정하면 다크에서 4.0:1 로
+  // 떨어져 AA 에 못 미쳤다.
+  linkState: { fontSize: 14, fontFamily: typo.label.family, marginTop: 8 },
   mapLinkRow: { marginTop: 6 },
   placeAddText: { fontSize: 12, fontFamily: typo.label.family },
   placeList: { gap: 8 },
@@ -13831,7 +13805,7 @@ const styles = StyleSheet.create({
   moneyBlockAction: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 8 },
   moneyBlockActionText: { fontSize: 13, fontFamily: typo.label.family },
   moneyBlockBody: { borderWidth: 1, borderRadius: 모서리.구역, padding: 16 },
-  moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
+  moneyTotal: { fontSize: 32, lineHeight: 45, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   quickAddChips: { gap: 6, paddingVertical: 9, paddingRight: 4 },
   quickAddRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   quickAddInput: { flex: 1, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, fontFamily: typo.data.family },
@@ -13906,7 +13880,7 @@ const styles = StyleSheet.create({
   payWhyLine: { fontSize: 13, lineHeight: 19, fontFamily: typo.label.family },
   moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 모서리.행, paddingHorizontal: 14, paddingVertical: 12 },
   moneySettleText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
-  moneySettleAmount: { fontSize: 20, fontFamily: typo.data.family },
+  moneySettleAmount: { fontSize: 20, lineHeight: 28, fontFamily: typo.data.family },
   moneyInsightGrid: { flexDirection: "row" },
   moneyInsightItem: { flex: 1, minWidth: 0, paddingRight: 8 },
   moneyInsightDivider: { borderLeftWidth: 1, paddingLeft: 10, paddingRight: 4 },
@@ -13968,7 +13942,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
   },
-  planPlaceName: { fontSize: 18, fontFamily: typo.title.family },
+  planPlaceName: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   planPlaceMeta: {
     fontSize: 11,
     fontFamily: typo.caption.family,
@@ -13982,7 +13956,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     paddingHorizontal: 2,
   },
-  packingManageTitle: { fontSize: 18, fontFamily: typo.title.family },
+  packingManageTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   packingManageHint: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   packingShowAll: {
     borderWidth: 1,
@@ -14185,15 +14159,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   packingV2RowBorder: { borderTopWidth: StyleSheet.hairlineWidth },
-  packingV2Check: {
-    width: 23,
-    height: 23,
-    borderRadius: 모서리.원,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
+  /** 체크 칸을 줄에서 띄우는 여백. 칸 자체는 `ui/CheckBox` 가 그린다. */
+  체크칸: { marginRight: 8 },
   packingV2Body: { flex: 1, minWidth: 0 },
   packingV2TitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   packingV2Name: { flexShrink: 1, fontSize: 14 },
@@ -14330,16 +14297,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 2,
   },
-  cookingImportCheck: {
-    width: 21,
-    height: 21,
-    borderRadius: 모서리.상자,
-    borderWidth: 1.5,
-    borderColor: "#D7D4CE",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
+
   cookingImportItemCopy: { flex: 1 },
   cookingImportItemName: { fontSize: 14, fontFamily: typo.title.family },
   cookingImportItemMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
@@ -14550,6 +14508,7 @@ const styles = StyleSheet.create({
   },
   cookingTitle: {
     fontSize: 24,
+    lineHeight: 34,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
   },
@@ -14585,15 +14544,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#F2EEE9",
   },
   cookV2IngredientDone: { opacity: 불투명도.흐림 },
-  cookV2IngredientCheck: {
-    width: 23,
-    height: 23,
-    borderRadius: 모서리.원,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
+
   cookV2IngredientNameDone: { textDecorationLine: "line-through" },
   ingredientBody: { flex: 1 },
   ingredientName: { fontSize: 14, fontFamily: typo.title.family },
@@ -14682,7 +14633,7 @@ const styles = StyleSheet.create({
   moneyJumpText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   moneyFabText: { fontSize: 14, fontFamily: typo.title.family },
   date: { fontSize: 11, fontFamily: typo.caption.family, letterSpacing: 0, marginBottom: 6 },
-  title: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  title: { fontSize: 28, lineHeight: 39, fontFamily: typo.title.family, letterSpacing: -0.5 },
   subtitle: { fontSize: 11, marginTop: 6 },
   // 여행 이름과 메모지 묶음. 위 여백을 여기 두어야 탭 줄이 화면에 붙었을 때
   // 그 위로 아래 내용이 비쳐 보이는 틈이 생기지 않는다.

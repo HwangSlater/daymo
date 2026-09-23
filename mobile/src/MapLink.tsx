@@ -3,7 +3,7 @@ import { Text } from "./AppText";
 import { mapProviderName, mapProviderOf } from "./mapLinks";
 import { AppTheme } from "./theme";
 import { brand, kakaoInk, naverInk } from "./theme/colors";
-import { 모서리, 불투명도 } from "./theme/controls";
+import { 높이, 모서리, 불투명도 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 const badges = {
@@ -71,10 +71,10 @@ export function MapLink({ theme, url, label, shape = "chip", compact = false, sm
 
 const styles = StyleSheet.create({
   base: { flexDirection: "row", alignItems: "center", gap: 4 },
-  chip: { alignSelf: "flex-start", minHeight: 44, borderRadius: 모서리.상자, paddingHorizontal: 10 },
-  chipCompact: { minHeight: 36, paddingHorizontal: 8 },
+  chip: { alignSelf: "flex-start", minHeight: 높이.버튼, borderRadius: 모서리.상자, paddingHorizontal: 10 },
+  chipCompact: { minHeight: 높이.칩, paddingHorizontal: 8 },
   chipSmall: { minHeight: 28, paddingHorizontal: 7, borderRadius: 모서리.상자 },
-  inline: { flex: 1, minHeight: 44, justifyContent: "center" },
+  inline: { flex: 1, minHeight: 높이.버튼, justifyContent: "center" },
   pressed: { opacity: 불투명도.눌림 },
   mark: {
     width: 16,

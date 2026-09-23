@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   box: { borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 12, paddingBottom: 10, marginBottom: 12 },
   head: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10 },
   big: { flex: 1, minWidth: 0 },
-  bigText: { fontSize: 28, fontFamily: typo.data.family, letterSpacing: 0.5 },
+  bigText: { fontSize: 28, lineHeight: 39, fontFamily: typo.data.family, letterSpacing: 0.5 },
   bigHint: { fontSize: 11, fontFamily: typo.body.family, marginTop: 1 },
   typed: {
     flex: 1,
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   band: { position: "absolute", left: 0, right: 0, top: (통_높이 - 칸) / 2, height: 칸, borderRadius: 모서리.버튼 },
   column: { flex: 1 },
   cell: { height: 칸, alignItems: "center", justifyContent: "center" },
-  cellText: { fontSize: 18, fontFamily: typo.data.family },
+  cellText: { fontSize: 18, lineHeight: 25, fontFamily: typo.data.family },
   cellTextOn: { fontSize: 20 },
   colon: {
     position: "absolute",
