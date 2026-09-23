@@ -18,7 +18,7 @@ export function shareExpenseCsv(fileName: string, csv: string): Promise<"shared"
     extension: "csv",
     mimeType: "text/csv",
     uti: "public.comma-separated-values-text",
-    dialogTitle: `${fileName} 비용 내보내기`,
+    dialogTitle: `${fileName} 비용 표 저장하기`,
     text: csv,
   });
 }
@@ -30,7 +30,7 @@ export function shareTripArchive(fileName: string, markdown: string): Promise<"s
     extension: "md",
     mimeType: "text/markdown",
     uti: "net.daringfireball.markdown",
-    dialogTitle: "Daymo 여행 기록 내보내기",
+    dialogTitle: "Daymo 여행 기록 저장하기",
     text: markdown,
   });
 }

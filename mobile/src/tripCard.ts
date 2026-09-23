@@ -81,7 +81,7 @@ export const KEEPSAKE_PART_LABELS: Record<KeepsakePart, string> = {
 };
 /** 통계 칩의 이름. 카드에 찍히는 이름과 같아야 고른 것이 어디 나오는지 보인다. */
 export const KEEPSAKE_STAT_LABELS: Record<KeepsakeStatKind, string> = {
-  장소: "다녀온 곳", 사진: "사진", 날: "함께한 날", 지출: "쓴 돈",
+  장소: "다녀온 곳", 사진: "사진", 날: "함께한 날", 지출: "총 지출",
 };
 
 /** 네컷 틀인지. 틀이면 비율 대신 틀이 크기를 정한다. */

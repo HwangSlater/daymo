@@ -73,7 +73,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
         }}
         style={styles.toggle}
       >
-        <Text style={[styles.toggleText, { color: muted }]}>{open ? "휴지통 닫기" : "휴지통 · 삭제한 메모와 사진을 7일간 보관해요"}</Text>
+        <Text style={[styles.toggleText, { color: muted }]}>{open ? "휴지통 닫기" : "휴지통 · 삭제한 메모와 사진을 7일 동안 보관해요"}</Text>
       </Pressable>
       {open && (
         <View style={[styles.list, { borderColor: appTheme?.border ?? "#EEEAE5" }]}>
@@ -84,7 +84,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
             <View key={item.id} style={styles.row}>
               <View style={styles.copy}>
                 <Text numberOfLines={1} style={[styles.title, { color: text }]}>
-                  {item.type === "memo" ? "메모" : "사진"} · {item.preview || (item.type === "memo" ? "내용 없음" : "설명 없는 사진")}
+                  {item.type === "memo" ? "메모" : "사진"} · {item.preview || (item.type === "memo" ? "내용 없음" : "설명 없음")}
                 </Text>
                 <Text numberOfLines={1} style={[styles.meta, { color: muted }]}>
                   {item.deletedByName} 님이 삭제 · {trashLeftLabel(item.restoreDeadline)}

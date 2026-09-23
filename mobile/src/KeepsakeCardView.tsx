@@ -452,7 +452,7 @@ const DecorItem = memo(function DecorItem({
               onPress={() => edit.onEdit?.(decor.id)}
               hitSlop={손잡이 / 2}
               accessibilityRole="button"
-              accessibilityLabel="글자 고치기"
+              accessibilityLabel="텍스트 수정"
               style={[s.decorHandle, 알, { left: 밖, bottom: 밖 }]}
             >
               <Glyph name="pencil" size={손잡이 * 0.5} color="#23211F" weight={2.2} />

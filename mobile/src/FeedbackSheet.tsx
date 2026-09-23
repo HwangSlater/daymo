@@ -24,7 +24,7 @@ export function FeedbackSheet({ theme, onClose }: { theme: AppTheme; onClose: ()
     try {
       await sendFeedback(kind, body);
       onClose();
-      showAlert("의견을 보냈어요", "보내 주셔서 감사해요. 하나하나 꼼꼼히 읽어 볼게요.");
+      showAlert("의견을 보냈어요", "잘 받았어요. 하나하나 꼼꼼히 읽어 볼게요.");
     } catch (caught) {
       showAlert(
         "의견을 보내지 못했어요",
