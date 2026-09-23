@@ -50,9 +50,10 @@ import { usePastPacking, usePastRecipes } from "./usePastTripRows";
 import { rebindPeople, type PeopleNames } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { memoryDayCount, memoryFilterChips, memoryHeadCount, type MemoryFilter } from "./memoryFilter";
-import { isStaleDisplayCopy, originalSaveHint, photoCodec, photosLinkedTo, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
+import { isStaleDisplayCopy, originalSaveHint, photoCodec, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
 import { PhotoEditScreen, confirmPhotoDelete } from "./PhotoViewer";
 import { photoUploadHeadline, photoUploads, usePhotoUploads, type PhotoUploadJob } from "./photoUploads";
+import { usePhotoThumb, usePhotoThumbs } from "./photoThumbnails";
 import { TripCardsSection, type CardPhoto, type CardTile, type FinishedCard } from "./TripCards";
 import { PhotoGallery, type GalleryToast } from "./PhotoGallery";
 import { deletedText, memoryPreview, reinsertAt, savedText, uploadStateText } from "./gallerySelection";
@@ -746,6 +747,32 @@ function useDraftChanged(open: boolean, key: string): boolean {
 
 /** 여행 날짜를 못 정했을 때. 날짜 칸에서 고를 수 있는 값이다. */
 const UNDATED = "날짜 미정";
+
+/** 빈 id 목록. 매번 새 배열을 만들면 그것만으로 effect 가 다시 돈다. */
+const NO_IDS: readonly string[] = [];
+
+/** 사진이 붙지 않은 곳에 돌려줄 빈 목록. 위와 같은 까닭으로 하나만 만들어 쓴다. */
+const NO_PHOTOS: MemoryPhoto[] = [];
+
+/**
+ * 사진을 붙인 곳별로 한 번에 묶는다(2026-09-23 검토 #13).
+ *
+ * 예전에는 목록을 그릴 때마다 장소·일정마다 `photosLinkedTo` 로 사진 전체를 훑었다.
+ * 장소 30개 × 사진 500장이면 한 번 그릴 때 15,000번이다. 같은 파일의 `reservationByPlace`
+ * 처럼 표를 한 번 만들어 쓴다.
+ */
+function photosByTarget(photos: readonly MemoryPhoto[], targetType: PhotoLinkTarget): Map<string, MemoryPhoto[]> {
+  const 표 = new Map<string, MemoryPhoto[]>();
+  for (const photo of photos) {
+    for (const link of photo.links ?? []) {
+      if (link.targetType !== targetType) continue;
+      const 줄 = 표.get(link.targetId);
+      if (줄) 줄.push(photo);
+      else 표.set(link.targetId, [photo]);
+    }
+  }
+  return 표;
+}
 
 /**
  * 한 번에 고를 수 있는 사진 수.
@@ -1994,33 +2021,98 @@ export function WarmTripDetail({
     비운다();
     return photoUploads.subscribe(비운다);
   }, [tripId]);
-  // 다른 기기에서 올린 사진은 표시본을 받아 기기에 둔다. 한 번 받으면 다시 받지 않는다.
-  // 다만 서버가 표시본을 다시 만들어 판이 올라갔으면(`DISPLAY_REVISION`) 한 번 새로 받고
-  // 옛 파일은 지운다. 그러지 않으면 이미 본 사진은 옛 크기 그대로 남는다.
+  /**
+   * 다른 기기에서 올린 사진의 **표시본**(긴 변 2048px)을 받는다.
+   *
+   * 2026-09-23 검토 #6(가) 전에는 여행을 열기만 하면 `knownPhotoIds` 의 사진을 전부
+   * 순차로 받았다. 기록 탭을 보지 않아도 받고 문서 폴더에 영원히 남아서, 사진 1,000장이면
+   * 500MB 가 쌓였다. 이제는 **달라는 것만** 받는다 — 크게 보기로 연 한 장과 그 앞뒤
+   * 한 장, 카드에 넣으려고 고른 사진이다(`Memories` 의 `표시본_요청`).
+   * 격자·사진첩·장소 줄의 작은 칸은 썸네일(480px)을 쓴다(`photoThumbnails.ts`).
+   *
+   * 서버가 표시본을 다시 만들어 판이 올라갔으면(`DISPLAY_REVISION`) 한 번 새로 받고
+   * 옛 파일은 지운다. 그러지 않으면 이미 본 사진은 옛 크기 그대로 남는다.
+   */
   const photoDownloads = useRef(new Set<string>());
+  /** 이 화면이 표시본을 몇 장 받았는지. 고치기 전후를 숫자로 견주려고 센다(`__DEV__`). */
+  const 표시본_받은_수 = useRef(0);
+  const [표시본_요청, 표시본_요청_두기] = useState<readonly string[]>(NO_IDS);
+  /**
+   * 이 화면이 받아 둔 표시본(사진 id → 자리). 화면을 닫을 때 웹에서 풀어 준다
+   * (2026-09-23 검토 #7).
+   */
+  const 받은_표시본 = useRef(new Map<string, string>());
+  /** 홈 카드에 그대로 얹어 준 표시본. 홈이 쓰고 있으니 풀면 그 칸이 빈다. */
+  const 홈에_준_표시본 = useRef(new Set<string>());
   useEffect(() => {
-    if (!serverTrip) return;
+    if (!serverTrip || !표시본_요청.length) return;
     const 받을_것 = (uri: string | undefined, id: string) => !isLivePhotoUri(uri) || isStaleDisplayCopy(uri, id);
-    const missing = memories.photos.filter((photo) => 받을_것(photo.uri, photo.id) && knownPhotoIds.has(photo.id) && !photoDownloads.current.has(photo.id));
+    const 지금_사진 = photosRef.current;
+    const missing = 표시본_요청
+      .map((id) => 지금_사진.find((photo) => photo.id === id))
+      .filter((photo): photo is MemoryPhoto =>
+        photo !== undefined && 받을_것(photo.uri, photo.id) && knownPhotoIds.has(photo.id)
+        && !photoDownloads.current.has(photo.id));
     if (!missing.length) return;
     missing.forEach((photo) => photoDownloads.current.add(photo.id));
     void (async () => {
       for (const photo of missing) {
         try {
+          // 표시본을 몇 장 받으러 갔는지 센다. 고치기 전에는 여행을 열기만 해도 남이 올린
+          // 사진 수만큼 찍혔다. 지금은 크게 보기로 넘긴 수 언저리여야 한다.
+          표시본_받은_수.current += 1;
+          if (__DEV__) console.log(`[사진] 표시본 ${표시본_받은_수.current}장째 (${photo.id})`);
           const uri = await downloadPhoto(photo.id);
           if (!uri) continue;
           if (isStaleDisplayCopy(photo.uri, photo.id)) releaseDownloadedPhoto(photo.uri as string);
+          받은_표시본.current.set(photo.id, uri);
           setMemories((current) => ({
             ...current,
             photos: current.photos.map((item) => (item.id === photo.id && 받을_것(item.uri, item.id) ? { ...item, uri } : item)),
           }));
         } catch {
-          // 연결이 없으면 다음에 목록이 바뀔 때 다시 받는다.
+          // 연결이 없으면 다음에 같은 사진을 달라고 할 때 다시 받는다.
           photoDownloads.current.delete(photo.id);
         }
       }
     })();
-  }, [knownPhotoIds, memories.photos, serverTrip]);
+  }, [knownPhotoIds, serverTrip, 표시본_요청]);
+  /**
+   * 여행 상세를 닫을 때 받아 둔 표시본 blob 을 푼다(2026-09-23 검토 #7, 웹만).
+   *
+   * 웹은 표시본을 메모리에 blob 으로만 들고 있어서, 여행을 넘나들수록 한 장에 0.5MB 씩
+   * 쌓이다 모바일 브라우저가 탭을 되살렸다. 폰의 파일은 그대로 둔다 — 지우면 다음에
+   * 열 때 다시 받아야 하고, 데이터만 더 쓴다.
+   *
+   * 홈 카드가 쓰는 썸네일은 주소가 달라 건드리지 않는다. 다만 대표 사진으로 지정하면서
+   * 홈에 그대로 넘긴 표시본은 홈이 그리고 있으니 남긴다.
+   */
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const 받은_것 = 받은_표시본.current;
+    const 홈_것 = 홈에_준_표시본.current;
+    return () => {
+      받은_것.forEach((uri, id) => {
+        if (!홈_것.has(id)) releaseDownloadedPhoto(uri);
+      });
+      받은_것.clear();
+    };
+  }, []);
+  /**
+   * 홈 대표 사진을 저장한다. 넘긴 사진 자리를 적어 둔다.
+   *
+   * 홈 카드는 받은 표시본을 그대로 얹어 바로 그린다(`WarmAppShell` 의 `coverPhotoUris`).
+   * 위의 뒤처리가 그것까지 풀면 홈 카드가 빈 종이로 돌아간다(2026-09-23 검토 #7).
+   */
+  const 홈_대표_저장 = useCallback(
+    (고른_것: HomeCoverChoice, localUris?: Record<string, string | undefined>) => {
+      Object.entries(localUris ?? {}).forEach(([id, uri]) => {
+        if (uri) 홈에_준_표시본.current.add(id);
+      });
+      return onUpdateHomeCover?.(고른_것, localUris) ?? Promise.resolve();
+    },
+    [onUpdateHomeCover],
+  );
   // 영수증은 지출과 따로 올린다. 올라가면 지출에 사진 id 를 붙여 지출 동기화가 서버에 알린다.
   const receiptUploads = useRef(new Set<string>());
   /** 올리다 실패한 영수증. 같은 영수증으로 같은 말을 되풀이하지 않으려고 적어 둔다. */
@@ -2658,7 +2750,8 @@ export function WarmTripDetail({
               cardTripId={serverTrip ? tripId : undefined}
               coverPhotoId={coverPhotoId}
               coverFocus={coverFocus}
-              onSaveHomeCover={onUpdateHomeCover}
+              onSaveHomeCover={onUpdateHomeCover ? 홈_대표_저장 : undefined}
+              onNeedDisplayPhotos={표시본_요청_두기}
               uploadedPhotoIds={knownPhotoIds}
               reportSpaceId={reportSpaceId}
               isOwner={isOwner}
@@ -3249,6 +3342,8 @@ function TripOverview({
     () => photosOfStay(photos, registeredStay.id, stayDayLabels),
     [photos, registeredStay.id, stayDayLabels],
   );
+  // 일정 줄마다 사진 목록을 훑지 않으려고 한 번에 표로 만든다(2026-09-23 검토 #13).
+  const photosBySchedule = useMemo(() => photosByTarget(photos, "schedule"), [photos]);
   const scheduleDraftKey = (
     day: string,
     type: string,
@@ -3977,7 +4072,7 @@ function TripOverview({
             time={item.time.split("·").at(-1)?.trim() || item.time}
             last={index === Math.min(leadSchedule.items.length, 3) - 1}
             compact
-            photos={photosLinkedTo(photos, "schedule", item.id)}
+            photos={item.id ? photosBySchedule.get(item.id) ?? NO_PHOTOS : NO_PHOTOS}
             onPress={() => openScheduleEdit(item, schedule.indexOf(item))}
           />
         ))}
@@ -4671,7 +4766,7 @@ function TripOverview({
                     {...item}
                     time={item.time.split("·").at(-1)?.trim() || item.time}
                     last={index === group.items.length - 1}
-                    photos={photosLinkedTo(photos, "schedule", item.id)}
+                    photos={item.id ? photosBySchedule.get(item.id) ?? NO_PHOTOS : NO_PHOTOS}
                     onPress={() => {
                       setFullSchedule(false);
                       openScheduleEdit(item, schedule.indexOf(item));
@@ -4831,6 +4926,8 @@ function Places({
     () => Array.from(new Set(places.flatMap((place) => place.tags))),
     [places],
   );
+  // 장소 카드마다 사진 목록을 훑지 않으려고 한 번에 표로 만든다(2026-09-23 검토 #13).
+  const photosByPlace = useMemo(() => photosByTarget(photos, "place"), [photos]);
   // 목록을 그릴 때마다 예약을 훑지 않으려고 한 번에 표로 만든다.
   const reservationByPlace = useMemo(() => {
     const 표 = new Map<string, ReservationInfo>();
@@ -5474,7 +5571,7 @@ function Places({
                   <Text numberOfLines={1} style={[styles.placeMiniMemo, { color: theme?.text ?? "#17233D" }]}>{place.memo}</Text>
                 )}
                 <SyncMark id={place.id} />
-                <PhotoStrip photos={photosLinkedTo(photos, "place", place.id)} label={place.name} />
+                <PhotoStrip photos={photosByPlace.get(place.id) ?? NO_PHOTOS} label={place.name} />
               </View>
             </View>
           </Pressable>
@@ -6001,6 +6098,17 @@ function Preparation({
   const packingImportChanged = useDraftChanged(importing, JSON.stringify([importText, importMode]));
   const [cookingPicker, setCookingPicker] = useState(Boolean(openCookingPickerOnMount));
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
+  /**
+   * 이미 적어 둔 준비물의 견줌 열쇠(2026-09-23 검토 #60).
+   *
+   * 재료 불러오기 시트는 줄마다 `findSimilarPacking` 으로 준비물 전체를 훑었다. 재료
+   * 500개 × 준비물 300개면 한 번 그릴 때 15만 번이다. 표를 한 번 만들어 쓴다.
+   */
+  const packingKeys = useMemo(
+    // 빈 열쇠는 담지 않는다. 담으면 이름이 빈 줄끼리 「비슷하다」로 걸린다.
+    () => new Set(items.map((item) => packingKey(item.name)).filter(Boolean)),
+    [items],
+  );
   const [showCompleted, setShowCompleted] = useState(false);
   // 처음에는 분류와 남은 개수만 보여준다. 30개 항목을 한꺼번에 펼치면 사용자가
   // 무엇부터 봐야 하는지 알기 어렵고 다른 분류가 화면 아래로 밀린다.
@@ -7379,7 +7487,7 @@ function Preparation({
             {recipe.ingredients.map((ingredient) => {
               const selected = selectedCookingItems.includes(ingredient.id);
               // 이미 비슷한 준비물이 있어도 고를 수 있게 둔다. 알리기만 한다.
-              const alreadyAdded = findSimilarPacking([ingredient.name], items).length > 0;
+              const alreadyAdded = packingKeys.has(packingKey(ingredient.name));
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -9011,6 +9119,7 @@ function Memories({
   coverPhotoId,
   coverFocus,
   onSaveHomeCover,
+  onNeedDisplayPhotos,
   uploadedPhotoIds,
   reportSpaceId,
   isOwner = false,
@@ -9057,6 +9166,13 @@ function Memories({
   ) => Promise<void>;
   /** 대표 사진에서 홈 카드에 보여 주는 부분. 다시 맞출 때 여기서 시작한다. */
   coverFocus?: CoverFocus;
+  /**
+   * 표시본(긴 변 2048px)이 필요한 사진을 알린다(2026-09-23 검토 #6가).
+   *
+   * 격자·장소 줄의 작은 칸은 썸네일로 그리니 여기에 담지 않는다. 크게 보기로 연 한 장과
+   * 그 앞뒤 한 장, 카드에 넣을 사진만 담는다. 받는 일은 부르는 쪽이 한다.
+   */
+  onNeedDisplayPhotos?: (ids: readonly string[]) => void;
   /** 서버에 다 올라간 사진. 올라간 사진만 홈 화면에 깔 수 있다. */
   uploadedPhotoIds?: ReadonlySet<string>;
   /** 서버 여행일 때만. 있으면 사진과 일기 수정 시트에 신고가 보인다. */
@@ -9239,6 +9355,65 @@ function Memories({
   /** 크게 보고 있는 사진과 그 차례. 지우면 목록에서 사라지므로 창도 닫힌다. */
   const viewIndex = photos.findIndex((photo) => photo.id === viewingPhotoId);
   const viewing = viewIndex < 0 ? undefined : photos[viewIndex];
+  /**
+   * 카드에 넣으려고 고른 사진. 카드 무대는 표시본으로 그리고 찍을 때 원본을 받는다
+   * (`TripCards`). 썸네일만 있으면 흐린 채로 찍힌다.
+   */
+  const [카드에_쓸_사진, 카드에_쓸_사진_두기] = useState<readonly string[]>(NO_IDS);
+  /**
+   * 표시본을 받아야 할 사진(2026-09-23 검토 #6가).
+   *
+   * 크게 보기로 연 한 장과 그 앞뒤 한 장이다. 앞뒤를 미리 받아 둬야 넘길 때 빈 칸이
+   * 스치지 않는다. 여기에 카드에 넣을 사진을 더한다.
+   */
+  const 표시본_필요 = useMemo(() => {
+    const 것 = new Set(카드에_쓸_사진);
+    if (viewIndex >= 0) {
+      [viewIndex, viewIndex + 1, viewIndex - 1]
+        .filter((차례) => 차례 >= 0 && 차례 < photos.length)
+        .forEach((차례) => 것.add(photos[차례].id));
+    }
+    return [...것].join("|");
+  }, [photos, viewIndex, 카드에_쓸_사진]);
+  // 목록이 바뀔 때마다 같은 내용의 새 배열을 올려 보내면 그것만으로 받는 쪽이 다시 돈다.
+  // 글자 하나로 견줘 내용이 정말 바뀐 때만 알린다.
+  useEffect(() => {
+    onNeedDisplayPhotos?.(표시본_필요 ? 표시본_필요.split("|") : NO_IDS);
+  }, [onNeedDisplayPhotos, 표시본_필요]);
+  /**
+   * 크게 보기의 아래 줄(스트립)과 옆 칸에 깔 썸네일.
+   *
+   * 표시본은 보고 있는 한 장과 앞뒤만 받으므로(2026-09-23 검토 #6가) 나머지 칸은 색만
+   * 남는다. 스트립은 어디로 넘길지 고르는 줄이라 그림이 없으면 쓸모가 없다. 지금 자리
+   * 둘레만 썸네일로 채운다 — 줄은 지금 자리로 스스로 스크롤하니 보이는 곳이 거기다.
+   * 넘기는 동안에도 흐린 그림이 먼저 뜨고 표시본이 오면 또렷해진다.
+   */
+  const 스트립_사진 = useMemo(() => {
+    if (viewIndex < 0) return NO_IDS;
+    return photos
+      .slice(Math.max(0, viewIndex - 10), viewIndex + 11)
+      .filter((photo) => !isLivePhotoUri(photo.uri) && (uploadedPhotoIds?.has(photo.id) ?? false))
+      .map((photo) => photo.id);
+  }, [photos, uploadedPhotoIds, viewIndex]);
+  const 스트립_썸네일 = usePhotoThumbs(스트립_사진);
+  /**
+   * 크게 보기에 넘길 목록. 파일이 없는 칸만 썸네일로 바꿔 놓는다.
+   *
+   * 고치기·홈 대표는 이 목록이 아니라 원래 `photos` 를 쓴다. 썸네일 자리를 그쪽에 넘기면
+   * 「사진을 바꿨다」로 읽혀 새 사진으로 다시 올라간다.
+   */
+  const viewerPhotos = useMemo(
+    () => (viewIndex < 0 ? photos : photos.map((photo) => (
+      isLivePhotoUri(photo.uri) || !스트립_썸네일[photo.id] ? photo : { ...photo, uri: 스트립_썸네일[photo.id] }
+    ))),
+    [photos, viewIndex, 스트립_썸네일],
+  );
+  /** 표시본을 다 받으면 열 카드. 사진첩에서 고른 사진으로 카드를 시작할 때만 찬다. */
+  const 기다리는_카드 = useRef<readonly string[] | null>(null);
+  const 파일이_있나 = useCallback(
+    (id: string) => isLivePhotoUri(photos.find((photo) => photo.id === id)?.uri),
+    [photos],
+  );
   /** 초안이 여섯 장을 넘을 때 그 자리에서 다 폈는지. 사진은 펴지 않고 사진첩을 연다. */
   const [showAllCards, setShowAllCards] = useState(false);
   /**
@@ -9449,8 +9624,15 @@ function Memories({
     setSaving(true);
     try {
       const 결과 = await savePhotoToDevice(photo, 차례);
-      if (결과 === "saved") setPhotoToast("사진을 저장했어요");
-      else showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
+      /*
+       * 웹은 브라우저가 파일을 다 내려받은 뒤라 「저장했어요」가 사실이다.
+       * 폰은 OS 공유 창을 열어 준 것까지만 안다(`photoSave.ts`). 거기서 「이미지 저장」을
+       * 골랐는지 취소했는지는 앱에 돌아오지 않는데도 「사진을 저장했어요」라고 단정했다
+       * (2026-09-23 검토 #28). 취소해도 저장됐다고 말하느니 아무 말도 하지 않는다 —
+       * 공유 창이 닫히는 것이 이미 사람이 본 결과다(삼성 갤러리·구글 포토도 같다).
+       */
+      if (결과 !== "saved") showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
+      else if (Platform.OS === "web") setPhotoToast("사진을 저장했어요");
     } catch {
       showAlert("사진을 저장하지 못했어요", "잠시 후 다시 시도해 주세요.");
     } finally {
@@ -9647,6 +9829,42 @@ function Memories({
     }
     알림(savedText({ saved, failed, skipped: ids.length - 할_것.length }));
   };
+  /**
+   * 고른 사진으로 추억 카드를 시작한다.
+   *
+   * 카드는 기기에 파일이 있는 사진만 쓴다(`TripCards`). 남이 올린 사진은 크게 보기로
+   * 열어야 표시본을 받으므로(2026-09-23 검토 #6가), 고른 것 가운데 아직 파일이 없는
+   * 사진이 있으면 먼저 받아 두고 다 오면 연다.
+   */
+  const 카드_시작 = (ids: readonly string[]) => {
+    if (!cards) return;
+    const 없는_것 = ids.filter((id) => !파일이_있나(id));
+    if (!없는_것.length) {
+      cards.create(ids);
+      return;
+    }
+    카드에_쓸_사진_두기((지금) => [...new Set([...지금, ...없는_것])]);
+    기다리는_카드.current = ids;
+    알림("사진을 불러오는 중이에요");
+  };
+  useEffect(() => {
+    const 기다림 = 기다리는_카드.current;
+    if (!기다림 || !cards) return;
+    if (기다림.every(파일이_있나)) {
+      기다리는_카드.current = null;
+      cards.create(기다림);
+      return;
+    }
+    // 연결이 없으면 영영 기다린다. 한참 기다려도 안 오면 그만두고 까닭을 알린다.
+    const timer = setTimeout(() => {
+      if (기다리는_카드.current !== 기다림) return;
+      기다리는_카드.current = null;
+      알림("사진을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요");
+    }, 20000);
+    return () => clearTimeout(timer);
+    // 카드에_쓸_사진 이 바뀌는 순간이 기다리기 시작한 순간이다. 사진 목록이 바뀔 때마다
+    // 파일이 다 왔는지 다시 본다.
+  }, [cards, 알림, 카드에_쓸_사진, 파일이_있나]);
   // 고치는 화면의 삭제도 한 장 삭제와 같은 길로 보낸다. 되돌리기가 한쪽에만 붙어 있으면
   // 어디서 지웠느냐에 따라 되돌릴 수 있는지가 달라진다.
   const deletePhoto = () => deletePhotoById(editingPhotoId);
@@ -9826,7 +10044,7 @@ function Memories({
         theme={theme}
         notify={알림}
         viewer={{
-          photos,
+          photos: viewerPhotos,
           index: viewIndex,
           photoId: viewingPhotoId,
           onMove: moveViewing,
@@ -10007,8 +10225,11 @@ function Memories({
             ]}
           >
             <View style={[styles.memoryTilePhoto, { backgroundColor: tile.photo.color }]}>
-              {tile.photo.uri && <Image source={{ uri: tile.photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
-              <View style={styles.memoryTileGlow} />
+              <MemoryTileImage
+                photo={tile.photo}
+                uploaded={uploadedPhotoIds?.has(tile.photo.id) ?? false}
+                busy={uploadingPhotoIds.has(tile.photo.id)}
+              />
               {tile.photo.id === coverPhotoId && <CoverBadge />}
               {/* 올라가는 중과 실패를 사진 위에 그대로 얹는다. 카카오톡에서 사진이
                   올라갈 때 보이는 그 자리다. 올라가는 중에는 얼마나 갔는지 띠로
@@ -10200,7 +10421,7 @@ function Memories({
         }}
         onDelete={deleteManyPhotos}
         onSave={saveManyPhotos}
-        onMakeCard={cards ? (ids) => cards.create(ids) : undefined}
+        onMakeCard={cards ? 카드_시작 : undefined}
         maxCardPhotos={KEEPSAKE_MAX_PHOTOS}
         toast={galleryToast}
         onToast={setGalleryToast}
@@ -10337,6 +10558,39 @@ function PhotoLinkField({ options, value, onChange }: {
   );
 }
 
+/**
+ * 기록 탭 격자 칸의 사진 한 장.
+ *
+ * 기기에 표시본이 있으면 그것을 쓰고, 없으면 썸네일(480px)을 받는다. 예전에는 여행을
+ * 열기만 해도 표시본을 전부 받아 두고 그것을 격자에 깔았다(2026-09-23 검토 #6가).
+ * 못 받으면 색만 깔려 「아직 오는 중」과 구별이 안 됐던 것도 함께 고친다(#52) —
+ * 사진첩 격자(`PhotoGallery`)와 같은 모양·같은 말이다.
+ */
+function MemoryTileImage({ photo, uploaded, busy }: { photo: MemoryPhoto; uploaded: boolean; busy: boolean }) {
+  const 있는_것 = isLivePhotoUri(photo.uri) ? photo.uri : undefined;
+  const { uri, failed, retry } = usePhotoThumb(photo.id, uploaded && !있는_것, 있는_것);
+  const 이름 = photo.caption || `${photo.date} 사진`;
+  return (
+    <>
+      {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
+      {/* 비스듬한 빛줄기. 다시 시도 덮개보다 아래에 와야 덮개가 눌린다. */}
+      <View style={styles.memoryTileGlow} />
+      {/* 올라가는 중이면 그 덮개가 따로 얹힌다. 두 덮개가 겹치지 않게 한다. */}
+      {failed && !busy && (
+        <Pressable
+          onPress={retry}
+          accessibilityRole="button"
+          accessibilityLabel={`${이름} 다시 시도`}
+          style={({ pressed }) => [styles.uploadCover, pressed && styles.controlPressed]}
+        >
+          <Glyph name="retry" size={18} color="#FFFFFF" weight={2.2} />
+          <Text numberOfLines={2} style={styles.uploadCoverText}>불러오지 못했어요</Text>
+        </Pressable>
+      )}
+    </>
+  );
+}
+
 /** 어딘가에 붙은 사진 몇 장. 붙은 사진이 없으면 아무것도 그리지 않는다. */
 function PhotoStrip({ photos, label }: { photos: MemoryPhoto[]; label: string }) {
   const theme = useContext(DetailThemeContext);
@@ -10344,13 +10598,27 @@ function PhotoStrip({ photos, label }: { photos: MemoryPhoto[]; label: string })
   return (
     <View style={styles.photoStrip} accessibilityLabel={`${label} 사진 ${photos.length}장`}>
       {photos.slice(0, 5).map((photo) => (
-        <View key={photo.id} style={[styles.photoStripThumb, { backgroundColor: photo.color }]}>
-          {photo.uri && <Image source={{ uri: photo.uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
-        </View>
+        <PhotoStripThumb key={photo.id} photo={photo} />
       ))}
       {photos.length > 5 && (
         <Text style={[styles.photoStripMore, theme && { color: theme.muted }]}>+{photos.length - 5}</Text>
       )}
+    </View>
+  );
+}
+
+/**
+ * 장소·일정 줄에 붙는 작은 사진 한 칸.
+ *
+ * 기기에 파일이 있으면 그것을, 없으면 썸네일을 받는다. 손톱만 한 칸이라 못 받았다는
+ * 표는 붙이지 않는다 — 사진 색만 남는다. 다시 받는 길은 격자와 사진첩에 있다.
+ */
+function PhotoStripThumb({ photo }: { photo: MemoryPhoto }) {
+  const 있는_것 = isLivePhotoUri(photo.uri) ? photo.uri : undefined;
+  const { uri } = usePhotoThumb(photo.id, !있는_것 && isServerId(photo.id), 있는_것);
+  return (
+    <View style={[styles.photoStripThumb, { backgroundColor: photo.color }]}>
+      {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
     </View>
   );
 }

@@ -1477,12 +1477,56 @@ export function WarmAppShell({
     };
   }, [authReady, user?.id]);
 
-  useEffect(() => {
-    if (!tripStorageReady) return;
-    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup: storableTrips(tripsByGroup), done }))
+  /**
+   * 기기에 여행 기록을 적는다(2026-09-23 검토 #22).
+   *
+   * 예전에는 상태가 바뀔 때마다 **모든 공간·모든 여행**을 그 자리에서 직렬화했다.
+   * 준비물 체크 한 번, 사진 한 장을 받을 때마다 한 번씩이다. 여행을 열면 목록
+   * 동기화 12~13개가 각각 한 번씩 부르고, 남의 사진을 받으면 한 장마다 또 한 번이었다.
+   * 웹은 `localStorage` 동기 쓰기라 치던 글자가 끊겼다.
+   *
+   * 이제 600ms 를 모아 한 번만 적는다. 대신 **강제 종료로 마지막 몇 초가 날아가면
+   * 안 되므로**, 앱이 뒤로 가거나(홈 버튼·탭 전환) 화면이 사라질 때 곧바로 적는다.
+   */
+  const 적을_것 = useRef<{ tripsByGroup: Record<GroupId, Trip[]>; done: string[] } | null>(null);
+  const 적기_타이머 = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** __DEV__ 에서 실제로 몇 번 적었는지. 디바운스 전후를 숫자로 견주려고 센다. */
+  const 적은_횟수 = useRef(0);
+  const 지금_적기 = useCallback(() => {
+    if (적기_타이머.current) {
+      clearTimeout(적기_타이머.current);
+      적기_타이머.current = null;
+    }
+    const 것 = 적을_것.current;
+    if (!것) return;
+    적을_것.current = null;
+    적은_횟수.current += 1;
+    if (__DEV__) console.log(`[저장] 여행 기록 ${적은_횟수.current}번째`);
+    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup: storableTrips(것.tripsByGroup), done: 것.done }))
       .then(() => setTripStorageFailed(false))
       .catch(() => setTripStorageFailed(true));
-  }, [done, tripStorageReady, tripsByGroup]);
+  }, []);
+  useEffect(() => {
+    if (!tripStorageReady) return;
+    적을_것.current = { tripsByGroup, done };
+    if (적기_타이머.current) clearTimeout(적기_타이머.current);
+    적기_타이머.current = setTimeout(지금_적기, 600);
+  }, [done, tripStorageReady, tripsByGroup, 지금_적기]);
+  useEffect(() => {
+    // 뒤로 가는 순간이 마지막 기회다. 여기서 안 적으면 그대로 꺼질 수 있다.
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active") 지금_적기();
+    });
+    // 웹에서 탭을 그냥 닫으면 위의 것도 뒷정리도 안 돈다. 브라우저가 마지막으로
+    // 알려 주는 자리에서 한 번 더 적는다(`localStorage` 라 그 자리에서 끝난다).
+    const 웹인가 = Platform.OS === "web" && typeof window !== "undefined";
+    if (웹인가) window.addEventListener("pagehide", 지금_적기);
+    return () => {
+      subscription?.remove();
+      if (웹인가) window.removeEventListener("pagehide", 지금_적기);
+      지금_적기();
+    };
+  }, [지금_적기]);
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   // 보관한 여행은 홈에 띄우지 않는다. 치워 둔 여행이 다음 여행으로 보이면 안 된다.
   const homeTrip = [...tripItems]
@@ -1517,7 +1561,20 @@ export function WarmAppShell({
       />
     );
   }
-  if (!serverDataReady && !authOffline) {
+  /**
+   * 기기에 받아 둔 것으로 먼저 그릴 수 있는가(2026-09-23 검토 #21).
+   *
+   * 예전에는 세션 복구 → `/v1/me` → `listSpaces` → 공간마다 여행·멤버까지 네 왕복이
+   * 다 끝나야 홈을 그렸다. 받아 둔 여행이 있어도 「불러오고 있어요…」만 보여서, 느린
+   * 망에서는 2초 넘게 빈 화면이었다(문서 07 의 「캐시 먼저 보여주기」와 어긋난다).
+   *
+   * **계정 전환 보호를 앞지르지 않는다.** `tripCacheOwner` 는 `daymo.device-owner.v1` 로
+   * 앞사람이 누구였는지 확인한 뒤에야 채워진다. 다른 계정이 들어왔으면 그 검사가
+   * 캐시를 먼저 비우므로, 여기서는 「내 것이 맞다」가 확인된 뒤에만 그린다.
+   */
+  const 캐시로_먼저_그린다 =
+    tripStorageReady && Boolean(user.id) && tripCacheOwner === user.id && spaces.length > 0;
+  if (!serverDataReady && !authOffline && !캐시로_먼저_그린다) {
     return (
       <FullScreenNotice
         theme={theme}

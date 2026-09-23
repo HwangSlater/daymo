@@ -42,6 +42,9 @@
     "web": {
       "favicon": "./assets/daymo-favicon.png"
     },
+    "experiments": {
+      "reactCompiler": true
+    },
     "plugins": [
       "expo-web-browser",
       "expo-font",
