@@ -22,7 +22,7 @@ import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollVie
 import { Text } from "../AppText";
 import { maskClockTime, settleClockTime } from "../clock";
 import { AppTheme } from "../theme";
-import { 높이, 모서리, 불투명도 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /** 한 칸 높이. 가운데 한 칸과 위아래로 두 칸씩 보인다. */
@@ -124,6 +124,7 @@ function WheelColumn({
               accessibilityRole="radio"
               accessibilityState={{ selected: 골랐나 }}
               accessibilityLabel={`${label} ${item}`}
+              hitSlop={누름여유(칸)}
               style={styles.cell}
             >
               <Text
@@ -213,6 +214,7 @@ export function TimeWheel({
             onPress={() => onChange("")}
             accessibilityRole="button"
             accessibilityLabel={`${label} 시간 미정으로 두기`}
+            hitSlop={누름여유(높이.칩)}
             style={({ pressed }) => [
               styles.clear,
               theme && { backgroundColor: theme.surface, borderColor: theme.border },

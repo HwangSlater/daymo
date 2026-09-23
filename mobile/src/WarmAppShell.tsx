@@ -83,7 +83,7 @@ import * as ExpoCrypto from "expo-crypto";
 import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
-import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 , 글자누름여유} from "./theme/controls";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { cancelAccountDeletion, changePassword, DaymoApiError, INSTALLATION_KEY, isEmailLike, isReconfirmCancelled, linkSocialAccount, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, resendEmailVerification, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
@@ -2210,7 +2210,7 @@ function AuthScreen({
                       onPress={() => void WebBrowser.openBrowserAsync(consent.url as string)}
                       accessibilityRole="link"
                       accessibilityLabel={`${consent.label.replace(/^\[필수\] /, "")} 보기`}
-                      hitSlop={8}
+                      hitSlop={글자누름여유}
                     >
                       <Text style={[s.authConsentText, { color: theme.muted, textDecorationLine: "underline" }]}>보기</Text>
                     </Pressable>
@@ -2636,10 +2636,10 @@ function AccountDeletionPanel({
 function LegalLinks({ theme }: { theme: AppTheme }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 16 }}>
-      <Pressable onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} accessibilityRole="link" hitSlop={8}>
+      <Pressable onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} accessibilityRole="link" hitSlop={글자누름여유}>
         <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, textDecorationLine: "underline" }]}>이용약관</Text>
       </Pressable>
-      <Pressable onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} accessibilityRole="link" hitSlop={8}>
+      <Pressable onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} accessibilityRole="link" hitSlop={글자누름여유}>
         <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, textDecorationLine: "underline" }]}>개인정보 처리방침</Text>
       </Pressable>
     </View>
@@ -4180,7 +4180,7 @@ function TripsExplorer({
                             })
                             .catch((caught) => setTrashMessage(caught instanceof DaymoApiError ? caught.message : "되돌리지 못했어요. 잠시 후 다시 시도해 주세요."));
                         }}
-                        hitSlop={8}
+                        hitSlop={글자누름여유}
                       >
                         <Text style={[s.accountLogoutText, { color: theme.primary }]}>되돌리기</Text>
                       </Pressable>
@@ -4191,7 +4191,7 @@ function TripsExplorer({
                       accessibilityRole="button"
                       accessibilityLabel="휴지통 더 보기"
                       onPress={loadMoreTrash}
-                      hitSlop={8}
+                      hitSlop={글자누름여유}
                     >
                       <Text style={[s.accountLogoutText, { color: theme.primary }]}>
                         {trashLoading ? "불러오는 중이에요" : "더 보기"}
@@ -7016,7 +7016,7 @@ function SpaceExtras({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${space.name} 되돌리기`}
-                hitSlop={8}
+                hitSlop={글자누름여유}
                 disabled={restoring !== null}
                 onPress={() => {
                   if (restoring) return;
@@ -7478,7 +7478,7 @@ ${url}` }).catch(() => undefined);
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="초대 링크 삭제"
-                  hitSlop={8}
+                  hitSlop={글자누름여유}
                   disabled={revoking !== null}
                   onPress={() => void revoke(invite)}
                   style={revoking === invite.id && s.authSubmitDisabled}
@@ -8617,7 +8617,7 @@ const s = StyleSheet.create({
   },
   authSubmitDisabled: { opacity: 불투명도.비활성 },
   authSubmitText: { fontSize: 14, fontFamily: typo.label.family },
-  authSwitch: { alignItems: "center", paddingTop: 16, paddingBottom: 2 },
+  authSwitch: { alignItems: "center", justifyContent: "flex-end", minHeight: 높이.버튼 + 16, paddingTop: 16, paddingBottom: 2 },
   authSwitchText: { fontSize: 12, fontFamily: typo.label.family },
   authConsentList: { borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: 6, marginBottom: 12 },
   authConsentRow: { minHeight: 높이.버튼, flexDirection: "row", alignItems: "center" },

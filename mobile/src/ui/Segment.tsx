@@ -2,7 +2,7 @@ import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from "react-native"
 
 import { Text } from "../AppText";
 import { AppTheme } from "../theme";
-import { 높이, 모서리, 불투명도 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /** 세그먼트로 둘 수 있는 선택지 수. 이보다 많으면 칸이 좁아져 글자가 잘린다. 칩(`Chip`)으로 간다. */
@@ -61,6 +61,7 @@ export function Segment({
             accessibilityRole="radio"
             accessibilityState={{ checked: on, selected: on, disabled: Boolean(disabled) }}
             accessibilityLabel={label ? `${label} ${text}` : text}
+            hitSlop={누름여유(높이.칩)}
             style={({ pressed }) => [
               styles.cell,
               on && styles.cellOn,

@@ -9,7 +9,7 @@ import { Chip, ChipRow } from "./ui/Chip";
 import { SheetShell } from "./ui/SheetShell";
 import { AppTheme } from "./theme";
 import { status as statusColor } from "./theme/colors";
-import { 높이, 모서리, 아이콘, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 아이콘, 글자누름여유, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { DaymoApiError } from "./auth";
 import { josa } from "./tripExpenses";
@@ -655,7 +655,7 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
           onPress={() => setAll(keys, chosen < rows.length)}
           accessibilityRole="button"
           accessibilityLabel={`${title} ${chosen < rows.length ? "모두 켜기" : "모두 끄기"}`}
-          hitSlop={8}
+          hitSlop={글자누름여유}
         >
           <Text style={[styles.sectionAction, { color: theme.primary }]}>
             {chosen < rows.length ? "모두 켜기" : "모두 끄기"}

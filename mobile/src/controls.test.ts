@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls.ts";
+import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 글자누름여유, 누름여유 } from "./theme/controls.ts";
 
 // 순수 값 모듈이라 확인할 것은 하나다. 단계가 통째로 빠지거나 말없이 바뀌면
 // 화면 네 군데가 같이 흔들린다. 값을 고치려면 이 시험도 같이 고치게 둔다.
@@ -46,6 +46,13 @@ test("작게 그린 것은 눌리는 넓이가 44 를 채운다", () => {
 
     assert.equal(넓힌_높이 >= 높이.버튼, true, `${그린높이}px 이 44 를 못 채운다`);
   }
+});
+
+test("글자 한 줄짜리 단추도 세로로는 44 를 채운다", () => {
+  // 12pt 글자 한 줄이 17 남짓이다.
+  assert.equal(17 + 글자누름여유.top + 글자누름여유.bottom >= 높이.버튼, true);
+  // 좌우는 넓히지 않는다. 나란한 글자 단추가 서로 겹치면 어느 쪽이 눌렸는지 알 수 없다.
+  assert.equal(글자누름여유.left < 글자누름여유.top, true);
 });
 
 test("이미 충분히 큰 것에는 여유를 주지 않는다", () => {

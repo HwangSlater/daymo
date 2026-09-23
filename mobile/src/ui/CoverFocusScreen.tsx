@@ -18,7 +18,7 @@ import {
   type Box,
   type CoverFocus,
 } from "../coverCrop";
-import { 모서리, 불투명도 } from "../theme/controls";
+import { 높이, 모서리, 불투명도 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /** 홈 카드의 사진 틀과 같은 비율. 여기서 보이는 만큼이 홈에 들어간다. */
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 10,
   },
-  headSide: { minWidth: 64, paddingHorizontal: 10, paddingVertical: 8 },
+  headSide: { minWidth: 64, minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 10 },
   headRight: { alignItems: "flex-end" },
   cancel: { fontSize: 15, color: "#C9CCD4", fontFamily: typo.label.family },
   title: { flex: 1, textAlign: "center", fontSize: 16, color: "#FFFFFF", fontFamily: typo.title.family },

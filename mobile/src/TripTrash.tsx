@@ -6,7 +6,7 @@ import { DaymoApiError } from "./auth";
 import { trashLeftLabel, type ServerTrashItem } from "./memorySync";
 import { listTrash, restoreFromTrash } from "./serverData";
 import type { AppTheme } from "./theme";
-import { 모서리, 불투명도 } from "./theme/controls";
+import { 모서리, 불투명도 , 글자누름여유} from "./theme/controls";
 import { typo } from "./theme/typography";
 
 type Props = {
@@ -66,7 +66,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        hitSlop={8}
+        hitSlop={글자누름여유}
         onPress={() => {
           const next = !open;
           setOpen(next);
@@ -96,7 +96,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
                   accessibilityRole="button"
                   accessibilityLabel={`${item.type === "memo" ? "메모" : "사진"} 되돌리기`}
                   disabled={busyId !== null}
-                  hitSlop={8}
+                  hitSlop={글자누름여유}
                   onPress={() => void restore(item)}
                 >
                   <Text style={[styles.action, { color: primary }, busyId === item.id && { opacity: 불투명도.흐림 }]}>되돌리기</Text>

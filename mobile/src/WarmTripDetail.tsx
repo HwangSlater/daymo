@@ -168,7 +168,7 @@ import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import { shrinkForWeb } from "./webImage";
 import { useWebBackClose } from "./useWebBackClose";
-import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 , 글자누름여유} from "./theme/controls";
 import { typo } from "./theme/typography";
 import { kakaoInk, memoPaper, naverInk, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
@@ -2858,7 +2858,7 @@ export function WarmTripDetail({
                 </Text>
                 <Pressable
                   accessibilityRole="button"
-                  hitSlop={8}
+                  hitSlop={글자누름여유}
                   onPress={() => {
                     setMemoDraft("");
                     setEditingMemoId(null);
@@ -2901,6 +2901,7 @@ export function WarmTripDetail({
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="이 메모 신고"
+                        style={styles.tripMemoAction}
                         onPress={() => setReportingMemoId((current) => current === note.id ? null : note.id)}
                       >
                         <Text style={[styles.tripMemoEdit, { color: memo.meta }]}>신고</Text>
@@ -2909,6 +2910,7 @@ export function WarmTripDetail({
                     {canEdit && (
                     <>
                     <Pressable
+                      style={styles.tripMemoAction}
                       accessibilityRole="button" onPress={() => {
                       setEditingMemoId(note.id);
                       setMemoDraft(note.body);
@@ -2917,6 +2919,7 @@ export function WarmTripDetail({
                       <Text style={[styles.tripMemoEdit, { color: memo.meta }]}>수정</Text>
                     </Pressable>
                     <Pressable
+                      style={styles.tripMemoAction}
                       accessibilityRole="button" onPress={() => showAlert(
                       "메모를 삭제할까요?",
                       note.body,
@@ -4294,7 +4297,7 @@ function TripOverview({
                 {selectedPlanPlaceId && (
                   <Pressable
                     onPress={() => setSelectedPlanPlaceId(null)}
-                    hitSlop={8}
+                    hitSlop={글자누름여유}
                     accessibilityRole="button"
                     accessibilityLabel="저장한 장소 선택 해제"
                   >
@@ -5801,7 +5804,7 @@ function Places({
                   <Glyph name="check" size={아이콘.작게} color="#16844E" />
                   <Text style={[styles.naverConnectedText, theme?.dark && { color: "#7ED9A7" }]}>{mapProviderName[mapProviderOf(mapUrl)]} 연결됨</Text>
                 </View>
-                <Pressable onPress={() => setMapUrl("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="지도 연결 해제">
+                <Pressable onPress={() => setMapUrl("")} hitSlop={글자누름여유} accessibilityRole="button" accessibilityLabel="지도 연결 해제">
                   <Text style={[styles.naverDisconnectText, theme && { color: theme.muted }]}>연결 해제</Text>
                 </Pressable>
               </View>
@@ -6471,7 +6474,7 @@ function Preparation({
             setAssigningItem(item);
           }}
           disabled={!canEdit}
-          hitSlop={8}
+          hitSlop={글자누름여유}
           accessibilityRole="button"
           accessibilityLabel={`${item.name} 담당 및 정보 관리`}
           style={[styles.packingV2Assignee, theme && { backgroundColor: theme.primarySoft }]}
@@ -10010,7 +10013,7 @@ function Memories({
               }}
               accessibilityRole="button"
               accessibilityLabel="올리지 못한 사진 다시 시도"
-              hitSlop={8}
+              hitSlop={글자누름여유}
             >
               <Text style={[styles.photoRepickText, theme && { color: theme.primary }]}>다시 시도</Text>
             </Pressable>
@@ -10069,7 +10072,7 @@ function Memories({
                     onPress={() => cancelPhotoUpload(tile.photo.id)}
                     accessibilityRole="button"
                     accessibilityLabel={`${tile.photo.caption || "사진"} 업로드 취소`}
-                    hitSlop={8}
+                    hitSlop={글자누름여유}
                     style={({ pressed }) => [styles.uploadCancel, pressed && styles.controlPressed]}
                   >
                     <Glyph name="close" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
@@ -10108,7 +10111,7 @@ function Memories({
                   onPress={() => cards?.remove(tile.card.id)}
                   accessibilityRole="button"
                   accessibilityLabel={`${tile.card.label} 카드 삭제`}
-                  hitSlop={8}
+                  hitSlop={글자누름여유}
                   style={({ pressed }) => [styles.uploadCancel, pressed && styles.controlPressed]}
                 >
                   <Glyph name="close" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
@@ -11098,7 +11101,7 @@ function Money({
               onPress={() => scrollToY(비용_맨위.current + 내역_자리.current)}
               accessibilityRole="button"
               accessibilityLabel={`지출 내역 ${expenses.length}건으로 바로 가기`}
-              hitSlop={8}
+              hitSlop={글자누름여유}
               style={({ pressed }) => [styles.moneyJump, pressed && styles.controlPressed]}
             >
               <Text style={[styles.moneyJumpText, theme && { color: theme.primary }]}>내역 {expenses.length}건</Text>
@@ -11299,7 +11302,7 @@ function Money({
               {canEdit && (
               <Pressable
                 onPress={() => undoPayment(payment)}
-                hitSlop={8}
+                hitSlop={글자누름여유}
                 accessibilityRole="button"
                 accessibilityLabel={`${payment.from}에서 ${payment.to}에게 보낸 ${show(payment.amount)} 되돌리기`}
               >
@@ -11796,7 +11799,7 @@ function Money({
                 </Text>
               </Pressable>
               {Boolean(draftReceipt) && (
-                <Pressable onPress={() => setDraftReceipt("")} accessibilityRole="button" hitSlop={8}>
+                <Pressable onPress={() => setDraftReceipt("")} accessibilityRole="button" hitSlop={글자누름여유}>
                   <Text style={[styles.receiptRemove, theme && { color: theme.muted }]}>빼기</Text>
                 </Pressable>
               )}
@@ -13213,6 +13216,8 @@ const styles = StyleSheet.create({
   tripMemoRow: { padding: 12, borderWidth: 1, borderColor: "#EEEAE5", borderRadius: 모서리.행 },
   tripMemoRowHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   tripMemoActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  /** 글자만 있는 작은 단추. 눌리는 넓이를 44 로 채운다. */
+  tripMemoAction: { minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 4 },
   tripMemoEdit: { fontSize: 12, fontFamily: typo.label.family },
   tripMemoDelete: { fontSize: 12, fontFamily: typo.label.family },
   tripMemoAuthor: { fontSize: 12, fontFamily: typo.label.family },
