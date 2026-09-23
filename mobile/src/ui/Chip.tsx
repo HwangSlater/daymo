@@ -1,8 +1,10 @@
 import { Pressable, ScrollView, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 
+import { Glyph, GlyphName } from "../Glyph";
+
 import { Text } from "../AppText";
 import { AppTheme } from "../theme";
-import { 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
+import { 아이콘, 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /**
@@ -26,6 +28,12 @@ export function Chip({
   colors,
   maxLines,
   accessibilityLabel,
+  count,
+  icon,
+  trailing,
+  disabled,
+  dashed,
+  style,
 }: {
   theme?: AppTheme;
   label: string;
@@ -43,6 +51,16 @@ export function Chip({
   maxLines?: number;
   /** 화면 읽기에 들려줄 말. 「후보」처럼 글자만으로 모자랄 때만. 없으면 label 이다. */
   accessibilityLabel?: string;
+  /** 이름 뒤에 붙는 개수. 날짜별 일정 수, 분류별 결과 수처럼. */
+  count?: number | string;
+  /** 이름 앞 기호. */
+  icon?: GlyphName;
+  /** 이름 뒤 기호. 눌러서 펼치는 칩의 ⌄ 같은 것. */
+  trailing?: GlyphName;
+  disabled?: boolean;
+  /** 점선 테두리. 「그 밖에」처럼 목록에 없는 것을 여는 칩. */
+  dashed?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   const background = colors
     ? colors.background
@@ -54,22 +72,31 @@ export function Chip({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       hitSlop={누름여유(높이.칩)}
       accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ selected: on, disabled: Boolean(disabled) }}
+      accessibilityLabel={accessibilityLabel ?? (count == null ? label : `${label} ${count}`)}
       style={({ pressed }) => [
         chipStyles.chip,
         // 테두리 색을 주지 않으면 테두리 자체를 없앤다. 색 없는 1px 은 기기마다
         // 검은 줄로 보인다.
         border ? { borderColor: border } : chipStyles.noBorder,
         background ? { backgroundColor: background } : null,
+        dashed && chipStyles.dashed,
+        disabled && chipStyles.disabled,
         pressed && chipStyles.pressed,
+        style,
       ]}
     >
+      {icon && <Glyph name={icon} size={아이콘.작게} color={ink ?? "#646C7A"} weight={2.2} />}
       <Text numberOfLines={maxLines} style={[chipStyles.text, ink ? { color: ink } : null]}>
         {label}
       </Text>
+      {count != null && (
+        <Text style={[chipStyles.count, ink ? { color: ink } : null]}>{count}</Text>
+      )}
+      {trailing && <Glyph name={trailing} size={아이콘.작게} color={ink ?? "#646C7A"} weight={2.2} />}
     </Pressable>
   );
 }
@@ -108,10 +135,16 @@ const chipStyles = StyleSheet.create({
     borderRadius: 모서리.원,
     borderWidth: 1,
     paddingHorizontal: 10,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 4,
   },
   noBorder: { borderWidth: 0 },
+  dashed: { borderStyle: "dashed" },
+  disabled: { opacity: 불투명도.비활성 },
   text: { fontSize: 12, fontFamily: typo.label.family },
+  /** 개수는 이름과 같은 크기의 수치 서체로 둔다. 숫자만 굵어 눈에 먼저 든다. */
+  count: { fontSize: 12, fontFamily: typo.data.family },
   pressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
 });

@@ -67,6 +67,7 @@ import {
   useSaveSettings,
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
+import { Chip } from "./ui/Chip";
 import { EmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
@@ -4131,26 +4132,14 @@ function TripsExplorer({
             <>
               <View style={s.tripFilters}>
                 {(["전체", "다가오는", "지난 여행", "보관"] as const).map((item) => (
-                  <Pressable
+                  <Chip
                     key={item}
+                    theme={theme}
+                    label={item}
+                    on={filter === item}
                     onPress={() => setFilter(item)}
-                    accessibilityRole="button"
                     accessibilityLabel={item === "전체" ? "전체 여행 보기" : item === "지난 여행" ? "지난 여행만 보기" : `${item} 여행만 보기`}
-                    accessibilityState={{ selected: filter === item }}
-                    style={[
-                      s.filter,
-                      filter === item && { backgroundColor: theme.primarySoft },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        s.filterText,
-                        { color: filter === item ? theme.primary : theme.muted },
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
+                  />
                 ))}
               </View>
               <TripRows
@@ -5423,54 +5412,15 @@ function Search({
       </ScrollView>
       <View style={[s.searchCategories, s.searchCategoriesContent]}>
         {searchFilters.map((item) => (
-          <Pressable
+          <Chip
             key={item.label}
+            theme={theme}
+            label={item.label}
+            count={item.count}
+            on={category === item.label}
             onPress={() => setCategory(item.label)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: category === item.label }}
             accessibilityLabel={`${item.label}, 결과 ${item.count}개`}
-            style={[
-              s.searchCategory,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-              category === item.label && s.searchCategoryActive,
-              category === item.label && {
-                backgroundColor: theme.primarySoft,
-                borderColor: `${theme.primary}70`,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                s.searchCategoryText,
-                { color: theme.muted },
-                category === item.label && s.searchCategoryTextActive,
-                category === item.label && { color: theme.primary },
-              ]}
-            >
-              {item.label}
-            </Text>
-            <View
-              style={[
-                s.searchCategoryCount,
-                {
-                  backgroundColor:
-                    category === item.label ? theme.primary : theme.surfaceAlt,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  s.searchCategoryCountText,
-                  {
-                    color:
-                      category === item.label ? "#FFFFFF" : theme.muted,
-                  },
-                ]}
-              >
-                {item.count}
-              </Text>
-            </View>
-          </Pressable>
+          />
         ))}
       </View>
       <View style={s.searchResultHead}>
@@ -8298,8 +8248,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  searchCategoryText: { fontSize: 12, fontFamily: typo.label.family },
-  searchCategoryTextActive: { color: "#FFFFFF" },
   searchResultHead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -8402,8 +8350,6 @@ const s = StyleSheet.create({
     gap: 4,
     marginBottom: 8,
   },
-  filter: { minHeight: 높이.버튼, paddingHorizontal: 14, borderRadius: 모서리.원, justifyContent: "center" },
-  filterText: { fontSize: 12, fontFamily: typo.label.family },
   tripRow: {
     minHeight: 72,
     flexDirection: "row",
@@ -8465,17 +8411,6 @@ const s = StyleSheet.create({
     ...그림자.카드,
   },
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
-  searchCategory: {
-    height: 높이.버튼,
-    minWidth: 61,
-    borderRadius: 모서리.원,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    flexDirection: "row",
-    gap: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   searchCategories: {
     width: "100%",
     marginTop: 4,
@@ -8488,21 +8423,6 @@ const s = StyleSheet.create({
     gap: 6,
     paddingVertical: 4,
   },
-  searchCategoryActive: {
-    shadowColor: "#17233D",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  searchCategoryCount: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 모서리.상자,
-    paddingHorizontal: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchCategoryCountText: { fontSize: 14, fontFamily: typo.data.family },
   searchGuideHead: {
     height: 26,
     flexDirection: "row",

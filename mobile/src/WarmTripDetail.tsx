@@ -4687,25 +4687,15 @@ function TripOverview({
             {[{ day: ALL_DAYS, count: schedule.length }, ...scheduleDayChips].map(({ day, count }) => {
               const active = scheduleDay === day;
               return (
-                <Pressable
+                <Chip
                   key={day}
+                  theme={theme ?? undefined}
+                  label={day}
+                  count={count}
+                  on={active}
                   onPress={() => setScheduleDay(day)}
-                  accessibilityRole="button"
                   accessibilityLabel={day === ALL_DAYS ? `전체 일정 ${count}개` : `${day} 일정 ${count}개`}
-                  accessibilityState={{ selected: active }}
-                  style={[
-                    styles.scheduleDayChip,
-                    theme && { borderColor: active ? theme.primary : theme.border },
-                    active && theme && { backgroundColor: theme.primarySoft },
-                  ]}
-                >
-                  <Text style={[styles.scheduleDayChipText, theme && { color: active ? theme.primary : theme.muted }]}>
-                    {day}
-                  </Text>
-                  <Text style={[styles.scheduleDayChipCount, theme && { color: active ? theme.primary : theme.muted }]}>
-                    {count}
-                  </Text>
-                </Pressable>
+                />
               );
             })}
           </ScrollView>
@@ -5356,17 +5346,14 @@ function Places({
           ))}
         </ChipRow>
         {(places.length > 5 || allTags.length > 0) && (
-          <Pressable
+          <Chip
+            theme={theme ?? undefined}
+            label="찾기"
+            icon={placeFiltersOpen ? "chevronUp" : "search"}
+            on={placeFiltersOpen}
             onPress={() => setPlaceFiltersOpen((value) => !value)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: placeFiltersOpen }}
             accessibilityLabel="장소 검색과 태그 필터"
-            hitSlop={누름여유(높이.칩)}
-            style={[styles.placeFilterMoreButton, theme && { backgroundColor: theme.surfaceAlt }]}
-          >
-            <Glyph name={placeFiltersOpen ? "chevronDown" : "search"} size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} weight={2.2} />
-            <Text style={[styles.placeFilterMoreText, theme && { color: theme.primary }]}>찾기</Text>
-          </Pressable>
+          />
         )}
       </View>
       {/* 다섯 곳 이하면 목록이 한눈에 들어온다. 찾을 게 없는데 검색창이
@@ -5399,52 +5386,20 @@ function Places({
         )}
       </View>
       <View style={styles.tagFilterRow}>
-        <Pressable
+        <Chip
+          theme={theme ?? undefined}
+          label="# 모든 태그"
+          on={tagFilter === null}
           onPress={() => setTagFilter(null)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: tagFilter === null }}
-          hitSlop={누름여유(높이.칩)}
-          style={[
-            styles.tagFilterChip,
-            tagFilter === null && styles.tagFilterChipActive,
-            tagFilter === null &&
-              theme && { backgroundColor: theme.primarySoft },
-          ]}
-        >
-          <Text
-            style={[
-              styles.tagFilterLabel,
-              tagFilter === null && styles.tagFilterLabelActive,
-              tagFilter === null && theme && { color: theme.primary },
-            ]}
-          >
-            # 모든 태그
-          </Text>
-        </Pressable>
+        />
         {allTags.map((tag) => (
-          <Pressable
+          <Chip
             key={tag}
+            theme={theme ?? undefined}
+            label={`# ${tag}`}
+            on={tagFilter === tag}
             onPress={() => setTagFilter(tagFilter === tag ? null : tag)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: tagFilter === tag }}
-            hitSlop={누름여유(높이.칩)}
-            style={[
-              styles.tagFilterChip,
-              tagFilter === tag && styles.tagFilterChipActive,
-              tagFilter === tag &&
-                theme && { backgroundColor: theme.primarySoft },
-            ]}
-          >
-            <Text
-              style={[
-                styles.tagFilterLabel,
-                tagFilter === tag && styles.tagFilterLabelActive,
-                tagFilter === tag && theme && { color: theme.primary },
-              ]}
-            >
-              # {tag}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
       </>
@@ -5864,31 +5819,13 @@ function Places({
             <View style={styles.tagSuggestions}>
               {["숙소 근처", "웨이팅", "예약", "가성비", "비 오는 날"].map(
                 (tag) => (
-                  <Pressable
-                    accessibilityRole="button"
+                  <Chip
                     key={tag}
+                    theme={theme ?? undefined}
+                    label={`# ${tag}`}
+                    on={draftTags.includes(tag)}
                     onPress={() => addTag(tag)}
-                    style={[
-                      styles.tagSuggestion,
-                      draftTags.includes(tag) && styles.tagSuggestionActive,
-                      draftTags.includes(tag) &&
-                        theme && {
-                          backgroundColor: theme.primarySoft,
-                          borderColor: theme.primary,
-                        },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.tagSuggestionText,
-                        draftTags.includes(tag) && styles.tagSuggestionTextActive,
-                        draftTags.includes(tag) &&
-                          theme && { color: theme.primary },
-                      ]}
-                    >
-                      # {tag}
-                    </Text>
-                  </Pressable>
+                  />
                 ),
               )}
             </View>
@@ -5901,18 +5838,18 @@ function Places({
             />
             <View style={styles.draftTags}>
               {draftTags.map((tag) => (
-                <Pressable
-                  accessibilityRole="button"
+                <Chip
                   key={tag}
+                  theme={theme ?? undefined}
+                  label={`# ${tag}`}
+                  on
+                  trailing="close"
                   onPress={() =>
                     setTagText(
                       draftTags.filter((item) => item !== tag).join(", "),
                     )
                   }
-                  style={[styles.draftTag, theme && { backgroundColor: theme.primarySoft }]}
-                >
-                  <Text style={[styles.draftTagText, theme && { color: theme.primary }]}># {tag} ×</Text>
-                </Pressable>
+                />
               ))}
             </View>
           </View>
@@ -6618,34 +6555,24 @@ function Preparation({
             {(["전체", "남은 준비", "완료"] as const).map((item) => {
               const active = filter === item;
               return (
-                <Pressable
+                <Chip
                   key={item}
+                  theme={theme ?? undefined}
+                  label={item}
+                  on={active}
                   onPress={() => setFilter(item)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  hitSlop={누름여유(높이.칩)}
-                  style={[
-                    styles.packingV2StatusChip,
-                    active && theme && { backgroundColor: theme.primarySoft },
-                  ]}
-                >
-                  <Text style={[styles.packingFilterChipText, theme && { color: active ? theme.primary : theme.muted }]}>{item}</Text>
-                </Pressable>
+                />
               );
             })}
           </View>
-          <Pressable
+          <Chip
+            theme={theme ?? undefined}
+            label={ownerFilter === "전체" && tagFilter === "전체 태그" ? "필터" : "필터 적용 중"}
+            trailing={packingFiltersOpen ? "chevronUp" : "chevronDown"}
+            on={packingFiltersOpen}
             onPress={() => setPackingFiltersOpen((value) => !value)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: packingFiltersOpen }}
             accessibilityLabel="담당과 태그 필터"
-            style={[styles.packingV2TagButton, theme && { borderColor: theme.border }]}
-          >
-            <Text style={[styles.packingV2TagButtonText, theme && { color: theme.primary }]}>
-              {ownerFilter === "전체" && tagFilter === "전체 태그" ? "필터" : "필터 적용 중"}
-            </Text>
-            <Glyph name={packingFiltersOpen ? "chevronDown" : "chevronRight"} size={아이콘.작게} color={theme?.muted ?? "#646C7A"} />
-          </Pressable>
+          />
         </View>
         {packingFiltersOpen && (
         <>
@@ -6654,22 +6581,14 @@ function Preparation({
             const active = ownerFilter === ownerName;
             const matchingCount = countForOwner(ownerName);
             return (
-              <Pressable
+              <Chip
                 key={ownerName}
+                theme={theme ?? undefined}
+                label={ownerName}
+                count={matchingCount}
+                on={active}
                 onPress={() => setOwnerFilter(ownerName)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                style={[
-                  styles.packingV2OwnerChip,
-                  theme && { borderColor: active ? theme.primary : theme.border },
-                  active && theme && { backgroundColor: theme.primarySoft },
-                ]}
-              >
-                <Text style={[styles.packingV2OwnerName, theme && { color: active ? theme.primary : theme.text }]}>
-                  {ownerName}
-                </Text>
-                <Text style={[styles.packingV2OwnerCount, theme && { color: active ? theme.primary : theme.muted }]}>{matchingCount}</Text>
-              </Pressable>
+              />
             );
           })}
         </ScrollView>
@@ -6807,45 +6726,24 @@ function Preparation({
             {["전체 태그", ...quickTags.slice(0, 2)].map((tag) => {
               const active = tagFilter === tag;
               return (
-                <Pressable
-                  accessibilityRole="button"
+                <Chip
                   key={tag}
+                  theme={theme ?? undefined}
+                  label={tag === "전체 태그" ? "모든 태그" : `# ${tag}`}
+                  on={active}
                   onPress={() => setTagFilter(tag)}
-                  style={[
-                    styles.packingFilterChip,
-                    active && theme && { backgroundColor: theme.primarySoft },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.packingFilterChipText,
-                      theme && { color: active ? theme.primary : theme.muted },
-                    ]}
-                  >
-                    {tag === "전체 태그" ? "모든 태그" : `# ${tag}`}
-                  </Text>
-                </Pressable>
+                />
               );
             })}
           </ScrollView>
           {availableTags.length > 2 && (
-            <Pressable
-              accessibilityRole="button"
+            <Chip
+              theme={theme ?? undefined}
+              label="전체"
+              count={availableTags.length}
+              on={false}
               onPress={() => setTagPicker(true)}
-              style={[
-                styles.packingFilterMore,
-                theme && { borderColor: theme.border },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.packingFilterMoreText,
-                  theme && { color: theme.text },
-                ]}
-              >
-                전체 {availableTags.length}
-              </Text>
-            </Pressable>
+            />
           )}
         </View>
         <View
@@ -7337,9 +7235,11 @@ function Preparation({
               {["전자기기", "세면", "의류", "숙소", "출발 전"].map((tag) => {
                 const selected = draftPackingTags.includes(tag);
                 return (
-                  <Pressable
-                    accessibilityRole="button"
+                  <Chip
                     key={tag}
+                    theme={theme ?? undefined}
+                    label={`# ${tag}`}
+                    on={selected}
                     onPress={() =>
                       setTagText(
                         selected
@@ -7349,26 +7249,7 @@ function Preparation({
                           : [...draftPackingTags, tag].join(", "),
                       )
                     }
-                    style={[
-                      styles.tagSuggestion,
-                      selected && styles.tagSuggestionActive,
-                      selected &&
-                        theme && {
-                          backgroundColor: theme.primarySoft,
-                          borderColor: theme.primary,
-                        },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.tagSuggestionText,
-                        selected && styles.tagSuggestionTextActive,
-                        selected && theme && { color: theme.primary },
-                      ]}
-                    >
-                      # {tag}
-                    </Text>
-                  </Pressable>
+                  />
                 );
               })}
             </View>
@@ -7388,9 +7269,12 @@ function Preparation({
             />
             <View style={styles.draftTags}>
               {draftPackingTags.map((tag) => (
-                <Pressable
-                  accessibilityRole="button"
+                <Chip
                   key={tag}
+                  theme={theme ?? undefined}
+                  label={`# ${tag}`}
+                  on
+                  trailing="close"
                   onPress={() =>
                     setTagText(
                       draftPackingTags
@@ -7398,20 +7282,7 @@ function Preparation({
                         .join(", "),
                     )
                   }
-                  style={[
-                    styles.draftTag,
-                    theme && { backgroundColor: theme.primarySoft },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.draftTagText,
-                      theme && { color: theme.primary },
-                    ]}
-                  >
-                    # {tag} ×
-                  </Text>
-                </Pressable>
+                />
               ))}
             </View>
           </View>
@@ -8787,30 +8658,13 @@ function Cooking({
                 (category) => {
                   const selected = group === category;
                   return (
-                    <Pressable
-                      accessibilityRole="button"
+                    <Chip
                       key={category}
+                      theme={theme ?? undefined}
+                      label={category}
+                      on={selected}
                       onPress={() => setGroup(category)}
-                      style={[
-                        styles.tagSuggestion,
-                        selected && styles.tagSuggestionActive,
-                        selected &&
-                          theme && {
-                            backgroundColor: theme.primarySoft,
-                            borderColor: theme.primary,
-                          },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tagSuggestionText,
-                          selected && styles.tagSuggestionTextActive,
-                          selected && theme && { color: theme.primary },
-                        ]}
-                      >
-                        {category}
-                      </Text>
-                    </Pressable>
+                    />
                   );
                 },
               )}
@@ -11545,19 +11399,13 @@ function Money({
           {EXPENSE_CATEGORIES.map((item) => {
             const active = quickCategory === item;
             return (
-              <Pressable
+              <Chip
                 key={item}
+                theme={theme ?? undefined}
+                label={item}
+                on={active}
                 onPress={() => setQuickCategory(item)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                style={[
-                  styles.quickAddChip,
-                  theme && { borderColor: active ? theme.primary : theme.border },
-                  active && theme && { backgroundColor: theme.primarySoft },
-                ]}
-              >
-                <Text style={[styles.quickAddChipText, theme && { color: active ? theme.primary : theme.muted }]}>{item}</Text>
-              </Pressable>
+              />
             );
           })}
         </ScrollView>
@@ -11692,19 +11540,13 @@ function Money({
           {["전체", ...usedDays].map((day) => {
             const active = dayFilter === day;
             return (
-              <Pressable
+              <Chip
                 key={day}
+                theme={theme ?? undefined}
+                label={day}
+                on={active}
                 onPress={() => setDayFilter(day)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                style={[
-                  styles.moneyDayChip,
-                  theme && { borderColor: active ? theme.primary : theme.border },
-                  active && theme && { backgroundColor: theme.primarySoft },
-                ]}
-              >
-                <Text style={[styles.moneyDayChipText, theme && { color: active ? theme.primary : theme.muted }]}>{day}</Text>
-              </Pressable>
+              />
             );
           })}
         </ScrollView>
@@ -13936,9 +13778,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resultCountText: { fontSize: 14, fontFamily: typo.data.family },
-  tagFilterChipActive: { backgroundColor: "#8B7CF6" },
-  tagFilterLabel: { color: "#777F8C", fontSize: 12, fontFamily: typo.label.family },
-  tagFilterLabelActive: { color: "#FFFFFF" },
   placeTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 8 },
   placeTagText: { fontSize: 12, fontFamily: typo.label.family },
   tagEditor: { marginBottom: 16 },
@@ -13950,17 +13789,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 8,
   },
-  tagSuggestion: {
-    borderRadius: 모서리.상자,
-    backgroundColor: "#ECEAE5",
-    borderWidth: 1,
-    borderColor: "#DAD6CD",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  tagSuggestionActive: { backgroundColor: "#8B7CF6" },
-  tagSuggestionText: { color: "#747C88", fontSize: 12, fontFamily: typo.label.family },
-  tagSuggestionTextActive: { color: "#FFFFFF" },
   tagInput: {
     minHeight: 높이.입력,
     borderRadius: 모서리.버튼,
@@ -13971,13 +13799,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   draftTags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  draftTag: {
-    borderRadius: 모서리.상자,
-    backgroundColor: "#E9E5FF",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  draftTagText: { fontSize: 12, fontFamily: typo.label.family },
   deleteConfirm: {
     borderWidth: 1,
     borderRadius: 모서리.구역,
@@ -14012,8 +13833,6 @@ const styles = StyleSheet.create({
   moneyBlockBody: { borderWidth: 1, borderRadius: 모서리.구역, padding: 16 },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   quickAddChips: { gap: 6, paddingVertical: 9, paddingRight: 4 },
-  quickAddChip: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 12, paddingVertical: 6 },
-  quickAddChipText: { fontSize: 13, fontFamily: typo.label.family },
   quickAddRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   quickAddInput: { flex: 1, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, fontFamily: typo.data.family },
   quickAddButton: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 모서리.행, paddingLeft: 12, paddingRight: 14, paddingVertical: 11 },
@@ -14103,8 +13922,6 @@ const styles = StyleSheet.create({
   moneyCategoryPercent: { minWidth: 30, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
   moneyCategoryHint: { fontSize: 12, fontFamily: typo.caption.family, paddingHorizontal: 6, paddingTop: 4, paddingBottom: 7 },
   moneyDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4 },
-  moneyDayChip: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 여백.가로좁게, minHeight: 높이.버튼, justifyContent: "center" },
-  moneyDayChipText: { fontSize: 12, fontFamily: typo.label.family },
   moneyList: { gap: 14, marginTop: 8 },
   // 목록 제목줄 오른쪽. 분류를 걸러 둔 동안에는 「전체 보기」와 추가 버튼이
   // 나란히 선다.
@@ -14124,17 +13941,6 @@ const styles = StyleSheet.create({
   moneyExportHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
   fullScheduleList: { maxHeight: 520 },
   scheduleDayRow: { gap: 6, paddingVertical: 2, paddingRight: 4, marginBottom: 10 },
-  scheduleDayChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 모서리.원,
-    paddingHorizontal: 여백.가로좁게,
-    minHeight: 높이.버튼,
-  },
-  scheduleDayChipText: { fontSize: 12, fontFamily: typo.label.family },
-  scheduleDayChipCount: { fontSize: 11, fontFamily: typo.data.family },
   scheduleDayGroup: {
     marginBottom: 18,
     borderRadius: 모서리.구역,
@@ -14218,13 +14024,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   packingFilterChipText: { fontSize: 12, fontFamily: typo.label.family },
-  packingFilterMore: {
-    borderWidth: 1,
-    borderRadius: 모서리.원,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  packingFilterMoreText: { fontSize: 14, fontFamily: typo.label.family },
   packingFilters: { flexDirection: "row", gap: 6 },
   packingList: { gap: 8 },
   packingCardPressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
@@ -14330,23 +14129,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   packingV2StatusTabs: { flexDirection: "row", alignItems: "center", gap: 2 },
-  packingV2StatusChip: {
-    minHeight: 높이.칩,
-    borderRadius: 모서리.원,
-    paddingHorizontal: 여백.가로좁게,
-    paddingVertical: 6,
-    justifyContent: "center",
-  },
-  packingV2TagButton: {
-    borderWidth: 1,
-    borderRadius: 모서리.원,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  packingV2TagButtonText: { fontSize: 14, fontFamily: typo.label.family },
   packingV2Owners: { flexDirection: "row", gap: 6, paddingRight: 16 },
   packingV2TagChoice: {
     minHeight: 높이.버튼,
@@ -14357,19 +14139,6 @@ const styles = StyleSheet.create({
   },
   packingV2TagChoiceLabel: { width: 42, fontSize: 11, fontFamily: typo.caption.family },
   packingV2TagChoiceValue: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
-  packingV2OwnerChip: {
-    minWidth: 57,
-    borderWidth: 1,
-    borderRadius: 모서리.상자,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-  },
-  packingV2OwnerName: { fontSize: 14, fontFamily: typo.title.family },
-  packingV2OwnerCount: { fontSize: 14, fontFamily: typo.data.family },
   packingV2Group: {
     borderWidth: 1,
     borderRadius: 모서리.행,
@@ -15023,16 +14792,6 @@ const styles = StyleSheet.create({
   },
   // 칩이 다섯이라 좁은 화면에서는 한 줄에 다 들어가지 않는다. 밀려 잘리느니 접는다.
   placeFilters: { flex: 1 },
-  // 필터 칩과 같은 줄이라 칩 높이에 맞춘다. 모자란 만큼은 hitSlop 으로 채운다.
-  placeFilterMoreButton: {
-    minHeight: 높이.칩,
-    borderRadius: 모서리.원,
-    paddingHorizontal: 9,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  placeFilterMoreText: { fontSize: 12, fontFamily: typo.label.family },
   placeAdd: { borderRadius: 모서리.상자, paddingHorizontal: 12, paddingVertical: 8 },
   placeSearch: {
     height: 높이.버튼,
@@ -15045,13 +14804,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   tagFilterRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  tagFilterChip: {
-    height: 높이.칩,
-    borderRadius: 모서리.원,
-    paddingHorizontal: 여백.가로좁게,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   placeTag: { borderRadius: 모서리.표식, paddingHorizontal: 6, paddingVertical: 4 },
   ownerStats: {
     minHeight: 61,
