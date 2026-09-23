@@ -9,7 +9,7 @@
 | 항목 | 현재 상태 | 판정 |
 | --- | --- | --- |
 | UI | 홈·여행·찾기·우리와 여행 상세 6개 탭이 서버에 연결됨 | — |
-| 앱 구조 | `mobile/src/WarmAppShell.tsx`(7,700줄), `WarmTripDetail.tsx`(12,500줄)에 화면이 몰려 있고 라우터가 없다 | **분리 남음.** Expo Router·TanStack Query·Zustand·SQLite 미도입 |
+| 앱 구조 | `mobile/src/WarmAppShell.tsx`(7,700줄)에 화면이 몰려 있고 라우터가 없다. 여행 상세는 탭별로 나눠 `WarmTripDetail.tsx`(2,400줄) + `mobile/src/trip/` 여덟 파일이다(2026-09-23) | **분리 남음.** Expo Router·TanStack Query·Zustand·SQLite 미도입 |
 | API/서버 | FastAPI 모놀리식. `/v1` 경로 68개(동작 102개), 표 41개, migration 22개 | — |
 | Node | 루트 `.nvmrc` 24, `engines` `>=24 <25` | — |
 | Python | 3.13 + uv | — |

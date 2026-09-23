@@ -24,7 +24,7 @@
 | `Switch` | 켜고 끄는 막대(44×26). 누르는 것은 부르는 쪽이 갖는다 | `mobile/src/ui/Switch.tsx` | 설정 줄의 켜고 끄기 |
 | `SheetHandle` | 아래에서 올라온 창 맨 위의 손잡이(40×5) | `mobile/src/ui/SheetHandle.tsx` | 끌어 내려 닫는 창. `SheetShell` 이 이미 쓴다 |
 | `Segment`·`세그먼트_최대` | 한 줄 세그먼트. 배경 있는 트랙(높이 `높이.칩`, 모서리 `모서리.버튼`) 안에 같은 폭 칸, 고른 것만 흰 배경에 굵게. 옵션은 문자열이나 `{ value, label }`, 접근성은 `radiogroup`/`radio`. `disabled` 를 주면 고른 칸은 그대로 두고 흐려진다 | `mobile/src/ui/Segment.tsx` | 선택지가 다섯 개 이하이고 칸에 글자가 들어갈 때(날짜·종류·방향·나누기 방식·관계). 여섯 개부터나 말이 길면 `Chip`·`Choice` |
-| `OptionalFormSection` | 매번 쓰지 않는 칸을 「＋ 장소 · 메모 더 적기」 한 줄 아래로 접는다. `switchLabel` 을 주면 예약처럼 「있어요」 뜻이 담긴 상자가 된다. 고칠 때 값이 있으면 부르는 쪽이 펼친 채로 연다 | `mobile/src/ui/OptionalFormSection.tsx` | 시트의 선택 칸. `theme` 과 `editable` 을 넘긴다(`WarmTripDetail` 은 같은 이름의 얇은 껍데기가 문맥에서 꺼내 넘긴다) |
+| `OptionalFormSection` | 매번 쓰지 않는 칸을 「＋ 장소 · 메모 더 적기」 한 줄 아래로 접는다. `switchLabel` 을 주면 예약처럼 「있어요」 뜻이 담긴 상자가 된다. 고칠 때 값이 있으면 부르는 쪽이 펼친 채로 연다 | `mobile/src/ui/OptionalFormSection.tsx` | 시트의 선택 칸. `theme` 과 `editable` 을 넘긴다(여행 상세는 `trip/parts.tsx` 의 같은 이름 얇은 껍데기가 문맥에서 꺼내 넘긴다) |
 | `높이`·`모서리`·`여백` | 누르는 것의 크기 토큰. 높이는 칩 36, 버튼 44, 입력 52, 저장 56. 모서리는 표식 4, 상자 8, 버튼 10, 행 12, 구역 16, 원 999 | `mobile/src/theme/controls.ts` | 스타일시트에 크기를 적을 때마다 |
 | `불투명도`·`아이콘`·`그림자` | 눌림 0.7 · 흐림 0.55 · 비활성 0.4, 아이콘 작게 14 · 보통 16 · 크게 20, 그림자 카드·뜬것 | 같은 파일 | 누름 느낌·꺼진 칸·기호 크기·뜬 정도를 적을 때 |
 | `누름여유`·`글자누름여유` | 44 보다 작게 그린 것에 줄 `hitSlop`. 글자 한 줄짜리 단추는 세로만 넓힌다(좌우까지 넓히면 나란한 단추끼리 겹친다) | 같은 파일 | 작게 그린 것을 누르게 만들 때 |
@@ -54,11 +54,11 @@
 | `TripRegionPicker` | 지역 고르기 | `mobile/src/TripRegionPicker.tsx` | 여행지를 고를 때 |
 | `SocialLoginButton` | 구글·카카오·네이버 버튼. 각 사의 표기 규정에 맞춰 둔 것 | `mobile/src/SocialLoginButton.tsx` | 로그인 화면 |
 | `PaperPeel` | 종이를 넘기는 듯한 전환 | `mobile/src/PaperPeel.tsx` | 여행 카드를 넘길 때 |
-| `SectionLabel`·`TabActionHeader` | 구역 제목 한 줄과, 제목 + 개수 + 오른쪽 동작 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 목록 위 제목 줄 |
-| `OptionField` | 라벨 + 고르기. 선택지가 다섯 개 이하면 `Segment`, 여섯 개부터는 칩 줄로 스스로 고른다 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 시트 안에서 고르게 할 때 |
-| `TimeRow` | 「시간  11:00 ›」 한 줄. 안드로이드는 눌러서 돌리는 창, 그 밖에서는 자리에서 친다 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 시트 안의 시각 칸 |
+| `SectionLabel`·`TabActionHeader` | 구역 제목 한 줄과, 제목 + 개수 + 오른쪽 동작 | `mobile/src/trip/parts.tsx` | 목록 위 제목 줄 |
+| `OptionField` | 라벨 + 고르기. 선택지가 다섯 개 이하면 `Segment`, 여섯 개부터는 칩 줄로 스스로 고른다 | `mobile/src/trip/parts.tsx` | 시트 안에서 고르게 할 때 |
+| `TimeRow` | 「시간  11:00 ›」 한 줄. 안드로이드는 눌러서 돌리는 창, 그 밖에서는 자리에서 친다 | `mobile/src/trip/parts.tsx` | 시트 안의 시각 칸 |
 
-마지막 네 줄은 아직 `WarmTripDetail.tsx` 안에 있다. 다른 화면에서 쓰게 되면 그때 `ui/` 로 옮긴다.
+마지막 네 줄은 여행 상세 안에서만 쓴다. 2026-09-23 에 여행 상세를 탭별로 나누면서 `mobile/src/trip/parts.tsx` 로 모았다 — 여섯 탭이 같이 쓰는 것을 담는 자리다. 다른 화면에서 쓰게 되면 그때 `ui/` 로 옮긴다.
 `OptionalFormSection` 이 그렇게 옮겨 간 첫 부품이다. 여행 목록의 새 여행 시트가 같은 줄을 쓴다.
 
 ## 추가·수정 시트의 배치
@@ -142,7 +142,7 @@ showAlert("지울까요?", "되돌릴 수 없어요", [
 
 ## 아직 옮기지 않은 복사본
 
-시트 껍데기는 다 옮겼다. `WarmTripDetail.tsx` 의 `DetailSheet` 와 `InfoPanel` 도 `SheetShell` 을 쓴다. 두 곳은 이제 이 화면에만 있는 것만 얹는다.
+시트 껍데기는 다 옮겼다. 여행 상세의 `DetailSheet` 와 `InfoPanel`(`mobile/src/trip/parts.tsx`) 도 `SheetShell` 을 쓴다. 두 곳은 이제 이 화면에만 있는 것만 얹는다.
 
 - `DetailSheet` — 공간 권한으로 잠글지 정하고(저장 버튼이 이미 「닫기」인 둘러보는 시트는 빼고), 잠긴 시트 안의 칸까지 흐려지도록 `DetailEditableContext` 를 시트 안에서 다시 내리고, 제목으로 색 막대 색을 고른다. 나머지(잠김 안내·저장 재확인·지우기 확인·작성 중 닫기 확인·기다리는 동안의 버튼 글)는 전부 부품의 prop 으로 넘어갔고 새로 뚫은 prop 은 없다.
 - `InfoPanel` — 머리에 저장 버튼 대신 「완료」가 있어 `renderHead` 로 머리만 갈아 끼운다. `WarmAppShell` 의 `InfoSheet` 와 같은 방식이다.

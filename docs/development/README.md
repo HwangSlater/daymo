@@ -370,9 +370,9 @@ HTML 페이지를 직접 보여 주게 했다. GET은 아무것도 바꾸지 않
   웹 렌더링이라 실기기와 글꼴·여백이 조금 다를 수 있다. 스토어용 스크린샷은
   실기기나 시뮬레이터로 따로 찍어야 한다. `docs/screenshots/`의 4장은 소개 사이트도 쓴다
   (`site/build.mjs`)
-- **화면 코드가 두 파일에 몰려 있다.** `WarmAppShell.tsx` 7,700줄과 `WarmTripDetail.tsx` 12,500줄이고
-  라우터 없이 `useState`로 화면을 바꾼다. 문서(`01` 6장)의 `features/` 분리와 Expo Router는 아직 안 했다.
-  단위 테스트도 이 둘을 뺀 순수 모듈만 덮는다
+- **화면 코드가 몇 파일에 몰려 있다.** `WarmAppShell.tsx` 7,700줄이고, 라우터 없이 `useState`로 화면을 바꾼다.
+  여행 상세는 2026-09-23 에 탭별로 나눠 `WarmTripDetail.tsx` 2,400줄 + `mobile/src/trip/` 여덟 파일이 됐다.
+  문서(`01` 6장)의 `features/` 분리와 Expo Router는 아직 안 했다. 단위 테스트도 화면을 뺀 순수 모듈만 덮는다
 
 ### 출시 뒤 유료로 열 기능: 공지 붙여넣기 (2026-09-16)
 
