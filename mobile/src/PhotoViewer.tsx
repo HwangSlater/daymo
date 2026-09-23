@@ -153,11 +153,14 @@ const DANGER_INK = "#F08A82";
 /**
  * 위아래 시스템 막대를 비킬 여백. 이 창은 안드로이드에서 상단바·하단바 밑까지 깔린다(Expo SDK 57 은
  * 늘 edge-to-edge 다). 전에는 안드로이드 위 여백을 18 로 박아 두어 ✕·되돌리기가 시계 밑에 깔렸다.
- * 아이폰은 기기에서 맞춘 52 를 그대로 둔다.
+ *
+ * 아이폰도 52 로 박아 두었는데, 다이내믹 아일랜드가 있는 기기는 안전 영역이 그보다 깊어
+ * ✕ 가 섬에 겹쳤다(2026-09-23 검토 #53). 기기에서 맞춘 52 를 바닥으로 두고, 안전 영역이
+ * 더 깊으면 그쪽을 따른다.
  */
 function useSystemBars() {
   const 여백 = useSafeAreaInsets();
-  return { 위: Platform.OS === "ios" ? 52 : 여백.top + 8, 아래: 여백.bottom };
+  return { 위: Platform.OS === "ios" ? Math.max(52, 여백.top + 8) : 여백.top + 8, 아래: 여백.bottom };
 }
 
 /**
@@ -338,6 +341,19 @@ export function PhotoViewerScreen({
    * 한 번 눌러 걷어 내고 사진만 본다. 사진첩 앱들이 하는 그대로다.
    */
   const [chromeOn, setChromeOn] = useState(true);
+  /**
+   * 파일이 안 와서 못 그린 사진(2026-09-23 검토 #52).
+   *
+   * 예전에는 `onError` 가 없어 주소는 있는데 파일이 안 오면 검은 칸만 남았다. 고장으로
+   * 읽히는 자리라 무슨 일인지 적고 다시 받을 자리를 둔다.
+   */
+  const [못_읽은, 못_읽음_두기] = useState<Record<string, boolean>>({});
+  /** 사진마다 「다시 시도」를 누른 횟수. 올라가면 `Image` 가 새로 붙어 처음부터 읽는다. */
+  const [다시_읽은_수, 다시_읽은_수_두기] = useState<Record<string, number>>({});
+  const 다시_읽기 = (photoId: string) => {
+    못_읽음_두기(({ [photoId]: _지운다, ...남은 }) => 남은);
+    다시_읽은_수_두기((지금) => ({ ...지금, [photoId]: (지금[photoId] ?? 0) + 1 }));
+  };
   const { 위: 위_여백, 아래: 아래_막대 } = useSystemBars();
   const move = (photoId: string) => {
     setMenuOpen(false);
@@ -405,6 +421,13 @@ export function PhotoViewerScreen({
    */
   const [줌] = useState(() => ({ 배: new Animated.Value(1), x: new Animated.Value(0), y: new Animated.Value(0) }));
   const 줌_지금 = useRef({ 배: 1, x: 0, y: 0 });
+  /**
+   * 지금 보는 사진이 화면에 그려진 크기. 확대한 사진을 어디까지 끌 수 있는지 이것으로 잰다.
+   *
+   * 예전에는 창 크기로 쟀다. `contain` 이라 가로 사진은 위아래에 검은 띠가 남는데, 창 기준으로
+   * 재면 그 띠만큼 더 끌려 사진이 화면 밖으로 달아났다(2026-09-23 검토 #53).
+   */
+  const 그린_크기 = useRef({ width: 0, height: 0 });
   /** 이번에 미는 방향. 「안함」은 좌우로 밀었지만 갈 곳이 없어 흘려보내는 중이다. */
   const 축_판정 = useRef<"아직" | "안함" | NonNullable<SwipeAxis>>("아직");
   // 손가락이 움직일 때 필요한 값. PanResponder 를 다시 만들지 않으려고 여기로 읽는다.
@@ -419,10 +442,19 @@ export function PhotoViewerScreen({
   // 아래 콜백들은 PanResponder 가 손가락 이벤트 때만 부른다. ref 는 렌더 중에 읽지 않는다.
   // eslint-disable-next-line react-hooks/refs
   const [pan] = useState(() => {
-    /** 확대한 사진이 화면 밖으로 달아나지 않게 옮김을 붙든다. */
+    /**
+     * 확대한 사진이 화면 밖으로 달아나지 않게 옮김을 붙든다.
+     *
+     * 한계는 **그림이 실제로 그려진 크기**에서 나온다. 키운 그림이 창보다 큰 만큼만
+     * 끌 수 있다. 아직 크기를 못 쟀으면 예전처럼 창 크기로 어림한다.
+     */
     const 붙들기 = (배: number, x: number, y: number) => {
-      const 가로_끝 = ((배 - 1) * latest.current.width) / 2;
-      const 세로_끝 = ((배 - 1) * latest.current.높이) / 2;
+      const { width: 창_폭, 높이: 창_높이 } = latest.current;
+      const 그림 = 그린_크기.current;
+      const 그린_폭 = 그림.width > 0 ? 그림.width : 창_폭;
+      const 그린_높이 = 그림.height > 0 ? 그림.height : 창_높이;
+      const 가로_끝 = Math.max(0, (배 * 그린_폭 - 창_폭) / 2);
+      const 세로_끝 = Math.max(0, (배 * 그린_높이 - 창_높이) / 2);
       return { 배, x: Math.max(-가로_끝, Math.min(가로_끝, x)), y: Math.max(-세로_끝, Math.min(세로_끝, y)) };
     };
     const 줌_두기 = (다음: { 배: number; x: number; y: number }, 부드럽게: boolean) => {
@@ -494,7 +526,19 @@ export function PhotoViewerScreen({
             return;
           }
           const 배 = Math.max(1, Math.min(5, 손.처음.배 * (지금.거리 / 손.거리)));
-          줌_두기(붙들기(배, 손.처음.x + (지금.가운데x - 손.가운데x), 손.처음.y + (지금.가운데y - 손.가운데y)), false);
+          /*
+           * 손가락 가운데 아래의 사진 한 점이 그대로 손가락 아래에 있게 한다(2026-09-23 검토 #53).
+           *
+           * 전에는 배율만 곱하고 손가락 가운데가 움직인 만큼만 따라갔다. 그러면 사진 가운데를
+           * 축으로 커지므로, 가장자리를 벌릴수록 그 자리가 손가락에서 미끄러졌다. 카드 꾸미기가
+           * 쓰는 셈(`CardDecorEditor` 의 두_손가락)을 그대로 옮겨 왔다. 원점은 창 가운데다.
+           */
+          const 원점x = latest.current.width / 2;
+          const 원점y = latest.current.높이 / 2;
+          const 비 = 배 / 손.처음.배;
+          const x = (지금.가운데x - 원점x) - 비 * (손.가운데x - 원점x - 손.처음.x);
+          const y = (지금.가운데y - 원점y) - 비 * (손.가운데y - 원점y - 손.처음.y);
+          줌_두기(붙들기(배, x, y), false);
           return;
         }
         if (손.핀치) return;
@@ -603,6 +647,7 @@ export function PhotoViewerScreen({
     slideX.setValue(0);
     slideY.setValue(0);
     // 옆 칸으로 가면 확대는 푼다. 다음 사진은 늘 전체가 보이게 시작한다.
+    그린_크기.current = { width: 0, height: 0 };
     줌_지금.current = { 배: 1, x: 0, y: 0 };
     줌.배.setValue(1);
     줌.x.setValue(0);
@@ -658,13 +703,16 @@ export function PhotoViewerScreen({
         {decorating && decor ? (
         <>
           <View style={[styles.decorHead, { paddingTop: 위_여백 }]}>
+            {/* 「취소」가 아니라 「닫기」다(2026-09-23 검토 #51). 꾸미다 나가도 초안은 기기에
+                그대로 남아서, 「취소」는 무른다는 뜻으로 읽히는데 실제로는 아무것도 무르지
+                않는다. 되돌리기는 머리줄 가운데 ↶ 가 맡는다. */}
             <Pressable
               onPress={back}
               accessibilityRole="button"
-              accessibilityLabel="카드 꾸미기 취소"
+              accessibilityLabel="카드 꾸미기 닫기"
               style={({ pressed }) => [styles.decorHeadSide, pressed && styles.pressed]}
             >
-              <Text style={styles.decorBack}>취소</Text>
+              <Text style={styles.decorBack}>닫기</Text>
             </Pressable>
             {decor.history ? (
               <View style={styles.decorHistory}>
@@ -750,10 +798,22 @@ export function PhotoViewerScreen({
                   // 크기를 숫자로 못 박는다. 퍼센트로 두면 줄이 움직일 때마다 칸을
                   // 다시 재고, 표시본(긴 변 2048px)을 그 크기에 다시 맞춰 그린다.
                   <Image
+                    // 「다시 시도」를 누르면 열쇠가 바뀌어 `Image` 가 새로 붙는다. 같은 주소를
+                    // 그대로 두면 한 번 실패한 그림을 다시 읽지 않는다.
+                    key={`${한장.uri}:${다시_읽은_수[한장.id] ?? 0}`}
                     source={{ uri: 한장.uri }}
                     resizeMode="contain"
                     style={[styles.fill, { width }]}
                     accessibilityLabel={자리 === 0 ? 한장.caption || "여행 사진" : ""}
+                    onLoad={자리 === 0 ? (event) => {
+                      못_읽음_두기((지금) => (지금[한장.id] ? { ...지금, [한장.id]: false } : 지금));
+                      // 그려진 크기를 잰다. 확대한 사진을 어디까지 끌 수 있는지 이것으로 정한다.
+                      const 원본 = event.nativeEvent.source;
+                      if (!원본?.width || !원본?.height) return;
+                      const 맞춘_배 = Math.min(width / 원본.width, 창_높이 / 원본.height);
+                      그린_크기.current = { width: 원본.width * 맞춘_배, height: 원본.height * 맞춘_배 };
+                    } : undefined}
+                    onError={자리 === 0 ? () => 못_읽음_두기((지금) => ({ ...지금, [한장.id]: true })) : undefined}
                   />
                 ) : 자리 === 0 ? (
                   <Text style={styles.waiting}>{waitingText ?? "사진을 불러오는 중이에요"}</Text>
@@ -769,6 +829,23 @@ export function PhotoViewerScreen({
             아이콘 줄·화살표·설명은 이 판보다 위라 그대로 눌린다. 밀려 나가는 줄이
             직접 받으면 기기에서 판이 손가락 아래에서 움직이는 순간 추적이 끊긴다. */}
         <View style={StyleSheet.absoluteFill} {...pan.panHandlers} />
+
+        {/* 파일이 안 와 못 그린 사진. 검은 칸만 남으면 고장으로 읽힌다(2026-09-23 검토 #52).
+            무슨 일인지 적고 다시 받을 자리를 준다. 손가락 판 뒤에 놓아야 눌린다. */}
+        {photo && 못_읽은[photo.id] && (
+          <View style={styles.failure} pointerEvents="box-none" accessibilityLiveRegion="polite">
+            <Text style={styles.failureText}>사진을 불러오지 못했어요</Text>
+            <Pressable
+              onPress={() => 다시_읽기(photo.id)}
+              accessibilityRole="button"
+              accessibilityLabel="사진 다시 시도"
+              style={({ pressed }) => [styles.failureButton, pressed && styles.pressed]}
+            >
+              <Glyph name="retry" size={15} color={INK} weight={2.1} />
+              <Text style={styles.failureButtonText}>다시 시도</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* 접었을 때는 그늘도 글도 단추도 없다. 사진만 남는다. */}
         {chromeOn && <Scrim place="top" />}
@@ -1247,6 +1324,19 @@ const styles = StyleSheet.create({
   // 한 칸. 사진은 칸을 다 쓰되 `contain` 이라 절대 잘리지 않는다.
   cell: { height: "100%", alignItems: "center", justifyContent: "center" },
   waiting: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
+  // 못 불러온 사진 자리. 사진 한가운데에 놓아 어느 사진의 일인지 헷갈리지 않는다.
+  failure: { position: "absolute", left: 0, right: 0, top: "44%", alignItems: "center", gap: 10 },
+  failureText: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
+  failureButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 높이.칩,
+    paddingHorizontal: 여백.가로좁게,
+    borderRadius: 모서리.원,
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  failureButtonText: { fontSize: 13, color: INK, fontFamily: typo.label.family },
   scrimTop: { position: "absolute", top: 0, left: 0, right: 0, height: 150 },
   scrimBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 230 },
   scrimBottomTall: { position: "absolute", bottom: 0, left: 0, right: 0, height: 330 },
@@ -1389,7 +1479,8 @@ const styles = StyleSheet.create({
   editSave: { fontSize: 14, fontFamily: typo.label.family },
   editStage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, paddingVertical: 10 },
   editShot: { width: "100%", height: "100%", borderRadius: 6, overflow: "hidden" },
-  editStageHint: { fontSize: 12, color: INK_FAINT, textAlign: "center", paddingBottom: 8, fontFamily: typo.caption.family },
+  // 읽어야 하는 안내 글자라 INK_FAINT(약 3.0:1)로는 모자란다(2026-09-23 검토 #30).
+  editStageHint: { fontSize: 12, color: INK_SOFT, textAlign: "center", paddingBottom: 8, fontFamily: typo.caption.family },
   // 도구 칸 맨 위의 한 줄. 이 칸이 무엇을 하는 자리인지 알린다.
   editPanelLead: { fontSize: 12, color: INK_SOFT, marginBottom: 8, fontFamily: typo.caption.family },
   // 도구 칸의 높이를 고정한다. 도구를 바꿀 때마다 칸이 늘었다 줄면 위의 사진이

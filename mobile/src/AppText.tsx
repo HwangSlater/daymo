@@ -13,8 +13,18 @@ import { typo } from "./theme/typography";
 // 이게 없으면 굵기 토큰을 쓰지 않는 스타일만 OS 기본 폰트로 남아 서체가 섞인다.
 const base: TextStyle = { fontFamily: typo.body.family };
 
+/**
+ * 시스템 글자 크기를 아무리 키워도 여기까지만 따라간다(2026-09-23 검토 #42).
+ *
+ * 앱에는 높이를 숫자로 못 박은 줄이 아직 많아, 큰 글씨 설정(iOS 접근성 · 안드로이드 글꼴
+ * 크기)을 끝까지 올리면 글자가 칸 밖으로 넘치거나 잘린다. 1.3 은 iOS 의 「기본보다 세 단계
+ * 큼」쯤으로, 작은 글씨가 읽기 힘든 사람에게 도움이 되면서 줄이 깨지지 않는 선이다.
+ * 더 키워야 하는 자리는 `maxFontSizeMultiplier` 를 직접 넘겨 덮는다.
+ */
+export const MAX_FONT_SCALE = 1.3;
+
 export function Text({ style, ...props }: TextProps) {
-  return <RNText {...props} style={[base, style]} />;
+  return <RNText maxFontSizeMultiplier={MAX_FONT_SCALE} {...props} style={[base, style]} />;
 }
 
 /**
@@ -38,7 +48,13 @@ const WEB_MIN_INPUT_FONT_SIZE = 16;
 const isWeb = Platform.OS === "web";
 
 export function TextInput({ style, ...props }: TextInputProps) {
-  return <RNTextInput {...props} style={isWeb ? webInputStyle(style) : [base, style]} />;
+  return (
+    <RNTextInput
+      maxFontSizeMultiplier={MAX_FONT_SCALE}
+      {...props}
+      style={isWeb ? webInputStyle(style) : [base, style]}
+    />
+  );
 }
 
 function webInputStyle(style: TextInputProps["style"]) {

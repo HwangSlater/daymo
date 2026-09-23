@@ -9,7 +9,7 @@
  * - 「완료」를 누르면 한 번 묻고, 카드를 원본 화질로 찍어 그 그림을 여행 기록의 **보통
  *   사진 한 장**으로 넣는다(`onFinish`, 기기에서 고른 사진과 같은 길). 사진이 된 뒤
  *   초안은 지운다. 카드라는 물건은 어디에도 남지 않는다.
- * - 꾸미다 「취소」하면 초안은 그대로 남는다. 없애는 길은 도구 안 「삭제」뿐이다.
+ * - 꾸미다 「닫기」로 나가면 초안은 그대로 남는다. 없애는 길은 도구 안 「삭제」뿐이다.
  *
  * 카드는 **사진을 크게 보는 창과 한 창**에서 꾸민다(`PhotoViewer.tsx`). 사진을 보다가
  * 「카드 만들기」를 누르면 그 자리에서 사진이 카드가 된다. 그래서 이 화면은 초안 목록과
@@ -21,7 +21,7 @@
  *
  * 무거워지기 쉬운 화면이라 몇 가지를 지킨다.
  * - 꾸밀 때는 표시본을 쓰고 찍을 때만 원본으로 바꿔 찍는다.
- * - 목록(격자의 작은 카드)은 썸네일만 받는다. 한 번에 셋까지, 받은 것은 다시 받지 않는다.
+ * - 목록(격자의 작은 카드)은 썸네일만 받는다. 받아 두는 자리는 사진첩과 함께 쓴다(`photoThumbnails.ts`).
  * - 기록 탭으로 올려 보내는 손잡이(`onInline`)는 붙들어 둔 것만 넘긴다. 매 렌더마다
  *   새로 만들면 위에서 상태를 고치고 그 때문에 다시 렌더되는 고리가 생긴다.
  */
@@ -37,7 +37,8 @@ import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoVi
 import type { CardDecor } from "./cardDecor";
 import { draftListOf, finishedCaptionOf, removeDraft, sameSourceDraft, upsertDraft, type StoredCardDraft } from "./cardDrafts";
 import { readCardDrafts, writeCardDrafts } from "./cardDraftStorage";
-import { isLivePhotoUri, downloadPhoto, downloadPhotoToSave, releaseDownloadedPhoto } from "./photoTransfer";
+import { isLivePhotoUri, downloadPhotoToSave, releaseDownloadedPhoto } from "./photoTransfer";
+import { retryThumbnails, usePhotoThumbs } from "./photoThumbnails";
 import { isOriginalQualityUri } from "./photoSync";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
@@ -145,39 +146,6 @@ export type CardViewer = {
   onNotice: (text: string, undo?: { label: string; onPress: () => void }) => void;
 };
 
-/**
- * 사진 썸네일을 받아 둔다.
- *
- * 한 번에 셋까지만 받고, 이미 받은 것은 다시 받지 않는다. 카드가 스무 장이면
- * 사진이 여든 장이라 한꺼번에 부르면 목록을 넘기는 것부터 걸린다.
- *
- * 서버에 없는 사진(이 기기에서 막 고른 것, 예시 여행)은 받지 못한다. 그때는
- * 부르는 쪽이 사진 자신의 주소를 그대로 쓴다.
- */
-function usePhotoThumbs(ids: readonly string[]): Record<string, string> {
-  const [thumbs, setThumbs] = useState<Record<string, string>>({});
-  const 물어본_것 = useRef(new Set<string>());
-  const 열쇠 = ids.join("|");
-  useEffect(() => {
-    let 살아있다 = true;
-    const 남은_것 = 열쇠.split("|").filter((id) => id && !물어본_것.current.has(id));
-    if (!남은_것.length) return;
-    남은_것.forEach((id) => 물어본_것.current.add(id));
-    const 일꾼 = async () => {
-      for (let id = 남은_것.shift(); id; id = 남은_것.shift()) {
-        const uri = await downloadPhoto(id, "thumbnail").catch(() => undefined);
-        if (!살아있다) return;
-        if (uri) setThumbs((current) => ({ ...current, [id as string]: uri }));
-      }
-    };
-    void Promise.all([일꾼(), 일꾼(), 일꾼()]);
-    return () => {
-      살아있다 = false;
-    };
-  }, [열쇠]);
-  return thumbs;
-}
-
 /** 초안을 적을 때 잠깐 모으는 시간(ms). 글자를 칠 때마다 쓰지 않는다. */
 const WRITE_DELAY = 400;
 
@@ -267,7 +235,7 @@ export function TripCardsSection({
   const [openId, setOpenId] = useState<string | null>(null);
   /** 꾸미는 초안을 만든 시각. 적을 때 그대로 넘겨 차례가 흔들리지 않게 한다. */
   const [openedAt, setOpenedAt] = useState("");
-  /** 사진을 보다가 카드를 시작했으면 그 사진. 취소하면 그 사진 앞으로 돌아간다. */
+  /** 사진을 보다가 카드를 시작했으면 그 사진. 닫으면 그 사진 앞으로 돌아간다. */
   const [startedFrom, setStartedFrom] = useState<string | null>(null);
   const [draft, setDraft] = useState<KeepsakeCard | null>(null);
   const [busy, setBusy] = useState(false);
@@ -334,19 +302,39 @@ export function TripCardsSection({
     () => [...new Set([...listPhotoIds, ...chosen.map((photo) => photo.id)])],
     [listPhotoIds, chosen],
   );
-  const thumbs = usePhotoThumbs(받을_사진);
+  /**
+   * 파일이 깨졌거나 사라져 못 그린 사진(2026-09-23 검토 #52).
+   *
+   * 한 번 실패하면 그 뒤로 영영 색만 깔렸고, 다 그려지기를 기다리는 「완료」도 함께 막혔다.
+   * 이제 못 그린 사진은 여기에 담아 두고 그릴 때는 서버 썸네일로 갈아 끼운다. 「완료」는
+   * 이 목록이 비어 있지 않으면 무엇이 잘못됐는지 알리고 다시 받을 길을 준다.
+   */
+  const [못_그린_사진, 못_그린_사진_두기] = useState<string[]>([]);
+  /** 「다시 시도」를 누른 횟수. 올리면 썸네일을 처음부터 다시 받는다. */
+  const [다시_받기, 다시_받기_두기] = useState(0);
+  const thumbs = usePhotoThumbs(받을_사진, 다시_받기);
+  const onPhotoFailed = useCallback((photoId: string) => {
+    못_그린_사진_두기((지금) => (지금.includes(photoId) ? 지금 : [...지금, photoId]));
+  }, []);
   /**
    * 꾸밀 때는 기기에 있는 표시본(긴 변 2048px)으로 그리고, 찍을 때는 원본으로 그린다.
    * 썸네일(480px)은 표시본이 없을 때만 쓴다. 예전에는 썸네일부터 써서 꾸미는 동안 사진이 흐렸고,
    * 확대해 꾸미면 더 눈에 띄었다(2026-09-22). 카드 한 장에 사진은 넷까지라 부담이 적다.
    * 격자의 작은 카드는 그대로 썸네일을 쓴다.
+   *
+   * 못 그린 사진만 차례를 뒤집어 썸네일을 먼저 쓴다. 기기에 있는 파일이 깨졌다는 뜻이라
+   * 같은 것을 다시 그려 봐야 또 못 그린다.
    */
   const drawPhotos = useMemo(
     () => chosen.map((photo) => ({
       ...photo,
-      uri: exporting ? originals[photo.id] ?? photo.uri : photo.uri ?? thumbs[photo.id],
+      uri: exporting
+        ? originals[photo.id] ?? photo.uri
+        : 못_그린_사진.includes(photo.id)
+          ? thumbs[photo.id] ?? photo.uri
+          : photo.uri ?? thumbs[photo.id],
     })),
-    [chosen, exporting, originals, thumbs],
+    [chosen, exporting, originals, thumbs, 못_그린_사진],
   );
   const text = useMemo(
     () =>
@@ -460,6 +448,7 @@ export function TripCardsSection({
     손댔다.current = false;
     drawn.current = new Set();
     setDrawnKeys([]);
+    못_그린_사진_두기([]);
     setDraft(start);
     역사_바꾸기(emptyHistory());
     setOpenId(id);
@@ -554,7 +543,7 @@ export function TripCardsSection({
     if (돌아갈_사진 && 지금.photos.some((하나) => 하나.id === 돌아갈_사진)) 지금.onMove(돌아갈_사진);
     else 지금.onMove(null);
   };
-  /** 머리줄의 「취소」. 초안은 그대로 남기고 묻지 않는다. */
+  /** 머리줄의 「닫기」. 초안은 그대로 남기고 묻지 않는다. */
   const leaveDecor = () => {
     if (busy) return;
     closeAll();
@@ -739,6 +728,21 @@ export function TripCardsSection({
       viewerRef.current.onNotice("카드에 넣을 사진을 골라 주세요");
       return;
     }
+    // 못 그린 사진이 있으면 그 자리가 빈 채로 찍힌다. 완료는 되돌릴 수 없으니 먼저 알린다.
+    const 못_그린_것 = 지금.photoIds.filter((id) => 못_그린_사진.includes(id));
+    if (못_그린_것.length) {
+      viewerRef.current.onNotice(`사진 ${못_그린_것.length}장을 불러오지 못했어요`, {
+        label: "다시 시도",
+        onPress: () => {
+          retryThumbnails(지금.photoIds);
+          못_그린_사진_두기([]);
+          drawn.current = new Set();
+          setDrawnKeys([]);
+          다시_받기_두기((번) => 번 + 1);
+        },
+      });
+      return;
+    }
     if (!ready) {
       viewerRef.current.onNotice("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
       return;
@@ -801,6 +805,7 @@ export function TripCardsSection({
             exporting={exporting}
             shotRef={shot}
             onPhotoReady={markDrawn}
+            onPhotoFailed={onPhotoFailed}
             theme={theme}
           />
         ) : null,

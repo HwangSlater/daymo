@@ -112,6 +112,11 @@ import { josa } from "./tripExpenses";
 /** 카드를 띄울 칸의 안쪽 여백. 카드가 화면 끝에 붙지 않게 한다. */
 const STAGE_PAD = 16;
 
+/** 도구 칸을 열어도 카드 무대에 남겨 두는 높이. 이보다 작으면 카드를 꾸밀 수가 없다. */
+const 무대_최소 = 230;
+/** 무대 말고 이 창이 늘 쓰는 높이(위 여백·머리줄·도구 고르는 줄)의 어림값. */
+const 무대_밖 = 170;
+
 /**
  * 아래 막대의 도구(2026-09-22, 인스타그램·캔바와 같은 틀). 누른 것만 시트로 올라온다.
  * 「글자」는 예전 「텍스트」 갈래(카드 제목·설명)에 글자 스티커 붙이기를 더한 것이다.
@@ -341,6 +346,7 @@ export function CardDecorTools({
   exporting,
   shotRef,
   onPhotoReady,
+  onPhotoFailed,
   readOnly,
   readOnlyHint,
   theme,
@@ -367,6 +373,8 @@ export function CardDecorTools({
   /** 내보낼 때 찍을 곳. */
   shotRef?: React.RefObject<View | null>;
   onPhotoReady?: (key: string) => void;
+  /** 사진 한 장을 못 읽었을 때. 부르는 쪽이 다시 받는다. */
+  onPhotoFailed?: (photoId: string) => void;
   /** 남이 만든 카드. 보기만 하고 도구는 나오지 않는다. */
   readOnly?: boolean;
   readOnlyHint?: string;
@@ -381,8 +389,16 @@ export function CardDecorTools({
   /** 시트를 끌어 올려 크게 봤는지. 스티커를 고를 때처럼 칸이 많이 필요할 때 쓴다. */
   const [시트_크게, 시트_크게_하기] = useState(false);
   const { height: 창_높이 } = useWindowDimensions();
-  const 보통_높이 = 250;
-  const 큰_높이 = Math.max(보통_높이 + 80, Math.round(창_높이 * 0.56));
+  /*
+   * 도구 칸이 아무리 커도 카드 무대에 이만큼은 남긴다(2026-09-23 검토 #54).
+   *
+   * 전에는 창 높이의 56% 를 그냥 시트에 줬다. 작은 화면(아이폰 SE)에서 시트를 크게
+   * 펴면 카드가 130pt 안팎까지 줄어, 스티커 손잡이가 카드보다 커 보였다. 큰 화면에서는
+   * 예전과 같은 높이가 나와 달라지는 것이 없다.
+   */
+  const 여유 = Math.max(0, 창_높이 - 무대_최소 - 무대_밖);
+  const 보통_높이 = Math.max(160, Math.min(250, 여유));
+  const 큰_높이 = Math.max(보통_높이, Math.min(Math.round(창_높이 * 0.56), 여유));
   const 시트_높이 = 시트_크게 ? 큰_높이 : 보통_높이;
   /**
    * 끄는 동안 시트가 내려간(올라간) 거리. 손가락을 그대로 따라온다(2026-09-22 요청).
@@ -795,6 +811,7 @@ export function CardDecorTools({
               onSwapPhotos={readOnly || exporting ? undefined : onSwapPhotos}
               onCellRatio={칸_비율_적기}
               onPhotoReady={onPhotoReady}
+              onPhotoFailed={onPhotoFailed}
             />
           </ScaledCard>
           </Animated.View>

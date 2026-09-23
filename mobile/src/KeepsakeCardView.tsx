@@ -382,11 +382,17 @@ const DecorItem = memo(function DecorItem({
    *
    * 카드는 화면에 맞추려고 `scale` 만큼 줄여 그린다. 손잡이를 카드 좌표로 그냥
    * 그리면 카드가 작을수록 손잡이도 작아져 누를 수가 없다. 줄인 만큼 되나눠
-   * 화면에서는 늘 같은 크기로 보이게 한다. `theme/controls` 의 값은 화면 좌표용이라
+   * 화면에서는 같은 크기로 보이게 한다. `theme/controls` 의 값은 화면 좌표용이라
    * 여기서는 쓰지 않는다.
+   *
+   * 다만 26pt 를 끝까지 지키지는 않는다. 작은 화면에서 도구 칸을 열면 카드가 120pt
+   * 안팎까지 줄어, 손잡이 넷이 카드를 거의 덮었다(2026-09-23 검토 #54). 카드가 화면에서
+   * 차지하는 짧은 변의 1/5 을 넘지 않게 하고, 그래도 누를 수 있는 16pt 아래로는 내리지 않는다.
    */
-  const 손잡이 = HANDLE / (edit?.scale || 1);
-  const 테두리 = Math.max(1, 1.5 / (edit?.scale || 1));
+  const 배 = edit?.scale || 1;
+  const 화면_짧은변 = Math.min(cardWidth, cardHeight) * 배;
+  const 손잡이 = Math.max(16, Math.min(HANDLE, 화면_짧은변 * 0.2)) / 배;
+  const 테두리 = Math.max(1, 1.5 / 배);
   /** 모서리 손잡이 알 하나. 가운데가 모서리에 오게 반만큼 밖으로 낸다. */
   const 알 = { width: 손잡이, height: 손잡이, borderRadius: 손잡이 / 2, borderWidth: 테두리 };
   const 밖 = -손잡이 / 2;
@@ -490,6 +496,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   showEmptySlots,
   onPickSlot,
   onPhotoReady,
+  onPhotoFailed,
   onSwapPhotos,
   onCellRatio,
   unit = 1,
@@ -519,6 +526,8 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
   onPickSlot?: (index: number) => void;
   /** 사진 한 장이 다 그려졌을 때. 웹의 blob: 주소는 다 받기 전에 찍으면 빈 칸이 찍힌다. */
   onPhotoReady?: (key: string) => void;
+  /** 사진 한 장을 못 읽었을 때. 파일이 깨졌거나 사라진 것이라 부르는 쪽이 다시 받는다. */
+  onPhotoFailed?: (photoId: string) => void;
   /**
    * 꾸미는 중에만 넘긴다. 사진을 꾹 눌러 다른 사진 위에 놓으면 두 자리를 부른다.
    * 넘기지 않으면 사진 칸은 손가락에 반응하지 않는다.
@@ -610,6 +619,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
               uri={photo.uri}
               focus={card.photoFocus[photo.id]}
               onReady={() => onPhotoReady?.(`${photo.id}:${big ? "d" : "t"}`)}
+              onFailed={() => onPhotoFailed?.(photo.id)}
             />
           )}
           {네컷 && Boolean(stamp) && 마지막_칸 && (
@@ -949,7 +959,18 @@ function SwapCell({
  * (`coverLayout`)으로 사진 크기와 칸 크기를 재서 놓는다. 둘 다 재기 전에 찍으면 가운데가
  * 찍히므로, 다 놓은 뒤에야 `onReady` 를 부른다(찍기는 이것을 기다린다).
  */
-function FocusedPhoto({ uri, focus, onReady }: { uri: string; focus?: CoverFocus; onReady?: () => void }) {
+function FocusedPhoto({
+  uri,
+  focus,
+  onReady,
+  onFailed,
+}: {
+  uri: string;
+  focus?: CoverFocus;
+  onReady?: () => void;
+  /** 파일을 못 읽었을 때. 부르는 쪽이 다른 주소로 갈아 끼우거나 사람에게 알린다. */
+  onFailed?: () => void;
+}) {
   const 맞춤 = Boolean(focus) && !sameFocus(focus!, COVER_FOCUS_DEFAULT);
   const [칸, 칸재기] = useState<Box>({ width: 0, height: 0 });
   const [사진, 사진재기] = useState<Box | undefined>(undefined);
@@ -976,6 +997,12 @@ function FocusedPhoto({ uri, focus, onReady }: { uri: string; focus?: CoverFocus
         onLoad={(event) => {
           const { width, height } = event.nativeEvent.source ?? {};
           사진재기(width && height ? { width, height } : { width: 1, height: 1 });
+        }}
+        // 못 읽은 사진도 「다 놓였다」로 친다(2026-09-23 검토 #52). 그러지 않으면 다 그려지기를
+        // 기다리는 「완료」가 영영 막히고, 왜 막혔는지도 알 수 없다. 알리는 것은 따로 한다.
+        onError={() => {
+          사진재기((지금) => 지금 ?? { width: 1, height: 1 });
+          onFailed?.();
         }}
       />
     </View>

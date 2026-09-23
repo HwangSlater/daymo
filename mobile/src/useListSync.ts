@@ -8,6 +8,8 @@ import {
   listTrouble,
   mergeListOnOpen,
   planListSync,
+  syncFailureMessage,
+  syncFailureOf,
   type Codec,
   type Confirmed,
   type Failed,
@@ -200,6 +202,8 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warnedOffline = useRef(false);
   const warnedForbidden = useRef(false);
+  // 로그인이 풀렸다는 말은 한 번만 한다. 목록이 열세 개라 갈래마다 말하면 열세 줄이 뜬다.
+  const warnedSignedOut = useRef(false);
   // 연결이 없어 보내지도 받지도 못하는 중.
   const offline = useRef(false);
   // 목록마다 자리를 하나씩 쓴다. 훅이 몇 번째로 불렸는지에 기대지 않으려고 번호를 붙인다.
@@ -233,11 +237,21 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
     }
   };
 
+  /**
+   * 보내기를 시작하되 거부를 남기지 않는다(2026-09-23).
+   *
+   * `run()` 은 안에서 모든 갈래를 알리고 끝나지만, 앞으로 더 늘어날 길에서 새 오류가
+   * 새어 나가면 처리되지 않은 promise 거부가 된다. 부르는 자리마다 받아 둔다.
+   */
+  const 보내기 = () => {
+    void run().catch(() => undefined);
+  };
+
   const schedule = (delay: number) => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       timer.current = null;
-      void run();
+      보내기();
     }, delay);
   };
 
@@ -307,27 +321,52 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
           confirmed.current.delete(item.id);
         }
         warnedOffline.current = false;
+        warnedSignedOut.current = false;
         offline.current = false;
       } catch (caught) {
-        if (caught instanceof DaymoApiError && caught.code === "VERSION_CONFLICT") {
-          await reload(id, new Set(confirmed.current.keys()));
-          latest.current.notify(`다른 곳에서 먼저 바뀐 내용이 있어 ${label} 목록을 최신으로 바꿨어요`);
-        } else if (caught instanceof DaymoApiError && caught.status === 403) {
+        // 갈래를 가르는 판정은 순수 계산으로 빼 두었다(`listSync.syncFailureOf`). 여기서는
+        // 갈래마다 무엇을 하는지만 적는다. 어느 갈래도 오류를 다시 던지지 않는다 — 던지면
+        // 처리되지 않은 promise 거부로 끝나 저장이 조용히 멈춘다(2026-09-23).
+        const 앱_오류 = caught instanceof DaymoApiError ? caught : undefined;
+        const 갈래 = syncFailureOf(앱_오류 && { status: 앱_오류.status, code: 앱_오류.code });
+        if (갈래 === "충돌") {
+          try {
+            await reload(id, new Set(confirmed.current.keys()));
+            latest.current.notify(`다른 곳에서 먼저 바뀐 내용이 있어 ${label} 목록을 최신으로 바꿨어요`);
+          } catch {
+            // 다시 받는 길마저 막혔으면 연결이 끊긴 것으로 보고 쉬었다 다시 한다.
+            offline.current = true;
+            schedule(RETRY_MS);
+          }
+        } else if (갈래 === "권한없음") {
           if (!warnedForbidden.current) {
             warnedForbidden.current = true;
             latest.current.notify(
               latest.current.forbiddenMessage ?? `보기 전용 공간이라 ${label} 변경이 저장되지 않아요`,
             );
           }
-        } else if (!(caught instanceof DaymoApiError) || caught.status === 0 || caught.status >= 500) {
+        } else if (갈래 === "재시도") {
           offline.current = true;
           if (!warnedOffline.current) {
             warnedOffline.current = true;
-            latest.current.notify(`${label} 변경을 아직 저장하지 못했어요. 연결되면 다시 저장할게요`);
+            latest.current.notify(syncFailureMessage("재시도", label));
           }
           schedule(RETRY_MS);
+        } else if (갈래 === "다시로그인") {
+          // 다시 보내 봐야 또 401 이다. 쉬었다 다시 하지 않고 사람이 할 일만 알린다.
+          if (!warnedSignedOut.current) {
+            warnedSignedOut.current = true;
+            latest.current.notify(syncFailureMessage("다시로그인", label));
+          }
         } else {
-          throw caught;
+          // 400 처럼 같은 모습으로 다시 보내도 같은 답이 오는 것. 그 줄을 막아 두고 알린다.
+          // 「다시 시도」를 누르면 막아 둔 기억을 지우고 한 번 더 보낸다.
+          const 막을_줄 = planListSync(latest.current.items, codec, confirmed.current, failed.current);
+          const 까닭 = 앱_오류?.message;
+          [...막을_줄.creates, ...막을_줄.updates].forEach((줄) => {
+            failed.current.set(줄.id, { key: bodyKey(줄.body as object), reason: 까닭 || "잠시 후 다시 시도해 주세요." });
+          });
+          latest.current.notify(syncFailureMessage("거부", label, 까닭));
         }
       }
       publishSyncedIds();
@@ -375,11 +414,20 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
         publishSyncedIds();
         publishTrouble();
         schedule(SYNC_DELAY_MS);
-      } catch {
+      } catch (caught) {
         if (!active) return;
         // 첫 목록도 못 받았으면 조용히 다시 해 보되, 못 받고 있다는 사실은 알린다.
         offline.current = true;
         publishTrouble();
+        // 로그인이 풀린 것은 스무 초마다 다시 해 봐야 또 401 이다. 멈추고 할 일만 알린다.
+        const 앱_오류 = caught instanceof DaymoApiError ? caught : undefined;
+        if (syncFailureOf(앱_오류 && { status: 앱_오류.status, code: 앱_오류.code }) === "다시로그인") {
+          if (!warnedSignedOut.current) {
+            warnedSignedOut.current = true;
+            latest.current.notify(syncFailureMessage("다시로그인", latest.current.label));
+          }
+          return;
+        }
         retry = setTimeout(open, RETRY_MS);
       } finally {
         opening.current = false;
@@ -392,7 +440,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
       if (!failed.current.size) return;
       failed.current.clear();
       publishTrouble();
-      void run();
+      보내기();
     };
     retryListeners.add(다시_보낸다);
     const stale = setTimeout(() => void open(), STALE_MS);
@@ -427,7 +475,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
     if (timer.current) {
       clearTimeout(timer.current);
       timer.current = null;
-      void run();
+      보내기();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
