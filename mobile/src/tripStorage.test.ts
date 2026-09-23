@@ -3,7 +3,10 @@ import { test } from "node:test";
 
 import {
   TRIP_DATA_BACKUP_KEY,
+  TRIP_DATA_BACKUP_V2,
   TRIP_DATA_KEY,
+  TRIP_ENTRY_PREFIX,
+  TRIP_INDEX_KEY,
   TRIP_DATA_KEY_V1,
   isStoredPlanning,
   isStoredTrip,
@@ -11,7 +14,9 @@ import {
   parseStoredTripData,
   readTripData,
   storableTrips,
+  tripDataKeys,
   tripDataText,
+  writeTripData,
 } from "./tripStorage.ts";
 import type { Trip } from "./tripPlanning.ts";
 
@@ -220,10 +225,11 @@ const 가짜_저장소 = (처음: Record<string, string> = {}) => {
     getItem: async (key: string) => 칸.get(key) ?? null,
     setItem: async (key: string, value: string) => void 칸.set(key, value),
     removeItem: async (key: string) => void 칸.delete(key),
+    getAllKeys: async () => [...칸.keys()],
   };
 };
 
-test("v1 을 읽으면 사본을 남기고 v2 로 옮겨 적은 뒤 v1 을 지운다", async () => {
+test("v1 을 읽으면 사본을 남기고 여행별로 옮겨 적은 뒤 v1 을 지운다", async () => {
   const 원본 = 적힌_글({ tripsByGroup: { ours: [옛_여행()] }, done: ["charger"] });
   const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY_V1]: 원본 });
 
@@ -233,19 +239,23 @@ test("v1 을 읽으면 사본을 남기고 v2 로 옮겨 적은 뒤 v1 을 지�
   // 되돌릴 자리: 옮기기 전 원본이 글자 그대로 남는다.
   assert.equal(저장소.칸.get(TRIP_DATA_BACKUP_KEY), 원본);
   assert.equal(저장소.칸.has(TRIP_DATA_KEY_V1), false);
-  assert.ok(저장소.칸.get(TRIP_DATA_KEY)?.includes("2026-09-23"));
+  // 여행은 제 열쇠에, 목록에는 그 열쇠 이름만 적힌다.
+  const 여행_열쇠 = [...저장소.칸.keys()].filter((key) => key.startsWith(TRIP_ENTRY_PREFIX));
+  assert.equal(여행_열쇠.length, 1);
+  assert.ok(저장소.칸.get(여행_열쇠[0])?.includes("2026-09-23"));
+  assert.ok(저장소.칸.get(TRIP_INDEX_KEY)?.includes(여행_열쇠[0].slice(TRIP_ENTRY_PREFIX.length)));
 });
 
-test("다음에 v2 가 제대로 읽히면 되돌리기용 사본을 지운다", async () => {
+test("다음에 제대로 읽히면 되돌리기용 사본을 지운다", async () => {
   const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY_V1]: 적힌_글({ tripsByGroup: { ours: [옛_여행()] } }) });
   await readTripData(저장소);
-  const 옮긴_글 = 저장소.칸.get(TRIP_DATA_KEY)!;
+  const 옮긴_글 = 저장소.칸.get(TRIP_INDEX_KEY)!;
 
   const 다시 = await readTripData(저장소);
 
   assert.equal(저장소.칸.has(TRIP_DATA_BACKUP_KEY), false);
   // 두 번째로 읽어도 날짜가 또 바뀌지 않는다.
-  assert.equal(저장소.칸.get(TRIP_DATA_KEY), 옮긴_글);
+  assert.equal(저장소.칸.get(TRIP_INDEX_KEY), 옮긴_글);
   assert.deepEqual(
     다시?.tripsByGroup.ours[0].planning?.expenses?.map((item) => item.day),
     ["2026-09-23", "", ""],
@@ -264,7 +274,7 @@ test("적어 둔 것이 아무것도 없으면 null 이다", async () => {
   assert.equal(await readTripData(가짜_저장소()), null);
 });
 
-test("v2 로 적고 다시 읽으면 그대로다", async () => {
+test("v2 를 읽으면 여행별로 옮겨 적고 내용은 그대로다", async () => {
   const 옮김 = migrateTripDaysToKeys(옛_여행());
   const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY]: tripDataText({ ours: [옮김] }, ["charger"]) });
 
@@ -272,4 +282,109 @@ test("v2 로 적고 다시 읽으면 그대로다", async () => {
 
   assert.deepEqual(읽음?.tripsByGroup.ours[0], 옮김);
   assert.deepEqual(읽음?.done, ["charger"]);
+});
+
+// ---------------------------------------------------------------------------
+// 여행별 열쇠 (v3)
+// ---------------------------------------------------------------------------
+
+const 한_건 = (over: Partial<Trip> = {}): Trip => ({
+  id: "t1",
+  name: "가을 제주",
+  date: "2026-09-23",
+  note: "",
+  tone: 0,
+  mark: "✈",
+  region: "제주",
+  start: "2026-09-23",
+  end: "2026-09-25",
+  ...over,
+});
+
+test("여행마다 제 열쇠에 적고 목록에는 차례만 적는다", async () => {
+  const 저장소 = 가짜_저장소();
+
+  await writeTripData(저장소, { ours: [한_건(), 한_건({ id: "t2", name: "겨울 부산" })] }, ["charger"]);
+
+  assert.deepEqual(JSON.parse(저장소.칸.get(TRIP_INDEX_KEY)!), {
+    version: 3,
+    groups: { ours: ["t:t1", "t:t2"] },
+    done: ["charger"],
+  });
+  assert.ok(저장소.칸.get(`${TRIP_ENTRY_PREFIX}t:t1`)?.includes("가을 제주"));
+  assert.ok(저장소.칸.get(`${TRIP_ENTRY_PREFIX}t:t2`)?.includes("겨울 부산"));
+});
+
+test("적고 다시 읽으면 여행이 그대로다", async () => {
+  const 저장소 = 가짜_저장소();
+  const 예시 = 한_건({ name: "예시" });
+  delete 예시.id;
+  const 것들 = { ours: [한_건()], theirs: [예시] };
+
+  await writeTripData(저장소, 것들, ["charger"]);
+  const 읽음 = await readTripData(저장소);
+
+  assert.deepEqual(읽음?.tripsByGroup, 것들);
+  assert.deepEqual(읽음?.done, ["charger"]);
+});
+
+test("없어진 여행의 열쇠는 지운다", async () => {
+  const 저장소 = 가짜_저장소();
+  const 적힌_것 = await writeTripData(저장소, { ours: [한_건(), 한_건({ id: "t2" })] }, []);
+
+  await writeTripData(저장소, { ours: [한_건()] }, [], 적힌_것);
+
+  assert.equal(저장소.칸.has(`${TRIP_ENTRY_PREFIX}t:t2`), false);
+  assert.equal(저장소.칸.has(`${TRIP_ENTRY_PREFIX}t:t1`), true);
+});
+
+test("안 바뀐 여행은 다시 적지 않는다", async () => {
+  const 저장소 = 가짜_저장소();
+  const 적힌_것 = await writeTripData(저장소, { ours: [한_건(), 한_건({ id: "t2" })] }, []);
+  const 적은_열쇠: string[] = [];
+  const 세는_저장소 = {
+    ...저장소,
+    setItem: async (key: string, value: string) => {
+      적은_열쇠.push(key);
+      저장소.칸.set(key, value);
+    },
+  };
+
+  await writeTripData(세는_저장소, { ours: [한_건(), 한_건({ id: "t2", note: "고침" })] }, [], 적힌_것);
+
+  // 목록은 늘 다시 적고, 여행은 바뀐 한 건만.
+  assert.deepEqual(적은_열쇠, [`${TRIP_ENTRY_PREFIX}t:t2`, TRIP_INDEX_KEY]);
+});
+
+test("여행 한 건이 깨져도 나머지는 살린다", async () => {
+  const 저장소 = 가짜_저장소();
+  await writeTripData(저장소, { ours: [한_건(), 한_건({ id: "t2" })] }, []);
+  저장소.칸.set(`${TRIP_ENTRY_PREFIX}t:t1`, "{");
+
+  const 읽음 = await readTripData(저장소);
+
+  assert.equal(읽음?.tripsByGroup.ours.length, 1);
+  assert.equal(읽음?.tripsByGroup.ours[0].id, "t2");
+});
+
+test("v2 를 옮길 때 원본을 사본으로 남기고 다음에 제대로 읽히면 지운다", async () => {
+  const 원본 = tripDataText({ ours: [한_건()] }, ["charger"]);
+  const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY]: 원본 });
+
+  await readTripData(저장소);
+  assert.equal(저장소.칸.get(TRIP_DATA_BACKUP_V2), 원본);
+  assert.equal(저장소.칸.has(TRIP_DATA_KEY), false);
+
+  await readTripData(저장소);
+  assert.equal(저장소.칸.has(TRIP_DATA_BACKUP_V2), false);
+});
+
+test("로그아웃이 지울 열쇠에 여행 하나하나가 들어간다", async () => {
+  const 저장소 = 가짜_저장소();
+  await writeTripData(저장소, { ours: [한_건()] }, []);
+
+  const 열쇠들 = await tripDataKeys(저장소);
+
+  assert.ok(열쇠들.includes(TRIP_INDEX_KEY));
+  assert.ok(열쇠들.includes(`${TRIP_ENTRY_PREFIX}t:t1`));
 });

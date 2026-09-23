@@ -48,7 +48,9 @@ import { removeAllCardDrafts, removeCardDrafts } from "./cardDraftStorage";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { WarmTripDetail } from "./WarmTripDetail";
 import { sampleTrips } from "./sampleTrips";
-import { TRIP_DATA_KEY, TRIP_DATA_KEYS, readTripData, storableTrips, tripDataText } from "./tripStorage";
+import { readTripData, storableTrips, tripDataKeys, writeTripData } from "./tripStorage";
+import { clearThumbnails } from "./photoThumbnails";
+import { useAnnounce } from "./announce";
 import {
   latestTripFrom,
   rosterOfSpace,
@@ -222,19 +224,6 @@ const initialTripsByGroup: Record<GroupId, Trip[]> = {};
  */
 const deviceOwnerKey = "daymo.device-owner.v1";
 
-/**
- * 낭독기에 한 줄 알린다.
- *
- * `accessibilityLiveRegion` 은 안드로이드 전용이라, iOS VoiceOver 는 화면에 뜬 오류
- * 문구를 읽지 않았다(2026-09-23). 값이 바뀔 때만 부르게 훅으로 감싼다.
- */
-function useSpokenNotice(message: string) {
-  useEffect(() => {
-    if (!message) return;
-    AccessibilityInfo.announceForAccessibility?.(message);
-  }, [message]);
-}
-
 /** 기다림이 길어졌는지. 스피너만 오래 돌면 멈춘 것인지 알 수 없다. */
 function useSlowWait(after = 5000) {
   const [slow, setSlow] = useState(false);
@@ -261,7 +250,7 @@ function FullScreenNotice({ theme, title, hint, busy = false, onRetry, retryLabe
   onLogout?: () => void;
 }) {
   const slow = useSlowWait();
-  useSpokenNotice(title);
+  useAnnounce(title);
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background, alignItems: "center", justifyContent: "center", padding: 24 }]}>
       {busy && <ActivityIndicator color={theme.primary} style={{ marginBottom: 12 }} />}
@@ -773,7 +762,11 @@ export function WarmAppShell({
    */
   const signOut = (notice = "") => {
     void logout();
-    void clearAccountCache(TRIP_DATA_KEYS);
+    // 받아 둔 사진 파일도 함께 비운다. 계정이 바뀌어도 앞사람 사진이 기기에 남아
+    // 있었다(2026-09-23 검토 #66). 아직 못 올린 원본은 남긴다 — 그것이 하나뿐인 파일이다.
+    void clearPhotoCache();
+    clearThumbnails();
+    void tripDataKeys(AsyncStorage).then((열쇠들) => clearAccountCache(열쇠들));
     void removeAllCardDrafts();
     resetAfterSignOut(notice);
   };
@@ -1107,7 +1100,9 @@ export function WarmAppShell({
       const 앞사람 = await AsyncStorage.getItem(deviceOwnerKey).catch(() => null);
       const 계정이_바뀌었다 = Boolean(myId && 앞사람 && 앞사람 !== myId);
       if (계정이_바뀌었다) {
-        await clearAccountCache(TRIP_DATA_KEYS);
+        await clearAccountCache(await tripDataKeys(AsyncStorage));
+        await clearPhotoCache().catch(() => undefined);
+        clearThumbnails();
         await removeAllCardDrafts();
         if (active) {
           setSpaces([]);
@@ -1117,6 +1112,7 @@ export function WarmAppShell({
         }
       } else {
         const saved = await readTripData(AsyncStorage).catch(() => null);
+        if (saved) 적힌_것.current = saved.적힌_것;
         if (active && saved) {
           setTripsByGroup(saved.tripsByGroup);
           setDone(saved.done);
@@ -1148,6 +1144,8 @@ export function WarmAppShell({
   const 적기_타이머 = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** __DEV__ 에서 실제로 몇 번 적었는지. 디바운스 전후를 숫자로 견주려고 센다. */
   const 적은_횟수 = useRef(0);
+  /** 지난번에 적어 둔 여행별 글. 이것과 견줘 바뀐 것만 다시 적는다. */
+  const 적힌_것 = useRef<Map<string, string> | undefined>(undefined);
   const 지금_적기 = useCallback(() => {
     if (적기_타이머.current) {
       clearTimeout(적기_타이머.current);
@@ -1158,8 +1156,12 @@ export function WarmAppShell({
     적을_것.current = null;
     적은_횟수.current += 1;
     if (__DEV__) console.log(`[저장] 여행 기록 ${적은_횟수.current}번째`);
-    AsyncStorage.setItem(TRIP_DATA_KEY, tripDataText(storableTrips(것.tripsByGroup, Platform.OS === "web"), 것.done))
-      .then(() => setTripStorageFailed(false))
+    // 여행마다 제 열쇠에 적는다. 지난번에 적은 것을 들고 있다가 바뀐 여행만 다시 적는다.
+    writeTripData(AsyncStorage, storableTrips(것.tripsByGroup, Platform.OS === "web"), 것.done, 적힌_것.current)
+      .then((적힌) => {
+        적힌_것.current = 적힌;
+        setTripStorageFailed(false);
+      })
       .catch(() => setTripStorageFailed(true));
   }, []);
   useEffect(() => {
@@ -1697,7 +1699,7 @@ function AuthScreen({
     }
   };
   // 안드로이드는 live region 으로 읽지만 iOS VoiceOver 는 읽지 않는다. 함께 알린다.
-  useSpokenNotice(error || notice);
+  useAnnounce(error || notice);
   const startOAuth = async (provider: SocialProvider) => {
     setOauthLoading(provider);
     setError("");
@@ -2007,7 +2009,7 @@ function LinkSocialCard({
   const [error, setError] = useState("");
   const name = socialProviderName[provider];
   const ready = password.length > 0 && !loading;
-  useSpokenNotice(error);
+  useAnnounce(error);
   const submit = async () => {
     if (!ready) return;
     setLoading(true);
@@ -2076,7 +2078,7 @@ function ForgotPasswordCard({
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
   const ready = isEmailLike(email) && !loading;
-  useSpokenNotice(error || (sent ? "가입한 주소라면 곧 메일이 도착해요." : ""));
+  useAnnounce(error || (sent ? "가입한 주소라면 곧 메일이 도착해요." : ""));
   const submit = async () => {
     if (!ready) return;
     setLoading(true);
@@ -2218,7 +2220,7 @@ function AccountDeletionPanel({
   const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
   const ready = understood && password.length > 0 && !loading;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
-  useSpokenNotice(error);
+  useAnnounce(error);
   const request = async (confirm: { password: string } | { provider: SocialProvider }) => {
     setLoading(true);
     setError("");
@@ -2420,7 +2422,7 @@ function PasswordChangeForm({
   const nextValid = next.length >= PASSWORD_MIN_LENGTH && next.length <= PASSWORD_MAX_LENGTH && next === again;
   const ready = nextValid && (socialOnly || current.length > 0) && !loading;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
-  useSpokenNotice(error);
+  useAnnounce(error);
   const submit = async (confirm: Reconfirm) => {
     setLoading(true);
     setError("");
@@ -2507,7 +2509,7 @@ function EmailChangeForm({
   const emailValid = isEmailLike(trimmed) && !same;
   const ready = emailValid && (socialOnly || password.length > 0) && !loading;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
-  useSpokenNotice(error);
+  useAnnounce(error);
   const submit = async (confirm: Reconfirm) => {
     setLoading(true);
     setError("");
@@ -2586,7 +2588,7 @@ function DeletionPendingScreen({
   const label = deletionDateLabel(scheduledAt);
   const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
   const ready = password.length > 0 && !loading;
-  useSpokenNotice(error);
+  useAnnounce(error);
   const cancel = async (confirm: { password: string } | { provider: SocialProvider }) => {
     setLoading(true);
     setError("");
@@ -3616,7 +3618,7 @@ function TripsExplorer({
         (trip) => selectedDate >= trip.start && selectedDate <= trip.end,
       )
     : [];
-  useSpokenNotice(createError || trashMessage || calendarError);
+  useAnnounce(createError || trashMessage || calendarError);
   const tripDateValid = tripStart <= tripEnd;
   const addTrip = async () => {
     if (!place.trim() || !tripDateValid || !newPeople.length || createLoading) return;
@@ -6490,7 +6492,7 @@ function SpaceDeletionPanel({
   const [error, setError] = useState("");
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
   const ready = understood && typed.trim() === spaceName.trim() && !loading;
-  useSpokenNotice(error);
+  useAnnounce(error);
   const submit = async () => {
     if (!ready) return;
     setLoading(true);
@@ -6566,7 +6568,7 @@ function SpaceExtras({
     };
   }, []);
   const fail = (caught: unknown) => setError(caught instanceof DaymoApiError ? caught.message : "잠시 후 다시 시도해 주세요.");
-  useSpokenNotice(error);
+  useAnnounce(error);
   const create = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -6972,7 +6974,7 @@ function InviteSection({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [link, setLink] = useState("");
-  useSpokenNotice(error || message);
+  useAnnounce(error || message);
 
   useEffect(() => {
     if (!spaceId || !canInvite) return;
