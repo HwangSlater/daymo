@@ -5,6 +5,8 @@ import {
   bodyKey,
   listTrouble,
   shouldRefetch,
+  syncFailureMessage,
+  syncFailureOf,
   troubleHeadline,
   type Codec,
   type Confirmed,
@@ -108,4 +110,38 @@ test("앞으로 돌아와도 방금 받았으면 다시 받지 않는다", () =>
   assert.equal(shouldRefetch(1_000, 16_000, 15_000), true);
   // 한 번도 받은 적이 없으면(0) 바로 받는다.
   assert.equal(shouldRefetch(0, Date.now()), true);
+});
+
+test("오류마다 갈 곳이 있다 — 던지고 끝나는 갈래가 없다", () => {
+  assert.equal(syncFailureOf({ status: 409, code: "VERSION_CONFLICT" }), "충돌");
+  assert.equal(syncFailureOf({ status: 403 }), "권한없음");
+  assert.equal(syncFailureOf({ status: 401 }), "다시로그인");
+  assert.equal(syncFailureOf({ status: 0 }), "재시도");
+  assert.equal(syncFailureOf({ status: 429 }), "재시도");
+  assert.equal(syncFailureOf({ status: 503 }), "재시도");
+  // 앱 오류가 아니면(그물 밖에서 난 것) 다시 해 보는 쪽으로 보낸다.
+  assert.equal(syncFailureOf(undefined), "재시도");
+  // 예전에 그대로 던지던 갈래. 이제는 멈추고 알린다.
+  assert.equal(syncFailureOf({ status: 400 }), "거부");
+  assert.equal(syncFailureOf({ status: 409 }), "거부");
+});
+
+test("로그인이 풀린 것은 다시 보내지 않고 할 일을 알린다", () => {
+  assert.equal(
+    syncFailureMessage("다시로그인", "일정"),
+    "로그인이 풀려 일정 변경을 저장하지 못했어요. 다시 로그인해 주세요",
+  );
+  assert.equal(
+    syncFailureMessage("재시도", "지출"),
+    "지출 변경을 아직 저장하지 못했어요. 연결되면 다시 저장할게요",
+  );
+  assert.equal(
+    syncFailureMessage("거부", "장소", "이름을 확인해 주세요."),
+    "장소 변경을 저장하지 못했어요. 이름을 확인해 주세요.",
+  );
+  // 까닭을 모르면 다음에 할 일만 적는다.
+  assert.equal(
+    syncFailureMessage("거부", "장소"),
+    "장소 변경을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+  );
 });

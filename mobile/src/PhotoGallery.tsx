@@ -37,7 +37,7 @@ import {
   type GalleryMetrics,
   type GalleryRow,
 } from "./gallerySelection";
-import { downloadPhoto } from "./photoTransfer";
+import { usePhotoThumb } from "./photoThumbnails";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
@@ -60,76 +60,6 @@ const 끝_가까이 = 64;
 /** 저절로 흐를 때 한 번에 가는 거리와 간격(ms). */
 const 흐름_걸음 = 14;
 const 흐름_간격 = 30;
-
-/**
- * 썸네일을 받아 둔 곳. 사진첩을 닫았다 열어도 다시 받지 않게 앱이 떠 있는 동안 남긴다.
- *
- * 격자에 표시본(긴 변 2048px)을 수십 장 깔면 폰이 버벅인다. 썸네일(480px)로 충분하다.
- */
-const 받은_썸네일 = new Map<string, string>();
-/** 받기를 기다리는 사진과, 받으면 알려 줄 칸들. 칸이 화면에서 사라지면 줄에서도 빠진다. */
-const 기다림 = new Map<string, Set<(uri: string) => void>>();
-const 줄: string[] = [];
-let 일꾼 = 0;
-/** 한꺼번에 받는 수. 요청 줄(`requestQueue`)이 다섯이라 그보다 적게 잡아 다른 요청이 밀리지 않게 한다. */
-const 일꾼_최대 = 3;
-
-function 썸네일_일하기() {
-  while (일꾼 < 일꾼_최대 && 줄.length) {
-    const id = 줄.shift() as string;
-    // 그새 칸이 화면 밖으로 나가 기다리는 이가 없으면 받지 않는다. 빠르게 훑어 내리면
-    // 지나친 수백 장을 다 받느라 지금 보는 칸이 한참 뒤에 뜬다.
-    if (!기다림.get(id)?.size) {
-      기다림.delete(id);
-      continue;
-    }
-    일꾼 += 1;
-    downloadPhoto(id, "thumbnail")
-      .catch(() => undefined)
-      .then((uri) => {
-        const 칸들 = 기다림.get(id);
-        기다림.delete(id);
-        if (uri) {
-          받은_썸네일.set(id, uri);
-          칸들?.forEach((알림) => 알림(uri));
-        }
-      })
-      .finally(() => {
-        일꾼 -= 1;
-        썸네일_일하기();
-      });
-  }
-}
-
-/** 썸네일을 부탁한다. 돌려주는 함수를 부르면 부탁을 거둔다. */
-function 썸네일_부탁(id: string, 받음: (uri: string) => void): () => void {
-  let 칸들 = 기다림.get(id);
-  if (!칸들) {
-    칸들 = new Set();
-    기다림.set(id, 칸들);
-    줄.push(id);
-  }
-  칸들.add(받음);
-  썸네일_일하기();
-  return () => {
-    기다림.get(id)?.delete(받음);
-  };
-}
-
-/**
- * 칸에 깔 사진 주소.
- *
- * 서버에 올라간 사진은 썸네일을 받아 쓴다. 아직 이 기기에만 있는 사진(막 고른 것, 예시
- * 여행)은 받을 곳이 없으니 가진 파일을 그대로 쓴다. 받는 동안은 사진의 색만 깔린다.
- */
-function useThumb(id: string, uploaded: boolean, localUri: string | undefined): string | undefined {
-  const [uri, setUri] = useState(() => 받은_썸네일.get(id));
-  useEffect(() => {
-    if (!uploaded || 받은_썸네일.has(id)) return;
-    return 썸네일_부탁(id, setUri);
-  }, [id, uploaded]);
-  return uploaded ? uri ?? 받은_썸네일.get(id) : localUri;
-}
 
 type Props = {
   visible: boolean;
@@ -732,7 +662,7 @@ const Tile = memo(function Tile({
   onLongPress: (id: string) => void;
   onPressOut: () => void;
 }) {
-  const uri = useThumb(photo.id, uploaded, photo.uri);
+  const { uri, failed, retry } = usePhotoThumb(photo.id, uploaded, photo.uri);
   const 이름 = photo.caption || `${photo.date} 사진`;
   return (
     <Pressable
@@ -747,6 +677,19 @@ const Tile = memo(function Tile({
     >
       <View style={[styles.tileInner, chosen && styles.tileChosen, { backgroundColor: photo.color }]}>
         {uri && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
+        {/* 못 불러온 칸은 색만 깔려 「아직 오는 중」과 구별이 안 됐다(2026-09-23 검토 #52).
+            무슨 일인지 적고, 눌러 다시 받을 자리를 그 위에 둔다. */}
+        {failed && !uploadText && (
+          <Pressable
+            onPress={retry}
+            accessibilityRole="button"
+            accessibilityLabel={`${이름} 다시 시도`}
+            style={({ pressed }) => [styles.uploadCover, styles.uploadCoverGap, pressed && styles.pressed]}
+          >
+            <Glyph name="retry" size={16} color="#FFFFFF" weight={2.2} />
+            <Text numberOfLines={2} style={styles.uploadText}>다시 시도</Text>
+          </Pressable>
+        )}
         {Boolean(uploadText) && (
           <View style={styles.uploadCover} pointerEvents="none">
             <Text style={styles.uploadText}>{uploadText}</Text>
@@ -858,6 +801,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   uploadText: { fontSize: 11, color: "#FFFFFF", textAlign: "center", fontFamily: typo.label.family },
+  // 못 불러온 칸의 덮개는 눌러야 하는 것이라 아이콘과 글자를 세로로 세운다.
+  uploadCoverGap: { gap: 4 },
   empty: { textAlign: "center", marginTop: 48, fontSize: typo.body.size, fontFamily: typo.body.family },
   bar: {
     flexDirection: "row",

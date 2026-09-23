@@ -199,6 +199,15 @@ export function releaseDownloadedPhoto(uri: string): void {
 }
 
 /**
+ * 저장하려고 잠깐 받아 온 원본인지(2026-09-23 검토 #6).
+ *
+ * 원본은 몇 MB 라 쓰고 나면 버려야 한다. 표시본(`server-<id>-d<판>.jpg`)과 썸네일은 화면이
+ * 계속 쓰고 있어 버리면 그 자리가 빈다. 파일 이름으로 가른다 — `downloadPhoto` 가 붙이는
+ * 이름 규칙(`server-<id>-<variant>.jpg`)에 기댄다.
+ */
+export const isSavedOriginalCopy = (uri: string) => /-original\.jpg$/.test(uri);
+
+/**
  * 기기에 저장하려고 받는다. 원본이 아직 있으면 원본을, 없으면 표시본(긴 변 2048px)을 준다.
  *
  * 원본은 올린 지 30일까지만 서버에 남는다. 기한이 지나면 서버가 410 으로 답하는데,

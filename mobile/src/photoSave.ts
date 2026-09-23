@@ -14,6 +14,15 @@ import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
 
 import { safeFileName } from "./filenames";
+import { isSavedOriginalCopy, releaseDownloadedPhoto } from "./photoTransfer";
+
+/**
+ * 웹에서 내려받기를 걸어 놓고 blob 주소를 풀기까지 기다리는 시간(ms).
+ *
+ * 누르자마자 풀면 브라우저가 내려받기를 시작하기 전에 주소가 죽어 파일이 0바이트가 된다.
+ * 넉넉히 기다렸다 푼다.
+ */
+const WEB_RELEASE_DELAY = 15_000;
 
 /**
  * 사진 한 장을 기기에 저장한다.
@@ -31,14 +40,29 @@ export async function savePhotoFile(uri: string, name: string): Promise<"saved" 
     document.body.appendChild(link);
     link.click();
     link.remove();
+    // 저장하려고 받아 온 주소는 이 한 번을 위해 만든 것이다. 내려받기가 걸린 뒤에 푼다.
+    // 풀지 않으면 저장할 때마다 사진 한 장이 탭 메모리에 그대로 남는다(2026-09-23 검토 #7).
+    setTimeout(() => releaseDownloadedPhoto(uri), WEB_RELEASE_DELAY);
     return "saved";
   }
   if (!(await Sharing.isAvailableAsync())) return "unavailable";
   // 받아 둔 파일은 이름이 `server-<id>.jpg` 라 그대로 넘기면 공유 시트에 낯선 이름이 뜬다.
-  // 보기 좋은 이름으로 한 벌 옮겨 놓고 넘긴다.
+  // 보기 좋은 이름으로 한 벌 옮겨 놓고 넘긴다. 캐시 폴더라 저장 공간이 모자라면 OS 가 비운다.
   const file = new File(Paths.cache, fileName);
   if (file.exists) file.delete();
   new File(uri).copy(file);
-  await Sharing.shareAsync(file.uri, { mimeType: "image/jpeg", UTI: "public.jpeg", dialogTitle: name });
+  try {
+    await Sharing.shareAsync(file.uri, { mimeType: "image/jpeg", UTI: "public.jpeg", dialogTitle: name });
+  } finally {
+    /*
+     * 저장하려고 받아 온 원본을 버린다(2026-09-23 검토 #6).
+     *
+     * 원본은 한 장에 몇 MB 인데 문서 폴더에 영원히 남아 있었다. 사진첩에서 스무 장을
+     * 골라 저장하면 그만큼이 그대로 쌓인다. 넘긴 것은 위의 캐시 사본이라 여기서 원본을
+     * 지워도 공유받은 앱이 읽는 데는 지장이 없다. 표시본·썸네일은 화면이 쓰고 있어
+     * 건드리지 않는다(`isSavedOriginalCopy`).
+     */
+    if (isSavedOriginalCopy(uri)) releaseDownloadedPhoto(uri);
+  }
   return "saved";
 }

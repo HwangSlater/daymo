@@ -79,6 +79,48 @@ export function planListSync<L, B, S extends ServerRow>(
 export const hasWork = (plan: ListPlan<unknown>) =>
   plan.creates.length + plan.updates.length + plan.deletes.length > 0;
 
+/**
+ * 보내다 만난 오류를 어떻게 다룰지(2026-09-23).
+ *
+ * 예전에는 아는 갈래(409·403·0·5xx)만 다루고 나머지는 그대로 던져서, 로그아웃 직후의
+ * 401 이나 400 이 처리되지 않은 거부로 끝났다. 그러면 저장이 조용히 멈추는데 화면에는
+ * 「대기」 배지조차 없어 저장된 것처럼 보였다. 이제 모든 갈래에 갈 곳이 있다.
+ *
+ * - `충돌`   다른 곳에서 먼저 고쳤다. 목록을 다시 받아 맞춘다.
+ * - `권한없음` 보기 전용이라 못 고친다. 한 번만 알린다.
+ * - `재시도`  연결·과부하처럼 그대로 다시 보내면 되는 것. 쉬었다 다시 보낸다.
+ * - `다시로그인` 로그인이 풀렸다. 다시 보내 봐야 또 401 이라 멈추고 알린다.
+ * - `거부`   같은 모습으로 다시 보내도 같은 답이 오는 것. 멈추고 알린다.
+ */
+export type SyncFailure = "충돌" | "권한없음" | "재시도" | "다시로그인" | "거부";
+
+/**
+ * 오류 하나를 갈래로 나눈다. 앱의 오류 타입을 들이지 않으려고 status·code 만 받는다.
+ *
+ * 앱 오류가 아니면(`undefined`) 연결이 끊긴 것으로 본다 — 어디서 끊겼는지 모르는 것은
+ * 다시 해 보면 되는 쪽이 낫다.
+ */
+export function syncFailureOf(trouble: { status?: number; code?: string } | undefined): SyncFailure {
+  if (!trouble) return "재시도";
+  if (trouble.code === "VERSION_CONFLICT") return "충돌";
+  const status = trouble.status ?? 0;
+  if (status === 403) return "권한없음";
+  if (status === 401) return "다시로그인";
+  if (status === 0 || status === 429 || status >= 500) return "재시도";
+  return "거부";
+}
+
+/**
+ * 갈래마다 화면에 적을 한 줄. `까닭` 은 서버가 준 문구다.
+ *
+ * 「저장하지 못했어요」로 끝맺고 다음에 할 일을 붙인다(문구 사전의 오류 규칙).
+ */
+export function syncFailureMessage(kind: SyncFailure, label: string, 까닭?: string): string {
+  if (kind === "다시로그인") return `로그인이 풀려 ${label} 변경을 저장하지 못했어요. 다시 로그인해 주세요`;
+  if (kind === "재시도") return `${label} 변경을 아직 저장하지 못했어요. 연결되면 다시 저장할게요`;
+  return `${label} 변경을 저장하지 못했어요. ${까닭 || "잠시 후 다시 시도해 주세요."}`;
+}
+
 /** 아직 서버에 남지 않은 줄 하나. `막힘` 은 까닭이 있어 못 보내고, `대기` 는 연결을 기다린다. */
 export type RowTrouble = { state: "막힘" | "대기"; reason?: string };
 

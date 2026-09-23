@@ -88,6 +88,18 @@ export const photoUploadRetries = (status: number) => status === 0 || status ===
 /** 스스로 다시 보내기까지 쉬는 시간. 목록 동기화와 같은 20초에서 멈춘다. */
 export const photoRetryMs = (attempt: number) => Math.min(20_000, 2_000 * 2 ** Math.max(0, attempt));
 
+/**
+ * 스스로 다시 보내 보는 횟수의 상한(2026-09-23).
+ *
+ * 전에는 상한이 없어, 연결이 오래 끊긴 채로 두면 「업로드 중」이 영영 끝나지 않았다.
+ * 여섯 번이면 2·4·8·16·20·20초로 1분이 넘는다. 그래도 안 되면 멈춘 자리로 옮겨
+ * 「다시 시도」나 「취소」를 사람이 고르게 한다. 다시 시도하면 횟수는 0 부터 다시 센다.
+ */
+export const PHOTO_UPLOAD_MAX_ATTEMPTS = 6;
+
+/** 여섯 번을 다 쓰고 멈춘 사진에 적을 말. 서버가 준 까닭이 없는 자리다. */
+export const PHOTO_UPLOAD_GAVE_UP = "인터넷 연결이 불안정해요. 다시 시도해 주세요.";
+
 /** 기다리던 쪽 하나. `useListSync` 의 만들기가 이 약속을 받아 간다. */
 type Waiter<R> = { resolve: (row: R) => void; reject: (error: unknown) => void };
 
@@ -160,9 +172,12 @@ export type PhotoUploads<R> = {
 export function createPhotoUploads<R>(options: {
   atOnce?: number;
   retryMs?: (attempt: number) => number;
+  /** 스스로 다시 보내 보는 횟수. 시험이 줄여 쓴다. */
+  maxAttempts?: number;
 } = {}): PhotoUploads<R> {
   const atOnce = Math.max(1, options.atOnce ?? PHOTO_UPLOAD_AT_ONCE);
   const 쉬는_시간 = options.retryMs ?? photoRetryMs;
+  const 상한 = Math.max(1, options.maxAttempts ?? PHOTO_UPLOAD_MAX_ATTEMPTS);
   const trips = new Map<string, TripQueue<R>>();
   const listeners = new Set<() => void>();
   let inFlight = 0;
@@ -260,7 +275,7 @@ export function createPhotoUploads<R>(options: {
       trip.done.add(id);
       trip.uploaded.set(id, row as R);
       기다리던.forEach((하나) => 하나.resolve(row as R));
-    } else if (photoUploadRetries(statusOf(error))) {
+    } else if (photoUploadRetries(statusOf(error)) && entry.attempt < 상한) {
       // 쉬었다 다시 보낸다. 기다리던 쪽은 붙들지 않는다. 목록 동기화는 연결이 끊긴
       // 것을 제 자리에서 알리고 스무 초 뒤에 다시 오는 편이 낫다.
       entry.attempt += 1;
@@ -274,7 +289,10 @@ export function createPhotoUploads<R>(options: {
       (시계 as { unref?: () => void }).unref?.();
     } else {
       trip.waiting.delete(id);
-      trip.stopped.set(id, { entry, reason: messageOf(error) });
+      // 여섯 번을 다 쓰고 멈춘 것은 서버가 거부한 것이 아니다. 까닭 자리에 「인터넷
+      // 연결을 확인해 주세요」만 되풀이하면 왜 멈췄는지 알 수 없어 따로 적는다.
+      const 다_썼다 = photoUploadRetries(statusOf(error));
+      trip.stopped.set(id, { entry, reason: 다_썼다 ? PHOTO_UPLOAD_GAVE_UP : messageOf(error) });
       기다리던.forEach((하나) => 하나.reject(error));
     }
     publish();

@@ -7,6 +7,7 @@ import {
   photoRetryMs,
   photoUploadHeadline,
   photoUploadRetries,
+  PHOTO_UPLOAD_GAVE_UP,
   type PhotoUploadJob,
 } from "./photoUploads.ts";
 
@@ -261,4 +262,66 @@ test("멈춘 사진은 한 장만 골라 다시 보낸다", async () => {
   // 고른 한 장만 다시 갔다. 다른 한 장은 멈춘 채다.
   assert.equal(보낸_수, 3);
   assert.deepEqual(uploads.stateOf("trip-1").blocked, ["p2"]);
+});
+
+test("연결이 오래 끊기면 세 번 만에 멈춰 「업로드 중」이 끝난다", async () => {
+  const uploads = createPhotoUploads<string>({ atOnce: 1, retryMs: () => 0, maxAttempts: 3 });
+  let 보낸_수 = 0;
+  const send = async () => {
+    보낸_수 += 1;
+    throw 오류(0, "인터넷 연결을 확인하고 다시 시도해 주세요.");
+  };
+
+  uploads.add([사진("p0")], send);
+  // 쉬는 시간이 0 이라 곧바로 이어 보낸다. 상한에 닿으면 스스로 멈춘다.
+  for (let 번 = 0; 번 < 12; 번 += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    await 다음_틱();
+  }
+
+  const 멈춘_뒤 = uploads.stateOf("trip-1");
+  assert.equal(멈춘_뒤.running, false);
+  assert.deepEqual(멈춘_뒤.blocked, ["p0"]);
+  assert.equal(uploads.reasonOf("trip-1", "p0"), PHOTO_UPLOAD_GAVE_UP);
+  // 처음 한 번 + 다시 세 번.
+  assert.equal(보낸_수, 4);
+  assert.equal(photoUploadHeadline(멈춘_뒤), "사진 1장 업로드에 실패했어요");
+});
+
+test("멈춘 뒤에도 「다시 시도」는 횟수를 0 부터 다시 센다", async () => {
+  const uploads = createPhotoUploads<string>({ atOnce: 1, retryMs: () => 0, maxAttempts: 1 });
+  let 보낸_수 = 0;
+  const send = async () => {
+    보낸_수 += 1;
+    if (보낸_수 <= 2) throw 오류(0, "인터넷 연결을 확인하고 다시 시도해 주세요.");
+    return "row";
+  };
+
+  uploads.add([사진("p0")], send);
+  for (let 번 = 0; 번 < 6; 번 += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    await 다음_틱();
+  }
+  assert.deepEqual(uploads.stateOf("trip-1").blocked, ["p0"]);
+
+  uploads.retry("trip-1");
+  await 다음_틱();
+  await 다음_틱();
+  assert.deepEqual(uploads.stateOf("trip-1"), NO_PHOTO_UPLOADS);
+  assert.deepEqual(uploads.uploadedIds("trip-1"), ["p0"]);
+});
+
+test("취소하면 멈춘 사진도 줄에서 빠진다", async () => {
+  const uploads = createPhotoUploads<string>({ atOnce: 1, retryMs: () => 0, maxAttempts: 1 });
+  uploads.add([사진("p0")], async () => {
+    throw 오류(0, "인터넷 연결을 확인하고 다시 시도해 주세요.");
+  });
+  for (let 번 = 0; 번 < 6; 번 += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    await 다음_틱();
+  }
+  assert.deepEqual(uploads.stateOf("trip-1").blocked, ["p0"]);
+
+  uploads.drop("trip-1", "p0");
+  assert.deepEqual(uploads.stateOf("trip-1"), NO_PHOTO_UPLOADS);
 });
