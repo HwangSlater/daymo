@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { tripDateKeys, dayLabelOf } from "./dates.ts";
+import { dateKey, shiftDateKey, tripDateKeys } from "./dates.ts";
 import { sampleTripPlanning, sampleTrips } from "./sampleTrips.ts";
 
 test("예시 여행의 내용은 여행의 실제 날짜 칸을 쓴다", () => {
   const 기록 = sampleTripPlanning("전주 한옥마을", "2026-09-22", "2026-09-24", ["하늘", "여울"]);
-  const 날짜칸 = tripDateKeys("2026-09-22", "2026-09-24").map(dayLabelOf);
+  const 날짜칸 = tripDateKeys("2026-09-22", "2026-09-24");
 
   for (const 줄 of 기록.schedule ?? []) {
     assert.ok(!줄.date || 날짜칸.includes(줄.date), `일정 날짜가 칸 밖이다: ${줄.date}`);
@@ -17,7 +17,7 @@ test("예시 여행의 내용은 여행의 실제 날짜 칸을 쓴다", () => {
   for (const 편 of 기록.transportations ?? []) {
     assert.ok(날짜칸.includes(편.date), `교통편 날짜가 칸 밖이다: ${편.date}`);
   }
-  assert.deepEqual(기록.reservations?.map((예약) => 예약.date), ["23일(수)"]);
+  assert.deepEqual(기록.reservations?.map((예약) => 예약.date), ["2026-09-23"]);
 });
 
 test("예시 여행의 담당은 넘긴 참가자 이름으로 바뀐다", () => {
@@ -35,10 +35,10 @@ test("예시 여행의 담당은 넘긴 참가자 이름으로 바뀐다", () =>
   assert.equal(재료담당.has("여울"), false);
 });
 
-test("기간이 비었으면 미리 적어 둔 날짜 칸으로 그린다", () => {
+test("기간이 비었으면 오늘부터 사흘을 날짜 칸으로 쓴다", () => {
   const 기록 = sampleTripPlanning("어디든", "", "", ["하늘"]);
 
-  assert.equal(기록.schedule?.[0].date, "21일(금)");
+  assert.equal(기록.schedule?.[0].date, shiftDateKey(dateKey(new Date()), 0));
   assert.equal(기록.stay?.checkin, "8월 21일 14:00");
   // 참가자가 한 명이면 둘째 자리도 그 사람이다.
   assert.ok((기록.transportations ?? []).every((편) => 편.owner === "하늘"));
@@ -57,7 +57,7 @@ test("예시 여행 셋은 모두 예시 표시를 달고 기록이 붙어 있�
 
 test("예시 지출의 날짜는 그 여행 기간 안이다", () => {
   for (const 여행 of sampleTrips) {
-    const 날짜칸 = tripDateKeys(여행.start, 여행.end).map(dayLabelOf);
+    const 날짜칸 = tripDateKeys(여행.start, 여행.end);
     for (const 지출 of 여행.planning?.expenses ?? []) {
       assert.ok(날짜칸.includes(지출.day), `${여행.name} 의 지출 날짜가 칸 밖이다: ${지출.day}`);
     }

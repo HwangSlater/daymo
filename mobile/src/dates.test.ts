@@ -11,6 +11,8 @@ import {
   dayLabel,
   dayLabelOf,
   dayNumberOf,
+  dayNumberOfKey,
+  dayTextOf,
   daysSince,
   formatTripPeriod,
   matchTripDay,
@@ -61,6 +63,23 @@ test("날짜 선택지에서 요일과 일 숫자를 꺼낸다", () => {
   assert.equal(dayNumberOf("날짜 미정"), "날짜 미정");
 });
 
+test("날짜 키에서 일 숫자를 꺼내고, 키가 아니면 받은 그대로 준다", () => {
+  assert.equal(dayNumberOfKey("2026-09-03"), "3");
+  assert.equal(dayNumberOfKey("2026-09-23"), "23");
+  assert.equal(dayNumberOfKey("날짜 미정"), "날짜 미정");
+  assert.equal(dayNumberOfKey(""), "");
+});
+
+test("화면에 적을 때만 이름표를 만들고, 약속된 값은 건드리지 않는다", () => {
+  assert.equal(dayTextOf("2026-09-23"), "23일(수)");
+  // 「날짜 미정」·「전체」처럼 날이 아닌 값은 그대로 지나간다.
+  assert.equal(dayTextOf("날짜 미정"), "날짜 미정");
+  assert.equal(dayTextOf("전체"), "전체");
+  assert.equal(dayTextOf(""), "");
+  // 달력에 없는 날은 키로 보지 않는다.
+  assert.equal(dayTextOf("2026-02-30"), "2026-02-30");
+});
+
 test("여행 카드의 기간은 같은 달이면 달을 한 번만 적는다", () => {
   assert.equal(dateRangeLabel("2026-09-12", "2026-09-14"), "9월 12일 — 14일");
   assert.equal(dateRangeLabel("2026-09-30", "2026-10-02"), "9월 30일 — 10월 2일");
@@ -97,9 +116,9 @@ test("자유롭게 적은 날짜를 여행 날짜 칸에 맞춘다", () => {
   assert.equal(matchTripDay("  ", 선택지), "");
 });
 
-test("여행 날짜 가운데 오늘이 있으면 그 이름표를 준다", () => {
+test("여행 날짜 가운데 오늘이 있으면 그 날짜 키를 준다", () => {
   const dates = buildTripDates("2026-09-22", "2026-09-24");
-  assert.equal(todayAmong(dates, new Date(2026, 8, 23, 9)), "23일(수)");
+  assert.equal(todayAmong(dates, new Date(2026, 8, 23, 9)), "2026-09-23");
   assert.equal(todayAmong(dates, new Date(2026, 8, 30)), "");
   assert.equal(todayAmong([], new Date(2026, 8, 23)), "");
 });

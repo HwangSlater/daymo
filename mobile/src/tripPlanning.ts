@@ -10,7 +10,7 @@
 
 import type { TransportStop } from "./bookingSync.ts";
 import type { CoverFocus } from "./coverCrop.ts";
-import { weekdayOf } from "./dates.ts";
+import { weekdayOfKey } from "./dates.ts";
 import type { PeopleNames } from "./people.ts";
 import type { AppPlaceStatus } from "./placeSync.ts";
 import type { PhotoLink, PhotoLinkTarget } from "./photoSync.ts";
@@ -445,7 +445,7 @@ export function parseAiRecipes(text: string, newId: () => string): Recipe[] {
 export const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
   address.trim().split(/\s+/).filter(Boolean).slice(0, 2).join(" ") || fallback;
 
-/** 일정 줄을 날짜 차례로, 같은 날은 시각 차례로 세운다. 날짜가 없는 줄은 맨 뒤다. */
+/** 일정 줄을 날짜 차례로, 같은 날은 시각 차례로 세운다. 날짜가 없는 줄은 맨 뒤다. `dayOptions` 는 날짜 키 목록이다. */
 export const orderedScheduleItems = (items: ScheduleItem[], dayOptions: string[]) =>
   [...items].sort((left, right) => {
     const leftDay = left.date ? dayOptions.indexOf(left.date) : -1;
@@ -462,7 +462,7 @@ export const orderedScheduleItems = (items: ScheduleItem[], dayOptions: string[]
 
 /** 교통편에서 만들어지는 일정 줄. 저장할 때와 목록을 다시 맞출 때 같은 모양이어야 한다. */
 export const transportScheduleRow = (transportation: Transportation): ScheduleItem => ({
-  time: `${weekdayOf(transportation.date)} · ${transportation.departureTime}`,
+  time: `${weekdayOfKey(transportation.date)} · ${transportation.departureTime}`,
   date: transportation.date,
   title: `${transportation.method} ${transportation.departure} 출발`,
   note: `${transportation.arrival} ${transportation.arrivalTime} 도착 · ${transportation.owner} · ${transportation.direction}`,
@@ -472,7 +472,7 @@ export const transportScheduleRow = (transportation: Transportation): ScheduleIt
 
 /** 예약에서 만들어지는 일정 줄. */
 export const reservationScheduleRow = (reservation: ReservationInfo): ScheduleItem => ({
-  time: `${weekdayOf(reservation.date)} · ${reservation.time || "시간 미정"}`,
+  time: `${weekdayOfKey(reservation.date)} · ${reservation.time || "시간 미정"}`,
   date: reservation.date,
   title: reservation.name,
   note: ["예약", reservation.status].filter(Boolean).join(" · "),

@@ -59,12 +59,16 @@ docs/       설계 문서. 코드보다 여기가 먼저다
 | --- | --- | --- |
 | `daymo.auth.session.v1` | 로그인 토큰(폰은 SecureStore, 웹은 AsyncStorage) | `auth.ts` |
 | `daymo.auth.installation.v1` | 이 기기를 가리키는 설치 id(기기 한도 5대) | `auth.ts` |
-| `daymo.trip-data.v1` | 모든 여행의 계획·기록 | `WarmAppShell.tsx` |
+| `daymo.trip-data.v2` | 모든 여행의 계획·기록(날짜는 `YYYY-MM-DD` 키) | `WarmAppShell.tsx` · `tripStorage.ts` |
+| `daymo.trip-data.v1` | 날짜를 `3일(금)` 이름표로 적던 옛 판. 읽으면서 v2 로 옮기고 지운다 | `tripStorage.ts` |
+| `daymo.trip-data.v1.bak` | v2 로 옮기기 전의 v1 원본. 다음에 v2 가 제대로 읽히면 지운다 | `tripStorage.ts` |
 | `daymo.spaces.v1` · `daymo.me.v1` | 공간·멤버·나 | `spaces.ts` |
 | `daymo.device-settings.v1` | 테마·다크 모드 같은 이 기기 설정 | `deviceSettings.ts` |
 | `daymo.card-drafts.v1.<여행id>` | 꾸미는 중인 추억 카드(여행마다 하나) | `cardDraftStorage.ts` |
 | `daymo.invite.pending.v1` | 웹에서 잠깐 맡아 두는 초대(30분) | `inviteHandoff.ts` |
 | `daymo.card-photo-tip.v3` · `daymo.feedback-card-hidden.v1` | 한 번만 보여 주는 안내를 봤는지 | `onceTip.ts` · `feedback.ts` |
+
+여행 기록 열쇠 셋(`daymo.trip-data.*`)은 **로그아웃·계정 전환에서 함께 지운다**. `tripStorage.TRIP_DATA_KEYS` 하나를 `clearAccountCache` 에 넘기는 것이 전부라, 판을 올려도 지우는 자리를 또 고치지 않는다. 「이 기기 데이터 모두 삭제」(`clearDeviceStorage`)는 `daymo.` 로 시작하는 것을 모두 걷어 내므로 셋 다 사라진다.
 
 ## 실행
 

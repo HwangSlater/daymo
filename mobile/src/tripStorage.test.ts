@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { isStoredPlanning, isStoredTrip, parseStoredTripData, storableTrips } from "./tripStorage.ts";
+import {
+  TRIP_DATA_BACKUP_KEY,
+  TRIP_DATA_KEY,
+  TRIP_DATA_KEY_V1,
+  isStoredPlanning,
+  isStoredTrip,
+  migrateTripDaysToKeys,
+  parseStoredTripData,
+  readTripData,
+  storableTrips,
+  tripDataText,
+} from "./tripStorage.ts";
 import type { Trip } from "./tripPlanning.ts";
 
 const 여행 = (extra: Partial<Trip> = {}): Trip => ({
@@ -130,4 +141,135 @@ test("올릴 사진이 없으면 웹에서도 여행을 그대로 둔다", () =>
   const 웹 = storableTrips({ ours: [그대로] }, true);
 
   assert.equal(웹.ours[0], 그대로);
+});
+
+// ---------------------------------------------------------------------------
+// v1(날짜 이름표) → v2(날짜 키)
+// ---------------------------------------------------------------------------
+
+/** 이름표로 적혀 있던 옛 여행 한 건. 2026-09-22 ~ 24 라 칸은 22·23·24일이다. */
+const 옛_여행 = () => 여행({
+  planning: {
+    schedule: [
+      { id: "s1", time: "화 · 12:30", date: "22일(화)", title: "점심", note: "", mapUrl: "" },
+      { id: "s2", time: "09:00", date: "", title: "날짜 없음", note: "", mapUrl: "" },
+      { id: "s3", time: "목 · 08:00", date: "30일(수)", title: "기간 밖", note: "", mapUrl: "" },
+    ],
+    reservations: [{
+      id: "r1", name: "소나기식당", date: "23일(수)", time: "19:00", people: "2명",
+      status: "예약 확정" as const, place: "완산", showInSchedule: true,
+    }],
+    transportations: [{
+      id: "t1", owner: "하늘", direction: "가는 편" as const, method: "KTX" as const, date: "24일(목)",
+      departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36",
+      status: "예매 완료" as const, showInSchedule: true,
+    }],
+    expenses: [
+      { id: "e1", day: "2일차", title: "점심", amount: 18000, category: "식비" as const, payer: "하늘", memo: "" },
+      { id: "e2", day: "떠나기 전날", title: "짐 부치기", amount: 3000, category: "기타" as const, payer: "여울", memo: "" },
+      { id: "e3", day: "", title: "미정", amount: 1000, category: "기타" as const, payer: "하늘", memo: "" },
+    ],
+    memories: {
+      photos: [
+        { id: "p1", color: "#fff", date: "9월 24일", caption: "마지막 아침" },
+        { id: "p2", color: "#fff", date: "날짜 미정", caption: "언제였더라" },
+        { id: "p3", color: "#fff", date: "1일차", caption: "도착" },
+      ],
+      diaries: [],
+    },
+  },
+});
+
+test("v1 의 날짜 이름표를 그 여행의 날짜 키로 옮긴다", () => {
+  const 옮김 = migrateTripDaysToKeys(옛_여행());
+  const plan = 옮김.planning!;
+
+  assert.deepEqual(plan.schedule?.map((item) => item.date), ["2026-09-22", "", ""]);
+  assert.deepEqual(plan.reservations?.map((item) => item.date), ["2026-09-23"]);
+  assert.deepEqual(plan.transportations?.map((item) => item.date), ["2026-09-24"]);
+  // 「2일차」는 둘째 칸, 「9월 24일」은 일 숫자로 찾아 셋째 칸이다.
+  assert.deepEqual(plan.expenses?.map((item) => item.day), ["2026-09-23", "", ""]);
+  assert.deepEqual(plan.memories?.photos.map((photo) => photo.date), ["2026-09-24", "날짜 미정", "2026-09-22"]);
+});
+
+test("못 찾는 이름표는 날짜 미정이 되고 항목은 그대로 남는다", () => {
+  const plan = migrateTripDaysToKeys(옛_여행()).planning!;
+
+  // 날짜 하나를 못 읽었다고 적어 둔 지출·사진·일정을 버리지 않는다.
+  assert.deepEqual(plan.schedule?.map((item) => item.title), ["점심", "날짜 없음", "기간 밖"]);
+  assert.deepEqual(plan.expenses?.map((item) => item.title), ["점심", "짐 부치기", "미정"]);
+  assert.deepEqual(plan.memories?.photos.map((photo) => photo.id), ["p1", "p2", "p3"]);
+  // 기간 밖 이름표는 빈 값(날짜 미정)으로 내린다. 사진만 「날짜 미정」이라는 글을 쓴다.
+  assert.equal(plan.schedule?.[2].date, "");
+  assert.equal(plan.expenses?.[1].day, "");
+});
+
+test("이미 날짜 키로 적힌 것은 건드리지 않는다", () => {
+  const 이미_키 = 여행({
+    planning: { expenses: [{ id: "e1", day: "2026-09-23", title: "점심", amount: 100, category: "식비", payer: "하늘", memo: "" }] },
+  });
+
+  assert.equal(migrateTripDaysToKeys(이미_키).planning?.expenses?.[0].day, "2026-09-23");
+});
+
+/** 열쇠 하나짜리 가짜 저장소. `AsyncStorage` 가운데 `readTripData` 가 쓰는 것만 흉내 낸다. */
+const 가짜_저장소 = (처음: Record<string, string> = {}) => {
+  const 칸 = new Map(Object.entries(처음));
+  return {
+    칸,
+    getItem: async (key: string) => 칸.get(key) ?? null,
+    setItem: async (key: string, value: string) => void 칸.set(key, value),
+    removeItem: async (key: string) => void 칸.delete(key),
+  };
+};
+
+test("v1 을 읽으면 사본을 남기고 v2 로 옮겨 적은 뒤 v1 을 지운다", async () => {
+  const 원본 = 적힌_글({ tripsByGroup: { ours: [옛_여행()] }, done: ["charger"] });
+  const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY_V1]: 원본 });
+
+  const 읽음 = await readTripData(저장소);
+
+  assert.equal(읽음?.tripsByGroup.ours[0].planning?.expenses?.[0].day, "2026-09-23");
+  // 되돌릴 자리: 옮기기 전 원본이 글자 그대로 남는다.
+  assert.equal(저장소.칸.get(TRIP_DATA_BACKUP_KEY), 원본);
+  assert.equal(저장소.칸.has(TRIP_DATA_KEY_V1), false);
+  assert.ok(저장소.칸.get(TRIP_DATA_KEY)?.includes("2026-09-23"));
+});
+
+test("다음에 v2 가 제대로 읽히면 되돌리기용 사본을 지운다", async () => {
+  const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY_V1]: 적힌_글({ tripsByGroup: { ours: [옛_여행()] } }) });
+  await readTripData(저장소);
+  const 옮긴_글 = 저장소.칸.get(TRIP_DATA_KEY)!;
+
+  const 다시 = await readTripData(저장소);
+
+  assert.equal(저장소.칸.has(TRIP_DATA_BACKUP_KEY), false);
+  // 두 번째로 읽어도 날짜가 또 바뀌지 않는다.
+  assert.equal(저장소.칸.get(TRIP_DATA_KEY), 옮긴_글);
+  assert.deepEqual(
+    다시?.tripsByGroup.ours[0].planning?.expenses?.map((item) => item.day),
+    ["2026-09-23", "", ""],
+  );
+});
+
+test("v1 을 읽을 수 없으면 지우지도 옮기지도 않는다", async () => {
+  const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY_V1]: "{" });
+
+  assert.equal(await readTripData(저장소), null);
+  assert.equal(저장소.칸.get(TRIP_DATA_KEY_V1), "{");
+  assert.equal(저장소.칸.has(TRIP_DATA_BACKUP_KEY), false);
+});
+
+test("적어 둔 것이 아무것도 없으면 null 이다", async () => {
+  assert.equal(await readTripData(가짜_저장소()), null);
+});
+
+test("v2 로 적고 다시 읽으면 그대로다", async () => {
+  const 옮김 = migrateTripDaysToKeys(옛_여행());
+  const 저장소 = 가짜_저장소({ [TRIP_DATA_KEY]: tripDataText({ ours: [옮김] }, ["charger"]) });
+
+  const 읽음 = await readTripData(저장소);
+
+  assert.deepEqual(읽음?.tripsByGroup.ours[0], 옮김);
+  assert.deepEqual(읽음?.done, ["charger"]);
 });

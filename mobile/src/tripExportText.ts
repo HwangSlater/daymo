@@ -2,14 +2,15 @@
  * 여행 기록을 읽을 만한 글(마크다운)로 만든다.
  *
  * 앱을 지우기 전이나 다른 곳에 남겨 두고 싶을 때 쓰는 글이다. 그래서 화면에
- * 보이던 말을 그대로 옮긴다. 날짜는 `1일(금)` 처럼 일정 탭이 쓰는 이름표이고,
- * 돈은 여행 통화로 적는다. 다시 읽어 들이는 형식이 아니라 사람이 읽는 글이다.
+ * 보이던 말을 그대로 옮긴다. 날짜 키는 `1일(금)` 처럼 일정 탭이 쓰는 이름표로 바꿔
+ * 적고, 돈은 여행 통화로 적는다. 다시 읽어 들이는 형식이 아니라 사람이 읽는 글이다.
  *
  * 사진은 파일을 담지 않는다. 글 하나로 주고받는 것이라 설명과 날짜만 적는다.
  *
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
+import { dayTextOf } from "./dates.ts";
 import { money } from "./tripExpenses.ts";
 
 /** 내보낼 때 읽는 기록의 칸. 화면의 `TripPlanningData` 중 쓰는 것만. */
@@ -106,7 +107,7 @@ const scheduleSection = (items: readonly ExportScheduleItem[]): string[] => {
   if (!items.length) return [];
   const lines = [`### 일정 (${items.length}개)`];
   for (const item of items) {
-    lines.push(`- ${joinDot([item.date, item.time, item.title]) || "이름 없는 일정"}`);
+    lines.push(`- ${joinDot([dayTextOf(item.date ?? ""), item.time, item.title]) || "이름 없는 일정"}`);
     const note = clean(item.note);
     if (note) lines.push(indent(note));
   }
@@ -164,7 +165,7 @@ const expenseSection = (
   const lines = [`### 비용 — 총 지출 ${money(total, currency)}`];
   for (const item of expenses) {
     const payer = clean(item.payer);
-    const head = joinDot([item.day, item.title]) || "이름 없는 지출";
+    const head = joinDot([dayTextOf(item.day ?? ""), item.title]) || "이름 없는 지출";
     const tail = joinDot([item.category, payer ? `${payer} 냄` : undefined, item.excluded ? "정산 제외" : undefined]);
     lines.push(`- ${head} ${money(item.amount, currency)}${tail ? ` · ${tail}` : ""}`);
     const memo = clean(item.memo);
@@ -202,7 +203,7 @@ const photoSection = (photos: readonly ExportPhoto[]): string[] => {
   // 사진 파일은 담지 않는다. 무엇을 찍었는지만 남긴다.
   const lines = [`### 사진 (${photos.length}장)`];
   for (const photo of photos) {
-    lines.push(`- ${joinDot([photo.date, photo.caption]) || "설명 없는 사진"}`);
+    lines.push(`- ${joinDot([dayTextOf(photo.date ?? ""), photo.caption]) || "설명 없는 사진"}`);
   }
   return lines;
 };

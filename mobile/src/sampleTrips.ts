@@ -18,11 +18,8 @@ import {
   dateKey,
   dateLabel,
   dateRangeLabel,
-  dayLabel,
-  dayLabelOf,
-  matchTripDay,
   shiftDateKey,
-  weekdayOf,
+  weekdayOfKey,
 } from "./dates.ts";
 import {
   initialMemoryData,
@@ -451,7 +448,7 @@ const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] 
   const reservation = sampleReservation(dayOptions);
   return [
     {
-      time: `${weekdayOf(dayOptions[0])} · 12:30`,
+      time: `${weekdayOfKey(dayOptions[0])} · 12:30`,
       date: dayOptions[0],
       title: "소나기식당에서 점심",
       note: "식사 · 완산",
@@ -459,7 +456,7 @@ const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] 
       placeId: "place-eunhaengol",
     },
     {
-      time: `${weekdayOf(dayOptions[0])} · ${기본_체크인_시각}`,
+      time: `${weekdayOfKey(dayOptions[0])} · ${기본_체크인_시각}`,
       date: dayOptions[0],
       title: "달빛한옥 체크인",
       note: `${lastDate} 11:00 체크아웃`,
@@ -468,14 +465,14 @@ const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] 
       stayId: "primary-stay",
     },
     {
-      time: `${weekdayOf(dayOptions[0])} · 19:30`,
+      time: `${weekdayOfKey(dayOptions[0])} · 19:30`,
       date: dayOptions[0],
       title: "함께 저녁 만들기",
       note: "버섯전골과 김밥",
       mapUrl: "",
     },
     {
-      time: `${weekdayOf(reservation.date)} · ${reservation.time}`,
+      time: `${weekdayOfKey(reservation.date)} · ${reservation.time}`,
       date: reservation.date,
       title: reservation.name,
       note: `예약 · ${reservation.status}`,
@@ -502,7 +499,8 @@ export function sampleTripPlanning(
   people: string[],
 ): TripPlanningData {
   const dates = buildTripDates(start, end);
-  const dayOptions = dates.length ? dates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
+  // 날짜는 이름표가 아니라 `2026-09-22` 같은 날짜 키로 들고 다닌다.
+  const dayOptions = dates.length ? dates.map(dateKey) : [0, 1, 2].map((n) => shiftDateKey(dateKey(new Date()), n));
   const dateOptions = dates.length ? dates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
   const first = dateOptions[0];
   const last = dateOptions[dateOptions.length - 1];
@@ -537,9 +535,13 @@ export function sampleTripPlanning(
     })),
     memories: (() => {
       const seed = initialMemoryData(`${first} — ${last}`, true);
-      // 예시 사진도 여행의 실제 날짜 칸을 쓴다. "1일차" 로 두면 날짜를 고르는
-      // 자리에 없는 값이라 처음부터 목록 밖에 붙는다.
-      return { ...seed, photos: seed.photos.map((photo) => ({ ...photo, date: matchTripDay(photo.date, dayOptions) })) };
+      // 예시 사진도 여행의 실제 날짜 칸을 쓴다. 「1일차」로 두면 날짜를 고르는
+      // 자리에 없는 값이라 처음부터 목록 밖에 붙는다. 몇째 날인지를 그 자리의 키로 바꾼다.
+      const 몇째_날의_키 = (value: string) => {
+        const 차례 = Number(value.match(/^(\d+)일차$/)?.[1] ?? 0);
+        return 차례 ? dayOptions[Math.min(차례, dayOptions.length) - 1] : value;
+      };
+      return { ...seed, photos: seed.photos.map((photo) => ({ ...photo, date: 몇째_날의_키(photo.date) })) };
     })(),
     tripNotes: [
       { id: "memo-meal", author: `${two} · 오늘 10:42`, body: "육수 재료는 미리 1.5배로 준비하기" },
@@ -553,12 +555,12 @@ export function sampleTripPlanning(
 const sampleDate = (daysFromToday: number) => shiftDateKey(dateKey(new Date()), daysFromToday);
 
 /**
- * 여행 며칠째의 날짜 이름. 상세 화면의 날짜 선택지와 같은 "22일(토)" 형식이다.
+ * 여행 며칠째의 날짜 키. 상세 화면의 날짜 선택지와 같은 `2026-09-22` 형식이다.
  *
  * 예시 여행의 날짜는 오늘을 기준으로 만들어지므로 지출의 날짜도 같은 규칙으로
  * 계산해야 한다. 글자로 박아 두면 날이 지날수록 어긋난다.
  */
-const sampleTripDay = (startKey: string, offset: number) => dayLabelOf(shiftDateKey(startKey, offset));
+const sampleTripDay = (startKey: string, offset: number) => shiftDateKey(startKey, offset);
 
 /** 예시 지출 한 건. 여행마다 다른 목록을 만들려고 짧게 쓴다. */
 const sampleExpense = (

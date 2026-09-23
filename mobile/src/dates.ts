@@ -1,10 +1,10 @@
 /**
  * 날짜 키와 날짜 이름표를 만들고 읽는 한 자리.
  *
- * 앱은 날짜를 두 가지 모양으로 들고 다닌다. 서버와 오가는 것은 `2026-09-23` 같은
- * 날짜 키고, 화면에 그리는 것은 `23일(수)`·`9월 23일` 같은 이름표다. 이름표를 만드는
- * 셈이 화면 파일과 목록 모듈에 여섯 벌쯤 흩어져 있어서, 같은 날이 자리마다 다른
- * 글자가 될 수 있었다. 여기 하나만 둔다.
+ * 앱은 날짜를 `2026-09-23` 같은 **날짜 키** 하나로만 들고 다닌다. `23일(수)`·
+ * `9월 23일` 같은 이름표는 그릴 때 여기서 만든다. 2026-09-23 까지는 화면 상태와
+ * 기기 기록이 이름표를 그대로 들고 있어서, 여행 기간을 옮기면 옛 이름표가 새 기간에
+ * 없어져 서버의 날짜가 지워졌다. 이름표를 만드는 셈도 여섯 벌쯤 흩어져 있었다.
  *
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
@@ -76,12 +76,16 @@ export const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDa
 /** 날짜 키의 요일 한 글자. `2026-09-23` → `수` */
 export const weekdayOfKey = (key: string) => WEEKDAYS[키에서(key).getDay()];
 
-/** `24일(목)` 형태의 날짜 선택지에서 요일만 꺼낸다. */
+/** `24일(목)` 형태의 옛 이름표에서 요일만 꺼낸다. 날짜 키에는 `weekdayOfKey` 를 쓴다. */
 export const weekdayOf = (dayOption: string) =>
   dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
 
-/** `24일(목)` 형태의 날짜 선택지에서 일 숫자만 꺼낸다. */
+/** `24일(목)` 형태의 날짜 선택지에서 일 숫자만 꺼낸다. 옛 기록을 옮길 때만 쓴다. */
 export const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
+
+/** 날짜 키의 일 숫자. `2026-09-03` → `3`. 키가 아니면 받은 그대로 준다. */
+export const dayNumberOfKey = (key: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(key) ? String(Number(key.slice(8, 10))) : key;
 
 /** 여행 카드에 적는 기간. 같은 달이면 달을 한 번만 적는다. `9월 12일 — 14일` */
 export const dateRangeLabel = (start: string, end: string) => {
@@ -116,7 +120,7 @@ export const buildTripDates = (start?: string, end?: string) => {
 };
 
 /**
- * 여행 날짜 가운데 오늘이 있으면 그 날의 이름표를 준다. 없으면 빈 문자열이다.
+ * 여행 날짜 가운데 오늘이 있으면 그 날의 **날짜 키**를 준다. 없으면 빈 문자열이다.
  *
  * 여행 중에 적는 지출은 거의 오늘 것이다. 늘 첫날로 시작하면 둘째 날부터는
  * 매번 날짜를 고쳐야 한다.
@@ -128,7 +132,7 @@ export const todayAmong = (dates: Date[], now: Date = new Date()): string => {
       date.getMonth() === now.getMonth() &&
       date.getDate() === now.getDate(),
   );
-  return match ? dayLabel(match) : "";
+  return match ? dateKey(match) : "";
 };
 
 /**
@@ -152,6 +156,14 @@ export const validDateKey = (value: string) => {
   return Boolean(date && dateKey(date) === value);
 };
 
+/**
+ * 날짜 칸 하나를 화면에 적을 글자로.
+ *
+ * 화면 상태는 날짜 키만 들고 다니지만, 같은 칸에 「날짜 미정」·「전체」처럼 날이 아닌
+ * 약속된 값이 들어온다. 그런 값은 건드리지 않고 그대로 낸다.
+ */
+export const dayTextOf = (value: string) => (validDateKey(value) ? dayLabelOf(value) : value);
+
 /** 여행 기간 한 줄. 읽을 수 없으면 고쳐 달라고 한다. */
 export const formatTripPeriod = (start: string, end: string) => {
   const first = parseTripDate(start);
@@ -161,12 +173,12 @@ export const formatTripPeriod = (start: string, end: string) => {
 };
 
 /**
- * 예전에 자유롭게 적어 둔 날짜를 이번 여행의 날짜 칸에 맞춘다.
+ * 예전에 자유롭게 적어 둔 날짜를 그 여행의 날짜 이름표에 맞춘다.
  *
- * 기록 탭의 사진 날짜만 아무 글자나 받고 있었다. "1일차" 와 "8월 22일" 이
- * 섞이면 같은 날인데 다른 날로 세어 "N일의 기록" 이 엉뚱해진다.
- * 몇째 날로 적었으면 순서로, 날짜로 적었으면 일 숫자로 찾는다. 어느 쪽도
- * 아니면 적힌 그대로 둔다. 내가 적은 말을 앱이 말없이 버리면 안 된다.
+ * 기기에 적어 둔 옛 기록(`daymo.trip-data.v1`)을 날짜 키로 옮길 때만 쓴다. 그때는
+ * 사진 날짜가 아무 글자나 받고 있어서 "1일차" 와 "8월 22일" 이 섞였다. 몇째 날로
+ * 적었으면 순서로, 날짜로 적었으면 일 숫자로 찾는다. 어느 쪽도 아니면 적힌 그대로
+ * 둔다 — 부르는 쪽이 그것을 보고 「날짜 미정」으로 내린다.
  */
 export const matchTripDay = (value: string, dayOptions: string[]) => {
   const text = value.trim();

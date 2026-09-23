@@ -1,15 +1,34 @@
 /**
- * 기기에 적어 둔 여행 기록(`daymo.trip-data.v1`)을 읽고 쓰는 모양.
+ * 기기에 적어 둔 여행 기록(`daymo.trip-data.v2`)을 읽고 쓰는 모양.
  *
  * 이미 나간 판이 적어 둔 것을 읽는 관문이다. **모르는 값을 버리지 않는다** — 칸
  * 하나가 어긋났다고 여행을 통째로 지우면 사용자가 적어 둔 이름과 날짜까지 사라진다.
  * 계획만 버리고 여행은 살린다.
  *
+ * v1 은 날짜를 `3일(금)` 같은 **이름표**로 적어 두었다. v2 는 `2026-09-23` 같은
+ * 날짜 키로 적는다. v1 을 만나면 한 번 옮겨 v2 로 적고 v1 은 지운다(`readTripData`).
+ *
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  * 웹인지 아닌지는 부르는 쪽이 넘긴다(`Platform.OS === "web"`).
  */
 
+import { buildTripDates, dayLabel, matchTripDay, tripDateKeys, validDateKey } from "./dates.ts";
 import type { Trip, TripPlanningData } from "./tripPlanning.ts";
+
+/** 지금 쓰는 저장 열쇠. 날짜를 키로 적는다. */
+export const TRIP_DATA_KEY = "daymo.trip-data.v2";
+/** 날짜를 이름표로 적던 옛 열쇠. 읽어서 옮기고 나면 지운다. */
+export const TRIP_DATA_KEY_V1 = "daymo.trip-data.v1";
+/**
+ * 옮기기 전의 v1 원본. 되돌릴 자리다.
+ *
+ * 옮긴 다음 실행에서 v2 가 제대로 읽히면 지운다. 옮기다 잘못돼도 이 사본이 남아
+ * 있으면 손으로 v1 자리에 되돌려 놓을 수 있다.
+ */
+export const TRIP_DATA_BACKUP_KEY = "daymo.trip-data.v1.bak";
+
+/** 로그아웃·계정 전환에서 함께 걷어 내는 여행 기록 열쇠 전부. */
+export const TRIP_DATA_KEYS = [TRIP_DATA_KEY, TRIP_DATA_KEY_V1, TRIP_DATA_BACKUP_KEY];
 
 /**
  * 기기에 적어 둘 모양.
@@ -97,3 +116,111 @@ export const parseStoredTripData = (raw: string | null) => {
     return null;
   }
 };
+
+// ---------------------------------------------------------------------------
+// v1 → v2: 날짜 이름표를 날짜 키로
+// ---------------------------------------------------------------------------
+
+/** 사진이 날짜를 안 고른 상태. `photoSync.PHOTO_UNDATED`·화면의 `UNDATED` 와 같다. */
+const 사진_미정 = "날짜 미정";
+
+/**
+ * 옛 이름표 하나를 그 여행의 날짜 키로.
+ *
+ * 그 여행의 이름표 목록에서 **같은 자리**의 키를 준다. 「2일차」·「9월 24일」처럼
+ * 다르게 적은 것은 `matchTripDay` 가 먼저 이름표로 맞춘다. 그래도 못 찾으면
+ * **버리지 않고** 날짜 미정으로 내린다 — 날짜 하나 때문에 적어 둔 지출·사진이
+ * 사라지면 안 된다.
+ */
+const 키로_옮긴다 = (
+  value: string | undefined,
+  labels: readonly string[],
+  keys: readonly string[],
+  미정: string,
+): string | undefined => {
+  if (value === undefined) return undefined;
+  const 글 = value.trim();
+  if (!글 || 글 === 미정) return value;
+  if (validDateKey(글)) return 글;
+  const 자리 = labels.indexOf(matchTripDay(글, [...labels]));
+  return 자리 < 0 ? 미정 : keys[자리];
+};
+
+/** 여행 한 건이 들고 있는 날짜 칸을 전부 키로 옮긴다. 칸이 없으면 그대로 둔다. */
+export function migrateTripDaysToKeys(trip: Trip): Trip {
+  const keys = tripDateKeys(trip.start, trip.end);
+  const labels = buildTripDates(trip.start, trip.end).map(dayLabel);
+  const planning = trip.planning;
+  if (!planning) return trip;
+  const 날 = (value: string | undefined, 미정 = "") => 키로_옮긴다(value, labels, keys, 미정) ?? 미정;
+  const memories = planning.memories;
+  return {
+    ...trip,
+    planning: {
+      ...planning,
+      ...(planning.schedule
+        ? {
+          schedule: planning.schedule.map((item) =>
+            item.date === undefined ? item : { ...item, date: 날(item.date) }),
+        }
+        : {}),
+      ...(planning.reservations
+        ? { reservations: planning.reservations.map((item) => ({ ...item, date: 날(item.date) })) }
+        : {}),
+      ...(planning.reservation
+        ? { reservation: { ...planning.reservation, date: 날(planning.reservation.date) } }
+        : {}),
+      ...(planning.transportations
+        ? { transportations: planning.transportations.map((item) => ({ ...item, date: 날(item.date) })) }
+        : {}),
+      ...(planning.expenses
+        ? { expenses: planning.expenses.map((item) => ({ ...item, day: 날(item.day) })) }
+        : {}),
+      ...(memories
+        ? {
+          memories: {
+            ...memories,
+            photos: memories.photos.map((photo) => ({ ...photo, date: 날(photo.date, 사진_미정) })),
+          },
+        }
+        : {}),
+    },
+  };
+}
+
+/** 적어 둘 글. 판 번호를 함께 적어 다음 판이 무엇을 읽는지 알 수 있게 한다. */
+export const tripDataText = (tripsByGroup: Record<string, Trip[]>, done: readonly string[]) =>
+  JSON.stringify({ version: 2, tripsByGroup, done });
+
+/** `AsyncStorage` 가운데 여기서 쓰는 것만. 시험이 가짜 저장소를 넣는다. */
+export type TripDataStore = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
+};
+
+/**
+ * 기기에 적어 둔 여행 기록을 읽는다. v1 이 남아 있으면 한 번 옮긴다.
+ *
+ * - v2 가 있으면 그것을 읽고, 옮기기 전 사본(`.bak`)이 남아 있으면 지운다.
+ *   v2 를 제대로 읽었다는 것이 되돌릴 일이 없다는 뜻이다.
+ * - v2 가 없고 v1 이 있으면 **먼저 원본을 사본으로 남기고** 옮겨 v2 로 적은 뒤
+ *   v1 을 지운다. 옮긴 것이 읽히지 않으면 v1 을 건드리지 않는다.
+ */
+export async function readTripData(store: TripDataStore) {
+  const 적힌_v2 = await store.getItem(TRIP_DATA_KEY);
+  if (적힌_v2 !== null) {
+    await store.removeItem(TRIP_DATA_BACKUP_KEY);
+    return parseStoredTripData(적힌_v2);
+  }
+  const 적힌_v1 = await store.getItem(TRIP_DATA_KEY_V1);
+  const 읽음 = parseStoredTripData(적힌_v1);
+  if (!적힌_v1 || !읽음) return 읽음;
+  await store.setItem(TRIP_DATA_BACKUP_KEY, 적힌_v1);
+  const tripsByGroup = Object.fromEntries(
+    Object.entries(읽음.tripsByGroup).map(([id, trips]) => [id, trips.map(migrateTripDaysToKeys)]),
+  );
+  await store.setItem(TRIP_DATA_KEY, tripDataText(tripsByGroup, 읽음.done));
+  await store.removeItem(TRIP_DATA_KEY_V1);
+  return { tripsByGroup, done: 읽음.done };
+}

@@ -1,14 +1,13 @@
 /**
  * 교통편과 예약을 서버와 오가는 모양. 맞추는 계산은 `listSync.ts` 가 한다.
  *
- * 둘 다 날짜를 일정 탭과 같은 이름표(`2일(금)`)로 들고 있다. 교통편의 탈 사람은
- * 앱에서는 이름이고 서버에서는 membership id 라, 공간 사람 표로 옮긴다.
+ * 둘 다 날짜를 일정 탭과 같은 날짜 키(`2026-09-23`)로 들고 있어 서버와 그대로 오간다.
+ * 교통편의 탈 사람은 앱에서는 이름이고 서버에서는 membership id 라, 공간 사람 표로 옮긴다.
  *
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
 import { isServerId, type Codec } from "./listSync.ts";
-import { dayLabelOf } from "./dates.ts";
 import { blank, safeUrl } from "./placeSync.ts";
 import type { RosterEntry } from "./tripSync.ts";
 
@@ -89,12 +88,13 @@ export function transportCodec(
   tripDates: readonly string[],
   roster: readonly RosterEntry[],
 ): Codec<AppTransport, TransportBody, ServerTransport> {
-  const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
+  const 기간_안 = new Set(tripDates);
   return {
     syncable: (item) => isServerId(item.id),
     idOf: (item) => item.id,
     toBody: (item) => {
-      const date = keyByDayLabel.get(item.date) ?? null;
+      // 다른 기기가 여행 기간을 줄였으면 기간 밖의 날이 남는다. 그때는 날짜 없이 올린다.
+      const date = 기간_안.has(item.date) ? item.date : null;
       return {
         direction: item.direction === "오는 편" ? "return" : "outbound",
         method: METHOD_TO_SERVER[item.method] ?? "other",
@@ -120,7 +120,7 @@ export function transportCodec(
       owner: roster.find((entry) => entry.id === row.ownerMembershipId)?.name ?? "",
       direction: row.direction === "return" ? "오는 편" : "가는 편",
       method: METHOD_TO_APP[row.method] ?? "기타",
-      date: row.date && tripDates.includes(row.date) ? dayLabelOf(row.date) : "",
+      date: row.date && 기간_안.has(row.date) ? row.date : "",
       departure: row.departureName ?? "",
       departureTime: row.departureTime ?? NO_TIME,
       arrival: row.arrivalName ?? "",
@@ -194,12 +194,13 @@ export function reservationCodec(
   /** 서버와 맞춘 장소 id. 아직 안 올라간 장소를 가리키면 서버가 거부하므로 그때는 연결을 비워 보낸다. */
   serverPlaceIds: ReadonlySet<string> = new Set(),
 ): Codec<AppReservation, ReservationBody, ServerReservation> {
-  const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
+  const 기간_안 = new Set(tripDates);
   return {
     syncable: (item) => isServerId(item.id),
     idOf: (item) => item.id,
     toBody: (item) => {
-      const date = keyByDayLabel.get(item.date) ?? null;
+      // 다른 기기가 여행 기간을 줄였으면 기간 밖의 날이 남는다. 그때는 날짜 없이 올린다.
+      const date = 기간_안.has(item.date) ? item.date : null;
       const count = Number(item.people.match(/\d+/)?.[0] ?? NaN);
       const 붙은_장소 = item.placeId && serverPlaceIds.has(item.placeId) ? item.placeId : null;
       return {
@@ -222,7 +223,7 @@ export function reservationCodec(
     fromServer: (row) => ({
       id: row.id,
       name: row.title,
-      date: row.date && tripDates.includes(row.date) ? dayLabelOf(row.date) : "",
+      date: row.date && 기간_안.has(row.date) ? row.date : "",
       time: row.time ?? "",
       people: row.partyLabel ?? (row.partySize ? `${row.partySize}명` : ""),
       status: STATUS_TO_APP[row.status] ?? "확인 필요",

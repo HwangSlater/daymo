@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "./AppText";
 import { Toast } from "./ui/Toast";
 import { Glyph } from "./Glyph";
+import { dayTextOf } from "./dates";
 import {
   allChosen,
   cardFromSelection,
@@ -436,7 +437,7 @@ function GalleryBody({
     ({ item }: { item: GalleryRow<GalleryItem> }) =>
       item.kind === "머리" ? (
         <DateHeader
-          date={item.date}
+          date={dayTextOf(item.date)}
           ids={item.ids}
           selecting={selecting}
           all={selecting && allChosen(selected, item.ids)}
@@ -652,7 +653,7 @@ const Tile = memo(function Tile({
   onPressOut: () => void;
 }) {
   const { uri, failed, retry } = usePhotoThumb(photo.id, uploaded, photo.uri);
-  const 이름 = photo.caption || `${photo.date} 사진`;
+  const 이름 = photo.caption || `${dayTextOf(photo.date)} 사진`;
   return (
     <Pressable
       onPress={() => onPress(photo.id)}

@@ -12,7 +12,7 @@ const roster = [{ id: "m-me", name: "하늘" }, { id: "m-yeoul", name: "여울" 
 
 const expense = (extra: Partial<Expense> = {}): Expense => ({
   id: A,
-  day: "2일(금)",
+  day: "2026-10-02",
   title: "소나기식당 점심",
   amount: 48000,
   category: "식비",
@@ -101,11 +101,11 @@ test("나간 멤버가 낸 서버 지출은 목록에 남고 서버에서 지우
   assert.deepEqual(planListSync([back], codec, new Map([[A, { key: "x", version: 1 }]])).deletes, []);
 });
 
-test("기간 밖 이름표는 올리지 않고, 날짜를 옮기면 새 이름표로 간다", () => {
+test("기간 밖 날짜는 올리지 않고, 기간을 옮기면 그 날짜로 올라간다", () => {
   const codec = expenseCodec(dates, roster);
-  // 여행 기간을 옮기면 옛 이름표가 기간에서 사라진다. 그때 date: null 로 올려 서버의
-  // 날짜를 지우던 것을 막는다(2026-09-23).
-  const 잃은_것 = expense({ day: "9일(금)" });
+  // 다른 기기가 여행 기간을 줄이면 기간 밖의 날이 남는다. 그때 date: null 로 올려
+  // 서버의 날짜를 지우던 것을 막는다(2026-09-23).
+  const 잃은_것 = expense({ day: "2026-10-09" });
   assert.equal(codec.syncable(잃은_것), false);
   assert.equal(codec.blockReason?.(잃은_것), "여행 기간 밖의 날짜예요");
   assert.deepEqual(planListSync([잃은_것], codec, new Map()), { creates: [], updates: [], deletes: [] });
@@ -113,10 +113,21 @@ test("기간 밖 이름표는 올리지 않고, 날짜를 옮기면 새 이름�
   assert.equal(codec.syncable(expense({ day: "" })), true);
   assert.equal(codec.toBody(expense({ day: "" })).date, null);
 
-  // 화면이 이름표를 새 기간으로 옮기고 나면 그 날짜로 올라간다.
+  // 여행 기간이 그 날을 다시 품으면 그대로 올라간다.
   const 옮긴_뒤 = expenseCodec(tripDateKeys("2026-10-08", "2026-10-10"), roster);
   assert.equal(옮긴_뒤.syncable(잃은_것), true);
   assert.equal(옮긴_뒤.toBody(잃은_것).date, "2026-10-09");
+});
+
+test("날짜를 고른 지출은 절대 date: null 로 올라가지 않는다", () => {
+  // 2026-09-23 의 P0 #1: 여행 기간을 옮기면 옛 이름표를 못 찾아 `date: null` 이 올라가
+  // 서버의 날짜가 지워졌다. 이제 올릴 수 있는 줄의 날짜는 늘 적어 둔 그 키다.
+  const codec = expenseCodec(dates, roster);
+  for (const day of [...dates, "2026-10-09", ""]) {
+    const 하나 = expense({ day });
+    if (!codec.syncable(하나)) continue;
+    assert.equal(codec.toBody(하나).date, day || null);
+  }
 });
 
 test("주고받은 기록은 이름과 시각을 오간다", () => {

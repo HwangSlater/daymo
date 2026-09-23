@@ -15,7 +15,7 @@ const transport = (extra: Partial<AppTransport> = {}): AppTransport => ({
   owner: "여울",
   direction: "가는 편",
   method: "KTX",
-  date: "1일(목)",
+  date: "2026-10-01",
   departure: "서울역",
   departureTime: "08:00",
   arrival: "전주역",
@@ -103,7 +103,7 @@ test("서버 교통편은 화면 글자로 돌아온다", () => {
   });
 
   assert.deepEqual(back, {
-    id: A, owner: "하늘", direction: "오는 편", method: "항공", date: "3일(토)", departure: "제주", departureTime: "21:40",
+    id: A, owner: "하늘", direction: "오는 편", method: "항공", date: "2026-10-03", departure: "제주", departureTime: "21:40",
     arrival: "김포", arrivalTime: "시간 미정", status: "예매 전", note: "", stops: [], showInSchedule: false,
   });
 });
@@ -138,7 +138,7 @@ test("무궁화호·고속버스·시외버스는 서버 값으로 갔다가 같
 const reservation = (extra: Partial<AppReservation> = {}): AppReservation => ({
   id: A,
   name: "소나기식당",
-  date: "2일(금)",
+  date: "2026-10-02",
   time: "19:00",
   people: "2명 + 아이",
   status: "예약 확정",
