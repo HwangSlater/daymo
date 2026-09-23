@@ -58,15 +58,26 @@ export function expenseCodec(
   const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
   const idOfName = (name: string) => roster.find((entry) => entry.name === name)?.id;
   const nameOfId = (id: string) => roster.find((entry) => entry.id === id)?.name ?? UNKNOWN_PERSON;
+  /**
+   * 적어 둔 날짜 이름표를 이번 기간에서 못 찾는지.
+   *
+   * 여행 기간을 옮기면 「3일(금)」 같은 옛 이름표가 새 기간에 없어진다. 그대로 보내면
+   * `date: null` 이 서버에 올라가 날짜가 지워졌다(2026-09-23). 화면이 이름표를 옮기기
+   * 전에 맞추기가 돌 수도 있어서, 못 찾는 이름표는 아예 올리지 않는다. 날짜를 아직
+   * 고르지 않은 지출(빈 이름표)은 여기 해당하지 않는다.
+   */
+  const 날짜를_잃음 = (day: string) => Boolean(day) && !keyByDayLabel.has(day);
   return {
     syncable: (item) =>
       isServerId(item.id)
       && item.amount > 0
+      && !날짜를_잃음(item.day)
       && Boolean(idOfName(item.payer))
       && Object.keys(item.shares ?? {}).every((name) => Boolean(idOfName(name))),
     blockReason: (item) => {
       if (!isServerId(item.id)) return undefined;
       if (item.amount <= 0) return "금액이 0원이에요";
+      if (날짜를_잃음(item.day)) return "여행 기간 밖의 날짜예요";
       const names = [item.payer, ...Object.keys(item.shares ?? {})];
       return names.some((name) => !idOfName(name)) ? "이 여행에 없는 사람이 들어 있어요" : undefined;
     },

@@ -706,6 +706,44 @@ const requiredDot = (required: boolean, theme?: AppTheme) =>
 
 const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
 
+/**
+ * 지운 줄을 있던 자리에 도로 끼운다. 삭제 되돌리기가 쓴다.
+ *
+ * 맨 뒤에 붙이면 되돌린 줄이 목록 끝으로 가서, 되돌린 것이 맞는지 눈으로 못 찾는다.
+ * 사진은 id 로 겹침을 거르는 `gallerySelection.reinsertAt` 을 쓰고, 여기는 id 가 없는
+ * 줄(숙소·예약에서 만들어진 일정)도 있어 자리만 본다.
+ */
+function 자리에_넣기<T>(list: readonly T[], item: T, index: number): T[] {
+  const 결과 = [...list];
+  결과.splice(Math.min(Math.max(0, index), 결과.length), 0, item);
+  return 결과;
+}
+
+/**
+ * 시트를 여는 순간의 모습을 기준선으로 잡고, 지금 적힌 것이 그와 다른지 알려 준다.
+ *
+ * 바깥을 한 번 잘못 누르면 적던 것이 묻지도 않고 사라졌다(2026-09-23). 일정 시트가
+ * 쓰던 기준선 비교를 시트마다 베껴 적는 대신 여기 모았다. 기준선을 「여는 순간」에
+ * 잡는 것이 핵심이다. 만들 때 잡으면 지난번에 남은 값 때문에 손대지도 않은 시트가
+ * 저장하지 않고 나갈지 묻는다.
+ *
+ * @param open 시트가 열려 있는지
+ * @param key 시트에 지금 적힌 것을 한 줄로 만든 글
+ */
+function useDraftChanged(open: boolean, key: string): boolean {
+  const 기준선 = useRef(key);
+  const 열려_있었나 = useRef(open);
+  // 여는 그 렌더의 값을 기준선으로 잡는다. 여는 손길이 칸을 먼저 채우고 시트를 열기
+  // 때문에 이 시점의 `key` 가 곧 「처음 모습」이다. effect 로 미루면 한 프레임 동안
+  // 옛 기준선과 견주게 되고, 상태로 두면 시트를 열 때마다 한 번씩 더 그린다.
+  // eslint-disable-next-line react-hooks/refs
+  if (open && !열려_있었나.current) 기준선.current = key;
+  // eslint-disable-next-line react-hooks/refs
+  열려_있었나.current = open;
+  // eslint-disable-next-line react-hooks/refs
+  return open && key !== 기준선.current;
+}
+
 /** 여행 날짜를 못 정했을 때. 날짜 칸에서 고를 수 있는 값이다. */
 const UNDATED = "날짜 미정";
 
@@ -1272,6 +1310,9 @@ export function WarmTripDetail({
   const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
   const [reportingMemoId, setReportingMemoId] = useState<string | null>(null);
   const [tripNotes, setTripNotes] = useState<TripNote[]>(initialPlanning?.tripNotes ?? []);
+  // 메모는 적던 글만 보면 된다. 고치는 중이면 원래 글과, 새로 적는 중이면 빈 글과 견준다.
+  const memoDraftChanged = memoEditorOpen
+    && memoDraft.trim() !== (editingMemoId ? tripNotes.find((note) => note.id === editingMemoId)?.body ?? "" : "");
   const [hasKitchen, setHasKitchen] = useState(initialPlanning?.hasKitchen ?? true);
   const [feedback, setFeedback] = useState("");
   /**
@@ -1346,7 +1387,9 @@ export function WarmTripDetail({
   const [simplifySettlement, setSimplifySettlement] = useState(
     settingsFromServer?.simplifySettlement ?? initialPlanning?.simplifySettlement ?? true,
   );
-  const [budget, setBudget] = useState(settingsFromServer?.budget ?? initialPlanning?.budget ?? 500000);
+  // 예산은 정한 적이 없으면 0(예산 없음)이다. 예전에는 50만 원이 박혀 있어서, 예산을
+  // 정한 적 없는 여행에도 「500,000원 남음 · 0%」 막대가 떴다(2026-09-23).
+  const [budget, setBudget] = useState(settingsFromServer?.budget ?? initialPlanning?.budget ?? 0);
   const [currency, setCurrency] = useState(settingsFromServer?.currency ?? initialPlanning?.currency ?? DEFAULT_CURRENCY.code);
   const [exchangeRate, setExchangeRate] = useState(settingsFromServer?.exchangeRate ?? initialPlanning?.exchangeRate ?? 1);
   const [memories, setMemories] = useState<TripMemoryData>(() =>
@@ -1808,6 +1851,24 @@ export function WarmTripDetail({
   );
   // 휴지통에서 되살리면 올린다. 그 목록을 서버에서 다시 받는다.
   const [trashReload, setTrashReload] = useState({ memo: 0, photo: 0 });
+  /**
+   * 휴지통 하나. 여행 메모 시트와 기록 탭 두 곳에 같은 것을 놓는다.
+   *
+   * 메모 시트 맨 아래에만 있어서 사진을 지운 사람이 되찾는 길을 못 찾았다(2026-09-23).
+   * 각자 펼침 상태를 따로 들고 있어야 해서 부품을 하나 만들어 두 곳에 건다.
+   */
+  const 휴지통 = () => (
+    <TripTrash
+      tripId={tripId ?? ""}
+      appTheme={appTheme}
+      notify={setFeedback}
+      onRestored={(item) => {
+        // 이 기기에서 받았던 사진이면 파일을 다시 받게 한다. 지울 때 기기 파일도 사라졌다.
+        if (item.type === "photo") photoDownloads.current.delete(item.id);
+        setTrashReload((current) => ({ ...current, [item.type]: current[item.type] + 1 }));
+      }}
+    />
+  );
   useListSync({
     tripId,
     label: "메모",
@@ -1962,6 +2023,8 @@ export function WarmTripDetail({
   }, [knownPhotoIds, memories.photos, serverTrip]);
   // 영수증은 지출과 따로 올린다. 올라가면 지출에 사진 id 를 붙여 지출 동기화가 서버에 알린다.
   const receiptUploads = useRef(new Set<string>());
+  /** 올리다 실패한 영수증. 같은 영수증으로 같은 말을 되풀이하지 않으려고 적어 둔다. */
+  const receiptWarned = useRef(new Set<string>());
   useEffect(() => {
     if (!serverTrip || !tripId) return;
     const pending = expenses.filter((item) =>
@@ -1971,11 +2034,24 @@ export function WarmTripDetail({
       const photoId = newPlaceId();
       receiptUploads.current.add(key);
       uploadPhoto(tripId, photoId, item.receiptUri as string, { caption: null, date: null, isReceipt: true })
-        .then(() => setExpenses((current) => current.map((expense) =>
-          expense.id === item.id && expense.receiptUri === item.receiptUri
-            ? { ...expense, receiptPhotoId: photoId, ...(Platform.OS === "web" ? { receiptUri: undefined } : {}) }
-            : expense)))
-        .catch(() => receiptUploads.current.delete(key));
+        .then(() => {
+          receiptWarned.current.delete(key);
+          setExpenses((current) => current.map((expense) =>
+            expense.id === item.id && expense.receiptUri === item.receiptUri
+              ? { ...expense, receiptPhotoId: photoId, ...(Platform.OS === "web" ? { receiptUri: undefined } : {}) }
+              : expense));
+        })
+        .catch((caught) => {
+          // 지운 열쇠는 다음에 목록이 바뀔 때 다시 올리라는 뜻이다.
+          receiptUploads.current.delete(key);
+          // 실패해도 아무 말이 없어서 영수증이 안 붙은 줄을 몰랐다(2026-09-23).
+          // 한 영수증에 한 번만 알린다.
+          if (receiptWarned.current.has(key)) return;
+          receiptWarned.current.add(key);
+          setFeedback(caught instanceof DaymoApiError && caught.status !== 0
+            ? `영수증 업로드 실패. ${caught.message}`
+            : "영수증 업로드에 실패했어요. 잠시 후 다시 시도해 주세요");
+        });
     }
   }, [expenses, serverTrip, tripId]);
   // 다른 기기에서 붙인 영수증은 받아 둔다.
@@ -1999,6 +2075,15 @@ export function WarmTripDetail({
   const lastSentSettings = useRef<string | null>(
     initialPlanning?.expenseSettingsSynced && serverExpenseSettings ? JSON.stringify(serverExpenseSettings) : null,
   );
+  /**
+   * 비용 설정 보내기가 실패했을 때 스스로 다시 보내려고 올리는 번호.
+   *
+   * 실패해도 화면은 이미 새 값이라 서버와 어긋난 채 남는데, 설정을 또 바꿀 때까지
+   * 아무 일도 일어나지 않아 다른 기기에는 옛 통화가 계속 보였다(2026-09-23).
+   */
+  const [settingsRetry, setSettingsRetry] = useState(0);
+  const settingsTries = useRef({ key: "", count: 0 });
+  const settingsRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     // 통화·환율·예산·정산 묶기를 서버에 맞춘다. 처음 연 여행이면 기기 값을 올리고,
     // 그 뒤로는 바꿀 때마다 잠깐 기다렸다가 보낸다.
@@ -2011,19 +2096,30 @@ export function WarmTripDetail({
       onUpdateExpenseSettings(settings)
         .then(() => {
           lastSentSettings.current = key;
+          settingsTries.current = { key, count: 0 };
           setExpenseSettingsSynced(true);
         })
         .catch((caught) => {
-          if (caught instanceof DaymoApiError && caught.code === "SETTLEMENT_IN_PROGRESS") {
-            // 주고받은 기록이 있으면 묶기를 바꿀 수 없다. 화면을 되돌린다.
-            setSimplifySettlement(!simplifySettlement);
-          }
+          const 묶기_거부 = caught instanceof DaymoApiError && caught.code === "SETTLEMENT_IN_PROGRESS";
+          // 주고받은 기록이 있으면 묶기를 바꿀 수 없다. 화면을 되돌린다.
+          if (묶기_거부) setSimplifySettlement(!simplifySettlement);
           setFeedback(caught instanceof DaymoApiError && caught.status !== 0 ? caught.message : "비용 설정을 아직 저장하지 못했어요");
+          // 화면을 되돌린 경우가 아니면 잠깐 뒤 스스로 한 번 더 보낸다. 세 번까지만 하고
+          // 그 뒤로는 사용자가 다시 바꿀 때 보낸다. 끝없이 두드리면 연결이 끊긴 동안
+          // 같은 안내만 되풀이된다.
+          if (묶기_거부) return;
+          const 센_것 = settingsTries.current.key === key ? settingsTries.current.count : 0;
+          if (센_것 >= 3) return;
+          settingsTries.current = { key, count: 센_것 + 1 };
+          settingsRetryTimer.current = setTimeout(() => setSettingsRetry((번) => 번 + 1), 4000 * (센_것 + 1));
         });
     }, 800);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (settingsRetryTimer.current) clearTimeout(settingsRetryTimer.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [budget, canEdit, currency, exchangeRate, serverTrip, simplifySettlement]);
+  }, [budget, canEdit, currency, exchangeRate, serverTrip, settingsRetry, simplifySettlement]);
   useEffect(() => {
     // 교통편·예약의 "일정에 표시" 줄을 목록에서 다시 만든다. 저장 버튼에서만 만들면
     // 다른 기기에서 받은 교통편·예약은 일정에 보이지 않는다. 대표 숙소 줄과 같은 방식이다.
@@ -2185,6 +2281,11 @@ export function WarmTripDetail({
     return () => clearTimeout(timer);
   }, [feedback, 알림_단추]);
 
+  // 여행 수정은 열 때 지금 여행 값으로 칸을 채운다. 그래서 기준선을 따로 들 것 없이
+  // 지금 여행과 견주면 된다.
+  const tripDraftChanged = editingTrip
+    && JSON.stringify([draftTitle, draftStart, draftEnd, draftRegion, draftNote, draftTripPeople])
+      !== JSON.stringify([title, currentStart, currentEnd, region, note, participants]);
   const tripDraftValid = Boolean(
     draftTitle.trim()
     && draftRegion.trim()
@@ -2568,6 +2669,7 @@ export function WarmTripDetail({
                 ids.forEach((id) => photoDownloads.current.delete(id));
                 setTrashReload((current) => ({ ...current, photo: current.photo + 1 }));
               }}
+              trash={serverTrip && tripId && canEditRecords ? 휴지통() : undefined}
             />
           )}
         </ScrollView>
@@ -2596,6 +2698,7 @@ export function WarmTripDetail({
           submit={memoEditorOpen ? (editingMemoId ? "저장" : "메모 추가") : "닫기"}
           submitDisabled={memoEditorOpen && !memoDraft.trim()}
           disabledHint={memoEditorOpen && !memoDraft.trim() ? "메모 내용을 입력해 주세요" : undefined}
+          hasUnsavedChanges={memoDraftChanged}
           onClose={() => {
             setMemoPanel(false);
             setMemoEditorOpen(false);
@@ -2750,18 +2853,7 @@ export function WarmTripDetail({
               </View>
             ))}
           </View>
-          {serverTrip && tripId && canEditRecords && !memoEditorOpen && (
-            <TripTrash
-              tripId={tripId}
-              appTheme={appTheme}
-              notify={setFeedback}
-              onRestored={(item) => {
-                // 이 기기에서 받았던 사진이면 파일을 다시 받게 한다. 지울 때 기기 파일도 사라졌다.
-                if (item.type === "photo") photoDownloads.current.delete(item.id);
-                setTrashReload((current) => ({ ...current, [item.type]: current[item.type] + 1 }));
-              }}
-            />
-          )}
+          {serverTrip && tripId && canEditRecords && !memoEditorOpen && 휴지통()}
         </DetailSheet>
         <DetailSheet
           visible={editingTrip}
@@ -2774,6 +2866,7 @@ export function WarmTripDetail({
               : undefined
           }
           submitDisabled={!tripDraftValid}
+          hasUnsavedChanges={tripDraftChanged}
           destructiveLabel={onDeleteTrip ? "여행 삭제" : undefined}
           destructiveMessage="일정·비용·기록까지 이 여행의 모든 내용이 멤버 모두에게서 사라져요. 7일 안에는 여행 목록의 ‘휴지통’에서 되돌릴 수 있어요."
           onDestructive={() => {
@@ -2823,6 +2916,25 @@ export function WarmTripDetail({
               const oldIndex = oldDays.indexOf(item.date);
               if (oldIndex < 0) return item;
               return { ...item, date: nextDays[Math.min(oldIndex, nextDays.length - 1)] };
+            }));
+            // 지출과 사진도 같은 규칙으로 옮긴다. 2026-09-23 까지는 지출을 비용 탭 안
+            // effect 가 옮겨서, 탭을 열지 않으면 옛 이름표 그대로 맞추기가 돌아 서버의
+            // 날짜가 지워졌다. 사진은 옮기는 코드가 아예 없었다. 두 번 밀리지 않게
+            // 옮기는 자리는 여기 한 곳뿐이다.
+            const 옮긴_날 = (day: string) => {
+              const oldIndex = oldDays.indexOf(day);
+              return oldIndex < 0 || !nextDays.length ? day : nextDays[Math.min(oldIndex, nextDays.length - 1)];
+            };
+            setExpenses((current) => current.map((item) => {
+              const day = 옮긴_날(item.day);
+              return day === item.day ? item : { ...item, day };
+            }));
+            setMemories((current) => ({
+              ...current,
+              photos: current.photos.map((photo) => {
+                const date = 옮긴_날(photo.date);
+                return date === photo.date ? photo : { ...photo, date };
+              }),
             }));
             setTitle(nextTitle);
             setParticipants(draftTripPeople);
@@ -2881,6 +2993,7 @@ export function WarmTripDetail({
               value={draftNote}
               onChangeText={setDraftNote}
               placeholder="예: 골목을 천천히 걷는 여행"
+              maxLength={2000}
             />
           </OptionalFormSection>
           {appTheme && spaceMembers.length > 1 && (
@@ -3354,6 +3467,10 @@ function TripOverview({
     const linkedReservationId = target?.reservationId;
     const linkedTransportationId = target?.transportationId;
     const linkedStayId = target?.stayId;
+    // 되돌릴 때 함께 바꾼 것까지 그대로 돌리려고, 바꾸기 전 모습을 들고 있는다.
+    const 지운_자리 = editingScheduleIndex;
+    const 전_장소 = target?.placeId ? places.find((place) => place.id === target.placeId)?.status : undefined;
+    const 전_숙소_보임 = registeredStay.showInSchedule;
     setSchedule((current) => current.filter((_, index) => index !== editingScheduleIndex));
     // 같은 장소를 가리키는 줄이 또 있으면 그 장소는 아직 일정에 있다. 다녀온
     // 곳은 일정에서 빠져도 다녀온 채로 둔다.
@@ -3384,7 +3501,29 @@ function TripOverview({
     }
     setEditingScheduleIndex(null);
     setSheet(null);
-    notify("일정을 삭제했어요");
+    // 삭제 되돌리기. 서버로 나간 삭제는 되돌릴 때 같은 id 로 다시 만들어져 되살아난다
+    // (서버가 만들 id 를 앱이 정한다). 사진 연결처럼 서버가 함께 끊는 것은 돌아오지
+    // 않는다 — 5초 안에 되돌리는 일이라 실제로 부딪힐 일은 드물다(2026-09-23).
+    notify("일정을 삭제했어요", !target ? undefined : {
+      label: "되돌리기",
+      onPress: () => {
+        setSchedule((current) => 자리에_넣기(current, target, 지운_자리));
+        if (target.placeId && 전_장소) {
+          setPlaces((current) => current.map((place) =>
+            place.id === target.placeId ? { ...place, status: 전_장소 } : place));
+        }
+        if (linkedReservationId) {
+          setReservations((current) => current.map((reservation) =>
+            reservation.id === linkedReservationId ? { ...reservation, showInSchedule: true } : reservation));
+        }
+        if (linkedTransportationId) {
+          setTransportations((current) => current.map((item) =>
+            item.id === linkedTransportationId ? { ...item, showInSchedule: true } : item));
+        }
+        if (linkedStayId) setRegisteredStay((current) => ({ ...current, showInSchedule: 전_숙소_보임 }));
+        notify("일정을 되돌렸어요");
+      },
+    });
   };
   const syncTransportationSchedule = (transportation: Transportation) => {
     setSchedule((current) => {
@@ -3648,13 +3787,24 @@ function TripOverview({
     }
   };
   const deleteTransportation = () => {
-    const target = transportations.find((item) => item.id === editingTransportId);
-    if (!target) return;
+    const 자리 = transportations.findIndex((item) => item.id === editingTransportId);
+    if (자리 < 0) return;
+    const target = transportations[자리];
+    // 교통편을 지우면 그 교통편이 만든 일정 줄도 함께 사라진다. 되돌릴 때 둘 다 돌린다.
+    const 딸린_일정 = schedule.flatMap((item, index) =>
+      item.transportationId === target.id ? [{ item, index }] : []);
     setTransportations((current) => current.filter((item) => item.id !== target.id));
     setSchedule((current) => current.filter((item) => item.transportationId !== target.id));
     setEditingTransportId(null);
     setSheet(null);
-    notify("교통편을 삭제했어요");
+    notify("교통편을 삭제했어요", {
+      label: "되돌리기",
+      onPress: () => {
+        setTransportations((current) => 자리에_넣기(current, target, 자리));
+        setSchedule((current) => 딸린_일정.reduce((목록, 하나) => 자리에_넣기(목록, 하나.item, 하나.index), current));
+        notify("교통편을 되돌렸어요");
+      },
+    });
   };
   const openReservation = (reservation?: ReservationInfo) => {
     const nextDraft = reservation ?? blankReservation();
@@ -3701,11 +3851,23 @@ function TripOverview({
   };
   const deleteReservation = () => {
     if (!editingReservationId) return;
+    const 자리 = reservations.findIndex((reservation) => reservation.id === editingReservationId);
+    const target = 자리 < 0 ? undefined : reservations[자리];
+    // 예약이 만든 일정 줄도 함께 사라진다. 되돌릴 때 둘 다 돌린다.
+    const 딸린_일정 = schedule.flatMap((item, index) =>
+      item.reservationId === editingReservationId ? [{ item, index }] : []);
     setSchedule((current) => current.filter((item) => item.reservationId !== editingReservationId));
     setReservations((current) => current.filter((reservation) => reservation.id !== editingReservationId));
     setEditingReservationId(null);
     setSheet(null);
-    notify("예약 정보를 삭제했어요");
+    notify("예약 정보를 삭제했어요", !target ? undefined : {
+      label: "되돌리기",
+      onPress: () => {
+        setReservations((current) => 자리에_넣기(current, target, 자리));
+        setSchedule((current) => 딸린_일정.reduce((목록, 하나) => 자리에_넣기(목록, 하나.item, 하나.index), current));
+        notify("예약 정보를 되돌렸어요");
+      },
+    });
   };
   const openStay = (create = false) => {
     const nextDraft = create
@@ -4087,6 +4249,7 @@ function TripOverview({
             value={planPlace}
             onChangeText={setPlanPlace}
             placeholder="예: 한옥마을 정문"
+            maxLength={2000}
           />
           <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
             <View style={styles.naverHead}>
@@ -4238,17 +4401,9 @@ function TripOverview({
           <DetailField
             label="금액 (선택)"
             value={transportAmount}
-            onChangeText={(text) => {
-              // 소수를 받는 통화는 "24." 처럼 아직 숫자가 안 된 상태를 지우지 않아야 이어 칠 수 있다.
-              if (transportUnit.fraction > 0 && /[.]\d{0,1}$/.test(text)) {
-                setTransportAmount(text.replace(/[^\d.]/g, ""));
-                return;
-              }
-              const amount = parseAmount(text, transportUnit.fraction);
-              setTransportAmount(amount ? amountText(amount, transportUnit.fraction) : "");
-            }}
+            onChangeText={(text) => setTransportAmount(금액_치기(text, transportUnit.fraction))}
             placeholder="예: 32,000"
-            keyboardType="numeric"
+            keyboardType={금액_키보드(transportUnit.fraction)}
           />
           {(transportAmountNumber > 0 || linkedTransportExpense) && (
             <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
@@ -4373,8 +4528,8 @@ function TripOverview({
           open={reservationExtrasOpen}
           onToggle={() => setReservationExtrasOpen((current) => !current)}
         >
-          <DetailField label="인원 (선택)" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" />
-          <DetailField label="장소 (선택)" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" />
+          <DetailField label="인원 (선택)" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" maxLength={20} />
+          <DetailField label="장소 (선택)" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" maxLength={2000} />
           <DetailField
             label="예약 링크 (선택)"
             value={reservationDraft.bookingUrl ?? ""}
@@ -4428,7 +4583,7 @@ function TripOverview({
           open={stayAddressOpen}
           onToggle={() => setStayAddressOpen((current) => !current)}
         >
-          <DetailField label="주소 (선택)" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="예: 전주시 완산구 한옥길 12" />
+          <DetailField label="주소 (선택)" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="예: 전주시 완산구 한옥길 12" maxLength={300} />
         </OptionalFormSection>
         {stayPhotos.length > 0 && (
           <>
@@ -4606,6 +4761,8 @@ function Places({
   const [importText, setImportText] = useState("");
   // 교체는 저장해 둔 것을 통째로 지운다. 되돌릴 수 없으니 기본은 추가로 둔다.
   const [importMode, setImportMode] = useState<"교체" | "추가">("추가");
+  const planningDraftChanged = useDraftChanged(planningPlace !== null, JSON.stringify([planningDay, planningTime]));
+  const placeImportChanged = useDraftChanged(importing, JSON.stringify([importText, importMode]));
   const [showAllPlaces, setShowAllPlaces] = useState(false);
   const placeDraftKey = (
     draftName: string,
@@ -4965,11 +5122,15 @@ function Places({
   };
   const deletePlace = () => {
     if (!editingId) return;
-    const target = places.find((place) => place.id === editingId);
-    if (!target) return;
-    const linkedScheduleCount = schedule.filter(
-      (item) => item.placeId === target.id,
-    ).length;
+    const 자리 = places.findIndex((place) => place.id === editingId);
+    if (자리 < 0) return;
+    const target = places[자리];
+    const 딸린_일정 = schedule.flatMap((item, index) => (item.placeId === target.id ? [{ item, index }] : []));
+    const linkedScheduleCount = 딸린_일정.length;
+    // 대표 숙소였던 장소는 되돌리기를 붙이지 않는다. 숙소 정보까지 함께 지워서
+    // 무엇을 어디까지 되살려야 하는지 분명하지 않다(2026-09-23).
+    const 대표_숙소였나 = target.name === registeredStayName;
+    const 연결_끊긴_예약 = reservations.filter((item) => item.placeId === target.id).map((item) => item.id);
     setPlaces((current) => current.filter((place) => place.id !== editingId));
     if (linkedScheduleCount) {
       setSchedule((current) => current.filter((item) => item.placeId !== target.id));
@@ -4981,10 +5142,21 @@ function Places({
         item.placeId === target.id ? { ...item, placeId: undefined } : item,
       ),
     );
-    if (target.name === registeredStayName) onRemoveRegisteredStay();
+    if (대표_숙소였나) onRemoveRegisteredStay();
     setAdding(false);
     resetForm();
-    notify("장소를 삭제했어요");
+    notify("장소를 삭제했어요", 대표_숙소였나 ? undefined : {
+      label: "되돌리기",
+      onPress: () => {
+        setPlaces((current) => 자리에_넣기(current, target, 자리));
+        setSchedule((current) => 딸린_일정.reduce((목록, 하나) => 자리에_넣기(목록, 하나.item, 하나.index), current));
+        if (연결_끊긴_예약.length) {
+          setReservations((current) => current.map((item) =>
+            연결_끊긴_예약.includes(item.id) ? { ...item, placeId: target.id } : item));
+        }
+        notify("장소를 되돌렸어요");
+      },
+    });
   };
   const choose = (index: number) => {
     const target = visible[index];
@@ -5408,6 +5580,7 @@ function Places({
           planningPlace ? `${planningPlace.name}${josa(planningPlace.name, "을", "를")} 언제 갈까요?` : undefined
         }
         submit="일정에 담기"
+        hasUnsavedChanges={planningDraftChanged}
         onClose={() => setPlanningPlace(null)}
         onSubmit={confirmPlan}
       >
@@ -5477,6 +5650,7 @@ function Places({
         )}
         <DetailField
           label="장소 이름"
+          maxLength={100}
           required
           value={name}
           onChangeText={setName}
@@ -5587,6 +5761,7 @@ function Places({
             value={address}
             onChangeText={setAddress}
             placeholder="예: 전주시 완산구 한옥길 12"
+            maxLength={300}
           />
           <View style={styles.tagEditor}>
             <Text style={[styles.detailFieldLabel, styles.selectorLabel]}>태그</Text>
@@ -5677,6 +5852,7 @@ function Places({
           />
           <DetailField
             label="인원 (선택)"
+            maxLength={20}
             value={reservationDraft.people}
             onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))}
             placeholder="예: 2명"
@@ -5727,6 +5903,7 @@ function Places({
         }
         disabledHint={!importText.trim() ? "장소 목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
+        hasUnsavedChanges={placeImportChanged}
         onClose={() => setImporting(false)}
         onSubmit={importPlaces}
       >
@@ -5736,6 +5913,7 @@ function Places({
           value={importText}
           onChangeText={setImportText}
           multiline
+          maxLength={붙여넣기_한도}
           placeholder="한 줄에 장소 하나씩"
         />
         <OptionField
@@ -5819,6 +5997,8 @@ function Preparation({
   const [importText, setImportText] = useState("");
   // 교체는 저장해 둔 것을 통째로 지운다. 되돌릴 수 없으니 기본은 추가로 둔다.
   const [importMode, setImportMode] = useState<"교체" | "추가">("추가");
+  const packingDraftChanged = useDraftChanged(adding, JSON.stringify([names, quantity, owner, tagText, pastPicked]));
+  const packingImportChanged = useDraftChanged(importing, JSON.stringify([importText, importMode]));
   const [cookingPicker, setCookingPicker] = useState(Boolean(openCookingPickerOnMount));
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -6056,11 +6236,18 @@ function Preparation({
     setPastPicked((current) => (pickable.every((key) => current.includes(key)) ? [] : pickable));
   };
   const deletePacking = () => {
-    const target = items.find((item) => item.id === editingId);
-    if (!target) return;
+    const 자리 = items.findIndex((item) => item.id === editingId);
+    if (자리 < 0) return;
+    const target = items[자리];
     setItems((current) => current.filter((item) => item.id !== target.id));
     closePackingForm();
-    notify("준비물을 삭제했어요");
+    notify("준비물을 삭제했어요", {
+      label: "되돌리기",
+      onPress: () => {
+        setItems((current) => 자리에_넣기(current, target, 자리));
+        notify("준비물을 되돌렸어요");
+      },
+    });
   };
   const copyPacking = async () => {
     await Clipboard.setStringAsync(
@@ -6174,13 +6361,15 @@ function Preparation({
     // 찾을 수 없으니 표시만 사라지고 준비물은 그대로 남는다.
     const origin = packingOrigin(item);
     return (
+      // 줄 전체가 체크박스였다. 요리 탭은 같은 모양인데 줄이 「수정」이라, 준비물
+      // 이름을 보려고 누르면 완료 처리되고 재료에서 온 줄이면 확인창까지 떴다
+      // (2026-09-23). 요리 탭 쪽으로 맞춘다: 줄은 수정, 왼쪽 원이 체크다.
       <Pressable
         key={item.id}
-        onPress={() => complete(item)}
+        onPress={() => openPackingEdit(item)}
         disabled={!canEdit}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: completed }}
-        accessibilityLabel={`${item.name}${origin ? ` ${origin}` : ""} ${completed ? "완료 해제" : "완료"}`}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.name}${origin ? ` ${origin}` : ""} 수정`}
         style={({ pressed }) => [
           styles.packingV2Row,
           index > 0 && styles.packingV2RowBorder,
@@ -6188,7 +6377,17 @@ function Preparation({
           pressed && styles.packingCardPressed,
         ]}
       >
-        <View
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            complete(item);
+          }}
+          disabled={!canEdit}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: completed }}
+          accessibilityLabel={`${item.name} ${completed ? "완료 해제" : "완료"}`}
+          // 원은 22px 안팎이라 손가락에 모자란다. 둘레로 누름 여유를 준다.
+          hitSlop={11}
           style={[
             styles.packingV2Check,
             theme && {
@@ -6200,7 +6399,7 @@ function Preparation({
           {completed && (
             <Glyph name="check" size={14} color="#FFFFFF" weight={2.6} />
           )}
-        </View>
+        </Pressable>
         <View style={styles.packingV2Body}>
           <View style={styles.packingV2TitleRow}>
             <Text
@@ -6690,6 +6889,12 @@ function Preparation({
           </View>
         )}
       </View>
+      {/* 줄 동작이 바뀌었으니 어디를 눌러야 하는지 요리 탭과 같은 말로 적는다. */}
+      {canEdit && visibleItems.length > 0 && (
+        <Text style={[styles.longPressHint, theme && { color: theme.muted }]}>
+          왼쪽 원을 눌러 챙겼는지 체크하고, 준비물 이름을 누르면 수정할 수 있어요.
+        </Text>
+      )}
       {visibleItems.length === 0 && (
         <EmptyState
           title={items.length === 0 ? "아직 준비물이 없어요" : "조건에 맞는 준비물이 없어요"}
@@ -6952,6 +7157,7 @@ function Preparation({
         destructiveLabel={editingId ? "준비물 삭제" : undefined}
         destructiveMessage={editingId ? `${names || "이 준비물"}${josa(names || "이 준비물", "을", "를")} 목록에서 삭제해요.` : undefined}
         onDestructive={deletePacking}
+        hasUnsavedChanges={packingDraftChanged}
         onClose={closePackingForm}
         onSubmit={packingSheetStep === "지난 여행" ? takePastPacking : submit}
       >
@@ -7237,6 +7443,7 @@ function Preparation({
         }
         disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
+        hasUnsavedChanges={packingImportChanged}
         onClose={() => setImporting(false)}
         onSubmit={importPacking}
       >
@@ -7246,6 +7453,7 @@ function Preparation({
           value={importText}
           onChangeText={setImportText}
           multiline
+          maxLength={붙여넣기_한도}
           placeholder="한 줄에 준비물 하나씩"
         />
         <OptionField
@@ -7549,6 +7757,10 @@ function Cooking({
     active: addingRecipe && recipeSheetStep === "지난 여행",
     existingNames: recipes.map((recipe) => recipe.name),
   });
+  const ingredientDraftChanged = useDraftChanged(addingIngredient, JSON.stringify([name, quantity, group, owner]));
+  const recipeDraftChanged = useDraftChanged(addingRecipe, JSON.stringify([recipeName, recipeNote, recipeUrl]));
+  const aiDraftChanged = useDraftChanged(aiImporting, aiResult);
+  const cookingImportChanged = useDraftChanged(importing, JSON.stringify([importText, importMode]));
   const [collapsedCookingGroups, setCollapsedCookingGroups] = useState<string[]>(() =>
     collapsedGroupsFor(recipes.find((recipe) => recipe.id === "mille") ?? recipes[0]),
   );
@@ -7800,12 +8012,23 @@ function Cooking({
   };
   const deleteRecipe = () => {
     if (!activeRecipe) return;
+    const 자리 = recipes.findIndex((recipe) => recipe.id === activeRecipe.id);
+    const target = activeRecipe;
     const remaining = recipes.filter((recipe) => recipe.id !== activeRecipe.id);
     setRecipes(remaining);
     setCollapsedCookingGroups(Array.from(new Set(remaining[0]?.ingredients.map((item) => item.group) ?? [])));
     setActiveId(remaining[0]?.id || "");
     closeRecipeSheet();
-    notify("요리와 재료 목록을 삭제했어요");
+    // 재료까지 한꺼번에 사라지는 삭제라 되돌릴 길이 가장 필요하다.
+    notify("요리와 재료 목록을 삭제했어요", {
+      label: "되돌리기",
+      onPress: () => {
+        setRecipes((current) => 자리에_넣기(current, target, 자리));
+        setActiveId(target.id);
+        setCollapsedCookingGroups(collapsedGroupsFor(target));
+        notify("요리를 되돌렸어요");
+      },
+    });
   };
   const openRecipeLink = () => {
     if (!activeRecipe?.url) return;
@@ -7821,6 +8044,8 @@ function Cooking({
         text: "삭제",
         style: "destructive",
         onPress: () => {
+          const 자리 = (recipes.find((recipe) => recipe.id === activeId)?.ingredients ?? [])
+            .findIndex((value) => value.id === item.id);
           setRecipes((current) =>
             current.map((recipe) =>
               recipe.id === activeId
@@ -7833,7 +8058,16 @@ function Cooking({
                 : recipe,
             ),
           );
-          notify("재료를 삭제했어요");
+          notify("재료를 삭제했어요", {
+            label: "되돌리기",
+            onPress: () => {
+              setRecipes((current) => current.map((recipe) =>
+                recipe.id === activeId
+                  ? { ...recipe, ingredients: 자리에_넣기(recipe.ingredients, item, 자리) }
+                  : recipe));
+              notify("재료를 되돌렸어요");
+            },
+          });
         },
       },
     ]);
@@ -8214,7 +8448,7 @@ function Cooking({
           })}
           {canEdit && (
           <Text style={[styles.longPressHint, theme && { color: theme.muted }]}>
-            왼쪽 원을 눌러 준비 여부를 체크하고, 재료 이름을 누르면 수정할 수 있어요.
+            왼쪽 원을 눌러 준비 여부를 체크하고, 재료 이름을 누르면 수정할 수 있어요. 길게 누르면 삭제할 수 있어요.
           </Text>
           )}
           {canEdit && (
@@ -8345,11 +8579,8 @@ function Cooking({
           <TextInput
             accessibilityLabel="장 본 금액"
             value={shoppingCost}
-            onChangeText={(text) => {
-              const amount = parseAmount(text, currencyOf(currency).fraction);
-              setShoppingCost(amount ? amountText(amount, currencyOf(currency).fraction) : "");
-            }}
-            keyboardType="numeric"
+            onChangeText={(text) => setShoppingCost(금액_치기(text, currencyOf(currency).fraction))}
+            keyboardType={금액_키보드(currencyOf(currency).fraction)}
             placeholder="예: 41,500"
             placeholderTextColor={theme?.muted ?? "#9AA1AE"}
             style={[styles.shoppingCostInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
@@ -8424,6 +8655,7 @@ function Cooking({
           removeIngredient(editingIngredient);
           closeIngredientSheet();
         }}
+        hasUnsavedChanges={ingredientDraftChanged}
         onClose={closeIngredientSheet}
         onSubmit={addIngredient}
       >
@@ -8529,6 +8761,7 @@ function Cooking({
         submitDisabled={recipeSheetStep === "직접" && !recipeFormValid}
         destructiveLabel={editingRecipe ? "요리 삭제" : undefined}
         destructiveMessage={editingRecipe ? `${recipeName || "이 요리"}${josa(recipeName || "이 요리", "과", "와")} 재료 목록을 함께 삭제해요.` : undefined}
+        hasUnsavedChanges={recipeDraftChanged}
         onClose={closeRecipeSheet}
         onSubmit={recipeSheetStep === "지난 여행" ? closeRecipeSheet : addRecipe}
         onDestructive={deleteRecipe}
@@ -8606,6 +8839,7 @@ function Cooking({
             value={recipeUrl}
             onChangeText={setRecipeUrl}
             placeholder="예: https://youtu.be/…"
+            maxLength={2048}
           />
         </OptionalFormSection>
         </>)}
@@ -8621,6 +8855,7 @@ function Cooking({
         }
         disabledHint={!aiParsed.length ? (aiResult.trim() ? "읽을 수 있는 줄이 없어요" : "ChatGPT 답을 붙여넣어 주세요") : undefined}
         submitDisabled={!aiParsed.length}
+        hasUnsavedChanges={aiDraftChanged}
         onClose={() => setAiImporting(false)}
         onSubmit={importAiRecipes}
       >
@@ -8675,6 +8910,7 @@ function Cooking({
           value={aiResult}
           onChangeText={setAiResult}
           multiline
+          maxLength={붙여넣기_한도}
           placeholder={"요리 | 김치볶음밥 | 둘째 날 아침 | https://youtu.be/...\n재료 | 김치 | 1컵 | 기본 | 구매"}
         />
         {/* 읽힌 결과를 넣기 전에 보여준다. 형식이 어긋나면 여기서 바로 안다. */}
@@ -8698,6 +8934,7 @@ function Cooking({
         }
         disabledHint={!importText.trim() ? "목록을 입력해 주세요" : undefined}
         submitDisabled={!importText.trim()}
+        hasUnsavedChanges={cookingImportChanged}
         onClose={() => setImporting(false)}
         onSubmit={importCooking}
       >
@@ -8707,6 +8944,7 @@ function Cooking({
           value={importText}
           onChangeText={setImportText}
           multiline
+          maxLength={붙여넣기_한도}
           placeholder="한 줄에 재료 하나씩"
         />
         <OptionField
@@ -8779,9 +9017,12 @@ function Memories({
   myMembershipId,
   scrollToY,
   onPhotosRestored,
+  trash,
 }: {
   /** 스크롤 내용 맨 위에서 잰 자리로 내려 보낸다. 카드를 완료한 알림의 「보기」가 쓴다. */
   scrollToY?: (y: number) => void;
+  /** 사진 격자 아래에 놓을 휴지통(`TripTrash`). 서버 여행이고 고칠 수 있을 때만 온다. */
+  trash?: React.ReactNode;
   /**
    * 휴지통에서 사진을 되살렸을 때. 사진첩의 「되돌리기」가 부른다. 부르는 쪽이 사진
    * 목록을 서버에서 다시 받는다(휴지통 시트의 되돌리기와 같은 길이다).
@@ -8943,6 +9184,12 @@ function Memories({
   const [diaryBody, setDiaryBody] = useState("");
   const [diaryTitleOpen, setDiaryTitleOpen] = useState(false);
   const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null);
+  const diaryDraftChanged = useDraftChanged(diaryWriting, JSON.stringify([diaryTitle, diaryBody]));
+  // 고른 사진 자체는 다시 고르면 되고, 적은 날짜·설명·연결만 지키면 된다.
+  const photoDraftChanged = useDraftChanged(
+    photoEditing && !editingPhotoId,
+    JSON.stringify([photoDate, photoCaption, photoLinks]),
+  );
   // 추억 카드에 올릴 사진. 색과 설명만 넘긴다(`TripCards.tsx` 가 나머지를 한다).
   const cardPhotos = useMemo<CardPhoto[]>(
     // 카드를 찍을 때 원본을 받을 수 있는지도 함께 넘긴다. 기한이 지난 사진은
@@ -9243,6 +9490,17 @@ function Memories({
     setPhotoDrafts([]);
     notify(새_사진.length > 1 ? `사진 ${새_사진.length}장을 기록에 추가했어요` : "사진을 기록에 추가했어요");
   };
+  /**
+   * 지운 사진이 홈 카드의 대표 사진이면 대표도 함께 푼다.
+   *
+   * 지우기가 대표 여부를 안 봐서, 홈 카드가 사라진 사진을 계속 가리켰다(2026-09-23).
+   * 서버가 답을 못 줘도 사진은 이미 지워졌으니 삭제를 막지 않는다. 다음에 다시 지우거나
+   * 다른 사진을 깔면 정리된다.
+   */
+  const 대표_풀기 = (지운_id: readonly string[]) => {
+    if (!coverPhotoId || !onSaveHomeCover || !지운_id.includes(coverPhotoId)) return;
+    void onSaveHomeCover({ coverPhotoId: null }).catch(() => undefined);
+  };
   /** 멈춘 사진 한 장만 다시 보낸다. 사진 위의 ↻ 가 부른다. */
   const retryOnePhoto = (photoId: string) => {
     if (cardTripId) photoUploads.retryOne(cardTripId, photoId);
@@ -9262,16 +9520,34 @@ function Memories({
     if (viewingPhotoId === photoId) setViewingPhotoId(null);
     notify("업로드를 취소했어요");
   };
-  /** 한 장을 지운다. 고치기 화면과 크게 보기의 🗑 이 함께 쓴다. */
+  /**
+   * 한 장을 지운다. 고치기 화면과 크게 보기의 🗑 이 함께 쓴다.
+   *
+   * 여러 장을 지울 때만 되돌리기가 있어서, 한 장을 잘못 지운 사람은 휴지통을 찾아야
+   * 했다(2026-09-23). 같은 되돌리기를 붙인다. 되돌릴 수 있는 동안은 기기에 있는 파일을
+   * 남겨 둔다 — 아직 못 올린 사진은 그 파일이 전부다.
+   */
   const deletePhotoById = (photoId: string | null) => {
-    const target = photos.find((photo) => photo.id === photoId);
-    if (!target) return;
+    const index = photos.findIndex((photo) => photo.id === photoId);
+    if (index < 0) return;
+    const target = photos[index];
     setPhotos((current) => current.filter((photo) => photo.id !== target.id));
-    removeStoredPhoto(target.uri);
+    대표_풀기([target.id]);
     setPhotoEditing(false);
     setViewingPhotoId(null);
+    let 되돌림 = false;
+    const 파일_치우기 = setTimeout(() => {
+      if (!되돌림) removeStoredPhoto(target.uri);
+    }, 사진_되돌리기_여유);
     // 사진첩에서 연 사진이면 사진첩 바닥에 알린다.
-    알림("사진을 삭제했어요");
+    알림("사진을 삭제했어요", {
+      label: "되돌리기",
+      onPress: () => {
+        되돌림 = true;
+        clearTimeout(파일_치우기);
+        void undoDeletePhotos([{ item: target, index }]);
+      },
+    });
   };
   /**
    * 사진첩에서 고른 사진을 한꺼번에 삭제한다. 한 장씩 지울 때처럼 7일 휴지통으로 간다.
@@ -9285,6 +9561,7 @@ function Memories({
     const 뺀_것 = photos.flatMap((photo, index) => (지울_것.has(photo.id) ? [{ item: photo, index }] : []));
     if (!뺀_것.length) return;
     setPhotos((current) => current.filter((photo) => !지울_것.has(photo.id)));
+    대표_풀기(ids);
     if (viewingPhotoId && 지울_것.has(viewingPhotoId)) setViewingPhotoId(null);
     let 되돌림 = false;
     const 파일_치우기 = setTimeout(() => {
@@ -9370,15 +9647,9 @@ function Memories({
     }
     알림(savedText({ saved, failed, skipped: ids.length - 할_것.length }));
   };
-  const deletePhoto = () => {
-    const target = photos.find((photo) => photo.id === editingPhotoId);
-    if (!target) return;
-    setPhotos((current) => current.filter((photo) => photo.id !== target.id));
-    removeStoredPhoto(target.uri);
-    setPhotoEditing(false);
-    setViewingPhotoId(null);
-    notify("사진을 삭제했어요");
-  };
+  // 고치는 화면의 삭제도 한 장 삭제와 같은 길로 보낸다. 되돌리기가 한쪽에만 붙어 있으면
+  // 어디서 지웠느냐에 따라 되돌릴 수 있는지가 달라진다.
+  const deletePhoto = () => deletePhotoById(editingPhotoId);
   /**
    * 이 사진을 홈 화면의 여행 카드에 깐다. 누르는 그 자리에서 서버에 보낸다.
    *
@@ -9485,11 +9756,18 @@ function Memories({
     notify(editingDiaryId ? "여행 일기를 수정했어요" : "여행 일기를 저장했어요");
   };
   const deleteDiary = () => {
-    const target = diaries.find((diary) => diary.id === editingDiaryId);
-    if (!target) return;
+    const 자리 = diaries.findIndex((diary) => diary.id === editingDiaryId);
+    if (자리 < 0) return;
+    const target = diaries[자리];
     setDiaries((current) => current.filter((diary) => diary.id !== target.id));
     setDiaryWriting(false);
-    notify("여행 일기를 삭제했어요");
+    notify("여행 일기를 삭제했어요", {
+      label: "되돌리기",
+      onPress: () => {
+        setDiaries((current) => 자리에_넣기(current, target, 자리));
+        notify("여행 일기를 되돌렸어요");
+      },
+    });
   };
   /**
    * 완료한 카드를 여행 기록의 사진 한 장으로 넣는다.
@@ -9510,7 +9788,10 @@ function Memories({
     const 새로: MemoryPhoto = {
       id: newPlaceId(),
       color: photoPalette[photos.length % photoPalette.length],
-      date: photoDate.trim() || UNDATED,
+      // 새 사진을 넣을 때(`openPhotoCreate`)와 같은 기본 날짜다. 예전에는 사진 고치기
+      // 시트가 쓰는 `photoDate` 를 그대로 써서, 3일차 사진 설명을 고친 뒤 카드를
+      // 완료하면 카드가 3일차로 들어갔다(2026-09-23).
+      date: todayDay || dayOptions[0] || UNDATED,
       caption,
       uri: savedUri,
       links: [],
@@ -9847,6 +10128,9 @@ function Memories({
           onPress={() => setShowAllCards((value) => !value)}
         />
       )}
+      {/* 휴지통은 여행 메모 시트 맨 아래에만 있어서, 사진을 지운 사람이 되찾는 길을
+          못 찾았다(2026-09-23). 사진을 지우는 자리 바로 아래에도 같은 길을 둔다. */}
+      {trash}
       <SectionLabel
         label="여행 일기"
         action={canEdit ? "일기 쓰기" : undefined}
@@ -9932,6 +10216,7 @@ function Memories({
         submit={photoDrafts.length > 1 ? `${photoDrafts.length}장 추가` : "사진 추가"}
         disabledHint={!photoDrafts.length ? "사진을 골라 주세요" : undefined}
         submitDisabled={!photoDrafts.length}
+        hasUnsavedChanges={photoDraftChanged}
         onClose={() => setPhotoEditing(false)}
         onSubmit={savePhoto}
       >
@@ -9949,7 +10234,7 @@ function Memories({
         </ScrollView>
         <OptionField label="여행 날짜" options={photoDayOptions} value={photoDate} onChange={setPhotoDate} />
         <PhotoLinkField options={photoLinkOptions} value={photoLinks} onChange={setPhotoLinks} />
-        <DetailField label="사진 설명 (선택)" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" />
+        <DetailField label="사진 설명 (선택)" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" maxLength={200} />
       </DetailSheet>
       <DetailSheet
         visible={diaryWriting}
@@ -9961,13 +10246,14 @@ function Memories({
         destructiveLabel={editingDiaryId ? "일기 삭제" : undefined}
         destructiveMessage={editingDiaryId ? `${diaryTitle || "이 일기"}${josa(diaryTitle || "이 일기", "을", "를")} 여행 기록에서 삭제해요.` : undefined}
         onDestructive={deleteDiary}
+        hasUnsavedChanges={diaryDraftChanged}
         onClose={() => {
           setDiaryWriting(false);
           setEditingDiaryId(null);
         }}
         onSubmit={saveDiary}
       >
-        <DetailField label="여행 이야기" required value={diaryBody} onChangeText={setDiaryBody} placeholder="예: 오늘 가장 기억에 남는 순간은…" multiline />
+        <DetailField label="여행 이야기" required value={diaryBody} onChangeText={setDiaryBody} placeholder="예: 오늘 가장 기억에 남는 순간은…" multiline maxLength={20000} />
         <OptionalFormSection
           label="제목"
           summary={diaryTitle.trim() || undefined}
@@ -10223,21 +10509,23 @@ function Money({
   // 안 쓰던 사람이 여행 중에 쓰려면 이 정도로 짧아야 한다.
   const [quickAmount, setQuickAmount] = useState("");
   const [quickCategory, setQuickCategory] = useState<ExpenseCategory>("식비");
+  const budgetDraftChanged = useDraftChanged(budgetSheetOpen, draftBudget);
+  const expenseDraftChanged = useDraftChanged(sheetOpen, JSON.stringify([
+    draftTitle, draftAmount, draftCategory, draftPayer, draftSplitMode, draftPeople, draftAmounts,
+    draftDay, draftMemo, draftReceipt, draftExcluded,
+  ]));
   const previousDays = useRef(dayOptions);
   const dayOptionsKey = dayOptions.join("|");
 
+  // 기간이 바뀌면 고르는 칸만 되돌린다. 지출의 날짜 이름표를 새 기간으로 옮기는 일은
+  // 여행 수정 저장(부모)이 일정·예약·교통과 한자리에서 한다. 여기서도 옮기면 두 번
+  // 밀리고, 비용 탭을 열지 않으면 아예 안 옮겨져 서버의 날짜가 지워졌다(2026-09-23).
   useEffect(() => {
-    const before = previousDays.current;
-    if (before.join("|") === dayOptionsKey) return;
-    setExpenses((current) => current.map((item) => {
-      const index = before.indexOf(item.day);
-      if (index < 0 || !dayOptions.length) return item;
-      return { ...item, day: dayOptions[Math.min(index, dayOptions.length - 1)] };
-    }));
+    if (previousDays.current.join("|") === dayOptionsKey) return;
     setDayFilter("전체");
     setDraftDay(dayOptions[0] ?? "");
     previousDays.current = dayOptions;
-  }, [dayOptions, dayOptionsKey, setExpenses]);
+  }, [dayOptions, dayOptionsKey]);
 
   // 목록은 늘 여행 날짜 차례로 본다. 넣은 차례로 두면 나중에 끼워 넣은 지출이
   // 엉뚱한 자리에 남는다.
@@ -10338,31 +10626,45 @@ function Money({
     }
     return lines;
   })();
-  const savePayment = () => {
-    if (!paying || payNumber <= 0) return;
-    const from = paying.from;
-    const to = paying.to;
-    const amount = Math.min(payNumber, paying.amount);
+  /**
+   * 보낸 기록 한 줄을 적는다. 알림에 되돌리기를 붙인다.
+   *
+   * 「다 보냈어요」는 한 번 탭으로 확정돼서 잘못 누르면 표 아래 기록 줄을 찾아 들어가야
+   * 했다(2026-09-23). 돈 기록이라 묻지 않고 적되, 무를 길을 그 자리에 둔다.
+   */
+  const 보낸_것_적기 = (from: Participant, to: Participant, amount: number) => {
+    const id = newPlaceId();
     setPayments((current) => {
-      // 번호와 시각은 값을 바꾸는 이 안에서 읽는다. 그리는 중에 시계를 읽으면
+      // 시각은 값을 바꾸는 이 안에서 읽는다. 그리는 중에 시계를 읽으면
       // 같은 그림이 두 번 그려질 때 값이 달라진다.
       const at = Date.now();
-      return [...current, { id: newPlaceId(), from, to, amount, at }];
+      return [...current, { id, from, to, amount, at }];
     });
+    notify(`${from}${josa(from, "이", "가")} ${to}에게 ${show(amount)} 보낸 걸로 적었어요`, {
+      label: "되돌리기",
+      onPress: () => {
+        setPayments((current) => current.filter((item) => item.id !== id));
+        notify("보낸 기록을 되돌렸어요");
+      },
+    });
+  };
+  const savePayment = () => {
+    if (!paying || payNumber <= 0) return;
+    보낸_것_적기(paying.from, paying.to, Math.min(payNumber, paying.amount));
     setPaying(null);
-    notify(`${from}${josa(from, "이", "가")} ${to}에게 ${show(amount)} 보낸 걸로 적었어요`);
   };
   /** 한 번에 다 갚는 흔한 경우. 줄의 버튼이 바로 적는다. */
-  const recordFull = (transfer: Transfer) => {
-    setPayments((current) => {
-      const at = Date.now();
-      return [...current, { id: newPlaceId(), from: transfer.from, to: transfer.to, amount: transfer.amount, at }];
-    });
-    notify(`${transfer.from}${josa(transfer.from, "이", "가")} ${transfer.to}에게 ${show(transfer.amount)} 보낸 걸로 적었어요`);
-  };
+  const recordFull = (transfer: Transfer) => 보낸_것_적기(transfer.from, transfer.to, transfer.amount);
   const undoPayment = (payment: Payment) => {
+    const 자리 = payments.findIndex((item) => item.id === payment.id);
     setPayments((current) => current.filter((item) => item.id !== payment.id));
-    notify("주고받은 기록을 삭제했어요");
+    notify("주고받은 기록을 삭제했어요", {
+      label: "되돌리기",
+      onPress: () => {
+        setPayments((current) => 자리에_넣기(current, payment, 자리 < 0 ? current.length : 자리));
+        notify("주고받은 기록을 되돌렸어요");
+      },
+    });
   };
   const toggleSimplify = () => {
     // 묶은 화면이 시키는 대로 보낸 뒤에 방식을 바꾸면, 이미 보낸 돈이 엉뚱한
@@ -10410,16 +10712,7 @@ function Money({
   const budgetProgress = budget > 0 ? settlement.total / budget : 0;
   // 치는 동안 세 자리마다 끊는다. 32,000 과 320,000 은 자릿수가 안 끊기면
   // 눈으로 구별이 안 되고, 돈에서 제일 흔한 실수가 여기서 난다.
-  const changeAmount = (text: string) => {
-    // 소수를 받는 통화는 점을 치는 도중이라 아직 숫자가 안 되는 상태가 있다.
-    // "24." 를 지우지 않아야 뒤에 자릿수를 이어 칠 수 있다.
-    if (unit.fraction > 0 && /[.]\d{0,1}$/.test(text)) {
-      setDraftAmount(text.replace(/[^\d.]/g, ""));
-      return;
-    }
-    const amount = parseAmount(text, unit.fraction);
-    setDraftAmount(amount ? amountText(amount, unit.fraction) : "");
-  };
+  const changeAmount = (text: string) => setDraftAmount(금액_치기(text, unit.fraction));
   const openBudget = () => {
     setDraftBudget(budget ? amountText(budget, unit.fraction) : "");
     setBudgetSheetOpen(true);
@@ -10430,6 +10723,27 @@ function Money({
     setBudgetSheetOpen(false);
     notify("여행 예산을 저장했어요");
   };
+  /** 예산을 지워 「예산 없음」으로 되돌린다. 0 이면 막대를 아예 내지 않는다. */
+  const clearBudget = () => {
+    setBudget(0);
+    setDraftBudget("");
+    setBudgetSheetOpen(false);
+    notify("여행 예산을 삭제했어요");
+  };
+
+  /**
+   * 이 시트에서 고를 수 있는 사람. 참가자 + 이 지출에 이미 적혀 있던 사람.
+   *
+   * 참가자에서 뺀 사람이 낸 지출이나 그 사람 몫이 있으면 목록 어디에도 이름이 없어,
+   * 열어도 고칠 수 없고 저장하면 그 사람 몫이 조용히 사라졌다(2026-09-23). 적혀 있던
+   * 사람은 목록 뒤에 붙여 두고, 누가 참가자가 아닌지는 한 줄로 알린다.
+   */
+  const 시트_사람 = useMemo(() => {
+    const 있던_것 = editingId ? expenses.find((item) => item.id === editingId) : undefined;
+    const 적힌_사람 = 있던_것 ? [있던_것.payer, ...Object.keys(있던_것.shares ?? {})] : [];
+    const 빠진_사람 = [...new Set(적힌_사람.filter((name) => name && !participants.includes(name)))];
+    return { 모두: [...participants, ...빠진_사람], 빠진_사람 };
+  }, [editingId, expenses, participants]);
 
   // 고른 방식을 저장 모양(비중)으로 옮긴다. 계산은 한 가지 방식만 알면 된다.
   const draftShares = ((): Record<Participant, number> | undefined => {
@@ -10439,7 +10753,7 @@ function Money({
       if (!draftPeople.length) return undefined;
       return Object.fromEntries(draftPeople.map((person) => [person, 1]));
     }
-    const entries = participants
+    const entries = 시트_사람.모두
       .map((person) => [person, parseAmount(draftAmounts[person] ?? "", unit.fraction)] as const)
       .filter(([, value]) => value > 0);
     return entries.length ? Object.fromEntries(entries) : undefined;
@@ -10447,7 +10761,7 @@ function Money({
   const quickNumber = parseAmount(quickAmount, unit.fraction);
   const quickPayer = participants.includes(lastPayer) ? lastPayer : participants[0] ?? "";
   // 금액을 직접 적을 때 아직 안 채운 돈. 0 이 돼야 저장할 수 있다.
-  const draftAmountLeft = amountNumber - participants.reduce(
+  const draftAmountLeft = amountNumber - 시트_사람.모두.reduce(
     (sum, person) => sum + parseAmount(draftAmounts[person] ?? "", unit.fraction),
     0,
   );
@@ -10586,11 +10900,18 @@ function Money({
     notify(editingId ? "지출을 수정했어요" : "지출을 추가했어요");
   };
   const deleteExpense = () => {
-    const target = expenses.find((item) => item.id === editingId);
-    if (!target) return;
+    const 자리 = expenses.findIndex((item) => item.id === editingId);
+    if (자리 < 0) return;
+    const target = expenses[자리];
     setExpenses((current) => current.filter((item) => item.id !== target.id));
     setSheetOpen(false);
-    notify("지출을 삭제했어요");
+    notify("지출을 삭제했어요", {
+      label: "되돌리기",
+      onPress: () => {
+        setExpenses((current) => 자리에_넣기(current, target, 자리));
+        notify("지출을 되돌렸어요");
+      },
+    });
   };
   const chooseReceipt = async () => {
     // 시스템 사진 선택 창은 권한 없이 고른 사진만 앱에 준다(iOS PHPicker, Android Photo Picker).
@@ -10637,15 +10958,32 @@ function Money({
     const nextRate = draftCurrency === DEFAULT_CURRENCY.code
       ? 1
       : Math.max(0.0001, parseAmount(draftRate, 2) || 1);
-    // 예산은 여행 통화로 적은 값이다. 통화만 바꾸고 숫자를 그대로 두면
-    // 50만 원 예산이 50만 달러가 된다. 원을 거쳐 옮긴다.
-    if (draftCurrency !== currency) {
-      setBudget((current) => Math.max(0, Math.round((current * exchangeRate) / nextRate)));
+    const 통화가_바뀜 = draftCurrency !== currency;
+    const 적용 = () => {
+      // 예산은 여행 통화로 적은 값이다. 통화만 바꾸고 숫자를 그대로 두면
+      // 50만 원 예산이 50만 달러가 된다. 원을 거쳐 옮긴다.
+      if (통화가_바뀜) {
+        setBudget((current) => Math.max(0, Math.round((current * exchangeRate) / nextRate)));
+      }
+      setCurrency(draftCurrency);
+      setExchangeRate(nextRate);
+      setCurrencySheetOpen(false);
+      notify("여행 통화를 저장했어요");
+    };
+    // 이미 적어 둔 지출은 숫자가 그대로 남는다. 12,000 원이 12,000 달러가 되는 셈이라
+    // 정산·표·홈 요약이 전부 틀리는데 조용히 지나갔다(2026-09-23). 한꺼번에 환산하는
+    // 것은 되돌릴 수 없어 하지 않고, 무슨 일이 일어나는지만 분명히 묻는다.
+    if (통화가_바뀜 && expenses.length) {
+      showAlert(
+        "통화를 바꿀까요?",
+        `이미 적어 둔 지출 ${expenses.length}건은 숫자가 그대로 남고 단위만 바뀌어요.`
+        + ` ${money(12000, currency)} 는 ${money(12000, draftCurrency)} 가 돼요.`
+        + " 예산은 환율로 환산해요.",
+        [{ text: "취소", style: "cancel" }, { text: "바꾸기", onPress: 적용 }],
+      );
+      return;
     }
-    setCurrency(draftCurrency);
-    setExchangeRate(nextRate);
-    setCurrencySheetOpen(false);
-    notify("여행 통화를 저장했어요");
+    적용();
   };
   const exportCsv = async () => {
     if (!expenses.length) {
@@ -10674,7 +11012,7 @@ function Money({
       {/* 맨 위 「지출 N건」 제목줄은 뺐다. 탭 이름이 이미 「비용」이고 탭 줄에
           건수까지 찍히는데, 같은 말을 한 번 더 하고 아래 「지출 내역」과도
           겹쳤다. 그 줄에 있던 지출 추가 버튼은 목록 제목 옆으로 내렸다. */}
-      <MoneyBlock title="총 지출" action={canEdit ? "예산 수정" : undefined} onAction={openBudget}>
+      <MoneyBlock title="총 지출" action={canEdit ? (budget > 0 ? "예산 수정" : "예산 정하기") : undefined} onAction={openBudget}>
         <View style={styles.moneyTotalRow}>
           <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.moneyTotal, styles.moneyTotalShrink, theme && { color: theme.text }]}>
             {show(settlement.total)}
@@ -10742,21 +11080,29 @@ function Money({
             </Text>
           )}
         </View>
-        <View style={[styles.moneyBudgetTrack, theme && { backgroundColor: theme.surfaceAlt }]}>
-          <View
-            style={[
-              styles.moneyBudgetFill,
-              { width: `${Math.min(100, budgetProgress * 100)}%` },
-              theme && { backgroundColor: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.primary },
-            ]}
-          />
-        </View>
-        <View style={styles.moneyBudgetFoot}>
-          <Text style={[styles.moneyBudgetStatus, theme && { color: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.muted }]}>
-            {budgetRemaining < 0 ? `${show(Math.abs(budgetRemaining))} 초과` : `${show(budgetRemaining)} 남음`}
+        {/* 예산을 정한 여행에만 막대를 낸다. 정하지 않았는데 막대가 뜨면 어디서 온
+            숫자인지 알 수 없고, 0% 막대는 아직 아무것도 안 쓴 것처럼 읽힌다. */}
+        {budget > 0 ? (<>
+          <View style={[styles.moneyBudgetTrack, theme && { backgroundColor: theme.surfaceAlt }]}>
+            <View
+              style={[
+                styles.moneyBudgetFill,
+                { width: `${Math.min(100, budgetProgress * 100)}%` },
+                theme && { backgroundColor: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.primary },
+              ]}
+            />
+          </View>
+          <View style={styles.moneyBudgetFoot}>
+            <Text style={[styles.moneyBudgetStatus, theme && { color: budgetRemaining < 0 ? (theme.dark ? statusColor.danger.dark : statusColor.danger.light) : theme.muted }]}>
+              {budgetRemaining < 0 ? `${show(Math.abs(budgetRemaining))} 초과` : `${show(budgetRemaining)} 남음`}
+            </Text>
+            <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
+          </View>
+        </>) : canEdit ? (
+          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+            예산을 정하면 얼마나 썼는지 막대로 보여 줘요
           </Text>
-          <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
-        </View>
+        ) : null}
       </MoneyBlock>
       {/* 결국 이걸 보려고 들어온다. 합계 바로 다음에 두고, 예산과 사람별
           숫자는 그 뒤로 미룬다.
@@ -10971,11 +11317,8 @@ function Money({
           <TextInput
             accessibilityLabel={`${quickCategory} 금액`}
             value={quickAmount}
-            onChangeText={(text) => {
-              const amount = parseAmount(text, unit.fraction);
-              setQuickAmount(amount ? amountText(amount, unit.fraction) : "");
-            }}
-            keyboardType="numeric"
+            onChangeText={(text) => setQuickAmount(금액_치기(text, unit.fraction))}
+            keyboardType={금액_키보드(unit.fraction)}
             placeholder={`${quickCategory} 얼마 썼나요`}
             placeholderTextColor={theme?.muted ?? "#9AA1AE"}
             style={[styles.quickAddInput, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border, color: theme.text }]}
@@ -11198,6 +11541,7 @@ function Money({
         submitDisabled={!formValid || Boolean(splitHint)}
         destructiveLabel={editingId ? "지출 삭제" : undefined}
         destructiveMessage={editingId ? `${draftTitle || "이 지출"} 내역을 삭제해요.` : undefined}
+        hasUnsavedChanges={expenseDraftChanged}
         onClose={() => setSheetOpen(false)}
         onSubmit={saveExpense}
         onDestructive={deleteExpense}
@@ -11214,7 +11558,7 @@ function Money({
           value={draftAmount}
           onChangeText={changeAmount}
           placeholder="예: 32,000"
-          keyboardType="numeric"
+          keyboardType={금액_키보드(unit.fraction)}
         />
         {/* 0 을 여러 번 치는 대신 눌러서 더한다. 엄지로 적을 때 훨씬 빠르다. */}
         <View style={styles.amountSteps}>
@@ -11255,10 +11599,15 @@ function Money({
         <OptionField label="날짜" options={dayOptions} value={draftDay} onChange={setDraftDay} />
         <OptionField
           label="낸 사람"
-          options={participants}
+          options={시트_사람.모두}
           value={draftPayer}
           onChange={setDraftPayer}
         />
+        {시트_사람.빠진_사람.length > 0 && (
+          <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
+            {시트_사람.빠진_사람.join(" · ")} 님은 이번 여행 참가자가 아니에요. 그대로 두면 적어 둔 몫이 유지돼요
+          </Text>
+        )}
         <View style={styles.shareField}>
           <View style={styles.fieldLabelRow}>
             <View style={[styles.fieldLabelDot, requiredDot(false, theme)]} />
@@ -11293,7 +11642,7 @@ function Money({
           )}
           {draftSplitMode === "일부" && (
             <View style={styles.splitPeople}>
-              {participants.map((person) => {
+              {시트_사람.모두.map((person) => {
                 const joined = draftPeople.includes(person);
                 return (
                   <Pressable
@@ -11301,7 +11650,7 @@ function Money({
                     onPress={() => setDraftPeople((current) => (
                       current.includes(person)
                         ? current.filter((name) => name !== person)
-                        : participants.filter((name) => current.includes(name) || name === person)
+                        : 시트_사람.모두.filter((name) => current.includes(name) || name === person)
                     ))}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: joined }}
@@ -11323,19 +11672,19 @@ function Money({
           )}
           {draftSplitMode === "금액" && (
             <View style={styles.splitAmountRows}>
-              {participants.map((person) => (
+              {시트_사람.모두.map((person) => (
                 <View key={person} style={styles.splitAmountRow}>
                   <Text numberOfLines={1} style={[styles.splitAmountName, theme && { color: theme.text }]}>{person}</Text>
                   <TextInput
                     value={draftAmounts[person] ?? ""}
                     onChangeText={(text) => setDraftAmounts((current) => ({
                       ...current,
-                      [person]: amountText(parseAmount(text, unit.fraction), unit.fraction),
+                      [person]: 금액_치기(text, unit.fraction),
                     }))}
                     accessibilityLabel={`${person} 몫 금액`}
                     placeholder="0"
                     placeholderTextColor={theme?.muted ?? "#9AA1AE"}
-                    keyboardType="numeric"
+                    keyboardType={금액_키보드(unit.fraction)}
                     style={[
                       styles.splitAmountInput,
                       theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
@@ -11431,9 +11780,9 @@ function Money({
               label="보낸 금액"
               required
               value={payAmount}
-              onChangeText={(text) => setPayAmount(amountText(parseAmount(text, unit.fraction), unit.fraction))}
+              onChangeText={(text) => setPayAmount(금액_치기(text, unit.fraction))}
               placeholder={amountText(paying.amount, unit.fraction)}
-              keyboardType="numeric"
+              keyboardType={금액_키보드(unit.fraction)}
             />
             {/* 왜 이 줄이 나왔는지. 사람이 적어서 사슬이 짧으니 여기선 말할 수
                 있다. 묶은 화면은 대개 "내가 왜 저 사람한테?" 에서 막힌다. */}
@@ -11494,7 +11843,8 @@ function Money({
             value={draftRate}
             onChangeText={setDraftRate}
             placeholder={`예: ${amountText(currencyOf(draftCurrency).rate, 2)}`}
-            keyboardType="numeric"
+            // 환율은 통화와 상관없이 소수다(엔 9.3, 동 0.055).
+            keyboardType="decimal-pad"
           />
         )}
         <Text style={[styles.settingHint, theme && { color: theme.muted }]}>
@@ -11510,6 +11860,10 @@ function Money({
         submit="저장"
         disabledHint={!budgetNumber ? "예산을 입력해 주세요" : undefined}
         submitDisabled={!budgetNumber}
+        hasUnsavedChanges={budgetDraftChanged}
+        destructiveLabel={budget > 0 ? "예산 삭제" : undefined}
+        destructiveMessage="예산 막대가 사라져요. 적어 둔 지출은 그대로 남아요."
+        onDestructive={clearBudget}
         onClose={() => setBudgetSheetOpen(false)}
         onSubmit={saveBudget}
       >
@@ -11517,12 +11871,9 @@ function Money({
           label={`전체 예산 (${unit.code})`}
           required
           value={draftBudget}
-          onChangeText={(text) => {
-            const amount = parseAmount(text, unit.fraction);
-            setDraftBudget(amount ? amountText(amount, unit.fraction) : "");
-          }}
+          onChangeText={(text) => setDraftBudget(금액_치기(text, unit.fraction))}
           placeholder="예: 500,000"
-          keyboardType="numeric"
+          keyboardType={금액_키보드(unit.fraction)}
         />
       </DetailSheet>
     </View>
@@ -12023,10 +12374,52 @@ function PairedDetailField({
   );
 }
 
+/**
+ * 금액 칸에 띄울 키보드.
+ *
+ * 안드로이드의 `numeric` 은 소수점 키가 없는 숫자 키패드다. 그래서 24.50 달러나 환율
+ * 9.3 을 칠 수 없었고, 9.3 을 93 으로 적으면 환산이 10배가 됐다(2026-09-23). 소수를
+ * 받는 통화에서만 `decimal-pad` 로 연다. 원·엔처럼 소수가 없는 통화는 점이 없는 편이
+ * 오히려 덜 헷갈린다. iOS 는 둘 다 소수점이 있는 키패드로 뜬다.
+ */
+const 금액_키보드 = (fraction: number): "numeric" | "decimal-pad" => (fraction > 0 ? "decimal-pad" : "numeric");
+
+/**
+ * 금액 칸에 다시 적을 글자. 치는 도중의 모양을 지키면서 자릿수를 끊는다.
+ *
+ * 소수를 받는 통화는 「24.」처럼 아직 숫자가 안 된 상태를 지우지 않아야 뒤 자릿수를
+ * 이어 칠 수 있다. 이 셈을 금액 칸마다 따로 적다 보니 어떤 칸은 점이 곧바로 지워져,
+ * 소수점 키보드를 붙여도 소수를 못 적었다(2026-09-23). 한자리에 모아 둔다.
+ */
+const 금액_치기 = (text: string, fraction: 0 | 2): string => {
+  if (fraction > 0 && /[.]\d{0,1}$/.test(text)) return text.replace(/[^\d.]/g, "");
+  const amount = parseAmount(text, fraction);
+  return amount ? amountText(amount, fraction) : "";
+};
+
+/**
+ * 길이 한도를 두지 않은 칸의 기본값. 서버 스키마에서 가장 흔한 값이다.
+ *
+ * 한도가 없으면 서버가 422 로 되돌려 보내는데, 토스트만 뜨고 어느 칸이 왜인지 알 수
+ * 없었다(2026-09-23). 한 줄 칸은 제목·이름 대부분이 60자, 여러 줄 칸은 메모가 2,000자다.
+ * 더 받는 칸(장소 이름 100, 주소 300, 일기 본문 20,000)은 그 자리에서 따로 넘긴다.
+ */
+const 칸_기본_한도 = { 한_줄: 60, 여러_줄: 2000 };
+
+/**
+ * 목록을 통째로 붙여넣는 칸의 한도.
+ *
+ * 메모장에서 스무 줄을 옮겨 오는 자리라 서버 한 줄의 한도와 상관이 없다. 여기 적은 글은
+ * 줄마다 쪼개져 항목이 되고, 글 자체는 서버로 가지 않는다. 그래도 한도를 아예 안 두면
+ * 실수로 붙여넣은 수십만 자가 화면을 멈추게 한다.
+ */
+const 붙여넣기_한도 = 50000;
+
 function DetailField({
   label,
   multiline,
   required = false,
+  maxLength,
   ...props
 }: {
   label: string;
@@ -12034,7 +12427,7 @@ function DetailField({
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: "default" | "numeric" | "url";
+  keyboardType?: "default" | "numeric" | "decimal-pad" | "url";
   /** 서버가 받는 한도. 넘겨 두면 저장할 때 잘리는 대신 처음부터 못 넘긴다. */
   maxLength?: number;
   autoCapitalize?: "none" | "sentences";
@@ -12042,6 +12435,9 @@ function DetailField({
   required?: boolean;
 }) {
   const theme = useContext(DetailThemeContext);
+  // 이미 적혀 있던 긴 값은 자르지 않는다. 옛 기록을 열었을 뿐인데 글이 잘리면,
+  // 고치려고 연 사람이 무엇을 잃었는지도 모른 채 저장하게 된다.
+  const 한도 = Math.max(maxLength ?? (multiline ? 칸_기본_한도.여러_줄 : 칸_기본_한도.한_줄), props.value.length);
   return (
     <View style={styles.detailField}>
       <View style={styles.fieldLabelRow}>
@@ -12054,6 +12450,7 @@ function DetailField({
       </View>
       <TextInput
         {...props}
+        maxLength={한도}
         accessibilityLabel={label}
         multiline={multiline}
         placeholderTextColor={theme?.muted ?? "#9AA1AE"}
@@ -12543,7 +12940,7 @@ function ReportForm({
         <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>운영자가 확인해요. 신고한 사람은 상대에게 알려지지 않아요.</Text>
       </View>
       <OptionField label="신고 사유" required options={REPORT_REASONS.map((item) => item.label)} value={reason} onChange={setReason} />
-      <DetailField label="자세한 내용 (선택)" value={detail} onChangeText={setDetail} placeholder="예: 어떤 부분이 문제인지" multiline />
+      <DetailField label="자세한 내용 (선택)" value={detail} onChangeText={setDetail} placeholder="예: 어떤 부분이 문제인지" multiline maxLength={1000} />
       {error ? <Text accessibilityLiveRegion="assertive" style={[styles.deleteConfirmMessage, { color: danger }]}>{error}</Text> : null}
       <View style={styles.deleteConfirmActions}>
         <Pressable onPress={onClose} accessibilityRole="button" style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}>
