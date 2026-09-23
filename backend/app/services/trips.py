@@ -1,9 +1,10 @@
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError, ErrorCode
 from app.models import (
     Membership,
@@ -347,3 +348,103 @@ async def purge_deleted_trips(session: AsyncSession, *, now: datetime | None = N
     # 사진 줄은 CASCADE 로 사라지지만 파일은 남는다. 여행 폴더째 지운다.
     photo_files.remove_trips(list(여행_ids))
     return 지운_것.rowcount or 0
+
+
+# ---------------------------------------------------------------------------
+# 목록
+# ---------------------------------------------------------------------------
+
+
+async def participant_ids(session: AsyncSession, trip: Trip) -> list[str]:
+    """이 여행에 들어 있는 참가자의 membership id. 뺀 사람은 빠진다."""
+    줄들 = (
+        await session.execute(
+            select(TripParticipant.membership_id)
+            .where(TripParticipant.trip_id == trip.id, TripParticipant.removed_at.is_(None))
+            .order_by(TripParticipant.sort_order)
+        )
+    ).scalars().all()
+    return [str(값) for 값 in 줄들]
+
+
+def _cursor_뒤부터(질의, 정렬칸, cursor: str | None, *, 값을_읽는다):
+    """
+    cursor 가 가리키는 줄 다음부터 읽게 질의에 조건을 붙인다.
+
+    목록은 (정렬칸 DESC, id DESC) 차례라, 그 다음 줄은 (정렬칸, id) 쌍이 cursor 의
+    쌍보다 작은 줄이다. 두 칸을 한 쌍으로 비교해야 정렬칸이 같은 줄들 사이에서도
+    딱 한 줄만 건너뛴다.
+    """
+    if not cursor:
+        return 질의
+    정렬_값, 마지막_id = decode_cursor(cursor)
+    try:
+        기준 = 값을_읽는다(정렬_값)
+    except ValueError as 원인:
+        # 겉모양은 맞지만 이 목록의 cursor 가 아니다(지운 여행 cursor 를 일반 목록에 보낸 때).
+        raise AppError(
+            ErrorCode.VALIDATION_ERROR,
+            fields={"cursor": "목록을 이어 받을 수 없어요. 처음부터 다시 받아 주세요."},
+        ) from 원인
+    return 질의.where(tuple_(정렬칸, Trip.id) < (기준, 마지막_id))
+
+
+def _한_쪽(여행들: list[Trip], limit: int) -> tuple[list[Trip], bool]:
+    """limit + 1 줄을 읽어 둔 결과에서 보여 줄 줄과 '더 있는지' 를 가른다."""
+    return 여행들[:limit], len(여행들) > limit
+
+
+def _다음_cursor(여행들: list[Trip], 더_있다: bool, *, 값을_뽑는다) -> str | None:
+    if not 더_있다 or not 여행들:
+        return None
+    마지막 = 여행들[-1]
+    return encode_cursor(값을_뽑는다(마지막), 마지막.id)
+
+
+async def _한_쪽을_읽는다(
+    session: AsyncSession, 질의, limit: int, *, 값을_뽑는다
+) -> tuple[list[Trip], str | None]:
+    읽은_것 = list((await session.execute(질의.limit(limit + 1))).scalars().all())
+    여행들, 더_있다 = _한_쪽(읽은_것, limit)
+    return 여행들, _다음_cursor(여행들, 더_있다, 값을_뽑는다=값을_뽑는다)
+
+
+async def deleted_trips_page(
+    session: AsyncSession, *, space_id: uuid.UUID, limit: int, cursor: str | None
+) -> tuple[list[Trip], str | None]:
+    """휴지통. 아직 되돌릴 수 있는 지운 여행만 지운 차례로 준다."""
+    질의 = (
+        select(Trip)
+        .where(
+            Trip.space_id == space_id,
+            Trip.deleted_at.is_not(None),
+            Trip.deletion_scheduled_at > func.now(),
+        )
+        .order_by(Trip.deleted_at.desc(), Trip.id.desc())
+    )
+    질의 = _cursor_뒤부터(질의, Trip.deleted_at, cursor, 값을_읽는다=datetime.fromisoformat)
+    return await _한_쪽을_읽는다(
+        session, 질의, limit, 값을_뽑는다=lambda trip: trip.deleted_at.isoformat()
+    )
+
+
+async def trips_page(
+    session: AsyncSession,
+    *,
+    space_id: uuid.UUID,
+    status: TripStatus | None,
+    limit: int,
+    cursor: str | None,
+) -> tuple[list[Trip], str | None]:
+    """여행 목록 한 쪽. 시작일 최신 차례고, 지운 여행은 빠진다."""
+    질의 = (
+        select(Trip)
+        .where(Trip.space_id == space_id, Trip.deleted_at.is_(None))
+        .order_by(Trip.start_date.desc(), Trip.id.desc())
+    )
+    if status is not None:
+        질의 = 질의.where(Trip.status == status)
+    질의 = _cursor_뒤부터(질의, Trip.start_date, cursor, 값을_읽는다=date.fromisoformat)
+    return await _한_쪽을_읽는다(
+        session, 질의, limit, 값을_뽑는다=lambda trip: trip.start_date.isoformat()
+    )

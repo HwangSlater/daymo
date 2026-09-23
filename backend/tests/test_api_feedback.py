@@ -1,8 +1,8 @@
 import pytest
 from sqlalchemy import select
 
-from app.api.v1.feedback import FEEDBACK_PER_HOUR
 from app.models import Feedback, User
+from app.services.feedback import FEEDBACK_PER_HOUR
 from tests.test_api_trips import 로그인한_사람
 
 pytestmark = pytest.mark.anyio

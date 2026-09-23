@@ -12,6 +12,7 @@ from app.core.tokens import hash_refresh_token, new_one_time_token
 from app.models import (
     DevicePlatform,
     EmailVerificationToken,
+    OAuthAccount,
     PasswordResetToken,
     RevokeReason,
     ThrottleScope,
@@ -401,6 +402,17 @@ async def reset_password(session: AsyncSession, *, token: str, new_password: str
     await session.flush()
 
     await revoke_all_for_user(session, user.id, reason=RevokeReason.PASSWORD_RESET)
+
+
+async def linked_providers(session: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    """이 계정에 이어 둔 소셜 로그인. 앱이 「연결된 로그인 방식」에 보여 준다."""
+    return sorted(
+        (
+            await session.execute(
+                select(OAuthAccount.provider).where(OAuthAccount.user_id == user_id)
+            )
+        ).scalars()
+    )
 
 
 async def count_active_users(session: AsyncSession) -> int:

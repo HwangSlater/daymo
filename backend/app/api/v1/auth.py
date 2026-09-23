@@ -1,13 +1,10 @@
 import uuid
 
 from fastapi import APIRouter, Response, status
-from sqlalchemy import select, update
 
 from app.api.deps import ClientIp, CurrentCaller, DbSession
-from app.core.errors import AppError, ErrorCode
 from app.core.responses import ok
 from app.core.tokens import ACCESS_TTL
-from app.models import Device, RefreshToken, RevokeReason
 from app.schemas.auth import (
     DeviceOut,
     EmailRequest,
@@ -21,7 +18,13 @@ from app.schemas.auth import (
 )
 from app.services import accounts
 from app.services.reauth import PROOF_TTL, issue_proof
-from app.services.auth_sessions import Session, end_session, rotate_session
+from app.services.auth_sessions import (
+    Session,
+    devices_of,
+    end_device,
+    end_session,
+    rotate_session,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -144,13 +147,7 @@ async def list_sessions(caller: CurrentCaller, db: DbSession) -> dict:
     지금 쓰는 기기에 `current` 를 붙여 준다. 사용자가 자기가 들고 있는
     기기를 실수로 끊지 않게 하려는 것이다.
     """
-    기기들 = (
-        await db.execute(
-            select(Device)
-            .where(Device.user_id == caller.user.id, Device.revoked_at.is_(None))
-            .order_by(Device.last_seen_at.desc())
-        )
-    ).scalars().all()
+    기기들 = await devices_of(db, caller.user.id)
 
     return ok(
         [
@@ -175,26 +172,7 @@ async def end_other_session(session_id: uuid.UUID, caller: CurrentCaller, db: Db
     남의 기기는 끊을 수 없다. 없는 기기와 남의 기기를 같은 404 로 돌려준다.
     다르게 답하면 어떤 id 가 존재하는지 알 수 있다.
     """
-    device = await db.scalar(
-        select(Device).where(
-            Device.id == session_id,
-            Device.user_id == caller.user.id,
-            Device.revoked_at.is_(None),
-        )
-    )
-    if device is None:
-        raise AppError(ErrorCode.NOT_FOUND)
-
-    from datetime import UTC, datetime
-
-    지금 = datetime.now(UTC)
-    device.revoked_at = 지금
-    await db.execute(
-        update(RefreshToken)
-        .where(RefreshToken.device_id == device.id, RefreshToken.revoked_at.is_(None))
-        .values(revoked_at=지금, revoke_reason=RevokeReason.LOGOUT)
-    )
-    await db.flush()
+    await end_device(db, user_id=caller.user.id, device_id=session_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
