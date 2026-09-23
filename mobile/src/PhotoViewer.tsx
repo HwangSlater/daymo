@@ -52,7 +52,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
+import { useAnnounce } from "./announce";
 import { Text } from "./AppText";
+import { LoadState } from "./ui/LoadState";
 import { Toast } from "./ui/Toast";
 import { CardDeveloping } from "./CardDeveloping";
 import { ACCENT as CARD_ACCENT } from "./cardToolColors";
@@ -147,6 +149,8 @@ const INK_FAINT = "rgba(255,255,255,0.34)";
 /** 고치기 화면의 강조색과 위험색. 어두운 바탕에서 읽히는 값으로 따로 둔다. */
 const EDIT_ACCENT = "#A7B3EE";
 const DANGER_INK = "#F08A82";
+/** 사진 위에 얹는 안내의 색. 폰이 밝은 모드여도 이 창은 늘 어둡다. */
+const 사진위_색 = { text: INK, muted: INK_SOFT, button: "rgba(255,255,255,0.18)" } as const;
 
 /**
  * 위아래에 까는 그늘.
@@ -371,6 +375,10 @@ export function PhotoViewerScreen({
   };
   /** 지금 도구가 펼쳐져 있는지. 펼쳐져 있으면 무대에 도구가 딸린 카드가 온다. */
   const decorating = Boolean(decor?.open);
+  // 카드를 찍는 동안 화면을 통째로 덮고 무엇을 하는 중인지만 적는다. 그 덮개에 붙인
+  // `accessibilityLiveRegion` 은 안드로이드만 듣기 때문에, iOS VoiceOver 를 위해
+  // 같은 말을 여기서 한 번 더 건넨다(`announce.ts`).
+  useAnnounce(decorating ? decor?.busyText ?? "" : "");
   /** 사진을 스트립 차례 그대로 이은 줄. 밀기와 화살표가 이 줄을 따라간다. */
   const 칸들 = photos;
   const 지금칸 = index;
@@ -821,7 +829,7 @@ export function PhotoViewerScreen({
                     onError={자리 === 0 ? () => 못_읽음_두기((지금) => ({ ...지금, [한장.id]: true })) : undefined}
                   />
                 ) : 자리 === 0 ? (
-                  <Text style={styles.waiting}>{waitingText ?? "사진을 불러오는 중이에요"}</Text>
+                  <LoadState 모양="세로" loading colors={사진위_색} loadingText={waitingText ?? "사진을 불러오는 중이에요"} />
                 ) : null}
                 </Animated.View>
               </View>
@@ -838,19 +846,15 @@ export function PhotoViewerScreen({
         {/* 파일이 안 와 못 그린 사진. 검은 칸만 남으면 고장으로 읽힌다(2026-09-23 검토 #52).
             무슨 일인지 적고 다시 받을 자리를 준다. 손가락 판 뒤에 놓아야 눌린다. */}
         {photo && 못_읽은[photo.id] && (
-          <View style={styles.failure} pointerEvents="box-none" accessibilityLiveRegion="polite">
-            <Text style={styles.failureText}>사진을 불러오지 못했어요</Text>
-            <Pressable
-              onPress={() => 다시_읽기(photo.id)}
-              accessibilityRole="button"
-              accessibilityLabel="사진 다시 시도"
-              hitSlop={누름여유(높이.칩)}
-              style={({ pressed }) => [styles.failureButton, pressed && styles.pressed]}
-            >
-              <Glyph name="retry" size={아이콘.작게} color={INK} weight={2.1} />
-              <Text style={styles.failureButtonText}>다시 시도</Text>
-            </Pressable>
-          </View>
+          <LoadState
+            모양="세로"
+            error="사진을 불러오지 못했어요"
+            onRetry={() => 다시_읽기(photo.id)}
+            retryLabel="다시 시도"
+            colors={사진위_색}
+            pointerEvents="box-none"
+            style={styles.failure}
+          />
         )}
 
         {/* 접었을 때는 그늘도 글도 단추도 없다. 사진만 남는다. */}
@@ -1329,20 +1333,8 @@ const styles = StyleSheet.create({
   track: { position: "absolute", top: 0, bottom: 0, flexDirection: "row", userSelect: "none" },
   // 한 칸. 사진은 칸을 다 쓰되 `contain` 이라 절대 잘리지 않는다.
   cell: { height: "100%", alignItems: "center", justifyContent: "center" },
-  waiting: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
   // 못 불러온 사진 자리. 사진 한가운데에 놓아 어느 사진의 일인지 헷갈리지 않는다.
-  failure: { position: "absolute", left: 0, right: 0, top: "44%", alignItems: "center", gap: 10 },
-  failureText: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
-  failureButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    height: 높이.칩,
-    paddingHorizontal: 여백.가로좁게,
-    borderRadius: 모서리.원,
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
-  failureButtonText: { fontSize: 13, color: INK, fontFamily: typo.label.family },
+  failure: { position: "absolute", left: 0, right: 0, top: "44%" },
   scrimTop: { position: "absolute", top: 0, left: 0, right: 0, height: 150 },
   scrimBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 230 },
   scrimBottomTall: { position: "absolute", bottom: 0, left: 0, right: 0, height: 330 },
