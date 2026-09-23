@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   Animated,
   AppState,
   Easing,
@@ -35,14 +36,15 @@ import { ParticipantPicker } from "./ParticipantPicker";
 import { NoticeImportSheet } from "./NoticeImportSheet";
 import { NOTICE_IMPORT_ENABLED } from "./features";
 import {
-  clearDevice,
+  clearAccountCache,
+  clearDeviceStorage,
   defaultMe,
-  defaultSpaces,
   type Me,
   type Space,
   useSaveMe,
   useSaveSpaces,
 } from "./spaces";
+import { removeAllCardDrafts, removeCardDrafts } from "./cardDraftStorage";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
 import { shouldRefetch, tripDateKeys } from "./listSync";
@@ -79,7 +81,7 @@ import { showAlert } from "./showAlert";
 import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, changePassword, DaymoApiError, isReconfirmCancelled, linkSocialAccount, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
+import { cancelAccountDeletion, changePassword, DaymoApiError, INSTALLATION_KEY, isEmailLike, isReconfirmCancelled, linkSocialAccount, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, resendEmailVerification, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
 import { type SocialProvider, socialProviderName, socialProviderOrder } from "./socialLogin";
 import { SocialLoginButton } from "./SocialLoginButton";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
@@ -289,8 +291,15 @@ const tripForSummary = (trip: Trip) => ({
   serverCurrency: trip.serverExpenseSettings?.currency,
 });
 
-// 상세를 닫고 요약을 다시 받기까지 기다리는 시간. 닫으며 보낸 변경이 먼저 서버에 닿게 한다.
+// 상세를 닫고 요약을 다시 받기까지 기다리는 시간. 닫으며 보낸 변경이 먼저 닿게 한다.
 const OVERVIEW_REFRESH_MS = 2500;
+
+/** 새 여행의 기본 마지막 날. 오늘부터 이틀 뒤(2박 3일)다. */
+const 기본_마지막_날 = (오늘_키: string) => {
+  const 날 = new Date(`${오늘_키}T00:00:00`);
+  날.setDate(날.getDate() + 2);
+  return `${날.getFullYear()}-${String(날.getMonth() + 1).padStart(2, "0")}-${String(날.getDate()).padStart(2, "0")}`;
+};
 
 const expenseSettingsFrom = (trip: ServerTrip): ExpenseSettings => ({
   currency: trip.currencyCode ?? "KRW",
@@ -464,29 +473,91 @@ const trips: Trip[] = [
     ],
   }),
 ];
-const initialTripsByGroup: Record<GroupId, Trip[]> = {
-  ours: [trips[0]],
-  friends: trips,
-  family: [
-    sampleTrip({
-      name: "속초",
-      date: "10월 3일 — 4일",
-      note: "가족과 천천히 걷는 가을 여행",
-      tone: 1,
-      mark: "10",
-      region: "강원",
-      start: "2026-10-03",
-      end: "2026-10-04",
-      expenses: [
-        sampleExpense("sc-1", "2026-10-03", 0, "설악산 입장료", 16000, "입장료", "하늘"),
-        sampleExpense("sc-2", "2026-10-03", 0, "물회 점심", 52000, "식비", "여울"),
-        sampleExpense("sc-3", "2026-10-03", 0, "펜션 1박", 150000, "숙박", "하늘"),
-      ],
-    }),
-  ],
-};
+/**
+ * 처음 그릴 때의 여행 목록. 비어 있다.
+ *
+ * 2026-09-23 까지는 예시 여행 셋이 들어 있었다. 저장된 것도 없고 공간 목록도 못 받은
+ * 기기에서는 그 예시가 그대로 기기에 적혔다. 가상 데이터는 실제 계정에 섞지 않는다.
+ * 화면 모양을 보는 예시 여행은 `trips` 에만 남긴다.
+ */
+const initialTripsByGroup: Record<GroupId, Trip[]> = {};
 
 const tripStorageKey = "daymo.trip-data.v1";
+/**
+ * 이 기기를 마지막으로 쓴 계정.
+ *
+ * 다른 계정이 들어오면 앞 계정의 여행 캐시·카드 초안을 걷어 낸다. 적어 둔 적이 없으면
+ * 이 값이 생기기 전부터 쓰던 기기라 아무것도 지우지 않는다 — 업데이트했다고 로그인
+ * 상태와 아직 못 올린 기록이 사라지면 안 된다(2026-09-23).
+ */
+const deviceOwnerKey = "daymo.device-owner.v1";
+
+/**
+ * 낭독기에 한 줄 알린다.
+ *
+ * `accessibilityLiveRegion` 은 안드로이드 전용이라, iOS VoiceOver 는 화면에 뜬 오류
+ * 문구를 읽지 않았다(2026-09-23). 값이 바뀔 때만 부르게 훅으로 감싼다.
+ */
+function useSpokenNotice(message: string) {
+  useEffect(() => {
+    if (!message) return;
+    AccessibilityInfo.announceForAccessibility?.(message);
+  }, [message]);
+}
+
+/** 기다림이 길어졌는지. 스피너만 오래 돌면 멈춘 것인지 알 수 없다. */
+function useSlowWait(after = 5000) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), after);
+    return () => clearTimeout(timer);
+  }, [after]);
+  return slow;
+}
+
+/**
+ * 화면을 가득 쓰는 기다림·오류 판.
+ *
+ * 예전에는 글자 한 줄뿐이라 느린 회선에서 멈춘 것인지 기다리는 것인지 알 수 없었고,
+ * 다시 해 볼 길도 없었다(2026-09-23).
+ */
+function FullScreenNotice({ theme, title, hint, busy = false, onRetry, retryLabel = "다시 시도", onLogout }: {
+  theme: AppTheme;
+  title: string;
+  hint?: string;
+  busy?: boolean;
+  onRetry?: () => void;
+  retryLabel?: string;
+  onLogout?: () => void;
+}) {
+  const slow = useSlowWait();
+  useSpokenNotice(title);
+  return (
+    <SafeAreaView style={[s.safe, { backgroundColor: theme.background, alignItems: "center", justifyContent: "center", padding: 24 }]}>
+      {busy && <ActivityIndicator color={theme.primary} style={{ marginBottom: 12 }} />}
+      <Text style={[s.fullNoticeTitle, { color: busy ? theme.muted : theme.text }]}>{title}</Text>
+      {(hint || (busy && slow)) && (
+        <Text style={[s.fullNoticeHint, { color: theme.muted }]}>
+          {hint ?? "연결이 느려요. 잠시만 기다리거나 다시 시도해 주세요."}
+        </Text>
+      )}
+      {onRetry && (!busy || slow) && (
+        <Pressable
+          onPress={onRetry}
+          accessibilityRole="button"
+          style={[s.fullNoticeButton, { backgroundColor: theme.primary }]}
+        >
+          <Text style={[s.authSubmitText, { color: onAccent(theme.dark) }]}>{retryLabel}</Text>
+        </Pressable>
+      )}
+      {onLogout && (
+        <Pressable onPress={onLogout} accessibilityRole="button" style={s.authSwitch}>
+          <Text style={[s.authSwitchText, { color: theme.muted }]}>로그아웃</Text>
+        </Pressable>
+      )}
+    </SafeAreaView>
+  );
+}
 
 /**
  * 기기에 적어 둘 모양.
@@ -652,7 +723,7 @@ const PREFETCH_BATCH = 6;
 
 export function WarmAppShell({
   settings = defaultDeviceSettings,
-  spaces: storedSpaces = defaultSpaces,
+  spaces: storedSpaces = [],
   me: storedUser = defaultMe,
 }: {
   settings?: DeviceSettings;
@@ -763,6 +834,13 @@ export function WarmAppShell({
   };
   const [tripsByGroup, setTripsByGroup] = useState(initialTripsByGroup);
   const [tripStorageReady, setTripStorageReady] = useState(false);
+  /**
+   * 기기 기록을 누구 것으로 읽었는지(로그인 전이면 빈 글자).
+   *
+   * 계정이 바뀌면 이 값이 새 계정으로 바뀔 때까지 서버 목록을 붙이지 않는다. 앞 계정의
+   * 기록이 남아 있는 사이에 합치면 그것이 새 계정 것으로 올라간다(2026-09-23).
+   */
+  const [tripCacheOwner, setTripCacheOwner] = useState("");
   // 저장이 막히면 조용히 넘어가지 않는다. 사용자는 적은 게 남았다고 믿는데
   // 앱을 다시 열면 사라진다. 가장 흔한 원인은 용량 초과다.
   const [tripStorageFailed, setTripStorageFailed] = useState(false);
@@ -883,7 +961,7 @@ export function WarmAppShell({
   useEffect(() => {
     // 기기에 저장된 여행을 다 읽은 뒤에 서버 목록을 붙인다. 먼저 붙이면 뒤늦게
     // 읽힌 기기 목록이 서버 목록을 덮거나, 서버 목록이 아직 안 읽힌 기록을 버린다.
-    if (!user?.id || !tripStorageReady) return;
+    if (!user?.id || !tripStorageReady || tripCacheOwner !== user.id) return;
     let active = true;
     listSpaces()
       .then(async (serverSpaces) => {
@@ -932,7 +1010,7 @@ export function WarmAppShell({
       active = false;
     };
     // spacesReload 는 초대로 들어오거나 멤버가 바뀌었을 때 다시 받으려고 올린다.
-  }, [settings.activeGroupId, spacesReload, tripStorageReady, user?.id]);
+  }, [settings.activeGroupId, spacesReload, tripCacheOwner, tripStorageReady, user?.id]);
   /**
    * 초대 token 을 받아 둔다. 로그인 전이면 로그인·가입이 끝난 뒤에 이어서 참여한다.
    *
@@ -957,6 +1035,22 @@ export function WarmAppShell({
     setSpacesReload((value) => value + 1);
     return joined;
   };
+  /**
+   * 확인 메일을 다시 보낸다. 메일이 안 왔거나 스팸함에 들어갔을 때의 길이다.
+   *
+   * 웹의 확인창은 버튼을 둘만 보여 줘서(`showAlert`) 이 선택지는 앱에서만 뜬다.
+   * 웹에서는 로그아웃한 뒤 가입 화면의 「확인 메일 다시 보내기」로 같은 일을 한다.
+   */
+  const 확인_메일_다시_보내기 = () => {
+    const email = user?.email;
+    if (!email) return;
+    resendEmailVerification(email)
+      .then(() => showAlert("확인 메일을 다시 보냈어요", "메일함과 스팸함을 확인해 주세요."))
+      .catch((error) => showAlert(
+        "확인 메일을 보내지 못했어요",
+        error instanceof DaymoApiError ? error.message : "잠시 후 다시 시도해 주세요.",
+      ));
+  };
   /** 초대로 참여하고 결과를 알린다. 앱에서 온 초대도 웹에서 온 초대도 여기로 모인다. */
   const runInvite = (token: string) => {
     joinInvite(token)
@@ -964,9 +1058,11 @@ export function WarmAppShell({
       .catch((error) => {
         if (error instanceof DaymoApiError && error.code === "EMAIL_NOT_VERIFIED") {
           // token 은 그대로 둔다. 메일을 확인하고 다시 누르면 바로 참여한다.
-          showAlert("메일을 확인하면 바로 참여해요", "받은 메일의 링크를 누른 뒤 아래 버튼을 눌러 주세요.", [
+          // 메일이 스팸함에 갔을 때를 위해 다시 보내는 길을 함께 둔다(2026-09-23).
+          showAlert("이메일 확인이 필요해요", "받은 메일의 링크를 누른 뒤 「확인했어요」를 눌러 주세요.", [
             { text: "나중에", style: "cancel" },
             { text: "확인했어요", onPress: () => setPendingInvite({ token, ask: false }) },
+            { text: "확인 메일 다시 보내기", onPress: 확인_메일_다시_보내기 },
           ]);
           return;
         }
@@ -993,17 +1089,52 @@ export function WarmAppShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingInvite, serverDataReady, user?.id]);
   /**
+   * 로그아웃 뒤 화면에 남는 것을 모두 비운다.
+   *
+   * 예전에는 부르는 자리마다 `logout()` 과 상태 두세 개만 비웠다. 공간·여행 목록,
+   * 보던 화면, 여행 cursor, 메일 확인 대기가 그대로 남아 다음 사람이 앞사람의 여행
+   * 제목을 봤다(2026-09-23). 저장소를 비우는 것은 부르는 쪽이 맡는다.
+   */
+  const resetAfterSignOut = (notice: string) => {
+    setAuthNotice(notice);
+    setUser(null);
+    setAuthOffline(false);
+    setServerDataReady(false);
+    setServerDataError(false);
+    setSpaces([]);
+    setTripsByGroup({} as Record<GroupId, Trip[]>);
+    setTripCursors({});
+    setDone([]);
+    setEmailWatch(null);
+    setTripOpen(false);
+    setOpenTripCreator(false);
+    setOpenNoticeImport(false);
+    setView("홈");
+  };
+  /**
+   * 로그아웃. 세션과 함께 이 계정의 기기 기록도 걷어 낸다.
+   *
+   * 예전에는 세션만 지워서, 같은 기기를 쓰는 다음 계정에 앞사람이 아직 못 올린
+   * 일정·비용이 붙어 올라갔고 카드 초안도 그대로 보였다(2026-09-23). 로그아웃
+   * 확인 문구가 이미 그렇게 될 수 있다고 알리고 있다.
+   */
+  const signOut = (notice = "") => {
+    void logout();
+    void clearAccountCache([tripStorageKey]);
+    void removeAllCardDrafts();
+    resetAfterSignOut(notice);
+  };
+  /**
    * 이 기기에 남은 것을 전부 지운다.
    *
-   * 계정 삭제와 다르다. 서버의 계정·공간·여행은 그대로 두고 이 기기의
-   * 기록만 지운다. 화면에도 그렇게 적는다. 계정 삭제는 `AccountDeletionPanel`.
+   * 계정 삭제와 다르다. 계정·공간·여행은 그대로 두고 이 기기의 기록만 지운다.
+   * 화면에도 그렇게 적는다. 계정 삭제는 `AccountDeletionPanel`.
+   * 설치 번호만 남긴다 — 지우면 다시 로그인할 때 기기 한도 한 자리를 더 먹는다.
    */
   const wipeDevice = () => {
     void logout();
-    void clearDevice([tripStorageKey, "daymo.device-settings.v1"]);
-    setSpaces(defaultSpaces);
-    setTripsByGroup(initialTripsByGroup);
-    setUser(null);
+    void clearDeviceStorage([INSTALLATION_KEY]);
+    resetAfterSignOut("");
   };
   // 이 공간에 속한 사람들. 나를 앞에 두고 초대한 멤버가 뒤따른다. 여행 상세는
   // 이 목록에서 이번 여행 참가자를 고른다.
@@ -1201,6 +1332,11 @@ export function WarmAppShell({
   const coverDownloads = useRef(new Set<string>());
   // 받아 둔 바탕 사진(사진 id → 자리). 껐다 켜거나 예전 사진으로 되돌려도 다시 받지 않는다.
   const coverPhotoUris = useRef(new Map<string, string>());
+  // 한 번 못 받은 사진은 새로고침 전까지 다시 조르지 않는다. 예전에는 실패하면 표에서
+  // 빼서, 연결이 없을 때 여행 목록이 바뀔 때마다 같은 요청이 되살아났다(2026-09-23).
+  useEffect(() => {
+    if (spacesReload > 0) coverDownloads.current.clear();
+  }, [spacesReload]);
   /** 이 여행이 홈에 그릴 사진 가운데 아직 자리를 모르는 것. */
   const 모자란_사진 = (trip: Trip) =>
     (trip.coverPhotoIds ?? []).filter((id) => !isLivePhotoUri(trip.coverUris?.[id]));
@@ -1235,7 +1371,7 @@ export function WarmAppShell({
               ? { ...item, coverUris: { ...item.coverUris, [photoId]: uri } }
               : item));
         } catch {
-          coverDownloads.current.delete(photoId);
+          // 표에 남겨 둔다. 당겨서 새로고침할 때 위에서 통째로 비우고 다시 해 본다.
         }
       }
     })();
@@ -1296,24 +1432,50 @@ export function WarmAppShell({
   };
   const now = new Date();
 
+  /**
+   * 기기에 적어 둔 여행을 읽는다. 읽기 전에 **이 기기를 마지막으로 쓴 계정**을 본다.
+   *
+   * 다른 계정이 들어왔으면 읽지 않고 걷어 낸다. 그대로 읽으면 앞사람이 아직 못 올린
+   * 일정·비용이 뒷사람 여행에 붙어 뒷사람 이름으로 서버에 올라간다(2026-09-23).
+   * 적어 둔 적이 없으면(이 값이 생기기 전부터 쓰던 기기) 아무것도 지우지 않는다 —
+   * 업데이트했다고 여행 기록이 사라지면 안 된다.
+   *
+   * 세션 복구가 끝나야 누구의 기기인지 알 수 있어 `authReady` 를 기다린다.
+   */
   useEffect(() => {
+    if (!authReady) return;
     let active = true;
-    AsyncStorage.getItem(tripStorageKey)
-      .then((raw) => {
-        if (!active) return;
+    const myId = user?.id ?? null;
+    void (async () => {
+      const 앞사람 = await AsyncStorage.getItem(deviceOwnerKey).catch(() => null);
+      const 계정이_바뀌었다 = Boolean(myId && 앞사람 && 앞사람 !== myId);
+      if (계정이_바뀌었다) {
+        await clearAccountCache([tripStorageKey]);
+        await removeAllCardDrafts();
+        if (active) {
+          setSpaces([]);
+          setTripsByGroup({} as Record<GroupId, Trip[]>);
+          setTripCursors({});
+          setDone([]);
+        }
+      } else {
+        const raw = await AsyncStorage.getItem(tripStorageKey).catch(() => null);
         const saved = parseStoredTripData(raw);
-        if (saved) {
+        if (active && saved) {
           setTripsByGroup(saved.tripsByGroup);
           setDone(saved.done);
         }
-      })
-      .finally(() => {
-        if (active) setTripStorageReady(true);
-      });
+      }
+      if (myId) await AsyncStorage.setItem(deviceOwnerKey, myId).catch(() => undefined);
+      if (active) {
+        setTripCacheOwner(myId ?? "");
+        setTripStorageReady(true);
+      }
+    })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [authReady, user?.id]);
 
   useEffect(() => {
     if (!tripStorageReady) return;
@@ -1339,11 +1501,7 @@ export function WarmAppShell({
     setTripOpen(true);
   };
   if (!authReady) {
-    return (
-      <SafeAreaView style={[s.safe, { backgroundColor: theme.background, alignItems: "center", justifyContent: "center" }]}>
-        <Text style={{ color: theme.muted }}>계정을 확인하고 있어요…</Text>
-      </SafeAreaView>
-    );
+    return <FullScreenNotice theme={theme} busy title="계정을 확인하고 있어요…" />;
   }
   if (!user) {
     return <AuthScreen theme={theme} notice={authNotice} invited={Boolean(pendingInvite)} onAuth={(nextUser) => { setAuthNotice(""); setServerDataReady(false); setUser(nextUser); setAuthOffline(false); }} />;
@@ -1355,15 +1513,34 @@ export function WarmAppShell({
         user={user}
         scheduledAt={user.deletionScheduledAt}
         onCancelled={() => setUser((current) => (current ? { ...current, deletionScheduledAt: null } : current))}
-        onLogout={() => { void logout(); setServerDataReady(false); setUser(null); }}
+        onLogout={() => signOut()}
       />
     );
   }
   if (!serverDataReady && !authOffline) {
     return (
-      <SafeAreaView style={[s.safe, { backgroundColor: theme.background, alignItems: "center", justifyContent: "center" }]}>
-        <Text style={{ color: theme.muted }}>여행 공간을 불러오고 있어요…</Text>
-      </SafeAreaView>
+      <FullScreenNotice
+        theme={theme}
+        busy
+        title="여행 공간을 불러오고 있어요…"
+        onRetry={() => setSpacesReload((value) => value + 1)}
+      />
+    );
+  }
+  // 받아 둔 것도 없고 이번에도 못 받았다. 예시 공간으로 채우면 모르는 멤버와 남의
+  // 여행이 진짜처럼 보이고, 거기서 여행을 만들면 없는 공간에 보내 실패한다(2026-09-23).
+  if (serverDataError && spaces.length === 0) {
+    return (
+      <FullScreenNotice
+        theme={theme}
+        title="여행 공간을 불러오지 못했어요"
+        hint="인터넷 연결을 확인하고 다시 시도해 주세요."
+        onRetry={() => {
+          setServerDataReady(false);
+          setSpacesReload((value) => value + 1);
+        }}
+        onLogout={() => signOut()}
+      />
     );
   }
   if (serverDataReady && spaces.length === 0) {
@@ -1378,7 +1555,7 @@ export function WarmAppShell({
           setActiveGroupId(next.id as GroupId);
           setServerDataError(false);
         }}
-        onLogout={() => { void logout(); setServerDataReady(false); setUser(null); }}
+        onLogout={() => signOut()}
       />
     );
   }
@@ -1481,6 +1658,8 @@ export function WarmAppShell({
         onDeleteTrip={selectedTrip.id && activeSpace.myRole === "관리자" ? async () => {
           const tripId = selectedTrip.id as string;
           await deleteTrip(tripId);
+          // 여행이 사라지면 그 여행에서 꾸미던 카드도 갈 곳이 없다(2026-09-23).
+          void removeCardDrafts(tripId);
           setTripItems((current) => current.filter((trip) => trip.id !== tripId));
           setTripOpen(false);
         } : undefined}
@@ -1523,14 +1702,19 @@ export function WarmAppShell({
           </Text>
         </View>
       )}
-      {authOffline && (
+      {/* 같은 말을 하던 띠 둘을 하나로 모으고, 그 자리에서 다시 해 볼 수 있게 했다(2026-09-23). */}
+      {(authOffline || serverDataError) && (
         <View accessibilityLiveRegion="polite" style={[s.storageWarning, { backgroundColor: theme.accent }]}>
           <Text style={s.storageWarningText}>인터넷에 연결되지 않아 마지막으로 저장된 내용을 보여 줘요.</Text>
-        </View>
-      )}
-      {serverDataError && !authOffline && (
-        <View accessibilityLiveRegion="polite" style={[s.storageWarning, { backgroundColor: theme.accent }]}>
-          <Text style={s.storageWarningText}>인터넷에 연결되지 않아 마지막으로 저장된 내용을 보여 줘요.</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="다시 불러오기"
+            disabled={refreshing}
+            onPress={() => void refreshAll()}
+            style={s.storageWarningAction}
+          >
+            <Text style={s.storageWarningActionText}>{refreshing ? "불러오는 중…" : "다시 시도"}</Text>
+          </Pressable>
         </View>
       )}
       <View style={[s.body, { backgroundColor: "transparent" }]}>
@@ -1545,6 +1729,7 @@ export function WarmAppShell({
             trip={homeTrip}
             trips={tripItems}
             todayKey={todayKey}
+            canCreate={activeSpace.myRole !== "보기만"}
             spaceName={activeSpace.name}
             relationship={activeSpace.relationship}
             since={activeSpace.since}
@@ -1557,6 +1742,7 @@ export function WarmAppShell({
             items={tripItems}
             setItems={setTripItems}
             spaceMembers={activeSpaceMembers}
+            canCreate={activeSpace.myRole !== "보기만"}
             // 서버 공간일 때만 일정·메모를 적는다. 사람 표는 지금 멤버만(나간 사람은 뺀다).
             calendar={activeSpace.myMembershipId
               ? {
@@ -1625,12 +1811,7 @@ export function WarmAppShell({
             syncUser={syncMe}
             onEmailChangeRequested={() => setEmailWatch({ since: Date.now(), from: user.email })}
             openTrip={(trip) => openTrip("overview", trip)}
-            onLogout={() => {
-              void logout();
-              setServerDataReady(false);
-              setUser(null);
-              setAuthOffline(false);
-            }}
+            onLogout={() => signOut()}
             onWipe={wipeDevice}
             onMembersChanged={() => setSpacesReload((value) => value + 1)}
             onCreateSpace={async (name, relationshipType) => {
@@ -1641,11 +1822,8 @@ export function WarmAppShell({
             }}
             onJoinInvite={joinInvite}
             onAccountDeletionRequested={(scheduledAt) => {
-              // 서버가 이미 모든 기기를 로그아웃시켰다. 여기서는 화면만 정리한다.
-              setAuthNotice(deletionRequestedNotice(scheduledAt));
-              setServerDataReady(false);
-              setUser(null);
-              setAuthOffline(false);
+              // 모든 기기가 이미 로그아웃됐다. 이 기기에 남은 기록도 함께 정리한다.
+              signOut(deletionRequestedNotice(scheduledAt));
             }}
           />
         )}
@@ -1704,6 +1882,9 @@ function AuthScreen({
   const [providers, setProviders] = useState<SocialProvider[]>([]);
   // 같은 이메일로 가입한 계정이 있어 비밀번호로 연결해야 하는 중.
   const [linking, setLinking] = useState<{ token: string; provider: SocialProvider } | null>(null);
+  /** 방금 가입한 주소. 있으면 「확인 메일 다시 보내기」를 띄운다. */
+  const [verifyFor, setVerifyFor] = useState("");
+  const [resending, setResending] = useState(false);
   useEffect(() => {
     let alive = true;
     socialProviders().then((found) => {
@@ -1713,30 +1894,38 @@ function AuthScreen({
       alive = false;
     };
   }, []);
-  const authFormValid =
-    email.trim().includes("@") &&
-    password.length >= 8 &&
-    (mode === "login" || (Boolean(name.trim()) && password === confirm && termsAgreed && privacyAgreed && ageAgreed));
+  /**
+   * 아직 채우지 않은 것 한 줄. 없으면 버튼을 누를 수 있다.
+   *
+   * 2026-09-23 까지는 같은 검사가 `submit` 안에만 있었는데, 버튼이 흐릴 때는 그
+   * `submit` 이 아예 불리지 않아 죽은 코드였다. 비밀번호 확인이 한 글자 다르거나
+   * 동의를 빠뜨린 사람은 흐린 버튼만 보고 멈췄다.
+   */
+  const 남은_조건 =
+    mode === "signup" && !name.trim()
+      ? "앱에서 사용할 이름을 입력해 주세요"
+      : !email.trim()
+        ? "이메일을 입력해 주세요"
+        : !isEmailLike(email)
+          ? "이메일 주소를 확인해 주세요"
+          : !password
+            ? "비밀번호를 입력해 주세요"
+            : password.length < PASSWORD_MIN_LENGTH
+              ? `비밀번호를 ${PASSWORD_MIN_LENGTH}자 이상 입력해 주세요`
+              : password.length > PASSWORD_MAX_LENGTH
+                ? `비밀번호는 ${PASSWORD_MAX_LENGTH}자까지 쓸 수 있어요`
+                : mode === "login"
+                  ? ""
+                  : password !== confirm
+                    ? "비밀번호 확인이 서로 달라요"
+                    : !(termsAgreed && privacyAgreed && ageAgreed)
+                      ? "필수 약관에 동의해 주세요"
+                      : "";
+  const authFormValid = !남은_조건;
   const submit = async () => {
     const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail.includes("@")) {
-      setError("이메일 주소를 확인해 주세요.");
-      return;
-    }
-    if (password.length < 8) {
-      setError("비밀번호는 8자 이상 입력해 주세요.");
-      return;
-    }
-    if (mode === "signup" && !name.trim()) {
-      setError("앱에서 사용할 이름을 입력해 주세요.");
-      return;
-    }
-    if (mode === "signup" && password !== confirm) {
-      setError("비밀번호가 서로 달라요.");
-      return;
-    }
-    if (mode === "signup" && (!termsAgreed || !privacyAgreed || !ageAgreed)) {
-      setError("필수 약관에 동의해 주세요.");
+    if (남은_조건) {
+      setError(`${남은_조건}.`);
       return;
     }
     setError("");
@@ -1748,11 +1937,14 @@ function AuthScreen({
         setMode("login");
         setPassword("");
         setConfirm("");
-        // 로그인은 확인 전에도 된다. 확인은 초대 참여처럼 이메일 소유가 필요한 곳에서 쓴다.
-        setNotice("가입을 마쳤어요. 보내 드린 메일의 링크로 이메일을 확인한 뒤 로그인해 주세요.");
+        setVerifyFor(normalizedEmail);
+        // 로그인은 이메일 확인 전에도 된다. 확인은 초대 참여처럼 이메일 소유가 필요한
+        // 곳에서만 쓴다. 예전 안내는 「확인한 뒤 로그인해 주세요」라 실제와 달랐다.
+        setNotice("가입을 마쳤어요. 이제 로그인할 수 있어요. 메일의 링크로 이메일 확인까지 마치면 초대로 들어온 공간에도 참여할 수 있어요.");
         return;
       }
       const result = await login(normalizedEmail, password);
+      setVerifyFor("");
       onAuth(result.user);
       if (result.endedDevices.length > 0) {
         showAlert("다른 기기에서 로그아웃됐어요", `한 계정은 기기 ${MAX_DEVICES}대까지 쓸 수 있어, 가장 오래 쓰지 않은 기기를 로그아웃했어요.`);
@@ -1769,6 +1961,21 @@ function AuthScreen({
     setNotice("");
     setPassword("");
     setConfirm("");
+    setVerifyFor("");
+  };
+  /** 가입 직후 확인 메일을 다시 보낸다. 메일이 스팸함에 가면 여기 말고는 길이 없었다. */
+  const resendVerification = async () => {
+    if (!verifyFor || resending) return;
+    setResending(true);
+    setError("");
+    try {
+      await resendEmailVerification(verifyFor);
+      setNotice("확인 메일을 다시 보냈어요. 메일함과 스팸함을 확인해 주세요.");
+    } catch (caught) {
+      setError(caught instanceof DaymoApiError ? caught.message : "확인 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setResending(false);
+    }
   };
   const signedIn = (result: { user: DaymoUser; endedDevices: unknown[] }) => {
     onAuth(result.user);
@@ -1776,6 +1983,8 @@ function AuthScreen({
       showAlert("다른 기기에서 로그아웃됐어요", `한 계정은 기기 ${MAX_DEVICES}대까지 쓸 수 있어, 가장 오래 쓰지 않은 기기를 로그아웃했어요.`);
     }
   };
+  // 안드로이드는 live region 으로 읽지만 iOS VoiceOver 는 읽지 않는다. 함께 알린다.
+  useSpokenNotice(error || notice);
   const startOAuth = async (provider: SocialProvider) => {
     setOauthLoading(provider);
     setError("");
@@ -1840,14 +2049,68 @@ function AuthScreen({
               {mode === "login" ? "초대를 받아 오셨어요. 로그인하면 바로 참여해요." : "초대를 받아 오셨어요. 가입하고 메일을 확인하면 바로 참여해요."}
             </Text>
           )}
+          {/* 자동 완성 값은 iOS 키체인·구글 비밀번호 관리자·삼성 패스가 읽는다. 없으면
+              채워 주지도, 강한 비밀번호를 제안하지도 않는다(2026-09-23). */}
           {mode === "signup" && (
-            <Field theme={theme} label="이름 또는 별명" value={name} onChangeText={setName} placeholder="예: 하늘" autoCapitalize="none" />
+            <Field
+              theme={theme}
+              label="이름 또는 별명"
+              value={name}
+              onChangeText={setName}
+              placeholder="예: 하늘"
+              autoCapitalize="none"
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+            />
           )}
-          <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
-          <Field theme={theme} label="비밀번호" value={password} onChangeText={setPassword} placeholder="8자 이상 입력" secureTextEntry />
+          <Field
+            theme={theme}
+            label="이메일"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="name@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+          />
+          <Field
+            theme={theme}
+            label="비밀번호"
+            value={password}
+            onChangeText={setPassword}
+            placeholder={`${PASSWORD_MIN_LENGTH}자 이상 입력`}
+            secureTextEntry
+            maxLength={PASSWORD_MAX_LENGTH}
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            textContentType={mode === "login" ? "password" : "newPassword"}
+            returnKeyType={mode === "login" ? "done" : "next"}
+            onSubmitEditing={mode === "login" ? () => void submit() : undefined}
+          />
           {mode === "signup" && (
-            <Field theme={theme} label="비밀번호 확인" value={confirm} onChangeText={setConfirm} placeholder="한 번 더 입력" secureTextEntry />
+            <Field
+              theme={theme}
+              label="비밀번호 확인"
+              value={confirm}
+              onChangeText={setConfirm}
+              placeholder="한 번 더 입력"
+              secureTextEntry
+              maxLength={PASSWORD_MAX_LENGTH}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="done"
+              onSubmitEditing={() => void submit()}
+            />
           )}
+          {/* 확인이 다른 것은 버튼까지 내려가기 전에 칸 아래에서 바로 알린다. */}
+          {mode === "signup" && confirm.length > 0 && password !== confirm ? (
+            <Text style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>
+              비밀번호가 서로 달라요.
+            </Text>
+          ) : null}
           {mode === "signup" && (
             <View style={[s.authConsentList, { borderColor: theme.border }]}>
               <Pressable
@@ -1909,6 +2172,23 @@ function AuthScreen({
           ) : null}
           {notice ? (
             <Text accessibilityLiveRegion="polite" style={[s.authError, { color: theme.primary }]}>{notice}</Text>
+          ) : null}
+          {verifyFor ? (
+            <Pressable
+              onPress={() => void resendVerification()}
+              disabled={resending}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: resending, busy: resending }}
+              style={s.authSwitch}
+            >
+              <Text style={[s.authSwitchText, { color: theme.primary }]}>
+                {resending ? "보내는 중…" : "확인 메일 다시 보내기"}
+              </Text>
+            </Pressable>
+          ) : null}
+          {/* 버튼이 흐린 까닭. 누르기 전에는 무엇이 모자란지 알 수 없었다(2026-09-23). */}
+          {남은_조건 && !loading ? (
+            <Text style={[s.authHint, { color: theme.muted }]}>{남은_조건}</Text>
           ) : null}
           <Pressable
             onPress={submit}
@@ -2018,6 +2298,7 @@ function LinkSocialCard({
   const [error, setError] = useState("");
   const name = socialProviderName[provider];
   const ready = password.length > 0 && !loading;
+  useSpokenNotice(error);
   const submit = async () => {
     if (!ready) return;
     setLoading(true);
@@ -2037,7 +2318,19 @@ function LinkSocialCard({
       <Text style={[s.authDescription, { color: theme.muted }]}>
         이 이메일로 만든 Daymo 계정이 이미 있어요. 그 계정의 비밀번호를 입력하면 {name} 계정과 연결되고, 다음부터는 {name}로 바로 로그인할 수 있어요.
       </Text>
-      <Field theme={theme} label="Daymo 비밀번호" value={password} onChangeText={setPassword} placeholder="가입할 때 정한 비밀번호" secureTextEntry />
+      <Field
+        theme={theme}
+        label="Daymo 비밀번호"
+        value={password}
+        onChangeText={setPassword}
+        placeholder="가입할 때 정한 비밀번호"
+        secureTextEntry
+        maxLength={PASSWORD_MAX_LENGTH}
+        autoComplete="current-password"
+        textContentType="password"
+        returnKeyType="done"
+        onSubmitEditing={() => void submit()}
+      />
       {error ? (
         <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text>
       ) : null}
@@ -2073,7 +2366,8 @@ function ForgotPasswordCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
-  const ready = email.trim().includes("@") && !loading;
+  const ready = isEmailLike(email) && !loading;
+  useSpokenNotice(error || (sent ? "가입한 주소라면 곧 메일이 도착해요." : ""));
   const submit = async () => {
     if (!ready) return;
     setLoading(true);
@@ -2093,7 +2387,20 @@ function ForgotPasswordCard({
       <Text style={[s.authDescription, { color: theme.muted }]}>
         가입한 이메일로 재설정 링크를 보내 드려요. 링크는 30분 동안 쓸 수 있어요.
       </Text>
-      <Field theme={theme} label="이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+      <Field
+        theme={theme}
+        label="이메일"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="name@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        textContentType="emailAddress"
+        returnKeyType="send"
+        onSubmitEditing={() => void submit()}
+      />
       {error ? (
         <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: theme.dark ? statusColor.danger.dark : statusColor.danger.light }]}>{error}</Text>
       ) : null}
@@ -2202,6 +2509,7 @@ function AccountDeletionPanel({
   const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
   const ready = understood && password.length > 0 && !loading;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  useSpokenNotice(error);
   const request = async (confirm: { password: string } | { provider: SocialProvider }) => {
     setLoading(true);
     setError("");
@@ -2209,10 +2517,13 @@ function AccountDeletionPanel({
       const state = await requestAccountDeletion(confirm);
       onRequested(state.scheduledAt);
     } catch (caught) {
-      // 다른 멤버가 있는 공간의 관리자면 서버가 공간 이름을 담아 알려 준다.
+      // 다른 멤버가 있는 공간의 관리자면 공간 이름을 담은 까닭이 온다.
       if (!isReconfirmCancelled(caught)) {
         setError(caught instanceof DaymoApiError ? caught.message : "계정 삭제를 요청하지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
+    } finally {
+      // 예전에는 catch 에서만 풀어서, 성공한 뒤 화면이 남아 있으면 「요청하는 중…」이
+      // 끝나지 않았다(2026-09-23).
       setLoading(false);
     }
   };
@@ -2399,9 +2710,10 @@ function PasswordChangeForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
-  const nextValid = next.length >= 8 && next === again;
+  const nextValid = next.length >= PASSWORD_MIN_LENGTH && next.length <= PASSWORD_MAX_LENGTH && next === again;
   const ready = nextValid && (socialOnly || current.length > 0) && !loading;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  useSpokenNotice(error);
   const submit = async (confirm: Reconfirm) => {
     setLoading(true);
     setError("");
@@ -2410,13 +2722,38 @@ function PasswordChangeForm({
       onChanged(socialOnly ? "비밀번호를 만들었어요. 이제 이메일로도 로그인할 수 있어요." : "비밀번호를 바꿨어요. 다른 기기에서는 로그아웃됐어요.");
     } catch (caught) {
       if (!isReconfirmCancelled(caught)) setError(accountChangeError(caught, "비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요."));
+    } finally {
       setLoading(false);
     }
   };
   return (
     <View style={{ marginTop: 12 }}>
-      <Field theme={theme} label="새 비밀번호 · 8자 이상" value={next} onChangeText={setNext} placeholder="8자 이상 입력" secureTextEntry autoCapitalize="none" />
-      <Field theme={theme} label="새 비밀번호 한 번 더" value={again} onChangeText={setAgain} placeholder="같은 비밀번호" secureTextEntry autoCapitalize="none" />
+      <Field
+        theme={theme}
+        label={`새 비밀번호 · ${PASSWORD_MIN_LENGTH}자 이상`}
+        value={next}
+        onChangeText={setNext}
+        placeholder={`${PASSWORD_MIN_LENGTH}자 이상 입력`}
+        secureTextEntry
+        autoCapitalize="none"
+        maxLength={PASSWORD_MAX_LENGTH}
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="next"
+      />
+      <Field
+        theme={theme}
+        label="새 비밀번호 한 번 더"
+        value={again}
+        onChangeText={setAgain}
+        placeholder="같은 비밀번호"
+        secureTextEntry
+        autoCapitalize="none"
+        maxLength={PASSWORD_MAX_LENGTH}
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="done"
+      />
       {again.length > 0 && next !== again ? (
         <Text style={[s.authError, { color: danger }]}>두 비밀번호가 달라요.</Text>
       ) : null}
@@ -2460,9 +2797,10 @@ function EmailChangeForm({
   const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
   const trimmed = email.trim();
   const same = trimmed.toLowerCase() === user.email.toLowerCase();
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) && !same;
+  const emailValid = isEmailLike(trimmed) && !same;
   const ready = emailValid && (socialOnly || password.length > 0) && !loading;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  useSpokenNotice(error);
   const submit = async (confirm: Reconfirm) => {
     setLoading(true);
     setError("");
@@ -2471,12 +2809,25 @@ function EmailChangeForm({
       onSent("새 주소로 보낸 메일의 링크를 누르면 바뀌어요. 링크는 30분 동안 쓸 수 있어요.");
     } catch (caught) {
       if (!isReconfirmCancelled(caught)) setError(accountChangeError(caught, "확인 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요."));
+    } finally {
       setLoading(false);
     }
   };
   return (
     <View style={{ marginTop: 12 }}>
-      <Field theme={theme} label="새 이메일" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" />
+      <Field
+        theme={theme}
+        label="새 이메일"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="name@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="email"
+        textContentType="emailAddress"
+        returnKeyType="done"
+      />
       {same ? <Text style={[s.authError, { color: danger }]}>지금 쓰는 이메일과 같아요.</Text> : null}
       <Text style={[s.sheetCopy, { color: theme.muted }]}>새 주소로 확인 메일을 보내요. 메일의 링크를 누르기 전까지는 지금 이메일 그대로예요.</Text>
       <ReconfirmField
@@ -2528,6 +2879,7 @@ function DeletionPendingScreen({
   const label = deletionDateLabel(scheduledAt);
   const socialOnly = user.hasPassword === false && (user.linkedProviders ?? []).length > 0;
   const ready = password.length > 0 && !loading;
+  useSpokenNotice(error);
   const cancel = async (confirm: { password: string } | { provider: SocialProvider }) => {
     setLoading(true);
     setError("");
@@ -2538,6 +2890,7 @@ function DeletionPendingScreen({
       if (!isReconfirmCancelled(caught)) {
         setError(caught instanceof DaymoApiError ? caught.message : "삭제를 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
+    } finally {
       setLoading(false);
     }
   };
@@ -2590,11 +2943,14 @@ function NotebookHome({
   trip,
   trips,
   todayKey,
+  canCreate = true,
   spaceName,
   relationship,
   since,
 }: {
   open: (destination?: TripDetailDestination, trip?: Trip) => void;
+  /** 여행을 만들 수 있는지. 보기 전용 멤버에게는 빈 화면의 만들기 버튼을 보여 주지 않는다. */
+  canCreate?: boolean;
   /** 옆으로 미는 동안 알린다. 그동안 홈 화면은 세로로 움직이지 않는다. */
   onDragging?: (미는_중: boolean) => void;
   goTrips: () => void;
@@ -2750,16 +3106,22 @@ function NotebookHome({
           >
             <Glyph name="plus" size={20} color={theme.primary} weight={2.2} />
           </View>
-          <Text style={[s.homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어볼까요?</Text>
-          <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요.</Text>
-          <Pressable
-            onPress={goTrips}
-            accessibilityRole="button"
-            accessibilityLabel="새 여행 만들기"
-            style={[s.homeEmptyTripAction, { backgroundColor: theme.primary }]}
-          >
-            <Text style={[s.homeEmptyTripActionText, { color: onAccent(theme.dark) }]}>새 여행 만들기</Text>
-          </Pressable>
+          <Text style={[s.homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어 볼까요?</Text>
+          <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>
+            {canCreate
+              ? "여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요."
+              : "보기 전용 멤버는 여행을 만들 수 없어요. 관리자에게 권한을 부탁해 주세요."}
+          </Text>
+          {canCreate && (
+            <Pressable
+              onPress={goTrips}
+              accessibilityRole="button"
+              accessibilityLabel="새 여행 만들기"
+              style={[s.homeEmptyTripAction, { backgroundColor: theme.primary }]}
+            >
+              <Text style={[s.homeEmptyTripActionText, { color: onAccent(theme.dark) }]}>새 여행 만들기</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </ScrollView>
@@ -3345,7 +3707,10 @@ function TripsExplorer({
   onCreateTrip,
   deletedTrips,
   calendar,
+  canCreate = true,
 }: {
+  /** 여행을 만들 수 있는지. 보기 전용 멤버에게는 만들기 진입점을 보여 주지 않는다. */
+  canCreate?: boolean;
   /**
    * 캘린더의 일정·메모를 쓰는 데 필요한 것. 서버 공간일 때만 있다.
    *
@@ -3406,8 +3771,12 @@ function TripsExplorer({
         if (!alive) return;
         setTrash(받은.items);
         setTrashCursor(받은.nextCursor);
+        setTrashMessage("");
       })
-      .catch(() => undefined);
+      // 예전에는 조용히 넘어가 「지운 여행이 없어요」와 구별되지 않았다(2026-09-23).
+      .catch(() => {
+        if (alive) setTrashMessage("휴지통을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+      });
     return () => {
       alive = false;
     };
@@ -3439,6 +3808,8 @@ function TripsExplorer({
   const [calendarNotes, setCalendarNotes] = useState<CalendarNote[]>([]);
   /** 적는 창. 새로 적을 때는 날짜만, 고칠 때는 그 줄을 든다. */
   const [noteSheet, setNoteSheet] = useState<{ day: string; editing: CalendarNote | null } | null>(null);
+  /** 일정·메모를 못 받았을 때의 한 줄. 여행만 보이는 까닭을 알린다. */
+  const [calendarError, setCalendarError] = useState("");
   const calendarSpaceId = calendar?.spaceId;
   useEffect(() => {
     if (display !== "캘린더" || !calendarSpaceId) return;
@@ -3447,9 +3818,14 @@ function TripsExplorer({
     // 받지 못하면 여행만 보인다. 캘린더를 열거나 달을 넘길 때마다 다시 해 본다.
     listCalendarNotes(calendarSpaceId, from, to)
       .then((받은) => {
-        if (alive) setCalendarNotes(받은);
+        if (!alive) return;
+        setCalendarNotes(받은);
+        setCalendarError("");
       })
-      .catch(() => undefined);
+      // 못 받으면 여행만 보인다. 그 사실을 알리지 않으면 적어 둔 것이 사라진 줄 안다.
+      .catch(() => {
+        if (alive) setCalendarError("일정·메모를 불러오지 못했어요. 달을 다시 넘기면 한 번 더 시도해요.");
+      });
     return () => {
       alive = false;
     };
@@ -3476,8 +3852,15 @@ function TripsExplorer({
   };
   const [creating, setCreating] = useState(false);
   const [place, setPlace] = useState("");
-  const [tripStart, setTripStart] = useState("2026-09-12");
-  const [tripEnd, setTripEnd] = useState("2026-09-14");
+  /**
+   * 새 여행의 기본 기간. 오늘과 이틀 뒤다.
+   *
+   * 2026-09-23 까지는 `"2026-09-12"` 처럼 날짜가 박혀 있었다. 오늘보다 앞선 날로
+   * 시작해, 그대로 만들면 지난 여행이 되어 홈에 뜨지 않았다. 두 번째 여행부터는
+   * 직전 여행의 날짜가 기본값으로 남는 문제도 함께 있었다(`openCreator` 참고).
+   */
+  const [tripStart, setTripStart] = useState(initialDateKey);
+  const [tripEnd, setTripEnd] = useState(기본_마지막_날(initialDateKey));
   const [note, setNote] = useState("");
   // 한 줄 메모는 적지 않고 만드는 여행이 더 많다. 접어 두고 「＋ 한 줄 메모 더 적기」로 편다.
   const [noteOpen, setNoteOpen] = useState(false);
@@ -3488,19 +3871,30 @@ function TripsExplorer({
   const [showAllRegions, setShowAllRegions] = useState(false);
   const [createError, setCreateError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  const openCreator = () => {
+  /**
+   * 새 여행 시트를 연다. 날짜는 열 때마다 오늘 기준으로 되돌린다.
+   *
+   * 되돌리지 않으면 두 번째 여행부터 직전 여행의 날짜가 그대로 남는다(2026-09-23).
+   * 날짜를 고르고 들어온 길(`createFromDate`)은 그 날짜를 준다.
+   */
+  const openCreator = (from?: string) => {
+    if (!canCreate) return;
+    setTripStart(from ?? initialDateKey);
+    setTripEnd(from ?? 기본_마지막_날(initialDateKey));
     // 공간을 바꾸면 멤버도 바뀐다. 열 때마다 그 공간의 전원으로 되돌린다.
     setNewPeople(spaceMembers);
     setCreating(true);
   };
   useEffect(() => {
     if (!openCreatorOnMount) return;
-    // 홈의 빠른 추가 요청이 바뀔 때 이미 열린 여행 화면의 시트를 동기화한다.
+    // 홈의 빠른 추가 요청이 바뀔 때 이미 열린 여행 화면의 시트를 맞춘다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNewPeople(spaceMembers);
+    setTripStart(initialDateKey);
+    setTripEnd(기본_마지막_날(initialDateKey));
     setCreating(true);
     onCreatorOpened?.();
-  }, [openCreatorOnMount, onCreatorOpened, spaceMembers]);
+  }, [openCreatorOnMount, onCreatorOpened, spaceMembers, initialDateKey]);
   const showDisplay = (nextDisplay: TripView) => {
     setDisplay(nextDisplay);
     if (nextDisplay === "캘린더" && !selectedDate) {
@@ -3529,6 +3923,7 @@ function TripsExplorer({
         (trip) => selectedDate >= trip.start && selectedDate <= trip.end,
       )
     : [];
+  useSpokenNotice(createError || trashMessage || calendarError);
   const tripDateValid = tripStart <= tripEnd;
   const addTrip = async () => {
     if (!place.trim() || !tripDateValid || !newPeople.length || createLoading) return;
@@ -3549,6 +3944,8 @@ function TripsExplorer({
       setNote("");
       setNoteOpen(false);
       setNewPeople(spaceMembers);
+      setTripStart(initialDateKey);
+      setTripEnd(기본_마지막_날(initialDateKey));
       setCreating(false);
       setShowAllRegions(false);
       setSelectedRegion(null);
@@ -3560,13 +3957,7 @@ function TripsExplorer({
       setCreateLoading(false);
     }
   };
-  const createFromDate = () => {
-    if (selectedDate) {
-      setTripStart(selectedDate);
-      setTripEnd(selectedDate);
-    }
-    openCreator();
-  };
+  const createFromDate = () => openCreator(selectedDate ?? undefined);
   const explorerHead = (
     <>
       <View style={s.screenHead}>
@@ -3590,18 +3981,22 @@ function TripsExplorer({
               <Text style={[s.newTripText, { color: theme.primary }]}>카톡 공지로 채우기</Text>
             </Pressable>
           )}
-          <Pressable
-            onPress={openCreator}
-            accessibilityRole="button"
-            accessibilityLabel="새 여행 만들기"
-            style={({ pressed }) => [
-              s.newTrip,
-              { backgroundColor: theme.primary },
-              pressed && s.pressed,
-            ]}
-          >
-            <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>＋ 새 여행</Text>
-          </Pressable>
+          {/* 보기 전용 멤버는 서버가 막는다. 눌러도 「만들지 못했어요」만 떠서 까닭을
+              알 수 없었다(2026-09-23). 아예 보여 주지 않는다. */}
+          {canCreate && (
+            <Pressable
+              onPress={() => openCreator()}
+              accessibilityRole="button"
+              accessibilityLabel="새 여행 만들기"
+              style={({ pressed }) => [
+                s.newTrip,
+                { backgroundColor: theme.primary },
+                pressed && s.pressed,
+              ]}
+            >
+              <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>＋ 새 여행</Text>
+            </Pressable>
+          )}
         </View>
       </View>
       <View
@@ -3822,19 +4217,26 @@ function TripsExplorer({
                   >
                     이날은 아직 여행이 없어요
                   </Text>
-                  <Pressable
-                    accessibilityRole="button" onPress={createFromDate}>
-                    <Text
-                      style={[
-                        s.emptyDateAction,
-                        { color: theme.secondary },
-                      ]}
-                    >
-                      ＋ 이 날짜로 여행 만들기
-                    </Text>
-                  </Pressable>
+                  {canCreate && (
+                    <Pressable
+                      accessibilityRole="button" onPress={createFromDate}>
+                      <Text
+                        style={[
+                          s.emptyDateAction,
+                          { color: theme.secondary },
+                        ]}
+                      >
+                        ＋ 이 날짜로 여행 만들기
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               )}
+              {calendarError ? (
+                <Text accessibilityLiveRegion="polite" style={[s.calNoteMeta, { color: theme.muted, marginTop: 8 }]}>
+                  {calendarError}
+                </Text>
+              ) : null}
               {/* 그날의 일정·메모. 여행 아래에 둔다. 누르면 고친다(고칠 수 없으면 보기만). */}
               {notesOnDay(calendarNotes, selectedDate).map((note) => {
                 const 색 = note.kind === "memo" ? MEMO_COLOR : personColor(note.membershipId, calendar?.members ?? []);
@@ -5560,10 +5962,13 @@ function Together({
             <Text style={[s.historyEyebrow, { color: theme.primary }]}>멤버</Text>
             <Text style={[s.memberSectionTitle, { color: theme.text }]}>함께하는 멤버</Text>
           </View>
+          {/* 2026-09-23: `onPress` 가 없어 눌러도 아무 일이 없었다. 멤버 띠·「빠른 관리」에
+              같은 길이 있지만, 제목 오른쪽의 이 자리가 가장 먼저 눈에 띄어 남긴다. */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="멤버 관리"
             hitSlop={12}
+            onPress={() => setPanel("members")}
             style={s.memberManageHit}
           >
             <Text style={[s.memberManageText, { color: theme.primary }]}>관리</Text>
@@ -6167,10 +6572,15 @@ function Together({
               editable={canEdit}
             />
             {/* 연인 공간에서만 "함께한 지 N일째" 를 센다. 친구·가족 공간에는
-                쓸 데가 없어서 자리만 차지한다. 날짜 고르기는 관리자에게만 연다. */}
+                쓸 데가 없어서 자리만 차지한다. 날짜 고르기는 관리자에게만 연다.
+                하루만 고르는 자리라 `single` 이다. 기간용으로 쓰던 2026-09-23 까지는
+                「마지막 날을 선택해 주세요」와 「0박」이 떠서 무엇을 더 골라야 하는지
+                알 수 없었고, 아직 날을 적지 않은 새 공간에서는 달력이 NaN 으로 깨졌다. */}
             {relationship === "연인" && canEdit && (
               <TripDateRangePicker
                 theme={theme}
+                mode="single"
+                summaryLabel="함께하기 시작한 날"
                 start={since}
                 end={since}
                 setStart={(value) => updateActiveSpace({ since: value })}
@@ -6384,20 +6794,22 @@ function Setting({
   );
 }
 
+/**
+ * 라벨 한 줄과 입력 칸.
+ *
+ * `TextInputProps` 를 통째로 받는다. 예전에는 넷만 받아서 `autoComplete`·
+ * `textContentType`·`returnKeyType` 을 줄 수 없었고, 그래서 iOS 키체인·구글 비밀번호
+ * 관리자·삼성 패스가 로그인 칸을 채워 주지 못했다(2026-09-23).
+ */
 function Field({
   theme,
   label,
   ...props
-}: {
+}: TextInputProps & {
   theme?: AppTheme;
   label: string;
   value: string;
   onChangeText: (text: string) => void;
-  placeholder?: string;
-  secureTextEntry?: TextInputProps["secureTextEntry"];
-  keyboardType?: TextInputProps["keyboardType"];
-  autoCapitalize?: TextInputProps["autoCapitalize"];
-  editable?: TextInputProps["editable"];
 }) {
   return (
     <View style={s.field}>
@@ -6512,6 +6924,7 @@ function SpaceDeletionPanel({
   const [error, setError] = useState("");
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
   const ready = understood && typed.trim() === spaceName.trim() && !loading;
+  useSpokenNotice(error);
   const submit = async () => {
     if (!ready) return;
     setLoading(true);
@@ -6520,6 +6933,7 @@ function SpaceDeletionPanel({
       await onDelete(typed.trim());
     } catch (caught) {
       setError(caught instanceof DaymoApiError ? caught.message : "공간을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
       setLoading(false);
     }
   };
@@ -6574,6 +6988,8 @@ function SpaceExtras({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [deleted, setDeleted] = useState<{ id: string; name: string; deletionScheduledAt: string }[]>([]);
+  /** 되돌리는 중인 공간. 연타하면 같은 요청이 두 번 나간다(2026-09-23). */
+  const [restoring, setRestoring] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     listDeletedSpaces()
@@ -6586,6 +7002,7 @@ function SpaceExtras({
     };
   }, []);
   const fail = (caught: unknown) => setError(caught instanceof DaymoApiError ? caught.message : "잠시 후 다시 시도해 주세요.");
+  useSpokenNotice(error);
   const create = async () => {
     if (!name.trim() || busy) return;
     setBusy(true);
@@ -6594,6 +7011,7 @@ function SpaceExtras({
       await onCreate(name.trim(), relationshipType);
     } catch (caught) {
       fail(caught);
+    } finally {
       setBusy(false);
     }
   };
@@ -6636,11 +7054,20 @@ function SpaceExtras({
                 accessibilityRole="button"
                 accessibilityLabel={`${space.name} 되돌리기`}
                 hitSlop={8}
+                disabled={restoring !== null}
                 onPress={() => {
-                  restoreSpace(space.id).then(() => onRestored(space.id)).catch(fail);
+                  if (restoring) return;
+                  setRestoring(space.id);
+                  restoreSpace(space.id)
+                    .then(() => onRestored(space.id))
+                    .catch(fail)
+                    .finally(() => setRestoring(null));
                 }}
+                style={restoring === space.id && s.authSubmitDisabled}
               >
-                <Text style={[s.accountLogoutText, { color: theme.primary }]}>되돌리기</Text>
+                <Text style={[s.accountLogoutText, { color: theme.primary }]}>
+                  {restoring === space.id ? "되돌리는 중…" : "되돌리기"}
+                </Text>
               </Pressable>
             </View>
           ))}
@@ -6981,6 +7408,7 @@ function InviteSection({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [link, setLink] = useState("");
+  useSpokenNotice(error || message);
 
   useEffect(() => {
     if (!spaceId || !canInvite) return;
@@ -6989,7 +7417,10 @@ function InviteSection({
       .then((found) => {
         if (active) setInvites(found);
       })
-      .catch(() => undefined);
+      // 조용히 넘어가면 만들어 둔 링크가 없어진 것처럼 보인다(2026-09-23).
+      .catch(() => {
+        if (active) setError("초대 링크 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+      });
     return () => {
       active = false;
     };
@@ -7009,8 +7440,11 @@ function InviteSection({
       setBusy(false);
       const url = invite.inviteUrl ?? "";
       // 공유 창이 닫힐 때까지 기다리지 않는다. 링크 원문은 지금만 받을 수 있어 먼저 복사해 둔다.
-      await Clipboard.setStringAsync(url).catch(() => undefined);
-      setMessage("초대 링크를 만들고 복사해 뒀어요. 7일 동안 10명까지 들어올 수 있어요.");
+      // 복사가 막혀도 「복사해 뒀어요」라고 하던 자리다(2026-09-23).
+      const 복사됐다 = await Clipboard.setStringAsync(url).then(() => true, () => false);
+      setMessage(복사됐다
+        ? "초대 링크를 만들고 복사해 뒀어요. 7일 동안 10명까지 들어올 수 있어요."
+        : "초대 링크를 만들었어요. 복사가 막혀 있어 공유 창에서 보내 주세요. 7일 동안 10명까지 들어올 수 있어요.");
       Share.share({ message: `Daymo 여행 공간에 초대해요. 7일 안에 열어 주세요.
 ${url}` }).catch(() => undefined);
     } catch (caught) {
@@ -7019,8 +7453,11 @@ ${url}` }).catch(() => undefined);
     }
   };
 
+  /** 삭제 중인 초대. 연타하면 같은 요청이 두 번 나가 두 번째가 404 로 실패했다(2026-09-23). */
+  const [revoking, setRevoking] = useState<string | null>(null);
   const revoke = async (invite: ServerInvite) => {
-    if (!spaceId) return;
+    if (!spaceId || revoking) return;
+    setRevoking(invite.id);
     setError("");
     try {
       await revokeInvite(spaceId, invite.id);
@@ -7028,6 +7465,8 @@ ${url}` }).catch(() => undefined);
       setMessage("초대 링크를 삭제했어요. 이제 그 링크로는 들어올 수 없어요.");
     } catch (caught) {
       fail(caught);
+    } finally {
+      setRevoking(null);
     }
   };
 
@@ -7073,8 +7512,15 @@ ${url}` }).catch(() => undefined);
                 {inviteDeadline(invite.expiresAt)} · {invite.usedCount}/{invite.maxUses}명 참여
               </Text>
               {(isOwner || invite.createdByMembershipId === myMembershipId) && (
-                <Pressable accessibilityRole="button" accessibilityLabel="초대 링크 삭제" onPress={() => void revoke(invite)}>
-                  <Text style={s.accountDeleteText}>삭제</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="초대 링크 삭제"
+                  hitSlop={8}
+                  disabled={revoking !== null}
+                  onPress={() => void revoke(invite)}
+                  style={revoking === invite.id && s.authSubmitDisabled}
+                >
+                  <Text style={s.accountDeleteText}>{revoking === invite.id ? "삭제하는 중…" : "삭제"}</Text>
                 </Pressable>
               )}
             </View>
@@ -7288,8 +7734,10 @@ function Choice({
  */
 const s = StyleSheet.create({
   body: { flex: 1 },
-  storageWarning: { paddingHorizontal: 16, paddingVertical: 8 },
-  storageWarningText: { color: "#FFFFFF", fontSize: 12, lineHeight: 17, fontFamily: typo.body.family },
+  storageWarning: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 8 },
+  storageWarningText: { flex: 1, color: "#FFFFFF", fontSize: 12, lineHeight: 17, fontFamily: typo.body.family },
+  storageWarningAction: { minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 여백.가로 },
+  storageWarningActionText: { color: "#FFFFFF", fontSize: 12, lineHeight: 17, fontFamily: typo.label.family, textDecorationLine: "underline" },
   page: { padding: 20, paddingBottom: 112 },
   tripArt: {
     width: 121,
@@ -8471,6 +8919,18 @@ const s = StyleSheet.create({
   authDividerLine: { flex: 1, height: 1 },
   authDividerText: { fontSize: 12, fontFamily: typo.label.family, marginHorizontal: 8 },
   authError: { fontSize: 13, fontFamily: typo.label.family, marginTop: 2 },
+  // 버튼이 흐린 까닭을 버튼 바로 위에 한 줄로. 누르기 전에는 눌러도 되는지 알 수 없었다.
+  authHint: { fontSize: 12, lineHeight: 17, fontFamily: typo.label.family, marginTop: 8, textAlign: "center" },
+  fullNoticeTitle: { fontSize: 14, lineHeight: 20, fontFamily: typo.label.family, textAlign: "center" },
+  fullNoticeHint: { fontSize: 12, lineHeight: 18, fontFamily: typo.body.family, textAlign: "center", marginTop: 6 },
+  fullNoticeButton: {
+    height: 높이.버튼,
+    borderRadius: 모서리.버튼,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
   authSubmit: {
     height: 높이.저장,
     borderRadius: 모서리.버튼,

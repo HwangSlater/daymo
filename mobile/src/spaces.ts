@@ -53,36 +53,21 @@ export type Space = {
   myMembershipId?: string;
 };
 
-export const defaultSpaces: Space[] = [
-  {
-    id: "ours",
-    name: "우리의 여행 공간",
-    members: [{ name: "다온", role: "편집 가능" }],
-    relationship: "연인",
-    since: "2023-10-20",
-  },
-  {
-    id: "friends",
-    name: "주말 여행 메이트",
-    members: [
-      { name: "여울", role: "편집 가능" },
-      { name: "가람", role: "편집 가능" },
-      { name: "새봄", role: "보기만" },
-    ],
-    relationship: "친구",
-    since: "2023-10-20",
-  },
-  {
-    id: "family",
-    name: "가족 나들이",
-    members: [
-      { name: "보름", role: "편집 가능" },
-      { name: "마루", role: "보기만" },
-    ],
-    relationship: "친구",
-    since: "2023-10-20",
-  },
-];
+/**
+ * 저장된 것이 없을 때 쓰는 빈 공간 한 칸.
+ *
+ * 2026-09-23 까지는 여기에 「우리의 여행 공간」·「주말 여행 메이트」 같은 예시 공간
+ * 셋이 들어 있었다. 서버 조회가 한 번 실패한 새 기기에서 모르는 멤버(다온·여울·가람)와
+ * 남의 여행이 진짜처럼 떴고, 거기서 여행을 만들면 없는 공간에 보내 실패했다.
+ * 가상 데이터는 실제 계정 화면에 섞지 않는다.
+ */
+const 빈_공간 = (id: string): Space => ({
+  id,
+  name: "여행 공간",
+  members: [],
+  relationship: "친구",
+  since: "",
+});
 
 const storageKey = "daymo.spaces.v1";
 // 이름은 글자를 칠 때마다 바뀐다. 잠깐 모았다가 한 번만 쓴다.
@@ -140,19 +125,20 @@ function parseSpace(value: unknown, fallback: Space): Space {
 /**
  * 저장된 공간 목록을 읽는다.
  *
- * 저장된 것이 없거나 읽을 수 없으면 기본 공간으로 시작한다. 하나도 안 남게
- * 저장된 경우에도 기본값으로 돌아간다. 공간이 없는 앱은 아무것도 할 수 없다.
+ * 저장된 것이 없거나 읽을 수 없으면 **빈 목록**이다. 예시 공간으로 채우지 않는다.
+ * 빈 목록은 「아직 받지 못했다」는 뜻이고, 화면은 서버에서 받아 보고 그래도 없으면
+ * 첫 공간을 만들자고 하거나 불러오지 못했다고 알린다(WarmAppShell).
  */
 export function parseSpaces(raw: string | null): Space[] {
-  if (!raw) return defaultSpaces;
+  if (!raw) return [];
   let saved: unknown;
   try {
     saved = JSON.parse(raw);
   } catch {
-    return defaultSpaces;
+    return [];
   }
-  if (!Array.isArray(saved) || !saved.length) return defaultSpaces;
-  return saved.map((value, index) => parseSpace(value, defaultSpaces[index] ?? defaultSpaces[0]));
+  if (!Array.isArray(saved)) return [];
+  return saved.map((value, index) => parseSpace(value, 빈_공간(`space-${index + 1}`)));
 }
 
 export function useStoredSpaces(): Space[] | null {
@@ -164,7 +150,7 @@ export function useStoredSpaces(): Space[] | null {
     };
     AsyncStorage.getItem(storageKey)
       .then((raw) => done(parseSpaces(raw)))
-      .catch(() => done(defaultSpaces));
+      .catch(() => done([]));
     return () => {
       alive = false;
     };
@@ -198,7 +184,8 @@ export function useSaveSpaces(spaces: Space[]) {
 
 export type Me = { name: string; email: string };
 
-export const defaultMe: Me = { name: "하늘", email: "sky@daymo.app" };
+/** 저장된 값이 망가졌을 때의 자리. 화면에 보이지 않는다(세션의 사용자가 원본이다). */
+export const defaultMe: Me = { name: "", email: "" };
 
 const meKey = "daymo.me.v1";
 
@@ -251,7 +238,30 @@ export function useSaveMe(me: Me | null) {
   }, [me]);
 }
 
-/** 이 기기에 남은 것을 전부 지운다. 서버가 없으니 지울 수 있는 건 이것뿐이다. */
-export async function clearDevice(extraKeys: string[] = []) {
+/**
+ * 계정이 바뀔 때 지우는 것. 그 계정의 공간·나, 그리고 부르는 쪽이 더 주는 열쇠다.
+ *
+ * 테마·다크 모드 같은 기기 취향은 남긴다. 계정을 바꿨다고 앱 모양까지 초기화되면
+ * 무엇이 지워졌는지 알기 어렵다.
+ */
+export async function clearAccountCache(extraKeys: string[] = []) {
   await AsyncStorage.multiRemove([storageKey, meKey, ...extraKeys]).catch(() => {});
+}
+
+/**
+ * 이 기기에 남은 Daymo 값을 전부 지운다(「이 기기 데이터 모두 삭제」).
+ *
+ * 열쇠를 하나씩 세어 두면 새로 생긴 것을 빠뜨린다. `daymo.` 로 시작하는 것을 모두
+ * 걷어 내고, 남겨야 하는 것만 `keep` 으로 받는다(설치 번호 — 지우면 다시 로그인할 때
+ * 기기 한도 한 자리를 더 먹는다).
+ */
+export async function clearDeviceStorage(keep: readonly string[] = []) {
+  try {
+    const 남길_것 = new Set(keep);
+    const 열쇠들 = (await AsyncStorage.getAllKeys())
+      .filter((key) => key.startsWith("daymo.") && !남길_것.has(key));
+    if (열쇠들.length) await AsyncStorage.multiRemove(열쇠들);
+  } catch {
+    // 지우지 못해도 화면 상태는 아래에서 비운다.
+  }
 }

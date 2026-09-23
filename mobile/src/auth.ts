@@ -81,7 +81,26 @@ type ApiErrorEnvelope = {
 
 const sessionKey = "daymo.auth.session.v1";
 const installationKey = "daymo.auth.installation.v1";
+/**
+ * 이 기기의 설치 번호가 들어 있는 열쇠.
+ *
+ * 「이 기기 데이터 모두 삭제」가 저장소를 쓸어낼 때 이것만은 남겨야 한다. 지우면
+ * 다시 로그인할 때 새 기기로 세어져 기기 한도(5대) 한 자리를 더 먹는다(2026-09-23).
+ */
+export const INSTALLATION_KEY = installationKey;
 const defaultApiUrl = "https://api.daymo.xyz";
+
+/**
+ * 이메일 모양 검사. 화면에서 「@ 가 들어 있나」와 정규식으로 갈라져 있던 것을 모은다(2026-09-23).
+ *
+ * 서버의 EmailStr 과 똑같이 맞추지는 않는다. 오타를 잡아 주는 것이 목적이고,
+ * 최종 판정은 서버가 한다.
+ */
+export const isEmailLike = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+/** 서버가 받는 비밀번호 길이(`backend/app/core/passwords.py`). 앱도 같은 기준으로 막는다. */
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
 
 const apiUrl = (process.env.EXPO_PUBLIC_DAYMO_API_URL || defaultApiUrl).replace(/\/$/, "");
 
@@ -262,6 +281,19 @@ export async function signUp(email: string, password: string, displayName: strin
   await request<{ status: "accepted" }>("/v1/auth/signup", {
     method: "POST",
     body: JSON.stringify({ email, password, displayName, ...consent }),
+  });
+}
+
+/**
+ * 이메일 확인 메일을 다시 보낸다. 계정이 없거나 이미 확인했어도 같은 답이 온다.
+ *
+ * 가입 때 온 메일이 스팸함에 들어가면 초대 참여처럼 이메일 확인이 필요한 곳이
+ * 막다른 길이 됐다. 앱에 다시 보내는 길이 없어서였다(2026-09-23).
+ */
+export async function resendEmailVerification(email: string) {
+  await request<{ status: "accepted" }>("/v1/auth/email-verifications", {
+    method: "POST",
+    body: JSON.stringify({ email }),
   });
 }
 

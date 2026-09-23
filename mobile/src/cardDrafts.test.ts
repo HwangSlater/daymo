@@ -6,6 +6,7 @@ import {
   draftCreationOrder,
   draftListOf,
   finishedCaptionOf,
+  isCardDraftsKey,
   parseStoredDrafts,
   removeDraft,
   sameSourceDraft,
@@ -101,6 +102,16 @@ test("적었다 읽으면 그대로고, 모양이 틀린 줄과 못 읽는 글�
 test("저장 열쇠는 여행마다 다르다", () => {
   assert.notEqual(cardDraftsKeyOf("t1"), cardDraftsKeyOf("t2"));
   assert.ok(cardDraftsKeyOf("t1").startsWith("daymo.card-drafts.v"));
+});
+
+test("초안 열쇠만 골라낸다", () => {
+  // 계정이 바뀔 때 초안만 걷어 내고 설정·세션은 건드리지 않아야 한다.
+  assert.ok(isCardDraftsKey(cardDraftsKeyOf("t1")));
+  // 판이 올라가도 옛 판까지 함께 걷어 낸다.
+  assert.ok(isCardDraftsKey("daymo.card-drafts.v9.t1"));
+  assert.equal(isCardDraftsKey("daymo.trip-data.v1"), false);
+  assert.equal(isCardDraftsKey("daymo.card-photo-tip.v3"), false);
+  assert.equal(isCardDraftsKey("daymo.auth.session.v1"), false);
 });
 
 test("같은 사진으로 꾸미던 초안이 있으면 그것을 찾고, 없으면 못 찾는다", () => {

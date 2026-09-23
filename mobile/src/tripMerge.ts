@@ -90,7 +90,11 @@ export function mergeServerTripsByGroup<T extends WithPlanning>(
   localByGroup: Record<string, T[]>,
   hasMoreByGroup: Record<string, boolean> = {},
 ): Record<string, T[]> {
-  const allLocal = Object.values(localByGroup).flat();
+  // 지금 계정이 속한 공간에 있던 기록만 본다. 한 기기를 두 계정이 번갈아 쓰면 앞사람의
+  // 공간이 기기 목록에 남는데, 그것까지 훑으면 앞사람이 아직 못 올린 일정·비용이 뒷사람
+  // 여행에 붙어 뒷사람 이름으로 올라간다(2026-09-23). 여행이 공간 사이를 옮겨 다녀도
+  // 기록을 잃지 않는 것은 그대로다 — 내 공간들 안에서는 여전히 모아 찾는다.
+  const allLocal = Object.keys(serverByGroup).flatMap((group) => localByGroup[group] ?? []);
   const merged: Record<string, T[]> = {};
   for (const [group, trips] of Object.entries(serverByGroup)) {
     const 받은 = mergeServerTrips(trips, allLocal);
