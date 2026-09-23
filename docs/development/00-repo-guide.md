@@ -53,6 +53,8 @@ docs/       설계 문서. 코드보다 여기가 먼저다
 
 라우팅 라이브러리나 상태 관리 라이브러리는 아직 쓰지 않는다. 화면 전환과 데이터가 전부 `WarmAppShell.tsx`와 `WarmTripDetail.tsx`의 `useState`다.
 
+다만 **지금 어디를 보고 있는지는 `mobile/src/appLocation.ts` 의 한 객체(`앱위치`)로 모았다**(2026-09-23). 아래 탭과 열어 둔 여행 상세(여행 id·자리)를 함께 들고 있고, `locationToPath` · `pathToLocation` 이 그것을 `/trips/<id>/expenses` 같은 주소 글과 맞바꾼다. 모르는 주소는 `null` 이라 부르는 쪽이 홈으로 보내면 된다. **주소창은 아직 안 바꾼다** — 웹 앱이 `www.daymo.xyz/app` 한 자리뿐이라 그 아래 주소로 새로 고치면 404 다. 주소로 여는 일은 Expo Router 를 얹을 때 한다.
+
 여행 상세는 2026-09-23 에 탭별로 나눴다. `WarmTripDetail.tsx` 는 상태·동기화·탭 고르기만 들고, 여섯 탭은 `mobile/src/trip/` 에 한 파일씩 있다(`TripOverview`·`TripPlaces`·`TripPreparation`·`TripCooking`·`TripMemories`·`TripMoney`). 두 곳 이상에서 쓰는 부품·문맥은 `trip/parts.tsx`, 두 곳 이상에서 쓰는 스타일은 `trip/styles.ts` 의 `공용스타일` 이다. 탭은 컨테이너를 가져오지 않는다 — 필요한 것은 props 로 받는다.
 
 기기에 남기는 것은 아래가 전부다(2026-09-23 기준). 기기 설정은 이 기기만의 것이고 공간·멤버는 서버가 원본을 가지므로 파일을 일부러 나눠 뒀다.
