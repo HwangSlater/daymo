@@ -79,6 +79,63 @@ type ApiErrorEnvelope = {
   error?: { code?: string; message?: string; fields?: Record<string, string>; details?: Record<string, string> };
 };
 
+/**
+ * 로그인이 저절로 풀렸을 때 로그인 화면에 띄울 한 줄(2026-09-23 검토 #26).
+ *
+ * 토큰 갱신이 401 로 거절되면(기한이 지났거나, 다른 기기에서 이 기기를 로그아웃시켰거나,
+ * 계정이 삭제됐거나) 앱은 말없이 로그인 화면으로 돌아갔다. 쓰던 사람은 왜 나갔는지 알
+ * 길이 없었다. 까닭을 여기 적어 두고 화면이 가져다 쓴다.
+ *
+ * 기기에 적어 두지 않는다. 앱이 살아 있는 동안만 쓰는 값이라 저장 열쇠를 하나 더 만들
+ * 까닭이 없다(열쇠를 만들면 로그아웃·계정 전환·기기 비우기에서 어떻게 되는지 정해야 한다
+ * — CLAUDE.md 데이터 절). 앱을 껐다 켜면 그냥 로그인 화면이 뜬다.
+ *
+ * 쓰는 법(`WarmAppShell`):
+ *   restoreSession().then((session) => { ...; setAuthNotice(takeSessionEndNotice()); })
+ *   useEffect(() => onSessionEnd((말) => signOutFromServer(말)), []);
+ */
+const SESSION_ENDED_NOTICE = "로그인이 풀렸어요. 다시 로그인해 주세요";
+
+let 끊긴_까닭 = "";
+const 끊김_듣는_이 = new Set<(notice: string) => void>();
+
+/**
+ * 로그인이 저절로 풀렸으면 그 한 줄을 가져온다. 한 번 가져가면 비운다.
+ *
+ * 사용자가 스스로 로그아웃한 것은 여기 담기지 않는다 — 까닭을 이미 안다.
+ */
+export function takeSessionEndNotice(): string {
+  const 말 = 끊긴_까닭;
+  끊긴_까닭 = "";
+  return 말;
+}
+
+/**
+ * 앱을 쓰는 도중에 로그인이 풀리는 순간을 듣는다. 돌려주는 함수를 부르면 그만 듣는다.
+ *
+ * 화면이 떠 있는 동안 풀리면 `takeSessionEndNotice` 를 물어볼 자리가 없다. 그때는 이
+ * 알림을 받아 화면을 로그인으로 되돌린다.
+ */
+export function onSessionEnd(listener: (notice: string) => void): () => void {
+  끊김_듣는_이.add(listener);
+  return () => {
+    끊김_듣는_이.delete(listener);
+  };
+}
+
+/** 세션을 지우고 까닭을 남긴다. 사용자가 부른 로그아웃은 이 길로 오지 않는다. */
+async function endSessionWithNotice() {
+  await storage.remove(sessionKey);
+  끊긴_까닭 = SESSION_ENDED_NOTICE;
+  끊김_듣는_이.forEach((듣는_이) => {
+    try {
+      듣는_이(SESSION_ENDED_NOTICE);
+    } catch {
+      // 한 화면이 넘어져도 나머지에는 알린다.
+    }
+  });
+}
+
 const sessionKey = "daymo.auth.session.v1";
 const installationKey = "daymo.auth.installation.v1";
 /**
@@ -458,7 +515,8 @@ export async function restoreSession(): Promise<{ user: AuthUser; offline: boole
     if (error instanceof DaymoApiError && error.status === 0) {
       return { user: saved.user, offline: true };
     }
-    await storage.remove(sessionKey);
+    // 서버가 이 세션을 거절했다. 왜 로그인 화면이 떴는지 알 수 있게 까닭을 남긴다.
+    await endSessionWithNotice();
     return null;
   }
 }
@@ -539,7 +597,7 @@ export async function withAccessToken<T>(send: (accessToken: string) => Promise<
     refreshed = await refreshStoredSession(saved);
   } catch (error) {
     if (!(error instanceof DaymoApiError) || error.status !== 0) {
-      await storage.remove(sessionKey);
+      await endSessionWithNotice();
     }
     throw error;
   }
