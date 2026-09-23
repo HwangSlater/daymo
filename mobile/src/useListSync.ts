@@ -156,6 +156,15 @@ type Options<L, B, S extends ServerRow> = {
    */
   reloadKey?: number;
   /**
+   * 아직 이 목록을 볼 일이 없으면 `true`. 서버에 묻지 않고 기다린다.
+   *
+   * 여행 하나를 열면 목록 열두 개가 탭과 상관없이 전부 서버를 불렀다(2026-09-23 검토
+   * #59). 여는 탭의 것만 부르고 나머지는 그 탭을 열 때 깬다. **한 번 깨면 화면을
+   * 닫을 때까지 깨어 있다** — 탭을 옮겨도 올릴 것은 올라가야 한다. 깨우는 규칙은
+   * 부르는 쪽(`WarmTripDetail`)이 들고 있다.
+   */
+  잠듦?: boolean;
+  /**
    * 서버가 403 으로 막았을 때의 안내. 없으면 보기만 하는 공간이라고 알린다.
    * 사진처럼 편집 멤버도 막히는 줄이 있어, 그때는 까닭을 따로 적는다.
    */
@@ -383,7 +392,7 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
   // 열 때 한 번 서버 목록을 받는다. 그 뒤로는 앞으로 돌아오거나 당겨서 새로고침할 때,
   // 그리고 오래 열어 뒀을 때 한 번 더 받는다.
   useEffect(() => {
-    if (!tripId) {
+    if (!tripId || options.잠듦) {
       entries.delete(slot.current ?? 0);
       republish();
       return;
@@ -451,9 +460,9 @@ export function useListSync<L, B, S extends ServerRow>(options: Options<L, B, S>
       clearTimeout(stale);
       if (retry) clearTimeout(retry);
     };
-    // 여행이 바뀌거나 다시 받으라고 할 때만 받는다. 나머지 값은 latest 로 읽는다.
+    // 여행이 바뀌거나, 깨어나거나, 다시 받으라고 할 때만 받는다. 나머지 값은 latest 로 읽는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId, options.reloadKey]);
+  }, [tripId, options.reloadKey, options.잠듦]);
 
   // 목록이 바뀌면 잠깐 기다렸다가 맞춘다. 고친 줄의 배지는 보내기 전에 바로 걷힌다.
   useEffect(() => {

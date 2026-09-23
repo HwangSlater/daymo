@@ -327,9 +327,49 @@ export function WarmTripDetail({
       ? `${tripNights}박 ${tripDates.length}일`
       : "당일 여행"
     : "여행 기간";
-  const [mode, setMode] = useState<ViewMode>(() =>
+  const [mode, 모드_적기] = useState<ViewMode>(() =>
     destinationMode(initialDestination),
   );
+  /**
+   * 한 번이라도 연 탭. 여행을 열면 목록 열두 개가 탭과 상관없이 전부 서버를 불렀다
+   * (2026-09-23 검토 #59). 여는 탭의 것만 부르고 나머지는 그 탭을 열 때 깨운다.
+   * **닫아도 다시 잠들지 않는다** — 다른 탭으로 옮겨도 올릴 것은 올라가야 한다.
+   */
+  const [깨운_탭, set깨운_탭] = useState<ViewMode[]>(() => [destinationMode(initialDestination)]);
+  const setMode = (nextMode: ViewMode) => {
+    모드_적기(nextMode);
+    set깨운_탭((현재) => (현재.includes(nextMode) ? 현재 : [...현재, nextMode]));
+  };
+  /**
+   * 탭 하나가 쓰는 목록들.
+   *
+   * 한 탭이 제 목록만 쓰는 것은 아니다. 일정은 장소가 서버에 올라가야 장소를 잇고,
+   * 요리의 「재료 불러오기」는 준비물에 넣는다. 그런 것을 함께 깨운다.
+   */
+  const 탭이_쓰는_목록: Record<ViewMode, readonly string[]> = {
+    여행: ["일정", "장소", "숙소", "교통편", "예약"],
+    장소: ["장소", "숙소"],
+    준비: ["준비물"],
+    요리: ["요리", "준비물"],
+    비용: ["지출", "주고받은 기록"],
+    기록: ["사진", "메모", "일기"],
+  };
+  const 깨어난_목록 = useMemo(() => {
+    const 모인_것 = new Set<string>();
+    깨운_탭.forEach((탭) => 탭이_쓰는_목록[탭]?.forEach((이름) => 모인_것.add(이름)));
+    return 모인_것;
+    // 탭 목록은 고정된 표다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [깨운_탭]);
+  /**
+   * 이 목록을 아직 안 깨워도 되는지.
+   *
+   * 아직 안 연 탭이어도 **올릴 것이 있으면 깨운다** — 공지에서 일정을 들여오는 것처럼
+   * 그 탭을 열지 않고도 줄이 생기는 길이 있다. 맞춰 둔 id 보다 줄이 많으면 올릴 것이
+   * 있다고 본다.
+   */
+  const 잠든_목록 = (이름: string, items: readonly unknown[], syncedIds: readonly string[]) =>
+    !깨어난_목록.has(이름) && items.length <= syncedIds.length;
   const detailScrollRef = useRef<ScrollView>(null);
   /** 떠 있는 ＋ 단추가 「지출 추가」를 여는 길. 비용 탭이 채운다. */
   const 지출_추가_열기 = useRef<(() => void) | null>(null);
@@ -666,6 +706,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "장소",
+    잠듦: 잠든_목록("장소", places, placeSyncIds),
     items: places,
     setItems: setPlaces,
     codec: placeCodec,
@@ -681,6 +722,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "일정",
+    잠듦: 잠든_목록("일정", schedule, scheduleSyncIds),
     items: schedule,
     setItems: setSchedule,
     codec: scheduleSyncCodec,
@@ -717,6 +759,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "숙소",
+    잠듦: 잠든_목록("숙소", stayList, staySyncIds),
     items: stayList,
     setItems: setStayList,
     codec: staySyncCodec,
@@ -738,6 +781,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "교통편",
+    잠듦: 잠든_목록("교통편", transportations, transportSyncIds),
     items: transportations,
     setItems: setTransportations,
     codec: transportSyncCodec,
@@ -754,6 +798,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "예약",
+    잠듦: 잠든_목록("예약", reservations, reservationSyncIds),
     items: reservations,
     setItems: setReservations,
     codec: reservationSyncCodec,
@@ -774,6 +819,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "지출",
+    잠듦: 잠든_목록("지출", expenses, expenseSyncIds),
     items: expenses,
     setItems: setExpenses,
     codec: expenseSyncCodec,
@@ -791,6 +837,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "주고받은 기록",
+    잠듦: 잠든_목록("주고받은 기록", payments, paymentSyncIds),
     items: payments,
     setItems: setPayments,
     codec: paymentSyncCodec,
@@ -844,6 +891,7 @@ export function WarmTripDetail({
   useListSync({
     tripId: serverIngredientsByRecipe ? tripId : undefined,
     label: "준비물",
+    잠듦: 잠든_목록("준비물", packingRows, packingSyncIds),
     items: packingRows,
     setItems: setPackingRows,
     codec: packingSyncCodec,
@@ -885,6 +933,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "요리",
+    잠듦: 잠든_목록("요리", recipeRows, recipeSyncIds),
     items: recipeRows,
     setItems: setRecipeRows,
     codec: recipeSyncCodec,
@@ -953,6 +1002,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "메모",
+    잠듦: 잠든_목록("메모", tripNotes, memoSyncIds),
     items: tripNotes,
     setItems: setTripNotes,
     codec: memoSyncCodec,
@@ -965,6 +1015,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "일기",
+    잠듦: 잠든_목록("일기", memories.diaries, diarySyncIds),
     items: memories.diaries,
     setItems: (updater) => setMemories((current) => ({ ...current, diaries: updater(current.diaries) })),
     codec: diaryCodec,
@@ -993,6 +1044,7 @@ export function WarmTripDetail({
   useListSync({
     tripId,
     label: "사진",
+    잠듦: 잠든_목록("사진", memories.photos, photoSyncIds),
     items: memories.photos,
     setItems: (updater) => setMemories((current) => ({ ...current, photos: updater(current.photos) })),
     codec: photoSyncCodec,
