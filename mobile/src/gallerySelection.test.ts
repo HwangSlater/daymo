@@ -125,6 +125,16 @@ test("저장 결과는 실패와 업로드 중이라 뺀 것을 나눠 말한다
   assert.equal(savedText({ saved: 0, failed: 2, skipped: 0 }), "사진을 저장하지 못했어요");
 });
 
+test("폰은 저장 창을 열어 준 것까지만 말한다", () => {
+  // 다 넘어갔으면 아무 말도 하지 않는다. 공유 창이 닫히는 것을 사람이 이미 봤다.
+  assert.equal(savedText({ saved: 3, failed: 0, skipped: 0, result: "shared" }), "");
+  assert.equal(
+    savedText({ saved: 2, failed: 1, skipped: 1, result: "shared" }),
+    "사진 1장은 저장하지 못했어요, 업로드 중인 1장은 뺐어요",
+  );
+  assert.equal(savedText({ saved: 0, failed: 2, skipped: 0, result: "shared" }), "사진을 저장하지 못했어요");
+});
+
 test("카드는 1~4장일 때만 만들고, 고른 차례를 그대로 쓴다", () => {
   assert.deepEqual(cardFromSelection(["c", "a"], 4), { ok: true, ids: ["c", "a"] });
   assert.equal(cardFromSelection([], 4).ok, false);

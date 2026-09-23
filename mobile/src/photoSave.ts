@@ -25,12 +25,30 @@ import { isSavedOriginalCopy, releaseDownloadedPhoto } from "./photoTransfer";
 const WEB_RELEASE_DELAY = 15_000;
 
 /**
+ * 사진 한 장을 저장한 결과.
+ *
+ * - `saved`: 파일이 기기에 들어간 것을 앱이 안다(웹의 내려받기).
+ * - `shared`: OS 공유 창을 열어 준 것까지만 안다(폰). 거기서 「이미지 저장」을 골랐는지
+ *   취소했는지는 앱에 돌아오지 않는다. 그래서 「저장했어요」라고 단정하면 안 된다
+ *   (2026-09-23 검토 #28).
+ * - `unavailable`: 이 기기에서는 저장할 길이 없다.
+ */
+export type PhotoSaveResult = "saved" | "shared" | "unavailable";
+
+/**
  * 사진 한 장을 기기에 저장한다.
  *
  * @param uri 이미 받아 둔 자리(`photoTransfer.downloadPhoto`). 웹은 blob: 주소다.
  * @param name 저장할 이름. 확장자는 여기서 붙인다.
+ * @param options `공유창까지만` 을 켜면 폰에서 `shared` 를 돌려준다. 기본은 예전처럼
+ *   `saved` 로 뭉뚱그린다 — 부르는 쪽(`WarmTripDetail`)이 세 갈래를 모두 다루게 되면
+ *   이 값을 빼고 `shared` 를 기본으로 삼는다.
  */
-export async function savePhotoFile(uri: string, name: string): Promise<"saved" | "unavailable"> {
+export async function savePhotoFile(
+  uri: string,
+  name: string,
+  options: { 공유창까지만?: boolean } = {},
+): Promise<PhotoSaveResult> {
   const fileName = `${safeFileName(name, "여행 사진")}.jpg`;
   if (Platform.OS === "web") {
     if (typeof document === "undefined") return "unavailable";
@@ -64,5 +82,6 @@ export async function savePhotoFile(uri: string, name: string): Promise<"saved" 
      */
     if (isSavedOriginalCopy(uri)) releaseDownloadedPhoto(uri);
   }
-  return "saved";
+  // 공유 창이 닫힌 것뿐이다. 저장했는지는 앱이 알 수 없다.
+  return options.공유창까지만 ? "shared" : "saved";
 }

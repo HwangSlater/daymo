@@ -200,13 +200,29 @@ export function deletedText(deleted: number, skipped: number): string {
   return skipped > 0 ? `${앞}. 다른 사람 사진 ${skipped}장은 그대로 뒀어요` : 앞;
 }
 
-/** 저장한 뒤의 한 줄. 업로드 중이라 뺀 것과 실패한 것을 나눠 말한다. */
-export function savedText({ saved, failed, skipped }: { saved: number; failed: number; skipped: number }): string {
-  const 앞 = saved > 0 ? `사진 ${saved}장을 저장했어요` : "사진을 저장하지 못했어요";
-  const 뒤 = [
-    saved > 0 && failed > 0 ? `${failed}장은 저장하지 못했어요` : "",
-    skipped > 0 ? `업로드 중인 ${skipped}장은 뺐어요` : "",
-  ].filter(Boolean);
+/**
+ * 저장한 뒤의 한 줄. 업로드 중이라 뺀 것과 실패한 것을 나눠 말한다.
+ *
+ * @param result 폰은 사진마다 OS 공유 창을 열어 줄 뿐이라, 거기서 저장했는지 취소했는지
+ *   앱에 돌아오지 않는다(`photoSave.PhotoSaveResult`). 그때는 `"shared"` 를 넘긴다 —
+ *   잘 넘어간 것은 말하지 않고 빠진 것만 알린다. 취소한 사람에게 「저장했어요」라고
+ *   말하느니 아무 말도 하지 않는 편이 낫다(2026-09-23 검토 #28).
+ *   빈 글자가 돌아오면 아무것도 띄우지 않는다.
+ */
+export function savedText({ saved, failed, skipped, result = "saved" }: {
+  saved: number;
+  failed: number;
+  skipped: number;
+  result?: "saved" | "shared";
+}): string {
+  // 한 장도 넘기지 못했으면 폰이든 웹이든 같은 말이다.
+  if (saved === 0) return "사진을 저장하지 못했어요";
+  const 뺀_말 = skipped > 0 ? `업로드 중인 ${skipped}장은 뺐어요` : "";
+  if (result === "shared") {
+    return [failed > 0 ? `사진 ${failed}장은 저장하지 못했어요` : "", 뺀_말].filter(Boolean).join(", ");
+  }
+  const 뒤 = [failed > 0 ? `${failed}장은 저장하지 못했어요` : "", 뺀_말].filter(Boolean);
+  const 앞 = `사진 ${saved}장을 저장했어요`;
   return 뒤.length ? `${앞}. ${뒤.join(", ")}` : 앞;
 }
 
