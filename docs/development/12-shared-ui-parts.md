@@ -25,7 +25,7 @@
 | `onAccent`·`status`·`domain`·`kindColor`·`tripTone`·`memoPaper` | 색. 강조색 위 글자색, 위험·경고색, 갈래별 색을 라이트/다크 둘 다 AA 로 맞춰 둔 것 | `mobile/src/theme/colors.ts` | 색값을 적을 때마다 |
 | `resolveTheme`·`themeOptions` | 테마 일곱 개를 라이트·다크로 푸는 곳 | `mobile/src/theme/index.ts` | 화면에 테마를 넘길 때 |
 | `Text`·`TextInput` | 웹에서 입력 칸 글자를 16px 아래로 내리지 않는 래퍼(아이폰 사파리 확대 막기) | `mobile/src/AppText.tsx` | 글자와 입력 칸 전부. `react-native` 것을 바로 쓰지 않는다 |
-| `Glyph`·`Dot` | 쿠키런에 없는 기호(화살표·체크·더하기 …)를 SVG 로 그린다 | `mobile/src/Glyph.tsx` | 기호가 필요할 때. 이모지·특수문자로 때우지 않는다 |
+| `Glyph` | 쿠키런에 없는 기호(화살표·체크·더하기 …)를 SVG 로 그린다 | `mobile/src/Glyph.tsx` | 기호가 필요할 때. 이모지·특수문자로 때우지 않는다. 같은 파일의 `Dot` 은 지금 아무도 쓰지 않는다(2026-09-23) |
 | `showAlert` | 묻고 답을 받는 창. 웹에서도 실제로 뜬다 | `mobile/src/showAlert.ts` | `Alert.alert` 을 쓰고 싶을 때마다 |
 | `useSheetDrag` | 손잡이를 끌어내려 창을 닫는다. 작성 중이면 먼저 묻게 넘길 수 있다 | `mobile/src/sheetDrag.ts` | `SheetShell` 이 이미 쓴다. 직접 쓸 일은 거의 없다 |
 | `useWebBackClose` | 웹에서 브라우저 뒤로 가기로 시트를 닫는다(페이지를 벗어나지 않게) | `mobile/src/useWebBackClose.ts` | `SheetShell` 이 이미 쓴다. 시트가 아닌 겹침 화면에는 직접 |
@@ -43,7 +43,7 @@
 | `ParticipantPicker` | 함께 가는 사람 고르기 | `mobile/src/ParticipantPicker.tsx` | 담당자·참가자를 고를 때 |
 | `PastTripEntry`·`PastTripList` | 추가 시트 맨 위의 「지난 여행에서 가져오기」 진입 줄과, 시트 안에서 내용을 갈아 끼워 보이는 지난 여행 목록(여행별 묶음, 하나 고르기·여럿 체크). 열리면 키보드를 내린다 | `mobile/src/PastTripPicker.tsx` | 요리·준비물 추가 시트. 새 `Modal` 을 띄우지 않고 단계 상태로 갈아 끼운다 |
 | `usePastPacking`·`usePastRecipes` | 같은 공간의 끝난 여행들을 받아 그 준비물·요리를 여행별로 묶는다. 처음 열 때 한 번 받고 둔다 | `mobile/src/usePastTripRows.ts` | 위 목록에 줄을 줄 때. 순수 계산(끝난 여행 고르기·담당 옮기기·완료 풀기)은 `pastTripImport.ts` |
-| `TripDateRangePicker`·`formatTripRange` | 여행 기간 고르기와 `9월 22일 — 9월 24일 · 2박 3일` 표기 | `mobile/src/TripDateRangePicker.tsx` | 기간을 고르거나 적을 때 |
+| `TripDateRangePicker` | 여행 기간 고르기와 `9월 22일 — 9월 24일 · 2박 3일` 표기 | `mobile/src/TripDateRangePicker.tsx` | 기간을 고르거나 적을 때. `formatTripRange` 는 이 파일 안에서만 쓴다(2026-09-23) |
 | `TripRegionPicker` | 지역 고르기 | `mobile/src/TripRegionPicker.tsx` | 여행지를 고를 때 |
 | `SocialLoginButton` | 구글·카카오·네이버 버튼. 각 사의 표기 규정에 맞춰 둔 것 | `mobile/src/SocialLoginButton.tsx` | 로그인 화면 |
 | `PaperPeel` | 종이를 넘기는 듯한 전환 | `mobile/src/PaperPeel.tsx` | 여행 카드를 넘길 때 |

@@ -51,7 +51,20 @@ docs/       설계 문서. 코드보다 여기가 먼저다
 | 그 외 | `expo-font` · `expo-clipboard` · `expo-status-bar` |
 | 아이콘 | `mobile/scripts/build-icons.py` (Pillow로 1024px 아이콘 3종 생성) |
 
-라우팅 라이브러리나 상태 관리 라이브러리는 아직 쓰지 않는다. 화면 전환과 데이터가 전부 `WarmAppShell.tsx`와 `WarmTripDetail.tsx`의 `useState`다. 여행 기록(`daymo.trip-data.v1`), 기기 설정(`daymo.device-settings.v1`), 공간과 멤버(`daymo.spaces.v1`·`daymo.me.v1`)만 AsyncStorage에 남긴다. 기기 설정은 이 기기만의 것이고 공간·멤버는 서버가 원본을 가지므로 파일을 일부러 나눠 뒀다.
+라우팅 라이브러리나 상태 관리 라이브러리는 아직 쓰지 않는다. 화면 전환과 데이터가 전부 `WarmAppShell.tsx`와 `WarmTripDetail.tsx`의 `useState`다.
+
+기기에 남기는 것은 아래가 전부다(2026-09-23 기준). 기기 설정은 이 기기만의 것이고 공간·멤버는 서버가 원본을 가지므로 파일을 일부러 나눠 뒀다.
+
+| 열쇠 | 무엇 | 어디서 |
+| --- | --- | --- |
+| `daymo.auth.session.v1` | 로그인 토큰(폰은 SecureStore, 웹은 AsyncStorage) | `auth.ts` |
+| `daymo.auth.installation.v1` | 이 기기를 가리키는 설치 id(기기 한도 5대) | `auth.ts` |
+| `daymo.trip-data.v1` | 모든 여행의 계획·기록 | `WarmAppShell.tsx` |
+| `daymo.spaces.v1` · `daymo.me.v1` | 공간·멤버·나 | `spaces.ts` |
+| `daymo.device-settings.v1` | 테마·다크 모드 같은 이 기기 설정 | `deviceSettings.ts` |
+| `daymo.card-drafts.v1.<여행id>` | 꾸미는 중인 추억 카드(여행마다 하나) | `cardDraftStorage.ts` |
+| `daymo.invite.pending.v1` | 웹에서 잠깐 맡아 두는 초대(30분) | `inviteHandoff.ts` |
+| `daymo.card-photo-tip.v3` · `daymo.feedback-card-hidden.v1` | 한 번만 보여 주는 안내를 봤는지 | `onceTip.ts` · `feedback.ts` |
 
 ## 실행
 
