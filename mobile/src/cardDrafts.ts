@@ -26,6 +26,15 @@ export type StoredCardDraft = {
   settings: SavedKeepsake;
   /** 만든 시각(ISO). 격자 차례와 「카드 N」 번호를 정한다. */
   createdAt: string;
+  /**
+   * 완료해 사진이 됐지만 아직 올라간 것을 확인하지 못한 사진 id(웹만).
+   *
+   * 웹은 고른 사진 파일이 브라우저 저장소에 남지 않아, 올라가기 전에 새로 고치면 그
+   * 사진이 어디에도 없다. 완료하자마자 초안을 지우면 카드까지 함께 사라진다
+   * (2026-09-23 검토 #8). 그래서 사진이 된 초안은 표시만 해 두고, 그 사진이 올라간 것을
+   * 확인한 뒤에 지운다. 다시 꾸미면(`upsertDraft`) 표시는 떨어진다.
+   */
+  finishedPhotoId?: string;
 };
 
 /** 화면이 쓰는 초안 한 장. */
@@ -46,15 +55,29 @@ export const CARD_DRAFTS_VERSION = 1;
 export const cardDraftsKeyOf = (tripId: string) => `daymo.card-drafts.v${CARD_DRAFTS_VERSION}.${tripId}`;
 
 /**
- * 이 열쇠가 카드 초안인지.
+ * 「이 여행은 옛 앱이 두고 간 카드를 한 번 불러왔다」는 표시의 열쇠.
+ *
+ * 열쇠가 있으면 끝난 것이고 값은 보지 않는다(적어 둔 시각일 뿐이다). 그래서 다른 판이
+ * 적어 둔 값을 읽어도 깨지지 않는다. 불러온 초안을 지운 사람에게 그 카드가 다시
+ * 살아나면 안 되어 초안과 따로 둔다 — 초안을 다 지우면 초안 열쇠 자체가 없어진다.
+ */
+export const cardImportKeyOf = (tripId: string) => `daymo.card-drafts-imported.v${CARD_DRAFTS_VERSION}.${tripId}`;
+
+/**
+ * 이 열쇠가 카드 초안인지(불러오기 표시도 함께 본다).
  *
  * 계정이 바뀌거나 로그아웃할 때 초안을 한꺼번에 걷어 내는 데 쓴다. 남겨 두면 공유
  * 기기에서 앞사람이 꾸미던 카드가 뒷사람에게 보인다(2026-09-23). 판 번호는 보지
  * 않는다 — 형식이 올라가도 옛 판까지 함께 걷어 내야 남는 것이 없다.
  */
-export const isCardDraftsKey = (key: string) => /^daymo\.card-drafts\.v\d+\./.test(key);
+export const isCardDraftsKey = (key: string) => /^daymo\.card-drafts(-[a-z]+)?\.v\d+\./.test(key);
 
-/** 초안을 더하거나(같은 id 가 없으면) 바꾼다(있으면). 차례는 건드리지 않는다. */
+/**
+ * 초안을 더하거나(같은 id 가 없으면) 바꾼다(있으면). 차례는 건드리지 않는다.
+ *
+ * 줄을 새로 만들므로 「사진이 됐다」 표시(`finishedPhotoId`)는 떨어진다. 다시 꾸민
+ * 카드는 아직 사진이 되지 않은 보통 초안이다.
+ */
 export function upsertDraft(
   list: readonly StoredCardDraft[],
   draft: { id: string; card: KeepsakeCard; createdAt: string },
@@ -68,6 +91,82 @@ export function upsertDraft(
 
 export function removeDraft(list: readonly StoredCardDraft[], id: string): StoredCardDraft[] {
   return list.filter((하나) => 하나.id !== id);
+}
+
+/** 서버에 남아 있는 카드 한 장. 옛 앱(1.0.0)이 만들어 둔 것이다. */
+export type ServerCardLike = {
+  id: string;
+  settings: unknown;
+  /** 서버가 적어 둔 만든 시각(ISO). */
+  createdAt?: string;
+};
+
+/**
+ * 옛 앱(1.0.0)이 서버에 두고 간 카드를 초안으로 들인다(2026-09-23 검토 #5).
+ *
+ * 1.0.0 은 카드를 서버에 두었고 지금 앱은 초안을 기기에만 둔다. 저장 형식(`settings`)이
+ * 같아 옮겨 담기만 하면 된다. 서버 카드 id 를 초안 id 로 그대로 써서, 두 번 불러도 같은
+ * 카드가 둘이 되지 않는다. 이미 그 id 의 초안이 있으면 건드리지 않는다 — 기기에서 꾸민
+ * 것이 최신이다.
+ *
+ * 모양이 틀린 줄은 버린다(`parseStoredDrafts` 와 같은 조건). 카드 값 자체는 가리지
+ * 않는다 — 모르는 값은 `keepsakeCardOf` 가 읽으면서 기본으로 그리고 버리지 않는다.
+ *
+ * @param 기본_시각 서버가 만든 시각을 주지 않았을 때 쓸 ISO 시각.
+ */
+export function importedDrafts(
+  list: readonly StoredCardDraft[],
+  cards: readonly ServerCardLike[],
+  기본_시각: string,
+): { list: StoredCardDraft[]; added: StoredCardDraft[] } {
+  const 있는_id = new Set(list.map((줄) => 줄.id));
+  const 더할_것: StoredCardDraft[] = [];
+  for (const 카드 of cards) {
+    if (!카드 || typeof 카드.id !== "string" || !카드.id || 있는_id.has(카드.id)) continue;
+    const settings = 카드.settings;
+    if (!settings || typeof settings !== "object" || Array.isArray(settings)) continue;
+    있는_id.add(카드.id);
+    더할_것.push({
+      id: 카드.id,
+      settings: settings as SavedKeepsake,
+      createdAt: typeof 카드.createdAt === "string" && 카드.createdAt ? 카드.createdAt : 기본_시각,
+    });
+  }
+  return { list: [...list, ...더할_것], added: 더할_것 };
+}
+
+/** 이 초안이 사진 한 장이 됐다고 표시한다(웹. `StoredCardDraft.finishedPhotoId` 주석). */
+export function markFinishedDraft(
+  list: readonly StoredCardDraft[],
+  id: string,
+  finishedPhotoId: string,
+): StoredCardDraft[] {
+  return list.map((줄) => (줄.id === id ? { ...줄, finishedPhotoId } : 줄));
+}
+
+/**
+ * 사진이 된 것이 확인돼 이제 지워도 되는 초안 id.
+ *
+ * 두 가지를 가른다.
+ * - 이번에 완료한 것(`이번에_완료한`)은 그 사진이 **올라간 것까지** 봐야 지운다. 웹에서
+ *   올라가기 전에 새로 고치면 사진이 사라지기 때문이다.
+ * - 앱을 다시 연 뒤에 남아 있는 표시는 사진 목록에 그 사진이 있으면 지운다. 웹은 올라가지
+ *   못한 사진을 기기에 남기지 않으므로, 목록에 있다는 것은 올라갔다는 뜻이다. 목록에
+ *   없으면 사진이 사라진 것이라 초안을 그대로 두어 다시 완료할 수 있게 한다.
+ */
+export function settledFinishedDrafts(
+  list: readonly StoredCardDraft[],
+  photoIds: readonly string[],
+  uploadedPhotoIds: readonly string[],
+  이번에_완료한: readonly string[],
+): string[] {
+  return list
+    .filter((줄) => {
+      const 사진 = 줄.finishedPhotoId;
+      if (!사진 || !photoIds.includes(사진)) return false;
+      return 이번에_완료한.includes(줄.id) ? uploadedPhotoIds.includes(사진) : true;
+    })
+    .map((줄) => 줄.id);
 }
 
 /**

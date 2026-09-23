@@ -3,14 +3,18 @@ import { test } from "node:test";
 
 import {
   cardDraftsKeyOf,
+  cardImportKeyOf,
   draftCreationOrder,
   draftListOf,
   finishedCaptionOf,
+  importedDrafts,
   isCardDraftsKey,
+  markFinishedDraft,
   parseStoredDrafts,
   removeDraft,
   sameSourceDraft,
   serializeDrafts,
+  settledFinishedDrafts,
   type StoredCardDraft,
   upsertDraft,
 } from "./cardDrafts.ts";
@@ -99,14 +103,78 @@ test("적었다 읽으면 그대로고, 모양이 틀린 줄과 못 읽는 글�
   assert.deepEqual(parseStoredDrafts(섞임).map((줄) => 줄.id), ["a"]);
 });
 
+test("서버 카드 settings 를 초안으로 읽는다", () => {
+  // 옛 앱(1.0.0)이 서버에 두고 간 카드. 저장 형식이 같아 그대로 옮겨 담는다.
+  const 서버_카드 = [
+    { id: "s1", settings: { style: "엽서", photoIds: ["p1"], title: "첫날" }, createdAt: "2026-09-01T00:00:00Z" },
+    { id: "s2", settings: { style: "네컷", photoIds: ["p1", "p2"] }, createdAt: "2026-09-02T00:00:00Z" },
+  ];
+  const 결과 = importedDrafts([], 서버_카드, "2026-09-23T10:00:00Z");
+
+  assert.deepEqual(결과.list.map((줄) => 줄.id), ["s1", "s2"]);
+  assert.equal(결과.added.length, 2);
+  assert.deepEqual(결과.list[0].settings, 서버_카드[0].settings);
+  assert.equal(결과.list[0].createdAt, "2026-09-01T00:00:00Z");
+  // 읽으면 카드 한 장이 나온다.
+  const 보기 = draftListOf(결과.list, 여행, 사진);
+  assert.deepEqual(보기.map((줄) => 줄.label), ["카드 2", "첫날"]);
+
+  // 만든 시각을 주지 않으면 지금 시각으로 둔다. 모양이 틀린 줄은 버린다.
+  const 섞임 = importedDrafts([], [
+    { id: "s3", settings: { style: "필름" } },
+    { id: "", settings: { style: "필름" } },
+    { id: "s4", settings: null },
+    { id: "s5", settings: [] },
+  ], "2026-09-23T10:00:00Z");
+  assert.deepEqual(섞임.list.map((줄) => 줄.id), ["s3"]);
+  assert.equal(섞임.list[0].createdAt, "2026-09-23T10:00:00Z");
+});
+
+test("이미 있는 id 는 덮지 않는다", () => {
+  // 한 번 들여온 뒤 기기에서 꾸민 것이 최신이다. 두 번 들여와도 카드가 둘이 되지 않는다.
+  const 있던_것 = [{ id: "s1", settings: { style: "필름", photoIds: ["p3"] }, createdAt: "2026-09-10T00:00:00Z" }];
+  const 결과 = importedDrafts(있던_것, [
+    { id: "s1", settings: { style: "엽서", photoIds: ["p1"] }, createdAt: "2026-09-01T00:00:00Z" },
+    { id: "s2", settings: { style: "네컷", photoIds: ["p2"] }, createdAt: "2026-09-02T00:00:00Z" },
+  ], "2026-09-23T10:00:00Z");
+
+  assert.deepEqual(결과.list.map((줄) => 줄.id), ["s1", "s2"]);
+  assert.deepEqual(결과.added.map((줄) => 줄.id), ["s2"]);
+  assert.deepEqual(결과.list[0], 있던_것[0]);
+});
+
+test("사진이 된 초안은 그 사진이 올라간 것을 확인한 뒤에 지운다", () => {
+  const 목록 = markFinishedDraft([초안("a", "2026-09-23T01:00:00Z"), 초안("b", "2026-09-23T02:00:00Z")], "a", "새사진");
+  assert.equal(목록[0].finishedPhotoId, "새사진");
+  assert.equal(목록[1].finishedPhotoId, undefined);
+  // 다시 꾸며 적으면 표시가 떨어진다.
+  const 다시 = upsertDraft(목록, { id: "a", card: keepsakeCardOf(undefined, 여행, 사진), createdAt: "2026-09-23T01:00:00Z" }, 여행);
+  assert.equal(다시[0].finishedPhotoId, undefined);
+
+  // 이번에 완료한 것은 올라간 것까지 봐야 지운다.
+  assert.deepEqual(settledFinishedDrafts(목록, ["새사진"], [], ["a"]), []);
+  assert.deepEqual(settledFinishedDrafts(목록, ["새사진"], ["새사진"], ["a"]), ["a"]);
+  // 앱을 다시 연 뒤에는 사진 목록에 있는 것만으로 올라간 것이다.
+  assert.deepEqual(settledFinishedDrafts(목록, ["새사진"], [], []), ["a"]);
+  // 사진이 사라졌으면(웹에서 올라가기 전에 새로 고침) 초안을 그대로 둔다.
+  assert.deepEqual(settledFinishedDrafts(목록, [], [], []), []);
+  // 표시가 없는 초안은 건드리지 않는다.
+  assert.deepEqual(settledFinishedDrafts([초안("c", "2026-09-23T01:00:00Z")], ["새사진"], ["새사진"], []), []);
+});
+
 test("저장 열쇠는 여행마다 다르다", () => {
   assert.notEqual(cardDraftsKeyOf("t1"), cardDraftsKeyOf("t2"));
   assert.ok(cardDraftsKeyOf("t1").startsWith("daymo.card-drafts.v"));
+  // 불러오기 표시는 초안과 다른 열쇠다. 초안을 다 지워도 남아야 한다.
+  assert.notEqual(cardImportKeyOf("t1"), cardDraftsKeyOf("t1"));
+  assert.notEqual(cardImportKeyOf("t1"), cardImportKeyOf("t2"));
 });
 
 test("초안 열쇠만 골라낸다", () => {
   // 계정이 바뀔 때 초안만 걷어 내고 설정·세션은 건드리지 않아야 한다.
   assert.ok(isCardDraftsKey(cardDraftsKeyOf("t1")));
+  // 불러오기 표시도 함께 걷어 낸다. 남겨 두면 다음 사람이 그 여행의 옛 카드를 못 불러온다.
+  assert.ok(isCardDraftsKey(cardImportKeyOf("t1")));
   // 판이 올라가도 옛 판까지 함께 걷어 낸다.
   assert.ok(isCardDraftsKey("daymo.card-drafts.v9.t1"));
   assert.equal(isCardDraftsKey("daymo.trip-data.v1"), false);

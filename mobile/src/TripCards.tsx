@@ -8,8 +8,11 @@
  *   앱을 껐다 켜도 남는다. 예시 여행(`tripId` 없음)은 적을 곳이 없어 이 화면에서만 산다.
  * - 「완료」를 누르면 한 번 묻고, 카드를 원본 화질로 찍어 그 그림을 여행 기록의 **보통
  *   사진 한 장**으로 넣는다(`onFinish`, 기기에서 고른 사진과 같은 길). 사진이 된 뒤
- *   초안은 지운다. 카드라는 물건은 어디에도 남지 않는다.
+ *   초안은 지운다. 카드라는 물건은 어디에도 남지 않는다. 웹만 조금 다르다 — 그 사진이
+ *   올라간 것을 확인한 뒤에 지운다(`올리는_중`).
  * - 꾸미다 「닫기」로 나가면 초안은 그대로 남는다. 없애는 길은 도구 안 「삭제」뿐이다.
+ * - 옛 앱(1.0.0)은 카드를 서버에 두었다. 여행을 처음 열 때 그 카드를 초안으로 한 번
+ *   들여온다(`들여오기_해봤다`). 서버 카드는 그대로 둔다.
  *
  * 카드는 **사진을 크게 보는 창과 한 창**에서 꾸민다(`PhotoViewer.tsx`). 사진을 보다가
  * 「카드 만들기」를 누르면 그 자리에서 사진이 카드가 된다. 그래서 이 화면은 초안 목록과
@@ -35,11 +38,23 @@ import { CardDecorTools, CardThumb, shotLayoutOf } from "./CardDecorEditor";
 import { type CardPhoto } from "./KeepsakeCardView";
 import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
 import type { CardDecor } from "./cardDecor";
-import { draftListOf, finishedCaptionOf, removeDraft, sameSourceDraft, upsertDraft, type StoredCardDraft } from "./cardDrafts";
-import { readCardDrafts, writeCardDrafts } from "./cardDraftStorage";
+import {
+  draftListOf,
+  finishedCaptionOf,
+  importedDrafts,
+  markFinishedDraft,
+  removeDraft,
+  sameSourceDraft,
+  settledFinishedDrafts,
+  upsertDraft,
+  type StoredCardDraft,
+} from "./cardDrafts";
+import { didImportServerCards, markImportedServerCards, readCardDrafts, writeCardDrafts } from "./cardDraftStorage";
 import { isLivePhotoUri, downloadPhotoToSave, releaseDownloadedPhoto } from "./photoTransfer";
 import { retryThumbnails, usePhotoThumbs } from "./photoThumbnails";
 import { isOriginalQualityUri } from "./photoSync";
+import { photoUploads } from "./photoUploads";
+import { listTripCards } from "./serverData";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import {
@@ -210,6 +225,8 @@ export function TripCardsSection({
   // 새로 열면 죽어서, 그 사진을 고르면 빈 칸이 찍힌다.
   const cardPhotos = useMemo(() => photos.filter((photo) => isLivePhotoUri(photo.uri)), [photos]);
   const photoIds = useMemo(() => cardPhotos.map((photo) => photo.id), [cardPhotos]);
+  /** 이 여행의 모든 사진 id. 파일이 기기에 없는 것도 센다(완료한 카드가 사진이 됐는지 볼 때 쓴다). */
+  const 모든_사진_id = useMemo(() => photos.map((photo) => photo.id), [photos]);
 
   /**
    * 초안 목록. 저장 형식 그대로 들고 있다가 그릴 때 카드로 읽는다(`draftListOf`).
@@ -263,12 +280,26 @@ export function TripCardsSection({
     viewerRef.current = viewer;
   });
 
+  /**
+   * 완료해 사진이 됐지만 아직 올라간 것을 확인하지 못한 초안 id(웹, 검토 #8).
+   *
+   * 이 초안은 격자에서 감춘다 — 사용자에게는 여느 때처럼 카드가 사진이 되어 사라진 것으로
+   * 보인다. 기기에만 남겨 두었다가 사진이 올라간 것을 확인하면 그때 지운다. 올라가기 전에
+   * 새로 고치면 감추는 것도 함께 풀려(이 상태는 이 판에서만 산다) 카드가 도로 보인다.
+   */
+  const [올리는_중, 올리는_중_두기] = useState<string[]>([]);
+  /** 완료한 카드가 어떤 사진이 됐는지 알아내려고, 완료 직전의 사진 id 를 들고 있는다. */
+  const 기다리는_사진 = useRef<{ tripId: string; draftId: string; 전: Set<string> } | null>(null);
   // 여행이 바뀌면 그 여행의 초안을 읽는다. 예시 여행은 적어 둔 것이 없다.
   useEffect(() => {
     if (!tripId) return;
     let 살아있다 = true;
+    // 앞 여행에서 기다리던 것은 여기서 놓는다. 초안 id 도 사진 id 도 그 여행의 것이다.
+    기다리는_사진.current = null;
     readCardDrafts(tripId).then((읽은_것) => {
-      if (살아있다) setStored({ for: tripId, list: 읽은_것 });
+      if (!살아있다) return;
+      setStored({ for: tripId, list: 읽은_것 });
+      올리는_중_두기([]);
     });
     return () => {
       살아있다 = false;
@@ -283,6 +314,78 @@ export function TripCardsSection({
     setStored({ for: tripId, list });
     if (tripId && loaded) writeCardDrafts(tripId, list).catch(() => undefined);
   }, [loaded, tripId]);
+
+  /**
+   * 옛 앱(1.0.0)이 서버에 두고 간 카드를 초안으로 한 번 들인다(2026-09-23 검토 #5).
+   *
+   * 1.0.0 은 카드를 서버에 두었고 지금 앱은 기기에만 둔다. 들여오지 않으면 그때 꾸며 둔
+   * 카드가 업데이트하자마자 사라진 것으로 보인다. 서버 카드는 **지우지 않는다** — 상대가
+   * 아직 1.0.0 이면 그 화면에는 카드가 남아 있어야 한다.
+   *
+   * 한 번만 들인다. 들였다는 표시를 기기에 남겨(`markImportedServerCards`) 다음에 열 때는
+   * 목록을 받지도 않는다. 표시를 초안과 따로 두는 까닭은 `cardImportKeyOf` 주석에 있다.
+   * 받아 오지 못하면 조용히 넘어가고 다음에 다시 해 본다.
+   */
+  const 들여오기_해봤다 = useRef<string | undefined>(undefined);
+  // 알릴 말 하나 때문에 들여오기가 다시 돌면 안 된다. 최신 손잡이만 읽는다(`viewerRef` 와 같다).
+  const notifyRef = useRef(notify);
+  useEffect(() => {
+    notifyRef.current = notify;
+  });
+  useEffect(() => {
+    if (!tripId || !loaded || 들여오기_해봤다.current === tripId) return;
+    들여오기_해봤다.current = tripId;
+    let 살아있다 = true;
+    void (async () => {
+      if (await didImportServerCards(tripId)) return;
+      let 서버_카드;
+      try {
+        서버_카드 = await listTripCards(tripId);
+      } catch {
+        들여오기_해봤다.current = undefined;
+        return;
+      }
+      if (!살아있다) return;
+      const 결과 = importedDrafts(draftsRef.current, 서버_카드, new Date().toISOString());
+      if (결과.added.length) {
+        // 적은 뒤에 표시한다. 적지 못했는데 표시부터 해 두면 카드를 영영 잃는다.
+        await writeCardDrafts(tripId, 결과.list).catch(() => undefined);
+        if (살아있다) setStored({ for: tripId, list: 결과.list });
+      }
+      await markImportedServerCards(tripId).catch(() => undefined);
+      if (살아있다 && 결과.added.length) notifyRef.current(`예전에 만든 카드 ${결과.added.length}장을 불러왔어요`);
+    })();
+    return () => {
+      살아있다 = false;
+    };
+  }, [loaded, tripId]);
+
+  // 완료한 뒤 새로 생긴 사진이 그 카드가 된 사진이다. 표시를 붙여 기기에 적어 둔다.
+  // `올리는_중` 도 본다 — 사진이 먼저 들어오고 기다릴 것이 나중에 정해질 수 있어서다.
+  useEffect(() => {
+    const 기다림 = 기다리는_사진.current;
+    if (!기다림 || !tripId || 기다림.tripId !== tripId || !loaded) return;
+    const 새_사진 = photos.find((하나) => !기다림.전.has(하나.id));
+    if (!새_사진) return;
+    기다리는_사진.current = null;
+    const 다음 = markFinishedDraft(draftsRef.current, 기다림.draftId, 새_사진.id);
+    setStored({ for: tripId, list: 다음 });
+    writeCardDrafts(tripId, 다음).catch(() => undefined);
+  }, [loaded, photos, tripId, 올리는_중]);
+  // 사진이 올라간 것을 확인하면 초안을 지운다. 올리는 줄이 움직일 때마다 다시 본다.
+  useEffect(() => {
+    if (!tripId || !loaded) return;
+    const 본다 = () => {
+      const 지울_것 = settledFinishedDrafts(draftsRef.current, 모든_사진_id, photoUploads.uploadedIds(tripId), 올리는_중);
+      if (!지울_것.length) return;
+      const 다음 = 지울_것.reduce<StoredCardDraft[]>((목록, id) => removeDraft(목록, id), [...draftsRef.current]);
+      setStored({ for: tripId, list: 다음 });
+      writeCardDrafts(tripId, 다음).catch(() => undefined);
+      올리는_중_두기((지금) => 지금.filter((id) => !지울_것.includes(id)));
+    };
+    본다();
+    return photoUploads.subscribe(본다);
+  }, [loaded, tripId, 모든_사진_id, 올리는_중]);
 
   const list = useMemo(() => draftListOf(drafts, tripName, photoIds), [drafts, tripName, photoIds]);
   // 격자 칸마다 카드를 작게 그리므로 카드에 든 사진의 썸네일을 모두 받는다.
@@ -496,9 +599,10 @@ export function TripCardsSection({
     if (쓸_것.length < 고른_것.length) viewerRef.current.onNotice("업로드 중인 사진은 빼고 넣었어요");
   }, [blocked, list, notify, openCard, openTile, photoIds, tripName]);
   // 사진 격자에 함께 놓을 칸. 최신 초안이 먼저다(`draftListOf`).
+  // 사진이 되어 올라가는 중인 초안은 감춘다(`올리는_중` 주석).
   const tiles = useMemo<CardTile[]>(
     () =>
-      list.map((줄) => {
+      list.filter((줄) => !올리는_중.includes(줄.id)).map((줄) => {
         const 대표 = 줄.card.photoIds[0] ?? "";
         return {
           id: 줄.id,
@@ -508,7 +612,7 @@ export function TripCardsSection({
           preview: <CardThumb {...faceOf(줄.card)} />,
         };
       }),
-    [cardPhotos, faceOf, list, thumbs],
+    [cardPhotos, faceOf, list, thumbs, 올리는_중],
   );
   /** 격자에서 초안을 누르면 바로 꾸미기다. 보던 사진은 놓는다. */
   /** 격자 칸의 ✕. 한 번 묻고 초안을 지운다. 꾸미는 창을 열지 않고 지우는 길이다(2026-09-23 요청). */
@@ -686,6 +790,8 @@ export function TripCardsSection({
     // iOS 는 확인창을 큐에 쌓아, 「완료」를 빠르게 두 번 누르면 창이 두 번 뜨고 사진이 두 장 된다.
     if (완료_중.current) return;
     완료_중.current = true;
+    // 완료 직전의 사진. 뒤에 새로 생긴 것이 이 카드가 된 사진이다(`기다리는_사진`).
+    const 전_사진 = new Set(photos.map((하나) => 하나.id));
     // 그리는 동안은 창을 닫지 않는다. 찍을 카드가 이 창에 떠 있어야 한다.
     setBusy(true);
     let 찍음: { 찍은_것: string; 원본_못_받음: boolean } | undefined;
@@ -705,12 +811,19 @@ export function TripCardsSection({
       완료_중.current = false;
     }
     if (!넣었다) return;
-    // 사진이 됐으니 초안은 지운다. 목록에서 먼저 빼야 `closeAll` 이 도로 적지 않는다.
+    // 사진이 됐으니 초안을 놓는다. 창에서 먼저 빼야 `closeAll` 이 도로 적지 않는다.
     setOpenId(null);
     setDraft(null);
     setExporting(false);
     setStartedFrom(null);
-    persist(removeDraft(drafts, id));
+    if (Platform.OS === "web" && tripId) {
+      // 웹은 사진 파일이 기기에 남지 않는다. 올라간 것을 확인할 때까지 초안을 기기에 두고
+      // 격자에서만 감춘다(`올리는_중` 주석, 2026-09-23 검토 #8).
+      기다리는_사진.current = { tripId, draftId: id, 전: 전_사진 };
+      올리는_중_두기((지금) => (지금.includes(id) ? 지금 : [...지금, id]));
+    } else {
+      persist(removeDraft(drafts, id));
+    }
     viewerRef.current.onMove(null);
   };
 

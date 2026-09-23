@@ -464,6 +464,12 @@ async def update_trip(
     if 고른_카드:
         보낸_것["cover_card_id"] = await trip_service.check_cover_card(db, trip, 고른_카드)
         보낸_것["cover_photo_id"] = None
+    # 「대표 사진 설정 해제」(coverPhotoId: null)는 카드 쪽도 함께 푼다. 홈에 깔리는 것은
+    # 여행마다 하나라 사진을 비웠는데 카드가 남으면 해제가 먹지 않은 것으로 보인다. 옛
+    # 앱(1.0.0)이 깔아 둔 카드를 새 앱에서 풀 길이 이것뿐이다(2026-09-23 검토 #56).
+    # 같은 요청에 카드를 함께 골랐으면 그쪽이 이긴다.
+    if "cover_photo_id" in 보낸_것 and not 고른_사진 and not 고른_카드:
+        보낸_것["cover_card_id"] = None
     # 보여 줄 부분은 비울 수 없는 값이다. null 로 보낸 것은 안 보낸 것으로 본다.
     for 이름 in trip_service.COVER_FOCUS_DEFAULTS:
         if 이름 in 보낸_것 and 보낸_것[이름] is None:

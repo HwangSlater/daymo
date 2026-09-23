@@ -10,7 +10,14 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { cardDraftsKeyOf, isCardDraftsKey, parseStoredDrafts, serializeDrafts, type StoredCardDraft } from "./cardDrafts";
+import {
+  cardDraftsKeyOf,
+  cardImportKeyOf,
+  isCardDraftsKey,
+  parseStoredDrafts,
+  serializeDrafts,
+  type StoredCardDraft,
+} from "./cardDrafts";
 
 /** 그 여행의 초안. 없거나 못 읽으면 빈 목록이다. */
 export async function readCardDrafts(tripId: string): Promise<StoredCardDraft[]> {
@@ -27,7 +34,31 @@ export async function writeCardDrafts(tripId: string, list: readonly StoredCardD
   await AsyncStorage.setItem(cardDraftsKeyOf(tripId), serializeDrafts(list));
 }
 
-/** 그 여행의 초안을 모두 지운다. */
+/**
+ * 이 여행에서 옛 앱이 두고 간 카드를 이미 불러왔는지.
+ *
+ * 못 읽으면 「아직」으로 본다. 한 번 더 불러와도 같은 id 는 건너뛰므로 카드가 둘이 되지는
+ * 않는다(`importedDrafts`).
+ */
+export async function didImportServerCards(tripId: string): Promise<boolean> {
+  try {
+    return Boolean(await AsyncStorage.getItem(cardImportKeyOf(tripId)));
+  } catch {
+    return false;
+  }
+}
+
+/** 이 여행은 불러오기를 마쳤다고 적는다. 적어 두는 값은 그때의 시각뿐이다. */
+export async function markImportedServerCards(tripId: string): Promise<void> {
+  await AsyncStorage.setItem(cardImportKeyOf(tripId), new Date().toISOString());
+}
+
+/**
+ * 그 여행의 초안을 모두 지운다.
+ *
+ * 불러오기 표시(`cardImportKeyOf`)는 남긴다. 함께 지우면 그 여행을 다시 열었을 때 옛 앱이
+ * 두고 간 카드를 또 들여와, 지운 카드가 되살아난다.
+ */
 export async function removeCardDrafts(tripId: string): Promise<void> {
   await AsyncStorage.removeItem(cardDraftsKeyOf(tripId));
 }

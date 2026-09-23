@@ -478,6 +478,41 @@ async def test_홈_카드는_사진_한_장이거나_기념_카드_하나고_둘
     assert 다시_사진.json()["data"]["coverPhotoIds"] == [사진들[1]]
 
 
+async def test_대표_사진_해제는_깔려_있던_카드도_함께_푼다(api, db):
+    """
+    홈에 깔린 것을 내리는 길은 「대표 사진 설정 해제」 하나다.
+
+    옛 앱(1.0.0)은 카드를 홈에 깔 수 있었지만 지금 앱에는 그 길이 없다. 사진을 비울 때
+    카드 쪽을 함께 풀지 않으면 옛 앱이 깐 카드를 내릴 수가 없다(2026-09-23 검토 #56).
+    """
+    from tests.test_api_photos import jpeg, 사진을_올린다
+    from tests.test_api_trip_cards import 카드를_만든다
+
+    headers = await 로그인한_사람(api, "sky@example.com")
+    space_id = await 공간을_만든다(api, headers)
+    trip = await 여행을_만든다(api, headers, space_id)
+    사진 = (await 사진을_올린다(api, headers, trip["id"], jpeg(400, 300)))[0].json()["data"]["id"]
+    카드 = await 카드를_만든다(api, headers, trip["id"], style="필름", photoIds=[사진])
+    깔았다 = await api.patch(
+        f"/v1/trips/{trip['id']}", json={"version": trip["version"], "coverCardId": 카드["id"]}, headers=headers
+    )
+    assert 깔았다.json()["data"]["coverCardId"] == 카드["id"]
+
+    풀었다 = await api.patch(
+        f"/v1/trips/{trip['id']}",
+        json={"version": 깔았다.json()["data"]["version"], "coverPhotoId": None},
+        headers=headers,
+    )
+    남은_카드 = await api.get(f"/v1/trips/{trip['id']}/cards", headers=headers)
+
+    assert 풀었다.status_code == 200, 풀었다.text
+    assert 풀었다.json()["data"]["coverCardId"] is None
+    assert 풀었다.json()["data"]["coverPhotoId"] is None
+    assert 풀었다.json()["data"]["coverPhotoIds"] == []
+    # 카드 자체는 그대로 있다. 옛 앱을 쓰는 상대의 화면에는 계속 보여야 한다.
+    assert [하나["id"] for 하나 in 남은_카드.json()["data"]] == [카드["id"]]
+
+
 async def test_홈에_깐_카드를_지우면_여행은_남고_홈만_비워진다(api, db):
     from tests.test_api_photos import jpeg, 사진을_올린다
     from tests.test_api_trip_cards import 카드를_만든다
