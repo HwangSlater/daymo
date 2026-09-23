@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAnnounce } from "./announce";
 import { Text } from "./AppText";
 import { Toast } from "./ui/Toast";
 import { Glyph } from "./Glyph";
@@ -385,6 +386,10 @@ function GalleryBody({
 
   // ---- 아래 줄 ----
   const 수 = selected.length;
+  // 머리줄의 「N장 선택」은 고를 때마다 바뀐다. 안드로이드는 그 줄의
+  // `accessibilityLiveRegion` 이 읽지만 iOS VoiceOver 는 live region 을 모른다.
+  // 둘을 같이 둬야 양쪽 기기가 몇 장 골랐는지 듣는다(`announce.ts`).
+  useAnnounce(selecting ? (수 ? `${수}장 선택` : "사진 선택") : "");
   const 바쁨 = Boolean(saving);
   const 삭제하기 = () => {
     if (!수 || 바쁨) return;

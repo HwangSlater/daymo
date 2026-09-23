@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Crypto from "expo-crypto";
 
+import { useAnnounce } from "./announce";
 import { Text, TextInput } from "./AppText";
 import { Glyph } from "./Glyph";
 import { Chip, ChipRow } from "./ui/Chip";
@@ -290,6 +291,9 @@ export function NoticeImportSheet({
 
   const accent = theme.primary;
   const danger = theme.dark ? statusColor.danger.dark : statusColor.danger.light;
+  // 오류 줄에 붙인 `accessibilityLiveRegion` 은 안드로이드만 듣는다. iOS VoiceOver 가
+  // 같은 말을 듣게 여기서 한 번 더 건넨다(`announce.ts`).
+  useAnnounce(visible ? error : "");
 
   // 읽거나 넣는 중에는 모자란 것을 알리지 않는다. 버튼에 이미 "읽는 중…" 이
   // 적혀 있는데 그 위에 "공지 글을 붙여넣어 주세요" 가 같이 뜨면 어긋나 보인다.

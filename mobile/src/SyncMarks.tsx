@@ -9,6 +9,7 @@
 
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 
+import { useAnnounce } from "./announce";
 import { Text } from "./AppText";
 import { troubleHeadline } from "./listSync";
 import { 글자누름여유 } from "./theme/controls";
@@ -29,6 +30,9 @@ export function SyncNotice({ theme, refreshing, onRefresh }: {
 }) {
   const trouble = useSyncTrouble();
   const message = troubleHeadline(trouble);
+  // 안드로이드는 아래 줄의 `accessibilityLiveRegion` 이, iOS VoiceOver 는 이것이 읽는다.
+  // live region 은 안드로이드만 듣기 때문에 둘을 같이 둔다(`announce.ts`).
+  useAnnounce(message);
   const web = Platform.OS === "web" && Boolean(onRefresh);
   if (!message && !web) return null;
   return (

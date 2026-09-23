@@ -1,5 +1,6 @@
 import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 
+import { useAnnounce } from "../announce";
 import { Text } from "../AppText";
 import { Glyph } from "../Glyph";
 import { AppTheme } from "../theme";
@@ -47,6 +48,9 @@ export function Toast({
   /** 되돌리기가 없는 줄이 사진을 덮고 있으면 그 자리를 누를 수 없다. */
   pointerEvents?: "none" | "box-none" | "auto";
 }) {
+  // 안드로이드는 아래 `accessibilityLiveRegion` 이, iOS VoiceOver 는 이것이 읽는다.
+  // 둘이 보는 것이 달라 한쪽만으로는 절반의 기기가 조용하다(`announce.ts`).
+  useAnnounce(text);
   const 바탕 = colors ? colors.background : theme?.text ?? "#17233D";
   const 글자 = colors ? colors.text : theme?.dark ? theme.background : "#FFFFFF";
   const 표식색 = markColor ?? (colors ? colors.text : theme?.primary ?? "#FF6B63");

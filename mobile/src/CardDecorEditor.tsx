@@ -47,6 +47,7 @@ import {
 } from "react-native";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAnnounce } from "./announce";
 import { Text } from "./AppText";
 import { useOnceTip } from "./onceTip";
 import { COVER_FOCUS_DEFAULT, sameFocus } from "./coverCrop";
@@ -113,6 +114,9 @@ import { josa } from "./tripExpenses";
 
 /** 카드를 띄울 칸의 안쪽 여백. 카드가 화면 끝에 붙지 않게 한다. */
 const STAGE_PAD = 16;
+
+/** 처음 한 번 뜨는 사진 안내. 눈으로 읽는 줄과 낭독기에 건네는 말이 같아야 해서 한곳에 둔다. */
+const 사진_안내_글 = "사진을 꾹 누르면 자리를 바꿔요\n보일 부분은 「프레임」의 비율에서 맞춰요";
 
 /** 도구 칸을 열어도 카드 무대에 남겨 두는 높이. 이보다 작으면 카드를 꾸밀 수가 없다. */
 const 무대_최소 = 230;
@@ -667,6 +671,9 @@ export function CardDecorTools({
   );
   /** 카드 위 사진에서 하는 일을 처음 한 번 알리는 말풍선. */
   const [사진_안내_봄, 사진_안내_닫기] = useOnceTip("daymo.card-photo-tip.v3");
+  // 처음 한 번 뜨는 안내. 붙여 둔 `accessibilityLiveRegion` 은 안드로이드만 듣기 때문에
+  // iOS VoiceOver 를 위해 같은 말을 여기서 한 번 더 건넨다(`announce.ts`).
+  useAnnounce(!readOnly && !exporting && !사진_안내_봄 && card.photoIds.length > 0 ? 사진_안내_글 : "");
   const [스티커_갈래, 스티커_갈래_고르기] = useState(STICKER_CATEGORIES[0].name);
   /**
    * 사진 칸마다의 가로:세로(사진 id → 비율). 카드가 그려질 때 재 둔다. 보일 부분을 맞추는
@@ -829,7 +836,7 @@ export function CardDecorTools({
         )}
         {!readOnly && !exporting && !사진_안내_봄 && card.photoIds.length > 0 && (
           <View style={styles.tip} accessibilityLiveRegion="polite">
-            <Text style={styles.tipText}>{"사진을 꾹 누르면 자리를 바꿔요\n보일 부분은 「프레임」의 비율에서 맞춰요"}</Text>
+            <Text style={styles.tipText}>{사진_안내_글}</Text>
             <Pressable onPress={사진_안내_닫기} accessibilityRole="button" accessibilityLabel="안내 닫기" hitSlop={10} style={styles.tipClose}>
               <Glyph name="close" size={아이콘.작게} color="#FFFFFF" weight={2.4} />
             </Pressable>
