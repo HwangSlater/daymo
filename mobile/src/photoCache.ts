@@ -15,6 +15,8 @@
  *   const 지금 = await photoCacheUsage();           // { bytes, files }
  *   `사진 캐시 ${cacheSizeText(지금.bytes)}`         // 「사진 캐시 128MB」
  *   await clearPhotoCache();                        // 「비우기」를 눌렀을 때
+ *   await clearPhotoCache();                        // 로그아웃·계정 전환도 같다
+ *   clearThumbnails();                              // 그때 메모리 지도도 함께(photoThumbnails)
  */
 
 import { Directory, File, Paths } from "expo-file-system";
@@ -132,6 +134,12 @@ export async function photoCacheUsage(): Promise<PhotoCacheUsage> {
  *
  * 기기에서 고른 원본은 남는다 — 아직 못 올린 사진이면 이 파일이 하나뿐이다. 지운 것은
  * 다음에 그 사진을 볼 때 다시 받는다.
+ *
+ * **로그아웃·계정 전환에서도 이것을 부른다**(2026-09-23 검토 #66). 안 부르면 한 기기를
+ * 둘이 번갈아 쓸 때 앞사람이 받아 둔 사진 파일이 기기에 그대로 남는다. 그때는
+ * `photoThumbnails.clearThumbnails()` 도 같이 부른다 — 파일만 지우면 앱이 사는 동안
+ * 메모리에 남은 썸네일 지도가 같은 id 에 앞사람 사진을 그대로 띄운다. 여기서 직접
+ * 부르지 않는 것은 두 파일이 서로를 가져오게 되기 때문이다.
  */
 export async function clearPhotoCache(): Promise<PhotoCacheUsage> {
   const 훑은_것 = 훑기();

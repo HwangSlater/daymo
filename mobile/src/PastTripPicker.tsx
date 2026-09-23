@@ -4,6 +4,7 @@ import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./AppText";
 import { Glyph } from "./Glyph";
 import { CheckBox } from "./ui/CheckBox";
+import { LoadState } from "./ui/LoadState";
 import type { PastTripGroup } from "./pastTripImport";
 import { AppTheme } from "./theme";
 import { 높이, 모서리, 아이콘, 누름여유 } from "./theme/controls";
@@ -75,15 +76,7 @@ export function PastTripList<T extends { id: string; name: string }>({
           </Pressable>
         ) : null}
       </View>
-      {loading ? <Text style={[styles.hint, { color: muted }]}>불러오는 중이에요</Text> : null}
-      {error ? (
-        <View style={styles.errorBox}>
-          <Text style={[styles.hint, { color: theme?.accent ?? "#B4453B" }]}>{error}</Text>
-          <Pressable onPress={onRetry} accessibilityRole="button" hitSlop={누름여유(높이.칩)}>
-            <Text style={[styles.headLinkText, { color: primary }]}>다시 시도</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      <LoadState theme={theme} loading={loading} error={error} onRetry={onRetry} />
       {!loading && !error && groups.length === 0 ? (
         <Text style={[styles.hint, { color: muted }]}>지난 여행에 적어 둔 {label}{label === "요리" ? "가" : "이"} 없어요</Text>
       ) : null}
@@ -172,7 +165,6 @@ const styles = StyleSheet.create({
   headLink: { flexDirection: "row", alignItems: "center", gap: 3 },
   headLinkText: { fontSize: 14, fontFamily: typo.label.family },
   hint: { fontSize: 13, lineHeight: 19, marginBottom: 16 },
-  errorBox: { gap: 4, marginBottom: 8 },
   group: {
     borderRadius: 모서리.구역,
     borderWidth: 1,

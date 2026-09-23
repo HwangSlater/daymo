@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "./AppText";
 import { DaymoApiError } from "./auth";
 import { trashLeftLabel, type ServerTrashItem } from "./memorySync";
 import { listTrash, restoreFromTrash } from "./serverData";
+import { LoadState } from "./ui/LoadState";
 import type { AppTheme } from "./theme";
 import { 모서리, 불투명도 , 글자누름여유} from "./theme/controls";
 import { typo } from "./theme/typography";
@@ -78,8 +79,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
       </Pressable>
       {open && (
         <View style={[styles.list, { borderColor: appTheme?.border ?? "#EEEAE5" }]}>
-          {!items && !error && <ActivityIndicator color={primary} style={styles.loading} />}
-          {!!error && <Text style={[styles.empty, { color: muted }]}>{error}</Text>}
+          <LoadState theme={appTheme} loading={!items && !error} error={error} onRetry={() => void load()} />
           {items?.length === 0 && <Text style={[styles.empty, { color: muted }]}>삭제한 메모와 사진이 없어요</Text>}
           {items?.map((item) => (
             <View key={item.id} style={styles.row}>
@@ -117,7 +117,6 @@ const styles = StyleSheet.create({
   toggle: { alignSelf: "flex-start", paddingVertical: 4 },
   toggleText: { fontSize: typo.label.size, fontFamily: typo.label.family },
   list: { marginTop: 8, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 4 },
-  loading: { paddingVertical: 12 },
   empty: { fontSize: typo.caption.size, paddingVertical: 12, textAlign: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
   copy: { flex: 1 },

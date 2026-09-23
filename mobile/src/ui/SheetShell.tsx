@@ -14,6 +14,7 @@ import {
   ViewStyle,
 } from "react-native";
 
+import { useAnnounce } from "../announce";
 import { Text } from "../AppText";
 import { Glyph } from "../Glyph";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -258,6 +259,10 @@ export function SheetShell({
   const submitLabel = submitLabelOf({ locked, submitting, submit: submit ?? "", busyLabel });
   const submitBlocked = !locked && (submitDisabled || submitting);
   const hint = sheetHintOf({ locked, lockedHint, disabledHint, submitDisabled });
+  // 버튼 위 한 줄은 「왜 저장을 못 누르는지」를 알려 주는 자리다. 안드로이드는 그 줄의
+  // `accessibilityLiveRegion` 이 읽지만 iOS VoiceOver 는 live region 을 모른다.
+  // 둘을 같이 둬야 양쪽 기기가 같은 말을 듣는다(`announce.ts`).
+  useAnnounce(visible ? hint : "");
   const kindBarColor = accent ?? theme?.primary ?? "#FF6B63";
 
   const press = async () => {
