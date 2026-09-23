@@ -751,6 +751,12 @@ export const LIFT_DELAY = 300;
 /** 들기 전에 손가락이 이만큼(px) 넘게 움직였으면 꾹 누른 것이 아니다. */
 export const LIFT_SLOP = 8;
 /**
+ * 두 손가락으로 카드를 벌리는 중인지. 꾸미기 도구(`CardDecorEditor`)가 세우고 내린다.
+ * 사진 칸은 꾹 누르면 띄우고 흔드는데, 두 손가락을 가만히 대고 있어도 그 시간이 차면 띄워져
+ * 벌리는 동안 카드가 흔들렸다(2026-09-23). 벌리는 중이면 띄우지 않는다.
+ */
+export const 두_손가락_중 = { current: false };
+/**
  * 손가락이 둘이면 이 판은 물러난다. 카드를 벌려 키우는 것(`CardDecorEditor` 의 `두_손가락`)이
  * 손가락 이벤트를 직접 듣기 때문에, 여기서 같이 끌면 스티커·사진이 딸려 움직인다.
  */
@@ -866,6 +872,7 @@ function SwapCell({
         이번.놓을_칸 = null;
         이번.타이머 = setTimeout(() => {
           이번.타이머 = undefined;
+          if (두_손가락_중.current) return;
           이번.들었다 = true;
           이번.칸_자리 = [];
           지금.current.measure((자리_하나) => 이번.칸_자리.push(자리_하나));

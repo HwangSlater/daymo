@@ -52,7 +52,7 @@ import { useOnceTip } from "./onceTip";
 import { COVER_FOCUS_DEFAULT, sameFocus } from "./coverCrop";
 import { CoverFocusScreen } from "./ui/CoverFocusScreen";
 import { Glyph, type GlyphName } from "./Glyph";
-import { KeepsakeCardView, ScaledCard, type CardPhoto } from "./KeepsakeCardView";
+import { KeepsakeCardView, ScaledCard, 두_손가락_중, type CardPhoto } from "./KeepsakeCardView";
 import { CardOrderStrip, pickStyles } from "./CardOrderStrip";
 import { CardTextEditor } from "./CardTextEditor";
 import { ACCENT, CHIP, CHIP_EDGE, INK, INK_FAINT, INK_SOFT, PANEL } from "./cardToolColors";
@@ -468,7 +468,28 @@ export function CardDecorTools({
     끌기.setValue(0);
   }, [tab, 시트_높이, 끌기]);
   const [고른_것, 고르기] = useState("");
+  /**
+   * 이번 손가락이 스티커를 골랐는지. 카드의 빈 곳을 톡 누르면 고른 것을 푸는데(2026-09-23 요청,
+   * 「풀 방법이 없다」), 스티커를 누른 손가락도 같은 길로 올라와서 고르자마자 풀리면 안 된다.
+   * 고른 쪽이 표를 세우고, 손을 뗄 때 표가 없을 때만 푼다.
+   */
+  const 이번에_골랐다 = useRef(false);
+  const 고르기_손 = useCallback((id: string) => {
+    이번에_골랐다.current = true;
+    고르기(id);
+  }, []);
   const [칸, onStageLayout] = useBoxSize();
+  /** 카드 자리의 화면 좌표. 두 손가락 벌리기를 손가락 가운데에 붙들어 두려고 잰다. */
+  const 무대 = useRef<View>(null);
+  const 무대_자리 = useRef({ x: 0, y: 0 });
+  const onStageLayoutAndMeasure = useCallback((event: LayoutChangeEvent) => {
+    onStageLayout(event);
+    무대.current?.measureInWindow((x, y) => {
+      무대_자리.current = { x, y };
+    });
+  }, [onStageLayout]);
+  /** 두 손가락으로 벌리는 중. 그동안은 카드를 한 장의 그림으로 굳혀 그려 떨림을 줄인다. */
+  const [벌리는_중, 벌리기_두기] = useState(false);
 
   const accent = theme?.primary ?? "#3F4C8F";
   const accentInk = onAccent(Boolean(theme?.dark));
@@ -494,14 +515,16 @@ export function CardDecorTools({
    * 벌리는 동안의 확대. 매 순간 상태를 고치면 화면 전체를 다시 그려 굼떴다. 손가락을 따라서는
    * 이 값만 움직이고(겉에 덧씌우는 배와 옮김), 손을 떼면 한 번만 상태(`확대`)로 옮긴다.
    */
-  const [핀치] = useState(() => ({ 배: new Animated.Value(1), x: new Animated.Value(0), y: new Animated.Value(0) }));
+  /*
+   * 손을 뗄 때 덧씌운 값을 「되돌리지」 않고 **새 값으로 바꿔 낀다**(2026-09-23). 상태(`확대`)를
+   * 옮긴 뒤 effect 에서 1·0 으로 되돌리면, 새 크기로 그려진 카드 위에 옛 덧씌움이 한 프레임
+   * 남아 두 배로 커졌다 줄어 크게 흔들렸다. 상태와 같은 묶음에서 새 Animated 값을 넣으면
+   * 새 크기와 빈 덧씌움이 한 번에 그려진다.
+   */
+  const [핀치, 핀치_두기] = useState(() => ({ 배: new Animated.Value(1), x: new Animated.Value(0), y: new Animated.Value(0) }));
   useEffect(() => {
     확대_지금.current = 확대;
-    // 상태로 옮긴 뒤에 덧씌운 값을 푼다. 먼저 풀면 한 번 원래 크기로 튀어 보인다.
-    핀치.배.setValue(1);
-    핀치.x.setValue(0);
-    핀치.y.setValue(0);
-  }, [확대, 핀치]);
+  }, [확대]);
   /** 열린 도구 칸. 손가락 이벤트에서만 읽는다. */
   const 열린_탭 = useRef(tab);
   useEffect(() => {
@@ -516,7 +539,13 @@ export function CardDecorTools({
     /** 손을 떼거나 빼앗겼을 때. 벌린 것이 있으면 한 번만 상태로 옮긴다. */
     const 놓기 = () => {
       처음.거리 = 0;
-      if (끝.움직임) 확대하기({ 배: 끝.배, x: 끝.x, y: 끝.y });
+      두_손가락_중.current = false;
+      if (끝.움직임) {
+        // 상태와 새 덧씌움을 같은 묶음으로 넣는다(위 주석).
+        확대하기({ 배: 끝.배, x: 끝.x, y: 끝.y });
+        핀치_두기({ 배: new Animated.Value(1), x: new Animated.Value(0), y: new Animated.Value(0) });
+        벌리기_두기(false);
+      }
       끝.움직임 = false;
     };
     const 재기 = (터치: readonly { pageX: number; pageY: number }[]) => ({
@@ -540,6 +569,7 @@ export function CardDecorTools({
           return;
         }
         누름.움직임 = true;
+        두_손가락_중.current = true;
         Object.assign(처음, 재기(터치), 확대_지금.current);
       },
       onTouchMove: (event: GestureResponderEvent) => {
@@ -549,14 +579,30 @@ export function CardDecorTools({
           return;
         }
         누름.움직임 = true;
+        두_손가락_중.current = true;
         const 지금 = 재기(터치);
         if (!처음.거리) {
           Object.assign(처음, 지금, 확대_지금.current);
           return;
         }
-        const 배 = Math.min(4, Math.max(1, 처음.배 * (지금.거리 / 처음.거리)));
-        const x = 배 === 1 ? 0 : 처음.x + (지금.가운데x - 처음.가운데x);
-        const y = 배 === 1 ? 0 : 처음.y + (지금.가운데y - 처음.가운데y);
+        if (!끝.움직임) 벌리기_두기(true);
+        /*
+         * 손가락 가운데 아래의 카드 한 점이 그대로 손가락 아래에 있게 한다(2026-09-23).
+         * 전에는 카드 가운데를 축으로 키우고 손가락 가운데만 따라가서, 카드 가장자리를 벌리면
+         * 그 자리가 미끄러져 흔들려 보였다. 카드 자리 가운데를 원점으로 셈한다.
+         *
+         * 손가락 둘의 움직임이 번갈아 와서 거리가 조금씩 튄다. 반씩 섞어(저역 통과) 떨림을 죽인다.
+         */
+        const 날_배 = Math.min(4, Math.max(1, 처음.배 * (지금.거리 / 처음.거리)));
+        const 배 = 끝.움직임 ? 끝.배 + (날_배 - 끝.배) * 0.5 : 날_배;
+        const { width, height } = 칸_지금.current;
+        const 원점x = 무대_자리.current.x + width / 2;
+        const 원점y = 무대_자리.current.y + height / 2;
+        const 비 = 배 / 처음.배;
+        const 날_x = (지금.가운데x - 원점x) - 비 * (처음.가운데x - 원점x - 처음.x);
+        const 날_y = (지금.가운데y - 원점y) - 비 * (처음.가운데y - 원점y - 처음.y);
+        const x = 배 <= 1.001 ? 0 : 끝.움직임 ? 끝.x + (날_x - 끝.x) * 0.5 : 날_x;
+        const y = 배 <= 1.001 ? 0 : 끝.움직임 ? 끝.y + (날_y - 끝.y) * 0.5 : 날_y;
         // 상태는 그대로 두고 덧씌운 값만 움직인다.
         핀치.배.setValue(배 / 처음.배);
         핀치.x.setValue(x - 처음.x);
@@ -566,9 +612,13 @@ export function CardDecorTools({
       // 손가락 하나라도 떨어지면 거기서 끝낸다. 남은 손가락으로 이어서 벌리면 새로 잡는다.
       onTouchEnd: () => {
         놓기();
-        // 카드 쪽을 톡 누르면 열려 있던 도구 칸을 닫는다(2026-09-23 요청). 끌어 내리는
-        // 길만 두면 한 손으로 쓰기 불편하다. 끌거나 벌린 것은 누른 것으로 보지 않는다.
-        if (!누름.움직임 && 열린_탭.current) setTab(null);
+        // 카드 쪽을 톡 누르면 열려 있던 도구 칸을 닫고, 골라 둔 스티커를 푼다(2026-09-23 요청).
+        // 끌거나 벌린 것은 누른 것으로 보지 않고, 스티커를 고른 손가락(`이번에_골랐다`)도 풀지 않는다.
+        if (!누름.움직임) {
+          if (열린_탭.current) setTab(null);
+          if (!이번에_골랐다.current) 고르기("");
+        }
+        이번에_골랐다.current = false;
         누름.움직임 = true;
       },
       onTouchCancel: () => {
@@ -576,7 +626,13 @@ export function CardDecorTools({
         누름.움직임 = true;
       },
     };
+    // 손을 뗄 때 덧씌움을 새 값으로 바꿔 끼우므로 그때 손잡이도 새로 만든다. 그 사이 손가락은 이미 떨어져 있다.
   }, [확대하기, 핀치]);
+  // 손가락 이벤트에서 읽는 카드 자리 크기. 렌더 중에는 읽지 않는다.
+  const 칸_지금 = useRef(칸);
+  useEffect(() => {
+    칸_지금.current = 칸;
+  }, [칸]);
 
   const onMove = useCallback(
     (id: string, x: number, y: number) => onDecor((지금) => moveDecor(지금, id, x, y)),
@@ -644,8 +700,8 @@ export function CardDecorTools({
     글자_고치기(id);
   }, [card.decor]);
   const edit = useMemo(
-    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기, onMove, onResize, onRemove, onEdit, onDuplicate }),
-    [readOnly, 고른_것, scale, onMove, onResize, onRemove, onEdit, onDuplicate],
+    () => (readOnly ? undefined : { selectedId: 고른_것, scale, onSelect: 고르기_손, onMove, onResize, onRemove, onEdit, onDuplicate }),
+    [readOnly, 고른_것, scale, 고르기_손, onMove, onResize, onRemove, onEdit, onDuplicate],
   );
   const 고른_줄 = card.decor.find((하나) => 하나.id === 고른_것);
   const 네컷 = isCutStyle(card.style);
@@ -695,13 +751,18 @@ export function CardDecorTools({
   return (
     <>
       <View
+        ref={무대}
         style={[styles.stage, !exporting && styles.stageEdit]}
-        onLayout={onStageLayout}
+        onLayout={onStageLayoutAndMeasure}
         accessibilityLabel="꾸미는 카드"
         {...(exporting ? {} : 두_손가락)}
       >
         {칸.width > 0 && (
           <Animated.View
+            // 벌리는 동안 카드를 한 장의 그림으로 굳힌다. 매 프레임 그림자·사진·글자를 다시
+            // 그리면 프레임이 밀려 떨려 보인다.
+            shouldRasterizeIOS={벌리는_중}
+            renderToHardwareTextureAndroid={벌리는_중}
             style={[
               !exporting && styles.cardShadow,
               !exporting && {
