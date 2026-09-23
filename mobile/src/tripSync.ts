@@ -105,7 +105,7 @@ export class TripConflictError extends Error {
   readonly latest: LatestTrip;
 
   constructor(latest: LatestTrip) {
-    super("다른 곳에서 먼저 바뀌었어요. 최신 내용으로 다시 보여 드릴게요.");
+    super("다른 곳에서 먼저 바뀌었어요. 최신 내용으로 다시 보여 줄게요.");
     this.latest = latest;
   }
 }

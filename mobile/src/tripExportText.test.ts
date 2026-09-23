@@ -116,7 +116,7 @@ test("여러 여행을 시작일 순으로 묶고 머리글을 붙인다", () =>
     new Date(2026, 8, 16),
   );
 
-  assert.ok(text.startsWith("# Daymo 여행 기록\n\n내보낸 날: 2026년 9월 16일 · 여행 2개\n"));
+  assert.ok(text.startsWith("# Daymo 여행 기록\n\n저장한 날: 2026년 9월 16일 · 여행 2개\n"));
   assert.ok(text.indexOf("## 경주") < text.indexOf("## 속초"));
   assert.ok(text.endsWith("\n"));
 });

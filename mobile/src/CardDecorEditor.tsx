@@ -12,7 +12,7 @@
  *   글자 — 카드에 글자 붙이기, 제목·한 줄 설명·넣을 항목·통계
  *   스티커 — 갈래별 오려 붙인 스티커(`stickers/`)
  *   바탕 — 종이 무늬·종이 색
- * 되돌리기·다시하기는 머리줄 가운데(`PhotoViewer` 의 history), 복제는 스티커 손잡이 ⧉ 다.
+ * 되돌리기·다시 하기는 머리줄 가운데(`PhotoViewer` 의 history), 복제는 스티커 손잡이 ⧉ 다.
  * 글자를 고치는 창은 `CardTextEditor.tsx` 에 있다.
  *
  * 부르는 말은 「프레임」으로 맞췄다. 「틀」은 뜻은 맞지만 이 자리에서 무엇을
@@ -119,12 +119,12 @@ const 무대_밖 = 170;
 
 /**
  * 아래 막대의 도구(2026-09-22, 인스타그램·캔바와 같은 틀). 누른 것만 시트로 올라온다.
- * 「글자」는 예전 「텍스트」 갈래(카드 제목·설명)에 글자 스티커 붙이기를 더한 것이다.
+ * 「텍스트」는 예전 갈래(카드 제목·설명)에 글자 스티커 붙이기를 더한 것이다.
  */
-const CARD_TOOL_TABS = ["프레임", "사진", "글자", "스티커", "바탕"] as const;
+const CARD_TOOL_TABS = ["프레임", "사진", "텍스트", "스티커", "바탕"] as const;
 type CardToolTab = (typeof CARD_TOOL_TABS)[number];
 const TOOL_GLYPH: Record<CardToolTab, GlyphName> = {
-  프레임: "cardFrame", 사진: "photo", 글자: "textT", 스티커: "sticker", 바탕: "paper",
+  프레임: "cardFrame", 사진: "photo", 텍스트: "textT", 스티커: "sticker", 바탕: "paper",
 };
 const STICKER_CATEGORY_NAMES = STICKER_CATEGORIES.map((갈래) => 갈래.name);
 /** 가로로 긴 스티커(글씨 띠·테이프)는 고르는 판에서 두 칸을 쓴다. */
@@ -1026,7 +1026,7 @@ export function CardDecorTools({
                 </>
               )}
 
-              {tab === "글자" && (
+              {tab === "텍스트" && (
                 <>
                   {/* 카드 위에 얹는 글자. 누르면 곧바로 적는 화면이 뜬다(인스타그램 스토리와 같다). */}
                   <Pressable
@@ -1037,7 +1037,7 @@ export function CardDecorTools({
                     style={({ pressed }) => [styles.addText, { backgroundColor: accent }, 스티커_꽉_참 && styles.pickBlocked, pressed && styles.pressed]}
                   >
                     <Glyph name="textT" size={18} color={accentInk} weight={2.2} />
-                    <Text style={[styles.addTextLabel, { color: accentInk }]}>카드에 글자 붙이기</Text>
+                    <Text style={[styles.addTextLabel, { color: accentInk }]}>카드에 텍스트 넣기</Text>
                   </Pressable>
                   {/* 켜고 끄는 줄을 제목보다 위에 둔다. 아래에 있으면 제목을 다 적고
                       저장할 때까지 지나치고, 「적었는데 왜 카드에 없지」가 된다. */}
@@ -1190,7 +1190,7 @@ export function CardDecorTools({
                           : "위에서 눌러 카드에 붙이고, 붙인 것은 끌어서 옮겨요"}
                   />
                   {고른_줄?.kind === "글자" && (
-                    <Text style={styles.panelHint}>글자를 누르고 ✎로 고쳐요</Text>
+                    <Text style={styles.panelHint}>텍스트를 누르고 ✎로 수정해요</Text>
                   )}
                 </>
               )}
@@ -1207,7 +1207,7 @@ export function CardDecorTools({
                   onPress={() => setTab(on ? null : 하나)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${하나} 편집`}
+                  accessibilityLabel={`${하나} 도구`}
                   style={({ pressed }) => [styles.toolBarItem, pressed && styles.pressed]}
                 >
                   <Glyph name={TOOL_GLYPH[하나]} size={22} color={on ? ACCENT : INK_SOFT} weight={1.9} />

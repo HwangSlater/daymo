@@ -193,7 +193,7 @@ export function NoticeImportSheet({
       // 이미 있는 것을 못 불러와도 읽은 것은 보여 준다. 겹침만 못 가린다.
       setDuplicates(new Set());
       setOff(new Set());
-      setError("이미 넣어 둔 것을 불러오지 못했어요. 겹치는 줄은 직접 꺼 주세요.");
+      setError("이미 추가한 것을 불러오지 못했어요. 겹치는 줄은 직접 꺼 주세요.");
     } finally {
       setBusy(false);
     }
@@ -276,16 +276,16 @@ export function NoticeImportSheet({
   const submitLabel = stage === "붙여넣기"
     ? (busy ? "읽는 중…" : "읽어 보기")
     : stage === "고치기"
-      ? (busy ? "넣는 중…" : "이 여행에 넣기")
+      ? (busy ? "추가하는 중…" : "이 여행에 추가")
       : "여행 열기";
   const submitDisabled =
     busy
     || (stage === "붙여넣기" && (!text.trim() || !trip))
     || (stage === "고치기" && !counts.length && !(keepLeftovers && draft.leftovers.length));
   const disabledHint = stage === "붙여넣기"
-    ? (!trip ? "채워 넣을 여행을 골라 주세요" : "공지 글을 붙여넣어 주세요")
+    ? (!trip ? "채울 여행을 골라 주세요" : "공지 글을 붙여넣어 주세요")
     : stage === "고치기"
-      ? "넣을 것을 하나는 켜 주세요"
+      ? "추가할 것을 하나는 켜 주세요"
       : undefined;
 
   const submit = () => {
@@ -305,11 +305,11 @@ export function NoticeImportSheet({
     <SheetShell
       theme={theme}
       visible={visible}
-      title="카톡 공지로 채우기"
+      title="카카오톡 공지로 채우기"
       subtitle={stage === "붙여넣기"
         ? "카카오톡 공지를 통째로 붙여넣어 지난 여행을 채워요"
         : stage === "고치기"
-          ? `읽은 그대로예요. ${trip?.name ?? "여행"}에 넣을 것만 켜 주세요`
+          ? `읽은 그대로예요. ${trip?.name ?? "여행"}에 추가할 것만 켜 주세요`
           : `${trip?.name ?? "여행"}${josa(trip?.name ?? "여행", "을", "를")} 채웠어요`}
       submit={submitLabel}
       onSubmit={submit}
@@ -323,7 +323,7 @@ export function NoticeImportSheet({
 
       {stage === "붙여넣기" && (
         <>
-          <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 8 }]}>어느 여행에 넣을까요</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 8 }]}>어느 여행에 추가할까요</Text>
           {trips.length ? (
             <ChipRow>
               {trips.map((item) => (
@@ -372,7 +372,7 @@ export function NoticeImportSheet({
           />
           <Text style={[styles.hint, { color: theme.muted }]}>
             구획 제목, 대괄호 상태, 지도 링크, 재료 수량, 조리 순서를 읽어요.
-            이미 여행에 있는 것은 미리 꺼 두고, 못 읽은 줄은 따로 모아 보여 드려요.
+            이미 여행에 있는 것은 미리 꺼 두고, 못 읽은 줄은 따로 모아 보여 줘요.
           </Text>
         </>
       )}
@@ -404,7 +404,7 @@ export function NoticeImportSheet({
                 <Text style={[styles.countText, { color: theme.primary }]}>{row.label} {row.count}</Text>
               </View>
             )) : (
-              <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>넣을 것이 없어요.</Text>
+              <Text style={[styles.hint, { color: theme.muted, marginTop: 0 }]}>추가할 것이 없어요.</Text>
             )}
           </View>
           {skipped > 0 && (
@@ -601,14 +601,14 @@ export function NoticeImportSheet({
           <Text style={[styles.reportText, { color: theme.text }]}>{noticeImportReport(result)}</Text>
           {result.failed.length > 0 && (
             <View style={[styles.leftoverBox, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
-              <Text style={[styles.leftoverLine, { color: theme.text }]}>넣지 못한 것</Text>
+              <Text style={[styles.leftoverLine, { color: theme.text }]}>추가하지 못한 것</Text>
               {result.failed.map((row, index) => (
                 <Text key={index} numberOfLines={2} style={[styles.leftoverLine, { color: danger }]}>
                   {row.label} — {row.message}
                 </Text>
               ))}
               <Text style={[styles.hint, { color: theme.muted }]}>
-                나머지는 이미 들어갔어요. 못 넣은 것만 여행 안에서 손으로 채워 주세요.
+                나머지는 이미 들어갔어요. 추가하지 못한 것만 여행 안에서 손으로 채워 주세요.
               </Text>
             </View>
           )}

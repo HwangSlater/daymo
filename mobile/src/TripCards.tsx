@@ -744,7 +744,7 @@ export function TripCardsSection({
       return;
     }
     if (!ready) {
-      viewerRef.current.onNotice("사진을 불러오는 중이에요. 잠시 뒤에 다시 시도해 주세요");
+      viewerRef.current.onNotice("사진을 불러오는 중이에요. 잠시 후 다시 시도해 주세요");
       return;
     }
     showAlert("카드를 완료할까요?", "완료하면 더 고칠 수 없어요. 여행 기록에 사진으로 저장돼요.", [

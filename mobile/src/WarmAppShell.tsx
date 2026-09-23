@@ -680,7 +680,7 @@ Daymo ${appVersion} · ${Platform.OS}`);
   }
   showAlert(
     "문의 주소를 복사했어요",
-    `메일 앱이 열리지 않으면 ${SUPPORT_EMAIL} 로 보내 주세요. 앱 버전과 기기는 저희가 알 수 있으니 안 적으셔도 돼요.`,
+    `메일 앱이 열리지 않으면 ${SUPPORT_EMAIL} 로 보내 주세요. 앱 버전과 기기는 자동으로 함께 가요. 따로 안 적어도 돼요.`,
   );
 }
 
@@ -697,11 +697,11 @@ const EMAIL_CHANGE_CHECK_MS = 20_000;
 const helpTopics = [
   {
     q: "적은 게 다른 사람에게도 보이나요?",
-    a: "네, 같은 공간 멤버에게 보여요. 여행의 일정·장소·준비물·요리·비용·메모·일기·사진이 계정에 저장돼 멤버와 함께 보고 고쳐요. 여행 상세를 열어 둔 동안 저장되고, 연결이 끊기면 다시 연결될 때 저장해요.",
+    a: "네, 같은 공간 멤버에게 보여요. 여행의 일정·장소·준비물·요리·비용·메모·일기·사진이 계정에 저장돼 멤버와 함께 보고 수정해요. 여행 상세를 열어 둔 동안 저장되고, 연결이 끊기면 다시 연결될 때 저장해요.",
   },
   {
     q: "준비물 담당과 지출의 몫은 누구 중에서 고르나요?",
-    a: "여행마다 정한 참가자예요. 여행을 만들거나 고칠 때 '누가 함께 가나요?' 에서 공간 멤버 중 이번에 가는 사람만 고르면 돼요.",
+    a: "여행마다 정한 참가자예요. 여행을 만들거나 고칠 때 '이번 여행 참가자' 에서 공간 멤버 중 이번에 가는 사람만 고르면 돼요.",
   },
   {
     q: "정산에서 '보냈어요' 를 누르면 돈이 가나요?",
@@ -2046,7 +2046,7 @@ function AuthScreen({
           {/* 어느 공간인지는 링크를 연 사람에게도 알려 주지 않는다. 참여해야 보인다. */}
           {invited && (
             <Text accessibilityLiveRegion="polite" style={[s.authDescription, { color: theme.primary }]}>
-              {mode === "login" ? "초대를 받아 오셨어요. 로그인하면 바로 참여해요." : "초대를 받아 오셨어요. 가입하고 메일을 확인하면 바로 참여해요."}
+              {mode === "login" ? "초대를 받았어요. 로그인하면 바로 참여해요." : "초대를 받았어요. 가입하고 메일을 확인하면 바로 참여해요."}
             </Text>
           )}
           {/* 자동 완성 값은 iOS 키체인·구글 비밀번호 관리자·삼성 패스가 읽는다. 없으면
@@ -2209,7 +2209,7 @@ function AuthScreen({
               accessibilityRole="button"
               style={s.authSwitch}
             >
-              <Text style={[s.authSwitchText, { color: theme.muted }]}>비밀번호를 잊으셨나요?</Text>
+              <Text style={[s.authSwitchText, { color: theme.muted }]}>비밀번호를 잊으셨나요?</Text>{/* 문구-사전-예외: 사전이 정한 진입 문구 */}
             </Pressable>
           )}
           {providers.length > 0 && (
@@ -2257,7 +2257,7 @@ function AuthScreen({
             accessibilityLabel={mode === "login" ? "회원가입으로 바꾸기" : "로그인으로 바꾸기"}
             style={s.authSwitch}
           >
-            <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음이세요? " : "이미 계정이 있으세요? "}<Text style={{ color: theme.primary, fontFamily: typo.title.family }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
+            <Text style={[s.authSwitchText, { color: theme.muted }]}>{mode === "login" ? "처음인가요? " : "이미 계정이 있나요? "}<Text style={{ color: theme.primary, fontFamily: typo.title.family }}>{mode === "login" ? "회원가입" : "로그인"}</Text></Text>
           </Pressable>
         </View>
         )}
@@ -2385,7 +2385,7 @@ function ForgotPasswordCard({
     <View style={[s.authCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <Text style={[s.authTitle, { color: theme.text }]}>비밀번호 재설정</Text>
       <Text style={[s.authDescription, { color: theme.muted }]}>
-        가입한 이메일로 재설정 링크를 보내 드려요. 링크는 30분 동안 쓸 수 있어요.
+        가입한 이메일로 재설정 링크를 보내요. 링크는 30분 동안 쓸 수 있어요.
       </Text>
       <Field
         theme={theme}
@@ -2611,7 +2611,7 @@ function ReconfirmField({
 }) {
   const providers = user.linkedProviders ?? [];
   if (user.hasPassword !== false || providers.length === 0) {
-    return <Field theme={theme} label="비밀번호 확인" value={password} onChangeText={setPassword} placeholder="지금 쓰는 비밀번호" secureTextEntry />;
+    return <Field theme={theme} label="비밀번호" value={password} onChangeText={setPassword} placeholder="지금 쓰는 비밀번호" secureTextEntry />;
   }
   return (
     <View style={{ gap: 8 }}>
@@ -3047,7 +3047,7 @@ function NotebookHome({
           <View style={s.homeArchiveHead}>
             <View>
               <Text style={[s.homeArchiveEyebrow, { color: theme.secondary }]}>지난 여행</Text>
-              <Text style={[s.homeArchiveTitle, { color: theme.text }]}>다시 펼쳐보는 여행</Text>
+              <Text style={[s.homeArchiveTitle, { color: theme.text }]}>다시 펼쳐 보는 여행</Text>
             </View>
             <Pressable
               onPress={goTrips}
@@ -3847,7 +3847,7 @@ function TripsExplorer({
     deleteCalendarNote(지울_것.id).catch(() => {
       // 못 지웠으면 되돌려 놓는다. 사라진 척하다 새로고침에 되살아나면 더 헷갈린다.
       setCalendarNotes((지금) => [...지금, 지울_것]);
-      showAlert("지우지 못했어요", "잠시 후 다시 시도해 주세요.");
+      showAlert("삭제하지 못했어요", "잠시 후 다시 시도해 주세요.");
     });
   };
   const [creating, setCreating] = useState(false);
@@ -3971,14 +3971,14 @@ function TripsExplorer({
             <Pressable
               onPress={onPasteNotice}
               accessibilityRole="button"
-              accessibilityLabel="카톡 공지로 지난 여행 채우기"
+              accessibilityLabel="카카오톡 공지로 지난 여행 채우기"
               style={({ pressed }) => [
                 s.pasteNotice,
                 { backgroundColor: theme.surface, borderColor: theme.border },
                 pressed && s.pressed,
               ]}
             >
-              <Text style={[s.newTripText, { color: theme.primary }]}>카톡 공지로 채우기</Text>
+              <Text style={[s.newTripText, { color: theme.primary }]}>카카오톡 공지로 채우기</Text>
             </Pressable>
           )}
           {/* 보기 전용 멤버는 서버가 막는다. 눌러도 「만들지 못했어요」만 떠서 까닭을
@@ -5310,7 +5310,7 @@ function Search({
           <Pressable
             onPress={() => setQuery("")}
             accessibilityRole="button"
-            accessibilityLabel="검색어 지우기"
+            accessibilityLabel="검색어 삭제"
             hitSlop={10}
             style={[
               s.searchClear,
@@ -5635,9 +5635,9 @@ const openSourceNotices: OpenSourceNotice[] = [
   {
     id: "cookierun",
     name: "쿠키런 서체",
-    holder: "쿠키런 글꼴의 지식 재산권은 데브시스터즈(주)에 있습니다.",
+    holder: "쿠키런 글꼴의 지식 재산권은 데브시스터즈(주)에 있어요.",
     usage:
-      "Daymo는 제목과 본문에 쿠키런 Regular와 Bold를 씁니다. 배포된 글꼴 파일을 그대로 담았고 수정하거나 개작하지 않았어요.",
+      "Daymo는 제목과 본문에 쿠키런 Regular와 Bold를 써요. 배포된 글꼴 파일을 그대로 담았고 수정하거나 개작하지 않았어요.",
     licenseUrl: "https://www.cookierunfont.com/static/download/License_ko_en.pdf",
     linkLabel: "라이선스 전문 보기",
   },
@@ -5646,7 +5646,7 @@ const openSourceNotices: OpenSourceNotice[] = [
     name: "나눔손글씨 펜",
     holder: "Copyright (c) 2010, NHN Corporation. SIL Open Font License 1.1",
     usage:
-      "추억 카드 글자의 「손글씨」에 씁니다. 자주 쓰는 글자만 남겨 줄인 판이라, 라이선스에 따라 글꼴 안의 이름을 DaymoPen으로 바꿨어요.",
+      "추억 카드 텍스트의 「손글씨」에 써요. 자주 쓰는 글자만 남겨 줄인 판이라, 라이선스에 따라 글꼴 안의 이름을 DaymoPen으로 바꿨어요.",
     licenseUrl: "https://openfontlicense.org/open-font-license-official-text/",
     linkLabel: "라이선스 전문 보기",
   },
@@ -5654,7 +5654,7 @@ const openSourceNotices: OpenSourceNotice[] = [
     id: "black-han-sans",
     name: "검은고딕(Black Han Sans)",
     holder: "Copyright 2015 The Black Han Sans Project Authors. SIL Open Font License 1.1",
-    usage: "추억 카드 글자의 「굵게」에 씁니다. 자주 쓰는 글자만 남겨 줄였어요.",
+    usage: "추억 카드 텍스트의 「굵게」에 써요. 자주 쓰는 글자만 남겨 줄였어요.",
     licenseUrl: "https://openfontlicense.org/open-font-license-official-text/",
     linkLabel: "라이선스 전문 보기",
   },
@@ -5662,7 +5662,7 @@ const openSourceNotices: OpenSourceNotice[] = [
     id: "gaegu",
     name: "개구(Gaegu)",
     holder: "Copyright 2018 The Gaegu Project Authors. SIL Open Font License 1.1",
-    usage: "추억 카드 글자의 「둥글게」에 씁니다.",
+    usage: "추억 카드 텍스트의 「둥글게」에 써요.",
     licenseUrl: "https://openfontlicense.org/open-font-license-official-text/",
     linkLabel: "라이선스 전문 보기",
   },
@@ -6240,7 +6240,7 @@ function Together({
               label="이름 또는 별명"
               value={user.name}
               onChangeText={(name) => setUser((current) => (current ? { ...current, name } : current))}
-              placeholder="앱에서 사용할 이름"
+              placeholder="예: 하늘"
             />
             {/* 이메일은 새 주소로 간 링크를 눌러야 바뀐다. 이 칸에서 바로 고친 것처럼 보이게 두지 않고
                 아래 ‘이메일 바꾸기’로 보낸다. */}
@@ -6568,7 +6568,7 @@ function Together({
               label="공간 이름"
               value={spaceName}
               onChangeText={(name) => updateActiveSpace({ name })}
-              placeholder="예: 우리의 여행 기록"
+              placeholder="예: 우리의 여행"
               editable={canEdit}
             />
             {/* 연인 공간에서만 "함께한 지 N일째" 를 센다. 친구·가족 공간에는
@@ -7019,7 +7019,7 @@ function SpaceExtras({
     <View style={{ gap: 8, marginTop: 12 }}>
       {creating ? (
         <View style={[s.memberEditor, { backgroundColor: theme.surfaceAlt, gap: 8 }]}>
-          <Field theme={theme} label="새 공간 이름" value={name} onChangeText={setName} placeholder="예: 대학 동기 여행" />
+          <Field theme={theme} label="새 공간 이름" value={name} onChangeText={setName} placeholder="예: 우리의 여행" />
           <Segment
             theme={theme}
             label="누구와 여행하나요"
@@ -7473,7 +7473,7 @@ ${url}` }).catch(() => undefined);
   const join = async () => {
     const token = inviteTokenOf(link);
     if (!token) {
-      setError("받은 초대 링크를 그대로 붙여 넣어 주세요.");
+      setError("받은 초대 링크를 그대로 붙여넣어 주세요.");
       return;
     }
     setBusy(true);
@@ -7532,7 +7532,7 @@ ${url}` }).catch(() => undefined);
         label="초대 링크로 참여"
         value={link}
         onChangeText={setLink}
-        placeholder="받은 초대 링크를 붙여 넣어 주세요"
+        placeholder="받은 초대 링크를 붙여넣어 주세요"
         autoCapitalize="none"
       />
       <Pressable

@@ -49,7 +49,7 @@ export function SyncNotice({ theme, refreshing, onRefresh }: {
           accessibilityLabel="새로고침"
         >
           <Text style={[styles.noticeAction, { color: theme?.primary ?? "#835C93" }]}>
-            {refreshing ? "받는 중…" : "새로고침"}
+            {refreshing ? "불러오는 중…" : "새로고침"}
           </Text>
         </Pressable>
       )}

@@ -77,10 +77,10 @@ export function CardTextEditor({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDone}>
       <KeyboardAvoidingView behavior={Platform.OS === "web" ? undefined : "padding"} style={[styles.textSheet, { paddingTop: 창_여백.top, paddingBottom: 창_여백.bottom }]}>
         <View style={styles.textSheetTop}>
-          <Pressable onPress={onCancel} accessibilityRole="button" accessibilityLabel="글자 고치기 취소" hitSlop={10} style={styles.textSheetSide}>
+          <Pressable onPress={onCancel} accessibilityRole="button" accessibilityLabel="텍스트 수정 취소" hitSlop={10} style={styles.textSheetSide}>
             <Text style={styles.textSheetCancelText}>취소</Text>
           </Pressable>
-          <Pressable onPress={onDone} accessibilityRole="button" accessibilityLabel="글자 고치기 완료" hitSlop={10} style={[styles.textSheetSide, styles.textSheetSideRight]}>
+          <Pressable onPress={onDone} accessibilityRole="button" accessibilityLabel="텍스트 수정 완료" hitSlop={10} style={[styles.textSheetSide, styles.textSheetSideRight]}>
             <Text style={styles.textSheetDoneText}>완료</Text>
           </Pressable>
         </View>
@@ -90,7 +90,7 @@ export function CardTextEditor({
           <Pressable
             onPress={() => 입력칸.current?.focus()}
             accessibilityRole="button"
-            accessibilityLabel="눌러서 글자 적기"
+            accessibilityLabel="눌러서 텍스트 입력"
             style={styles.textPreview}
           >
             {decor && decor.text.trim()
@@ -157,7 +157,7 @@ export function CardTextEditor({
                       onPress={() => onStyle({ color: 색 })}
                       accessibilityRole="button"
                       accessibilityState={{ selected: on }}
-                      accessibilityLabel={`글자 색 ${색}`}
+                      accessibilityLabel={`텍스트 색 ${색}`}
                       hitSlop={4}
                       style={[styles.textColor, { backgroundColor: DECOR_COLOR_HEX[색] }, on && styles.textColorOn]}
                     />
@@ -174,7 +174,7 @@ export function CardTextEditor({
                   onPress={() => 바탕_고르기(바탕)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
-                  accessibilityLabel={`글자 바탕 ${바탕}`}
+                  accessibilityLabel={`텍스트 바탕 ${바탕}`}
                   style={[styles.backChip, on && styles.backChipOn]}
                 >
                   {/* 이름 대신 그 모양을 그린다. 스티커 모양은 스티커를 문구까지 그대로 보여 준다. */}

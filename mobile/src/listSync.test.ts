@@ -95,7 +95,7 @@ test("위쪽 한 줄은 못 올린 개수를 세고, 아무 일도 없으면 비
 test("일부를 못 불러온 것은 못 올린 줄과 연결 다음에 알린다", () => {
   assert.equal(
     troubleHeadline({ blocked: 0, waiting: 0, offline: false, busy: true }),
-    "일부를 불러오지 못했어요 · 잠시 뒤 다시 불러와 주세요",
+    "일부를 불러오지 못했어요 · 잠시 후 다시 불러와 주세요",
   );
   // 적은 것이 걸려 있거나 연결이 끊겼으면 그쪽이 먼저다.
   assert.equal(troubleHeadline({ blocked: 1, waiting: 0, offline: false, busy: true }), "아직 저장하지 못한 1개");

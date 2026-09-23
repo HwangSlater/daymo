@@ -303,7 +303,7 @@ export function noticeImportReport(result: NoticeImportResult): string {
   const head = result.made.map((row) => `${row.label} ${row.count}개`).join(" · ");
   const skipped = result.skipped ? ` 이미 있던 ${result.skipped}개는 건너뛰었어요.` : "";
   if (!result.failed.length) {
-    return (head ? `${head}를 추가했어요.` : "추가한 것이 없어요.") + skipped;
+    return (head ? `${head}를 추가했어요.` : "추가한 것이 없어요.") + skipped; // 문구-사전-예외: head 는 늘 「… N개」로 끝나 「를」이 맞는다
   }
   const first = result.failed[0];
   return `${head ? `${head}까지 추가했어요.` : "아무것도 추가하지 못했어요."}${skipped} ${result.failed.length}개는 추가하지 못했어요 (${first.label}: ${first.message})`;

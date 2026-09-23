@@ -2957,7 +2957,7 @@ export function WarmTripDetail({
             required
             value={draftTitle}
             onChangeText={setDraftTitle}
-            placeholder="예: 전주 한옥마을"
+            placeholder="예: 제주 애월"
           />
           {appTheme && (
             <TripRegionPicker
@@ -4075,7 +4075,7 @@ function TripOverview({
               <TravelMiniCard
                 label="요리"
                 mark="한 끼"
-                title={recipes[0]?.name ?? "메뉴 정하기"}
+                title={recipes[0]?.name ?? "요리 정하기"}
                 meta={
                   recipes.length
                     ? `${recipes.length}개 · 재료 ${recipes.reduce((sum, recipe) => sum + recipe.ingredients.length, 0)}개`
@@ -4207,7 +4207,7 @@ function TripOverview({
               <View style={styles.savedPlacePickerHead}>
                 <View>
                   <Text style={[styles.detailFieldLabel, theme && { color: theme.muted }]}>저장한 장소에서 선택</Text>
-                  <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>고르면 이름과 위치를 바로 채워드려요</Text>
+                  <Text style={[styles.savedPlacePickerHint, theme && { color: theme.muted }]}>고르면 이름과 위치를 바로 채워요</Text>
                 </View>
                 {selectedPlanPlaceId && (
                   <Pressable
@@ -4333,7 +4333,7 @@ function TripOverview({
                 current.map((item, i) => (i === index ? { ...item, time: maskClockTime(text) } : item)))}
               onBlur={() => setTransportStops((current) =>
                 current.map((item, i) => (i === index ? { ...item, time: settleClockTime(item.time ?? "") } : item)))}
-              placeholder="시각"
+              placeholder="시간"
               placeholderTextColor={theme?.muted ?? "#9AA1AE"}
               keyboardType="numeric"
               maxLength={5}
@@ -4342,7 +4342,7 @@ function TripOverview({
             <Pressable
               onPress={() => setTransportStops((current) => current.filter((_, i) => i !== index))}
               accessibilityRole="button"
-              accessibilityLabel={`갈아타는 곳 ${index + 1} 지우기`}
+              accessibilityLabel={`갈아타는 곳 ${index + 1} 삭제`}
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.transportStopDelete, pressed && styles.controlPressed]}
             >
@@ -6481,12 +6481,12 @@ function Preparation({
               <Text style={[styles.packingJourneyEyebrow, theme && { color: theme.primary }]}>출발 준비</Text>
               <Text style={[styles.packingJourneyTitle, theme && { color: theme.text }]}>
                 {percentage === 100
-                  ? "짐 꾸리기 완료!"
+                  ? "짐 꾸리기 완료"
                   : percentage >= 60
                     ? "거의 다 챙겼어요"
                     : percentage > 0
                       ? "하나씩 챙기는 중"
-                      : "이제 짐을 꾸려볼까요?"}
+                      : "이제 짐을 꾸려 볼까요?"}
               </Text>
             </View>
           </View>
@@ -7815,7 +7815,7 @@ function Cooking({
 7. 결과만 출력한다.
 
 [내 메모]
-여기에 만들 요리와 재료 메모를 붙여넣으세요.`;
+여기에 만들 요리와 재료 메모를 붙여넣어 주세요.`;
   const addIngredient = () => {
     if (!ingredientFormValid || !activeRecipe) return;
     const wasEditing = Boolean(editingIngredient);
@@ -7969,7 +7969,7 @@ function Cooking({
       notify("복사하지 못했어요. 아래 프롬프트를 길게 눌러 복사해 주세요");
       return;
     }
-    notify(opened ? "프롬프트를 복사했어요. 붙여넣고 결과를 다시 가져오세요" : "프롬프트를 복사했어요. ChatGPT 를 열어 붙여넣어 주세요");
+    notify(opened ? "프롬프트를 복사했어요. 붙여넣고 결과를 다시 가져와 주세요" : "프롬프트를 복사했어요. ChatGPT 를 열어 붙여넣어 주세요");
   };
   const pasteAiResult = async () => {
     // 아이폰 웹은 붙여넣기 읽기를 허락하지 않을 때가 많다. 그때 아무 일도 없으면 고장으로
@@ -8136,7 +8136,7 @@ function Cooking({
   return (
     <View>
       <TabActionHeader
-        label="요리 메뉴"
+        label="요리"
         count={`${recipes.length}개`}
         action="요리 추가"
         onPress={() => setAddingRecipe(true)}
@@ -10772,7 +10772,7 @@ function Money({
     : draftSplitMode === "일부" && !draftPeople.length
       ? "몫을 질 사람을 한 명은 골라 주세요"
       : draftSplitMode === "금액" && draftAmountLeft !== 0
-        ? (draftAmountLeft > 0 ? `${show(draftAmountLeft)}이 남았어요` : `${show(-draftAmountLeft)}을 넘었어요`)
+        ? (draftAmountLeft > 0 ? `아직 ${show(draftAmountLeft)} 남았어요` : `${show(-draftAmountLeft)} 넘었어요`)
         : undefined;
   const draftPayerHint = participants.length > 1
     ? `${quickPayer}${josa(quickPayer, "이", "가")} 내고 ${participants.length}명이 똑같이 나눠요`
@@ -10794,7 +10794,7 @@ function Money({
     ]);
     setQuickAmount("");
     setLastCategory(quickCategory);
-    notify(`${quickCategory} ${money(quickNumber, unit.code)}을 적었어요`);
+    notify(`지출을 추가했어요 · ${quickCategory} ${money(quickNumber, unit.code)}`);
   };
   /** 나누는 자리를 기본값으로. 전원이 똑같이 나누는 게 가장 흔하다. */
   const resetSplit = () => {
@@ -10987,7 +10987,7 @@ function Money({
   };
   const exportCsv = async () => {
     if (!expenses.length) {
-      notify("내보낼 지출이 없어요");
+      notify("저장할 지출이 없어요");
       return;
     }
     const csv = expensesToCsv(tripName, sorted, participants, unit.code, exchangeRate);
@@ -10996,10 +10996,10 @@ function Money({
       // 붙여넣으면 같은 표가 된다.
       if ((await shareExpenseCsv(`${tripName} 비용`, csv)) === "unavailable") {
         await Clipboard.setStringAsync(csv);
-        notify("표를 복사했어요. 스프레드시트에 붙여넣으세요");
+        notify("표를 복사했어요. 스프레드시트에 붙여넣어 주세요");
       }
     } catch {
-      notify("내보내기를 마치지 못했어요");
+      notify("지출 표를 저장하지 못했어요");
     }
   };
 
@@ -11163,7 +11163,7 @@ function Money({
             <View style={[styles.moneySettle, theme && { backgroundColor: theme.primarySoft }]}>
               <Text style={[styles.moneySettleText, theme && { color: theme.primary }]}>
                 {!expenses.length
-                  ? "지출을 적으면 여기서 정산해 드려요"
+                  ? "지출을 적으면 여기서 정산해요"
                   : otherTransfers.length
                     ? "내가 주고받을 건 없어요"
                     : "서로 줄 것도 받을 것도 없어요"}
@@ -11227,7 +11227,7 @@ function Money({
                 onPress={() => undoPayment(payment)}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={`${payment.from}에서 ${payment.to}로 보낸 ${show(payment.amount)} 되돌리기`}
+                accessibilityLabel={`${payment.from}에서 ${payment.to}에게 보낸 ${show(payment.amount)} 되돌리기`}
               >
                 <Text style={[styles.moneyOtherUndo, theme && { color: theme.primary }]}>되돌리기</Text>
               </Pressable>
@@ -11503,7 +11503,7 @@ function Money({
       </View>
       {visible.length === 0 && (
         <EmptyState
-          title={expenses.length === 0 ? "아직 지출이 없어요" : "이 날은 쓴 게 없어요"}
+          title={expenses.length === 0 ? "아직 지출이 없어요" : "이날은 지출이 없어요"}
           description={
             expenses.length === 0
               ? "지출을 적어 두면 여행이 끝나고 한 번에 정산할 수 있어요."
@@ -11520,13 +11520,13 @@ function Money({
         <Pressable
           onPress={exportCsv}
           accessibilityRole="button"
-          accessibilityLabel="지출 내역을 엑셀 파일로 내보내기"
+          accessibilityLabel="지출 내역을 엑셀 파일로 저장"
           style={[styles.moneyExport, theme && { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
           <View>
-            <Text style={[styles.moneyExportTitle, theme && { color: theme.text }]}>엑셀로 내보내기</Text>
+            <Text style={[styles.moneyExportTitle, theme && { color: theme.text }]}>엑셀 파일로 저장</Text>
             <Text style={[styles.moneyExportHint, theme && { color: theme.muted }]}>
-              지출 {expenses.length}건과 정산을 표로 만들어 보내요
+              지출 {expenses.length}건과 정산을 표로 만들어 저장해요
             </Text>
           </View>
           <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
@@ -11717,7 +11717,7 @@ function Money({
         >
           <View style={styles.receiptRow}>
             {draftReceipt ? (
-              <Image source={{ uri: draftReceipt }} style={styles.receiptThumb} accessibilityLabel="넣은 영수증" />
+              <Image source={{ uri: draftReceipt }} style={styles.receiptThumb} accessibilityLabel="추가한 영수증" />
             ) : (
               <View style={[styles.receiptThumb, styles.receiptEmpty, theme && { borderColor: theme.border }]}>
                 <Text style={[styles.receiptEmptyText, theme && { color: theme.muted }]}>없음</Text>
@@ -11730,7 +11730,7 @@ function Money({
                 style={[styles.receiptButton, theme && { backgroundColor: theme.primarySoft }]}
               >
                 <Text style={[styles.receiptButtonText, theme && { color: theme.primary }]}>
-                  {draftReceipt ? "다시 고르기" : "영수증 넣기"}
+                  {draftReceipt ? "다시 고르기" : "영수증 추가"}
                 </Text>
               </Pressable>
               {Boolean(draftReceipt) && (
@@ -11741,7 +11741,7 @@ function Money({
             </View>
           </View>
           <DetailField
-            label="메모"
+            label="메모 (선택)"
             value={draftMemo}
             onChangeText={setDraftMemo}
             placeholder="예: 둘 다 학생 할인"
@@ -11839,7 +11839,7 @@ function Money({
         />
         {draftCurrency !== DEFAULT_CURRENCY.code && (
           <DetailField
-            label={`1 ${draftCurrency}는 몇 원인가요`}
+            label={`1 ${draftCurrency} = 몇 원인가요`}
             value={draftRate}
             onChangeText={setDraftRate}
             placeholder={`예: ${amountText(currencyOf(draftCurrency).rate, 2)}`}

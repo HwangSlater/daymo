@@ -717,7 +717,7 @@ export function PhotoViewerScreen({
             {decor.history ? (
               <View style={styles.decorHistory}>
                 <HistoryButton glyph="undo" label="되돌리기" enabled={decor.history.canUndo} onPress={decor.history.onUndo} />
-                <HistoryButton glyph="redo" label="다시하기" enabled={decor.history.canRedo} onPress={decor.history.onRedo} />
+                <HistoryButton glyph="redo" label="다시 하기" enabled={decor.history.canRedo} onPress={decor.history.onRedo} />
               </View>
             ) : (
               <Text style={styles.decorTitle}>카드 꾸미기</Text>
@@ -1186,7 +1186,7 @@ export function PhotoEditScreen({
           <Pressable
             onPress={() => leave(onClose)}
             accessibilityRole="button"
-            accessibilityLabel="편집 취소"
+            accessibilityLabel="사진 정보 수정 취소"
             style={({ pressed }) => [styles.editHeadSide, pressed && styles.pressed]}
           >
             <Text style={styles.editCancel}>취소</Text>
@@ -1227,7 +1227,7 @@ export function PhotoEditScreen({
                 placeholder="예: 도착하자마자 먹은 점심"
                 placeholderTextColor={INK_FAINT}
                 maxLength={200}
-                accessibilityLabel="사진 설명"
+                accessibilityLabel="사진 설명 (선택)"
                 style={styles.editField}
               />
               {chips(dateOptions, (option) => option === date, (차례) => onDate(dateOptions[차례]), false)}

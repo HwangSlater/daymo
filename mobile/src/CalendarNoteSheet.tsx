@@ -162,11 +162,11 @@ export function CalendarNoteSheet({
         </View>
       )}
 
-      <Text style={[styles.label, { color: theme.text }]}>시각 (선택)</Text>
+      <Text style={[styles.label, { color: theme.text }]}>시간 (선택)</Text>
       <Segment
         theme={theme}
-        label="시각"
-        options={[{ value: "없음", label: "하루 종일" }, { value: "적기", label: "시각 적기" }]}
+        label="시간"
+        options={[{ value: "없음", label: "하루 종일" }, { value: "적기", label: "시간 적기" }]}
         value={시각_적기 ? "적기" : "없음"}
         onChange={(value) => {
           const 적기 = value === "적기";
@@ -178,7 +178,7 @@ export function CalendarNoteSheet({
         <View style={styles.time}>
           <TimeWheel
             theme={theme}
-            label="시각"
+            label="시간"
             value={draft.time ?? ""}
             fallback="19:00"
             onChange={(value) => 고칠것("time", value)}

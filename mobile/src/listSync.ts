@@ -185,7 +185,7 @@ export function troubleHeadline(trouble: Pick<SyncTrouble, "blocked" | "waiting"
       : `아직 저장하지 못한 ${total}개`;
   }
   if (trouble.offline) return "연결이 끊겨 새 내용을 받지 못했어요";
-  return trouble.busy ? "일부를 불러오지 못했어요 · 잠시 뒤 다시 불러와 주세요" : "";
+  return trouble.busy ? "일부를 불러오지 못했어요 · 잠시 후 다시 불러와 주세요" : "";
 }
 
 /**

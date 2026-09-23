@@ -190,7 +190,7 @@ const diarySection = (diaries: readonly ExportDiary[]): string[] => {
   if (!diaries.length) return [];
   const lines = [`### 일기 (${diaries.length}개)`];
   for (const diary of diaries) {
-    lines.push(`- ${joinDot([diary.date, diary.title]) || "제목 없는 일기"}`);
+    lines.push(`- ${joinDot([diary.date, diary.title]) || "제목 없음"}`);
     const body = clean(diary.body);
     if (body) lines.push(indent(body));
   }
@@ -247,7 +247,7 @@ export function tripsToMarkdown(trips: readonly ExportTrip[], now: Date = new Da
   const head = [
     "# Daymo 여행 기록",
     "",
-    `내보낸 날: ${exportedOn(now)} · 여행 ${sorted.length}개`,
+    `저장한 날: ${exportedOn(now)} · 여행 ${sorted.length}개`,
   ];
   if (!sorted.length) {
     head.push("", "아직 적어 둔 여행이 없어요.");

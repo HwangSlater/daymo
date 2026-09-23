@@ -245,7 +245,7 @@ test("통계는 켰을 때만, 정해진 차례로 나온다", () => {
 
   assert.deepEqual(keepsakeStatLines(켬, 셈), [
     { label: "다녀온 곳", value: "7곳" },
-    { label: "쓴 돈", value: "128,400원" },
+    { label: "총 지출", value: "128,400원" },
   ]);
   // 통계 줄 자체를 끄면 고른 숫자가 있어도 안 나온다.
   assert.deepEqual(keepsakeStatLines({ ...켬, parts: [] }, 셈), []);

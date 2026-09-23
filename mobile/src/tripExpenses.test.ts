@@ -463,3 +463,16 @@ test("참가자가 아닌 사람에게 보낸 것도 셈에 든다", () => {
   assert.equal(후.balances["하늘"], 0);
   assert.equal(후.balances["민수"], 10000);
 });
+
+test("외화 금액 뒤에는 조사를 붙이지 않는다", () => {
+  // 「$12.52을 적었어요」처럼 조사를 박아 두면 통화를 바꾼 순간 문장이 틀어진다.
+  // josa() 도 숫자·기호로 끝나는 글자는 가릴 수 없어 늘 모음 쪽을 돌려준다.
+  assert.equal(money(12.52, "USD"), "$12.52");
+  assert.equal(money(3200, "JPY"), "¥3,200");
+  for (const 글 of [money(12.52, "USD"), money(3200, "JPY")]) {
+    assert.equal(josa(글, "을", "를"), "를", 글);
+  }
+  // 그래서 금액은 조사 없는 꼴로 문장에 넣는다(「지출을 추가했어요 · 식비 12,000원」).
+  assert.equal(money(12000), "12,000원");
+  assert.equal(josa(money(12000), "을", "를"), "을");
+});
