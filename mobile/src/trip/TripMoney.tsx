@@ -1,4 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAnnounce } from "../announce";
+import { CHUNK_FIRST, chunkGroups, nextChunk } from "../listChunks";
 import { Chip } from "../ui/Chip";
 import { Segment } from "../ui/Segment";
 import { keepTripPhoto } from "../tripPhotos";
@@ -36,7 +38,7 @@ import { shareExpenseCsv } from "../tripExpenseExport";
 import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
-import { Text, TextInput } from "../AppText";
+import { Text, TextInput, type 입력칸 } from "../AppText";
 import { Glyph } from "../Glyph";
 import { showAlert } from "../showAlert";
 import { shrinkForWeb } from "../webImage";
@@ -171,6 +173,10 @@ export function Money({
   // 안 쓰던 사람이 여행 중에 쓰려면 이 정도로 짧아야 한다.
   const [quickAmount, setQuickAmount] = useState("");
   const [quickCategory, setQuickCategory] = useState<ExpenseCategory>("식비");
+  /** 지출 시트의 금액 칸. 항목 칸에서 「다음」을 누르면 여기로 온다. */
+  const 금액_칸 = useRef<입력칸 | null>(null);
+  /** 「금액 직접」에서 사람마다 선 금액 칸. 「다음」 키가 아래 칸으로 커서를 옮긴다. */
+  const 몫_칸 = useRef<(입력칸 | null)[]>([]);
   const budgetDraftChanged = useDraftChanged(budgetSheetOpen, draftBudget);
   const expenseDraftChanged = useDraftChanged(sheetOpen, JSON.stringify([
     draftTitle, draftAmount, draftCategory, draftPayer, draftSplitMode, draftPeople, draftAmounts,
@@ -224,10 +230,13 @@ export function Money({
     () => dayOptions.filter((day) => expenses.some((item) => item.day === day)),
     [dayOptions, expenses],
   );
-  const visible = sorted.filter(
-    (item) =>
-      (dayFilter === "전체" || item.day === dayFilter)
-      && (categoryFilter === "전체" || item.category === categoryFilter),
+  const visible = useMemo(
+    () => sorted.filter(
+      (item) =>
+        (dayFilter === "전체" || item.day === dayFilter)
+        && (categoryFilter === "전체" || item.category === categoryFilter),
+    ),
+    [categoryFilter, dayFilter, sorted],
   );
   // 날짜로 묶고 소제목에 그날 합계를 단다. 여행 중에 가장 자주 하는 질문이
   // "어제 얼마 썼지" 인데, 한 줄로 늘어놓으면 그걸 셀 수가 없다.
@@ -240,6 +249,15 @@ export function Money({
       }),
     [visible],
   );
+  /**
+   * 목록을 몇 판에 나눠 그린다(2026-09-23 검토 #60). 까닭은 `listChunks.ts` 에 적어 뒀다.
+   *
+   * 거르는 조건이 바뀌면 목록이 통째로 갈리니 첫 판부터 다시 센다. 지출을 한 건
+   * 더하거나 지우는 것으로는 되감지 않는다 — 보고 있던 줄이 접히면 방금 무엇을
+   * 했는지가 사라진다.
+   */
+  const 그릴_줄 = useChunkedRows(visible.length, `${dayFilter}|${categoryFilter}`);
+  const shownGroups = useMemo(() => chunkGroups(grouped, 그릴_줄), [grouped, 그릴_줄]);
   const unit = currencyOf(currency);
   // 금액 칸에서 눌러 더하는 단위. 통화가 원이면 천 단위, 소수를 쓰는 통화면 한 자리 작게 잡는다.
   const quickSteps = unit.fraction > 0 ? [1, 5, 10] : [1000, 5000, 10000];
@@ -427,6 +445,21 @@ export function Money({
     (sum, person) => sum + parseAmount(draftAmounts[person] ?? "", unit.fraction),
     0,
   );
+  /** 금액 칸 아래 한 줄. 합이 맞으면 맞았다고, 아니면 얼마가 비거나 넘는지 말한다. */
+  const 남은_돈_말 = draftAmountLeft === 0
+    ? "딱 맞아요"
+    : draftAmountLeft > 0
+      ? `${show(draftAmountLeft)} 남았어요`
+      : `${show(-draftAmountLeft)} 넘었어요`;
+  /**
+   * 남은 돈을 낭독기에 한 줄로 읽어 준다(2026-09-23 검토 #29).
+   *
+   * 옆에 붙은 `accessibilityLiveRegion` 은 안드로이드만 듣는다. 합이 안 맞으면 저장이
+   * 막히는데, iOS VoiceOver 는 이 줄을 손가락으로 짚기 전에는 읽지 않아 왜 못 넘어가는지
+   * 알 수가 없었다. 맞았을 때는 읽지 않는다 — 저장 단추가 열리는 것으로 이미 알 수 있고,
+   * 숫자를 칠 때마다 「딱 맞아요」가 끼어들면 그게 더 방해가 된다.
+   */
+  useAnnounce(sheetOpen && draftSplitMode === "금액" && draftAmountLeft !== 0 ? 남은_돈_말 : "");
   // 저장을 막는 이유를 하나만 고른다. 여러 줄을 한꺼번에 띄우면 뭘 고쳐야
   // 하는지 더 헷갈린다.
   const splitHint = !formValid
@@ -975,6 +1008,13 @@ export function Money({
             value={quickAmount}
             onChangeText={(text) => setQuickAmount(금액_치기(text, unit.fraction))}
             keyboardType={금액_키보드(unit.fraction)}
+            // 금액을 치고 키보드의 「완료」로 바로 한 건 넣는다. 기기에서는 칸만
+            // 비우고 키보드를 내리지 않아(submit), 식당 앞에서 몇 건을 이어 적을 때
+            // 칸을 다시 누르지 않아도 된다(웹은 `react-native-web` 이 이 값을 모르고
+            // 엔터에서 칸을 놓는다. 물리 키보드라 다시 누르는 품이 들지 않는다).
+            returnKeyType="done"
+            submitBehavior="submit"
+            onSubmitEditing={addQuickExpense}
             placeholder={`${quickCategory} 얼마 썼나요`}
             placeholderTextColor={theme?.muted ?? "#9AA1AE"}
             style={[styles.quickAddInput, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border, color: theme.text }]}
@@ -1112,7 +1152,7 @@ export function Money({
         </ScrollView>
       )}
       <View style={styles.moneyList}>
-        {grouped.map((group) => (
+        {shownGroups.map((group) => (
           <View key={group.day} style={styles.moneyGroup}>
             <View style={styles.moneyGroupHead}>
               <Text style={[styles.moneyGroupDay, theme && { color: theme.text }]}>{dayTextOf(group.day)}</Text>
@@ -1196,11 +1236,16 @@ export function Money({
         onSubmit={saveExpense}
         onDestructive={deleteExpense}
       >
+        {/* 항목 → 금액 두 칸이 잇따른다. 「다음」으로 금액 칸에 옮겨 가고, 금액에서
+            「완료」면 바로 저장한다. 이 시트는 「항목과 금액만 적어도 저장」이라
+            아래 고르는 칸들을 지나지 않아도 끝난다. */}
         <DetailField
           label="항목 (선택)"
           value={draftTitle}
           onChangeText={setDraftTitle}
           placeholder="예: 점심"
+          returnKeyType="next"
+          onSubmitEditing={() => 금액_칸.current?.focus()}
         />
         <DetailField
           label="금액"
@@ -1209,6 +1254,11 @@ export function Money({
           onChangeText={changeAmount}
           placeholder="예: 32,000"
           keyboardType={금액_키보드(unit.fraction)}
+          inputRef={금액_칸}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (formValid && !splitHint) saveExpense();
+          }}
         />
         {/* 0 을 여러 번 치는 대신 눌러서 더한다. 엄지로 적을 때 훨씬 빠르다. */}
         <View style={styles.amountSteps}>
@@ -1322,10 +1372,23 @@ export function Money({
           )}
           {draftSplitMode === "금액" && (
             <View style={styles.splitAmountRows}>
-              {시트_사람.모두.map((person) => (
+              {/* 사람 수만큼 금액 칸이 잇따라 선다. 키보드의 「다음」으로 아래 칸에
+                  커서를 옮기고, 마지막 칸은 「완료」로 키보드를 내린다. 칸 사이를
+                  옮기려고 매번 화면을 눌러야 하면 네 명만 돼도 손이 여덟 번 간다. */}
+              {시트_사람.모두.map((person, 차례) => {
+                const 마지막 = 차례 === 시트_사람.모두.length - 1;
+                return (
                 <View key={person} style={styles.splitAmountRow}>
                   <Text numberOfLines={1} style={[styles.splitAmountName, theme && { color: theme.text }]}>{person}</Text>
                   <TextInput
+                    ref={(칸) => {
+                      몫_칸.current[차례] = 칸;
+                      // 사람이 줄면 사라진 칸이 남는다. 그것을 잡고 있으면 「다음」이
+                      // 화면에 없는 칸을 부른다.
+                      return () => {
+                        몫_칸.current[차례] = null;
+                      };
+                    }}
                     value={draftAmounts[person] ?? ""}
                     onChangeText={(text) => setDraftAmounts((current) => ({
                       ...current,
@@ -1335,13 +1398,17 @@ export function Money({
                     placeholder="0"
                     placeholderTextColor={theme?.muted ?? "#9AA1AE"}
                     keyboardType={금액_키보드(unit.fraction)}
+                    returnKeyType={마지막 ? "done" : "next"}
+                    submitBehavior={마지막 ? undefined : "submit"}
+                    onSubmitEditing={마지막 ? undefined : () => 몫_칸.current[차례 + 1]?.focus()}
                     style={[
                       styles.splitAmountInput,
                       theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text },
                     ]}
                   />
                 </View>
-              ))}
+                );
+              })}
               {/* 남은 돈이 0 이 아니면 저장을 막는다. 합이 안 맞으면 정산이 틀어진다. */}
               <Text
                 accessibilityLiveRegion="polite"
@@ -1350,11 +1417,7 @@ export function Money({
                   theme && { color: draftAmountLeft === 0 ? theme.muted : (theme.dark ? statusColor.danger.dark : statusColor.danger.light) },
                 ]}
               >
-                {draftAmountLeft === 0
-                  ? "딱 맞아요"
-                  : draftAmountLeft > 0
-                    ? `${show(draftAmountLeft)} 남았어요`
-                    : `${show(-draftAmountLeft)} 넘었어요`}
+                {남은_돈_말}
               </Text>
             </View>
           )}
@@ -1395,6 +1458,10 @@ export function Money({
             value={draftMemo}
             onChangeText={setDraftMemo}
             placeholder="예: 둘 다 학생 할인"
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              if (formValid && !splitHint) saveExpense();
+            }}
           />
         </OptionalFormSection>
         {/* 지우지 않고 셈에서만 빼는 자리. 새로 적을 때는 필요 없어서 고칠 때만 보인다. */}
@@ -1433,6 +1500,10 @@ export function Money({
               onChangeText={(text) => setPayAmount(금액_치기(text, unit.fraction))}
               placeholder={amountText(paying.amount, unit.fraction)}
               keyboardType={금액_키보드(unit.fraction)}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (payNumber > 0) savePayment();
+              }}
             />
             {/* 왜 이 줄이 나왔는지. 사람이 적어서 사슬이 짧으니 여기선 말할 수
                 있다. 묶은 화면은 대개 "내가 왜 저 사람한테?" 에서 막힌다. */}
@@ -1495,6 +1566,8 @@ export function Money({
             placeholder={`예: ${amountText(currencyOf(draftCurrency).rate, 2)}`}
             // 환율은 통화와 상관없이 소수다(엔 9.3, 동 0.055).
             keyboardType="decimal-pad"
+            returnKeyType="done"
+            onSubmitEditing={saveCurrency}
           />
         )}
         <Text style={[공용스타일.settingHint, theme && { color: theme.muted }]}>
@@ -1524,10 +1597,40 @@ export function Money({
           onChangeText={(text) => setDraftBudget(금액_치기(text, unit.fraction))}
           placeholder="예: 500,000"
           keyboardType={금액_키보드(unit.fraction)}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (budgetNumber) saveBudget();
+          }}
         />
       </DetailSheet>
     </View>
   );
+}
+
+/**
+ * 긴 목록을 몇 판에 나눠 그린다. 지금 그려 둘 줄 수를 돌려준다(`listChunks.ts`).
+ *
+ * 첫 판(`CHUNK_FIRST`)을 그리고 나서 다음 판을 붙인다. 붙이는 일은 `setTimeout(0)`
+ * 으로 미룬다 — 한 판을 그린 뒤 손가락이 닿는 일(스크롤·누르기)을 먼저 받고 그다음에
+ * 이어 그리게 하려는 것이다. 다 그리고 나면 아무 일도 하지 않는다.
+ *
+ * `되감기` 가 바뀌면 첫 판부터 다시 센다. 목록이 통째로 갈리는 순간에만 넘긴다.
+ */
+function useChunkedRows(전체: number, 되감기: string): number {
+  const [그린_줄, 두기] = useState(CHUNK_FIRST);
+  // 되감기는 그리는 중에 바로 한다. 효과로 미루면 새 목록의 첫 판을 그리기 전에
+  // 옛 줄 수로 한 번 더 그려서, 거르는 칩을 누를 때마다 목록이 깜빡인다.
+  const [본_되감기, 본것_두기] = useState(되감기);
+  if (본_되감기 !== 되감기) {
+    본것_두기(되감기);
+    두기(CHUNK_FIRST);
+  }
+  useEffect(() => {
+    if (그린_줄 >= 전체) return;
+    const 다음_판 = setTimeout(() => 두기((지금) => nextChunk(지금, 전체)), 0);
+    return () => clearTimeout(다음_판);
+  }, [그린_줄, 전체]);
+  return Math.min(그린_줄, 전체);
 }
 
 /**

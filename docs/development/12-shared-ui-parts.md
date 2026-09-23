@@ -22,6 +22,7 @@
 | `EmptyState` | 아무것도 없을 때의 상자. 가로(목록 안 한 줄)와 세로(화면이 통째로 빌 때) 두 변형, 점선 테두리, `mark` 로 그림 갈아 끼우기 | `mobile/src/ui/EmptyState.tsx` | 빈 목록, 빈 화면 |
 | `LoadState` | 「불러오는 중」과 「못 불러왔어요 + 다시 시도」 한 벌. 돌아가는 표시·까닭·다시 받는 버튼(44). 둘 다 아니면 아무것도 그리지 않는다. 사진 위처럼 테마를 안 따르는 자리는 `colors` | `mobile/src/ui/LoadState.tsx` | 서버에서 받아 그리는 목록·화면. **`EmptyState` 와 겹치지 않게** — 빈 것은 정상, 못 불러온 것은 실패다 |
 | `announce`·`useAnnounce` | 화면에 새로 뜬 한 줄을 iOS VoiceOver 에도 읽어 준다. 읽기 기능이 꺼져 있거나 웹이면 조용히 넘어가고, 같은 말이 연달아 오면 한 번만 읽는다 | `mobile/src/announce.ts` | `accessibilityLiveRegion` 을 붙이는 자리마다 **같이**. live region 은 안드로이드만 듣는다 |
+| `listChunks` | 긴 목록을 몇 판에 나눠 그리기 위한 셈(`chunkGroups`·`nextChunk`). 첫 판만 바로 그리고 나머지를 뒤이어 붙인다. 차례·스크롤 자리·「더 보기」는 그대로다 | `mobile/src/listChunks.ts` | 바깥이 이미 `ScrollView` 라 `FlatList` 를 넣을 수 없는 긴 목록(비용 탭 지출 내역). 시험은 `listChunks.test.ts` |
 | `CheckBox` | 체크 칸. 네모(고르기)와 원(했다/안 했다) 두 모양. **누르는 것은 부르는 쪽이 갖는다** — 줄 전체가 눌리는 목록과 칸만 눌리는 목록이 둘 다 있어서다 | `mobile/src/ui/CheckBox.tsx` | 고르는 목록, 동의 확인, 완료 표시 |
 | `Switch` | 켜고 끄는 막대(44×26). 누르는 것은 부르는 쪽이 갖는다 | `mobile/src/ui/Switch.tsx` | 설정 줄의 켜고 끄기 |
 | `SheetHandle` | 아래에서 올라온 창 맨 위의 손잡이(40×5) | `mobile/src/ui/SheetHandle.tsx` | 끌어 내려 닫는 창. `SheetShell` 이 이미 쓴다 |
@@ -87,6 +88,10 @@
 - **접혀 있는 칸으로는 넘기지 않는다.** 안 보이는 칸에 커서만 가면 어디에 적는지 알 수 없다.
 - 주소는 `autoComplete="street-address"`·`textContentType="fullStreetAddress"`, 링크는
   `autoComplete="url"`·`textContentType="URL"` 로 OS 가 채워 줄 수 있게 한다.
+- 기록 탭(사진 설명 · 일기 제목)과 비용 탭(항목 → 금액, 메모, 보낸 금액, 예산, 환율)도 같은 틀이다.
+  「금액 직접」의 사람별 칸은 `DetailField` 가 아니라 줄 안에 선 칸이라 손잡이를 배열로 들고 잇는다.
+- **빠른 추가의 금액 칸만 예외다.** 「완료」인데도 `submitBehavior="submit"` 을 붙여 키보드를 내리지
+  않는다. 한 건 넣고 곧바로 다음 금액을 치는 자리라, 칸을 다시 눌러야 하면 빠르게 적는 뜻이 없어진다.
 
 같은 날 `WarmAppShell.tsx` 의 창들(새 여행 시트와 「우리」 설정 안의 화면들)도 같은 틀로 맞췄다.
 
