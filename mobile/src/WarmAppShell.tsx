@@ -46,7 +46,8 @@ import {
 } from "./spaces";
 import { removeAllCardDrafts, removeCardDrafts } from "./cardDraftStorage";
 import { TripDateRangePicker } from "./TripDateRangePicker";
-import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
+import { sampleTripPlanning, WarmTripDetail } from "./WarmTripDetail";
+import type { TripDetailDestination, TripPlanningData } from "./tripPlanning";
 import { shouldRefetch } from "./listSync";
 import { SyncNotice } from "./SyncMarks";
 import { reloadOpenLists } from "./useListSync";
