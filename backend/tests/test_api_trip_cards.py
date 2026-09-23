@@ -333,7 +333,9 @@ async def test_완성_이미지를_올리면_줄이지_않은_JPEG_로_두고_im
         assert all(값 >= 250 for 값 in 그림.getpixel((2000, 3000)))
         assert 그림.getpixel((10, 10))[2] > 100
     # 공간 저장 한도에 사진과 함께 센다.
-    assert await used_bytes(db, space_id=uuid.UUID(space_id)) == 파일.stat().st_size
+    # 쓴 용량에는 작은 사본까지 든다.
+    작은_파일 = 파일.with_name(파일.name[:-4] + "-small.jpg")
+    assert await used_bytes(db, space_id=uuid.UUID(space_id)) == 파일.stat().st_size + 작은_파일.stat().st_size
 
     # 상대도 목록에서 같은 값을 보고 이미지를 받는다.
     목록 = (await api.get(f"/v1/trips/{trip['id']}/cards", headers=손님)).json()["data"]
@@ -447,10 +449,51 @@ async def test_카드를_고치면_이미지가_옛것이_되고_다시_올리�
 
     assert 다시.status_code == 200, 다시.text
     assert 다시.json()["data"]["imageVersion"] == 2
-    assert sorted(파일.name for 파일 in 폴더.iterdir()) == [f"{카드['id']}-v2.jpg"]
+    # 옛 버전은 작은 사본까지 같이 지운다.
+    assert sorted(파일.name for 파일 in 폴더.iterdir()) == [f"{카드['id']}-v2-small.jpg", f"{카드['id']}-v2.jpg"]
     받음 = await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=주인)
     with Image.open(io.BytesIO(받음.content)) as 그림:
         assert 그림.size == (900, 900)
+
+
+async def test_작은_사본은_긴_변_1080_이고_없으면_완성본에서_만든다(api, db, 사진_폴더):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림(2400, 3200))
+    폴더 = 사진_폴더 / "trips" / trip["id"] / "cards"
+    작은_파일 = 폴더 / f"{카드['id']}-v1-small.jpg"
+    assert 작은_파일.is_file()
+
+    받음 = await api.get(f"/v1/trip-cards/{카드['id']}/image?size=small", headers=주인)
+
+    assert 받음.status_code == 200 and 받음.headers["content-type"] == "image/jpeg"
+    with Image.open(io.BytesIO(받음.content)) as 그림:
+        assert 그림.size == (810, 1080)
+    # 완성본은 그대로다.
+    완성본 = await api.get(f"/v1/trip-cards/{카드['id']}/image", headers=주인)
+    with Image.open(io.BytesIO(완성본.content)) as 그림:
+        assert 그림.size == (2400, 3200)
+
+    # 작은 사본이 생기기 전에 올린 카드: 파일이 없으면 완성본에서 그 자리에서 만든다.
+    작은_파일.unlink()
+    다시 = await api.get(f"/v1/trip-cards/{카드['id']}/image?size=small", headers=주인)
+    assert 다시.status_code == 200 and 작은_파일.is_file()
+    with Image.open(io.BytesIO(다시.content)) as 그림:
+        assert 그림.size == (810, 1080)
+    # 엉뚱한 크기 이름은 받지 않는다.
+    assert (await api.get(f"/v1/trip-cards/{카드['id']}/image?size=huge", headers=주인)).status_code == 422
+
+
+async def test_카드를_지우면_작은_사본도_지운다(api, db, 사진_폴더):
+    주인, _, _, trip = await 둘이_쓰는_여행(api)
+    카드 = await 카드를_만든다(api, 주인, trip["id"], style="필름")
+    await 이미지를_올린다(api, 주인, 카드["id"], 1, 카드_그림())
+    폴더 = 사진_폴더 / "trips" / trip["id"] / "cards"
+    assert len(list(폴더.iterdir())) == 2
+
+    assert (await api.delete(f"/v1/trip-cards/{카드['id']}", headers=주인)).status_code == 204
+
+    assert list(폴더.iterdir()) == []
 
 
 async def test_같은_버전을_두_번_올려도_파일은_하나다(api, db, 사진_폴더):
@@ -462,7 +505,7 @@ async def test_같은_버전을_두_번_올려도_파일은_하나다(api, db, �
 
     assert 다시.status_code == 200
     폴더 = 사진_폴더 / "trips" / trip["id"] / "cards"
-    assert [파일.name for 파일 in 폴더.iterdir()] == [f"{카드['id']}-v1.jpg"]
+    assert sorted(파일.name for 파일 in 폴더.iterdir()) == [f"{카드['id']}-v1-small.jpg", f"{카드['id']}-v1.jpg"]
     with Image.open(폴더 / f"{카드['id']}-v1.jpg") as 그림:
         assert 그림.size == (600, 600)
 
@@ -478,7 +521,7 @@ async def test_카드를_지우면_이미지_파일도_지운다(api, db, 사진
     지움 = await api.delete(f"/v1/trip-cards/{카드['id']}", headers=주인)
 
     assert 지움.status_code == 204
-    assert [파일.name for 파일 in 폴더.iterdir()] == [f"{남는_카드['id']}-v1.jpg"]
+    assert sorted(파일.name for 파일 in 폴더.iterdir()) == [f"{남는_카드['id']}-v1-small.jpg", f"{남는_카드['id']}-v1.jpg"]
 
 
 async def test_여행을_완전히_지우면_카드_이미지도_여행_폴더째_사라진다(api, db, 사진_폴더):

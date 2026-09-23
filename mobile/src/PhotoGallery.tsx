@@ -20,6 +20,7 @@ import { Glyph } from "./Glyph";
 import {
   allChosen,
   cardFromSelection,
+  CARD_GROUP,
   deleteConfirmText,
   dragSelect,
   galleryOrder,
@@ -46,7 +47,23 @@ import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
 
 /** 사진첩이 그리는 사진 한 장. 기록 탭의 `MemoryPhoto` 에서 필요한 몫만 받는다. */
-export type GalleryItem = { id: string; date: string; color: string; caption: string; uri?: string };
+export type GalleryItem = {
+  id: string;
+  date: string;
+  color: string;
+  caption: string;
+  uri?: string;
+  /** 카드 칸이면 칸에 맞춰 그린 카드. 이것이 있으면 서버 사진 대신 이것을 그린다. */
+  preview?: ReactNode;
+};
+
+/**
+ * 사진첩 맨 위에 놓는 카드 한 장(2026-09-23 요청). 사진과 같은 칸에 그려 넣는다.
+ *
+ * `preview` 는 칸에 맞게 줄여 그린 카드다(`TripCards` 의 `CardThumb`). 사진첩은 서버에서
+ * 그림을 받지 않고 이것을 그대로 얹는다 — 기록 탭 격자와 같은 그림이라 새로 받을 것이 없다.
+ */
+export type GalleryCard = { id: string; label: string; color: string; preview?: ReactNode };
 
 /** 사진첩 바닥에 뜨는 한 줄. 되돌리기처럼 누를 것이 붙을 수 있다. */
 export type GalleryToast = { message: string; action?: { label: string; onPress: () => void } };
@@ -137,11 +154,13 @@ type Props = {
   title: string;
   /** 기록 탭 격자와 같은 차례의 사진. */
   photos: readonly GalleryItem[];
+  /** 맨 위 「카드」 묶음에 놓을 카드. 없으면 묶음도 없다. */
+  cards?: readonly GalleryCard[];
   /** 날짜가 없는 사진을 묶을 이름. */
   undated: string;
   theme?: AppTheme;
   onClose: () => void;
-  /** 사진 한 장을 크게 본다. 크게 보는 창은 `children` 으로 이 창 안에 들어온다. */
+  /** 사진 한 장(또는 카드)을 크게 본다. 크게 보는 창은 `children` 으로 이 창 안에 들어온다. */
   onOpen: (id: string) => void;
   /** 서버에 다 올라간 사진. 이것만 썸네일을 받을 수 있다. */
   uploaded: ReadonlySet<string>;
@@ -153,7 +172,7 @@ type Props = {
   canEdit: boolean;
   /** 이 사진을 삭제할 수 있는지(올린 사람과 관리자). */
   canManage: (id: string) => boolean;
-  /** 확인까지 받은 뒤 부른다. `skipped` 는 남의 사진이라 뺀 수다. */
+  /** 확인까지 받은 뒤 부른다. `skipped` 는 남의 사진이라 뺀 수다. 카드 id 가 섞여 온다. */
   onDelete: (ids: string[], skipped: number) => void;
   /** 한 장씩 차례로 저장한다. `진행` 으로 몇 번째인지 알려 준다. 알림은 부르는 쪽이 띄운다. */
   onSave: (ids: string[], 진행: (지금: number, 모두: number) => void) => Promise<void>;
@@ -218,6 +237,7 @@ export function PhotoGallery(props: Props) {
 function GalleryBody({
   title,
   photos,
+  cards,
   undated,
   theme,
   onClose,
@@ -260,7 +280,27 @@ function GalleryBody({
     () => ({ columns, width, gap: 틈, header: 높이.버튼 }),
     [columns, width],
   );
-  const sections = useMemo(() => groupByDate(photos, undated), [photos, undated]);
+  /**
+   * 카드를 「카드」라는 날짜로 두고 사진 앞에 세운다. 묶음의 차례는 처음 나온 차례를 따르므로
+   * (`groupByDate`), 이렇게만 해도 카드 묶음이 맨 위에 온다. 줄 세우기·끌어서 고르기·전체
+   * 선택은 사진과 똑같이 돌아간다.
+   */
+  const 카드_칸 = useMemo<GalleryItem[]>(
+    () => (cards ?? []).map((하나) => ({
+      id: 하나.id,
+      date: CARD_GROUP,
+      color: 하나.color,
+      caption: 하나.label,
+      preview: 하나.preview,
+    })),
+    [cards],
+  );
+  const 카드인가 = useCallback((id: string) => 카드_칸.some((하나) => 하나.id === id), [카드_칸]);
+  const 항목 = useMemo(
+    () => (카드_칸.length ? [...카드_칸, ...photos] : (photos as GalleryItem[])),
+    [카드_칸, photos],
+  );
+  const sections = useMemo(() => groupByDate(항목, undated), [항목, undated]);
   const rows = useMemo(() => galleryRows(sections, columns), [sections, columns]);
   const order = useMemo(() => galleryOrder(sections), [sections]);
   const offsets = useMemo(() => rowOffsets(rows, metrics), [rows, metrics]);
@@ -459,10 +499,10 @@ function GalleryBody({
     if (!수 || 바쁨) return;
     const { allowed, skipped } = splitManageable(selected, canManage);
     if (!allowed.length) {
-      onToast({ message: "올린 사람과 관리자만 사진을 삭제할 수 있어요" });
+      onToast({ message: "올린 사람과 관리자만 삭제할 수 있어요" });
       return;
     }
-    const 말 = deleteConfirmText(allowed.length, skipped);
+    const 말 = deleteConfirmText(allowed.length, skipped, allowed.filter(카드인가).length);
     showAlert(말.title, 말.body, [
       { text: "취소", style: "cancel" },
       {
@@ -486,7 +526,7 @@ function GalleryBody({
       setSaving(null);
     }
   };
-  const 카드_되나 = cardFromSelection(selected, maxCardPhotos);
+  const 카드_되나 = cardFromSelection(selected, maxCardPhotos, 카드인가);
   const 카드로 = () => {
     if (!onMakeCard || 바쁨) return;
     if (!카드_되나.ok) {
@@ -733,7 +773,8 @@ const Tile = memo(function Tile({
   onPressOut: () => void;
 }) {
   const uri = useThumb(photo.id, uploaded, photo.uri);
-  const 이름 = photo.caption || `${photo.date} 사진`;
+  const 카드 = photo.date === CARD_GROUP;
+  const 이름 = 카드 ? `${photo.caption} 카드` : photo.caption || `${photo.date} 사진`;
   return (
     <Pressable
       onPress={() => onPress(photo.id)}
@@ -746,10 +787,20 @@ const Tile = memo(function Tile({
       style={[styles.tile, { width: size, height: size, marginRight: last ? 0 : 틈, backgroundColor: surface }]}
     >
       <View style={[styles.tileInner, chosen && styles.tileChosen, { backgroundColor: photo.color }]}>
-        {uri && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />}
+        {photo.preview ? (
+          <View style={styles.cardFill} pointerEvents="none">{photo.preview}</View>
+        ) : (
+          uri && <Image source={{ uri }} resizeMode="cover" style={styles.fill} />
+        )}
         {Boolean(uploadText) && (
           <View style={styles.uploadCover} pointerEvents="none">
             <Text style={styles.uploadText}>{uploadText}</Text>
+          </View>
+        )}
+        {/* 기록 탭 격자의 카드 표와 같은 말·같은 자리다. 배울 것이 하나 줄어든다. */}
+        {카드 && (
+          <View style={styles.cardMark} pointerEvents="none">
+            <Text style={styles.cardMarkText}>카드</Text>
           </View>
         )}
       </View>
@@ -833,6 +884,20 @@ const styles = StyleSheet.create({
   // 고른 사진은 안쪽으로 줄어 테두리가 생긴다. 구글 포토가 쓰는 표시라 색을 못 가려 보는 사람도 알아본다.
   tileChosen: { margin: 8, borderRadius: 6 },
   fill: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
+  // 카드 칸. 그린 카드(`CardThumb`)가 칸을 재서 그 안에 맞춰 그린다. 가운데 정렬로 감싸면
+  // 폭이 글자처럼 줄어 0 이 되고 아무것도 그려지지 않는다(2026-09-23).
+  cardFill: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+  // 카드라는 표. 기록 탭 격자·사진 스트립과 같은 자리(칸 아래)와 같은 말이다.
+  cardMark: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    paddingVertical: 2,
+    backgroundColor: "rgba(17,16,15,0.72)",
+  },
+  cardMarkText: { fontSize: 10, color: "#F6F4F1", fontFamily: typo.label.family },
   check: {
     position: "absolute",
     top: 5,

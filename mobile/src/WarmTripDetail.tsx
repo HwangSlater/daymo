@@ -8739,7 +8739,15 @@ const NO_CARDS: CardTile[] = [];
 /** 올라간 사진이 아직 없을 때. 사진첩에 렌더마다 새 집합을 넘기지 않으려고 둔다. */
 const NO_PHOTO_IDS: ReadonlySet<string> = new Set();
 /** 카드 쪽(`TripCardsSection`)이 기록 탭으로 올려 보내는 목록과 손잡이. */
-type CardHandles = { tiles: CardTile[]; open: (id: string) => void; create: (photoIds?: readonly string[]) => void };
+type CardHandles = {
+  tiles: CardTile[];
+  open: (id: string) => void;
+  create: (photoIds?: readonly string[]) => void;
+  canManage: (id: string) => boolean;
+  remove: (ids: readonly string[]) => Promise<{ deleted: number; failed: number }>;
+  save: (ids: readonly string[], 진행?: (지금: number, 모두: number) => void)
+    => Promise<{ saved: number; failed: number; skipped: number }>;
+};
 /**
  * 사진첩에서 한꺼번에 지운 뒤 기기의 파일을 남겨 두는 시간(ms). 알림의 「되돌리기」가
  * 떠 있는 동안(5.2초)보다 조금 길게 잡는다.
@@ -9294,7 +9302,7 @@ function Memories({
    * 알림에 「되돌리기」를 붙인다(삼성 갤러리·구글 포토도 그렇다). 되돌릴 수 있는 동안은
    * 기기에 있는 파일을 남겨 둔다. 아직 올리지 못한 사진은 그 파일이 전부다.
    */
-  const deleteManyPhotos = (ids: string[], skipped: number) => {
+  const deleteManyPhotos = (ids: string[], skipped: number, cards = 0) => {
     const 지울_것 = new Set(ids);
     const 뺀_것 = photos.flatMap((photo, index) => (지울_것.has(photo.id) ? [{ item: photo, index }] : []));
     if (!뺀_것.length) return;
@@ -9304,7 +9312,7 @@ function Memories({
     const 파일_치우기 = setTimeout(() => {
       if (!되돌림) 뺀_것.forEach(({ item }) => removeStoredPhoto(item.uri));
     }, 사진_되돌리기_여유);
-    알림(deletedText(뺀_것.length, skipped), {
+    알림(deletedText(뺀_것.length, skipped, cards), {
       label: "되돌리기",
       onPress: () => {
         되돌림 = true;
@@ -9362,7 +9370,11 @@ function Memories({
    * 폰은 한 장마다 공유 시트가 뜬다. 한꺼번에 넘기는 길은 사진첩 권한이 따로 필요해서
    * 들이지 않았다(`photoSave.ts`). 업로드 중인 사진은 아직 받을 곳이 없어 뺀다.
    */
-  const saveManyPhotos = async (ids: string[], 진행: (지금: number, 모두: number) => void) => {
+  /**
+   * 고른 사진을 한 장씩 저장한다. 알림은 부르는 쪽(`saveManyAll`)이 카드 몫과 함께 한 줄로 낸다.
+   * 이 기기가 저장 자체를 못 하면 창으로 알리고 `null` 을 돌려준다.
+   */
+  const saveManyPhotos = async (ids: string[], 진행: (지금: number) => void) => {
     const 고른_것 = ids
       .map((id) => photos.find((photo) => photo.id === id))
       .filter((photo): photo is MemoryPhoto => photo !== undefined);
@@ -9370,19 +9382,59 @@ function Memories({
     let saved = 0;
     let failed = 0;
     for (const [차례, photo] of 할_것.entries()) {
-      진행(차례 + 1, 할_것.length);
+      진행(차례 + 1);
       try {
         const 결과 = await savePhotoToDevice(photo, photos.indexOf(photo));
         if (결과 !== "saved") {
           showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
-          return;
+          return null;
         }
         saved += 1;
       } catch {
         failed += 1;
       }
     }
-    알림(savedText({ saved, failed, skipped: ids.length - 할_것.length }));
+    return { saved, failed, skipped: ids.length - 할_것.length };
+  };
+  /** 사진첩에서 고른 것이 카드인지. 카드 목록은 카드 쪽이 올려 준다. */
+  const 카드_고름 = (id: string) => cardTiles.some((하나) => 하나.id === id);
+  /**
+   * 사진첩에서 고른 것을 한꺼번에 저장한다. 사진과 카드가 섞여 올 수 있다(2026-09-23).
+   *
+   * 카드는 「완료」할 때 서버에 만들어 둔 그림을 받아 저장한다. 그 그림이 없는 카드는 빼고
+   * 몇 장을 뺐는지 알린다 — 카드를 열어 한 번 저장하면 만들어진다.
+   */
+  const saveManyAll = async (ids: string[], 진행: (지금: number, 모두: number) => void) => {
+    const 카드_것 = ids.filter(카드_고름);
+    const 사진_것 = ids.filter((id) => !카드_고름(id));
+    const 모두 = ids.length;
+    const 사진_셈 = 사진_것.length ? await saveManyPhotos(사진_것, (지금) => 진행(지금, 모두)) : { saved: 0, failed: 0, skipped: 0 };
+    if (!사진_셈) return;
+    const 카드_셈 = 카드_것.length && cards
+      ? await cards.save(카드_것, (지금) => 진행(사진_것.length + 지금, 모두))
+      : { saved: 0, failed: 0, skipped: 0 };
+    알림(savedText({
+      saved: 사진_셈.saved,
+      failed: 사진_셈.failed + 카드_셈.failed,
+      skipped: 사진_셈.skipped,
+      cards: 카드_셈.saved,
+      cardsSkipped: 카드_셈.skipped,
+    }));
+  };
+  /**
+   * 사진첩에서 고른 것을 한꺼번에 지운다. 카드는 휴지통이 없어 바로 없어지므로 「되돌리기」는
+   * 사진에만 붙는다. 묻는 창에서 이미 그렇게 알린다(`deleteConfirmText`).
+   */
+  const deleteManyAll = (ids: string[], skipped: number) => {
+    const 카드_것 = ids.filter(카드_고름);
+    const 사진_것 = ids.filter((id) => !카드_고름(id));
+    if (카드_것.length) {
+      void cards?.remove(카드_것).then((결과) => {
+        if (결과.failed > 0) 알림(`카드 ${결과.failed}장을 삭제하지 못했어요. 잠시 뒤에 다시 시도해 주세요`);
+      });
+    }
+    if (사진_것.length) deleteManyPhotos(사진_것, skipped, 카드_것.length);
+    else if (카드_것.length) 알림(deletedText(0, skipped, 카드_것.length));
   };
   const deletePhoto = () => {
     const target = photos.find((photo) => photo.id === editingPhotoId);
@@ -9868,21 +9920,23 @@ function Memories({
         visible={galleryOpen}
         title={tripName}
         photos={photos}
+        cards={cardTiles}
         undated={UNDATED}
         theme={theme}
         onClose={closeGallery}
-        onOpen={moveViewing}
+        onOpen={(id) => (cardTiles.some((하나) => 하나.id === id) ? cards?.open(id) : moveViewing(id))}
         uploaded={uploadedPhotoIds ?? NO_PHOTO_IDS}
         uploading={uploadingPhotoIds}
         blocked={blockedPhotoIds}
         progress={photoUploadState.progress}
         canEdit={canEdit}
         canManage={(id) => {
+          if (cardTiles.some((하나) => 하나.id === id)) return Boolean(cards?.canManage(id));
           const photo = photos.find((하나) => 하나.id === id);
           return Boolean(photo) && canManagePhoto(photo);
         }}
-        onDelete={deleteManyPhotos}
-        onSave={saveManyPhotos}
+        onDelete={deleteManyAll}
+        onSave={saveManyAll}
         onMakeCard={cards ? (ids) => cards.create(ids) : undefined}
         maxCardPhotos={KEEPSAKE_MAX_PHOTOS}
         toast={galleryToast}

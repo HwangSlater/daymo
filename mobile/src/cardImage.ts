@@ -17,6 +17,15 @@ import type { ServerTripCard } from "./serverData";
 
 const CARD_DIRECTORY = "trip-cards";
 
+/** 완성본(가로 2160)과 작은 사본(긴 변 1080). 작은 사본은 격자를 띄울 때 미리 받아 두는 것이다. */
+export type CardImageSize = "full" | "small";
+
+/** 웹에서 받아 둔 blob 주소. 폰은 캐시 폴더의 파일이 그 몫을 한다. */
+const 웹_캐시 = new Map<string, string>();
+
+const cacheKeyOf = (cardId: string, version: number, size: CardImageSize) =>
+  `${cardId}-v${version}${size === "small" ? "-small" : ""}`;
+
 const contentTypeOf = (uri: string) =>
   uri.startsWith("data:image/jpeg") || /\.jpe?g(\?|$)/i.test(uri) ? "image/jpeg" : "image/png";
 
@@ -58,11 +67,22 @@ export async function uploadCardImage(cardId: string, version: number, uri: stri
 
 /**
  * 저장된 카드 그림을 받는다. 폰은 캐시 폴더의 파일, 웹은 blob: 주소다.
- * 다 쓰면 `releaseCardImage` 로 버린다.
+ *
+ * 한 번 받은 것은 두고 다시 받지 않는다(2026-09-23). 그림은 카드 버전마다 파일이 달라서
+ * 같은 버전이면 같은 파일이다. 새 버전을 받으면 그 카드의 옛 버전 파일은 지운다. 카드가
+ * 늘어도 받는 양은 열어 본 만큼이다 — 격자를 띄울 때는 작은 사본만 미리 받는다
+ * (`prefetchCardImage`).
  */
-export async function downloadCardImage(cardId: string, version: number): Promise<string | undefined> {
-  const url = apiUrlOf(`/v1/trip-cards/${encodeURIComponent(cardId)}/image?v=${version}`);
+export async function downloadCardImage(
+  cardId: string,
+  version: number,
+  size: CardImageSize = "full",
+): Promise<string | undefined> {
+  const url = apiUrlOf(`/v1/trip-cards/${encodeURIComponent(cardId)}/image?size=${size}&v=${version}`);
+  const key = cacheKeyOf(cardId, version, size);
   if (Platform.OS === "web") {
+    const 있는_것 = 웹_캐시.get(key);
+    if (있는_것) return 있는_것;
     return withAccessToken((accessToken) => sendQueued(async () => {
       let response: Response;
       try {
@@ -71,13 +91,16 @@ export async function downloadCardImage(cardId: string, version: number): Promis
         throw new DaymoApiError("인터넷 연결을 확인하고 다시 시도해 주세요.", 0);
       }
       if (!response.ok) throw new DaymoApiError("카드 이미지를 불러오지 못했어요.", response.status);
-      return URL.createObjectURL(await response.blob());
+      const uri = URL.createObjectURL(await response.blob());
+      웹_캐시.set(key, uri);
+      return uri;
     }, { safe: true }));
   }
   if (!FileSystem.cacheDirectory) return undefined;
   const folder = `${FileSystem.cacheDirectory}${CARD_DIRECTORY}/`;
   await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
-  const target = `${folder}${cardId}-v${version}.jpg`;
+  const target = `${folder}${key}.jpg`;
+  if ((await FileSystem.getInfoAsync(target).catch(() => ({ exists: false }))).exists) return target;
   return withAccessToken((accessToken) => sendQueued(async () => {
     let status: number;
     try {
@@ -89,15 +112,33 @@ export async function downloadCardImage(cardId: string, version: number): Promis
       await FileSystem.deleteAsync(target, { idempotent: true }).catch(() => undefined);
       throw new DaymoApiError("카드 이미지를 불러오지 못했어요.", status);
     }
+    void 옛_버전_지우기(folder, cardId, version);
     return target;
   }, { safe: true }));
 }
 
-export function releaseCardImage(uri: string): void {
-  if (uri.startsWith("blob:")) {
-    // 웹은 내려받기 링크를 누른 직후라 바로 지우면 받기가 끊길 수 있다. 조금 뒤에 지운다.
-    setTimeout(() => URL.revokeObjectURL(uri), 30_000);
-    return;
-  }
-  if (Platform.OS !== "web") FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+/** 같은 카드의 다른 버전 파일을 지운다. 카드를 고칠 때마다 쌓이지 않게 한다. */
+async function 옛_버전_지우기(folder: string, cardId: string, version: number): Promise<void> {
+  const 이름들 = await FileSystem.readDirectoryAsync(folder).catch(() => [] as string[]);
+  const 남길_앞 = `${cardId}-v${version}`;
+  await Promise.all(
+    이름들
+      .filter((이름) => 이름.startsWith(`${cardId}-v`) && !이름.startsWith(`${남길_앞}.`) && !이름.startsWith(`${남길_앞}-`))
+      .map((이름) => FileSystem.deleteAsync(`${folder}${이름}`, { idempotent: true }).catch(() => undefined)),
+  );
 }
+
+/**
+ * 작은 사본을 미리 받아 둔다. 격자에 보이는 카드와 크게 볼 때의 양옆 카드가 대상이다.
+ * 못 받아도 그만이다 — 열 때 다시 받는다.
+ */
+export async function prefetchCardImage(cardId: string, version: number): Promise<void> {
+  await downloadCardImage(cardId, version, "small").catch(() => undefined);
+}
+
+/**
+ * 다 쓴 그림. 이제는 받아 둔 것을 두고 쓰므로 지우지 않는다. 옛 버전은 새 버전을 받을 때
+ * 지우고, 캐시 폴더는 기기가 알아서 비운다. 부르는 자리를 남겨 두는 것은 웹의 blob 주소도
+ * 같은 이름으로 다루기 위해서다.
+ */
+export function releaseCardImage(_uri: string): void {}
