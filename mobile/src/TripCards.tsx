@@ -221,10 +221,6 @@ export function TripCardsSection({
   /** 사진을 크게 보는 창의 사진 쪽 몫. */
   viewer: CardViewer;
 }) {
-  // 카드에 쓸 수 있는 사진은 파일이 기기에 있는 것뿐이다. 웹의 blob: 주소는 탭을
-  // 새로 열면 죽어서, 그 사진을 고르면 빈 칸이 찍힌다.
-  const cardPhotos = useMemo(() => photos.filter((photo) => isLivePhotoUri(photo.uri)), [photos]);
-  const photoIds = useMemo(() => cardPhotos.map((photo) => photo.id), [cardPhotos]);
   /** 이 여행의 모든 사진 id. 파일이 기기에 없는 것도 센다(완료한 카드가 사진이 됐는지 볼 때 쓴다). */
   const 모든_사진_id = useMemo(() => photos.map((photo) => photo.id), [photos]);
 
@@ -250,6 +246,30 @@ export function TripCardsSection({
    * 사진이 되어 사진처럼 보이고, 아직 완성이 아닌 것은 꾸밀 것만 남아서다.
    */
   const [openId, setOpenId] = useState<string | null>(null);
+
+  /**
+   * 카드에 쓸 수 있는 사진. 파일이 기기에 있어야 한다 — 웹의 blob: 주소는 탭을 새로 열면
+   * 죽어서, 그 사진을 고르면 빈 칸이 찍힌다.
+   *
+   * 상대가 올린 사진은 이제 여행을 열 때 미리 받지 않는다(2026-09-23, 사진을 무한히
+   * 쌓지 않으려고). 그래서 카드를 여는 동안에만 그 사진들의 썸네일을 받아 고를 수 있게
+   * 한다. 카드를 안 열면 한 장도 받지 않고, 열면 고를 수 있어야 하기 때문이다.
+   * 내보낼 때는 어차피 원본으로 다시 받아 찍는다(`원본으로_찍기`).
+   */
+  const 파일_없는_사진 = useMemo(
+    () => (openId ? photos.filter((photo) => !isLivePhotoUri(photo.uri)).map((photo) => photo.id) : []),
+    [openId, photos],
+  );
+  const 받은_썸네일 = usePhotoThumbs(파일_없는_사진);
+  const cardPhotos = useMemo(
+    () => photos
+      .map((photo) => (isLivePhotoUri(photo.uri)
+        ? photo
+        : 받은_썸네일[photo.id] ? { ...photo, uri: 받은_썸네일[photo.id] } : undefined))
+      .filter((photo) => photo !== undefined),
+    [photos, 받은_썸네일],
+  );
+  const photoIds = useMemo(() => cardPhotos.map((photo) => photo.id), [cardPhotos]);
   /** 꾸미는 초안을 만든 시각. 적을 때 그대로 넘겨 차례가 흔들리지 않게 한다. */
   const [openedAt, setOpenedAt] = useState("");
   /** 사진을 보다가 카드를 시작했으면 그 사진. 닫으면 그 사진 앞으로 돌아간다. */
