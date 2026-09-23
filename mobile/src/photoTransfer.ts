@@ -17,11 +17,10 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
 import { apiUrlOf, DaymoApiError, withAccessToken } from "./auth";
+import { maybeSweepPhotoCache, notePhotoFile, photoFileExists, PHOTO_DIRECTORY } from "./photoCache";
 import { sendQueued } from "./requestQueue";
 import { createPhoto } from "./serverData";
 import { DISPLAY_REVISION, displayFileName, type PhotoBody, type ServerPhoto } from "./photoSync";
-
-const PHOTO_DIRECTORY = "trip-photos";
 
 async function bytesOf(uri: string): Promise<ArrayBuffer> {
   if (Platform.OS === "web" || uri.startsWith("data:")) {
@@ -130,9 +129,14 @@ const liveBlobUris = new Set<string>();
 /**
  * 지금 화면에 띄울 수 있는 사진 주소인지. 웹은 사진을 브라우저 저장소에 넣지 않고
  * blob: 주소로만 들고 있어서, 새로 연 탭에 남은 옛 blob: 주소는 다시 받아야 한다.
+ *
+ * 폰은 파일이 아직 있는지도 본다(2026-09-23 검토 #6 나). 캐시를 비우거나 상한에 걸려
+ * 지워진 표시본의 자리가 기기 기록에는 그대로 남아 있는데, 없어진 줄 모르면 그 자리가
+ * 빈 칸으로 남고 다시 받지도 않는다. 자리마다 한 번만 물어보고 답을 기억해 둔다
+ * (`photoCache.photoFileExists`).
  */
 export const isLivePhotoUri = (uri: string | undefined): uri is string =>
-  Boolean(uri) && (!uri!.startsWith("blob:") || liveBlobUris.has(uri!));
+  Boolean(uri) && (uri!.startsWith("blob:") ? liveBlobUris.has(uri!) : photoFileExists(uri!));
 
 /**
  * 서버 사진을 받아 둔다. 받은 자리를 돌려준다.
@@ -179,6 +183,9 @@ export async function downloadPhoto(
       await FileSystem.deleteAsync(target, { idempotent: true }).catch(() => undefined);
       throw new DaymoApiError("사진을 불러오지 못했어요.", status);
     }
+    notePhotoFile(target, true);
+    // 받은 것이 쌓이기만 하지 않게 뜸하게 한 번씩 정리한다(2026-09-23 검토 #6 나).
+    maybeSweepPhotoCache();
     return target;
   }, { safe: true }));
 }
@@ -195,6 +202,7 @@ export function releaseDownloadedPhoto(uri: string): void {
     if (uri.startsWith("blob:")) URL.revokeObjectURL(uri);
     return;
   }
+  notePhotoFile(uri, false);
   FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
 }
 

@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
 
-import { downloadPhoto, releaseDownloadedPhoto } from "./photoTransfer";
+import { downloadPhoto, isLivePhotoUri, releaseDownloadedPhoto } from "./photoTransfer";
 
 /** 한꺼번에 받는 수. */
 const 일꾼_최대 = 3;
@@ -42,6 +42,20 @@ const 쓰는_수 = new Map<string, number>();
 const 기다림 = new Map<string, Set<(uri: string | undefined) => void>>();
 const 줄: string[] = [];
 let 일꾼 = 0;
+
+/**
+ * 받아 둔 자리를 꺼낸다. 캐시 정리로 파일이 지워졌으면 없는 것으로 친다.
+ *
+ * 폰의 썸네일은 파일이라, 용량 상한에 걸려 지워질 수 있다(`photoCache`). 지워진 자리를
+ * 그대로 돌려주면 칸이 빈 채로 굳는다 — 여기서 잊으면 다음 차례에 다시 받는다.
+ */
+function 살아_있는_것(id: string): string | undefined {
+  const uri = 받은_것.get(id);
+  if (!uri) return undefined;
+  if (isLivePhotoUri(uri)) return uri;
+  받은_것.delete(id);
+  return undefined;
+}
 
 function 자리_비우기(방금_넣은: string) {
   if (받은_것.size <= 상한) return;
@@ -140,7 +154,7 @@ export function usePhotoThumb(
     if (!uploaded) return;
     잡기(id);
     // 이미 받았거나 이미 실패해 멈춘 것은 부탁하지 않는다.
-    const 거두기 = 받은_것.has(id) || 못_받은_것.has(id)
+    const 거두기 = 살아_있는_것(id) || 못_받은_것.has(id)
       ? undefined
       : 부탁(id, (uri) => 소식_두기({ id, 실패: !uri }));
     return () => {
@@ -148,7 +162,7 @@ export function usePhotoThumb(
       놓기(id);
     };
   }, [id, uploaded, 다시]);
-  const 받은 = uploaded ? 받은_것.get(id) : undefined;
+  const 받은 = uploaded ? 살아_있는_것(id) : undefined;
   const 이번_소식 = 소식?.id === id ? 소식 : null;
   return {
     uri: uploaded ? 받은 : localUri,
@@ -177,7 +191,7 @@ export function usePhotoThumbs(ids: readonly string[], 다시 = 0): Record<strin
     // 목록에 든 동안에는 버리지 않는다. 카드가 화면에 있는 내내 쓰는 그림이다.
     목록.forEach(잡기);
     const 거두기 = 목록
-      .filter((id) => !받은_것.has(id) && !못_받은_것.has(id))
+      .filter((id) => !살아_있는_것(id) && !못_받은_것.has(id))
       .map((id) => 부탁(id, (uri) => {
         if (uri) 받은_두기((지금) => ({ ...지금, [id]: uri }));
       }));
@@ -190,7 +204,7 @@ export function usePhotoThumbs(ids: readonly string[], 다시 = 0): Record<strin
     const 것: Record<string, string> = {};
     for (const id of 열쇠.split("|")) {
       // 받아 둔 자리가 먼저다. 다른 화면이 이미 받아 뒀으면 기다릴 것 없이 그린다.
-      const uri = id ? 받은_것.get(id) ?? 받은[id] : undefined;
+      const uri = id ? 살아_있는_것(id) ?? 받은[id] : undefined;
       if (uri) 것[id] = uri;
     }
     return 것;
