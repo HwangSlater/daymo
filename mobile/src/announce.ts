@@ -59,8 +59,11 @@ async function 낭독기찾기(): Promise<Announcer | null> {
   if (찾아봤다) return null;
   찾아봤다 = true;
   try {
-    const rn = await import("react-native");
-    const info = rn.AccessibilityInfo;
+    // `import()`가 만드는 모듈 namespace는 react-native의 export를 전부 훑는다.
+    // 그러면 Expo Go에 들어 있지 않은 PushNotificationIOS 같은 오래된 native
+    // module getter까지 실행되므로, CommonJS 객체에서 필요한 값만 바로 읽는다.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { AccessibilityInfo: info } = require("react-native") as typeof import("react-native");
     if (!info?.announceForAccessibility || !info?.isScreenReaderEnabled) return null;
     세운것 = {
       isScreenReaderEnabled: () => info.isScreenReaderEnabled(),
