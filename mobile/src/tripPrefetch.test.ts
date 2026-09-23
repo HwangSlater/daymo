@@ -158,14 +158,14 @@ test("서버 목록을 기기 기록으로 옮긴다", () => {
 
   assert.deepEqual(merged.places.map((place) => place.name), ["첨성대"]);
   assert.deepEqual(merged.placeSyncIds, [ID("p1")]);
-  assert.equal(merged.schedule[0].date, "1일(목)");
+  assert.equal(merged.schedule[0].date, "2026-10-01");
   assert.deepEqual(merged.packingItems.map((item) => item.owner), ["하늘"]);
   assert.deepEqual(merged.packingDone, [ID("k1")]);
   assert.deepEqual(merged.cookingReadyIngredientIds, [ID("r2")]);
   // 재료의 `준비 완료` 는 목록 밖에 두고, 요리 줄에는 남기지 않는다.
   assert.equal("ready" in merged.recipes[0].ingredients[0], false);
   assert.equal(merged.expenses[0].payer, "하늘");
-  assert.equal(merged.expenses[0].day, "1일(목)");
+  assert.equal(merged.expenses[0].day, "2026-10-01");
 });
 
 test("아직 못 올린 기기의 줄은 서버 목록으로 덮이지 않는다", () => {

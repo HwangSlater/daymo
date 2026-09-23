@@ -48,7 +48,7 @@ import { removeAllCardDrafts, removeCardDrafts } from "./cardDraftStorage";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { WarmTripDetail } from "./WarmTripDetail";
 import { sampleTrips } from "./sampleTrips";
-import { parseStoredTripData, storableTrips } from "./tripStorage";
+import { TRIP_DATA_KEY, TRIP_DATA_KEYS, readTripData, storableTrips, tripDataText } from "./tripStorage";
 import {
   latestTripFrom,
   rosterOfSpace,
@@ -86,7 +86,7 @@ import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, type CoverFocus } from "./coverCrop";
 import { MEMO_COLOR, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
-import { dateKey, daysSince, shiftDateKey, tripDateKeys } from "./dates";
+import { dateKey, dayTextOf, daysSince, shiftDateKey, tripDateKeys } from "./dates";
 import { CalendarNoteSheet } from "./CalendarNoteSheet";
 import { FeedbackCard, FeedbackSheet } from "./FeedbackSheet";
 import { useFeedbackCardHidden } from "./feedback";
@@ -208,7 +208,6 @@ const 기본_마지막_날 = (오늘_키: string) => shiftDateKey(오늘_키, 2)
  */
 const initialTripsByGroup: Record<GroupId, Trip[]> = {};
 
-const tripStorageKey = "daymo.trip-data.v1";
 /**
  * 이 기기를 마지막으로 쓴 계정.
  *
@@ -769,7 +768,7 @@ export function WarmAppShell({
    */
   const signOut = (notice = "") => {
     void logout();
-    void clearAccountCache([tripStorageKey]);
+    void clearAccountCache(TRIP_DATA_KEYS);
     void removeAllCardDrafts();
     resetAfterSignOut(notice);
   };
@@ -1089,6 +1088,10 @@ export function WarmAppShell({
    * 적어 둔 적이 없으면(이 값이 생기기 전부터 쓰던 기기) 아무것도 지우지 않는다 —
    * 업데이트했다고 여행 기록이 사라지면 안 된다.
    *
+   * 읽으면서 옛 판(`daymo.trip-data.v1`, 날짜가 이름표)을 만나면 날짜 키로 한 번
+   * 옮겨 적는다(`readTripData`). 옮기기 전 원본은 `.bak` 으로 남아 있다가 다음에
+   * v2 가 제대로 읽히면 지워진다.
+   *
    * 세션 복구가 끝나야 누구의 기기인지 알 수 있어 `authReady` 를 기다린다.
    */
   useEffect(() => {
@@ -1099,7 +1102,7 @@ export function WarmAppShell({
       const 앞사람 = await AsyncStorage.getItem(deviceOwnerKey).catch(() => null);
       const 계정이_바뀌었다 = Boolean(myId && 앞사람 && 앞사람 !== myId);
       if (계정이_바뀌었다) {
-        await clearAccountCache([tripStorageKey]);
+        await clearAccountCache(TRIP_DATA_KEYS);
         await removeAllCardDrafts();
         if (active) {
           setSpaces([]);
@@ -1108,8 +1111,7 @@ export function WarmAppShell({
           setDone([]);
         }
       } else {
-        const raw = await AsyncStorage.getItem(tripStorageKey).catch(() => null);
-        const saved = parseStoredTripData(raw);
+        const saved = await readTripData(AsyncStorage).catch(() => null);
         if (active && saved) {
           setTripsByGroup(saved.tripsByGroup);
           setDone(saved.done);
@@ -1151,7 +1153,7 @@ export function WarmAppShell({
     적을_것.current = null;
     적은_횟수.current += 1;
     if (__DEV__) console.log(`[저장] 여행 기록 ${적은_횟수.current}번째`);
-    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup: storableTrips(것.tripsByGroup, Platform.OS === "web"), done: 것.done }))
+    AsyncStorage.setItem(TRIP_DATA_KEY, tripDataText(storableTrips(것.tripsByGroup, Platform.OS === "web"), 것.done))
       .then(() => setTripStorageFailed(false))
       .catch(() => setTripStorageFailed(true));
   }, []);
@@ -4852,7 +4854,7 @@ function Search({
         title: item.title,
         type: "일정",
         trip: trip.name,
-        detail: [item.date, item.time].filter(Boolean).join(" · "),
+        detail: [dayTextOf(item.date ?? ""), item.time].filter(Boolean).join(" · "),
         tags: [],
       });
     }
@@ -4884,7 +4886,7 @@ function Search({
         title: item.title,
         type: "비용",
         trip: trip.name,
-        detail: [item.day, money(item.amount, plan?.currency), item.category, item.payer && `${item.payer} 냄`]
+        detail: [dayTextOf(item.day), money(item.amount, plan?.currency), item.category, item.payer && `${item.payer} 냄`]
           .filter(Boolean)
           .join(" · "),
         tags: item.memo ? [item.memo] : [],

@@ -57,6 +57,7 @@ import { Toast } from "./ui/Toast";
 import { CardDeveloping } from "./CardDeveloping";
 import { ACCENT as CARD_ACCENT } from "./cardToolColors";
 import { Glyph, type GlyphName } from "./Glyph";
+import { dayTextOf } from "./dates";
 import { swipeAxis, swipeCloses, swipeStep, type SwipeAxis } from "./photoSwipe";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
@@ -673,7 +674,7 @@ export function PhotoViewerScreen({
   // 사진을 다 빼도 카드는 그대로 꾸미는 중이다.
   if (!photo && !decorating) return null;
   const meta = photo
-    ? [photo.date, photo.uploaderName ? `${photo.uploaderName} 올림` : ""].filter(Boolean).join(" · ")
+    ? [dayTextOf(photo.date), photo.uploaderName ? `${photo.uploaderName} 올림` : ""].filter(Boolean).join(" · ")
     : "";
   /**
    * ⋮ 안에 들어갈 것.

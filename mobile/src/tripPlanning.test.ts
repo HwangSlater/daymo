@@ -44,12 +44,12 @@ const 일정 = (extra: Partial<ScheduleItem> = {}): ScheduleItem => ({
 });
 
 test("일정은 날짜 차례로, 같은 날은 시각 차례로 선다", () => {
-  const 날짜들 = ["22일(화)", "23일(수)"];
+  const 날짜들 = ["2026-09-22", "2026-09-23"];
   const 줄들 = [
-    일정({ title: "둘째 날 아침", date: "23일(수)", time: "수 · 08:00" }),
+    일정({ title: "둘째 날 아침", date: "2026-09-23", time: "수 · 08:00" }),
     일정({ title: "날짜 없음", time: "09:00" }),
-    일정({ title: "첫날 저녁", date: "22일(화)", time: "화 · 19:00" }),
-    일정({ title: "첫날 점심", date: "22일(화)", time: "화 · 12:30" }),
+    일정({ title: "첫날 저녁", date: "2026-09-22", time: "화 · 19:00" }),
+    일정({ title: "첫날 점심", date: "2026-09-22", time: "화 · 12:30" }),
   ];
 
   assert.deepEqual(
@@ -58,11 +58,23 @@ test("일정은 날짜 차례로, 같은 날은 시각 차례로 선다", () => 
   );
 });
 
-test("시각을 못 읽는 줄은 그 날의 맨 뒤로 간다", () => {
-  const 날짜들 = ["22일(화)"];
+test("달을 넘겨도 날짜 차례가 맞는다", () => {
+  // 이름표(`31일(수)`·`1일(목)`)를 그대로 비교하던 때는 달이 바뀌면 차례가 뒤집혔다.
+  // 날짜 키는 칸 순서가 곧 달력 순서다.
+  const 날짜들 = ["2026-09-30", "2026-10-01"];
   const 줄들 = [
-    일정({ title: "시간 미정", date: "22일(화)", time: "화 · 시간 미정" }),
-    일정({ title: "아침", date: "22일(화)", time: "화 · 08:00" }),
+    일정({ title: "10월 아침", date: "2026-10-01", time: "목 · 08:00" }),
+    일정({ title: "9월 저녁", date: "2026-09-30", time: "수 · 19:00" }),
+  ];
+
+  assert.deepEqual(orderedScheduleItems(줄들, 날짜들).map((줄) => 줄.title), ["9월 저녁", "10월 아침"]);
+});
+
+test("시각을 못 읽는 줄은 그 날의 맨 뒤로 간다", () => {
+  const 날짜들 = ["2026-09-22"];
+  const 줄들 = [
+    일정({ title: "시간 미정", date: "2026-09-22", time: "화 · 시간 미정" }),
+    일정({ title: "아침", date: "2026-09-22", time: "화 · 08:00" }),
   ];
 
   assert.deepEqual(orderedScheduleItems(줄들, 날짜들).map((줄) => 줄.title), ["아침", "시간 미정"]);
@@ -74,7 +86,7 @@ test("교통편과 예약은 늘 같은 모양의 일정 줄이 된다", () => {
     owner: "하늘",
     direction: "가는 편",
     method: "KTX",
-    date: "22일(화)",
+    date: "2026-09-22",
     departure: "대전",
     departureTime: "08:10",
     arrival: "전주",
@@ -84,7 +96,7 @@ test("교통편과 예약은 늘 같은 모양의 일정 줄이 된다", () => {
   };
   assert.deepEqual(transportScheduleRow(교통), {
     time: "화 · 08:10",
-    date: "22일(화)",
+    date: "2026-09-22",
     title: "KTX 대전 출발",
     note: "전주 09:36 도착 · 하늘 · 가는 편",
     mapUrl: "",
@@ -94,7 +106,7 @@ test("교통편과 예약은 늘 같은 모양의 일정 줄이 된다", () => {
   const 예약: ReservationInfo = {
     id: "r1",
     name: "소나기식당",
-    date: "23일(수)",
+    date: "2026-09-23",
     time: "",
     people: "2명",
     status: "확인 필요",
@@ -103,7 +115,7 @@ test("교통편과 예약은 늘 같은 모양의 일정 줄이 된다", () => {
   };
   assert.deepEqual(reservationScheduleRow(예약), {
     time: "수 · 시간 미정",
-    date: "23일(수)",
+    date: "2026-09-23",
     title: "소나기식당",
     note: "예약 · 확인 필요",
     mapUrl: "",
@@ -237,7 +249,7 @@ test("사진은 붙인 곳별로 한 번에 묶인다", () => {
   const 사진 = (id: string, links: MemoryPhoto["links"]): MemoryPhoto => ({
     id,
     color: "#fff",
-    date: "22일(화)",
+    date: "2026-09-22",
     caption: "",
     links,
   });

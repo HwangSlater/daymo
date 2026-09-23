@@ -62,16 +62,15 @@ import {
   dateKey,
   dateLabel,
   dateLabelOf,
-  dayLabel,
-  dayLabelOf,
-  dayNumberOf,
+  dayNumberOfKey,
+  dayTextOf,
   formatTripPeriod,
-  matchTripDay,
+  shiftDateKey,
   tripDateKeys,
   tripIsOver,
   todayAmong,
   validDateKey,
-  weekdayOf,
+  weekdayOfKey,
   시각을_분으로,
 } from "./dates";
 import {
@@ -409,6 +408,14 @@ function useDraftChanged(open: boolean, key: string): boolean {
 /** 빈 id 목록. 매번 새 배열을 만들면 그것만으로 effect 가 다시 돈다. */
 const NO_IDS: readonly string[] = [];
 
+/**
+ * 여행 기간을 읽을 수 없을 때 날짜 고르개가 잠깐 쓰는 날.
+ *
+ * 기간이 비었거나 모양이 틀린 기록에서도 고르개가 텅 비어 보이지 않게 오늘부터 사흘을
+ * 놓는다. 여기 적은 날은 코덱이 「여행 기간 밖」으로 보아 서버로 올리지 않는다.
+ */
+const 기간_없는_여행의_날짜 = [0, 1, 2].map((더할_날) => shiftDateKey(dateKey(new Date()), 더할_날));
+
 /** 사진이 붙지 않은 곳에 돌려줄 빈 목록. 위와 같은 까닭으로 하나만 만들어 쓴다. */
 const NO_PHOTOS: MemoryPhoto[] = [];
 
@@ -489,7 +496,7 @@ export function WarmTripDetail({
   const [region, setRegion] = useState(tripRegion);
   const [note, setNote] = useState(tripNote);
   const tripDates = buildTripDates(currentStart, currentEnd);
-  const tripDayOptions = tripDates.length ? tripDates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
+  const tripDayOptions = tripDates.length ? tripDates.map(dateKey) : 기간_없는_여행의_날짜;
   const tripDateOptions = tripDates.length ? tripDates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
   const todayTripDay = todayAmong(tripDates);
   const tripEnded = tripIsOver(tripDates);
@@ -650,9 +657,11 @@ export function WarmTripDetail({
     initialPlanning?.memories
       ? {
         ...initialPlanning.memories,
+        // 날짜 칸이 날짜 키가 아니면(옛 기록이 덜 옮겨졌거나 망가졌으면) 날짜 미정으로
+        // 내린다. 사진 자체는 버리지 않는다.
         photos: initialPlanning.memories.photos.map((photo) => ({
           ...photo,
-          date: matchTripDay(photo.date, tripDayOptions),
+          date: validDateKey(photo.date) ? photo.date : UNDATED,
         })),
       }
       : initialMemoryData(currentTripDate),
@@ -736,7 +745,7 @@ export function WarmTripDetail({
       const date = tripDayOptions[Math.max(0, checkinDateIndex)];
       const time = registeredStay.checkin.match(/\d{1,2}:\d{2}$/)?.[0] ?? "시간 미정";
       const linked: ScheduleItem = {
-        time: `${weekdayOf(date)} · ${time}`,
+        time: `${weekdayOfKey(date)} · ${time}`,
         date,
         title: `${registeredStay.name} 체크인`,
         note: registeredStay.checkout ? `${registeredStay.checkout} 체크아웃` : "숙소 체크인",
@@ -2205,7 +2214,7 @@ export function WarmTripDetail({
             const nextNote = draftNote.trim();
             const oldDays = tripDayOptions;
             const nextDates = buildTripDates(draftStart, draftEnd);
-            const nextDays = nextDates.map(dayLabel);
+            const nextDays = nextDates.map(dateKey);
             try {
               await onUpdateTrip?.({
                 name: nextTitle,
@@ -2228,7 +2237,7 @@ export function WarmTripDetail({
               const oldIndex = item.date ? oldDays.indexOf(item.date) : -1;
               if (oldIndex < 0 || !nextDays.length) return item;
               const date = nextDays[Math.min(oldIndex, nextDays.length - 1)];
-              return { ...item, date, time: `${weekdayOf(date)}${item.time.includes(" · ") ? ` · ${item.time.split(" · ").slice(1).join(" · ")}` : ""}` };
+              return { ...item, date, time: `${weekdayOfKey(date)}${item.time.includes(" · ") ? ` · ${item.time.split(" · ").slice(1).join(" · ")}` : ""}` };
             }));
             setReservations((current) => current.map((reservation) => {
               if (!nextDays.length) return reservation;
@@ -2544,8 +2553,8 @@ function TripOverview({
   const [stayAddressOpen, setStayAddressOpen] = useState(false);
   const [stayDraft, setStayDraft] = useState(registeredStay);
   const hasStay = Boolean(registeredStay.name);
-  // 묵는 동안의 날 이름표. 숙소는 `10월 1일 14:00` 로 날을 들고 있어 날짜 칸에서 자리를 찾는다.
-  const stayDayLabels = useMemo(() => {
+  // 묵는 동안의 날짜 키. 숙소는 아직 `10월 1일 14:00` 로 날을 들고 있어 날짜 칸에서 자리를 찾는다.
+  const stayDayKeys = useMemo(() => {
     const first = dateOptions.findIndex((date) => registeredStay.checkin.startsWith(date));
     if (first < 0) return [];
     const last = dateOptions.findIndex((date) => registeredStay.checkout.startsWith(date));
@@ -2553,8 +2562,8 @@ function TripOverview({
   }, [dateOptions, dayOptions, registeredStay.checkin, registeredStay.checkout]);
   // 숙소에 붙인 사진과 그동안 찍은 사진. "숙소 글을 누르면 그날 사진이 보인다"(요구사항 7).
   const stayPhotos = useMemo(
-    () => photosOfStay(photos, registeredStay.id, stayDayLabels),
-    [photos, registeredStay.id, stayDayLabels],
+    () => photosOfStay(photos, registeredStay.id, stayDayKeys),
+    [photos, registeredStay.id, stayDayKeys],
   );
   // 일정 줄마다 사진 목록을 훑지 않으려고 한 번에 표로 만든다(2026-09-23 검토 #13).
   const photosBySchedule = useMemo(() => photosByTarget(photos, "schedule"), [photos]);
@@ -2666,7 +2675,7 @@ function TripOverview({
     const next: ScheduleItem = {
         // 고칠 때는 원래 id 를 지킨다. 숙소·예약·교통편에서 만든 줄은 서버에 따로 두지 않아 id 가 없다.
         id: edited ? edited.id : newPlaceId(),
-        time: `${weekdayOf(planDay)} · ${planTime || "시간 미정"}`,
+        time: `${weekdayOfKey(planDay)} · ${planTime || "시간 미정"}`,
         date: planDay,
         title: newPlanTitle.trim(),
         note: [planType, planPlace.trim()].filter(Boolean).join(" · "),
@@ -2739,7 +2748,7 @@ function TripOverview({
     }
     const [day = "토", time = "11:00"] = item.time.split("·").map((value) => value.trim());
     const [savedType = "장소", ...savedPlace] = item.note.split("·").map((value) => value.trim());
-    const nextDay = item.date ?? dayOptions.find((value) => weekdayOf(value) === day) ?? defaultPlanDay;
+    const nextDay = item.date ?? dayOptions.find((value) => weekdayOfKey(value) === day) ?? defaultPlanDay;
     const nextType = 일정종류인가(savedType) ? 일정종류_읽기(savedType) : PLAN_TYPES[0];
     const nextPlace = savedPlace.length ? savedPlace.join(" · ") : (일정종류인가(savedType) ? "" : item.note);
     setScheduleDraftBaseline(scheduleDraftKey(
@@ -3273,7 +3282,7 @@ function TripOverview({
           <View style={[styles.travelTimelineHead, theme && { backgroundColor: theme.primarySoft }]}>
             <View>
               <Text style={[styles.travelTimelineEyebrow, theme && { color: theme.primary }]}>{firstScheduleDayLabel}</Text>
-              <Text style={[styles.travelTimelineDate, theme && { color: theme.text }]}>{leadSchedule.date}</Text>
+              <Text style={[styles.travelTimelineDate, theme && { color: theme.text }]}>{dayTextOf(leadSchedule.date)}</Text>
             </View>
             <Text style={[styles.travelTimelineCount, theme && { color: theme.primary }]}>{leadSchedule.items.length}개 일정</Text>
           </View>
@@ -3424,9 +3433,9 @@ function TripOverview({
           <TravelInfoRow
             key={reservation.id}
             label="예약"
-            mark={dayNumberOf(reservation.date)}
+            mark={dayNumberOfKey(reservation.date)}
             title={이름}
-            meta={`${reservation.date} ${reservation.time || "시간 미정"} · ${reservation.people}`}
+            meta={`${dayTextOf(reservation.date)} ${reservation.time || "시간 미정"} · ${reservation.people}`}
             badge={reservation.status}
             color={theme?.primary ?? "#FF6B63"}
             link={safeUrl(reservation.bookingUrl) ?? undefined}
@@ -3489,6 +3498,7 @@ function TripOverview({
         <OptionField
           label="날짜"
           options={dayOptions}
+          labelOf={dayTextOf}
           value={planDay}
           onChange={setPlanDay}
         />
@@ -3683,7 +3693,7 @@ function TripOverview({
           }}
         />
         <OptionField label="교통수단" options={["KTX", "SRT", "무궁화호", "고속버스", "시외버스", "버스", "항공", "기타"]} value={transportMethod} onChange={(value) => setTransportMethod(value as Transportation["method"])} />
-        <OptionField label="날짜" options={dayOptions} value={transportDate} onChange={setTransportDate} />
+        <OptionField label="날짜" options={dayOptions} labelOf={dayTextOf} value={transportDate} onChange={setTransportDate} />
         <TimeRow label="출발 시간 (선택)" value={transportDepartureTime} onChange={setTransportDepartureTime} fallback="09:00" optional />
         <TimeRow label="도착 시간 (선택)" value={transportArrivalTime} onChange={setTransportArrivalTime} fallback="10:00" optional />
         <OptionalFormSection
@@ -3739,7 +3749,7 @@ function TripOverview({
             <View key={item.id} style={[styles.transportDetailBlock, theme && { borderColor: theme.border }]}>
               <Text style={[styles.transportDetailDirection, theme && { color: theme.primary }]}>{item.direction} · {item.status}</Text>
               <InfoLine label="교통수단" value={item.method} />
-              <InfoLine label="출발" value={`${item.date} · ${item.departure} ${item.departureTime}`} />
+              <InfoLine label="출발" value={`${dayTextOf(item.date)} · ${item.departure} ${item.departureTime}`} />
               {(item.stops ?? []).filter((stop) => stop.name.trim()).map((stop, index, 곳) => (
                 <InfoLine
                   key={index}
@@ -3831,7 +3841,7 @@ function TripOverview({
         onDestructive={deleteReservation}
       >
         <DetailField label="예약 이름" required value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 소나기식당" />
-        <OptionField label="예약 날짜" options={dayOptions} value={reservationDraft.date} onChange={(date) => setReservationDraft((current) => ({ ...current, date }))} />
+        <OptionField label="예약 날짜" options={dayOptions} labelOf={dayTextOf} value={reservationDraft.date} onChange={(date) => setReservationDraft((current) => ({ ...current, date }))} />
         <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))} />
         <TimeRow label="예약 시간 (선택)" value={reservationDraft.time} onChange={(time) => setReservationDraft((current) => ({ ...current, time }))} fallback="19:00" optional />
         <OptionalFormSection
@@ -3906,7 +3916,7 @@ function TripOverview({
       </DetailSheet>
       <InfoPanel
         visible={fullSchedule}
-        title={scheduleDay === ALL_DAYS ? `전체 일정 · ${schedule.length}` : `${scheduleDay} 일정 · ${visibleSchedule.length}`}
+        title={scheduleDay === ALL_DAYS ? `전체 일정 · ${schedule.length}` : `${dayTextOf(scheduleDay)} 일정 · ${visibleSchedule.length}`}
         onClose={() => setFullSchedule(false)}
       >
         {/* 날짜가 여럿이면 하루씩 골라 본다. 여행 중에는 오늘이 골라져 있다. */}
@@ -3914,15 +3924,16 @@ function TripOverview({
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scheduleDayRow}>
             {[{ day: ALL_DAYS, count: schedule.length }, ...scheduleDayChips].map(({ day, count }) => {
               const active = scheduleDay === day;
+              const 날_글 = dayTextOf(day);
               return (
                 <Chip
                   key={day}
                   theme={theme ?? undefined}
-                  label={day}
+                  label={날_글}
                   count={count}
                   on={active}
                   onPress={() => setScheduleDay(day)}
-                  accessibilityLabel={day === ALL_DAYS ? `전체 일정 ${count}개` : `${day} 일정 ${count}개`}
+                  accessibilityLabel={day === ALL_DAYS ? `전체 일정 ${count}개` : `${날_글} 일정 ${count}개`}
                 />
               );
             })}
@@ -3955,7 +3966,7 @@ function TripOverview({
               <View style={[styles.scheduleDayHead, theme && { backgroundColor: theme.primarySoft }]}>
                 <View style={styles.scheduleDayHeadCopy}>
                   <Text style={[styles.scheduleDayLabel, theme && { color: theme.primary }]}>여행 날짜</Text>
-                  <Text style={[styles.scheduleDayTitle, theme && { color: theme.text }]}>{group.date}</Text>
+                  <Text style={[styles.scheduleDayTitle, theme && { color: theme.text }]}>{dayTextOf(group.date)}</Text>
                 </View>
                 <View style={[styles.scheduleDayCountBadge, theme && { backgroundColor: theme.surface }]}>
                   <Text style={[styles.scheduleDayCount, theme && { color: theme.primary }]}>{group.items.length}개 일정</Text>
@@ -4419,7 +4430,7 @@ function Places({
       setReservationOn(false);
       return;
     }
-    showAlert("이 장소의 예약을 삭제할까요?", `${있던_예약.date} ${있던_예약.time || "시간 미정"} 예약 기록이 사라져요.`, [
+    showAlert("이 장소의 예약을 삭제할까요?", `${dayTextOf(있던_예약.date)} ${있던_예약.time || "시간 미정"} 예약 기록이 사라져요.`, [
       { text: "취소", style: "cancel" },
       { text: "삭제", style: "destructive", onPress: () => setReservationOn(false) },
     ]);
@@ -4470,7 +4481,7 @@ function Places({
   const confirmPlan = () => {
     if (!planningPlace) return;
     setSchedule((current) => [...current, {
-      time: `${weekdayOf(planningDay)} · ${planningTime || "시간 미정"}`,
+      time: `${weekdayOfKey(planningDay)} · ${planningTime || "시간 미정"}`,
       date: planningDay,
       title: planningPlace.name,
       note: `${planningPlace.category} · ${planningPlace.area}`,
@@ -4878,6 +4889,7 @@ function Places({
         <OptionField
           label="날짜"
           options={dayOptions}
+          labelOf={dayTextOf}
           value={planningDay}
           onChange={setPlanningDay}
         />
@@ -5088,7 +5100,7 @@ function Places({
           label="예약"
           summary={
             reservationOn
-              ? [reservationDraft.date, reservationDraft.time || "시간 미정", reservationDraft.people]
+              ? [dayTextOf(reservationDraft.date), reservationDraft.time || "시간 미정", reservationDraft.people]
                   .filter(Boolean)
                   .join(" · ")
               : "예약해 둔 곳이면 여기에 함께 적어 두세요"
@@ -5100,6 +5112,7 @@ function Places({
           <OptionField
             label="예약 날짜"
             options={dayOptions}
+            labelOf={dayTextOf}
             value={reservationDraft.date}
             onChange={(date) => setReservationDraft((current) => ({ ...current, date }))}
           />
@@ -8354,7 +8367,7 @@ function Memories({
     setPhotoSelected(true);
     setPhotoColor(photo.color);
     setPhotoUri(photo.uri);
-    setPhotoDate(matchTripDay(photo.date, dayOptions));
+    setPhotoDate(photoDayOptions.includes(photo.date) ? photo.date : UNDATED);
     setPhotoCaption(photo.caption);
     setPhotoLinks(tidyLinks(photo.links));
     setPhotoEditing(true);
@@ -8455,10 +8468,8 @@ function Memories({
     }
   };
   /** 사진에 적힌 촬영 날짜를 이번 여행의 날짜 칸으로. 여행 밖의 날이면 빈 글자다. */
-  const photoDayOf = (takenOn: string) => {
-    const 이름표 = takenOn && tripKeys.includes(takenOn) ? dayLabelOf(takenOn) : "";
-    return 이름표 && photoDayOptions.includes(이름표) ? 이름표 : "";
-  };
+  const photoDayOf = (takenOn: string) =>
+    takenOn && tripKeys.includes(takenOn) && photoDayOptions.includes(takenOn) ? takenOn : "";
   /** 방금 고른 사진들을 기록에 넣는다. 날짜·설명·붙인 곳은 모두에 같이 붙는다. */
   const savePickedPhotos = async () => {
     if (!photoDrafts.length) return;
@@ -9039,7 +9050,7 @@ function Memories({
             key={tile.key}
             onPress={() => setViewingPhotoId(tile.photo.id)}
             accessibilityRole="button"
-            accessibilityLabel={`${tile.photo.caption || tile.photo.date} 사진 ${tile.photo.id === coverPhotoId ? "· 대표 사진으로 쓰는 중 " : ""}크게 보기`}
+            accessibilityLabel={`${tile.photo.caption || dayTextOf(tile.photo.date)} 사진 ${tile.photo.id === coverPhotoId ? "· 대표 사진으로 쓰는 중 " : ""}크게 보기`}
             style={[
               styles.memoryTile,
               theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -9095,7 +9106,7 @@ function Memories({
             </View>
             <View style={styles.memoryTileCaption}>
               <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{tile.photo.caption || `사진 ${tile.index + 1}`}</Text>
-              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{tile.photo.date}</Text>
+              <Text style={[styles.memoryTileDate, theme && { color: theme.muted }]}>{dayTextOf(tile.photo.date)}</Text>
             </View>
           </Pressable>
         ) : (
@@ -9275,7 +9286,7 @@ function Memories({
             </View>
           ))}
         </ScrollView>
-        <OptionField label="여행 날짜" options={photoDayOptions} value={photoDate} onChange={setPhotoDate} />
+        <OptionField label="여행 날짜" options={photoDayOptions} labelOf={dayTextOf} value={photoDate} onChange={setPhotoDate} />
         <PhotoLinkField options={photoLinkOptions} value={photoLinks} onChange={setPhotoLinks} />
         <DetailField label="사진 설명 (선택)" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" maxLength={200} />
       </DetailSheet>
@@ -9391,7 +9402,7 @@ function PhotoLinkField({ options, value, onChange }: {
 function MemoryTileImage({ photo, uploaded, busy }: { photo: MemoryPhoto; uploaded: boolean; busy: boolean }) {
   const 있는_것 = isLivePhotoUri(photo.uri) ? photo.uri : undefined;
   const { uri, failed, retry } = usePhotoThumb(photo.id, uploaded && !있는_것, 있는_것);
-  const 이름 = photo.caption || `${photo.date} 사진`;
+  const 이름 = photo.caption || `${dayTextOf(photo.date)} 사진`;
   return (
     <>
       {Boolean(uri) && <Image source={{ uri }} resizeMode="cover" style={styles.memoryPhotoImage} />}
@@ -10437,7 +10448,7 @@ function Money({
             </View>
             <View style={[styles.moneyInsightItem, styles.moneyInsightDivider, theme && { borderLeftColor: theme.border }]}>
               <Text style={[styles.moneyInsightLabel, theme && { color: theme.muted }]}>가장 많이 쓴 날</Text>
-              <Text numberOfLines={1} style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{topDay?.day ?? "-"}</Text>
+              <Text numberOfLines={1} style={[styles.moneyInsightValue, theme && { color: theme.text }]}>{topDay ? dayTextOf(topDay.day) : "-"}</Text>
               <Text style={[styles.moneyInsightMeta, theme && { color: theme.muted }]}>{topDay ? `${show(topDay.amount)}` : ""}</Text>
             </View>
             <View style={[styles.moneyInsightItem, styles.moneyInsightDivider, theme && { borderLeftColor: theme.border }]}>
@@ -10531,7 +10542,7 @@ function Money({
               <Chip
                 key={day}
                 theme={theme ?? undefined}
-                label={day}
+                label={dayTextOf(day)}
                 on={active}
                 onPress={() => setDayFilter(day)}
               />
@@ -10543,7 +10554,7 @@ function Money({
         {grouped.map((group) => (
           <View key={group.day} style={styles.moneyGroup}>
             <View style={styles.moneyGroupHead}>
-              <Text style={[styles.moneyGroupDay, theme && { color: theme.text }]}>{group.day}</Text>
+              <Text style={[styles.moneyGroupDay, theme && { color: theme.text }]}>{dayTextOf(group.day)}</Text>
               <Text style={[styles.moneyGroupTotal, theme && { color: theme.muted }]}>{show(group.amount)}</Text>
             </View>
             {group.items.map((item) => (
@@ -10551,7 +10562,7 @@ function Money({
                 key={item.id}
                 onPress={() => openEdit(item)}
                 accessibilityRole="button"
-                accessibilityLabel={`${group.day} ${item.title} ${show(item.amount)}${item.excluded ? " 정산 제외" : ""} 수정`}
+                accessibilityLabel={`${dayTextOf(group.day)} ${item.title} ${show(item.amount)}${item.excluded ? " 정산 제외" : ""} 수정`}
                 style={({ pressed }) => [
                   styles.moneyRow,
                   theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -10674,7 +10685,7 @@ function Money({
           value={draftCategory}
           onChange={(value) => setDraftCategory(value as ExpenseCategory)}
         />
-        <OptionField label="날짜" options={dayOptions} value={draftDay} onChange={setDraftDay} />
+        <OptionField label="날짜" options={dayOptions} labelOf={dayTextOf} value={draftDay} onChange={setDraftDay} />
         <OptionField
           label="낸 사람"
           options={시트_사람.모두}
@@ -11252,7 +11263,7 @@ function TransportCard({
           <Text style={[styles.transportTime, { color }]}>{leg.arrivalTime}</Text>
         </View>
       </View>
-      <Text numberOfLines={1} style={[styles.transportReturn, theme && { color: theme.muted }]}>{leg.date}</Text>
+      <Text numberOfLines={1} style={[styles.transportReturn, theme && { color: theme.muted }]}>{dayTextOf(leg.date)}</Text>
     </Pressable>
   );
 }
@@ -12048,12 +12059,15 @@ function OptionField({
   value,
   onChange,
   required = false,
+  labelOf,
 }: {
   label: string;
   options: string[];
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  /** 고른 값과 보이는 글이 다를 때. 날짜 칸이 `2026-09-23` 을 들고 `23일(수)` 로 보인다. */
+  labelOf?: (option: string) => string;
 }) {
   const theme = useContext(DetailThemeContext);
   const labelRow = (
@@ -12070,7 +12084,13 @@ function OptionField({
     return (
       <View style={styles.optionField}>
         {labelRow}
-        <Segment theme={theme} label={label} options={options} value={value} onChange={onChange} />
+        <Segment
+          theme={theme}
+          label={label}
+          options={labelOf ? options.map((option) => ({ value: option, label: labelOf(option) })) : options}
+          value={value}
+          onChange={onChange}
+        />
       </View>
     );
   }
@@ -12112,7 +12132,7 @@ function OptionField({
                 value === option && theme && { color: theme.primary },
               ]}
             >
-              {option}
+              {labelOf ? labelOf(option) : option}
             </Text>
           </Pressable>
         ))}

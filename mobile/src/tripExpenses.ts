@@ -8,6 +8,8 @@
  * 참가자는 여행마다 다르다. 한 공간에 멤버가 여럿이어도 이번 여행에는 일부만
  * 가는 일이 흔해서, 몫은 공간 멤버가 아니라 이번 여행 참가자를 기준으로 나눈다.
  */
+import { dayTextOf } from "./dates.ts";
+
 export type ExpenseCategory = "식비" | "교통" | "숙박" | "입장료" | "쇼핑" | "기타";
 
 /** 참가자 이름. 공간 멤버 가운데 이번 여행에 가는 사람이다. */
@@ -31,7 +33,7 @@ export type SplitMode = "본인" | "균등" | "일부" | "금액";
 
 export type Expense = {
   id: string;
-  /** 여행 날짜 선택지와 같은 형식. "22일(토)" */
+  /** 여행 날짜 선택지와 같은 날짜 키(`2026-09-22`). 아직 안 고른 지출은 빈 글자다. */
   day: string;
   title: string;
   /** 여행에 정한 통화 기준 금액. 원 환산은 보여줄 때만 한다. */
@@ -512,7 +514,7 @@ export function expensesToCsv(
   const rows: string[] = [head.join(",")];
   for (const item of expenses) {
     // 정산에서 뺀 줄도 표에는 남긴다. 얼마를 썼는지는 남아야 하고, 아래 합계에만 안 든다.
-    const line: (string | number)[] = [item.day, item.title, item.category, item.amount, item.payer, item.excluded ? "정산 제외" : shareLabel(item, participants), item.memo];
+    const line: (string | number)[] = [dayTextOf(item.day), item.title, item.category, item.amount, item.payer, item.excluded ? "정산 제외" : shareLabel(item, participants), item.memo];
     if (converted) line.splice(4, 0, toWon(item.amount, rate));
     rows.push(line.map(cell).join(","));
   }
