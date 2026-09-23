@@ -20,6 +20,8 @@
 | `Chip`·`ChipRow` | 고르는 칩 하나와 칩 줄. 켜짐·꺼짐, 누름 느낌, 접근성 라벨까지. `count` 로 이름 뒤 개수, `icon`·`trailing` 으로 앞뒤 기호, `dashed` 로 점선, `colors` 로 어두운 바탕 색, `disabled` 로 못 고르게 | `mobile/src/ui/Chip.tsx` | 여섯 개 이상 중에 고르게 할 때. 필터 줄, 태그 줄, 분류 줄 |
 | `Toast` | 떴다 사라지는 한 줄. 표식(점·체크), 되돌리기 단추, 어두운 바탕 색. **어디에 띄울지는 부르는 쪽이 `style` 로 정한다** | `mobile/src/ui/Toast.tsx` | 「지웠어요 · 되돌리기」처럼 묻지 않고 알릴 때 |
 | `EmptyState` | 아무것도 없을 때의 상자. 가로(목록 안 한 줄)와 세로(화면이 통째로 빌 때) 두 변형, 점선 테두리, `mark` 로 그림 갈아 끼우기 | `mobile/src/ui/EmptyState.tsx` | 빈 목록, 빈 화면 |
+| `LoadState` | 「불러오는 중」과 「못 불러왔어요 + 다시 시도」 한 벌. 돌아가는 표시·까닭·다시 받는 버튼(44). 둘 다 아니면 아무것도 그리지 않는다. 사진 위처럼 테마를 안 따르는 자리는 `colors` | `mobile/src/ui/LoadState.tsx` | 서버에서 받아 그리는 목록·화면. **`EmptyState` 와 겹치지 않게** — 빈 것은 정상, 못 불러온 것은 실패다 |
+| `announce`·`useAnnounce` | 화면에 새로 뜬 한 줄을 iOS VoiceOver 에도 읽어 준다. 읽기 기능이 꺼져 있거나 웹이면 조용히 넘어가고, 같은 말이 연달아 오면 한 번만 읽는다 | `mobile/src/announce.ts` | `accessibilityLiveRegion` 을 붙이는 자리마다 **같이**. live region 은 안드로이드만 듣는다 |
 | `CheckBox` | 체크 칸. 네모(고르기)와 원(했다/안 했다) 두 모양. **누르는 것은 부르는 쪽이 갖는다** — 줄 전체가 눌리는 목록과 칸만 눌리는 목록이 둘 다 있어서다 | `mobile/src/ui/CheckBox.tsx` | 고르는 목록, 동의 확인, 완료 표시 |
 | `Switch` | 켜고 끄는 막대(44×26). 누르는 것은 부르는 쪽이 갖는다 | `mobile/src/ui/Switch.tsx` | 설정 줄의 켜고 끄기 |
 | `SheetHandle` | 아래에서 올라온 창 맨 위의 손잡이(40×5) | `mobile/src/ui/SheetHandle.tsx` | 끌어 내려 닫는 창. `SheetShell` 이 이미 쓴다 |
@@ -139,6 +141,8 @@ showAlert("지울까요?", "되돌릴 수 없어요", [
 - **색을 직접 적지 않는다.** 강조색 위 글자색은 라이트와 다크가 서로 달라야 대비가 나온다(`onAccent(dark)`). 위험·경고색도 `theme/colors.ts` 의 것을 쓴다.
 - **`fetch` 를 줄(`apiQueue`) 밖에서 부르지 않는다.** 앞단(nginx)의 초당 제한에 걸려 몇 개가 429 로 떨어지고, 브라우저에서는 그냥 연결 오류로 보여 화면이 까닭 없이 빈다.
 - **부품에서 차이를 지우지 않는다.** 잠김 안내, 저장 재확인, 보기 전용 문구처럼 한 화면만 쓰는 것도 기능이다. 없애지 말고 prop 으로 받는다.
+- **실패한 자리를 글자 한 줄로 두지 않는다.** 다시 받을 길이 없으면 화면을 닫았다 열거나 새로고침해야 한다. `LoadState` 에 `onRetry` 를 넘긴다. 정말 다시 받을 길이 없을 때만 비운다.
+- **`accessibilityLiveRegion` 만 붙이고 끝내지 않는다.** 안드로이드 접근성 서비스만 그것을 듣는다. iOS VoiceOver 는 live region 을 몰라서, 오류가 떠도 손가락이 그 자리에 닿기 전에는 읽지 않는다. 같은 자리에서 `useAnnounce` 를 함께 부른다.
 
 ## 아직 옮기지 않은 복사본
 
