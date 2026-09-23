@@ -141,7 +141,7 @@ export type KeepsakeCard = {
  * 그리지는 못해도 저장할 때 그대로 돌려보낸다(`keepsakeBodyOf`). 서버도 모르는
  * 값을 받아 그대로 둔다(docs/development/03-api-specification.md 10장).
  */
-export type KeepsakeKept = {
+type KeepsakeKept = {
   /** `settings` 바로 아래의 모르는 칸. */
   extra?: Record<string, unknown>;
   /**
@@ -620,7 +620,7 @@ export function keepsakeSlotCaption(caption: string | undefined, on: boolean): s
   return 값.length > 18 ? `${값.slice(0, 18).trimEnd()}…` : 값;
 }
 
-export type KeepsakeCount = {
+type KeepsakeCount = {
   places: number;
   photos: number;
   days: number;
@@ -676,7 +676,7 @@ export function keepsakeFileName(title: string): string {
 }
 
 /** 서버가 돌려주는 카드 한 줄(`GET /trips/{id}/cards`). */
-export type KeepsakeCardRow = {
+type KeepsakeCardRow = {
   id: string;
   settings?: SavedKeepsake | null;
   /** 만든 시각. 목록 차례를 정할 때 `sortOrder` 다음으로 본다. */
@@ -685,7 +685,7 @@ export type KeepsakeCardRow = {
 };
 
 /** 목록에 그릴 카드 한 줄. */
-export type KeepsakeListItem = {
+type KeepsakeListItem = {
   id: string;
   card: KeepsakeCard;
   /** 적어 둔 제목, 없으면 `카드 1`. 목록과 확인창에서 카드를 부르는 이름이다. */

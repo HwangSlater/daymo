@@ -91,7 +91,7 @@ export type CardTile = {
 };
 
 /** 카드에 실을 숫자. 기록 탭이 세어 넘긴다. */
-export type CardCounts = {
+type CardCounts = {
   places: number;
   photos: number;
   days: number;
@@ -113,7 +113,7 @@ export type FinishedCard = {
  * 사진 쪽 일(넘기기·저장·신고·고치기)은 기록 탭이 안다. 카드 쪽 일은 이 화면이
  * 안다. 한 창이 둘을 같이 쓰므로, 기록 탭이 사진 몫을 여기로 내려 준다.
  */
-export type CardViewer = {
+type CardViewer = {
   photos: ViewerPhoto[];
   /** 지금 보는 사진의 차례. 목록에 없으면 -1 이다. */
   index: number;

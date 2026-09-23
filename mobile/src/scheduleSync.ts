@@ -9,7 +9,8 @@
  */
 
 import { blank, safeUrl } from "./placeSync.ts";
-import { dateLabelOf, dayLabelOf, isServerId, type Codec } from "./listSync.ts";
+import { isServerId, type Codec } from "./listSync.ts";
+import { dateLabelOf, dayLabelOf } from "./dates.ts";
 
 // ---------------------------------------------------------------------------
 // 일정
@@ -29,7 +30,7 @@ export type AppScheduleItem = {
   transportationId?: string;
 };
 
-export type ScheduleType = "place" | "meal" | "move" | "rest" | "other";
+type ScheduleType = "place" | "meal" | "move" | "rest" | "other";
 
 export type ServerScheduleItem = {
   id: string;

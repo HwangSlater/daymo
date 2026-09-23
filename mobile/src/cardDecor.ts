@@ -29,7 +29,7 @@ export type KeepsakeSticker = string;
 export const KEEPSAKE_STICKERS: KeepsakeSticker[] = [...LEGACY_STICKERS];
 
 /** 스티커가 붙던 모서리. 이제는 옛 값을 옮길 때만 쓴다. */
-export type KeepsakeCorner = "좌상" | "우상" | "좌하" | "우하";
+type KeepsakeCorner = "좌상" | "우상" | "좌하" | "우하";
 
 /** 카드 위에 얹은 것 한 개. */
 export type CardDecor = {
@@ -68,7 +68,7 @@ export type CardDecor = {
 export const DECOR_FONTS = ["기본", "손글씨", "굵게", "둥글게"] as const;
 export type DecorFont = (typeof DECOR_FONTS)[number];
 export const DECOR_COLORS = ["흰색", "검정", "크림", "주황", "빨강", "초록", "파랑", "보라"] as const;
-export type DecorColor = (typeof DECOR_COLORS)[number];
+type DecorColor = (typeof DECOR_COLORS)[number];
 /** 글자 색. 흰색이 기본이다(사진 위에 얹는 일이 많아서). */
 export const DECOR_COLOR_HEX: Record<DecorColor, string> = {
   흰색: "#FFFFFF", 검정: "#16151B", 크림: "#FFE7A8", 주황: "#F2A03D",
@@ -98,7 +98,7 @@ export const decorShapeTextMax = (back: string): number =>
 /** 이 바탕에 적을 수 있는 글자 수. 스티커 모양이면 더 짧고, 아니면 `DECOR_TEXT_MAX` 다. */
 export const decorTextMaxOf = (back: string | undefined): number =>
   isShapeBack(back) ? decorShapeTextMax(back) : DECOR_TEXT_MAX;
-export type DecorBack = (typeof DECOR_BACKS)[number];
+type DecorBack = (typeof DECOR_BACKS)[number];
 
 /** 어두운 색인지. 그 위에 흰 글자를 쓸지 가른다. */
 export const isDarkColor = (hex: string) => {

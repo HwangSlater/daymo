@@ -9,7 +9,7 @@
  * 그림은 `art.ts`, 그리는 부품은 `StickerArt.tsx`.
  */
 
-export type StickerCategory = {
+type StickerCategory = {
   /** 고르는 자리의 갈래 이름. */
   name: string;
   /** 고르는 자리에 놓는 차례. */

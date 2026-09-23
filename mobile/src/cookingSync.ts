@@ -130,7 +130,7 @@ export const COOKING_UNASSIGNED = "미정";
 
 type Procurement = "bring" | "buy" | "undecided";
 
-export type ServerIngredient = {
+type ServerIngredient = {
   id: string;
   name: string;
   quantity: string | null;

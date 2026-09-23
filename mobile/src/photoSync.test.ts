@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { bodyKey, hasWork, planListSync, tripDateKeys, type Confirmed } from "./listSync.ts";
+import { bodyKey, hasWork, planListSync, type Confirmed } from "./listSync.ts";
+import { tripDateKeys } from "./dates.ts";
 import {
   colorOfId,
   PHOTO_PALETTE,

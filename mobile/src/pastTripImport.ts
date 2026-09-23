@@ -28,7 +28,7 @@ import {
 import { josa } from "./tripExpenses.ts";
 
 /** 가져올 준비물 한 줄. 화면의 `PackingItem` 과 같은 모양이다. */
-export type PackingDraft = {
+type PackingDraft = {
   id: string;
   name: string;
   quantity: string;
@@ -37,7 +37,7 @@ export type PackingDraft = {
 };
 
 /** 가져올 요리 한 그릇. 화면의 `Recipe` 와 같은 모양이다. */
-export type RecipeDraft = {
+type RecipeDraft = {
   id: string;
   name: string;
   note: string;
@@ -46,7 +46,7 @@ export type RecipeDraft = {
 };
 
 /** 가져온 것과, 이미 있어 건너뛴 이름. */
-export type ImportPlan<T> = { taken: T[]; skipped: string[] };
+type ImportPlan<T> = { taken: T[]; skipped: string[] };
 
 /** 지난 여행 하나의 목록. 화면은 여행별로 묶어 그린다. */
 export type PastTripGroup<T> = {
@@ -58,7 +58,7 @@ export type PastTripGroup<T> = {
 };
 
 /** 지난 여행의 줄 하나. `key` 는 여행이 달라도 겹치지 않는다. */
-export type PastRow<T> = {
+type PastRow<T> = {
   key: string;
   tripId: string;
   row: T;

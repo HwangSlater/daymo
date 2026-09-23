@@ -9,7 +9,8 @@
  */
 
 import { blank } from "./placeSync.ts";
-import { dayLabelOf, isServerId, type Codec } from "./listSync.ts";
+import { isServerId, type Codec } from "./listSync.ts";
+import { dayLabelOf } from "./dates.ts";
 
 /** 사진이 붙을 수 있는 곳. 날짜는 연결이 아니라 사진 자신의 `date` 다. */
 export type PhotoLinkTarget = "place" | "schedule" | "stay";

@@ -1,4 +1,4 @@
-export type KakaoPlaceShare = {
+type KakaoPlaceShare = {
   name: string;
   address: string;
   category?: string;

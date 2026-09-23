@@ -25,7 +25,7 @@ import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import { APP_VERSION } from "./appVersion";
-import { type Expense, money } from "./tripExpenses";
+import { money } from "./tripExpenses";
 import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
@@ -46,8 +46,18 @@ import {
 } from "./spaces";
 import { removeAllCardDrafts, removeCardDrafts } from "./cardDraftStorage";
 import { TripDateRangePicker } from "./TripDateRangePicker";
-import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
-import { shouldRefetch, tripDateKeys } from "./listSync";
+import { WarmTripDetail } from "./WarmTripDetail";
+import { sampleTrips } from "./sampleTrips";
+import { parseStoredTripData, storableTrips } from "./tripStorage";
+import {
+  latestTripFrom,
+  rosterOfSpace,
+  spaceFromServer,
+  tripForSummary,
+  tripFromServer,
+} from "./serverTrips";
+import type { Trip, TripDetailDestination, TripPlanningData } from "./tripPlanning";
+import { shouldRefetch } from "./listSync";
 import { SyncNotice } from "./SyncMarks";
 import { reloadOpenLists } from "./useListSync";
 import { koreaAdminPath } from "./koreaAdminPath";
@@ -74,8 +84,9 @@ import { Chip } from "./ui/Chip";
 import { EmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
-import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
-import { MEMO_COLOR, dayKeyOf, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
+import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, type CoverFocus } from "./coverCrop";
+import { MEMO_COLOR, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
+import { dateKey, daysSince, shiftDateKey, tripDateKeys } from "./dates";
 import { CalendarNoteSheet } from "./CalendarNoteSheet";
 import { FeedbackCard, FeedbackSheet } from "./FeedbackSheet";
 import { useFeedbackCardHidden } from "./feedback";
@@ -137,28 +148,22 @@ import {
   updateHomeCover,
   updateSpace,
   updateTrip,
-  type ExpenseSettings,
   type ServerSpace,
   type ServerTrip,
 } from "./serverData";
 import {
   canEditSpace,
   roleToServer,
-  formerMembersFromServer,
-  membersFromServer,
-  relationshipFromServer,
   roleFromServer,
   spacePatchFrom,
-  type ServerMemberInput,
   type SpaceChange,
 } from "./spaceMapping";
 import { appendServerTrips, mergeServerTripsByGroup } from "./tripMerge";
-import { toneOfTripId } from "./tripColor";
 import { shouldLoadMore } from "./tripPaging";
 import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
 import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
 import { homeCoverRows, keepsakeRowSlots } from "./tripCard";
-import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
+import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
 import { tripsToMarkdown } from "./tripExportText";
@@ -186,304 +191,18 @@ type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasP
 
 WebBrowser.maybeCompleteAuthSession();
 
-type Trip = {
-  id?: string;
-  version?: number;
-  name: string;
-  date: string;
-  note: string;
-  /**
-   * tripTone 팔레트의 자리. 색값이 아니라 자리를 저장한다.
-   *
-   * 서버에서 온 여행은 id 로 정한다(`tripColor.ts`). 그래야 기기가 달라도, 목록을
-   * 다시 받아도 그 여행은 늘 같은 색이다.
-   */
-  tone: number;
-  mark: string;
-  region: string;
-  start: string;
-  end: string;
-  planning?: TripPlanningData;
-  /**
-   * 서버가 센 홈 카드 숫자. 있으면 홈이 기록(`planning`) 대신 이것을 쓴다.
-   * 기록은 상세를 이 기기에서 열어야 채워져서, 다른 멤버가 채운 여행이 비어 보인다.
-   */
-  overview?: ServerTripOverview;
-  /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
-  serverExpenseSettings?: ExpenseSettings;
-  /** 홈 화면의 여행 카드에 깐 사진 한 장. */
-  coverPhotoId?: string;
-  /** 홈 화면의 여행 카드에 통째로 깐 기념 카드. 사진 한 장과 둘 중 하나만 있다. */
-  coverCardId?: string;
-  /** 홈에 그릴 사진들. 카드를 깔았으면 그 카드의 사진이 고른 차례대로다. */
-  coverPhotoIds?: string[];
-  /** 그 카드의 틀 이름. 사진을 어떻게 놓을지 이 값으로 정한다(`homeCoverRows`). */
-  coverCardStyle?: string;
-  /** 대표 사진에서 홈 카드 틀에 보여 줄 부분(`coverCrop.ts`). 없으면 가운데다. */
-  coverFocus?: CoverFocus;
-  /** 받아 둔 바탕 사진 자리(사진 id → 자리). 못 받은 사진은 없고, 그러면 카드는 종이 그대로다. */
-  coverUris?: Record<string, string>;
-  /**
-   * 앱이 처음부터 들고 있는 예시 여행.
-   *
-   * 예시 여행만 일정·장소·준비물이 채워진 채로 열린다. 사용자가 만든 여행은
-   * 빈 채로 시작한다. 내가 만들지 않은 내용이 들어 있으면 그건 내 여행이 아니다.
-   */
-  sample?: boolean;
-  /** 보관한 여행. 여행 목록의 ‘보관’에만 보인다. */
-  archived?: boolean;
-  /** 지운 여행이면 되돌릴 수 있는 마지막 시각. 보관 목록의 ‘지운 여행’에만 쓴다. */
-  deletionScheduledAt?: string;
-};
-
-// 서버 공간을 앱의 공간으로 옮긴다. 멤버는 따로 받아 넘긴다.
-//
-// 함께한 날을 적지 않았으면 비워 둔다. 예전에는 오늘 날짜로 채웠는데, 그러면
-// 적지도 않은 날이 "함께한 지 1일째" 로 보였다.
-const spaceFromServer = (space: ServerSpace, members: ServerMemberInput[] = []): Space => ({
-  id: space.id,
-  name: space.name,
-  members: membersFromServer(members),
-  formerMembers: formerMembersFromServer(members),
-  relationship: relationshipFromServer(space.relationshipType),
-  relationshipType: space.relationshipType,
-  since: space.startedOn ?? "",
-  myRole: roleFromServer(space.myRole),
-  myMembershipId: members.find((member) => member.isMe)?.id,
-});
-
-/** 이 공간에서 이름과 membership id 를 오가는 표. 나는 앱이 쓰는 이름으로 들어간다. */
-const rosterOfSpace = (space: Space, myName: string): RosterEntry[] =>
-  rosterOf({ name: myName, membershipId: space.myMembershipId }, space.members, space.formerMembers);
-
-// 서버에 참가자가 정해져 있으면 이름으로 바꿔 기록(planning)의 참가자 칸에 둔다.
-// 비어 있으면 서버 약속대로 "공간 멤버 전원" 이라 칸을 비워 둔다. 상세 화면이
-// 비어 있는 칸을 멤버 전원으로 읽는다.
-const tripFromServer = (trip: ServerTrip, roster: RosterEntry[] = []): Trip => {
-  const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
-  const overview = parseTripOverview(trip.overview);
-  return {
-    id: trip.id,
-    version: trip.version,
-    name: trip.title,
-    date: sampleDateRange(trip.startDate, trip.endDate),
-    note: trip.summary ?? "",
-    // 색은 목록의 몇 번째인지가 아니라 여행 id 로 정한다. 목록 차례로 정하면
-    // 기기마다, 목록을 다시 받을 때마다 같은 여행의 색이 달라진다.
-    tone: toneOfTripId(trip.id),
-    mark: trip.startDate.slice(5, 7),
-    region: trip.regionName ?? "지역 미정",
-    start: trip.startDate,
-    end: trip.endDate,
-    ...(participants.length ? { planning: { participants } } : {}),
-    ...(overview ? { overview } : {}),
-    serverExpenseSettings: expenseSettingsFrom(trip),
-    // 해제한 것도 반영돼야 해서 없을 때도 싣는다(`...` 로 감추면 옛 값이 남는다).
-    coverPhotoId: trip.coverPhotoId ?? undefined,
-    coverCardId: trip.coverCardId ?? undefined,
-    coverPhotoIds: trip.coverPhotoIds ?? [],
-    coverCardStyle: trip.coverCardStyle ?? undefined,
-    coverFocus: tidyFocus({ x: trip.coverFocusX ?? undefined, y: trip.coverFocusY ?? undefined, zoom: trip.coverZoom ?? undefined }),
-    archived: trip.status === "archived",
-    ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
-  };
-};
-
-/** 홈 카드 숫자를 셀 때 넘기는 칸. */
-const tripForSummary = (trip: Trip) => ({
-  overview: trip.overview,
-  planning: trip.planning,
-  serverCurrency: trip.serverExpenseSettings?.currency,
-});
-
 // 상세를 닫고 요약을 다시 받기까지 기다리는 시간. 닫으며 보낸 변경이 먼저 닿게 한다.
 const OVERVIEW_REFRESH_MS = 2500;
 
 /** 새 여행의 기본 마지막 날. 오늘부터 이틀 뒤(2박 3일)다. */
-const 기본_마지막_날 = (오늘_키: string) => {
-  const 날 = new Date(`${오늘_키}T00:00:00`);
-  날.setDate(날.getDate() + 2);
-  return `${날.getFullYear()}-${String(날.getMonth() + 1).padStart(2, "0")}-${String(날.getDate()).padStart(2, "0")}`;
-};
+const 기본_마지막_날 = (오늘_키: string) => shiftDateKey(오늘_키, 2);
 
-const expenseSettingsFrom = (trip: ServerTrip): ExpenseSettings => ({
-  currency: trip.currencyCode ?? "KRW",
-  exchangeRate: trip.exchangeRate == null ? 1 : Number(trip.exchangeRate),
-  budget: trip.budget == null ? 0 : Number(trip.budget),
-  simplifySettlement: trip.simplifySettlement ?? true,
-});
-
-const latestTripFrom = (trip: ServerTrip, roster: RosterEntry[]): LatestTrip => {
-  const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
-  return {
-    name: trip.title,
-    start: trip.startDate,
-    end: trip.endDate,
-    region: trip.regionName ?? "지역 미정",
-    note: trip.summary ?? "",
-    ...(participants.length ? { participants } : {}),
-  };
-};
-
-const sampleDate = (daysFromToday: number) => {
-  const date = new Date();
-  date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() + daysFromToday);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-};
-
-const sampleDateRange = (start: string, end: string) => {
-  const startMonth = Number(start.slice(5, 7));
-  const startDay = Number(start.slice(8, 10));
-  const endMonth = Number(end.slice(5, 7));
-  const endDay = Number(end.slice(8, 10));
-  return startMonth === endMonth
-    ? `${startMonth}월 ${startDay}일 — ${endDay}일`
-    : `${startMonth}월 ${startDay}일 — ${endMonth}월 ${endDay}일`;
-};
-
-/**
- * 함께한 시작일부터 오늘까지의 일수.
- *
- * 시작한 날을 1일째로 센다. 한국어 "사귄 지 N일째"가 그렇게 읽히고, 그래야
- * 시작한 날 화면에 0이 뜨지 않는다. 두 날짜 모두 정오 기준으로 맞춰
- * 서머타임이나 시간대 차이로 하루가 어긋나지 않게 한다.
- *
- * 입력은 "2023. 10. 20"이나 "2023-10-20" 어느 쪽이든 받는다.
- * 날짜로 읽을 수 없으면 null을 준다.
- */
-const daysSince = (from: string, todayKey: string): number | null => {
-  const digits = from.match(/\d+/g);
-  if (!digits || digits.length < 3) return null;
-  const [year, month, day] = digits.map(Number);
-  const start = new Date(year, month - 1, day, 12, 0, 0, 0);
-  if (Number.isNaN(start.getTime()) || start.getMonth() !== month - 1) return null;
-  const today = new Date(
-    Number(todayKey.slice(0, 4)),
-    Number(todayKey.slice(5, 7)) - 1,
-    Number(todayKey.slice(8, 10)),
-    12, 0, 0, 0,
-  );
-  const days = Math.round((today.getTime() - start.getTime()) / 86400000) + 1;
-  return days > 0 ? days : null;
-};
-
-/**
- * 여행 며칠째의 날짜 이름. 상세 화면의 날짜 선택지와 같은 "22일(토)" 형식이다.
- *
- * 예시 여행의 날짜는 오늘을 기준으로 만들어지므로 지출의 날짜도 같은 규칙으로
- * 계산해야 한다. 글자로 박아 두면 날이 지날수록 어긋난다.
- */
-const sampleTripDay = (startKey: string, offset: number) => {
-  const [year, month, day] = startKey.split("-").map(Number);
-  const date = new Date(year, month - 1, day + offset, 12, 0, 0, 0);
-  return `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
-};
-
-/** 예시 지출 한 건. 여행마다 다른 목록을 만들려고 짧게 쓴다. */
-const sampleExpense = (
-  id: string,
-  startKey: string,
-  offset: number,
-  title: string,
-  amount: number,
-  category: Expense["category"],
-  payer: string,
-  /** 몫을 지는 사람과 비중. 없으면 참가자 전원이 똑같이 나눈다. */
-  shares?: Record<string, number>,
-  memo = "",
-): Expense => ({
-  id,
-  day: sampleTripDay(startKey, offset),
-  title,
-  amount,
-  category,
-  payer,
-  shares,
-  memo,
-});
-
-const upcomingSampleStart = sampleDate(12);
-const upcomingSampleEnd = sampleDate(14);
-const recentSampleStart = sampleDate(-23);
-const recentSampleEnd = sampleDate(-22);
-const archiveSampleStart = sampleDate(-45);
-const archiveSampleEnd = sampleDate(-43);
-
-/**
- * 예시 여행 하나를 만든다.
- *
- * 일정·장소·준비물 같은 처음 내용을 여행에 바로 붙인다. 상세 화면이 열릴 때
- * 채우면 홈 카드도 찾기도 이 여행에 무엇이 들어 있는지 알 수 없다.
- * 지출은 여행마다 달라서 부르는 쪽에서 넘긴다.
- */
-const sampleTrip = (trip: Omit<Trip, "sample" | "planning"> & { expenses: Expense[] }): Trip => {
-  const { expenses, ...rest } = trip;
-  return {
-    ...rest,
-    sample: true,
-    planning: { ...sampleTripPlanning(rest.name, rest.start, rest.end, ["하늘", "여울"]), expenses },
-  };
-};
-
-const trips: Trip[] = [
-  sampleTrip({
-    name: "전주 한옥마을",
-    date: sampleDateRange(upcomingSampleStart, upcomingSampleEnd),
-    note: "숙소에서 수다와 버섯전골",
-    tone: 0,
-    mark: upcomingSampleStart.slice(5, 7),
-    region: "전북",
-    start: upcomingSampleStart,
-    end: upcomingSampleEnd,
-    // 아직 안 떠난 여행이라 미리 낸 것만 있다.
-    expenses: [
-      sampleExpense("jj-1", upcomingSampleStart, 0, "KTX 왕복 예매", 47200, "교통", "하늘", { 하늘: 1 }),
-      sampleExpense("jj-2", upcomingSampleStart, 0, "달빛한옥 예약금", 90000, "숙박", "하늘"),
-    ],
-  }),
-  sampleTrip({
-    name: "강릉 안목",
-    date: sampleDateRange(recentSampleStart, recentSampleEnd),
-    note: "보드게임과 야식 장보기",
-    tone: 5,
-    mark: recentSampleStart.slice(5, 7),
-    region: "강원",
-    start: recentSampleStart,
-    end: recentSampleEnd,
-    expenses: [
-      sampleExpense("gn-1", recentSampleStart, 0, "시외버스 왕복", 28000, "교통", "여울", { 여울: 1 }),
-      sampleExpense("gn-2", recentSampleStart, 0, "안목 카페 거리", 39000, "식비", "하늘"),
-      sampleExpense("gn-3", recentSampleStart, 0, "바다뷰 숙소 1박", 120000, "숙박", "여울"),
-      sampleExpense("gn-4", recentSampleStart, 1, "보드게임 카페", 24000, "기타", "하늘"),
-      sampleExpense("gn-5", recentSampleStart, 1, "야식 장보기", 31800, "식비", "여울", undefined, "치킨과 맥주"),
-    ],
-  }),
-  sampleTrip({
-    name: "여수",
-    date: sampleDateRange(archiveSampleStart, archiveSampleEnd),
-    note: "바다 산책과 단체 사진",
-    tone: 3,
-    mark: archiveSampleStart.slice(5, 7),
-    region: "전남",
-    start: archiveSampleStart,
-    end: archiveSampleEnd,
-    expenses: [
-      sampleExpense("ys-1", archiveSampleStart, 0, "KTX 왕복", 96000, "교통", "하늘"),
-      sampleExpense("ys-2", archiveSampleStart, 0, "회 정식 저녁", 58000, "식비", "여울"),
-      sampleExpense("ys-3", archiveSampleStart, 0, "게스트하우스 2박", 90000, "숙박", "하늘"),
-      sampleExpense("ys-4", archiveSampleStart, 1, "해상 케이블카", 30000, "입장료", "여울"),
-      sampleExpense("ys-5", archiveSampleStart, 1, "택시", 12000, "교통", "하늘"),
-      sampleExpense("ys-6", archiveSampleStart, 2, "기념품 수제 엽서", 15000, "쇼핑", "여울", { 여울: 1 }),
-    ],
-  }),
-];
 /**
  * 처음 그릴 때의 여행 목록. 비어 있다.
  *
  * 2026-09-23 까지는 예시 여행 셋이 들어 있었다. 저장된 것도 없고 공간 목록도 못 받은
  * 기기에서는 그 예시가 그대로 기기에 적혔다. 가상 데이터는 실제 계정에 섞지 않는다.
- * 화면 모양을 보는 예시 여행은 `trips` 에만 남긴다.
+ * 화면 모양을 보는 예시 여행은 `sampleTrips.ts` 에만 남긴다.
  */
 const initialTripsByGroup: Record<GroupId, Trip[]> = {};
 
@@ -563,91 +282,6 @@ function FullScreenNotice({ theme, title, hint, busy = false, onRetry, retryLabe
     </SafeAreaView>
   );
 }
-
-/**
- * 기기에 적어 둘 모양.
- *
- * 웹에서는 아직 못 올린 사진을 적지 않는다. 웹은 고른 사진을 `data:` 로 들고 있는데,
- * 여행이 끝나고 수십 장을 한꺼번에 올리는 동안 그것까지 적으면 브라우저 저장소(몇 MB)가
- * 금방 차서 기록 전체가 저장되지 않는다. 어차피 탭을 새로 열면 그 자리는 죽어 있어
- * 적어 두어도 쓸 수 없다. 올라간 사진은 파일 자리가 비어 있어 그대로 적힌다.
- */
-const storableTrips = (groups: Record<string, Trip[]>): Record<string, Trip[]> => {
-  if (Platform.OS !== "web") return groups;
-  const 덜어낸다 = (trip: Trip): Trip => {
-    const photos = trip.planning?.memories?.photos;
-    if (!photos?.some((photo) => photo.uri)) return trip;
-    return {
-      ...trip,
-      planning: {
-        ...trip.planning,
-        memories: { ...trip.planning!.memories!, photos: photos.filter((photo) => !photo.uri) },
-      },
-    };
-  };
-  return Object.fromEntries(Object.entries(groups).map(([id, trips]) => [id, trips.map(덜어낸다)]));
-};
-
-const isStoredTrip = (value: unknown): value is Trip => {
-  if (!value || typeof value !== "object") return false;
-  const trip = value as Partial<Trip>;
-  return typeof trip.name === "string"
-    && typeof trip.date === "string"
-    && typeof trip.note === "string"
-    && typeof trip.tone === "number"
-    && typeof trip.mark === "string"
-    && typeof trip.region === "string"
-    && typeof trip.start === "string"
-    && typeof trip.end === "string";
-};
-
-/**
- * 저장된 계획 데이터의 모양을 본다.
- *
- * 여행 자체는 통과시키고 계획만 버리는 쪽이 낫다. 필드 하나가 어긋났다고
- * 여행을 통째로 지우면 사용자가 적어 둔 이름과 날짜까지 사라진다.
- */
-const isStoredPlanning = (value: unknown): value is TripPlanningData => {
-  if (!value || typeof value !== "object") return false;
-  const planning = value as Partial<TripPlanningData>;
-  // 있으면 모양이 맞아야 하고, 없는 건 없는 대로 둔다. 예시 여행처럼 지출만
-  // 심어 둔 계획도 있어서 셋을 다 요구하면 그런 데이터가 통째로 버려진다.
-  const listShape = (list: unknown) => list === undefined || Array.isArray(list);
-  return listShape(planning.schedule)
-    && listShape(planning.places)
-    && listShape(planning.expenses)
-    && (planning.stay === undefined || typeof planning.stay === "object");
-};
-
-const parseStoredTripData = (raw: string | null) => {
-  if (!raw) return null;
-  try {
-    const saved = JSON.parse(raw) as {
-      tripsByGroup?: Partial<Record<GroupId, unknown>>;
-      done?: unknown;
-    };
-    if (!saved.tripsByGroup) return null;
-    const restored: Record<GroupId, Trip[]> = {};
-    Object.entries(saved.tripsByGroup).forEach(([groupId, groupTrips]) => {
-      if (groupId.length > 0 && groupId.length <= 64 && Array.isArray(groupTrips)) {
-        restored[groupId] = groupTrips.filter(isStoredTrip).map((trip) =>
-          trip.planning && !isStoredPlanning(trip.planning)
-            ? { ...trip, planning: undefined }
-            : trip,
-        );
-      }
-    });
-    if (!Object.keys(restored).length) return null;
-    return {
-      tripsByGroup: restored,
-      done: Array.isArray(saved.done)
-        ? saved.done.filter((item): item is string => typeof item === "string")
-        : ["charger", "toiletries"],
-    };
-  } catch {
-    return null;
-  }
-};
 
 // 저장된 설정과 공간 목록은 App이 실행 화면 뒤에서 미리 읽어 넘겨준다. 여기서
 // 읽으면 기본값으로 한 번 그린 뒤 바뀌어 화면이 튄다.
@@ -774,7 +408,7 @@ export function WarmAppShell({
     name: "첫 여행 공간",
     members: [],
     relationship: "친구" as const,
-    since: sampleDate(0),
+    since: dateKey(new Date()),
   };
   // 공간 이름·관계·함께한 날을 서버에 저장한다.
   //
@@ -858,7 +492,7 @@ export function WarmAppShell({
       [activeSpace.id]:
         typeof update === "function" ? update(current[activeSpace.id as GroupId] ?? []) : update,
     }));
-  const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
+  const [selectedTrip, setSelectedTrip] = useState<Trip>(sampleTrips[0]);
   const [themeId, setThemeId] = useState<ThemeId>(settings.themeId);
 
   const [appearance, setAppearance] = useState<AppearanceMode>(
@@ -1507,7 +1141,7 @@ export function WarmAppShell({
     적을_것.current = null;
     적은_횟수.current += 1;
     if (__DEV__) console.log(`[저장] 여행 기록 ${적은_횟수.current}번째`);
-    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup: storableTrips(것.tripsByGroup), done: 것.done }))
+    AsyncStorage.setItem(tripStorageKey, JSON.stringify({ tripsByGroup: storableTrips(것.tripsByGroup, Platform.OS === "web"), done: 것.done }))
       .then(() => setTripStorageFailed(false))
       .catch(() => setTripStorageFailed(true));
   }, []);
@@ -1532,7 +1166,7 @@ export function WarmAppShell({
       지금_적기();
     };
   }, [지금_적기]);
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayKey = dateKey(now);
   // 보관한 여행은 홈에 띄우지 않는다. 치워 둔 여행이 다음 여행으로 보이면 안 된다.
   const homeTrip = [...tripItems]
     .filter((trip) => trip.end >= todayKey && !trip.archived)
@@ -1543,7 +1177,7 @@ export function WarmAppShell({
   );
   const openTrip = (
     destination: TripDetailDestination = "overview",
-    trip: Trip = tripItems[0] ?? trips[0],
+    trip: Trip = tripItems[0] ?? sampleTrips[0],
   ) => {
     setSelectedTrip(trip);
     setTripDestination(destination);
@@ -3797,7 +3431,7 @@ function TripsExplorer({
   onCreateTrip: (input: { title: string; startDate: string; endDate: string; regionName: string; summary: string; participants: string[] }) => Promise<Trip>;
 }) {
   const initialCalendarDate = new Date();
-  const initialDateKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, "0")}-${String(initialCalendarDate.getDate()).padStart(2, "0")}`;
+  const initialDateKey = dateKey(initialCalendarDate);
   const [display, setDisplay] = useState<TripView>("목록");
   const [filter, setFilter] = useState<"전체" | "다가오는" | "지난 여행" | "보관">("전체");
   const [trash, setTrash] = useState<Trip[]>([]);
@@ -5001,7 +4635,7 @@ function TripCalendar({
   const weeks = Array.from({ length: cells.length / 7 }, (_, 주) => cells.slice(주 * 7, 주 * 7 + 7));
   const bars = tripBars(trips, month.year, month.value);
   const today = new Date();
-  const todayKey = dayKeyOf(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const todayKey = dateKey(today);
   const move = (amount: number) => {
     const next = new Date(month.year, month.value - 1 + amount, 1);
     setMonth({ year: next.getFullYear(), value: next.getMonth() + 1 });

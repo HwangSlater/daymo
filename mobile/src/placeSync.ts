@@ -13,7 +13,6 @@ import {
   type Codec,
   type Confirmed,
   type Failed,
-  type ListPlan,
 } from "./listSync.ts";
 
 export { bodyKey, hasWork, isServerId, type Confirmed };
@@ -26,7 +25,7 @@ export { bodyKey, hasWork, isServerId, type Confirmed };
  * 일정에 있었는지는 일정 탭이 그대로 보여 준다.
  */
 export type AppPlaceStatus = "후보" | "일정" | "다녀옴";
-export type ServerPlaceStatus = "saved" | "scheduled" | "visited";
+type ServerPlaceStatus = "saved" | "scheduled" | "visited";
 
 /** 일정에 담겼을 때의 상태. 다녀온 곳은 그대로 둔다. */
 export const planned = (status: AppPlaceStatus): AppPlaceStatus =>
@@ -142,8 +141,6 @@ export const placeCodec: Codec<AppPlace, PlaceBody, ServerPlace> = {
   toBody: placeBody,
   fromServer: placeFromServer,
 };
-
-export type PlacePlan = ListPlan<PlaceBody>;
 
 export const planPlaceSync = (
   places: readonly AppPlace[],

@@ -13,7 +13,67 @@ import { DaymoApiError } from "./auth";
 import { TripConflictError } from "./tripSync";
 import { reloadOpenLists, retryBlockedRows, useListSync, useSyncTrouble } from "./useListSync";
 import { SyncMark, SyncNotice } from "./SyncMarks";
-import { dateKey, dateLabelOf, dayLabelOf, isServerId, tripDateKeys } from "./listSync";
+import { isServerId } from "./listSync";
+import {
+  COOKING_UNASSIGNED,
+  DIARY_UNTITLED,
+  PACKING_SHARED,
+  PACKING_UNASSIGNED,
+  PLAN_TYPES,
+  UNDATED,
+  collapsedGroupsFor,
+  cookingOwnerOptions,
+  initialMemoryData,
+  mergeStayDateTime,
+  normalizePackingOwner,
+  orderedScheduleItems,
+  packingOwnerOptions,
+  packingTags,
+  parseAiRecipes,
+  photosByTarget,
+  placeAreaFromAddress,
+  reservationScheduleRow,
+  stayMomentOf,
+  transportScheduleRow,
+  기본_체크아웃_시각,
+  기본_체크인_시각,
+  요리메모_보이기,
+  요리메모_읽기,
+  일정종류_읽기,
+  일정종류인가,
+  자리에_넣기,
+  type CookingItem,
+  type MemoryPhoto,
+  type PackingItem,
+  type PlaceItem,
+  type Recipe,
+  type ReservationInfo,
+  type ScheduleItem,
+  type StayInfo,
+  type TravelDiary,
+  type Transportation,
+  type TripDetailDestination,
+  type TripMemoryData,
+  type TripNote,
+  type TripPlanningData,
+} from "./tripPlanning";
+import {
+  buildTripDates,
+  dateKey,
+  dateLabel,
+  dateLabelOf,
+  dayLabel,
+  dayLabelOf,
+  dayNumberOf,
+  formatTripPeriod,
+  matchTripDay,
+  tripDateKeys,
+  tripIsOver,
+  todayAmong,
+  validDateKey,
+  weekdayOf,
+  시각을_분으로,
+} from "./dates";
 import {
   legacyIdMap,
   placeCodec,
@@ -21,7 +81,6 @@ import {
   safeUrl,
   unplanned,
   UNKNOWN_AREA,
-  type AppPlaceStatus,
 } from "./placeSync";
 import { isDerivedScheduleItem, scheduleCodec, stayCodec } from "./scheduleSync";
 import {
@@ -47,7 +106,7 @@ import {
 import { importMessage, planPackingImport, planRecipeImport } from "./pastTripImport";
 import { PastTripEntry, PastTripList } from "./PastTripPicker";
 import { usePastPacking, usePastRecipes } from "./usePastTripRows";
-import { rebindPeople, type PeopleNames } from "./people";
+import { rebindPeople } from "./people";
 import { diaryCodec, memoCodec } from "./memorySync";
 import { memoryDayCount, memoryFilterChips, memoryHeadCount, type MemoryFilter } from "./memoryFilter";
 import { isStaleDisplayCopy, originalSaveHint, photoCodec, photosOfStay, photoTakenDate, tidyLinks, type PhotoLink, type PhotoLinkTarget } from "./photoSync";
@@ -194,8 +253,6 @@ type ViewMode = "여행" | "장소" | "준비" | "요리" | "비용" | "기록";
 /** 탭에 찍히는 이름. 내부 값과 다른 것만 적는다. 첫 탭은 일정을 담고 있어 「일정」이라 부른다. */
 const MODE_LABEL: Partial<Record<ViewMode, string>> = { 여행: "일정" };
 const modeLabelOf = (mode: ViewMode) => MODE_LABEL[mode] ?? mode;
-export type TripDetailDestination =
-  "overview" | "schedule-add" | "places" | "preparation" | "cooking" | "expenses" | "memories";
 const destinationMode = (destination: TripDetailDestination): ViewMode =>
   destination === "places"
     ? "장소"
@@ -208,229 +265,14 @@ const destinationMode = (destination: TripDetailDestination): ViewMode =>
         : destination === "memories"
           ? "기록"
       : "여행";
-export type ScheduleItem = {
-  /** 서버와 맞출 때 쓰는 UUID. 숙소·예약·교통편에서 만들어진 줄에는 없다. */
-  id?: string;
-  time: string;
-  date?: string;
-  title: string;
-  note: string;
-  mapUrl: string;
-  placeId?: string;
-  stayId?: string;
-  reservationId?: string;
-  transportationId?: string;
-};
-export type StayInfo = {
-  /** 서버와 맞출 때 쓰는 UUID. */
-  id?: string;
-  name: string;
-  checkin: string;
-  checkout: string;
-  address: string;
-  placeId?: string;
-  showInSchedule?: boolean;
-};
-export type ReservationInfo = {
-  id: string;
-  name: string;
-  date: string;
-  time: string;
-  people: string;
-  status: "예약 확정" | "확인 필요" | "취소";
-  place: string;
-  showInSchedule: boolean;
-  /** 예약한 곳으로 바로 가는 링크. 옛 기기 기록에는 없다. */
-  bookingUrl?: string;
-  /**
-   * 이 예약이 붙은 장소. 장소 시트의 예약 칸에서 함께 적은 것이다.
-   *
-   * 없으면 장소에 붙지 않은 예약이다. 예약 시트에서만 적던 옛 기록이 그렇고,
-   * 그대로 목록에 남아 눌러서 고칠 수 있어야 한다.
-   */
-  placeId?: string;
-  /** 숙소에 붙은 예약. 앱은 만들지 않지만 서버에서 오면 그대로 들고 있는다. */
-  stayId?: string;
-};
-export type PlaceItem = {
-  id: string;
-  name: string;
-  area: string;
-  address?: string;
-  category: string;
-  mapUrl: string;
-  tags: string[];
-  status: AppPlaceStatus;
-  /** 그 자리에서 적어 두는 한 줄. `웨이팅 30분`, `숙소 근처`. 옛 기기 기록에는 없다. */
-  memo?: string;
-};
 /** 새 장소·일정·숙소 id. 서버가 이 UUID 를 그대로 받아 쓴다(backend/app/api/v1/places.py). */
-/**
- * 일정의 「종류」.
- *
- * 예전에는 첫 칸이 「장소」였는데, 장소는 종류가 아니라 대상이라 무엇을 고르는
- * 칸인지 흐렸다(트리플도 「관광·식당·카페」처럼 한 일로 적는다). 저장된 일정에는
- * 「장소」로 적혀 있어서, 읽을 때만 「방문」으로 바꿔 받는다. 이 값은 일정 줄의
- * `note` 앞칸에 들어가고 목록에는 그려지지 않는다 — 양식 안에서만 보인다.
- */
-/**
- * 요리 메모.
- *
- * 예전에는 비어 있으면 「메모 없음」이라는 글자를 저장했다. 그러면 고치기를 열었을 때
- * 그 글자가 입력칸에 들어앉아, 지우고 써야 했다. 저장은 빈 글자로 하고 보일 때만 채운다.
- * 예전에 저장된 「메모 없음」도 빈 것으로 읽는다.
- */
-const 요리메모_읽기 = (적힌: string) => (적힌.trim() === "메모 없음" ? "" : 적힌.trim());
-const 요리메모_보이기 = (적힌: string) => 요리메모_읽기(적힌) || "메모 없음";
-
-const PLAN_TYPES = ["방문", "식사", "이동", "예약", "행사"];
-/**
- * 「장소」는 예전 이름이다. 저장된 것을 읽을 때만 「방문」으로 바꾼다. 화면에 쓰는 값은
- * 늘 `PLAN_TYPES` 안의 것이어야 한다 — 「장소」를 그대로 쓰면 종류 줄에서 아무것도
- * 골라지지 않은 것처럼 보인다.
- */
-const 일정종류_읽기 = (적힌: string) => (적힌 === "장소" ? "방문" : 적힌);
-const 일정종류인가 = (적힌: string) => 적힌 === "장소" || PLAN_TYPES.includes(적힌);
-
-/**
- * 숙소를 처음 적을 때 잡아 두는 시각. 실제로 자주 쓰는 값이라 그대로 저장해도
- * 맞는 경우가 많다. 바꾸고 싶으면 체크인·체크아웃 칸에서 고친다.
- */
-const 기본_체크인_시각 = "14:00";
-const 기본_체크아웃_시각 = "11:00";
-
 const newPlaceId = () => Crypto.randomUUID();
-
-
-/** 교통편에서 만들어지는 일정 줄. 저장할 때와 목록을 다시 맞출 때 같은 모양이어야 한다. */
-const transportScheduleRow = (transportation: Transportation): ScheduleItem => ({
-  time: `${weekdayOf(transportation.date)} · ${transportation.departureTime}`,
-  date: transportation.date,
-  title: `${transportation.method} ${transportation.departure} 출발`,
-  note: `${transportation.arrival} ${transportation.arrivalTime} 도착 · ${transportation.owner} · ${transportation.direction}`,
-  mapUrl: "",
-  transportationId: transportation.id,
-});
-
-/** 예약에서 만들어지는 일정 줄. */
-const reservationScheduleRow = (reservation: ReservationInfo): ScheduleItem => ({
-  time: `${weekdayOf(reservation.date)} · ${reservation.time || "시간 미정"}`,
-  date: reservation.date,
-  title: reservation.name,
-  note: ["예약", reservation.status].filter(Boolean).join(" · "),
-  mapUrl: "",
-  reservationId: reservation.id,
-});
 
 /** 저장 실패 안내. 서버가 준 문구(권한 없음 같은)는 사람이 읽을 수 있게 쓰여 있어 그대로 쓴다. */
 const saveErrorMessage = (caught: unknown) =>
   caught instanceof DaymoApiError && caught.status !== 0
     ? caught.message
     : "저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요";
-
-export type TripPlanningData = {
-  // 셋 다 없을 수 있다. 예시 여행처럼 지출만 미리 심어 둔 경우가 있어서다.
-  // 상세 화면을 한 번 열고 닫으면 그때 기본값으로 채워져 저장된다.
-  schedule?: ScheduleItem[];
-  stay?: StayInfo;
-  places?: PlaceItem[];
-  reservations?: ReservationInfo[];
-  /** 이전 저장 데이터에서 reservations로 옮기기 위한 호환 필드 */
-  reservation?: ReservationInfo | null;
-  transportations?: Transportation[];
-  memories?: TripMemoryData;
-  packingItems?: PackingItem[];
-  packingDone?: string[];
-  recipes?: Recipe[];
-  cookingReadyIngredientIds?: string[];
-  expenses?: Expense[];
-  /** 주고받았다고 적어 둔 것. 지출과 같은 급의 기록이라 나란히 둔다. */
-  payments?: Payment[];
-  /**
-   * 정산을 묶어서 볼지.
-   *
-   * 묶으면 송금 횟수는 줄지만 내가 직접 빌린 적 없는 사람에게 보내라고 할 수
-   * 있다. 없으면 묶는다. 대부분은 그게 편하다.
-   */
-  simplifySettlement?: boolean;
-  budget?: number;
-  /**
-   * 이번 여행에 가는 사람들. 없으면 공간 멤버 전원으로 본다.
-   *
-   * 한 공간에 멤버가 여럿이어도 이번 여행에는 일부만 가는 일이 흔하다.
-   * 지출의 몫은 공간 멤버가 아니라 이 목록을 기준으로 나눈다.
-   */
-  participants?: string[];
-  /**
-   * 서버와 맞춘 적이 있는 장소 id. 앱을 다시 열었을 때 서버에 없는 장소가
-   * "아직 못 올린 것" 인지 "다른 곳에서 지운 것" 인지 가르는 데 쓴다.
-   */
-  placeSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 일정 줄 id. `placeSyncIds` 와 같은 쓰임이다. */
-  scheduleSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 숙소 id. */
-  staySyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 교통편 id. */
-  transportSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 예약 id. */
-  reservationSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 지출 id. */
-  expenseSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 주고받은 기록 id. */
-  paymentSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 준비물 id. */
-  packingSyncIds?: string[];
-  /** 마지막으로 쓴 `membership id → 이름`. 멤버가 이름을 바꾸면 기록의 이름을 따라 바꾼다. */
-  personNames?: PeopleNames;
-  /** 서버와 맞춘 적이 있는 요리 id. 재료는 요리와 함께 오간다. */
-  recipeSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 메모 id. */
-  memoSyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 일기 id. */
-  diarySyncIds?: string[];
-  /** 서버와 맞춘 적이 있는 사진 id. */
-  photoSyncIds?: string[];
-  /**
-   * 통화·환율·예산·정산 묶기를 서버와 한 번이라도 맞췄는지. 맞춘 적이 없으면 기기 값을
-   * 서버에 올리고, 맞춘 적이 있으면 서버 값으로 연다.
-   */
-  expenseSettingsSynced?: boolean;
-  /** 여행에서 쓰는 통화 코드. 없으면 원이다. */
-  currency?: string;
-  /** 1 단위가 몇 원인지. 통화가 원이면 1 이다. */
-  exchangeRate?: number;
-  tripNotes?: TripNote[];
-  hasKitchen?: boolean;
-};
-
-export type MemoryPhoto = {
-  id: string;
-  color: string;
-  date: string;
-  caption: string;
-  uri?: string;
-  /** 이 사진을 붙인 장소·일정·숙소. 날짜는 연결이 아니라 위의 `date` 다. */
-  links?: PhotoLink[];
-  /** 올린 사람. 서버에서 받은 사진에만 있다. 비어 있으면 이 기기에서 올린 내 사진이다. */
-  uploaderMembershipId?: string | null;
-  /** 올린 사람의 이름. 크게 보는 화면의 `하늘이 올림` 줄에 쓴다. */
-  uploaderName?: string;
-  /** 원본을 받을 수 있는 기한. 지났으면 null, 서버가 말해 주지 않으면 없다(`photoSync`). */
-  originalUntil?: string | null;
-};
-export type TravelDiary = {
-  id: string;
-  title: string;
-  body: string;
-  /** 화면에 보이는 날짜 줄. */
-  date: string;
-  /** 그 일기가 다루는 날(YYYY-MM-DD). 여행 중에 쓰면 오늘이고, 비어 있을 수 있다. */
-  writtenOn?: string;
-};
-export type TripNote = { id: string; author: string; body: string };
-
-/** 제목 없이 쓴 일기의 이름. 저장하지 않고 보여줄 때만 쓴다. */
-const DIARY_UNTITLED = "이번 여행 이야기";
 
 /**
  * 클립보드를 읽는다. 브라우저는 사용자가 허락하지 않으면 거절하는데, 그때 화면이 아무 반응
@@ -443,121 +285,6 @@ async function readClipboard(): Promise<string> {
     return "";
   }
 }
-
-/**
- * 기록 탭이 기기에 들고 있는 것.
- *
- * 꾸미는 중인 추억 카드(초안)는 여기 없다. 사진과 일기처럼 서버와 맞추는 것이 아니라
- * 기기에만 두는 것이라 따로 적는다(`cardDraftStorage.ts`). 완료한 카드는 사진이 되어
- * `photos` 에 들어온다.
- */
-export type TripMemoryData = {
-  photos: MemoryPhoto[];
-  diaries: TravelDiary[];
-};
-
-/**
- * 기록 탭의 처음 모습.
- *
- * `withSamples` 는 예시 여행에만 준다. 내가 만든 여행이 남의 사진과 일기로
- * 차 있으면 내 기록이 아니게 된다.
- */
-const initialMemoryData = (tripDate = "여행 기간", withSamples = false): TripMemoryData => ({
-  photos: withSamples ? [
-    { id: "photo-1", color: "#E7B4A6", date: "1일차", caption: "도착한 날" },
-    { id: "photo-2", color: "#DFC98A", date: "1일차", caption: "느린 점심" },
-    { id: "photo-3", color: "#AFC9C3", date: "2일차", caption: "함께 걷기" },
-    { id: "photo-4", color: "#D4BDD4", date: "2일차", caption: "저녁 준비" },
-    { id: "photo-5", color: "#C7D493", date: "3일차", caption: "마지막 아침" },
-    { id: "photo-6", color: "#9CBBC6", date: "3일차", caption: "돌아오는 길" },
-  ] : [],
-  diaries: withSamples ? [{
-    id: "diary-1",
-    title: "느리게 걸어서 더 좋았던 날",
-    body: "계획대로 되지 않은 순간도 있었지만, 그래서 더 오래 기억할 여행이 된 것 같다.",
-    date: tripDate,
-  }] : [],
-});
-
-const placeAreaFromAddress = (address: string, fallback = "위치 미정") =>
-  address.trim().split(/\s+/).filter(Boolean).slice(0, 2).join(" ") || fallback;
-
-const orderedScheduleItems = (items: ScheduleItem[], dayOptions: string[]) =>
-  [...items].sort((left, right) => {
-    const leftDay = left.date ? dayOptions.indexOf(left.date) : -1;
-    const rightDay = right.date ? dayOptions.indexOf(right.date) : -1;
-    const normalizedLeftDay = leftDay < 0 ? dayOptions.length : leftDay;
-    const normalizedRightDay = rightDay < 0 ? dayOptions.length : rightDay;
-    if (normalizedLeftDay !== normalizedRightDay) return normalizedLeftDay - normalizedRightDay;
-    const clockMinutes = (value: string) => {
-      const match = value.match(/(\d{1,2}):(\d{2})/);
-      return match ? Number(match[1]) * 60 + Number(match[2]) : 24 * 60;
-    };
-    return clockMinutes(left.time) - clockMinutes(right.time);
-  });
-
-const initialPlaces: PlaceItem[] = [
-  {
-    id: "place-js-hotel",
-    name: "달빛한옥",
-    area: "전주 한옥마을",
-    address: "전주 완산구 은행로 12 달빛한옥",
-    category: "숙소",
-    mapUrl: "https://map.naver.com/p/search/달빛한옥",
-    tags: ["숙소", "예약"],
-    status: "후보",
-  },
-  {
-    id: "place-eunhaengol",
-    name: "소나기식당",
-    area: "완산",
-    category: "식당",
-    mapUrl: "https://map.naver.com/p/search/소나기식당",
-    tags: ["초밥", "디너", "예약"],
-    status: "일정",
-  },
-  {
-    id: "place-usagi",
-    name: "구름국수",
-    area: "덕진",
-    category: "식당",
-    mapUrl: "https://map.naver.com/p/search/구름국수",
-    tags: ["늦은 점심", "웨이팅"],
-    status: "후보",
-  },
-  {
-    id: "place-gocheok",
-    name: "노을전망대",
-    area: "완산",
-    category: "구경",
-    mapUrl: "https://map.naver.com/p/search/노을전망대",
-    tags: ["숙소 근처", "비 오는 날"],
-    status: "후보",
-  },
-];
-
-export type Transportation = {
-  id: string;
-  /** 이 편을 타는 사람. 이번 여행 참가자 가운데 하나다. */
-  owner: string;
-  direction: "가는 편" | "오는 편";
-  // 「버스」는 고속·시외를 나누기 전부터 있던 값이다. 그때 적은 교통편이 남아 있어 그대로 둔다.
-  method: "KTX" | "SRT" | "무궁화호" | "고속버스" | "시외버스" | "버스" | "항공" | "기타";
-  date: string;
-  departure: string;
-  departureTime: string;
-  arrival: string;
-  arrivalTime: string;
-  status: "예매 완료" | "예매 전";
-  showInSchedule: boolean;
-  /** 예매번호·좌석·정류장 안내 같은 것. 옛 기기 기록에는 없다. */
-  note?: string;
-  /**
-   * 한 번의 이동에서 갈아타는 곳. 순서대로 담는다. 곧장 가면 비어 있다.
-   * 가는 편·오는 편 둘 다 가질 수 있다. 옛 기기 기록에는 없다.
-   */
-  stops?: TransportStop[];
-};
 
 type Props = {
   done: string[];
@@ -643,60 +370,6 @@ type Props = {
   me?: string;
 };
 
-const parseTripDate = (value?: string) => {
-  if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const buildTripDates = (start?: string, end?: string) => {
-  const first = parseTripDate(start);
-  const last = parseTripDate(end);
-  if (!first || !last || first > last) return [];
-  const result: Date[] = [];
-  const cursor = new Date(first);
-  while (cursor <= last && result.length < 366) {
-    result.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return result;
-};
-
-const dayLabel = (date: Date) =>
-  `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
-
-/**
- * 여행 날짜 가운데 오늘이 있으면 그 날을 준다. 없으면 빈 문자열이다.
- *
- * 여행 중에 적는 지출은 거의 오늘 것이다. 늘 첫날로 시작하면 둘째 날부터는
- * 매번 날짜를 고쳐야 한다.
- */
-const todayAmong = (dates: Date[]): string => {
-  const now = new Date();
-  const match = dates.find(
-    (date) =>
-      date.getFullYear() === now.getFullYear() &&
-      date.getMonth() === now.getMonth() &&
-      date.getDate() === now.getDate(),
-  );
-  return match ? dayLabel(match) : "";
-};
-
-/**
- * 마지막 날이 지났으면 지난 여행이다.
- *
- * 오늘이 마지막 날이면 아직 여행 중이다. 장소 탭이 다녀옴을 한 번에 표시할지
- * 물을 때만 쓴다.
- */
-const tripIsOver = (dates: Date[]): boolean => {
-  const last = dates[dates.length - 1];
-  if (!last) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return last < today;
-};
-/** "24일(목)" 형태의 날짜 옵션에서 요일만 꺼낸다. */
-const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
 // 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
 /**
  * 입력칸 라벨 앞의 점 색.
@@ -707,21 +380,6 @@ const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? 
  */
 const requiredDot = (required: boolean, theme?: AppTheme) =>
   theme && { backgroundColor: required ? theme.primary : theme.border };
-
-const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
-
-/**
- * 지운 줄을 있던 자리에 도로 끼운다. 삭제 되돌리기가 쓴다.
- *
- * 맨 뒤에 붙이면 되돌린 줄이 목록 끝으로 가서, 되돌린 것이 맞는지 눈으로 못 찾는다.
- * 사진은 id 로 겹침을 거르는 `gallerySelection.reinsertAt` 을 쓰고, 여기는 id 가 없는
- * 줄(숙소·예약에서 만들어진 일정)도 있어 자리만 본다.
- */
-function 자리에_넣기<T>(list: readonly T[], item: T, index: number): T[] {
-  const 결과 = [...list];
-  결과.splice(Math.min(Math.max(0, index), 결과.length), 0, item);
-  return 결과;
-}
 
 /**
  * 시트를 여는 순간의 모습을 기준선으로 잡고, 지금 적힌 것이 그와 다른지 알려 준다.
@@ -748,34 +406,11 @@ function useDraftChanged(open: boolean, key: string): boolean {
   return open && key !== 기준선.current;
 }
 
-/** 여행 날짜를 못 정했을 때. 날짜 칸에서 고를 수 있는 값이다. */
-const UNDATED = "날짜 미정";
-
 /** 빈 id 목록. 매번 새 배열을 만들면 그것만으로 effect 가 다시 돈다. */
 const NO_IDS: readonly string[] = [];
 
 /** 사진이 붙지 않은 곳에 돌려줄 빈 목록. 위와 같은 까닭으로 하나만 만들어 쓴다. */
 const NO_PHOTOS: MemoryPhoto[] = [];
-
-/**
- * 사진을 붙인 곳별로 한 번에 묶는다(2026-09-23 검토 #13).
- *
- * 예전에는 목록을 그릴 때마다 장소·일정마다 `photosLinkedTo` 로 사진 전체를 훑었다.
- * 장소 30개 × 사진 500장이면 한 번 그릴 때 15,000번이다. 같은 파일의 `reservationByPlace`
- * 처럼 표를 한 번 만들어 쓴다.
- */
-function photosByTarget(photos: readonly MemoryPhoto[], targetType: PhotoLinkTarget): Map<string, MemoryPhoto[]> {
-  const 표 = new Map<string, MemoryPhoto[]>();
-  for (const photo of photos) {
-    for (const link of photo.links ?? []) {
-      if (link.targetType !== targetType) continue;
-      const 줄 = 표.get(link.targetId);
-      if (줄) 줄.push(photo);
-      else 표.set(link.targetId, [photo]);
-    }
-  }
-  return 표;
-}
 
 /**
  * 한 번에 고를 수 있는 사진 수.
@@ -809,417 +444,6 @@ type PickedPhoto = {
   /** 사진에 적힌 촬영 날짜(`YYYY-MM-DD`). 없으면 빈 글자다. */
   takenOn: string;
 };
-
-/**
- * 예전에 자유롭게 적어 둔 날짜를 이번 여행의 날짜 칸에 맞춘다.
- *
- * 기록 탭의 사진 날짜만 아무 글자나 받고 있었다. "1일차" 와 "8월 22일" 이
- * 섞이면 같은 날인데 다른 날로 세어 "N일의 기록" 이 엉뚱해진다.
- * 몇째 날로 적었으면 순서로, 날짜로 적었으면 일 숫자로 찾는다. 어느 쪽도
- * 아니면 적힌 그대로 둔다. 내가 적은 말을 앱이 말없이 버리면 안 된다.
- */
-const matchTripDay = (value: string, dayOptions: string[]) => {
-  const text = value.trim();
-  if (!text || dayOptions.includes(text)) return text;
-  const nth = text.match(/^(\d+)\s*일차$/);
-  if (nth) return dayOptions[Number(nth[1]) - 1] ?? text;
-  const day = text.match(/(\d+)\s*일/);
-  const found = day && dayOptions.find((option) => dayNumberOf(option) === day[1]);
-  return found || text;
-};
-const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
-
-const validDateKey = (value: string) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = parseTripDate(value);
-  return Boolean(date && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` === value);
-};
-
-const formatTripPeriod = (start: string, end: string) => {
-  const first = parseTripDate(start);
-  const last = parseTripDate(end);
-  if (!first || !last) return "기간을 확인해 주세요";
-  return `${dateLabel(first)} — ${dateLabel(last)}`;
-};
-
-type PackingItem = {
-  id: string;
-  name: string;
-  quantity: string;
-  /** 챙길 사람 이름, 또는 둘 중 하나가 아닌 `공용`·`미정`. */
-  owner: string;
-  tags: string[];
-  /** 요리 재료에서 가져왔으면 그 재료 id. 완료 상태는 재료와 따로 간다. */
-  sourceIngredientId?: string;
-};
-
-/** 아무의 것도 아닌 담당. 참가자 목록 뒤에 늘 붙는다. */
-const PACKING_SHARED = "공용";
-const PACKING_UNASSIGNED = "미정";
-
-/**
- * 옛 저장 데이터의 담당을 이름으로 옮긴다.
- *
- * 예전에는 사람이 둘로 박혀 있어서 담당이 `나`·`동행`·`함께` 였다. 여행마다
- * 가는 사람이 다르니 이제는 이름을 그대로 담는다. 자리로 적힌 옛 값은 참가자
- * 목록의 첫째와 둘째로 본다.
- */
-const normalizePackingOwner = (owner: string, participants: string[]) => {
-  if (owner === "나") return participants[0] ?? PACKING_UNASSIGNED;
-  if (owner === "동행") return participants[1] ?? PACKING_UNASSIGNED;
-  if (owner === "함께") return PACKING_SHARED;
-  return owner;
-};
-
-/** 담당으로 고를 수 있는 것들. 참가자 전원 뒤에 공용과 미정을 둔다. */
-const packingOwnerOptions = (participants: string[]) => [
-  ...participants,
-  PACKING_SHARED,
-  PACKING_UNASSIGNED,
-];
-
-const packingTags = (item: PackingItem) => {
-  const legacy = item as PackingItem & {
-    source?: string;
-    timing?: string;
-    tags?: string[];
-  };
-  return (
-    legacy.tags ?? ([legacy.source, legacy.timing].filter(Boolean) as string[])
-  );
-};
-
-const packing: PackingItem[] = [
-  {
-    id: "charger",
-    name: "충전기",
-    quantity: "1개",
-    owner: "나",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "power-bank",
-    name: "보조배터리",
-    quantity: "1개",
-    owner: "나",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "wallet",
-    name: "지갑과 신분증",
-    quantity: "",
-    owner: "나",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "camera",
-    name: "카메라",
-    quantity: "1대",
-    owner: "나",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "camera-battery",
-    name: "카메라 여분 배터리",
-    quantity: "2개",
-    owner: "나",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "personal-clothes",
-    name: "갈아입을 옷",
-    quantity: "2벌",
-    owner: "나",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "personal-socks",
-    name: "양말과 속옷",
-    quantity: "3세트",
-    owner: "나",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "earphones",
-    name: "이어폰",
-    quantity: "1개",
-    owner: "나",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "glasses",
-    name: "안경",
-    quantity: "1개",
-    owner: "동행",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "companion-charger",
-    name: "휴대폰 충전기",
-    quantity: "1개",
-    owner: "동행",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "companion-clothes",
-    name: "갈아입을 옷",
-    quantity: "2벌",
-    owner: "동행",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "companion-cosmetics",
-    name: "화장품 파우치",
-    quantity: "1개",
-    owner: "동행",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "companion-lens",
-    name: "렌즈와 렌즈액",
-    quantity: "",
-    owner: "동행",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "companion-hair",
-    name: "고데기",
-    quantity: "1개",
-    owner: "동행",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "companion-card",
-    name: "예약 카드",
-    quantity: "1개",
-    owner: "동행",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "toiletries",
-    name: "세면도구",
-    quantity: "1세트",
-    owner: "함께",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "umbrella",
-    name: "우산",
-    quantity: "2개",
-    owner: "함께",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "medicine",
-    name: "상비약",
-    quantity: "1봉",
-    owner: "함께",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "sunscreen",
-    name: "선크림",
-    quantity: "1개",
-    owner: "함께",
-    tags: ["집에서", "출발 아침"],
-  },
-  {
-    id: "tissues",
-    name: "물티슈와 휴지",
-    quantity: "각 1개",
-    owner: "함께",
-    tags: ["미리 구매", "미리"],
-  },
-  {
-    id: "water",
-    name: "생수",
-    quantity: "4병",
-    owner: "함께",
-    tags: ["미리 구매", "출발 아침"],
-  },
-  {
-    id: "snacks",
-    name: "차에서 먹을 간식",
-    quantity: "",
-    owner: "함께",
-    tags: ["미리 구매", "출발 아침"],
-  },
-  {
-    id: "plastic-bags",
-    name: "비닐봉투",
-    quantity: "3장",
-    owner: "함께",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "booking-check",
-    name: "숙소 예약 내역 확인",
-    quantity: "",
-    owner: "미정",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "train-tickets",
-    name: "기차표 예매",
-    quantity: "2매",
-    owner: "미정",
-    tags: ["미리 구매", "미리"],
-  },
-  {
-    id: "breakfast",
-    name: "숙소 아침거리",
-    quantity: "2인분",
-    owner: "미정",
-    tags: ["현지 구매", "숙소에서"],
-  },
-  {
-    id: "cooking-ingredients",
-    name: "저녁 요리 재료",
-    quantity: "2인분",
-    owner: "미정",
-    tags: ["현지 구매", "숙소에서"],
-  },
-  {
-    id: "ice",
-    name: "얼음과 음료",
-    quantity: "",
-    owner: "미정",
-    tags: ["현지 구매", "숙소에서"],
-  },
-  {
-    id: "beach-mat",
-    name: "돗자리",
-    quantity: "1개",
-    owner: "미정",
-    tags: ["집에서", "미리"],
-  },
-  {
-    id: "slippers",
-    name: "숙소용 슬리퍼",
-    quantity: "2켤레",
-    owner: "미정",
-    tags: ["미리 구매", "미리"],
-  },
-];
-
-/**
- * 예시 여행이 처음 들고 있는 예약과 일정.
- *
- * 상세 화면 안에서만 만들면 홈 카드가 개수를 미리 알 수 없어서, 여행을 열기
- * 전과 연 뒤의 숫자가 어긋난다. 밖에 두면 카드도 같은 것을 셀 수 있다.
- */
-const sampleReservation = (dayOptions: string[]): ReservationInfo => ({
-  id: "reservation-primary",
-  name: "소나기식당",
-  date: dayOptions[Math.min(1, dayOptions.length - 1)],
-  time: "19:00",
-  people: "2명",
-  status: "예약 확정",
-  place: "전주 한옥마을",
-  showInSchedule: true,
-});
-
-const sampleSchedule = (dayOptions: string[], lastDate: string): ScheduleItem[] => {
-  const reservation = sampleReservation(dayOptions);
-  return [
-    {
-      time: `${weekdayOf(dayOptions[0])} · 12:30`,
-      date: dayOptions[0],
-      title: "소나기식당에서 점심",
-      note: "식사 · 완산",
-      mapUrl: "https://map.naver.com/p/search/소나기식당",
-      placeId: "place-eunhaengol",
-    },
-    {
-      time: `${weekdayOf(dayOptions[0])} · ${기본_체크인_시각}`,
-      date: dayOptions[0],
-      title: "달빛한옥 체크인",
-      note: `${lastDate} 11:00 체크아웃`,
-      mapUrl: "https://map.naver.com/p/search/달빛한옥",
-      placeId: "place-js-hotel",
-      stayId: "primary-stay",
-    },
-    {
-      time: `${weekdayOf(dayOptions[0])} · 19:30`,
-      date: dayOptions[0],
-      title: "함께 저녁 만들기",
-      note: "버섯전골과 김밥",
-      mapUrl: "",
-    },
-    {
-      time: `${weekdayOf(reservation.date)} · ${reservation.time}`,
-      date: reservation.date,
-      title: reservation.name,
-      note: `예약 · ${reservation.status}`,
-      mapUrl: "",
-      reservationId: reservation.id,
-    },
-  ];
-};
-
-/**
- * 앱이 처음부터 들고 있는 예시 여행의 내용.
- *
- * 예전에는 상세 화면이 열릴 때 이 값들을 채웠다. 그러면 화면 밖에서는 이 여행에
- * 무엇이 들어 있는지 알 수 없어서, 홈 카드는 개수를 못 세고 찾기는 아무것도
- * 못 찾았다. 여행에 미리 붙여 두면 모든 화면이 같은 것을 본다.
- *
- * 사용자가 만든 여행은 이걸 받지 않는다. 내가 적지 않은 일정과 준비물이 들어
- * 있으면 그건 내 여행이 아니다.
- */
-export function sampleTripPlanning(
-  tripName: string,
-  start: string,
-  end: string,
-  people: string[],
-): TripPlanningData {
-  const dates = buildTripDates(start, end);
-  const dayOptions = dates.length ? dates.map(dayLabel) : ["21일(금)", "22일(토)", "23일(일)"];
-  const dateOptions = dates.length ? dates.map(dateLabel) : ["8월 21일", "8월 22일", "8월 23일"];
-  const first = dateOptions[0];
-  const last = dateOptions[dateOptions.length - 1];
-  const lastDay = dayOptions[dayOptions.length - 1];
-  const [one = "하늘", two = one] = people;
-  return {
-    schedule: sampleSchedule(dayOptions, last),
-    stay: {
-      name: "달빛한옥",
-      checkin: `${first} ${기본_체크인_시각}`,
-      checkout: `${last} 11:00`,
-      address: "전주 완산구 은행로 12 달빛한옥",
-      placeId: "place-js-hotel",
-      showInSchedule: true,
-    },
-    places: initialPlaces,
-    reservations: [sampleReservation(dayOptions)],
-    transportations: [
-      { id: "sky-out", owner: one, direction: "가는 편", method: "KTX", date: dayOptions[0], departure: "대전", departureTime: "08:10", arrival: "전주", arrivalTime: "09:36", status: "예매 완료", showInSchedule: false },
-      { id: "sky-back", owner: one, direction: "오는 편", method: "KTX", date: lastDay, departure: "전주", departureTime: "20:15", arrival: "대전", arrivalTime: "21:41", status: "예매 완료", showInSchedule: false },
-      { id: "yeoul-out", owner: two, direction: "가는 편", method: "버스", date: dayOptions[0], departure: "청주", departureTime: "07:50", arrival: "전주", arrivalTime: "10:05", status: "예매 완료", showInSchedule: false },
-      { id: "yeoul-back", owner: two, direction: "오는 편", method: "버스", date: lastDay, departure: "전주", departureTime: "21:30", arrival: "청주", arrivalTime: "23:45", status: "예매 완료", showInSchedule: false },
-    ],
-    packingItems: packing.map((item) => ({ ...item, owner: normalizePackingOwner(item.owner, people) })),
-    packingDone: ["charger", "toiletries"],
-    recipes: initialRecipes.map((recipe) => ({
-      ...recipe,
-      ingredients: recipe.ingredients.map((item) => ({
-        ...item,
-        owner: item.owner === "하늘" ? one : item.owner === "여울" ? two : item.owner,
-      })),
-    })),
-    memories: (() => {
-      const seed = initialMemoryData(`${first} — ${last}`, true);
-      // 예시 사진도 여행의 실제 날짜 칸을 쓴다. "1일차" 로 두면 날짜를 고르는
-      // 자리에 없는 값이라 처음부터 목록 밖에 붙는다.
-      return { ...seed, photos: seed.photos.map((photo) => ({ ...photo, date: matchTripDay(photo.date, dayOptions) })) };
-    })(),
-    tripNotes: [
-      { id: "memo-meal", author: `${two} · 오늘 10:42`, body: "육수 재료는 미리 1.5배로 준비하기" },
-      { id: "memo-booking", author: `${one} · 어제 22:15`, body: "소나기식당 수요일 19:00 예약 확인" },
-    ],
-    hasKitchen: true,
-  };
-}
 
 export function WarmTripDetail({
   done,
@@ -7430,225 +6654,6 @@ function Preparation({
   );
 }
 
-type CookingItem = {
-  id: string;
-  name: string;
-  quantity: string;
-  group: string;
-  owner: string;
-};
-type Recipe = {
-  id: string;
-  name: string;
-  note: string;
-  url?: string;
-  ingredients: CookingItem[];
-};
-
-/** 현지에서 사 온다는 표시. 사람이 아니라서 참가자 목록 밖에 둔다. */
-const COOKING_BUY = "구매";
-const COOKING_UNASSIGNED = "미정";
-
-/** 재료를 누가 챙기는지 고를 수 있는 것들. */
-const cookingOwnerOptions = (participants: string[]) => [
-  COOKING_UNASSIGNED,
-  ...participants,
-  COOKING_BUY,
-];
-
-/**
- * GPT 가 돌려준 줄을 요리와 재료로 읽는다.
- *
- * "요리 | 이름 | 메모 | 링크" 와 "재료 | 이름 | 양 | 묶음 | 담당" 두 가지만 읽고
- * 나머지 줄은 버린다. 넣기 전에 몇 개가 읽혔는지 미리 세어 보여주려고 컴포넌트
- * 밖으로 꺼냈다. 같은 함수가 미리 읽기와 실제 추가에 함께 쓰인다.
- */
-function parseAiRecipes(text: string, newId: () => string): Recipe[] {
-  const parsed: Recipe[] = [];
-  let currentRecipe: Recipe | null = null;
-  text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .forEach((line) => {
-      const [type, ...values] = line.split("|").map((value) => value.trim());
-      if (type === "요리" && values[0]) {
-        currentRecipe = {
-          id: newId(),
-          name: values[0],
-          note: values[1]?.trim() ?? "",
-          url: values[2] || "",
-          ingredients: [],
-        };
-        parsed.push(currentRecipe);
-        return;
-      }
-      if (type === "재료" && values[0] && currentRecipe) {
-        currentRecipe.ingredients.push({
-          id: newId(),
-          name: values[0],
-          quantity: values[1] || "미정",
-          group: values[2] || "기본",
-          // 담당은 참가자 이름이거나 구매다. 모르는 값이면 미정으로 둔다.
-          owner: values[3] || COOKING_UNASSIGNED,
-        });
-      }
-    });
-  return parsed;
-}
-
-const initialRecipes: Recipe[] = [
-    {
-      id: "mille",
-      name: "버섯전골",
-      note: "첫날 저녁 · 숙소에서",
-      url: "https://www.youtube.com/results?search_query=버섯전골+레시피",
-      ingredients: [
-        {
-          id: "c1",
-          name: "배추",
-          quantity: "1/4통",
-          group: "기본",
-          owner: "구매",
-        },
-        {
-          id: "c2",
-          name: "깻잎",
-          quantity: "20장",
-          group: "기본",
-          owner: "여울",
-        },
-        {
-          id: "c3",
-          name: "소고기",
-          quantity: "250g",
-          group: "기본",
-          owner: "구매",
-        },
-        {
-          id: "c4",
-          name: "코인육수",
-          quantity: "2개",
-          group: "육수",
-          owner: "여울",
-        },
-        {
-          id: "c5",
-          name: "양파",
-          quantity: "1/2개",
-          group: "소스",
-          owner: "하늘",
-        },
-        {
-          id: "c6",
-          name: "고추냉이",
-          quantity: "조금",
-          group: "소스",
-          owner: "미정",
-        },
-      ],
-    },
-    {
-      id: "clam",
-      name: "바지락 술찜",
-      note: "둘째 날 저녁 · 간단한 안주",
-      url: "https://www.youtube.com/results?search_query=바지락+술찜+레시피",
-      ingredients: [
-        {
-          id: "clam-1",
-          name: "바지락",
-          quantity: "500g",
-          group: "기본",
-          owner: "구매",
-        },
-        {
-          id: "clam-2",
-          name: "마늘",
-          quantity: "6알",
-          group: "기본",
-          owner: "하늘",
-        },
-        {
-          id: "clam-3",
-          name: "버터",
-          quantity: "20g",
-          group: "소스",
-          owner: "여울",
-        },
-        {
-          id: "clam-4",
-          name: "화이트와인",
-          quantity: "100ml",
-          group: "소스",
-          owner: "구매",
-        },
-        {
-          id: "clam-5",
-          name: "페페론치노",
-          quantity: "3개",
-          group: "양념",
-          owner: "하늘",
-        },
-      ],
-    },
-    {
-      id: "toast",
-      name: "프렌치토스트",
-      note: "마지막 날 아침 · 체크아웃 전에",
-      url: "https://www.youtube.com/results?search_query=프렌치토스트+레시피",
-      ingredients: [
-        {
-          id: "toast-1",
-          name: "식빵",
-          quantity: "4장",
-          group: "기본",
-          owner: "구매",
-        },
-        {
-          id: "toast-2",
-          name: "달걀",
-          quantity: "2개",
-          group: "반죽",
-          owner: "구매",
-        },
-        {
-          id: "toast-3",
-          name: "우유",
-          quantity: "150ml",
-          group: "반죽",
-          owner: "여울",
-        },
-        {
-          id: "toast-4",
-          name: "메이플 시럽",
-          quantity: "1병",
-          group: "토핑",
-          owner: "하늘",
-        },
-        {
-          id: "toast-5",
-          name: "딸기",
-          quantity: "1팩",
-          group: "토핑",
-          owner: "구매",
-        },
-      ],
-    },
-];
-
-/**
- * 요리를 골랐을 때 접어 둘 재료 묶음.
- *
- * 예전에는 늘 전부 접어서, 메뉴 카드를 누른 직후 화면에 재료가 하나도 없었다.
- * 뭘 눌렀는지 알 수 없고 묶음이 셋이면 매번 세 번을 더 눌러야 한다.
- * 한 화면에 들어갈 만큼 짧으면 펴 두고, 길 때만 접는다.
- */
-const collapsedGroupsFor = (recipe?: Recipe) => {
-  const items = recipe?.ingredients ?? [];
-  const groups = Array.from(new Set(items.map((item) => item.group)));
-  return groups.length > 2 && items.length > 9 ? groups : [];
-};
-
 function Cooking({
   recipes,
   setRecipes,
@@ -12596,27 +11601,6 @@ function TimeRow({
 }
 
 
-function mergeStayDateTime(
-  saved: string,
-  part: "date" | "time",
-  value: string,
-  fallbackDate: string,
-  fallbackTime: string,
-): string {
-  const savedTime = saved.match(/\d{1,2}:\d{2}$/)?.[0];
-  const savedDate = saved.replace(/\s*\d{1,2}:\d{2}$/, "").trim();
-  const nextDate = part === "date" ? value : savedDate || fallbackDate;
-  const nextTime = part === "time" ? value : savedTime || fallbackTime;
-  return `${nextDate} ${nextTime}`;
-}
-
-/** 체크인·체크아웃 문자열을 여행 첫날 0시부터의 분으로 바꾼다. 못 읽으면 -1 이다. */
-function stayMomentOf(value: string, dates: string[]): number {
-  const dateIndex = dates.findIndex((date) => value.startsWith(date));
-  const time = value.match(/(\d{1,2}):(\d{2})$/);
-  return dateIndex < 0 || !time ? -1 : dateIndex * 1440 + Number(time[1]) * 60 + Number(time[2]);
-}
-
 /**
  * 뒤 시각이 앞 시각보다 빨라지는 순간 한 번 알린다.
  *
@@ -12637,15 +11621,6 @@ function useOrderWarning(볼_때인가: boolean, 제대로인가: boolean, 제�
     if (앞서_제대로였나.current && !제대로인가) showAlert(제목, 설명);
     앞서_제대로였나.current = 제대로인가;
   }, [볼_때인가, 제대로인가, 제목, 설명]);
-}
-
-/** 「09:30」을 분으로. 읽을 수 없으면 `null`. */
-function 시각을_분으로(value: string): number | null {
-  const 맞음 = value.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!맞음) return null;
-  const 시 = Number(맞음[1]);
-  const 분 = Number(맞음[2]);
-  return 시 <= 23 && 분 <= 59 ? 시 * 60 + 분 : null;
 }
 
 /**

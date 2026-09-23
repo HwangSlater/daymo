@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { reservationCodec, transportCodec, type AppReservation, type AppTransport } from "./bookingSync.ts";
-import { bodyKey, hasWork, planListSync, tripDateKeys, type Confirmed } from "./listSync.ts";
+import { bodyKey, hasWork, planListSync, type Confirmed } from "./listSync.ts";
+import { tripDateKeys } from "./dates.ts";
 
 const A = "11111111-1111-4111-8111-111111111111";
 // 2026-10-01 은 목요일이다.

@@ -93,7 +93,7 @@ export function memoPaper(dark: boolean) {
 // 다른 색과 같은 명도로 내린 결과 갈색에 가까워진다. 의도한 절충이다.
 // ---------------------------------------------------------------------------
 
-export type DomainId = "place" | "stay" | "packing" | "cooking" | "record";
+type DomainId = "place" | "stay" | "packing" | "cooking" | "record";
 
 const domainPalette = {
   place: {

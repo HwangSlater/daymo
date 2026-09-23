@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { bodyKey, hasWork, mergeListOnOpen, planListSync, tripDateKeys, type Confirmed } from "./listSync.ts";
+import { bodyKey, hasWork, mergeListOnOpen, planListSync, type Confirmed } from "./listSync.ts";
+import { tripDateKeys } from "./dates.ts";
 import { scheduleCodec, stayCodec, type AppScheduleItem, type AppStay } from "./scheduleSync.ts";
 
 const A = "11111111-1111-4111-8111-111111111111";

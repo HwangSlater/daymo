@@ -14,10 +14,10 @@
  */
 
 /** 이 줄이 놓인 자리. 고르는 것이 사진인지 카드인지이기도 하다. */
-export type CoverSpot = "photo" | "card";
+type CoverSpot = "photo" | "card";
 
 /** 지금 홈 화면에 깔려 있는 것. 아무것도 없으면 `undefined` 다. */
-export type CoverNow = {
+type CoverNow = {
   kind: CoverSpot;
   id: string;
   /** 사진 설명이나 카드 이름. 없으면 종류로만 부른다. */
@@ -46,7 +46,7 @@ const 이것: Record<CoverSpot, string> = { photo: "이 사진을", card: "이 �
 /** 내려가는 것을 부르는 말. 이름을 모를 때 쓴다. */
 const 그것: Record<CoverSpot, string> = { photo: "전에 설정한 사진", card: "전에 설정한 카드" };
 
-export type CoverToggle = {
+type CoverToggle = {
   /** 이것이 지금 홈 화면에 깔려 있는지. */
   on: boolean;
   /** 누르면 서버로 보낼 값. `null` 이면 해제다. */

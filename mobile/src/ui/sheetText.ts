@@ -7,7 +7,7 @@
  * react-native 를 가져오지 않으므로 `node --test` 로 바로 시험한다.
  */
 
-export type SubmitLabelInput = {
+type SubmitLabelInput = {
   /** 고칠 수 없는 사람에게 연 시트. 저장 대신 닫기만 남는다. */
   locked: boolean;
   /** `onSubmit` 이 끝나기를 기다리는 중. */
@@ -30,7 +30,7 @@ export function submitLabelOf({ locked, submitting, submit, busyLabel }: SubmitL
   return submit;
 }
 
-export type HintInput = {
+type HintInput = {
   locked: boolean;
   /** 잠긴 시트에서 왜 고칠 수 없는지. */
   lockedHint: string;

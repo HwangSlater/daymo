@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { expenseCodec, paymentCodec, UNKNOWN_PERSON } from "./expenseSync.ts";
-import { bodyKey, hasWork, planListSync, tripDateKeys, type Confirmed } from "./listSync.ts";
+import { bodyKey, hasWork, planListSync, type Confirmed } from "./listSync.ts";
+import { tripDateKeys } from "./dates.ts";
 import type { Expense } from "./tripExpenses.ts";
 
 const A = "11111111-1111-4111-8111-111111111111";

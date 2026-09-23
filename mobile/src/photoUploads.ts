@@ -41,13 +41,13 @@ export type PhotoUploadJob = {
  * `알림` 은 보내는 쪽이 쥐여 주는 두 가지다. `진행` 은 0~1 로 얼마나 갔는지,
  * `끊기` 는 지금 보내는 것을 중간에 끊는 길이다. 둘 다 없어도 된다.
  */
-export type PhotoUploadSend<R> = (
+type PhotoUploadSend<R> = (
   job: PhotoUploadJob,
   알림?: { 진행: (비율: number) => void; 끊기: (멈춰: () => void) => void },
 ) => Promise<R>;
 
 /** 화면이 진행 줄을 그리는 데 필요한 것 전부. */
-export type PhotoUploadState = {
+type PhotoUploadState = {
   /** 이번 묶음에 넣은 사진 수. 다 끝나면 0 으로 돌아가 줄이 걷힌다. */
   total: number;
   /** 그중 올라간 수. */
@@ -141,7 +141,7 @@ const messageOf = (error: unknown) =>
     ? (error as { message: string }).message
     : "사진을 올리지 못했어요.");
 
-export type PhotoUploads<R> = {
+type PhotoUploads<R> = {
   /** 이 사진들을 줄에 넣는다. 이미 줄에 있거나 올라갔거나 멈춘 사진은 지나간다. */
   add: (jobs: readonly PhotoUploadJob[], send: PhotoUploadSend<R>) => void;
   /**

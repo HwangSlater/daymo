@@ -13,19 +13,19 @@
 import { money } from "./tripExpenses.ts";
 
 /** 내보낼 때 읽는 기록의 칸. 화면의 `TripPlanningData` 중 쓰는 것만. */
-export type ExportPlace = {
+type ExportPlace = {
   name: string;
   category?: string;
   area?: string;
   address?: string;
   tags?: readonly string[];
 };
-export type ExportScheduleItem = { date?: string; time?: string; title: string; note?: string };
-export type ExportStay = { name?: string; checkin?: string; checkout?: string; address?: string };
-export type ExportPackingItem = { id: string; name: string; quantity?: string; owner?: string };
-export type ExportIngredient = { name: string; quantity?: string; group?: string; owner?: string };
-export type ExportRecipe = { name: string; note?: string; url?: string; ingredients?: readonly ExportIngredient[] };
-export type ExportExpense = {
+type ExportScheduleItem = { date?: string; time?: string; title: string; note?: string };
+type ExportStay = { name?: string; checkin?: string; checkout?: string; address?: string };
+type ExportPackingItem = { id: string; name: string; quantity?: string; owner?: string };
+type ExportIngredient = { name: string; quantity?: string; group?: string; owner?: string };
+type ExportRecipe = { name: string; note?: string; url?: string; ingredients?: readonly ExportIngredient[] };
+type ExportExpense = {
   day?: string;
   title: string;
   amount: number;
@@ -35,12 +35,12 @@ export type ExportExpense = {
   /** 정산에서 뺀 지출. 줄은 남기고 총 지출에만 안 든다. */
   excluded?: boolean;
 };
-export type ExportPayment = { from: string; to: string; amount: number };
-export type ExportNote = { author?: string; body: string };
-export type ExportDiary = { title?: string; date?: string; body?: string };
-export type ExportPhoto = { date?: string; caption?: string };
+type ExportPayment = { from: string; to: string; amount: number };
+type ExportNote = { author?: string; body: string };
+type ExportDiary = { title?: string; date?: string; body?: string };
+type ExportPhoto = { date?: string; caption?: string };
 
-export type ExportPlanning = {
+type ExportPlanning = {
   stay?: ExportStay;
   schedule?: readonly ExportScheduleItem[];
   places?: readonly ExportPlace[];

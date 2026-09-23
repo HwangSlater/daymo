@@ -37,7 +37,7 @@ export function uniqueNames(names: readonly string[]): string[] {
 export type PeopleNames = Record<string, string>;
 
 /** 기록이 쓰는 사람 칸만 본다. 나머지 칸은 그대로 지나간다. */
-export type PeoplePlanning = {
+type PeoplePlanning = {
   participants?: string[];
   packingItems?: { owner: string }[];
   recipes?: { ingredients: { owner: string }[] }[];

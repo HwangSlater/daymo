@@ -126,7 +126,7 @@ export function useSyncTrouble(): SyncTrouble {
   );
 }
 
-export type ListApi<B, S extends ServerRow> = {
+type ListApi<B, S extends ServerRow> = {
   list: (tripId: string) => Promise<S[]>;
   create: (tripId: string, id: string, body: B) => Promise<S>;
   update: (id: string, version: number, body: B) => Promise<S>;

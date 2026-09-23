@@ -43,7 +43,7 @@ import type { Expense } from "./tripExpenses.ts";
 import type { RosterEntry } from "./tripSync.ts";
 
 /** 기기 기록의 요리(화면의 `Recipe`). 재료의 `준비 완료` 는 목록 밖에 따로 있다. */
-export type CachedRecipe = {
+type CachedRecipe = {
   id: string;
   name: string;
   note: string;
@@ -81,7 +81,7 @@ export type CachedTripLists = {
   reservationSyncIds?: readonly string[];
 };
 
-export type PrefetchTrip = {
+type PrefetchTrip = {
   id?: string;
   /** 앱이 들고 있는 예시 여행. 서버에 없어 받을 것이 없다. */
   sample?: boolean;
@@ -186,7 +186,7 @@ export type FetchedTripLists = {
 };
 
 /** 기기 기록에 덧씌울 칸들. 화면의 `TripPlanningData` 에 그대로 펼쳐 넣는다. */
-export type PrefetchedLists = {
+type PrefetchedLists = {
   places: AppPlace[];
   placeSyncIds: string[];
   schedule: AppScheduleItem[];

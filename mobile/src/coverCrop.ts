@@ -29,7 +29,7 @@ export const COVER_ZOOM_MAX = 4;
 export type Box = { width: number; height: number };
 
 /** 그릴 자리. 틀 왼쪽 위를 0,0 으로 본 사진의 자리와 크기다. */
-export type CoverLayout = { left: number; top: number; width: number; height: number };
+type CoverLayout = { left: number; top: number; width: number; height: number };
 
 const 사이 = (값: number, 작은: number, 큰: number) => Math.min(큰, Math.max(작은, 값));
 

@@ -51,8 +51,6 @@ export const typo = {
   caption: { size: 11, family: fonts.text, weight: "400", line: 16 },
 } as const;
 
-export type TypeRole = keyof typeof typo;
-
 /** expo-font의 useFonts에 넘길 목록. */
 export const fontAssets = {
   [fonts.display]: require("../../assets/fonts/CookieRun-Bold.ttf"),

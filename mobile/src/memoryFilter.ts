@@ -14,7 +14,7 @@ export const MEMORY_FILTERS = ["전체", "사진", "카드"] as const;
 export type MemoryFilter = (typeof MEMORY_FILTERS)[number];
 
 /** 칩 하나. `label` 은 이미 수까지 붙인 말이라 그리는 쪽은 그대로 적으면 된다. */
-export type MemoryFilterChip = {
+type MemoryFilterChip = {
   key: MemoryFilter;
   label: string;
   /** 이 갈래에 든 수. 0이면 눌러도 빈 격자라 흐리게 그린다. */

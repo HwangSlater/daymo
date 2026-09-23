@@ -7,7 +7,8 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-import { dayLabelOf, isServerId, type Codec } from "./listSync.ts";
+import { isServerId, type Codec } from "./listSync.ts";
+import { dayLabelOf } from "./dates.ts";
 import { blank, safeUrl } from "./placeSync.ts";
 import type { RosterEntry } from "./tripSync.ts";
 

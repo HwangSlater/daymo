@@ -12,6 +12,7 @@ import { status as statusColor } from "./theme/colors";
 import { 높이, 모서리, 아이콘, 글자누름여유, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { DaymoApiError } from "./auth";
+import { dateLabelOf, todayKey } from "./dates";
 import { josa } from "./tripExpenses";
 import {
   createChecklistItem,
@@ -41,7 +42,7 @@ import {
 import type { RosterEntry } from "./tripSync";
 
 /** 채워 넣을 수 있는 여행 한 줄. 「여행」 탭이 들고 있는 것 그대로다. */
-export type NoticeImportTrip = {
+type NoticeImportTrip = {
   id: string;
   name: string;
   /** `9월 22일 — 9월 24일 · 2박 3일` */
@@ -56,18 +57,11 @@ const NO_DAY = "날짜 미정";
 /** 읽지 못한 줄을 모아 두는 메모의 첫 줄. 두 번 넣지 않으려고 이 말로 찾는다. */
 const LEFTOVER_MEMO_HEAD = "공지에서 읽지 못한 줄";
 
-const dayLabel = (key: string) => `${Number(key.slice(5, 7))}월 ${Number(key.slice(8, 10))}일`;
-
 type Stage = "붙여넣기" | "고치기" | "결과";
 
 const emptyDraft: NoticeDraft = {
   title: "", startDate: "", endDate: "", regionName: "",
   places: [], stays: [], transports: [], recipes: [], packing: [], schedule: [], memos: [], leftovers: [],
-};
-
-const todayKey = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 };
 
 /**
@@ -130,7 +124,7 @@ export function NoticeImportSheet({
 
   const trip = trips.find((item) => item.id === tripId);
   const dates = useMemo(() => (trip ? tripDates(trip.start, trip.end) : []), [trip]);
-  const dayChoices = useMemo(() => [...dates.map(dayLabel), NO_DAY], [dates]);
+  const dayChoices = useMemo(() => [...dates.map(dateLabelOf), NO_DAY], [dates]);
 
   const isOn = (key: string) => !off.has(key);
   const toggle = (key: string) =>
@@ -489,11 +483,11 @@ export function NoticeImportSheet({
               // 공지의 날짜가 이 여행 기간 밖이면 비어 있다. 여기서 고른다.
               days: {
                 choices: dayChoices,
-                value: item.date && dates.includes(item.date) ? dayLabel(item.date) : NO_DAY,
+                value: item.date && dates.includes(item.date) ? dateLabelOf(item.date) : NO_DAY,
                 onChange: (label: string) => setDraft((current) => ({
                   ...current,
                   schedule: current.schedule.map((row, at) => at === index
-                    ? { ...row, date: dates.find((key) => dayLabel(key) === label) ?? "" }
+                    ? { ...row, date: dates.find((key) => dateLabelOf(key) === label) ?? "" }
                     : row),
                 })),
               },

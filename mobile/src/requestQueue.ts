@@ -67,7 +67,7 @@ export function statusOf(error: unknown): number {
   return typeof found === "number" ? found : -1;
 }
 
-export type RequestQueue = {
+type RequestQueue = {
   /** `task` 를 줄에 세우고, 자리가 나면 부른다. 돌려주는 약속은 `task` 의 것과 같다. */
   run<T>(task: () => Promise<T>, options?: { background?: boolean }): Promise<T>;
   /** 지금 나가 있는 요청 수. */
@@ -155,7 +155,7 @@ function announceGiveUp(status: number, attempt: number) {
 
 const 기다린다 = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export type SendOptions = {
+type SendOptions = {
   /** 아무도 기다리지 않는 요청(미리 받기). 줄 맨 뒤에 선다. */
   background?: boolean;
   /** 두 번 보내도 같은 결과인 요청인지. 연결이 끊겼을 때 다시 보낼지를 가른다. */

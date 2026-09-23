@@ -178,7 +178,7 @@ function PaperPattern({ pattern, paper, unit }: { pattern: KeepsakePaperPattern;
  * 「기울인다」는 일과 손놀림이 전혀 달랐다. 스토리 편집기들이 다 그렇듯 고른
  * 스티커에 테두리와 손잡이를 붙이고, 모서리를 끌어 크기와 각도를 함께 바꾼다.
  */
-export type DecorEdit = {
+type DecorEdit = {
   /** 고른 것. 테두리와 손잡이가 보인다. */
   selectedId: string;
   /** 카드를 화면에 맞추려고 줄인 배(`fitScaleOf`). 손가락이 움직인 거리를 이만큼 나눈다. */
