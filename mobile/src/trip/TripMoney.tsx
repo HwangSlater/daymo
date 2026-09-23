@@ -733,6 +733,7 @@ export function Money({
           <Pressable
             onPress={openCurrency}
             disabled={!canEdit}
+            hitSlop={누름여유(높이.칩)}
             accessibilityRole="button"
             accessibilityLabel={`여행 통화 ${unit.code} ${unit.label}, 눌러서 바꾸기`}
             style={({ pressed }) => [
@@ -754,6 +755,7 @@ export function Money({
           <Pressable
             onPress={openPeople}
             disabled={!canEdit}
+            hitSlop={누름여유(높이.칩)}
             accessibilityRole="button"
             accessibilityLabel={`이번 여행 참가자 ${participants.length}명, 눌러서 바꾸기`}
             style={({ pressed }) => [
@@ -1668,7 +1670,7 @@ const styles = StyleSheet.create({
   amountStep: { minHeight: 높이.버튼, borderWidth: 1, borderColor: "transparent", borderRadius: 모서리.원, paddingHorizontal: 여백.가로, alignItems: "center", justifyContent: "center" },
   amountStepText: { fontSize: 14, fontFamily: typo.label.family },
   moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.원, paddingLeft: 여백.가로좁게, paddingRight: 9 },
+  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, height: 높이.칩, borderWidth: 1, borderRadius: 모서리.원, paddingLeft: 여백.가로좁게, paddingRight: 9 },
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
   moneyCurrencyValue: { fontSize: 13, fontFamily: typo.label.family },
   moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
