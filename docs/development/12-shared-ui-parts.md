@@ -74,6 +74,20 @@
 - 매번 쓰지 않는 칸은 `OptionalFormSection` 으로 접는다. 필수 칸은 접지 않는다. 수정으로 열 때 그 칸에 값이 있으면 열어 둔다.
 - 「지난 여행에서 가져오기」·지도 링크 붙여넣기 같은 **진입 상자**는 주 입력 위에 그대로 둔다. 입력이 아니라 다른 길로 가는 문이라서다.
 
+### 「다음」 키로 칸 잇기 (2026-09-23 검토 #17)
+
+`trip/parts.tsx` 의 `DetailField`·`PairedDetailField` 가 `returnKeyType`·`onSubmitEditing`·
+`inputRef`·`autoComplete`·`textContentType` 을 받는다. 칸을 들고 있는 쪽은
+`useRef<입력칸>`(`AppText` 가 이름을 붙여 둔다)만 만들면 된다.
+
+- 잇따라 채우는 칸은 `returnKeyType="next"` + `onSubmitEditing={() => 다음칸.current?.focus()}`.
+  `next` 인 칸은 부품이 스스로 `submitBehavior="submit"` 을 붙여 키보드를 내리지 않는다.
+- 마지막 칸만 `returnKeyType="done"` 이고, 저장할 수 있을 때만 저장을 부른다.
+- **여러 줄 칸(메모·설명·붙여넣기)에는 붙이지 않는다.** 줄바꿈 키가 사라진다.
+- **접혀 있는 칸으로는 넘기지 않는다.** 안 보이는 칸에 커서만 가면 어디에 적는지 알 수 없다.
+- 주소는 `autoComplete="street-address"`·`textContentType="fullStreetAddress"`, 링크는
+  `autoComplete="url"`·`textContentType="URL"` 로 OS 가 채워 줄 수 있게 한다.
+
 같은 날 `WarmAppShell.tsx` 의 창들(새 여행 시트와 「우리」 설정 안의 화면들)도 같은 틀로 맞췄다.
 
 - 새 여행 시트: 여행지 / 지역 · 기간 / 접힘: 한 줄 메모 / 함께 가는 사람. 여행 수정 시트와 같은 차례다.

@@ -30,6 +30,48 @@ export function packingKey(raw: string): string {
   return (words.length ? words : parts).join("");
 }
 
+/**
+ * 이름 여럿의 견줌 열쇠를 한 묶음으로 만든다.
+ *
+ * 빈 열쇠는 담지 않는다. 담으면 이름이 빈 줄끼리 서로 「비슷하다」로 걸린다.
+ */
+export function packingKeySet(names: readonly string[]): Set<string> {
+  const keys = new Set<string>();
+  for (const name of names) {
+    const key = packingKey(name);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+/** 열쇠 묶음 안에 비슷한 이름이 있는지. */
+export function hasSimilarPacking(name: string, keys: ReadonlySet<string>): boolean {
+  const key = packingKey(name);
+  return Boolean(key) && keys.has(key);
+}
+
+/**
+ * 재료마다 「이미 비슷한 준비물이 있는지」를 한 번에 센다(2026-09-23 검토 #60).
+ *
+ * 재료 불러오기 시트는 줄을 그릴 때마다 준비물 전체를 훑었다. 재료 500개 × 준비물
+ * 300개면 체크 하나 누를 때마다 15만 번이다. 재료와 준비물이 그대로인 동안은 이 지도를
+ * 다시 만들지 않고, 줄은 자기 id 로 답만 꺼내 본다.
+ *
+ * 답은 줄마다 세던 것과 같다 — 견줌 열쇠가 같은 준비물이 하나라도 있으면 참이다.
+ */
+export function markPackedIngredients(
+  recipes: readonly { ingredients: readonly { id: string; name: string }[] }[],
+  packedKeys: ReadonlySet<string>,
+): Map<string, boolean> {
+  const marks = new Map<string, boolean>();
+  for (const recipe of recipes) {
+    for (const ingredient of recipe.ingredients) {
+      marks.set(ingredient.id, hasSimilarPacking(ingredient.name, packedKeys));
+    }
+  }
+  return marks;
+}
+
 /** 한 번에 여러 줄을 적었을 때 같은 것을 하나로 줄인다. */
 export function dedupePackingNames(names: readonly string[]): string[] {
   const seen = new Set<string>();

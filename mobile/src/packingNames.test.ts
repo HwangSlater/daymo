@@ -5,8 +5,11 @@ import {
   dedupePackingNames,
   duplicateLines,
   findSimilarPacking,
+  hasSimilarPacking,
   ingredientOriginLabel,
+  markPackedIngredients,
   packingKey,
+  packingKeySet,
 } from "./packingNames.ts";
 
 const item = (id: string, name: string, owner = "미정") => ({ id, name, owner });
@@ -62,4 +65,38 @@ test("안내 본문은 이미 있는 줄을 담당과 함께 보여 준다", () 
 test("가져온 준비물의 출처는 이름이 달라졌을 때만 재료까지 보여 준다", () => {
   assert.equal(ingredientOriginLabel("버섯전골", "알배추", "알배추 1통"), "버섯전골 재료");
   assert.equal(ingredientOriginLabel("버섯전골", "알배추", "배추"), "버섯전골 · 알배추");
+});
+
+test("열쇠 묶음은 빈 이름을 담지 않는다", () => {
+  const keys = packingKeySet(["보조 배터리", "  ", "생수 2L"]);
+
+  assert.deepEqual([...keys].sort(), ["보조배터리", "생수"]);
+  assert.equal(hasSimilarPacking("보조배터리", keys), true);
+  assert.equal(hasSimilarPacking("물티슈", keys), false);
+  // 이름이 비면 견줄 것이 없다. 빈 줄끼리 비슷하다고 하지 않는다.
+  assert.equal(hasSimilarPacking("  ", keys), false);
+});
+
+test("재료 표시는 줄마다 세던 것과 답이 같다", () => {
+  const items = [item("p1", "보조 배터리"), item("p2", "생수 2L"), item("p3", "")];
+  const recipes = [
+    { ingredients: [{ id: "i1", name: "보조배터리" }, { id: "i2", name: "김치" }] },
+    { ingredients: [{ id: "i3", name: "생수" }, { id: "i4", name: "" }] },
+  ];
+  const marks = markPackedIngredients(recipes, packingKeySet(items.map((row) => row.name)));
+
+  assert.deepEqual(
+    [...marks],
+    [["i1", true], ["i2", false], ["i3", true], ["i4", false]],
+  );
+  // 줄마다 준비물 전체를 훑던 옛 셈과 견준다.
+  for (const recipe of recipes) {
+    for (const ingredient of recipe.ingredients) {
+      assert.equal(
+        marks.get(ingredient.id),
+        findSimilarPacking([ingredient.name], items).length > 0,
+        ingredient.id,
+      );
+    }
+  }
 });

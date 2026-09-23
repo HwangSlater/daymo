@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Chip } from "../ui/Chip";
 import { SyncMark } from "../SyncMarks";
 import {
@@ -17,16 +17,19 @@ import {
   duplicateLines,
   findSimilarPacking,
   ingredientOriginLabel,
+  markPackedIngredients,
   packingKey,
+  packingKeySet,
 } from "../packingNames";
 import { importMessage, planPackingImport } from "../pastTripImport";
+import { useAnnounce } from "../announce";
 import { PastTripEntry, PastTripList } from "../PastTripPicker";
 import { usePastPacking } from "../usePastTripRows";
 import type { RosterEntry } from "../tripSync";
 import { josa } from "../tripExpenses";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Text, TextInput } from "../AppText";
+import { Text, TextInput, type 입력칸 } from "../AppText";
 import { CheckBox } from "../ui/CheckBox";
 import { Glyph } from "../Glyph";
 import { showAlert } from "../showAlert";
@@ -51,7 +54,7 @@ import {
 
 /** 여행 상세의 「준비」 탭. 챙길 것과 메모를 사람별로 본다. */
 
-export function Preparation({
+export function TripPreparation({
   done,
   toggle,
   participants,
@@ -122,15 +125,15 @@ export function Preparation({
   const [cookingPicker, setCookingPicker] = useState(Boolean(openCookingPickerOnMount));
   const [selectedCookingItems, setSelectedCookingItems] = useState<string[]>([]);
   /**
-   * 이미 적어 둔 준비물의 견줌 열쇠(2026-09-23 검토 #60).
+   * 재료 불러오기 시트가 줄마다 보는 답(2026-09-23 검토 #60).
    *
-   * 재료 불러오기 시트는 줄마다 `findSimilarPacking` 으로 준비물 전체를 훑었다. 재료
-   * 500개 × 준비물 300개면 한 번 그릴 때 15만 번이다. 표를 한 번 만들어 쓴다.
+   * 줄마다 `findSimilarPacking` 으로 준비물 전체를 훑었다. 재료 500개 × 준비물 300개면
+   * 체크 하나 누를 때마다 15만 번이다. 재료와 준비물이 그대로인 동안은 지도를 다시
+   * 만들지 않고, 줄은 자기 id 로 답만 꺼내 본다.
    */
-  const packingKeys = useMemo(
-    // 빈 열쇠는 담지 않는다. 담으면 이름이 빈 줄끼리 「비슷하다」로 걸린다.
-    () => new Set(items.map((item) => packingKey(item.name)).filter(Boolean)),
-    [items],
+  const packedIngredients = useMemo(
+    () => markPackedIngredients(recipes, packingKeySet(items.map((item) => item.name))),
+    [items, recipes],
   );
   const [showCompleted, setShowCompleted] = useState(false);
   // 처음에는 분류와 남은 개수만 보여준다. 30개 항목을 한꺼번에 펼치면 사용자가
@@ -202,6 +205,23 @@ export function Preparation({
     editingId ?? undefined,
   );
   const newPackingCount = editingId ? Number(Boolean(parsedPackingNames[0])) : parsedPackingNames.length;
+  /**
+   * 이름을 적는 동안 갑자기 뜨는 중복 안내(2026-09-23 검토 #29).
+   *
+   * 줄에 붙여 둔 `accessibilityLiveRegion` 은 안드로이드만 듣는다. iOS VoiceOver 는
+   * live region 을 몰라, 손가락이 그 자리에 닿기 전에는 「이미 있어요」를 못 듣는다.
+   */
+  const packingDuplicateNotice = adding && packingHits.length
+    ? `이미 있어요 · ${duplicateLines(packingHits).join(", ")}`
+    : "";
+  useAnnounce(packingDuplicateNotice);
+  /**
+   * 「다음」 키로 옮겨 갈 칸(2026-09-23 검토 #17).
+   *
+   * 준비물 이름 칸은 새로 적을 때 여러 줄이라(한 번에 여러 개를 적는다) 「다음」을 붙이지
+   * 않는다. 고칠 때만 한 줄이 되고, 그때는 이름 하나로 끝이라 바로 저장으로 간다.
+   */
+  const packingTagRef = useRef<입력칸 | null>(null);
   const availableTags = managementTags.slice(1);
   const quickTags = Array.from(
     new Set([
@@ -1276,12 +1296,14 @@ export function Preparation({
           onChangeText={setNames}
           placeholder="예: 충전기, 안경, 갈아입을 옷"
           multiline={!editingId}
+          returnKeyType={editingId ? "done" : undefined}
+          onSubmitEditing={editingId ? submit : undefined}
         />
-        {packingHits.length > 0 && (
+        {packingDuplicateNotice ? (
           <Text accessibilityLiveRegion="polite" style={[styles.packingDuplicateHint, theme && { color: theme.muted }]}>
-            이미 있어요 · {duplicateLines(packingHits).join(", ")}
+            {packingDuplicateNotice}
           </Text>
-        )}
+        ) : null}
         <OptionField
           label="담당 (선택)"
           options={ownerSections}
@@ -1299,6 +1321,8 @@ export function Preparation({
             value={quantity}
             onChangeText={setQuantity}
             placeholder="예: 각 2개, 250g"
+            returnKeyType="next"
+            onSubmitEditing={() => packingTagRef.current?.focus()}
           />
           <View style={공용스타일.tagEditor}>
             <Text
@@ -1334,8 +1358,12 @@ export function Preparation({
               })}
             </View>
             <TextInput
+              ref={packingTagRef}
+              accessibilityLabel="태그"
               value={tagText}
               onChangeText={setTagText}
+              returnKeyType="done"
+              onSubmitEditing={submit}
               placeholder="쉼표로 구분 · 예: 전자기기, 출발 전, 숙소"
               placeholderTextColor={theme?.muted ?? "#9AA1AE"}
               style={[
@@ -1436,7 +1464,7 @@ export function Preparation({
             {recipe.ingredients.map((ingredient) => {
               const selected = selectedCookingItems.includes(ingredient.id);
               // 이미 비슷한 준비물이 있어도 고를 수 있게 둔다. 알리기만 한다.
-              const alreadyAdded = packingKeys.has(packingKey(ingredient.name));
+              const alreadyAdded = packedIngredients.get(ingredient.id) ?? false;
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -1853,3 +1881,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
+
+/**
+ * 옛 이름. `WarmTripDetail.tsx` 가 아직 이 이름으로 부른다.
+ * 부르는 쪽을 새 이름으로 바꾸면 이 줄을 지운다.
+ */
+export { TripPreparation as Preparation };

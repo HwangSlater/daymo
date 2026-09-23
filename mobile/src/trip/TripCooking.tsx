@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useRef, useState } from "react";
 import { Chip } from "../ui/Chip";
 import {
   COOKING_UNASSIGNED,
@@ -13,6 +13,7 @@ import {
 } from "../tripPlanning";
 import { type RecipeRow } from "../cookingSync";
 import { importMessage, planRecipeImport } from "../pastTripImport";
+import { useAnnounce } from "../announce";
 import { PastTripEntry, PastTripList } from "../PastTripPicker";
 import { usePastRecipes } from "../usePastTripRows";
 import type { RosterEntry } from "../tripSync";
@@ -20,7 +21,7 @@ import type { RosterEntry } from "../tripSync";
 import { josa, parseAmount, currencyOf } from "../tripExpenses";
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Text, TextInput } from "../AppText";
+import { Text, TextInput, type 입력칸 } from "../AppText";
 import { CheckBox } from "../ui/CheckBox";
 import { EmptyState as SharedEmptyState } from "../ui/EmptyState";
 import { Glyph } from "../Glyph";
@@ -48,7 +49,7 @@ import {
 
 /** 여행 상세의 「요리」 탭. 해 먹을 것과 장 볼 것을 본다. */
 
-export function Cooking({
+export function TripCooking({
   recipes,
   setRecipes,
   readyIngredientIds,
@@ -158,6 +159,12 @@ export function Cooking({
     (item) => item.id !== editingIngredient?.id && item.name.trim().toLowerCase() === name.trim().toLowerCase(),
   );
   const ingredientFormValid = Boolean(name.trim()) && !duplicateIngredient;
+  /**
+   * 「다음」 키로 옮겨 갈 칸(2026-09-23 검토 #17). 접혀 있는 칸과 여러 줄 칸에는 붙이지
+   * 않는다 — 안 보이는 칸으로 커서가 가거나 줄바꿈 키가 사라진다.
+   */
+  const ingredientQuantityRef = useRef<입력칸 | null>(null);
+  const recipeUrlRef = useRef<입력칸 | null>(null);
   const duplicateRecipe = recipes.some(
     (recipe) => recipe.id !== (editingRecipe ? activeRecipe?.id : undefined) && recipe.name.trim().toLowerCase() === recipeName.trim().toLowerCase(),
   );
@@ -306,6 +313,16 @@ export function Cooking({
   // 버튼을 누르던 것이 이 흐름에서 가장 불안한 대목이었다.
   const aiParsed: Recipe[] = useMemo(() => parseAiRecipes(aiResult, () => ""), [aiResult]);
   const aiIngredientCount = aiParsed.reduce((sum, recipe) => sum + recipe.ingredients.length, 0);
+  /**
+   * 붙여넣은 글에서 무엇을 읽었는지 알리는 줄. 비어 있을 때의 안내는 늘 떠 있으니 읽지
+   * 않고, 붙여넣은 뒤에 바뀌는 결과와 「못 읽었어요」만 읽어 준다(2026-09-23 검토 #29).
+   */
+  const aiReadNotice = !aiResult.trim()
+    ? ""
+    : aiParsed.length
+      ? `요리 ${aiParsed.length}개와 재료 ${aiIngredientCount}개를 읽었어요. ${aiParsed.map((recipe) => recipe.name).join(", ")}`
+      : "요리 줄을 찾지 못했어요. 각 줄이 ‘요리 |’ 나 ‘재료 |’ 로 시작하는지 확인해 주세요.";
+  useAnnounce(aiReadNotice);
   const copyCookingPrompt = async () => {
     await Clipboard.setStringAsync(cookingPrompt);
     notify("프롬프트를 복사했어요");
@@ -998,12 +1015,17 @@ export function Cooking({
           value={name}
           onChangeText={setName}
           placeholder="예: 팽이버섯"
+          returnKeyType="next"
+          onSubmitEditing={() => ingredientQuantityRef.current?.focus()}
         />
         <DetailField
           label="수량 (선택)"
           value={quantity}
           onChangeText={setQuantity}
           placeholder="예: 1봉"
+          inputRef={ingredientQuantityRef}
+          returnKeyType="done"
+          onSubmitEditing={() => ingredientFormValid && addIngredient()}
         />
         <OptionField
           label="담당 (선택)"
@@ -1044,8 +1066,11 @@ export function Cooking({
               )}
             </View>
             <TextInput
+              accessibilityLabel="분류 직접 입력"
               value={group}
               onChangeText={setGroup}
+              returnKeyType="done"
+              onSubmitEditing={() => ingredientFormValid && addIngredient()}
               placeholder="직접 입력 · 예: 유제품"
               placeholderTextColor={theme?.muted ?? "#9AA1AE"}
               style={[
@@ -1137,6 +1162,8 @@ export function Cooking({
           value={recipeName}
           onChangeText={setRecipeName}
           placeholder="예: 김치볶음밥"
+          returnKeyType="done"
+          onSubmitEditing={() => recipeFormValid && addRecipe()}
         />
         <OptionalFormSection
           label="메모 · 레시피 링크"
@@ -1149,6 +1176,8 @@ export function Cooking({
             value={recipeNote}
             onChangeText={setRecipeNote}
             placeholder="예: 둘째 날 아침 · 남은 재료 활용"
+            returnKeyType="next"
+            onSubmitEditing={() => recipeUrlRef.current?.focus()}
           />
           <DetailField
             label="레시피 링크 (선택)"
@@ -1156,6 +1185,11 @@ export function Cooking({
             onChangeText={setRecipeUrl}
             placeholder="예: https://youtu.be/…"
             maxLength={2048}
+            autoComplete="url"
+            textContentType="URL"
+            inputRef={recipeUrlRef}
+            returnKeyType="done"
+            onSubmitEditing={() => recipeFormValid && addRecipe()}
           />
         </OptionalFormSection>
         </>)}
@@ -1230,12 +1264,11 @@ export function Cooking({
           placeholder={"요리 | 김치볶음밥 | 둘째 날 아침 | https://youtu.be/...\n재료 | 김치 | 1컵 | 기본 | 구매"}
         />
         {/* 읽힌 결과를 넣기 전에 보여준다. 형식이 어긋나면 여기서 바로 안다. */}
-        <Text style={[공용스타일.settingHint, theme && { color: aiResult.trim() && !aiParsed.length ? theme.accent : theme.muted }]}>
-          {!aiResult.trim()
-            ? "여러 요리와 각 재료가 한 번에 추가돼요."
-            : aiParsed.length
-              ? `요리 ${aiParsed.length}개와 재료 ${aiIngredientCount}개를 읽었어요. ${aiParsed.map((recipe) => recipe.name).join(", ")}`
-              : "요리 줄을 찾지 못했어요. 각 줄이 ‘요리 |’ 나 ‘재료 |’ 로 시작하는지 확인해 주세요."}
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[공용스타일.settingHint, theme && { color: aiResult.trim() && !aiParsed.length ? theme.accent : theme.muted }]}
+        >
+          {aiReadNotice || "여러 요리와 각 재료가 한 번에 추가돼요."}
         </Text>
       </DetailSheet>
       <DetailSheet
@@ -1548,3 +1581,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
+
+/**
+ * 옛 이름. `WarmTripDetail.tsx` 가 아직 이 이름으로 부른다.
+ * 부르는 쪽을 새 이름으로 바꾸면 이 줄을 지운다.
+ */
+export { TripCooking as Cooking };
