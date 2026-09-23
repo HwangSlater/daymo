@@ -55,8 +55,17 @@ test("칩과 서버 갈래가 서로를 빠짐없이 덮는다", () => {
   // 갈래마다 적을 말이 있어야 한다. 없으면 목록에 이름 없는 줄이 뜬다.
   for (const type of SEARCH_TYPES) {
     assert.ok(SEARCH_KIND_LABEL[type], `${type} 에 적을 말이 없다`);
-    assert.ok(SEARCH_CHIPS.includes(SEARCH_KIND_LABEL[type] as (typeof SEARCH_CHIPS)[number]));
   }
+  // 여행은 거르는 칩이 없다 — 여행 이름으로 걸린 줄은 「전체」에만 보인다. 그 밖의
+  // 갈래는 모두 칩 하나가 덮어야 한다. 아니면 고를 수 없는 결과가 생긴다.
+  for (const type of SEARCH_TYPES) {
+    if (type === "trip") continue;
+    assert.ok(
+      SEARCH_CHIPS.includes(SEARCH_KIND_LABEL[type] as (typeof SEARCH_CHIPS)[number]),
+      `${type} 를 고를 칩이 없다`,
+    );
+  }
+  assert.ok(!SEARCH_CHIPS.includes("여행" as (typeof SEARCH_CHIPS)[number]));
   // 「전체」 말고는 모든 칩이 갈래 하나 이상을 덮는다.
   for (const chip of SEARCH_CHIPS) {
     if (chip === "전체") continue;

@@ -68,7 +68,12 @@ export const SEARCH_KIND_LABEL: Record<SearchType, string> = {
 };
 
 /** 분류 칩에 적히는 말. 맨 앞의 「전체」는 갈래를 고르지 않은 것이다. */
-export const SEARCH_CHIPS = ["전체", "여행", "장소", "일정", "요리", "준비", "비용", "기록"] as const;
+/*
+ * 화면 위 칩. 「여행」 칩은 두지 않는다 — 여행 이름으로 찾은 줄은 「전체」에만 보인다.
+ * 원래 이 화면의 칩이 일곱이었고, 여행은 거르는 갈래가 아니라 결과가 딸린 자리였다.
+ * 칩이 여덟이 되면 한 줄에 안 들어가 가로로 밀린다.
+ */
+export const SEARCH_CHIPS = ["전체", "장소", "일정", "요리", "준비", "비용", "기록"] as const;
 export type SearchChip = (typeof SEARCH_CHIPS)[number];
 
 /**
@@ -310,7 +315,12 @@ export function filterByChip(rows: readonly SearchRow[], chip: SearchChip): Sear
 /** 칩 하나에 적을 말과 수. `label` 은 그대로 칩에 적는다. */
 export type SearchChipCount = { label: SearchChip; count: number };
 
-/** 칩마다 몇 줄인지. 「전체」는 나머지의 합이다. */
+/**
+ * 칩마다 몇 줄인지.
+ *
+ * 「전체」는 나머지 칩의 합이 아니라 **모두**다. 여행 이름으로 걸린 줄은 칩이 없어서
+ * 「전체」에만 들어간다.
+ */
 export function searchChipCounts(rows: readonly SearchRow[]): SearchChipCount[] {
   return SEARCH_CHIPS.map((label) => ({ label, count: filterByChip(rows, label).length }));
 }
