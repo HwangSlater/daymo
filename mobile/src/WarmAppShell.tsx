@@ -49,6 +49,13 @@ import { TripDateRangePicker } from "./TripDateRangePicker";
 import { WarmTripDetail } from "./WarmTripDetail";
 import { sampleTrips } from "./sampleTrips";
 import { parseStoredTripData, storableTrips } from "./tripStorage";
+import {
+  latestTripFrom,
+  rosterOfSpace,
+  spaceFromServer,
+  tripForSummary,
+  tripFromServer,
+} from "./serverTrips";
 import type { Trip, TripDetailDestination, TripPlanningData } from "./tripPlanning";
 import { shouldRefetch } from "./listSync";
 import { SyncNotice } from "./SyncMarks";
@@ -77,9 +84,9 @@ import { Chip } from "./ui/Chip";
 import { EmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
-import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
+import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, type CoverFocus } from "./coverCrop";
 import { MEMO_COLOR, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
-import { dateKey, dateRangeLabel, daysSince, shiftDateKey, tripDateKeys } from "./dates";
+import { dateKey, daysSince, shiftDateKey, tripDateKeys } from "./dates";
 import { CalendarNoteSheet } from "./CalendarNoteSheet";
 import { FeedbackCard, FeedbackSheet } from "./FeedbackSheet";
 import { useFeedbackCardHidden } from "./feedback";
@@ -141,28 +148,22 @@ import {
   updateHomeCover,
   updateSpace,
   updateTrip,
-  type ExpenseSettings,
   type ServerSpace,
   type ServerTrip,
 } from "./serverData";
 import {
   canEditSpace,
   roleToServer,
-  formerMembersFromServer,
-  membersFromServer,
-  relationshipFromServer,
   roleFromServer,
   spacePatchFrom,
-  type ServerMemberInput,
   type SpaceChange,
 } from "./spaceMapping";
 import { appendServerTrips, mergeServerTripsByGroup } from "./tripMerge";
-import { toneOfTripId } from "./tripColor";
 import { shouldLoadMore } from "./tripPaging";
 import { homeSummaryOf, parseTripOverview, type ServerTripOverview } from "./tripOverview";
 import { downloadPhoto, isLivePhotoUri } from "./photoTransfer";
 import { homeCoverRows, keepsakeRowSlots } from "./tripCard";
-import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type LatestTrip, type RosterEntry } from "./tripSync";
+import { idsFromNames, namesFromIds, rosterOf, sameIds, TripConflictError, type RosterEntry } from "./tripSync";
 import { uniqueNames } from "./people";
 import { inviteTokenOf } from "./inviteLink";
 import { tripsToMarkdown } from "./tripExportText";
@@ -190,90 +191,11 @@ type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasP
 
 WebBrowser.maybeCompleteAuthSession();
 
-// 서버 공간을 앱의 공간으로 옮긴다. 멤버는 따로 받아 넘긴다.
-//
-// 함께한 날을 적지 않았으면 비워 둔다. 예전에는 오늘 날짜로 채웠는데, 그러면
-// 적지도 않은 날이 "함께한 지 1일째" 로 보였다.
-const spaceFromServer = (space: ServerSpace, members: ServerMemberInput[] = []): Space => ({
-  id: space.id,
-  name: space.name,
-  members: membersFromServer(members),
-  formerMembers: formerMembersFromServer(members),
-  relationship: relationshipFromServer(space.relationshipType),
-  relationshipType: space.relationshipType,
-  since: space.startedOn ?? "",
-  myRole: roleFromServer(space.myRole),
-  myMembershipId: members.find((member) => member.isMe)?.id,
-});
-
-/** 이 공간에서 이름과 membership id 를 오가는 표. 나는 앱이 쓰는 이름으로 들어간다. */
-const rosterOfSpace = (space: Space, myName: string): RosterEntry[] =>
-  rosterOf({ name: myName, membershipId: space.myMembershipId }, space.members, space.formerMembers);
-
-// 서버에 참가자가 정해져 있으면 이름으로 바꿔 기록(planning)의 참가자 칸에 둔다.
-// 비어 있으면 서버 약속대로 "공간 멤버 전원" 이라 칸을 비워 둔다. 상세 화면이
-// 비어 있는 칸을 멤버 전원으로 읽는다.
-const tripFromServer = (trip: ServerTrip, roster: RosterEntry[] = []): Trip => {
-  const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
-  const overview = parseTripOverview(trip.overview);
-  return {
-    id: trip.id,
-    version: trip.version,
-    name: trip.title,
-    date: dateRangeLabel(trip.startDate, trip.endDate),
-    note: trip.summary ?? "",
-    // 색은 목록의 몇 번째인지가 아니라 여행 id 로 정한다. 목록 차례로 정하면
-    // 기기마다, 목록을 다시 받을 때마다 같은 여행의 색이 달라진다.
-    tone: toneOfTripId(trip.id),
-    mark: trip.startDate.slice(5, 7),
-    region: trip.regionName ?? "지역 미정",
-    start: trip.startDate,
-    end: trip.endDate,
-    ...(participants.length ? { planning: { participants } } : {}),
-    ...(overview ? { overview } : {}),
-    serverExpenseSettings: expenseSettingsFrom(trip),
-    // 해제한 것도 반영돼야 해서 없을 때도 싣는다(`...` 로 감추면 옛 값이 남는다).
-    coverPhotoId: trip.coverPhotoId ?? undefined,
-    coverCardId: trip.coverCardId ?? undefined,
-    coverPhotoIds: trip.coverPhotoIds ?? [],
-    coverCardStyle: trip.coverCardStyle ?? undefined,
-    coverFocus: tidyFocus({ x: trip.coverFocusX ?? undefined, y: trip.coverFocusY ?? undefined, zoom: trip.coverZoom ?? undefined }),
-    archived: trip.status === "archived",
-    ...(trip.deletionScheduledAt ? { deletionScheduledAt: trip.deletionScheduledAt } : {}),
-  };
-};
-
-/** 홈 카드 숫자를 셀 때 넘기는 칸. */
-const tripForSummary = (trip: Trip) => ({
-  overview: trip.overview,
-  planning: trip.planning,
-  serverCurrency: trip.serverExpenseSettings?.currency,
-});
-
 // 상세를 닫고 요약을 다시 받기까지 기다리는 시간. 닫으며 보낸 변경이 먼저 닿게 한다.
 const OVERVIEW_REFRESH_MS = 2500;
 
 /** 새 여행의 기본 마지막 날. 오늘부터 이틀 뒤(2박 3일)다. */
 const 기본_마지막_날 = (오늘_키: string) => shiftDateKey(오늘_키, 2);
-
-const expenseSettingsFrom = (trip: ServerTrip): ExpenseSettings => ({
-  currency: trip.currencyCode ?? "KRW",
-  exchangeRate: trip.exchangeRate == null ? 1 : Number(trip.exchangeRate),
-  budget: trip.budget == null ? 0 : Number(trip.budget),
-  simplifySettlement: trip.simplifySettlement ?? true,
-});
-
-const latestTripFrom = (trip: ServerTrip, roster: RosterEntry[]): LatestTrip => {
-  const participants = namesFromIds(trip.participantMembershipIds ?? [], roster);
-  return {
-    name: trip.title,
-    start: trip.startDate,
-    end: trip.endDate,
-    region: trip.regionName ?? "지역 미정",
-    note: trip.summary ?? "",
-    ...(participants.length ? { participants } : {}),
-  };
-};
 
 /**
  * 처음 그릴 때의 여행 목록. 비어 있다.
