@@ -681,6 +681,14 @@ export function PhotoViewerScreen({
     줌.y.setValue(0);
   }, [지금칸, slideX, slideY, 줌]);
 
+  /**
+   * 필름 스트립에서 지금 보이는 첫 칸. 여기서 앞뒤로 조금만 그린다.
+   *
+   * 전에는 사진을 **전부** `Image` 로 그렸다. 여행에 200장이 있으면 크게 보기를 열
+   * 때마다 200장을 얹었다(2026-09-23 검토 #60). 칸 크기가 고정이라 안 그린 자리도
+   * 자리는 그대로 차지해서, 스크롤 자리는 어긋나지 않는다.
+   */
+  const [스트립_첫칸, set스트립_첫칸] = useState(0);
   // 필름 스트립이 지금 보는 사진을 늘 화면에 두게 한다. 스무 장쯤 되면 화살표로
   // 넘길수록 지금 사진이 줄 밖으로 밀려나 어디쯤인지 알 수 없다.
   useEffect(() => {
@@ -947,8 +955,18 @@ export function PhotoViewerScreen({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.strip}
               accessibilityLabel={`여행 사진 ${photos.length}장`}
+              scrollEventThrottle={64}
+              onScroll={(event) => {
+                const 칸 = STRIP_THUMB + STRIP_GAP;
+                const 첫 = Math.max(0, Math.floor(event.nativeEvent.contentOffset.x / 칸));
+                if (첫 !== 스트립_첫칸) set스트립_첫칸(첫);
+              }}
             >
-              {photos.map((하나, 차례) => (
+              {photos.map((하나, 차례) => {
+                // 지금 보는 것과 스크롤로 보이는 자리 언저리만 사진을 얹는다.
+                const 그린다 = Math.abs(차례 - index) <= STRIP_WINDOW
+                  || (차례 >= 스트립_첫칸 - 4 && 차례 <= 스트립_첫칸 + STRIP_WINDOW);
+                return (
                 <Pressable
                   key={하나.id}
                   onPress={() => move(하나.id)}
@@ -961,9 +979,10 @@ export function PhotoViewerScreen({
                     차례 === index && styles.stripThumbOn,
                   ]}
                 >
-                  {Boolean(하나.uri) && <Image source={{ uri: 하나.uri }} resizeMode="cover" style={styles.fill} />}
+                  {Boolean(하나.uri) && 그린다 && <Image source={{ uri: 하나.uri }} resizeMode="cover" style={styles.fill} />}
                 </Pressable>
-              ))}
+                );
+              })}
             </ScrollView>
           )}
           {/* 그냥 보기만 할 사람에게 늘어나는 것은 이 두 줄뿐이다. 도구는 접혀 있다.
@@ -1323,6 +1342,8 @@ export function confirmPhotoDelete(onDelete: () => void) {
   ]);
 }
 
+/** 필름 스트립에서 한 번에 그리는 칸 수. 화면에 대여섯 칸 보이니 넉넉하다. */
+const STRIP_WINDOW = 14;
 const STRIP_THUMB = 44;
 const STRIP_GAP = 7;
 
