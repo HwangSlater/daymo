@@ -94,10 +94,12 @@ import * as ExpoCrypto from "expo-crypto";
 import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
+import { clearPhotoCache, photoCacheUsage } from "./photoCache";
+import { cacheSizeText } from "./photoCachePlan";
 import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 , 글자누름여유} from "./theme/controls";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
-import { cancelAccountDeletion, changePassword, DaymoApiError, INSTALLATION_KEY, isEmailLike, isReconfirmCancelled, linkSocialAccount, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, resendEmailVerification, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
+import { cancelAccountDeletion, changePassword, DaymoApiError, INSTALLATION_KEY, isEmailLike, isReconfirmCancelled, linkSocialAccount, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, resendEmailVerification, restoreSession, onSessionEnd, takeSessionEndNotice, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
 import { type SocialProvider, socialProviderName, socialProviderOrder } from "./socialLogin";
 import { SocialLoginButton } from "./SocialLoginButton";
 import { deletionDateLabel, deletionRequestedNotice } from "./accountDeletion";
@@ -519,6 +521,8 @@ export function WarmAppShell({
         if (!active) return;
         setUser(session?.user ?? null);
         setAuthOffline(session?.offline ?? false);
+        // 앱을 켜기 전에 로그인이 풀렸으면 그 까닭을 로그인 화면에 한 줄로 띄운다.
+        if (!session) setAuthNotice(takeSessionEndNotice());
       })
       .finally(() => {
         if (active) setAuthReady(true);
@@ -734,7 +738,7 @@ export function WarmAppShell({
    * 보던 화면, 여행 cursor, 메일 확인 대기가 그대로 남아 다음 사람이 앞사람의 여행
    * 제목을 봤다(2026-09-23). 저장소를 비우는 것은 부르는 쪽이 맡는다.
    */
-  const resetAfterSignOut = (notice: string) => {
+  const resetAfterSignOut = useCallback((notice: string) => {
     setAuthNotice(notice);
     setUser(null);
     setAuthOffline(false);
@@ -749,7 +753,13 @@ export function WarmAppShell({
     setOpenTripCreator(false);
     setOpenNoticeImport(false);
     setView("홈");
-  };
+  }, []);
+  /*
+   * 쓰는 도중에 로그인이 풀리면(토큰 갱신 401 — 기한 만료, 다른 기기에서 로그아웃,
+   * 계정 삭제) 말없이 있다가 다음에 서버를 부를 때 실패했다. 그 자리에서 로그인 화면으로
+   * 되돌리고 까닭을 적는다. 기기 기록은 지우지 않는다 — 같은 사람이 다시 들어올 자리다.
+   */
+  useEffect(() => onSessionEnd((말) => resetAfterSignOut(말)), [resetAfterSignOut]);
   /**
    * 로그아웃. 세션과 함께 이 계정의 기기 기록도 걷어 낸다.
    *
@@ -5424,6 +5434,30 @@ function Together({
   useEffect(() => {
     if (panel === "account") void syncUser();
   }, [panel, syncUser]);
+  /*
+   * 받아 둔 사진이 기기에 얼마나 쌓였는지(`photoCache.ts`). 폴더를 훑는 일이라
+   * 설정을 열 때 한 번만 센다. 웹은 파일을 기기에 두지 않아 이 줄 자체가 없다.
+   */
+  const [사진_캐시, set사진_캐시] = useState(-1);
+  useEffect(() => {
+    if (Platform.OS === "web" || panel !== "settings") return;
+    let 살아_있다 = true;
+    void photoCacheUsage().then((지금) => {
+      if (살아_있다) set사진_캐시(지금.bytes);
+    });
+    return () => {
+      살아_있다 = false;
+    };
+  }, [panel]);
+  const 사진_캐시_비우기 = () =>
+    showAlert("받아 둔 사진을 삭제할까요?", "기기에 둔 것만 삭제해요. 사진은 그대로 있고 다시 볼 때 새로 받아요.", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "비우기",
+        style: "destructive",
+        onPress: () => void clearPhotoCache().then((남은_것) => set사진_캐시(남은_것.bytes)),
+      },
+    ]);
   /**
    * 여행 기록을 글로 내보낸다.
    *
@@ -5765,6 +5799,15 @@ function Together({
                 on={visitedAfterTrip}
                 onPress={() => setVisitedAfterTrip(!visitedAfterTrip)}
               />
+              {Platform.OS !== "web" && 사진_캐시 >= 0 && (
+                <Setting
+                  theme={theme}
+                  label="받아 둔 사진"
+                  hint="본 사진을 기기에 두었다가 다시 열 때 바로 보여 줘요. 비워도 사진이 없어지지는 않아요."
+                  value={cacheSizeText(사진_캐시)}
+                  onPress={사진_캐시_비우기}
+                />
+              )}
               <Setting
                 theme={theme}
                 label="도움말"

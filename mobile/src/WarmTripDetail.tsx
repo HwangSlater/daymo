@@ -8424,7 +8424,8 @@ function Memories({
     const 받은_것 = await downloadPhotoToSave(photo.id, hint.hasOriginal);
     if (!받은_것) throw new DaymoApiError("사진을 불러오지 못했어요.", 0);
     const 이름 = `${tripName} ${photo.caption || `사진 ${차례 + 1}`}`;
-    return savePhotoFile(받은_것.uri, 이름);
+    // 폰에서는 공유 창이 닫힌 것까지만 안다. 저장했다고 단정하지 않으려고 `shared` 를 받는다.
+    return savePhotoFile(받은_것.uri, 이름, { 공유창까지만: true });
   };
   /**
    * ↓ 를 누르면 바로 저장한다.
@@ -8445,8 +8446,8 @@ function Memories({
        * (2026-09-23 검토 #28). 취소해도 저장됐다고 말하느니 아무 말도 하지 않는다 —
        * 공유 창이 닫히는 것이 이미 사람이 본 결과다(삼성 갤러리·구글 포토도 같다).
        */
-      if (결과 !== "saved") showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
-      else if (Platform.OS === "web") setPhotoToast("사진을 저장했어요");
+      if (결과 === "unavailable") showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
+      else if (결과 === "saved") setPhotoToast("사진을 저장했어요");
     } catch {
       showAlert("사진을 저장하지 못했어요", "잠시 후 다시 시도해 주세요.");
     } finally {
@@ -8632,7 +8633,7 @@ function Memories({
       진행(차례 + 1, 할_것.length);
       try {
         const 결과 = await savePhotoToDevice(photo, photos.indexOf(photo));
-        if (결과 !== "saved") {
+        if (결과 === "unavailable") {
           showAlert("사진을 저장할 수 없어요", "이 기기에서는 사진 저장을 지원하지 않아요.");
           return;
         }
@@ -8641,7 +8642,14 @@ function Memories({
         failed += 1;
       }
     }
-    알림(savedText({ saved, failed, skipped: ids.length - 할_것.length }));
+    // 폰은 공유 창까지만이라 잘된 장수를 세어 말하지 않는다. 빠진 것만 알린다.
+    const 말 = savedText({
+      saved,
+      failed,
+      skipped: ids.length - 할_것.length,
+      result: Platform.OS === "web" ? "saved" : "shared",
+    });
+    if (말) 알림(말);
   };
   /**
    * 고른 사진으로 추억 카드를 시작한다.
