@@ -5,6 +5,7 @@ import { TimeWheel } from "../ui/TimeWheel";
 import { OptionalFormSection as SharedOptionalFormSection } from "../ui/OptionalFormSection";
 import { MapLink } from "../MapLink";
 import { DaymoApiError } from "../auth";
+import { useAnnounce } from "../announce";
 import { SyncMark } from "../SyncMarks";
 import { isServerId } from "../listSync";
 import { type MemoryPhoto, type Transportation } from "../tripPlanning";
@@ -18,7 +19,7 @@ import { parseAmount, amountText } from "../tripExpenses";
 import { Image, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { AppTheme } from "../theme";
-import { Text, TextInput } from "../AppText";
+import { Text, TextInput, type 입력칸 } from "../AppText";
 import { EmptyState as SharedEmptyState } from "../ui/EmptyState";
 import { Glyph } from "../Glyph";
 import { showAlert } from "../showAlert";
@@ -586,6 +587,27 @@ export function Moment({
   );
 }
 
+/**
+ * 「다음」 키로 칸을 잇는 자리에서 함께 쓰는 값(2026-09-23 검토 #17).
+ *
+ * 한 시트에서 칸 여럿을 잇따라 채울 때, 아래 칸이 있으면 `next` 로 넘기고 마지막 칸만
+ * `done` 으로 끝낸다. `next` 인 칸은 키보드를 내리지 않아야 다음 칸이 곧바로 열린다.
+ *
+ * **여러 줄 칸(메모·설명)에는 붙이지 않는다.** 붙이면 줄바꿈 키가 사라진다.
+ */
+export type 칸_넘기기 = {
+  /** 다음 칸으로 옮겨 갈 때 쓰는 손잡이. */
+  inputRef?: React.RefObject<입력칸 | null>;
+  returnKeyType?: "next" | "done";
+  onSubmitEditing?: () => void;
+  autoComplete?: React.ComponentProps<typeof TextInput>["autoComplete"];
+  textContentType?: React.ComponentProps<typeof TextInput>["textContentType"];
+};
+
+/** 「다음」 키를 누른 뒤 키보드를 어떻게 할지. 넘기는 칸은 내리지 않는다. */
+const 넘김_뒤 = (returnKeyType?: "next" | "done") =>
+  returnKeyType === "next" ? ("submit" as const) : undefined;
+
 export function PairedDetailField({
   label,
   leftValue,
@@ -598,6 +620,9 @@ export function PairedDetailField({
   accentColor,
   accentSoft,
   required = false,
+  rightRef,
+  rightReturnKeyType,
+  onSubmitRight,
 }: {
   label: string;
   leftValue: string;
@@ -610,6 +635,10 @@ export function PairedDetailField({
   accentColor?: string;
   accentSoft?: string;
   required?: boolean;
+  /** 오른쪽 칸의 손잡이. 왼쪽 칸에서 「다음」을 누르면 여기로 옮겨 간다. */
+  rightRef?: React.RefObject<입력칸 | null>;
+  rightReturnKeyType?: "next" | "done";
+  onSubmitRight?: () => void;
 }) {
   const theme = useContext(DetailThemeContext);
   return (
@@ -623,6 +652,9 @@ export function PairedDetailField({
           accessibilityLabel={`${label} ${leftPlaceholder}`}
           value={leftValue}
           onChangeText={onChangeLeft}
+          returnKeyType={rightRef ? "next" : undefined}
+          submitBehavior={rightRef ? "submit" : undefined}
+          onSubmitEditing={rightRef ? () => rightRef.current?.focus() : undefined}
           placeholder={leftPlaceholder}
           placeholderTextColor={theme?.muted ?? "#9AA1AE"}
           style={[styles.pairedFieldInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
@@ -638,9 +670,13 @@ export function PairedDetailField({
           <Glyph name="arrowRight" size={아이콘.작게} color={accentColor ?? theme?.primary ?? "#FF6B63"} />
         </Pressable>
         <TextInput
+          ref={rightRef}
           accessibilityLabel={`${label} ${rightPlaceholder}`}
           value={rightValue}
           onChangeText={onChangeRight}
+          returnKeyType={rightReturnKeyType}
+          submitBehavior={넘김_뒤(rightReturnKeyType)}
+          onSubmitEditing={onSubmitRight}
           placeholder={rightPlaceholder}
           placeholderTextColor={theme?.muted ?? "#9AA1AE"}
           style={[styles.pairedFieldInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
@@ -696,6 +732,8 @@ export function DetailField({
   multiline,
   required = false,
   maxLength,
+  inputRef,
+  returnKeyType,
   ...props
 }: {
   label: string;
@@ -709,7 +747,7 @@ export function DetailField({
   autoCapitalize?: "none" | "sentences";
   /** 비우면 저장할 수 없는 칸. 라벨 앞 점이 강조색이 된다. */
   required?: boolean;
-}) {
+} & 칸_넘기기) {
   const theme = useContext(DetailThemeContext);
   // 이미 적혀 있던 긴 값은 자르지 않는다. 옛 기록을 열었을 뿐인데 글이 잘리면,
   // 고치려고 연 사람이 무엇을 잃었는지도 모른 채 저장하게 된다.
@@ -726,6 +764,9 @@ export function DetailField({
       </View>
       <TextInput
         {...props}
+        ref={inputRef}
+        returnKeyType={returnKeyType}
+        submitBehavior={넘김_뒤(returnKeyType)}
         maxLength={한도}
         accessibilityLabel={label}
         multiline={multiline}
@@ -1107,6 +1148,9 @@ export function InfoLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** 신고를 보낸 뒤 그 자리에 뜨는 줄. 낭독기에도 같은 말을 읽어 준다. */
+const 신고_받음 = "신고를 받았어요. 확인 후 조치할게요.";
+
 const REPORT_REASONS: { label: string; value: ReportReason }[] = [
   { label: "스팸·광고", value: "spam" },
   { label: "괴롭힘·혐오", value: "harassment" },
@@ -1142,12 +1186,17 @@ export function ReportForm({
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const box = [styles.deleteConfirm, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }];
+  /**
+   * 보내고 나서 갑자기 바뀌는 두 줄. `accessibilityLiveRegion` 은 안드로이드만 듣기
+   * 때문에 iOS VoiceOver 를 위해 함께 읽어 준다(2026-09-23 검토 #29).
+   */
+  useAnnounce(sent ? 신고_받음 : error);
 
   if (sent) {
     return (
       <View accessibilityLiveRegion="polite" style={box}>
         <View style={styles.deleteConfirmCopy}>
-          <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>신고를 받았어요. 확인 후 조치할게요.</Text>
+          <Text style={[styles.deleteConfirmTitle, theme && { color: theme.text }]}>{신고_받음}</Text>
           <Text style={[styles.deleteConfirmMessage, theme && { color: theme.muted }]}>신고한 사람은 상대에게 알려지지 않아요.</Text>
         </View>
         <Pressable onPress={onClose} accessibilityRole="button" style={[styles.deleteConfirmButton, theme && { borderColor: theme.border }]}>

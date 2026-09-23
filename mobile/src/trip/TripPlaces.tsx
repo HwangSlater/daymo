@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Chip, ChipRow } from "../ui/Chip";
 import { MapLink } from "../MapLink";
 import { SyncMark } from "../SyncMarks";
@@ -21,7 +21,7 @@ import { safeUrl, UNKNOWN_AREA } from "../placeSync";
 import { josa } from "../tripExpenses";
 import { Linking, Pressable, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Text, TextInput } from "../AppText";
+import { Text, TextInput, type 입력칸 } from "../AppText";
 import { Glyph } from "../Glyph";
 import { showAlert } from "../showAlert";
 import { 높이, 모서리, 아이콘, 누름여유, 글자누름여유 } from "../theme/controls";
@@ -30,6 +30,7 @@ import { kakaoInk, naverInk } from "../theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "../naverPlaceResolver";
 import { parseKakaoPlaceShare, resolveKakaoPlaceShare } from "../kakaoPlaceShare";
 import { kakaoMapSearchUrl, mapProviderName, mapProviderOf, naverMapSearchUrl } from "../mapLinks";
+import { useAnnounce } from "../announce";
 import { 공용스타일 } from "./styles";
 import {
   DetailEditableContext,
@@ -55,7 +56,7 @@ import {
 
 /** 여행 상세의 「장소」 탭. 가 볼 곳을 모으고 일정에 담는다. */
 
-export function Places({
+export function TripPlaces({
   schedule,
   setSchedule,
   places,
@@ -124,6 +125,17 @@ export function Places({
   const [memo, setMemo] = useState("");
   const [resolvingNaver, setResolvingNaver] = useState(false);
   const [tagText, setTagText] = useState("");
+  /**
+   * 「다음」 키로 옮겨 갈 칸(2026-09-23 검토 #17). 접힌 칸과 여러 줄 칸에는 붙이지 않는다.
+   */
+  const placeTagRef = useRef<입력칸 | null>(null);
+  const reservationLinkRef = useRef<입력칸 | null>(null);
+  /**
+   * 링크를 붙여넣으면 칸 아래에 갑자기 생기는 줄. `accessibilityLiveRegion` 은
+   * 안드로이드만 듣기 때문에 iOS VoiceOver 를 위해 함께 읽어 준다.
+   */
+  const mapLinkNotice = mapUrl ? `${mapProviderName[mapProviderOf(mapUrl)]} 연결됨` : "";
+  useAnnounce(mapLinkNotice);
   const [placeDetailsOpen, setPlaceDetailsOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importText, setImportText] = useState("");
@@ -1000,6 +1012,9 @@ export function Places({
           value={name}
           onChangeText={setName}
           placeholder="예: 소나기식당"
+          textContentType="location"
+          returnKeyType="done"
+          onSubmitEditing={() => placeFormValid && savePlace()}
         />
         <OptionField
           label="종류"
@@ -1089,17 +1104,17 @@ export function Places({
                 <Text style={[styles.naverLinkButtonText, styles.naverLinkButtonPrimaryText]}>{resolvingNaver ? "가져오는 중…" : "링크 붙여넣기"}</Text>
               </Pressable>
             </View>
-            {mapUrl && (
-              <View style={[styles.naverConnected, theme && { backgroundColor: theme.surface }]}>
+            {mapLinkNotice ? (
+              <View accessibilityLiveRegion="polite" style={[styles.naverConnected, theme && { backgroundColor: theme.surface }]}>
                 <View style={styles.naverConnectedCopy}>
                   <Glyph name="check" size={아이콘.작게} color="#16844E" />
-                  <Text style={[styles.naverConnectedText, theme?.dark && { color: "#7ED9A7" }]}>{mapProviderName[mapProviderOf(mapUrl)]} 연결됨</Text>
+                  <Text style={[styles.naverConnectedText, theme?.dark && { color: "#7ED9A7" }]}>{mapLinkNotice}</Text>
                 </View>
                 <Pressable onPress={() => setMapUrl("")} hitSlop={글자누름여유} accessibilityRole="button" accessibilityLabel="지도 연결 해제">
                   <Text style={[styles.naverDisconnectText, theme && { color: theme.muted }]}>연결 해제</Text>
                 </Pressable>
               </View>
-            )}
+            ) : null}
           </View>
           <DetailField
             label="주소 직접 입력 (선택)"
@@ -1107,6 +1122,10 @@ export function Places({
             onChangeText={setAddress}
             placeholder="예: 전주시 완산구 한옥길 12"
             maxLength={300}
+            autoComplete="street-address"
+            textContentType="fullStreetAddress"
+            returnKeyType="next"
+            onSubmitEditing={() => placeTagRef.current?.focus()}
           />
           <View style={공용스타일.tagEditor}>
             <Text style={[공용스타일.detailFieldLabel, 공용스타일.selectorLabel]}>태그</Text>
@@ -1125,8 +1144,12 @@ export function Places({
               )}
             </View>
             <TextInput
+              ref={placeTagRef}
+              accessibilityLabel="태그"
               value={tagText}
               onChangeText={setTagText}
+              returnKeyType="done"
+              onSubmitEditing={() => placeFormValid && savePlace()}
               placeholder="쉼표로 구분 · 예: 초밥, 디너, 조용한 곳"
               placeholderTextColor={theme?.muted ?? "#9AA1AE"}
               style={[공용스타일.tagInput, theme && { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
@@ -1184,6 +1207,8 @@ export function Places({
             value={reservationDraft.people}
             onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))}
             placeholder="예: 2명"
+            returnKeyType="next"
+            onSubmitEditing={() => reservationLinkRef.current?.focus()}
           />
           <OptionField
             label="예약 상태"
@@ -1198,7 +1223,12 @@ export function Places({
             placeholder="https://"
             keyboardType="url"
             autoCapitalize="none"
+            autoComplete="url"
+            textContentType="URL"
             maxLength={2048}
+            inputRef={reservationLinkRef}
+            returnKeyType="done"
+            onSubmitEditing={() => placeFormValid && savePlace()}
           />
           {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
             <Text style={[공용스타일.linkState, { color: naverInk(Boolean(theme?.dark)) }]}>https:// 로 시작하는 링크만 저장돼요</Text>
@@ -1391,3 +1421,9 @@ const styles = StyleSheet.create({
   placeMiniMapButton: { height: 28, borderRadius: 모서리.상자, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 12, fontFamily: typo.label.family },
 });
+
+/**
+ * 옛 이름. `WarmTripDetail.tsx` 가 아직 이 이름으로 부른다.
+ * 부르는 쪽을 새 이름으로 바꾸면 이 줄을 지운다.
+ */
+export { TripPlaces as Places };

@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useRef, useState } from "react";
 import { Chip } from "../ui/Chip";
 import {
   PLAN_TYPES,
@@ -46,13 +46,14 @@ import {
   transportExpenseOf,
 } from "../tripExpenses";
 import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { Text, TextInput } from "../AppText";
+import { Text, TextInput, type 입력칸 } from "../AppText";
 import { Glyph } from "../Glyph";
 import { showAlert } from "../showAlert";
 import { 높이, 모서리, 아이콘, 그림자, 여백, 누름여유, 글자누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 import { naverInk } from "../theme/colors";
 import { mapProviderName, mapProviderOf } from "../mapLinks";
+import { useAnnounce } from "../announce";
 import { 공용스타일 } from "./styles";
 import {
   DetailEditableContext,
@@ -272,7 +273,29 @@ export function TripOverview({
     planMapUrl,
     selectedPlanPlaceId,
   ) !== scheduleDraftBaseline;
+  /**
+   * 지도 링크 칸 아래에 갑자기 뜨는 줄. 링크를 붙여넣은 다음에만 생긴다.
+   *
+   * 붙여 둔 `accessibilityLiveRegion` 은 안드로이드만 듣는다. iOS VoiceOver 는 live
+   * region 을 몰라 손가락이 닿기 전에는 읽지 않으므로 `useAnnounce` 를 함께 둔다.
+   */
+  const planMapState = !planMapUrl.length
+    ? ""
+    : mapProviderOf(planMapUrl) !== "other"
+      ? `${mapProviderName[mapProviderOf(planMapUrl)]} 링크가 연결돼요`
+      : "네이버 지도나 카카오맵 공유 링크인지 확인해 주세요";
+  useAnnounce(planMapState);
   const stayDraftChanged = JSON.stringify(stayDraft) !== stayDraftBaseline;
+  /**
+   * 「다음」 키로 옮겨 갈 칸들(2026-09-23 검토 #17).
+   *
+   * 접혀 있는 칸으로는 넘기지 않는다. 안 보이는 칸에 커서만 옮겨 가면 어디에 적고
+   * 있는지 알 수 없다. 여러 줄 칸(메모)에도 붙이지 않는다 — 줄바꿈 키가 사라진다.
+   */
+  const planMapRef = useRef<입력칸 | null>(null);
+  const transportArrivalRef = useRef<입력칸 | null>(null);
+  const reservationPlaceRef = useRef<입력칸 | null>(null);
+  const reservationLinkRef = useRef<입력칸 | null>(null);
   const reservationDraftChanged = JSON.stringify(reservationDraft) !== reservationDraftBaseline;
   const transportDraftChanged = JSON.stringify(transportDraft) !== transportDraftBaseline;
   const orderedSchedule = useMemo(
@@ -1177,6 +1200,8 @@ export function TripOverview({
           value={newPlanTitle}
           onChangeText={setNewPlanTitle}
           placeholder="예: 한옥마을 야행"
+          returnKeyType="done"
+          onSubmitEditing={() => scheduleFormValid && addSchedule()}
         />
         <OptionField
           label="날짜"
@@ -1252,6 +1277,9 @@ export function TripOverview({
             onChangeText={setPlanPlace}
             placeholder="예: 한옥마을 정문"
             maxLength={2000}
+            textContentType="location"
+            returnKeyType="next"
+            onSubmitEditing={() => planMapRef.current?.focus()}
           />
           <View style={[styles.naverField, theme?.dark && { backgroundColor: "#16352C", borderColor: "#245544" }]}>
             <View style={공용스타일.naverHead}>
@@ -1266,21 +1294,25 @@ export function TripOverview({
               </View>
             </View>
             <TextInput
+              ref={planMapRef}
+              accessibilityLabel="지도 링크"
               value={planMapUrl}
               onChangeText={setPlanMapUrl}
               autoCapitalize="none"
               keyboardType="url"
+              autoComplete="url"
+              textContentType="URL"
+              returnKeyType="done"
+              onSubmitEditing={() => scheduleFormValid && addSchedule()}
               placeholder="https://naver.me/..."
               placeholderTextColor={theme?.dark ? theme.muted : "#91A19B"}
               style={[styles.naverInput, theme?.dark && { backgroundColor: theme.surface, color: theme.text }]}
             />
-            {planMapUrl.length > 0 && (
-              <Text style={[공용스타일.linkState, { color: naverInk(Boolean(theme?.dark)) }]}>
-                {mapProviderOf(planMapUrl) !== "other"
-                  ? `${mapProviderName[mapProviderOf(planMapUrl)]} 링크가 연결돼요`
-                  : "네이버 지도나 카카오맵 공유 링크인지 확인해 주세요"}
+            {planMapState ? (
+              <Text accessibilityLiveRegion="polite" style={[공용스타일.linkState, { color: naverInk(Boolean(theme?.dark)) }]}>
+                {planMapState}
               </Text>
-            )}
+            ) : null}
           </View>
         </OptionalFormSection>
       </DetailSheet>
@@ -1309,6 +1341,9 @@ export function TripOverview({
           onChangeRight={setTransportArrival}
           leftPlaceholder="출발지"
           rightPlaceholder="도착지"
+          rightRef={transportArrivalRef}
+          rightReturnKeyType="done"
+          onSubmitRight={() => transportFormValid && addTransportation()}
           onSwap={switchTransportDirection}
           accentColor={transportDirectionColor}
           accentSoft={transportDirectionSoft}
@@ -1523,7 +1558,15 @@ export function TripOverview({
         onSubmit={saveReservation}
         onDestructive={deleteReservation}
       >
-        <DetailField label="예약 이름" required value={reservationDraft.name} onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))} placeholder="예: 소나기식당" />
+        <DetailField
+          label="예약 이름"
+          required
+          value={reservationDraft.name}
+          onChangeText={(name) => setReservationDraft((current) => ({ ...current, name }))}
+          placeholder="예: 소나기식당"
+          returnKeyType="done"
+          onSubmitEditing={() => reservationDraft.name.trim() && saveReservation()}
+        />
         <OptionField label="예약 날짜" options={dayOptions} labelOf={dayTextOf} value={reservationDraft.date} onChange={(date) => setReservationDraft((current) => ({ ...current, date }))} />
         <OptionField label="예약 상태" options={["예약 확정", "확인 필요", "취소"]} value={reservationDraft.status} onChange={(status) => setReservationDraft((current) => ({ ...current, status: status as ReservationInfo["status"] }))} />
         <TimeRow label="예약 시간 (선택)" value={reservationDraft.time} onChange={(time) => setReservationDraft((current) => ({ ...current, time }))} fallback="19:00" optional />
@@ -1533,8 +1576,26 @@ export function TripOverview({
           open={reservationExtrasOpen}
           onToggle={() => setReservationExtrasOpen((current) => !current)}
         >
-          <DetailField label="인원 (선택)" value={reservationDraft.people} onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))} placeholder="예: 2명" maxLength={20} />
-          <DetailField label="장소 (선택)" value={reservationDraft.place} onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))} placeholder="예: 전주 한옥마을" maxLength={2000} />
+          <DetailField
+            label="인원 (선택)"
+            value={reservationDraft.people}
+            onChangeText={(people) => setReservationDraft((current) => ({ ...current, people }))}
+            placeholder="예: 2명"
+            maxLength={20}
+            returnKeyType="next"
+            onSubmitEditing={() => reservationPlaceRef.current?.focus()}
+          />
+          <DetailField
+            label="장소 (선택)"
+            value={reservationDraft.place}
+            onChangeText={(place) => setReservationDraft((current) => ({ ...current, place }))}
+            placeholder="예: 전주 한옥마을"
+            maxLength={2000}
+            inputRef={reservationPlaceRef}
+            textContentType="location"
+            returnKeyType="next"
+            onSubmitEditing={() => reservationLinkRef.current?.focus()}
+          />
           <DetailField
             label="예약 링크 (선택)"
             value={reservationDraft.bookingUrl ?? ""}
@@ -1542,7 +1603,12 @@ export function TripOverview({
             placeholder="https://"
             keyboardType="url"
             autoCapitalize="none"
+            autoComplete="url"
+            textContentType="URL"
             maxLength={2048}
+            inputRef={reservationLinkRef}
+            returnKeyType="done"
+            onSubmitEditing={() => reservationDraft.name.trim() && saveReservation()}
           />
           {Boolean(reservationDraft.bookingUrl?.trim()) && !safeUrl(reservationDraft.bookingUrl) && (
             <Text style={[공용스타일.linkState, { color: naverInk(Boolean(theme?.dark)) }]}>https:// 로 시작하는 링크만 저장돼요</Text>
@@ -1569,7 +1635,15 @@ export function TripOverview({
         onSubmit={saveStay}
         onDestructive={deleteStay}
       >
-        <DetailField label="숙소 이름" required value={stayDraft.name} onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))} placeholder="예: 달빛한옥" />
+        <DetailField
+          label="숙소 이름"
+          required
+          value={stayDraft.name}
+          onChangeText={(name) => setStayDraft((current) => ({ ...current, name }))}
+          placeholder="예: 달빛한옥"
+          returnKeyType="done"
+          onSubmitEditing={() => stayFormValid && saveStay()}
+        />
         <StayRangePicker
           checkin={stayDraft.checkin}
           checkout={stayDraft.checkout}
@@ -1588,7 +1662,17 @@ export function TripOverview({
           open={stayAddressOpen}
           onToggle={() => setStayAddressOpen((current) => !current)}
         >
-          <DetailField label="주소 (선택)" value={stayDraft.address} onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))} placeholder="예: 전주시 완산구 한옥길 12" maxLength={300} />
+          <DetailField
+            label="주소 (선택)"
+            value={stayDraft.address}
+            onChangeText={(address) => setStayDraft((current) => ({ ...current, address }))}
+            placeholder="예: 전주시 완산구 한옥길 12"
+            maxLength={300}
+            autoComplete="street-address"
+            textContentType="fullStreetAddress"
+            returnKeyType="done"
+            onSubmitEditing={() => stayFormValid && saveStay()}
+          />
         </OptionalFormSection>
         {stayPhotos.length > 0 && (
           <>

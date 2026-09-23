@@ -47,7 +47,19 @@ const WEB_MIN_INPUT_FONT_SIZE = 16;
 
 const isWeb = Platform.OS === "web";
 
-export function TextInput({ style, ...props }: TextInputProps) {
+/**
+ * 입력칸을 가리키는 손잡이.
+ *
+ * 「다음」 키로 아래 칸에 옮겨 갈 때 `손잡이.current?.focus()` 를 부른다. 칸을 들고 있는
+ * 쪽이 react-native 를 직접 가져오지 않아도 되게 여기서 이름을 붙여 둔다.
+ */
+export type 입력칸 = RNTextInput;
+
+/**
+ * `ref` 는 React 19 부터 함수 부품의 평범한 prop 이라 그대로 흘려보내면 된다.
+ * 타입에만 적어 준다.
+ */
+export function TextInput({ style, ...props }: TextInputProps & { ref?: React.Ref<입력칸> }) {
   return (
     <RNTextInput
       maxFontSizeMultiplier={MAX_FONT_SCALE}
