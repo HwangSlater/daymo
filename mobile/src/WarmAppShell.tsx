@@ -1434,7 +1434,6 @@ export function WarmAppShell({
           applyServerTrip(saved);
         }}
         coverPhotoId={selectedTrip.coverPhotoId}
-        coverCardId={selectedTrip.coverCardId}
         coverFocus={selectedTrip.coverFocus}
         onUpdateHomeCover={selectedTrip.id && selectedTrip.version !== undefined ? async (고른_것, localUris) => {
           const tripId = selectedTrip.id as string;

@@ -202,7 +202,7 @@ access token은 15분 동안 유효하고 refresh token은 마지막 정상 사�
 - `photo_links`: `photo_id`, `target_type(trip|day|place|schedule|stay)`, `target_id` — 표는 있지만 아직 쓰지 않는다. 영수증은 `expenses.receipt_photo_id`로 잇는다
 - `audit_logs`: `space_id`, `actor_membership_id`, `action`, `target_type`, `target_id`, `log_metadata` — 지금 남기는 `action`은 `memo.delete`·`memo.restore`·`photo.delete`·`photo.restore`·`payment.undo`·`member.remove`·`member.leave`·`member.role_change`·`invite.revoke`·`trip.delete`·`trip.restore`다. 공간을 지워도 이 줄은 남으므로 본문·이름·이메일은 `log_metadata`에 넣지 않는다
 
-기념 카드는 별도 공동 원본을 만들지 않는다. 선택한 사진 ID, 제목과 스타일은 기기 draft로 유지하고 렌더링 결과를 사용자가 저장·공유한다. 향후 멤버 간 카드 구성을 공유해야 할 때만 `keepsakes` 도메인을 추가한다.
+추억 카드는 **사진 몇 장을 꾸며 새 사진 한 장을 만드는 일**이다(2026-09-23 결정). 꾸미는 중인 카드(초안: 고른 사진 id·프레임·제목·스티커)는 기기에만 둔다(`mobile/src/cardDraftStorage.ts`, 여행마다 초안 배열 하나). 「완료」하면 기기가 원본 화질로 그린 그림을 그 여행의 **보통 사진**으로 넣고(`photos`, 기기에서 고른 사진과 같은 길이라 업로드·삭제·사진첩·크게 보기가 같다) 초안은 지운다. 사진에는 카드였다는 표시를 두지 않고, 설명은 직접 적은 제목뿐이다. 카드라는 물건은 서버에도 앱에도 남지 않는다. 서버의 `trip_cards`·`trips.cover_card_id` 는 이미 나간 옛 앱(1.0.0)을 위해 남아 있을 뿐 이 앱은 부르지 않는다(03 문서 10장).
 
 `trips.cooking_enabled`가 요리 탭 표시의 최종 원본이다. 숙소의 `has_kitchen`은 사실 정보이며 숙소 등록·수정 시 탭을 켜거나 끌지 제안하는 데만 사용한다. 탭을 꺼도 기존 요리·재료는 보존하고 다시 켜면 그대로 표시한다.
 

@@ -802,7 +802,7 @@ owner가 멤버를 내보내면 같은 콘텐츠 유지 규칙을 적용하고 �
 
 업로드는 처음에 `photo-uploads` session 표를 따로 두려 했으나 사진 줄이 그 역할을 하게 바꿨다(아래 2026-09-16 구현). `complete` 단계는 없다.
 
-여행 기념 카드의 이미지 렌더링은 기기가 한다. 카드에 사용한 사진은 기존 권한 있는 사진 조회 API로 받는다. 다만 **무엇을 골랐는지는 서버가 들고 있다.** 함께 쓰는 공간이라 한쪽이 꾸민 카드가 상대에게도 같게 보여야 해서다. 한 여행에 여러 장이라 `trip_cards` 표를 두고 `GET/POST /trips/{tripId}/cards`, `PATCH/DELETE /trip-cards/{cardId}` 로 오간다(아래 2026-09-16 구현).
+여행 추억 카드의 이미지 렌더링은 기기가 한다. 카드에 사용한 사진은 기존 권한 있는 사진 조회 API로 받는다. **2026-09-23부터 앱은 카드를 서버에 두지 않는다.** 꾸미는 중인 카드(초안)는 기기에만 있고, 「완료」하면 그린 그림이 그 여행의 보통 사진(`POST /trips/{tripId}/photos` → `PUT /photos/{photoId}/content`)으로 올라간다. 아래 `trip_cards` API(`GET/POST /trips/{tripId}/cards`, `PATCH/DELETE /trip-cards/{cardId}`, 완성 이미지, `coverCardId`)는 이미 나간 옛 앱(1.0.0)이 부르므로 서버에 그대로 남긴다. 새 앱은 부르지 않는다(02 문서 3장).
 
 메모 생성:
 

@@ -1,0 +1,33 @@
+/**
+ * 꾸미는 중인 추억 카드(초안)를 기기에 적고 읽는다.
+ *
+ * 기기 설정(`deviceSettings.ts`)과 같은 저장소를 쓴다. 여행마다 열쇠 하나에 초안
+ * 배열을 통째로 둔다. 카드 한 장은 16KB 를 넘지 않고(서버의 `settings` 한도와 같다)
+ * 여행마다 스무 장까지라 한 덩어리로 써도 무겁지 않다.
+ *
+ * 계산은 `cardDrafts.ts` 에 있다. 이 파일은 저장소를 만지는 일만 한다.
+ */
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { cardDraftsKeyOf, parseStoredDrafts, serializeDrafts, type StoredCardDraft } from "./cardDrafts";
+
+/** 그 여행의 초안. 없거나 못 읽으면 빈 목록이다. */
+export async function readCardDrafts(tripId: string): Promise<StoredCardDraft[]> {
+  try {
+    return parseStoredDrafts(await AsyncStorage.getItem(cardDraftsKeyOf(tripId)));
+  } catch {
+    return [];
+  }
+}
+
+/** 그 여행의 초안을 통째로 바꾼다. 빈 목록이면 열쇠를 지운다. */
+export async function writeCardDrafts(tripId: string, list: readonly StoredCardDraft[]): Promise<void> {
+  if (!list.length) return removeCardDrafts(tripId);
+  await AsyncStorage.setItem(cardDraftsKeyOf(tripId), serializeDrafts(list));
+}
+
+/** 그 여행의 초안을 모두 지운다. */
+export async function removeCardDrafts(tripId: string): Promise<void> {
+  await AsyncStorage.removeItem(cardDraftsKeyOf(tripId));
+}
