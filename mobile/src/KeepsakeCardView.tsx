@@ -42,7 +42,7 @@ import {
   type KeepsakePaperColor,
   type KeepsakePaperPattern,
 } from "./tripCard";
-import Svg, { Circle, Defs, Line, Pattern, Rect } from "react-native-svg";
+import Svg, { Circle, Defs, Line, LinearGradient, Pattern, Rect, Stop } from "react-native-svg";
 import { DECOR_FONT_FAMILY, useDecorFonts } from "./decorFonts";
 
 /** 카드에 올릴 수 있는 사진 한 장. 기록 탭의 사진에서 필요한 것만 가려 받는다. */
@@ -88,15 +88,24 @@ const KEEPSAKE_FRAME_LOOK: Record<KeepsakeFrameColor, KeepsakeLook> = {
  * 카드에서 특히 눈에 띈다. 옅은 띠를 높이만 달리해 여러 겹 포개 아래로 갈수록
  * 짙어지게 한다. 그림(SVG)이 아니라 판이라 내보낼 때 찍히는 모습이 화면과 같다.
  */
-const SCRIM_BANDS = [56, 44, 34, 26, 19, 13, 8];
-
+/**
+ * 사진 위에 얹는 글 밑의 그늘. 아래로 갈수록 짙어진다.
+ *
+ * 전에는 반투명 띠 일곱 장을 겹쳐 계단처럼 만들었는데, 띠의 경계가 사진 위에 가로줄로
+ * 보였다(2026-09-23, 「기본」 프레임에서 줄이 그어져 있다고 했다). 진짜 그러데이션으로 그린다.
+ */
 function Scrim() {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, "");
   return (
-    <>
-      {SCRIM_BANDS.map((높이) => (
-        <View key={높이} style={[styles.scrimBand, { height: `${높이}%` }]} pointerEvents="none" />
-      ))}
-    </>
+    <Svg style={styles.scrim} pointerEvents="none">
+      <Defs>
+        <LinearGradient id={`scrim-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#0C0B0A" stopOpacity="0" />
+          <Stop offset="1" stopColor="#0C0B0A" stopOpacity="0.58" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#scrim-${id})`} />
+    </Svg>
   );
 }
 
@@ -1244,7 +1253,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "-4deg" }],
   },
   // 가로 카드는 글이 사진 위에 얹힌다. 밝은 사진에서도 읽히도록 아래를 어둡게 깐다.
-  scrimBand: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "rgba(12,11,10,0.11)" },
+  scrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "56%" },
   copy: { paddingTop: 10, gap: 2 },
   copyOver: { position: "absolute", left: 10, right: 10, bottom: 10, paddingTop: 0 },
   // 네컷의 아래 여백. 사진관에서 뽑은 것처럼 가운데로 모은다.

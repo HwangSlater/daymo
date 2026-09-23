@@ -8737,7 +8737,13 @@ const NO_CARDS: CardTile[] = [];
 /** 올라간 사진이 아직 없을 때. 사진첩에 렌더마다 새 집합을 넘기지 않으려고 둔다. */
 const NO_PHOTO_IDS: ReadonlySet<string> = new Set();
 /** 카드 쪽(`TripCardsSection`)이 기록 탭으로 올려 보내는 초안 목록과 손잡이. */
-type CardHandles = { tiles: CardTile[]; open: (id: string) => void; create: (photoIds?: readonly string[]) => void };
+type CardHandles = {
+  tiles: CardTile[];
+  open: (id: string) => void;
+  create: (photoIds?: readonly string[]) => void;
+  /** 격자 칸의 ✕. 한 번 묻고 초안을 지운다. */
+  remove: (id: string) => void;
+};
 /**
  * 사진첩에서 한꺼번에 지운 뒤 기기의 파일을 남겨 두는 시간(ms). 알림의 「되돌리기」가
  * 떠 있는 동안(5.2초)보다 조금 길게 잡는다.
@@ -9788,6 +9794,18 @@ function Memories({
               <View style={[styles.coverBadge, styles.uploadBadge]} pointerEvents="none">
                 <Text style={styles.coverBadgeText}>꾸미는 중</Text>
               </View>
+              {/* 꾸미는 창을 열지 않고도 지운다. 올라가는 사진의 취소 ✕ 와 같은 자리·같은 모양이다. */}
+              {canEdit && (
+                <Pressable
+                  onPress={() => cards?.remove(tile.card.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${tile.card.label} 카드 삭제`}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.uploadCancel, pressed && styles.controlPressed]}
+                >
+                  <Glyph name="close" size={12} color="#FFFFFF" weight={2.6} />
+                </Pressable>
+              )}
             </View>
             <View style={styles.memoryTileCaption}>
               <Text numberOfLines={1} style={[styles.tileNumber, theme && { color: theme.text }]}>{tile.card.label}</Text>

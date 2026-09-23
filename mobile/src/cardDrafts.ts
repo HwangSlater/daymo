@@ -99,6 +99,18 @@ export function draftListOf(
 }
 
 /**
+ * 같은 사진으로 꾸미던 초안. 있으면 그 id, 없으면 undefined.
+ *
+ * 「카드 만들기」를 누를 때마다 초안이 하나씩 늘면 「꾸미는 중」이 같은 사진으로 여럿 선다
+ * (2026-09-23). 시작하는 사진이 모두 들어 있는 초안이 있으면 그것을 이어서 꾸민다.
+ * 여럿이면 가장 최근 것(`list` 는 최신이 먼저다).
+ */
+export function sameSourceDraft(list: readonly CardDraft[], photoIds: readonly string[]): string | undefined {
+  if (!photoIds.length) return undefined;
+  return list.find((줄) => photoIds.every((id) => 줄.card.photoIds.includes(id)))?.id;
+}
+
+/**
  * 완료한 카드가 사진이 될 때 붙을 설명.
  *
  * 제목을 직접 적었으면 그것, 여행 이름 그대로면 빈 글자다. 사진에는 아무 표시도

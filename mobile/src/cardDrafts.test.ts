@@ -8,9 +8,10 @@ import {
   finishedCaptionOf,
   parseStoredDrafts,
   removeDraft,
+  sameSourceDraft,
   serializeDrafts,
-  upsertDraft,
   type StoredCardDraft,
+  upsertDraft,
 } from "./cardDrafts.ts";
 import { keepsakeCardOf } from "./tripCard.ts";
 
@@ -100,4 +101,21 @@ test("적었다 읽으면 그대로고, 모양이 틀린 줄과 못 읽는 글�
 test("저장 열쇠는 여행마다 다르다", () => {
   assert.notEqual(cardDraftsKeyOf("t1"), cardDraftsKeyOf("t2"));
   assert.ok(cardDraftsKeyOf("t1").startsWith("daymo.card-drafts.v"));
+});
+
+test("같은 사진으로 꾸미던 초안이 있으면 그것을 찾고, 없으면 못 찾는다", () => {
+  const 목록 = draftListOf(
+    [
+      { id: "a", settings: { photoIds: ["p1"] }, createdAt: "2026-09-23T00:00:00.000Z" },
+      { id: "b", settings: { photoIds: ["p1", "p2"] }, createdAt: "2026-09-23T01:00:00.000Z" },
+    ],
+    "가을 제주",
+    ["p1", "p2", "p3"],
+  );
+
+  // 최신(b)이 먼저다. p1 로 시작하면 p1 이 든 것 가운데 최신인 b 를 잇는다.
+  assert.equal(sameSourceDraft(목록, ["p1"]), "b");
+  assert.equal(sameSourceDraft(목록, ["p1", "p2"]), "b");
+  assert.equal(sameSourceDraft(목록, ["p3"]), undefined);
+  assert.equal(sameSourceDraft(목록, []), undefined);
 });

@@ -35,7 +35,7 @@ import { CardDecorTools, CardThumb, shotLayoutOf } from "./CardDecorEditor";
 import { type CardPhoto } from "./KeepsakeCardView";
 import { PhotoViewerScreen, type ViewerDecor, type ViewerPhoto } from "./PhotoViewer";
 import type { CardDecor } from "./cardDecor";
-import { draftListOf, finishedCaptionOf, removeDraft, upsertDraft, type StoredCardDraft } from "./cardDrafts";
+import { draftListOf, finishedCaptionOf, removeDraft, sameSourceDraft, upsertDraft, type StoredCardDraft } from "./cardDrafts";
 import { readCardDrafts, writeCardDrafts } from "./cardDraftStorage";
 import { isLivePhotoUri, downloadPhoto, downloadPhotoToSave, releaseDownloadedPhoto } from "./photoTransfer";
 import { isOriginalQualityUri } from "./photoSync";
@@ -220,7 +220,13 @@ export function TripCardsSection({
    * 초안은 사진 격자에 함께 놓인다. 목록과 열기·만들기만 위로 넘기고 카드를
    * 꾸미는 일은 전부 이 파일에 남는다.
    */
-  onInline: (것: { tiles: CardTile[]; open: (id: string) => void; create: (photoIds?: readonly string[]) => void }) => void;
+  onInline: (것: {
+    tiles: CardTile[];
+    open: (id: string) => void;
+    create: (photoIds?: readonly string[]) => void;
+    /** 격자 칸의 ✕. 한 번 묻고 초안을 지운다. */
+    remove: (id: string) => void;
+  }) => void;
   /**
    * 완료한 카드를 사진 한 장으로 넣는다. 넣었으면 참을 돌려준다. 알림도 받는 쪽이
    * 띄운다(어디에 생겼는지 보여 주려고). 거짓이면 초안을 그대로 둔다.
@@ -449,6 +455,15 @@ export function TripCardsSection({
     setStartedFrom(from);
     setExporting(false);
   }, []);
+  const openTile = useCallback(
+    (id: string) => {
+      const 줄 = list.find((하나) => 하나.id === id);
+      if (!줄) return;
+      openCard(줄.id, 줄.card, 줄.createdAt, null);
+      viewerRef.current.onMove(null);
+    },
+    [list, openCard],
+  );
   const makeCard = useCallback((고른_사진?: readonly string[]) => {
     if (blocked) {
       notify(blocked);
@@ -467,11 +482,18 @@ export function TripCardsSection({
       notify("업로드가 끝나면 카드에 넣을 수 있어요");
       return;
     }
+    // 같은 사진으로 꾸미던 초안이 있으면 새로 만들지 않고 그것을 연다(2026-09-23 요청).
+    // 「카드 만들기」를 누를 때마다 「꾸미는 중」이 하나씩 늘어 셋이 됐다.
+    const 이미_있는_것 = 쓸_것.length ? sameSourceDraft(list, 쓸_것) : undefined;
+    if (이미_있는_것) {
+      openTile(이미_있는_것);
+      return;
+    }
     const 시작 = { ...keepsakeCardOf(undefined, tripName, photoIds), photoIds: 쓸_것 };
     openCard(Crypto.randomUUID(), 시작, new Date().toISOString(), null);
     viewerRef.current.onMove(null);
     if (쓸_것.length < 고른_것.length) viewerRef.current.onNotice("업로드 중인 사진은 빼고 넣었어요");
-  }, [blocked, notify, openCard, photoIds, tripName]);
+  }, [blocked, list, notify, openCard, openTile, photoIds, tripName]);
   // 사진 격자에 함께 놓을 칸. 최신 초안이 먼저다(`draftListOf`).
   const tiles = useMemo<CardTile[]>(
     () =>
@@ -488,18 +510,16 @@ export function TripCardsSection({
     [cardPhotos, faceOf, list, thumbs],
   );
   /** 격자에서 초안을 누르면 바로 꾸미기다. 보던 사진은 놓는다. */
-  const openTile = useCallback(
-    (id: string) => {
-      const 줄 = list.find((하나) => 하나.id === id);
-      if (!줄) return;
-      openCard(줄.id, 줄.card, 줄.createdAt, null);
-      viewerRef.current.onMove(null);
-    },
-    [list, openCard],
-  );
+  /** 격자 칸의 ✕. 한 번 묻고 초안을 지운다. 꾸미는 창을 열지 않고 지우는 길이다(2026-09-23 요청). */
+  const removeTile = useCallback((id: string) => {
+    showAlert("이 카드를 삭제할까요?", "카드만 삭제되고 사진은 그대로 남아요.", [
+      { text: "취소", style: "cancel" },
+      { text: "삭제", style: "destructive", onPress: () => persist(removeDraft(draftsRef.current, id)) },
+    ]);
+  }, [persist]);
   useEffect(() => {
-    onInline({ tiles, open: openTile, create: makeCard });
-  }, [makeCard, onInline, openTile, tiles]);
+    onInline({ tiles, open: openTile, create: makeCard, remove: removeTile });
+  }, [makeCard, onInline, openTile, removeTile, tiles]);
 
   /**
    * 창을 통째로 닫는다. 꾸미던 초안은 목록에 맞춰 두고(사진이 있거나 이미 적어 둔 것만),
@@ -544,6 +564,15 @@ export function TripCardsSection({
     if (blocked) {
       viewerRef.current.onNotice(blocked);
       return;
+    }
+    // 이 사진으로 꾸미던 초안이 있으면 그것을 이어서 꾸민다.
+    const 이미_있는_것 = sameSourceDraft(list, [보던_사진]);
+    if (이미_있는_것) {
+      const 줄 = list.find((하나) => 하나.id === 이미_있는_것);
+      if (줄) {
+        openCard(줄.id, 줄.card, 줄.createdAt, 보던_사진);
+        return;
+      }
     }
     openCard(
       Crypto.randomUUID(),
