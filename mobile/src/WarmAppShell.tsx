@@ -47,7 +47,7 @@ import {
 import { removeAllCardDrafts, removeCardDrafts } from "./cardDraftStorage";
 import { TripDateRangePicker } from "./TripDateRangePicker";
 import { sampleTripPlanning, type TripDetailDestination, type TripPlanningData, WarmTripDetail } from "./WarmTripDetail";
-import { shouldRefetch, tripDateKeys } from "./listSync";
+import { shouldRefetch } from "./listSync";
 import { SyncNotice } from "./SyncMarks";
 import { reloadOpenLists } from "./useListSync";
 import { koreaAdminPath } from "./koreaAdminPath";
@@ -75,7 +75,8 @@ import { EmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
-import { MEMO_COLOR, dayKeyOf, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
+import { MEMO_COLOR, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
+import { dateKey, dateRangeLabel, dayLabelOf, daysSince, shiftDateKey, tripDateKeys } from "./dates";
 import { CalendarNoteSheet } from "./CalendarNoteSheet";
 import { FeedbackCard, FeedbackSheet } from "./FeedbackSheet";
 import { useFeedbackCardHidden } from "./feedback";
@@ -266,7 +267,7 @@ const tripFromServer = (trip: ServerTrip, roster: RosterEntry[] = []): Trip => {
     id: trip.id,
     version: trip.version,
     name: trip.title,
-    date: sampleDateRange(trip.startDate, trip.endDate),
+    date: dateRangeLabel(trip.startDate, trip.endDate),
     note: trip.summary ?? "",
     // 색은 목록의 몇 번째인지가 아니라 여행 id 로 정한다. 목록 차례로 정하면
     // 기기마다, 목록을 다시 받을 때마다 같은 여행의 색이 달라진다.
@@ -300,11 +301,7 @@ const tripForSummary = (trip: Trip) => ({
 const OVERVIEW_REFRESH_MS = 2500;
 
 /** 새 여행의 기본 마지막 날. 오늘부터 이틀 뒤(2박 3일)다. */
-const 기본_마지막_날 = (오늘_키: string) => {
-  const 날 = new Date(`${오늘_키}T00:00:00`);
-  날.setDate(날.getDate() + 2);
-  return `${날.getFullYear()}-${String(날.getMonth() + 1).padStart(2, "0")}-${String(날.getDate()).padStart(2, "0")}`;
-};
+const 기본_마지막_날 = (오늘_키: string) => shiftDateKey(오늘_키, 2);
 
 const expenseSettingsFrom = (trip: ServerTrip): ExpenseSettings => ({
   currency: trip.currencyCode ?? "KRW",
@@ -325,48 +322,8 @@ const latestTripFrom = (trip: ServerTrip, roster: RosterEntry[]): LatestTrip => 
   };
 };
 
-const sampleDate = (daysFromToday: number) => {
-  const date = new Date();
-  date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() + daysFromToday);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-};
-
-const sampleDateRange = (start: string, end: string) => {
-  const startMonth = Number(start.slice(5, 7));
-  const startDay = Number(start.slice(8, 10));
-  const endMonth = Number(end.slice(5, 7));
-  const endDay = Number(end.slice(8, 10));
-  return startMonth === endMonth
-    ? `${startMonth}월 ${startDay}일 — ${endDay}일`
-    : `${startMonth}월 ${startDay}일 — ${endMonth}월 ${endDay}일`;
-};
-
-/**
- * 함께한 시작일부터 오늘까지의 일수.
- *
- * 시작한 날을 1일째로 센다. 한국어 "사귄 지 N일째"가 그렇게 읽히고, 그래야
- * 시작한 날 화면에 0이 뜨지 않는다. 두 날짜 모두 정오 기준으로 맞춰
- * 서머타임이나 시간대 차이로 하루가 어긋나지 않게 한다.
- *
- * 입력은 "2023. 10. 20"이나 "2023-10-20" 어느 쪽이든 받는다.
- * 날짜로 읽을 수 없으면 null을 준다.
- */
-const daysSince = (from: string, todayKey: string): number | null => {
-  const digits = from.match(/\d+/g);
-  if (!digits || digits.length < 3) return null;
-  const [year, month, day] = digits.map(Number);
-  const start = new Date(year, month - 1, day, 12, 0, 0, 0);
-  if (Number.isNaN(start.getTime()) || start.getMonth() !== month - 1) return null;
-  const today = new Date(
-    Number(todayKey.slice(0, 4)),
-    Number(todayKey.slice(5, 7)) - 1,
-    Number(todayKey.slice(8, 10)),
-    12, 0, 0, 0,
-  );
-  const days = Math.round((today.getTime() - start.getTime()) / 86400000) + 1;
-  return days > 0 ? days : null;
-};
+/** 오늘에서 며칠 앞뒤의 날짜 키. 예시 여행의 날짜를 오늘 기준으로 만든다. */
+const sampleDate = (daysFromToday: number) => shiftDateKey(dateKey(new Date()), daysFromToday);
 
 /**
  * 여행 며칠째의 날짜 이름. 상세 화면의 날짜 선택지와 같은 "22일(토)" 형식이다.
@@ -374,11 +331,7 @@ const daysSince = (from: string, todayKey: string): number | null => {
  * 예시 여행의 날짜는 오늘을 기준으로 만들어지므로 지출의 날짜도 같은 규칙으로
  * 계산해야 한다. 글자로 박아 두면 날이 지날수록 어긋난다.
  */
-const sampleTripDay = (startKey: string, offset: number) => {
-  const [year, month, day] = startKey.split("-").map(Number);
-  const date = new Date(year, month - 1, day + offset, 12, 0, 0, 0);
-  return `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
-};
+const sampleTripDay = (startKey: string, offset: number) => dayLabelOf(shiftDateKey(startKey, offset));
 
 /** 예시 지출 한 건. 여행마다 다른 목록을 만들려고 짧게 쓴다. */
 const sampleExpense = (
@@ -429,7 +382,7 @@ const sampleTrip = (trip: Omit<Trip, "sample" | "planning"> & { expenses: Expens
 const trips: Trip[] = [
   sampleTrip({
     name: "전주 한옥마을",
-    date: sampleDateRange(upcomingSampleStart, upcomingSampleEnd),
+    date: dateRangeLabel(upcomingSampleStart, upcomingSampleEnd),
     note: "숙소에서 수다와 버섯전골",
     tone: 0,
     mark: upcomingSampleStart.slice(5, 7),
@@ -444,7 +397,7 @@ const trips: Trip[] = [
   }),
   sampleTrip({
     name: "강릉 안목",
-    date: sampleDateRange(recentSampleStart, recentSampleEnd),
+    date: dateRangeLabel(recentSampleStart, recentSampleEnd),
     note: "보드게임과 야식 장보기",
     tone: 5,
     mark: recentSampleStart.slice(5, 7),
@@ -461,7 +414,7 @@ const trips: Trip[] = [
   }),
   sampleTrip({
     name: "여수",
-    date: sampleDateRange(archiveSampleStart, archiveSampleEnd),
+    date: dateRangeLabel(archiveSampleStart, archiveSampleEnd),
     note: "바다 산책과 단체 사진",
     tone: 3,
     mark: archiveSampleStart.slice(5, 7),
@@ -1532,7 +1485,7 @@ export function WarmAppShell({
       지금_적기();
     };
   }, [지금_적기]);
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayKey = dateKey(now);
   // 보관한 여행은 홈에 띄우지 않는다. 치워 둔 여행이 다음 여행으로 보이면 안 된다.
   const homeTrip = [...tripItems]
     .filter((trip) => trip.end >= todayKey && !trip.archived)
@@ -3797,7 +3750,7 @@ function TripsExplorer({
   onCreateTrip: (input: { title: string; startDate: string; endDate: string; regionName: string; summary: string; participants: string[] }) => Promise<Trip>;
 }) {
   const initialCalendarDate = new Date();
-  const initialDateKey = `${initialCalendarDate.getFullYear()}-${String(initialCalendarDate.getMonth() + 1).padStart(2, "0")}-${String(initialCalendarDate.getDate()).padStart(2, "0")}`;
+  const initialDateKey = dateKey(initialCalendarDate);
   const [display, setDisplay] = useState<TripView>("목록");
   const [filter, setFilter] = useState<"전체" | "다가오는" | "지난 여행" | "보관">("전체");
   const [trash, setTrash] = useState<Trip[]>([]);
@@ -5001,7 +4954,7 @@ function TripCalendar({
   const weeks = Array.from({ length: cells.length / 7 }, (_, 주) => cells.slice(주 * 7, 주 * 7 + 7));
   const bars = tripBars(trips, month.year, month.value);
   const today = new Date();
-  const todayKey = dayKeyOf(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const todayKey = dateKey(today);
   const move = (amount: number) => {
     const next = new Date(month.year, month.value - 1 + amount, 1);
     setMonth({ year: next.getFullYear(), value: next.getMonth() + 1 });

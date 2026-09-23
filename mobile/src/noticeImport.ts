@@ -12,6 +12,8 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
+import { dayKeyOf, todayKey, weekdayOfKey, 두자리 } from "./dates.ts";
+
 export type NoticePlace = {
   name: string;
   address: string;
@@ -179,8 +181,6 @@ export function regionOfTitle(title: string): string {
   return "";
 }
 
-const pad = (value: number) => String(value).padStart(2, "0");
-const keyOf = (year: number, month: number, day: number) => `${year}-${pad(month)}-${pad(day)}`;
 const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
 
@@ -191,7 +191,7 @@ const daysBetween = (from: string, to: string) =>
  */
 const yearFor = (month: number, day: number, today: string) => {
   const thisYear = Number(today.slice(0, 4));
-  const candidate = keyOf(thisYear, month, day);
+  const candidate = dayKeyOf(thisYear, month, day);
   return daysBetween(today, candidate) > 90 ? thisYear - 1 : thisYear;
 };
 
@@ -210,19 +210,17 @@ export function parseHeadline(line: string, today: string): { title: string; sta
   const month = Number(startMonth);
   const day = Number(startDay);
   const year = startYear ? Number(startYear) : yearFor(month, day, today);
-  const startDate = keyOf(year, month, day);
+  const startDate = dayKeyOf(year, month, day);
   const lastMonth = endMonth ? Number(endMonth) : month;
   const lastDay = Number(endDay);
   const lastYear = endYear ? Number(endYear) : lastMonth < month ? year + 1 : year;
-  const endDate = keyOf(lastYear, lastMonth, lastDay);
+  const endDate = dayKeyOf(lastYear, lastMonth, lastDay);
   return {
     title: tidy(text.replace(matched, " ")).slice(0, 60),
     startDate,
     endDate: endDate < startDate ? startDate : endDate,
   };
 }
-
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 /** 기간 안의 날짜를 차례대로. 기간이 비었으면 빈 배열. */
 export function tripDates(startDate: string, endDate: string): string[] {
@@ -233,7 +231,7 @@ export function tripDates(startDate: string, endDate: string): string[] {
   return Array.from({ length: span + 1 }, (_, index) => new Date(start + index * 86400000).toISOString().slice(0, 10));
 }
 
-const weekdayOf = (key: string) => WEEKDAYS[new Date(`${key}T00:00:00Z`).getUTCDay()];
+
 
 // ---------------------------------------------------------------------------
 // 수량
@@ -460,7 +458,7 @@ function readBooking(lines: readonly string[], sink: Sink) {
     }
     const time = line.match(/^(체크\s*인|체크\s*아웃|입실|퇴실)\s*[:：]?\s*(\d{1,2}):(\d{2})$/);
     if (time && stay) {
-      const clock = `${pad(Number(time[2]))}:${time[3]}`;
+      const clock = `${두자리(Number(time[2]))}:${time[3]}`;
       if (/인|입실/.test(time[1])) stay.checkIn = clock;
       else stay.checkOut = clock;
       continue;
@@ -623,7 +621,7 @@ const MEAL = /아침|점심|저녁|브런치|디너|런치|간식|야식|식사/
 function readDayPlan(head: string, lines: readonly string[], dates: readonly string[], sink: Sink) {
   const weekday = head.match(/([월화수목금토일])요일|^([월화수목금토일])$/);
   const day = weekday ? weekday[1] ?? weekday[2] : "";
-  const date = day ? dates.find((key) => weekdayOf(key) === day) ?? "" : "";
+  const date = day ? dates.find((key) => weekdayOfKey(key) === day) ?? "" : "";
   let menu = false;
   for (const raw of lines) {
     const line = stripEmoji(raw.trim());
@@ -649,7 +647,7 @@ function readDayPlan(head: string, lines: readonly string[], dates: readonly str
     const [, time, label, title] = parts;
     sink.schedule.push({
       date,
-      time: time ? `${pad(Number(time.split(":")[0]))}:${time.split(":")[1]}` : "",
+      time: time ? `${두자리(Number(time.split(":")[0]))}:${time.split(":")[1]}` : "",
       title: tidy(title).slice(0, 60),
       note: tidy(label).slice(0, 2000),
       type: MEAL.test(label) ? "meal" : "other",
@@ -707,11 +705,6 @@ export function splitNotices(text: string): string[] {
   if (!heads.length) return [text.trim() ? text : ""].filter(Boolean);
   return heads.map((start, order) => lines.slice(start, heads[order + 1] ?? lines.length).join("\n"));
 }
-
-const todayKey = () => {
-  const now = new Date();
-  return keyOf(now.getFullYear(), now.getMonth() + 1, now.getDate());
-};
 
 /**
  * 공지 한 편을 여행 초안으로.

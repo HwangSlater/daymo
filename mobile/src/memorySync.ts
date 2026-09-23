@@ -7,7 +7,8 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-import { dateKey, dateLabelOf, isServerId, type Codec } from "./listSync.ts";
+import { isServerId, type Codec } from "./listSync.ts";
+import { dateKey, dateLabelOf, 두자리 } from "./dates.ts";
 import type { RosterEntry } from "./tripSync.ts";
 
 /** 앱의 메모(WarmTripDetail 의 TripNote)와 같은 모양. */
@@ -47,15 +48,13 @@ export function trashLeftLabel(restoreDeadline: string, now: Date = new Date()):
   return days < 1 ? "오늘 완전히 삭제돼요" : `${days}일 뒤 완전히 삭제돼요`;
 }
 
-const pad = (value: number) => String(value).padStart(2, "0");
-
 /** `오늘 10:42`, `어제 22:15`, 그보다 전이면 `9월 12일`. */
 export function memoStamp(at: string, now: Date = new Date()): string {
   const when = new Date(at);
   if (Number.isNaN(when.getTime())) return "";
   const today = dateKey(now);
   const yesterday = dateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12));
-  const clock = `${pad(when.getHours())}:${pad(when.getMinutes())}`;
+  const clock = `${두자리(when.getHours())}:${두자리(when.getMinutes())}`;
   if (dateKey(when) === today) return `오늘 ${clock}`;
   if (dateKey(when) === yesterday) return `어제 ${clock}`;
   return dateLabelOf(dateKey(when));

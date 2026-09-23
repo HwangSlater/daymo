@@ -10,7 +10,7 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
-import { dateLabelOf } from "./listSync.ts";
+import { dateLabelOf } from "./dates.ts";
 
 /** 서버 여행 응답의 `overview`. */
 export type ServerTripOverview = {

@@ -12,6 +12,8 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
+import { dayKeyOf } from "./dates.ts";
+
 export type CalendarNoteKind = "schedule" | "memo";
 
 /** 서버와 앱이 같은 모양으로 쓴다. 날짜는 `YYYY-MM-DD`, 시각은 `HH:MM`. */
@@ -46,9 +48,6 @@ export function personColor(membershipId: string | null, roster: readonly { id: 
   const 차례 = membershipId ? roster.findIndex((person) => person.id === membershipId) : -1;
   return 차례 < 0 ? MEMO_COLOR : PERSON_COLORS[차례 % PERSON_COLORS.length];
 }
-
-const 두자리 = (값: number) => String(값).padStart(2, "0");
-export const dayKeyOf = (year: number, month: number, day: number) => `${year}-${두자리(month)}-${두자리(day)}`;
 
 /**
  * 한 달을 그리는 칸. 앞뒤 달 날짜로 주를 채운다(아이폰 캘린더처럼 흐리게 보인다).

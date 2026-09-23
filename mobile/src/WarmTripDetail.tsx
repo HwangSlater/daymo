@@ -13,7 +13,24 @@ import { DaymoApiError } from "./auth";
 import { TripConflictError } from "./tripSync";
 import { reloadOpenLists, retryBlockedRows, useListSync, useSyncTrouble } from "./useListSync";
 import { SyncMark, SyncNotice } from "./SyncMarks";
-import { dateKey, dateLabelOf, dayLabelOf, isServerId, tripDateKeys } from "./listSync";
+import { isServerId } from "./listSync";
+import {
+  buildTripDates,
+  dateKey,
+  dateLabel,
+  dateLabelOf,
+  dayLabel,
+  dayLabelOf,
+  dayNumberOf,
+  formatTripPeriod,
+  matchTripDay,
+  tripDateKeys,
+  tripIsOver,
+  todayAmong,
+  validDateKey,
+  weekdayOf,
+  시각을_분으로,
+} from "./dates";
 import {
   legacyIdMap,
   placeCodec,
@@ -643,60 +660,6 @@ type Props = {
   me?: string;
 };
 
-const parseTripDate = (value?: string) => {
-  if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const buildTripDates = (start?: string, end?: string) => {
-  const first = parseTripDate(start);
-  const last = parseTripDate(end);
-  if (!first || !last || first > last) return [];
-  const result: Date[] = [];
-  const cursor = new Date(first);
-  while (cursor <= last && result.length < 366) {
-    result.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return result;
-};
-
-const dayLabel = (date: Date) =>
-  `${date.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][date.getDay()]})`;
-
-/**
- * 여행 날짜 가운데 오늘이 있으면 그 날을 준다. 없으면 빈 문자열이다.
- *
- * 여행 중에 적는 지출은 거의 오늘 것이다. 늘 첫날로 시작하면 둘째 날부터는
- * 매번 날짜를 고쳐야 한다.
- */
-const todayAmong = (dates: Date[]): string => {
-  const now = new Date();
-  const match = dates.find(
-    (date) =>
-      date.getFullYear() === now.getFullYear() &&
-      date.getMonth() === now.getMonth() &&
-      date.getDate() === now.getDate(),
-  );
-  return match ? dayLabel(match) : "";
-};
-
-/**
- * 마지막 날이 지났으면 지난 여행이다.
- *
- * 오늘이 마지막 날이면 아직 여행 중이다. 장소 탭이 다녀옴을 한 번에 표시할지
- * 물을 때만 쓴다.
- */
-const tripIsOver = (dates: Date[]): boolean => {
-  const last = dates[dates.length - 1];
-  if (!last) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return last < today;
-};
-/** "24일(목)" 형태의 날짜 옵션에서 요일만 꺼낸다. */
-const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? dayOption.slice(0, 1);
 // 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
 /**
  * 입력칸 라벨 앞의 점 색.
@@ -707,8 +670,6 @@ const weekdayOf = (dayOption: string) => dayOption.match(/\(([^)]+)\)/)?.[1] ?? 
  */
 const requiredDot = (required: boolean, theme?: AppTheme) =>
   theme && { backgroundColor: required ? theme.primary : theme.border };
-
-const dayNumberOf = (dayOption: string) => dayOption.match(/(\d+)일/)?.[1] ?? dayOption;
 
 /**
  * 지운 줄을 있던 자리에 도로 끼운다. 삭제 되돌리기가 쓴다.
@@ -808,38 +769,6 @@ type PickedPhoto = {
   uri: string;
   /** 사진에 적힌 촬영 날짜(`YYYY-MM-DD`). 없으면 빈 글자다. */
   takenOn: string;
-};
-
-/**
- * 예전에 자유롭게 적어 둔 날짜를 이번 여행의 날짜 칸에 맞춘다.
- *
- * 기록 탭의 사진 날짜만 아무 글자나 받고 있었다. "1일차" 와 "8월 22일" 이
- * 섞이면 같은 날인데 다른 날로 세어 "N일의 기록" 이 엉뚱해진다.
- * 몇째 날로 적었으면 순서로, 날짜로 적었으면 일 숫자로 찾는다. 어느 쪽도
- * 아니면 적힌 그대로 둔다. 내가 적은 말을 앱이 말없이 버리면 안 된다.
- */
-const matchTripDay = (value: string, dayOptions: string[]) => {
-  const text = value.trim();
-  if (!text || dayOptions.includes(text)) return text;
-  const nth = text.match(/^(\d+)\s*일차$/);
-  if (nth) return dayOptions[Number(nth[1]) - 1] ?? text;
-  const day = text.match(/(\d+)\s*일/);
-  const found = day && dayOptions.find((option) => dayNumberOf(option) === day[1]);
-  return found || text;
-};
-const dateLabel = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
-
-const validDateKey = (value: string) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = parseTripDate(value);
-  return Boolean(date && `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` === value);
-};
-
-const formatTripPeriod = (start: string, end: string) => {
-  const first = parseTripDate(start);
-  const last = parseTripDate(end);
-  if (!first || !last) return "기간을 확인해 주세요";
-  return `${dateLabel(first)} — ${dateLabel(last)}`;
 };
 
 type PackingItem = {
@@ -12637,15 +12566,6 @@ function useOrderWarning(볼_때인가: boolean, 제대로인가: boolean, 제�
     if (앞서_제대로였나.current && !제대로인가) showAlert(제목, 설명);
     앞서_제대로였나.current = 제대로인가;
   }, [볼_때인가, 제대로인가, 제목, 설명]);
-}
-
-/** 「09:30」을 분으로. 읽을 수 없으면 `null`. */
-function 시각을_분으로(value: string): number | null {
-  const 맞음 = value.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!맞음) return null;
-  const 시 = Number(맞음[1]);
-  const 분 = Number(맞음[2]);
-  return 시 <= 23 && 분 <= 59 ? 시 * 60 + 분 : null;
 }
 
 /**

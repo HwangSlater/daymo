@@ -21,6 +21,7 @@ import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollVie
 
 import { Text } from "../AppText";
 import { maskClockTime, settleClockTime } from "../clock";
+import { 두자리 } from "../dates";
 import { AppTheme } from "../theme";
 import { 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
@@ -40,7 +41,6 @@ const 분_목록 = (지금: number) =>
 /** 웹에서만 뜻이 있는 스타일. 기기에서는 무시된다. */
 const 굴림_가두기 = Platform.OS === "web" ? ({ overscrollBehavior: "contain" } as object) : null;
 
-const 두자리 = (n: number) => String(n).padStart(2, "0");
 const 시각_읽기 = (value: string, fallback: string) => {
   const [h, m] = (value || fallback).split(":").map(Number);
   return {

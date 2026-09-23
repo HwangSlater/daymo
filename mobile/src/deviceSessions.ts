@@ -11,6 +11,8 @@
  * expo 나 react-native 를 가져오지 않는다. `node --test` 로 바로 시험한다.
  */
 
+import { dateKey, 두자리 } from "./dates.ts";
+
 /** `GET /v1/auth/sessions` 한 줄. 서버의 `DeviceOut` 과 같은 모양이다. */
 export type ServerDevice = {
   id: string;
@@ -39,8 +41,6 @@ export function deviceName(device: Pick<ServerDevice, "displayName" | "platform"
   return "웹 브라우저";
 }
 
-const pad = (value: number) => String(value).padStart(2, "0");
-const dayKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
 /**
  * 마지막으로 쓴 때. `오늘 10:42`, `어제 22:15`, 그보다 전이면 `9월 12일`.
@@ -50,11 +50,11 @@ const dayKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)
 export function lastSeenLabel(at: string, now: Date = new Date()): string {
   const when = new Date(at);
   if (Number.isNaN(when.getTime())) return "";
-  const 오늘 = dayKey(now);
-  const 어제 = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12));
-  const 시각 = `${pad(when.getHours())}:${pad(when.getMinutes())}`;
-  if (dayKey(when) === 오늘) return `오늘 ${시각}`;
-  if (dayKey(when) === 어제) return `어제 ${시각}`;
+  const 오늘 = dateKey(now);
+  const 어제 = dateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12));
+  const 시각 = `${두자리(when.getHours())}:${두자리(when.getMinutes())}`;
+  if (dateKey(when) === 오늘) return `오늘 ${시각}`;
+  if (dateKey(when) === 어제) return `어제 ${시각}`;
   return `${when.getMonth() + 1}월 ${when.getDate()}일`;
 }
 
