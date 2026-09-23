@@ -25,7 +25,7 @@ import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import { APP_VERSION } from "./appVersion";
-import { type Expense, money } from "./tripExpenses";
+import { money } from "./tripExpenses";
 import { PaperPeel } from "./PaperPeel";
 import { TripRegionPicker } from "./TripRegionPicker";
 import { tripRegions } from "./tripRegions";
@@ -46,8 +46,9 @@ import {
 } from "./spaces";
 import { removeAllCardDrafts, removeCardDrafts } from "./cardDraftStorage";
 import { TripDateRangePicker } from "./TripDateRangePicker";
-import { sampleTripPlanning, WarmTripDetail } from "./WarmTripDetail";
-import type { TripDetailDestination, TripPlanningData } from "./tripPlanning";
+import { WarmTripDetail } from "./WarmTripDetail";
+import { sampleTrips } from "./sampleTrips";
+import type { Trip, TripDetailDestination, TripPlanningData } from "./tripPlanning";
 import { shouldRefetch } from "./listSync";
 import { SyncNotice } from "./SyncMarks";
 import { reloadOpenLists } from "./useListSync";
@@ -77,7 +78,7 @@ import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
 import { MEMO_COLOR, dotColors, draftBody, monthCells, noteMeta, notesOnDay, personColor, tripBars, visibleRange, type CalendarDraft, type CalendarNote } from "./calendarNotes";
-import { dateKey, dateRangeLabel, dayLabelOf, daysSince, shiftDateKey, tripDateKeys } from "./dates";
+import { dateKey, dateRangeLabel, daysSince, shiftDateKey, tripDateKeys } from "./dates";
 import { CalendarNoteSheet } from "./CalendarNoteSheet";
 import { FeedbackCard, FeedbackSheet } from "./FeedbackSheet";
 import { useFeedbackCardHidden } from "./feedback";
@@ -188,56 +189,6 @@ type DaymoUser = Pick<AuthUser, "name" | "email" | "deletionScheduledAt" | "hasP
 
 WebBrowser.maybeCompleteAuthSession();
 
-type Trip = {
-  id?: string;
-  version?: number;
-  name: string;
-  date: string;
-  note: string;
-  /**
-   * tripTone 팔레트의 자리. 색값이 아니라 자리를 저장한다.
-   *
-   * 서버에서 온 여행은 id 로 정한다(`tripColor.ts`). 그래야 기기가 달라도, 목록을
-   * 다시 받아도 그 여행은 늘 같은 색이다.
-   */
-  tone: number;
-  mark: string;
-  region: string;
-  start: string;
-  end: string;
-  planning?: TripPlanningData;
-  /**
-   * 서버가 센 홈 카드 숫자. 있으면 홈이 기록(`planning`) 대신 이것을 쓴다.
-   * 기록은 상세를 이 기기에서 열어야 채워져서, 다른 멤버가 채운 여행이 비어 보인다.
-   */
-  overview?: ServerTripOverview;
-  /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
-  serverExpenseSettings?: ExpenseSettings;
-  /** 홈 화면의 여행 카드에 깐 사진 한 장. */
-  coverPhotoId?: string;
-  /** 홈 화면의 여행 카드에 통째로 깐 기념 카드. 사진 한 장과 둘 중 하나만 있다. */
-  coverCardId?: string;
-  /** 홈에 그릴 사진들. 카드를 깔았으면 그 카드의 사진이 고른 차례대로다. */
-  coverPhotoIds?: string[];
-  /** 그 카드의 틀 이름. 사진을 어떻게 놓을지 이 값으로 정한다(`homeCoverRows`). */
-  coverCardStyle?: string;
-  /** 대표 사진에서 홈 카드 틀에 보여 줄 부분(`coverCrop.ts`). 없으면 가운데다. */
-  coverFocus?: CoverFocus;
-  /** 받아 둔 바탕 사진 자리(사진 id → 자리). 못 받은 사진은 없고, 그러면 카드는 종이 그대로다. */
-  coverUris?: Record<string, string>;
-  /**
-   * 앱이 처음부터 들고 있는 예시 여행.
-   *
-   * 예시 여행만 일정·장소·준비물이 채워진 채로 열린다. 사용자가 만든 여행은
-   * 빈 채로 시작한다. 내가 만들지 않은 내용이 들어 있으면 그건 내 여행이 아니다.
-   */
-  sample?: boolean;
-  /** 보관한 여행. 여행 목록의 ‘보관’에만 보인다. */
-  archived?: boolean;
-  /** 지운 여행이면 되돌릴 수 있는 마지막 시각. 보관 목록의 ‘지운 여행’에만 쓴다. */
-  deletionScheduledAt?: string;
-};
-
 // 서버 공간을 앱의 공간으로 옮긴다. 멤버는 따로 받아 넘긴다.
 //
 // 함께한 날을 적지 않았으면 비워 둔다. 예전에는 오늘 날짜로 채웠는데, 그러면
@@ -323,121 +274,12 @@ const latestTripFrom = (trip: ServerTrip, roster: RosterEntry[]): LatestTrip => 
   };
 };
 
-/** 오늘에서 며칠 앞뒤의 날짜 키. 예시 여행의 날짜를 오늘 기준으로 만든다. */
-const sampleDate = (daysFromToday: number) => shiftDateKey(dateKey(new Date()), daysFromToday);
-
-/**
- * 여행 며칠째의 날짜 이름. 상세 화면의 날짜 선택지와 같은 "22일(토)" 형식이다.
- *
- * 예시 여행의 날짜는 오늘을 기준으로 만들어지므로 지출의 날짜도 같은 규칙으로
- * 계산해야 한다. 글자로 박아 두면 날이 지날수록 어긋난다.
- */
-const sampleTripDay = (startKey: string, offset: number) => dayLabelOf(shiftDateKey(startKey, offset));
-
-/** 예시 지출 한 건. 여행마다 다른 목록을 만들려고 짧게 쓴다. */
-const sampleExpense = (
-  id: string,
-  startKey: string,
-  offset: number,
-  title: string,
-  amount: number,
-  category: Expense["category"],
-  payer: string,
-  /** 몫을 지는 사람과 비중. 없으면 참가자 전원이 똑같이 나눈다. */
-  shares?: Record<string, number>,
-  memo = "",
-): Expense => ({
-  id,
-  day: sampleTripDay(startKey, offset),
-  title,
-  amount,
-  category,
-  payer,
-  shares,
-  memo,
-});
-
-const upcomingSampleStart = sampleDate(12);
-const upcomingSampleEnd = sampleDate(14);
-const recentSampleStart = sampleDate(-23);
-const recentSampleEnd = sampleDate(-22);
-const archiveSampleStart = sampleDate(-45);
-const archiveSampleEnd = sampleDate(-43);
-
-/**
- * 예시 여행 하나를 만든다.
- *
- * 일정·장소·준비물 같은 처음 내용을 여행에 바로 붙인다. 상세 화면이 열릴 때
- * 채우면 홈 카드도 찾기도 이 여행에 무엇이 들어 있는지 알 수 없다.
- * 지출은 여행마다 달라서 부르는 쪽에서 넘긴다.
- */
-const sampleTrip = (trip: Omit<Trip, "sample" | "planning"> & { expenses: Expense[] }): Trip => {
-  const { expenses, ...rest } = trip;
-  return {
-    ...rest,
-    sample: true,
-    planning: { ...sampleTripPlanning(rest.name, rest.start, rest.end, ["하늘", "여울"]), expenses },
-  };
-};
-
-const trips: Trip[] = [
-  sampleTrip({
-    name: "전주 한옥마을",
-    date: dateRangeLabel(upcomingSampleStart, upcomingSampleEnd),
-    note: "숙소에서 수다와 버섯전골",
-    tone: 0,
-    mark: upcomingSampleStart.slice(5, 7),
-    region: "전북",
-    start: upcomingSampleStart,
-    end: upcomingSampleEnd,
-    // 아직 안 떠난 여행이라 미리 낸 것만 있다.
-    expenses: [
-      sampleExpense("jj-1", upcomingSampleStart, 0, "KTX 왕복 예매", 47200, "교통", "하늘", { 하늘: 1 }),
-      sampleExpense("jj-2", upcomingSampleStart, 0, "달빛한옥 예약금", 90000, "숙박", "하늘"),
-    ],
-  }),
-  sampleTrip({
-    name: "강릉 안목",
-    date: dateRangeLabel(recentSampleStart, recentSampleEnd),
-    note: "보드게임과 야식 장보기",
-    tone: 5,
-    mark: recentSampleStart.slice(5, 7),
-    region: "강원",
-    start: recentSampleStart,
-    end: recentSampleEnd,
-    expenses: [
-      sampleExpense("gn-1", recentSampleStart, 0, "시외버스 왕복", 28000, "교통", "여울", { 여울: 1 }),
-      sampleExpense("gn-2", recentSampleStart, 0, "안목 카페 거리", 39000, "식비", "하늘"),
-      sampleExpense("gn-3", recentSampleStart, 0, "바다뷰 숙소 1박", 120000, "숙박", "여울"),
-      sampleExpense("gn-4", recentSampleStart, 1, "보드게임 카페", 24000, "기타", "하늘"),
-      sampleExpense("gn-5", recentSampleStart, 1, "야식 장보기", 31800, "식비", "여울", undefined, "치킨과 맥주"),
-    ],
-  }),
-  sampleTrip({
-    name: "여수",
-    date: dateRangeLabel(archiveSampleStart, archiveSampleEnd),
-    note: "바다 산책과 단체 사진",
-    tone: 3,
-    mark: archiveSampleStart.slice(5, 7),
-    region: "전남",
-    start: archiveSampleStart,
-    end: archiveSampleEnd,
-    expenses: [
-      sampleExpense("ys-1", archiveSampleStart, 0, "KTX 왕복", 96000, "교통", "하늘"),
-      sampleExpense("ys-2", archiveSampleStart, 0, "회 정식 저녁", 58000, "식비", "여울"),
-      sampleExpense("ys-3", archiveSampleStart, 0, "게스트하우스 2박", 90000, "숙박", "하늘"),
-      sampleExpense("ys-4", archiveSampleStart, 1, "해상 케이블카", 30000, "입장료", "여울"),
-      sampleExpense("ys-5", archiveSampleStart, 1, "택시", 12000, "교통", "하늘"),
-      sampleExpense("ys-6", archiveSampleStart, 2, "기념품 수제 엽서", 15000, "쇼핑", "여울", { 여울: 1 }),
-    ],
-  }),
-];
 /**
  * 처음 그릴 때의 여행 목록. 비어 있다.
  *
  * 2026-09-23 까지는 예시 여행 셋이 들어 있었다. 저장된 것도 없고 공간 목록도 못 받은
  * 기기에서는 그 예시가 그대로 기기에 적혔다. 가상 데이터는 실제 계정에 섞지 않는다.
- * 화면 모양을 보는 예시 여행은 `trips` 에만 남긴다.
+ * 화면 모양을 보는 예시 여행은 `sampleTrips.ts` 에만 남긴다.
  */
 const initialTripsByGroup: Record<GroupId, Trip[]> = {};
 
@@ -728,7 +570,7 @@ export function WarmAppShell({
     name: "첫 여행 공간",
     members: [],
     relationship: "친구" as const,
-    since: sampleDate(0),
+    since: dateKey(new Date()),
   };
   // 공간 이름·관계·함께한 날을 서버에 저장한다.
   //
@@ -812,7 +654,7 @@ export function WarmAppShell({
       [activeSpace.id]:
         typeof update === "function" ? update(current[activeSpace.id as GroupId] ?? []) : update,
     }));
-  const [selectedTrip, setSelectedTrip] = useState<Trip>(trips[0]);
+  const [selectedTrip, setSelectedTrip] = useState<Trip>(sampleTrips[0]);
   const [themeId, setThemeId] = useState<ThemeId>(settings.themeId);
 
   const [appearance, setAppearance] = useState<AppearanceMode>(
@@ -1497,7 +1339,7 @@ export function WarmAppShell({
   );
   const openTrip = (
     destination: TripDetailDestination = "overview",
-    trip: Trip = tripItems[0] ?? trips[0],
+    trip: Trip = tripItems[0] ?? sampleTrips[0],
   ) => {
     setSelectedTrip(trip);
     setTripDestination(destination);

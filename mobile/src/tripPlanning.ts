@@ -9,11 +9,14 @@
  */
 
 import type { TransportStop } from "./bookingSync.ts";
+import type { CoverFocus } from "./coverCrop.ts";
 import { weekdayOf } from "./dates.ts";
 import type { PeopleNames } from "./people.ts";
 import type { AppPlaceStatus } from "./placeSync.ts";
 import type { PhotoLink, PhotoLinkTarget } from "./photoSync.ts";
+import type { ExpenseSettings } from "./serverData.ts";
 import type { Expense, Payment } from "./tripExpenses.ts";
+import type { ServerTripOverview } from "./tripOverview.ts";
 
 /** 여행 상세를 열 때 곧장 가는 자리. */
 export type TripDetailDestination =
@@ -242,6 +245,57 @@ export type TripPlanningData = {
   exchangeRate?: number;
   tripNotes?: TripNote[];
   hasKitchen?: boolean;
+};
+
+/** 목록과 홈이 들고 다니는 여행 한 건. 기록(`planning`)은 이 안에 붙는다. */
+export type Trip = {
+  id?: string;
+  version?: number;
+  name: string;
+  date: string;
+  note: string;
+  /**
+   * tripTone 팔레트의 자리. 색값이 아니라 자리를 저장한다.
+   *
+   * 서버에서 온 여행은 id 로 정한다(`tripColor.ts`). 그래야 기기가 달라도, 목록을
+   * 다시 받아도 그 여행은 늘 같은 색이다.
+   */
+  tone: number;
+  mark: string;
+  region: string;
+  start: string;
+  end: string;
+  planning?: TripPlanningData;
+  /**
+   * 서버가 센 홈 카드 숫자. 있으면 홈이 기록(`planning`) 대신 이것을 쓴다.
+   * 기록은 상세를 이 기기에서 열어야 채워져서, 다른 멤버가 채운 여행이 비어 보인다.
+   */
+  overview?: ServerTripOverview;
+  /** 서버에 저장된 통화·환율·예산·정산 묶기. 상세 화면이 기기 값과 견줘 쓴다. */
+  serverExpenseSettings?: ExpenseSettings;
+  /** 홈 화면의 여행 카드에 깐 사진 한 장. */
+  coverPhotoId?: string;
+  /** 홈 화면의 여행 카드에 통째로 깐 기념 카드. 사진 한 장과 둘 중 하나만 있다. */
+  coverCardId?: string;
+  /** 홈에 그릴 사진들. 카드를 깔았으면 그 카드의 사진이 고른 차례대로다. */
+  coverPhotoIds?: string[];
+  /** 그 카드의 틀 이름. 사진을 어떻게 놓을지 이 값으로 정한다(`homeCoverRows`). */
+  coverCardStyle?: string;
+  /** 대표 사진에서 홈 카드 틀에 보여 줄 부분(`coverCrop.ts`). 없으면 가운데다. */
+  coverFocus?: CoverFocus;
+  /** 받아 둔 바탕 사진 자리(사진 id → 자리). 못 받은 사진은 없고, 그러면 카드는 종이 그대로다. */
+  coverUris?: Record<string, string>;
+  /**
+   * 앱이 처음부터 들고 있는 예시 여행.
+   *
+   * 예시 여행만 일정·장소·준비물이 채워진 채로 열린다. 사용자가 만든 여행은
+   * 빈 채로 시작한다. 내가 만들지 않은 내용이 들어 있으면 그건 내 여행이 아니다.
+   */
+  sample?: boolean;
+  /** 보관한 여행. 여행 목록의 ‘보관’에만 보인다. */
+  archived?: boolean;
+  /** 지운 여행이면 되돌릴 수 있는 마지막 시각. 보관 목록의 ‘지운 여행’에만 쓴다. */
+  deletionScheduledAt?: string;
 };
 
 /** 여행 날짜를 못 정했을 때. 날짜 칸에서 고를 수 있는 값이다. */
