@@ -4,7 +4,7 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_row, require
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Reservation, Transport
 from app.schemas.booking import (
     ReservationCreateRequest,
@@ -64,13 +64,13 @@ async def _예약_응답(db, trip, reservation: Reservation) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/transports")
+@router.get("/trips/{trip_id}/transports", response_model=Page[TransportOut])
 async def list_transports(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([await _교통_응답(db, trip, row) for row in await bookings.list_transports(db, trip)])
 
 
-@router.post("/trips/{trip_id}/transports", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/transports", status_code=status.HTTP_201_CREATED, response_model=Envelope[TransportOut])
 async def create_transport(
     trip_id: uuid.UUID, body: TransportCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -84,7 +84,7 @@ async def create_transport(
     return ok(await _교통_응답(db, trip, transport))
 
 
-@router.patch("/transports/{transport_id}")
+@router.patch("/transports/{transport_id}", response_model=Envelope[TransportOut])
 async def update_transport(
     transport_id: uuid.UUID, body: TransportUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -114,13 +114,13 @@ async def delete_transport(transport_id: uuid.UUID, caller: CurrentCaller, db: D
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/reservations")
+@router.get("/trips/{trip_id}/reservations", response_model=Page[ReservationOut])
 async def list_reservations(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([await _예약_응답(db, trip, row) for row in await bookings.list_reservations(db, trip)])
 
 
-@router.post("/trips/{trip_id}/reservations", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/reservations", status_code=status.HTTP_201_CREATED, response_model=Envelope[ReservationOut])
 async def create_reservation(
     trip_id: uuid.UUID, body: ReservationCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -134,7 +134,7 @@ async def create_reservation(
     return ok(await _예약_응답(db, trip, reservation))
 
 
-@router.patch("/reservations/{reservation_id}")
+@router.patch("/reservations/{reservation_id}", response_model=Envelope[ReservationOut])
 async def update_reservation(
     reservation_id: uuid.UUID, body: ReservationUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:

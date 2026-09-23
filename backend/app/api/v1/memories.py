@@ -5,7 +5,7 @@ from fastapi import APIRouter, Response, status
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_row, require
 from app.core.errors import AppError, ErrorCode
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Diary, Memo
 from app.schemas.memory import (
     DiaryCreateRequest,
@@ -60,7 +60,7 @@ async def _살아_있는_메모(db, caller, memo_id: uuid.UUID):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/memos")
+@router.get("/trips/{trip_id}/memos", response_model=Page[MemoOut])
 async def list_memos(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """지우지 않은 메모만, 새것부터."""
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
@@ -69,7 +69,7 @@ async def list_memos(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -
     return page([_메모_응답(memo, names) for memo in memos])
 
 
-@router.post("/trips/{trip_id}/memos", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/memos", status_code=status.HTTP_201_CREATED, response_model=Envelope[MemoOut])
 async def create_memo(
     trip_id: uuid.UUID, body: MemoCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -81,7 +81,7 @@ async def create_memo(
     return ok(_메모_응답(memo, await memory_service.author_names(db, [memo.author_membership_id])))
 
 
-@router.patch("/memos/{memo_id}")
+@router.patch("/memos/{memo_id}", response_model=Envelope[MemoOut])
 async def update_memo(memo_id: uuid.UUID, body: MemoUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     membership, _, memo = await _살아_있는_메모(db, caller, memo_id)
     require(membership, *WRITERS)
@@ -104,7 +104,7 @@ async def delete_memo(memo_id: uuid.UUID, caller: CurrentCaller, db: DbSession) 
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/diaries")
+@router.get("/trips/{trip_id}/diaries", response_model=Page[DiaryOut])
 async def list_diaries(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     diaries = await memory_service.list_diaries(db, trip)
@@ -112,7 +112,7 @@ async def list_diaries(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession)
     return page([_일기_응답(diary, names) for diary in diaries])
 
 
-@router.post("/trips/{trip_id}/diaries", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/diaries", status_code=status.HTTP_201_CREATED, response_model=Envelope[DiaryOut])
 async def create_diary(
     trip_id: uuid.UUID, body: DiaryCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -126,7 +126,7 @@ async def create_diary(
     return ok(_일기_응답(diary, await memory_service.author_names(db, [diary.author_membership_id])))
 
 
-@router.patch("/diaries/{diary_id}")
+@router.patch("/diaries/{diary_id}", response_model=Envelope[DiaryOut])
 async def update_diary(diary_id: uuid.UUID, body: DiaryUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     membership, _, diary = await membership_for_trip_row(db, user_id=caller.user.id, model=Diary, row_id=diary_id)
     require(membership, *WRITERS)

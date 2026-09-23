@@ -4,7 +4,7 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_row, require
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import ScheduleItem, Stay
 from app.schemas.schedule import (
     ScheduleItemCreateRequest,
@@ -55,13 +55,13 @@ async def _숙소_응답(db, trip, stay: Stay) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/schedule-items")
+@router.get("/trips/{trip_id}/schedule-items", response_model=Page[ScheduleItemOut])
 async def list_schedule_items(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([await _일정_응답(db, trip, view) for view in await schedule_service.list_items(db, trip)])
 
 
-@router.post("/trips/{trip_id}/schedule-items", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/schedule-items", status_code=status.HTTP_201_CREATED, response_model=Envelope[ScheduleItemOut])
 async def create_schedule_item(
     trip_id: uuid.UUID, body: ScheduleItemCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -76,7 +76,7 @@ async def create_schedule_item(
     return ok(await _일정_응답(db, trip, await schedule_service.item_view(db, item)))
 
 
-@router.patch("/schedule-items/{item_id}")
+@router.patch("/schedule-items/{item_id}", response_model=Envelope[ScheduleItemOut])
 async def update_schedule_item(
     item_id: uuid.UUID, body: ScheduleItemUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -106,13 +106,13 @@ async def delete_schedule_item(item_id: uuid.UUID, caller: CurrentCaller, db: Db
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/stays")
+@router.get("/trips/{trip_id}/stays", response_model=Page[StayOut])
 async def list_stays(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([await _숙소_응답(db, trip, stay) for stay in await schedule_service.list_stays(db, trip)])
 
 
-@router.post("/trips/{trip_id}/stays", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/stays", status_code=status.HTTP_201_CREATED, response_model=Envelope[StayOut])
 async def create_stay(
     trip_id: uuid.UUID, body: StayCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -126,7 +126,7 @@ async def create_stay(
     return ok(await _숙소_응답(db, trip, stay))
 
 
-@router.patch("/stays/{stay_id}")
+@router.patch("/stays/{stay_id}", response_model=Envelope[StayOut])
 async def update_stay(stay_id: uuid.UUID, body: StayUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip, stay = await membership_for_trip_row(db, user_id=caller.user.id, model=Stay, row_id=stay_id)
     require(membership, *WRITERS)

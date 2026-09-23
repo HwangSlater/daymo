@@ -10,7 +10,7 @@ from app.api.permissions import (
     membership_for_trip_row,
     require,
 )
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Recipe
 from app.schemas.cooking import (
     ChecklistItemCreateRequest,
@@ -71,13 +71,13 @@ def _요리_응답(view) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/checklist-items")
+@router.get("/trips/{trip_id}/checklist-items", response_model=Page[ChecklistItemOut])
 async def list_checklist_items(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([_준비물_응답(trip.id, view) for view in await cooking_service.list_items(db, trip)])
 
 
-@router.post("/trips/{trip_id}/checklist-items", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/checklist-items", status_code=status.HTTP_201_CREATED, response_model=Envelope[ChecklistItemOut])
 async def create_checklist_item(
     trip_id: uuid.UUID, body: ChecklistItemCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -91,7 +91,7 @@ async def create_checklist_item(
     return ok(_준비물_응답(trip.id, await cooking_service.item_view(db, item)))
 
 
-@router.patch("/checklist-items/{item_id}")
+@router.patch("/checklist-items/{item_id}", response_model=Envelope[ChecklistItemOut])
 async def update_checklist_item(
     item_id: uuid.UUID, body: ChecklistItemUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
@@ -117,13 +117,13 @@ async def delete_checklist_item(item_id: uuid.UUID, caller: CurrentCaller, db: D
 # ---------------------------------------------------------------------------
 
 
-@router.get("/trips/{trip_id}/recipes")
+@router.get("/trips/{trip_id}/recipes", response_model=Page[RecipeOut])
 async def list_recipes(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([_요리_응답(view) for view in await cooking_service.list_recipes(db, trip)])
 
 
-@router.post("/trips/{trip_id}/recipes", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/recipes", status_code=status.HTTP_201_CREATED, response_model=Envelope[RecipeOut])
 async def create_recipe(
     trip_id: uuid.UUID, body: RecipeCreateRequest, caller: CurrentCaller, db: DbSession, response: Response
 ) -> dict:
@@ -137,7 +137,7 @@ async def create_recipe(
     return ok(_요리_응답(await cooking_service.recipe_view(db, recipe)))
 
 
-@router.patch("/recipes/{recipe_id}")
+@router.patch("/recipes/{recipe_id}", response_model=Envelope[RecipeOut])
 async def update_recipe(recipe_id: uuid.UUID, body: RecipeUpdateRequest, caller: CurrentCaller, db: DbSession) -> dict:
     membership, trip, recipe = await membership_for_trip_row(db, user_id=caller.user.id, model=Recipe, row_id=recipe_id)
     require(membership, *WRITERS)
