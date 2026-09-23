@@ -22,7 +22,7 @@ import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollVie
 import { Text } from "../AppText";
 import { maskClockTime, settleClockTime } from "../clock";
 import { AppTheme } from "../theme";
-import { 높이, 모서리 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /** 한 칸 높이. 가운데 한 칸과 위아래로 두 칸씩 보인다. */
@@ -124,6 +124,7 @@ function WheelColumn({
               accessibilityRole="radio"
               accessibilityState={{ selected: 골랐나 }}
               accessibilityLabel={`${label} ${item}`}
+              hitSlop={누름여유(칸)}
               style={styles.cell}
             >
               <Text
@@ -213,6 +214,7 @@ export function TimeWheel({
             onPress={() => onChange("")}
             accessibilityRole="button"
             accessibilityLabel={`${label} 시간 미정으로 두기`}
+            hitSlop={누름여유(높이.칩)}
             style={({ pressed }) => [
               styles.clear,
               theme && { backgroundColor: theme.surface, borderColor: theme.border },
@@ -241,25 +243,25 @@ const styles = StyleSheet.create({
   box: { borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 12, paddingBottom: 10, marginBottom: 12 },
   head: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10 },
   big: { flex: 1, minWidth: 0 },
-  bigText: { fontSize: 26, fontFamily: typo.data.family, letterSpacing: 0.5 },
+  bigText: { fontSize: 28, lineHeight: 39, fontFamily: typo.data.family, letterSpacing: 0.5 },
   bigHint: { fontSize: 11, fontFamily: typo.body.family, marginTop: 1 },
   typed: {
     flex: 1,
     minWidth: 0,
     height: 높이.버튼,
     borderBottomWidth: 2,
-    fontSize: 26,
+    fontSize: 28,
     fontFamily: typo.data.family,
     paddingHorizontal: 0,
   },
-  clear: { height: 높이.칩, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
-  clearText: { fontSize: 12.5, fontFamily: typo.label.family },
+  clear: { height: 높이.칩, borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  clearText: { fontSize: 13, fontFamily: typo.label.family },
   wheels: { flexDirection: "row", alignItems: "center", marginTop: 6 },
-  band: { position: "absolute", left: 0, right: 0, top: (통_높이 - 칸) / 2, height: 칸, borderRadius: 10 },
+  band: { position: "absolute", left: 0, right: 0, top: (통_높이 - 칸) / 2, height: 칸, borderRadius: 모서리.버튼 },
   column: { flex: 1 },
   cell: { height: 칸, alignItems: "center", justifyContent: "center" },
-  cellText: { fontSize: 18, fontFamily: typo.data.family },
-  cellTextOn: { fontSize: 22 },
+  cellText: { fontSize: 18, lineHeight: 25, fontFamily: typo.data.family },
+  cellTextOn: { fontSize: 20 },
   colon: {
     position: "absolute",
     left: 0,
@@ -271,5 +273,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: typo.data.family,
   },
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: 불투명도.눌림 },
 });

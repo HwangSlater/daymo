@@ -3,10 +3,10 @@ import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "./AppText";
 import { Glyph } from "./Glyph";
+import { CheckBox } from "./ui/CheckBox";
 import type { PastTripGroup } from "./pastTripImport";
 import { AppTheme } from "./theme";
-import { onAccent } from "./theme/colors";
-import { 높이, 모서리, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 아이콘, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 /**
@@ -66,7 +66,7 @@ export function PastTripList<T extends { id: string; name: string }>({
     <View>
       <View style={styles.head}>
         <Pressable onPress={onBack} accessibilityRole="button" hitSlop={누름여유(높이.칩)} style={styles.headLink}>
-          <Glyph name="chevronLeft" size={13} color={primary} />
+          <Glyph name="chevronLeft" size={아이콘.작게} color={primary} />
           <Text style={[styles.headLinkText, { color: primary }]}>직접 입력</Text>
         </Pressable>
         {mode === "여럿" && pickable.length > 0 && onToggleAll ? (
@@ -114,15 +114,7 @@ export function PastTripList<T extends { id: string; name: string }>({
                 ]}
               >
                 {mode === "여럿" ? (
-                  <View
-                    style={[
-                      styles.check,
-                      { borderColor: checked ? primary : theme?.border ?? "#D7D4CE" },
-                      checked && { backgroundColor: primary },
-                    ]}
-                  >
-                    {checked && <Glyph name="check" size={12} color={onAccent(Boolean(theme?.dark))} weight={2.6} />}
-                  </View>
+                  <CheckBox theme={theme} on={checked} style={styles.check} />
                 ) : null}
                 <View style={styles.rowCopy}>
                   <Text numberOfLines={1} style={[styles.rowName, { color: mine ? muted : theme?.text ?? "#1F2430" }]}>
@@ -132,7 +124,7 @@ export function PastTripList<T extends { id: string; name: string }>({
                     <Text numberOfLines={1} style={[styles.rowMeta, { color: muted }]}>{note}</Text>
                   ) : null}
                 </View>
-                {mode === "하나" && !mine ? <Glyph name="plus" size={14} color={primary} /> : null}
+                {mode === "하나" && !mine ? <Glyph name="plus" size={아이콘.작게} color={primary} /> : null}
               </Pressable>
             );
           })}
@@ -204,16 +196,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 2,
   },
-  // 체크 상자. 글자 높이에 맞춘 작은 네모라 버튼 높이 단계를 쓰지 않는다.
-  check: {
-    width: 21,
-    height: 21,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
+  /** 체크 칸을 줄에서 띄우는 여백. 칸 자체는 `ui/CheckBox` 가 그린다. */
+  check: { marginRight: 8 },
   rowCopy: { flex: 1, minWidth: 0 },
   rowName: { fontSize: 14, fontFamily: typo.title.family },
   rowMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },

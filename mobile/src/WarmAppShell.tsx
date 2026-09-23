@@ -67,6 +67,11 @@ import {
   useSaveSettings,
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
+import { CheckBox } from "./ui/CheckBox";
+import { SheetHandle } from "./ui/SheetHandle";
+import { Switch } from "./ui/Switch";
+import { Chip } from "./ui/Chip";
+import { EmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
@@ -78,7 +83,7 @@ import * as ExpoCrypto from "expo-crypto";
 import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 , 글자누름여유} from "./theme/controls";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { cancelAccountDeletion, changePassword, DaymoApiError, INSTALLATION_KEY, isEmailLike, isReconfirmCancelled, linkSocialAccount, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, resendEmailVerification, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
@@ -2181,9 +2186,7 @@ function AuthScreen({
                 accessibilityState={{ checked: termsAgreed && privacyAgreed && ageAgreed }}
                 style={[s.authConsentRow, s.authConsentAll, { borderBottomColor: theme.border }]}
               >
-                <View style={[s.authConsentCheck, { borderColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.surface }]}>
-                  {termsAgreed && privacyAgreed && ageAgreed && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
-                </View>
+                <CheckBox theme={theme} on={termsAgreed && privacyAgreed && ageAgreed} style={s.체크칸} />
                 <Text style={[s.authConsentAllText, { color: theme.text }]}>모두 동의</Text>
               </Pressable>
               {/* 광고·마케팅 알림은 보내지 않아서 선택 동의 칸을 두지 않는다(개인정보 처리방침 1항). */}
@@ -2199,9 +2202,7 @@ function AuthScreen({
                     accessibilityState={{ checked: consent.checked }}
                     style={[s.authConsentRow, { flex: 1 }]}
                   >
-                    <View style={[s.authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
-                      {consent.checked && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
-                    </View>
+                    <CheckBox theme={theme} on={consent.checked} style={s.체크칸} />
                     <Text style={[s.authConsentText, { color: theme.text }]}>{consent.label}</Text>
                   </Pressable>
                   {consent.url && (
@@ -2209,7 +2210,7 @@ function AuthScreen({
                       onPress={() => void WebBrowser.openBrowserAsync(consent.url as string)}
                       accessibilityRole="link"
                       accessibilityLabel={`${consent.label.replace(/^\[필수\] /, "")} 보기`}
-                      hitSlop={8}
+                      hitSlop={글자누름여유}
                     >
                       <Text style={[s.authConsentText, { color: theme.muted, textDecorationLine: "underline" }]}>보기</Text>
                     </Pressable>
@@ -2604,9 +2605,7 @@ function AccountDeletionPanel({
         accessibilityState={{ checked: understood }}
         style={s.authConsentRow}
       >
-        <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
-          {understood && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
-        </View>
+        <CheckBox theme={theme} on={understood} tone={danger} style={s.체크칸} />
         <Text style={[s.authConsentText, { color: theme.text }]}>위 내용을 확인했어요</Text>
       </Pressable>
       <ReconfirmField
@@ -2637,10 +2636,10 @@ function AccountDeletionPanel({
 function LegalLinks({ theme }: { theme: AppTheme }) {
   return (
     <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 16 }}>
-      <Pressable onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} accessibilityRole="link" hitSlop={8}>
+      <Pressable onPress={() => void WebBrowser.openBrowserAsync(TERMS_URL)} accessibilityRole="link" hitSlop={글자누름여유}>
         <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, textDecorationLine: "underline" }]}>이용약관</Text>
       </Pressable>
-      <Pressable onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} accessibilityRole="link" hitSlop={8}>
+      <Pressable onPress={() => void WebBrowser.openBrowserAsync(PRIVACY_URL)} accessibilityRole="link" hitSlop={글자누름여유}>
         <Text style={[s.authPrivacy, { color: theme.muted, marginTop: 0, textDecorationLine: "underline" }]}>개인정보 처리방침</Text>
       </Pressable>
     </View>
@@ -3141,7 +3140,7 @@ function NotebookHome({
                   <Text numberOfLines={2} style={[s.homeArchiveNote, { color: theme.muted }]}>{item.note}</Text>
                   <View style={s.homeArchiveAction}>
                     <Text style={[s.homeArchiveActionText, { color: tripTone(item.tone, theme.dark).ink }]}>기록 보기</Text>
-                    <Glyph name="chevronRight" size={14} color={tripTone(item.tone, theme.dark).ink} />
+                    <Glyph name="chevronRight" size={아이콘.작게} color={tripTone(item.tone, theme.dark).ink} />
                   </View>
                 </Pressable>
               ))}
@@ -3149,37 +3148,23 @@ function NotebookHome({
         </View>
       )}
       {!trip && (
-        <View
-          style={[
-            s.homeEmptyTrip,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <View
-            style={[
-              s.homeEmptyTripMark,
-              { backgroundColor: theme.primarySoft },
-            ]}
-          >
-            <Glyph name="plus" size={20} color={theme.primary} weight={2.2} />
-          </View>
-          <Text style={[s.homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어 볼까요?</Text>
-          <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>
-            {canCreate
-              ? "여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요."
-              : "보기 전용 멤버는 여행을 만들 수 없어요. 관리자에게 권한을 부탁해 주세요."}
-          </Text>
-          {canCreate && (
-            <Pressable
-              onPress={goTrips}
-              accessibilityRole="button"
-              accessibilityLabel="새 여행 만들기"
-              style={[s.homeEmptyTripAction, { backgroundColor: theme.primary }]}
-            >
-              <Text style={[s.homeEmptyTripActionText, { color: onAccent(theme.dark) }]}>새 여행 만들기</Text>
-            </Pressable>
+        <EmptyState
+          theme={theme}
+          모양="세로"
+          강조
+          style={s.homeEmptyTrip}
+          title="다음 여행을 한 장 만들어 볼까요?"
+          description={canCreate
+            ? "여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요."
+            : "보기 전용 멤버는 여행을 만들 수 없어요. 관리자에게 권한을 부탁해 주세요."}
+          action={canCreate ? "새 여행 만들기" : undefined}
+          onPress={goTrips}
+          mark={(
+            <View style={[s.homeEmptyTripMark, { backgroundColor: theme.primarySoft }]}>
+              <Glyph name="plus" size={아이콘.크게} color={theme.primary} weight={2.2} />
+            </View>
           )}
-        </View>
+        />
       )}
     </ScrollView>
   );
@@ -3392,7 +3377,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open, onDraggin
               }} />
             </PaperPeel>
             {!active && <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
-              backgroundColor: "#30271C", borderRadius: 4, opacity: motion.underShade,
+              backgroundColor: "#30271C", borderRadius: 모서리.표식, opacity: motion.underShade,
             }]} />}
           </View>;
         })}
@@ -3417,7 +3402,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open, onDraggin
             style={{
               width: here ? 16 : 6,
               height: 6,
-              borderRadius: 999,
+              borderRadius: 모서리.원,
               backgroundColor: here ? theme.primary : theme.border,
             }}
           />;
@@ -3740,7 +3725,7 @@ function MemoRow({
           {meta}
         </Text>
       </View>
-      <Glyph name="chevronRight" size={16} color={theme.muted} />
+      <Glyph name="chevronRight" size={아이콘.보통} color={theme.muted} />
     </Pressable>
   );
 }
@@ -4051,7 +4036,10 @@ function TripsExplorer({
                 pressed && s.pressed,
               ]}
             >
-              <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>＋ 새 여행</Text>
+              <View style={s.더하기줄}>
+                <Glyph name="plus" size={아이콘.작게} color={onAccent(theme.dark)} weight={2.4} />
+                <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>새 여행</Text>
+              </View>
             </Pressable>
           )}
         </View>
@@ -4141,26 +4129,14 @@ function TripsExplorer({
             <>
               <View style={s.tripFilters}>
                 {(["전체", "다가오는", "지난 여행", "보관"] as const).map((item) => (
-                  <Pressable
+                  <Chip
                     key={item}
+                    theme={theme}
+                    label={item}
+                    on={filter === item}
                     onPress={() => setFilter(item)}
-                    accessibilityRole="button"
                     accessibilityLabel={item === "전체" ? "전체 여행 보기" : item === "지난 여행" ? "지난 여행만 보기" : `${item} 여행만 보기`}
-                    accessibilityState={{ selected: filter === item }}
-                    style={[
-                      s.filter,
-                      filter === item && { backgroundColor: theme.primarySoft },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        s.filterText,
-                        { color: filter === item ? theme.primary : theme.muted },
-                      ]}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
+                  />
                 ))}
               </View>
               <TripRows
@@ -4204,7 +4180,7 @@ function TripsExplorer({
                             })
                             .catch((caught) => setTrashMessage(caught instanceof DaymoApiError ? caught.message : "되돌리지 못했어요. 잠시 후 다시 시도해 주세요."));
                         }}
-                        hitSlop={8}
+                        hitSlop={글자누름여유}
                       >
                         <Text style={[s.accountLogoutText, { color: theme.primary }]}>되돌리기</Text>
                       </Pressable>
@@ -4215,7 +4191,7 @@ function TripsExplorer({
                       accessibilityRole="button"
                       accessibilityLabel="휴지통 더 보기"
                       onPress={loadMoreTrash}
-                      hitSlop={8}
+                      hitSlop={글자누름여유}
                     >
                       <Text style={[s.accountLogoutText, { color: theme.primary }]}>
                         {trashLoading ? "불러오는 중이에요" : "더 보기"}
@@ -4331,7 +4307,10 @@ function TripsExplorer({
                   hitSlop={6}
                   style={({ pressed }) => [s.calNoteAdd, pressed && s.pressed]}
                 >
-                  <Text style={[s.calNoteAddText, { color: theme.primary }]}>＋ 이날에 일정·메모 추가</Text>
+                  <View style={s.더하기줄}>
+                    <Glyph name="plus" size={아이콘.작게} color={theme.primary} weight={2.4} />
+                    <Text style={[s.calNoteAddText, { color: theme.primary }]}>이날에 일정·메모 추가</Text>
+                  </View>
                 </Pressable>
               )}
             </View>
@@ -4443,36 +4422,26 @@ function TripRows({
 }) {
   if (!items.length)
     return (
-      <View
-        style={[
-          s.noTrips,
-          { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
-        <Svg width={58} height={48} viewBox="0 0 58 48">
-          <Path
-            d="M16 16h26a4 4 0 0 1 4 4v20H12V20a4 4 0 0 1 4-4Zm7 0v-4a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4M20 24v9M38 24v9M8 40h42"
-            fill="none"
-            stroke={theme.primary}
-            strokeWidth={1.6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-        <Text style={[s.noTripsTitle, { color: theme.text }]}>아직 이곳에 여행이 없어요</Text>
-        <Text style={[s.noTripsText, { color: theme.muted }]}>다른 분류를 보거나 새로운 여행을 만들어 보세요.</Text>
-        {emptyAction && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={emptyAction}
-            style={[s.emptyInlineAction, { backgroundColor: theme.primarySoft }]}
-          >
-            <Text style={[s.emptyInlineActionText, { color: theme.primary }]}>
-              {emptyActionLabel}
-            </Text>
-          </Pressable>
+      <EmptyState
+        theme={theme}
+        모양="세로"
+        title="아직 이곳에 여행이 없어요"
+        description="다른 분류를 보거나 새로운 여행을 만들어 보세요."
+        action={emptyAction ? emptyActionLabel : undefined}
+        onPress={emptyAction}
+        mark={(
+          <Svg width={58} height={48} viewBox="0 0 58 48">
+            <Path
+              d="M16 16h26a4 4 0 0 1 4 4v20H12V20a4 4 0 0 1 4-4Zm7 0v-4a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4M20 24v9M38 24v9M8 40h42"
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={1.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
         )}
-      </View>
+      />
     );
   return (
     <>
@@ -4510,7 +4479,7 @@ function TripRows({
               { backgroundColor: theme.primarySoft },
             ]}
           >
-            <Glyph name="chevronRight" size={16} color={theme.primary} />
+            <Glyph name="chevronRight" size={아이콘.보통} color={theme.primary} />
           </View>
         </Pressable>
       ))}
@@ -4802,11 +4771,11 @@ function KoreaTripMap({
         viewBox={viewBox}
         preserveAspectRatio="xMidYMid meet"
       >
-        <Path d={koreaLandPath} fill={theme.dark ? "#17302F" : "#DDF4EF"} stroke="none" />
+        <Path d={koreaLandPath} fill={theme.dark ? theme.surface : theme.primarySoft} stroke="none" />
         <Path
           d={koreaOutlinePath}
           fill="none"
-          stroke={theme.dark ? theme.secondary : "#159D8D"}
+          stroke={theme.secondary}
           strokeWidth={2.2 / zoom}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -4814,7 +4783,7 @@ function KoreaTripMap({
         <Path
           d={koreaAdminPath}
           fill="none"
-          stroke={theme.dark ? "#4D837E" : "#4DA99E"}
+          stroke={`${theme.secondary}99`}
           strokeWidth={0.75 / zoom}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -4823,7 +4792,7 @@ function KoreaTripMap({
           <Path
             d={cityPath!}
             fill="none"
-            stroke={theme.dark ? "#315C58" : "#8CCFC7"}
+            stroke={`${theme.secondary}55`}
             strokeWidth={0.38 / zoom}
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -4854,25 +4823,26 @@ function KoreaTripMap({
             accessibilityState={{ selected: active }}
             style={[
               s.mapPin,
-              { left, top },
-              theme.dark && { backgroundColor: theme.surface, borderColor: theme.secondary },
-              count > 0 && s.mapPinVisited,
-              active && s.mapPinActive,
+              { left, top, backgroundColor: theme.surface, borderColor: theme.border },
+              // 다녀온 곳은 보조색, 고른 곳은 강조색이다. 색만으로 갈리지 않게
+              // 고른 것은 한 뼘 크게 그린다.
+              count > 0 && { backgroundColor: theme.secondary, borderColor: theme.surface },
+              active && [s.mapPinActive, { backgroundColor: theme.accent, borderColor: theme.surface }],
             ]}
           >
             <Text
               numberOfLines={1}
               style={[
                 s.mapPinText,
-                theme.dark && { color: theme.secondary },
-                (count > 0 || active) && s.mapPinTextVisited,
+                { color: theme.muted },
+                (count > 0 || active) && { color: onAccent(theme.dark) },
               ]}
             >
               {pin.name}
             </Text>
             {count > 0 && (
-              <View style={s.pinCount}>
-                <Text style={s.pinCountText}>{count}</Text>
+              <View style={[s.pinCount, { backgroundColor: theme.surface }]}>
+                <Text style={[s.pinCountText, { color: theme.text }]}>{count}</Text>
               </View>
             )}
           </Pressable>
@@ -4886,7 +4856,7 @@ function KoreaTripMap({
             { backgroundColor: theme.surface, borderColor: theme.border },
           ]}
         >
-          <View style={[s.mapTrayHandle, { backgroundColor: theme.border }]} />
+          <SheetHandle color={theme.border} style={s.mapTrayHandle} />
           <View style={s.mapTrayHead}>
             <View>
               <Text style={[s.mapTrayTitle, { color: theme.text }]}>{selected} 여행</Text>
@@ -4903,7 +4873,7 @@ function KoreaTripMap({
               accessibilityLabel={`${selected} 여행 창 닫기`}
               style={[s.mapTrayClose, { backgroundColor: theme.surfaceAlt }]}
             >
-              <Text style={[s.mapTrayCloseText, { color: theme.muted }]}>×</Text>
+              <Glyph name="close" size={아이콘.크게} color={theme.muted} weight={2.2} />
             </Pressable>
           </View>
           {results.length ? (
@@ -4935,7 +4905,7 @@ function KoreaTripMap({
                       {trip.date}
                     </Text>
                   </View>
-                  <Glyph name="chevronRight" size={18} color={theme.secondary} />
+                  <Glyph name="chevronRight" size={아이콘.보통} color={theme.secondary} />
                 </Pressable>
               ))}
             </ScrollView>
@@ -4964,7 +4934,7 @@ function KoreaTripMap({
             zoom <= 1 && s.zoomButtonDisabled,
           ]}
         >
-          <Glyph name="minus" size={18} color={theme.text} weight={2.4} />
+          <Glyph name="minus" size={아이콘.보통} color={theme.text} weight={2.4} />
         </Pressable>
         <View style={[s.zoomDivider, { backgroundColor: theme.border }]} />
         <Pressable
@@ -4987,7 +4957,7 @@ function KoreaTripMap({
             zoom >= MAP_MAX_ZOOM && s.zoomButtonDisabled,
           ]}
         >
-          <Glyph name="plus" size={16} color={theme.text} weight={2.2} />
+          <Glyph name="plus" size={아이콘.보통} color={theme.text} weight={2.2} />
         </Pressable>
       </View>
     </View>
@@ -5063,10 +5033,10 @@ function TripCalendar({
             <Text style={[s.calTodayText, { color: theme.primary }]}>오늘</Text>
           </Pressable>
           <Pressable onPress={() => move(-1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="이전 달" style={s.monthArrow}>
-            <Glyph name="chevronLeft" size={20} color={theme.primary} />
+            <Glyph name="chevronLeft" size={아이콘.크게} color={theme.primary} />
           </Pressable>
           <Pressable onPress={() => move(1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="다음 달" style={s.monthArrow}>
-            <Glyph name="chevronRight" size={20} color={theme.primary} />
+            <Glyph name="chevronRight" size={아이콘.크게} color={theme.primary} />
           </Pressable>
         </View>
       </View>
@@ -5192,7 +5162,7 @@ function TripCalendar({
 /** 여행 막대가 놓이는 높이. 숫자(26)와 점 줄 아래다. */
 const CAL_BAR_TOP = 38;
 /** 막대 한 층의 높이(막대 13 + 사이 2). */
-const CAL_BAR_STEP = 15;
+const CAL_BAR_STEP = 17;
 
 function Search({
   open,
@@ -5374,7 +5344,7 @@ function Search({
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[s.searchClearText, { color: theme.muted }]}>×</Text>
+            <Glyph name="close" size={아이콘.작게} color={theme.muted} weight={2.4} />
           </Pressable>
         )}
       </View>
@@ -5430,7 +5400,7 @@ function Search({
                   accessibilityRole="button"
                   accessibilityLabel={`${word} 최근 검색어 삭제`}
                 >
-                  <Text style={[s.searchSuggestionRemove, { color: theme.muted }]}>×</Text>
+                  <Glyph name="close" size={아이콘.작게} color={theme.muted} weight={2.4} />
                 </Pressable>
               </Pressable>
             ))}
@@ -5440,54 +5410,15 @@ function Search({
       </ScrollView>
       <View style={[s.searchCategories, s.searchCategoriesContent]}>
         {searchFilters.map((item) => (
-          <Pressable
+          <Chip
             key={item.label}
+            theme={theme}
+            label={item.label}
+            count={item.count}
+            on={category === item.label}
             onPress={() => setCategory(item.label)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: category === item.label }}
             accessibilityLabel={`${item.label}, 결과 ${item.count}개`}
-            style={[
-              s.searchCategory,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-              category === item.label && s.searchCategoryActive,
-              category === item.label && {
-                backgroundColor: theme.primarySoft,
-                borderColor: `${theme.primary}70`,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                s.searchCategoryText,
-                { color: theme.muted },
-                category === item.label && s.searchCategoryTextActive,
-                category === item.label && { color: theme.primary },
-              ]}
-            >
-              {item.label}
-            </Text>
-            <View
-              style={[
-                s.searchCategoryCount,
-                {
-                  backgroundColor:
-                    category === item.label ? theme.primary : theme.surfaceAlt,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  s.searchCategoryCountText,
-                  {
-                    color:
-                      category === item.label ? "#FFFFFF" : theme.muted,
-                  },
-                ]}
-              >
-                {item.count}
-              </Text>
-            </View>
-          </Pressable>
+          />
         ))}
       </View>
       <View style={s.searchResultHead}>
@@ -5562,7 +5493,7 @@ function Search({
                 ))}
               </View>
             </View>
-            <Glyph name="chevronRight" size={18} color={theme.muted} />
+            <Glyph name="chevronRight" size={아이콘.보통} color={theme.muted} />
           </Pressable>
           {item.type === "장소" && (
             <View
@@ -5621,36 +5552,21 @@ function Search({
       </View>
       )}
       {!results.length && (
-        <View
-          style={[
-            s.searchEmpty,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Svg width={48} height={48} viewBox="0 0 48 48">
-            <Path d="m30 30 9 9M21 34a13 13 0 1 1 0-26 13 13 0 0 1 0 26Zm-5-14h10M21 15v10" fill="none" stroke={theme.primary} strokeWidth={1.6} strokeLinecap="round" />
-          </Svg>
-          <Text style={[s.searchEmptyTitle, { color: theme.text }]}>
-            {loading ? "기록을 불러오는 중이에요" : "찾는 기록이 없어요"}
-          </Text>
-          <Text style={[s.searchEmptyCopy, { color: theme.muted }]}>
-            {loading
-              ? "여행 기록을 불러오는 중이에요."
-              : "다른 단어나 카테고리로 검색해 보세요."}
-          </Text>
-          {(query || category !== "전체") && (
-            <Pressable
-              onPress={() => {
-                setQuery("");
-                setCategory("전체");
-              }}
-              accessibilityRole="button"
-              style={[s.emptyInlineAction, { backgroundColor: theme.primarySoft }]}
-            >
-              <Text style={[s.emptyInlineActionText, { color: theme.primary }]}>검색 초기화</Text>
-            </Pressable>
+        <EmptyState
+          theme={theme}
+          모양="세로"
+          title={loading ? "기록을 불러오는 중이에요" : "찾는 기록이 없어요"}
+          description={loading
+            ? "여행 기록을 불러오는 중이에요."
+            : "다른 단어나 카테고리로 검색해 보세요."}
+          action={query || category !== "전체" ? "검색 초기화" : undefined}
+          onPress={() => { setQuery(""); setCategory("전체"); }}
+          mark={(
+            <Svg width={48} height={48} viewBox="0 0 48 48">
+              <Path d="m30 30 9 9M21 34a13 13 0 1 1 0-26 13 13 0 0 1 0 26Zm-5-14h10M21 15v10" fill="none" stroke={theme.primary} strokeWidth={1.6} strokeLinecap="round" />
+            </Svg>
           )}
-        </View>
+        />
       )}
     </ScrollView>
   );
@@ -5969,7 +5885,7 @@ function Together({
               accessibilityLabel="설정 열기"
               style={[s.togetherSettingsButton, { backgroundColor: theme.surfaceAlt }]}
             >
-              <Glyph name="gear" size={17} color={theme.muted} weight={1.8} />
+              <Glyph name="gear" size={아이콘.보통} color={theme.muted} weight={1.8} />
               <Text style={[s.togetherSettingsText, { color: theme.muted }]}>설정</Text>
             </Pressable>
             <Pressable
@@ -6061,7 +5977,7 @@ function Together({
             onPress={() => setPanel("members")}
             style={s.memberStripItem}
           >
-            <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Glyph name="plus" size={16} color={theme.primary} weight={2.2} /></View>
+            <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Glyph name="plus" size={아이콘.보통} color={theme.primary} weight={2.2} /></View>
             <Text style={[s.memberStripName, { color: theme.muted }]}>추가</Text>
             <Text style={[s.memberStripRole, { color: theme.muted }]}>멤버 관리</Text>
           </Pressable>
@@ -6092,7 +6008,7 @@ function Together({
               ]}
             >
               <View style={[s.togetherQuickIcon, { backgroundColor: theme.primarySoft }]}>
-                <Glyph name={action.icon} size={16} color={theme.primary} weight={2.2} />
+                <Glyph name={action.icon} size={아이콘.보통} color={theme.primary} weight={2.2} />
               </View>
               <Text numberOfLines={1} style={[s.togetherQuickLabel, { color: theme.text }]}>{action.label}</Text>
             </Pressable>
@@ -6270,7 +6186,7 @@ function Together({
                   </Text>
                 </View>
                 <View style={s.groupChoiceCheck}>
-                  {current && <Glyph name="check" size={14} color={theme.primary} weight={2.4} />}
+                  {current && <Glyph name="check" size={아이콘.작게} color={theme.primary} weight={2.4} />}
                 </View>
               </Pressable>
             );})}
@@ -6403,7 +6319,7 @@ function Together({
                     <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === index ? theme.primary : theme.muted }]}>{roleLabel(member.role)}</Text>
                   </View>
                   <View style={selectedMember !== index && { opacity: 0 }}>
-                    <Glyph name="check" size={16} color={theme.primary} weight={2.4} />
+                    <Glyph name="check" size={아이콘.보통} color={theme.primary} weight={2.4} />
                   </View>
                 </Pressable>
               ))}
@@ -6536,7 +6452,7 @@ function Together({
                   {option.name}
                 </Text>
                 <View style={s.themeOptionCheck}>
-                  {themeId === option.id && <Glyph name="check" size={12} color={theme.text} weight={2.4} />}
+                  {themeId === option.id && <Glyph name="check" size={아이콘.작게} color={theme.text} weight={2.4} />}
                 </View>
               </Pressable>
             ))}
@@ -6611,7 +6527,7 @@ function Together({
                   <Text style={[s.noticeLinkText, { color: theme.primary }]}>
                     {notice.linkLabel}
                   </Text>
-                  <Glyph name="arrowRight" size={16} color={theme.primary} />
+                  <Glyph name="arrowRight" size={아이콘.보통} color={theme.primary} />
                 </Pressable>
               </View>
             ))}
@@ -6834,17 +6750,9 @@ function Setting({
           </Text>
         )}
         {스위치 ? (
-          <View
-            style={[
-              s.settingSwitch,
-              { backgroundColor: on ? (theme?.primary ?? "#3F4C8F") : (theme?.surfaceAlt ?? "#EFEEE9") },
-              theme && !on && { borderColor: theme.border, borderWidth: 1 },
-            ]}
-          >
-            <View style={[s.settingSwitchKnob, on && s.settingSwitchKnobOn]} />
-          </View>
+          <Switch theme={theme ?? undefined} on={on} />
         ) : (
-          <Glyph name="chevronRight" size={18} color={theme?.muted ?? "#646C7A"} />
+          <Glyph name="chevronRight" size={아이콘.보통} color={theme?.muted ?? "#646C7A"} />
         )}
       </View>
     </Pressable>
@@ -7010,9 +6918,7 @@ function SpaceDeletionPanel({
         accessibilityState={{ checked: understood }}
         style={s.authConsentRow}
       >
-        <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
-          {understood && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
-        </View>
+        <CheckBox theme={theme} on={understood} tone={danger} style={s.체크칸} />
         <Text style={[s.authConsentText, { color: theme.text }]}>삭제되는 범위를 확인했어요</Text>
       </Pressable>
       {error ? <Text accessibilityLiveRegion="assertive" style={[s.authError, { color: danger }]}>{error}</Text> : null}
@@ -7110,7 +7016,7 @@ function SpaceExtras({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${space.name} 되돌리기`}
-                hitSlop={8}
+                hitSlop={글자누름여유}
                 disabled={restoring !== null}
                 onPress={() => {
                   if (restoring) return;
@@ -7572,7 +7478,7 @@ ${url}` }).catch(() => undefined);
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="초대 링크 삭제"
-                  hitSlop={8}
+                  hitSlop={글자누름여유}
                   disabled={revoking !== null}
                   onPress={() => void revoke(invite)}
                   style={revoking === invite.id && s.authSubmitDisabled}
@@ -7770,25 +7676,12 @@ function Choice({
         {label}
       </Text>
       <View style={s.choiceMark}>
-        {selected && <Glyph name="check" size={16} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />}
+        {selected && <Glyph name="check" size={아이콘.보통} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />}
       </View>
     </Pressable>
   );
 }
 
-/**
- * 모서리는 다섯 단계만 쓴다.
- *
- *   4    배지와 아주 작은 칩
- *   8    버튼, 선택 칩, 작은 판
- *   12   입력칸, 목록 행, 보통 카드
- *   16   큰 카드와 시트 안의 묶음
- *   999  알약과 원
- *
- * 예외는 높이의 절반이 곧 모양인 것들뿐이다. 2~3px 짜리 점과 얇은 줄, 진행
- * 막대가 거기 해당한다. 열네 가지가 돌면 같은 급의 것들이 미묘하게 달라 보이고,
- * 새 화면을 만들 때 무엇을 따라야 할지 알 수 없다.
- */
 const s = StyleSheet.create({
   body: { flex: 1 },
   storageWarning: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 8 },
@@ -7799,7 +7692,7 @@ const s = StyleSheet.create({
   tripArt: {
     width: 121,
     height: 136,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     overflow: "hidden",
     position: "relative",
   },
@@ -7807,7 +7700,7 @@ const s = StyleSheet.create({
     position: "absolute",
     width: 107,
     height: 107,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     backgroundColor: "rgba(255,249,244,.45)",
     right: -38,
     top: -28,
@@ -7817,7 +7710,6 @@ const s = StyleSheet.create({
   artUnit: { fontSize: 11, fontFamily: typo.label.family },
   artLine: { width: 25, height: 2, backgroundColor: "#623C38", marginTop: 4 },
   newTripText: { fontSize: 12, fontFamily: typo.label.family },
-  arrow: { color: "#A0665B", fontSize: 24, fontWeight: "300" },
   setting: {
     minHeight: 높이.저장,
     borderBottomWidth: 1,
@@ -7830,9 +7722,6 @@ const s = StyleSheet.create({
   settingCopy: { flex: 1, minWidth: 0, paddingRight: 10, paddingVertical: 9 },
   settingHint: { fontSize: 12, fontFamily: typo.body.family, marginTop: 3, lineHeight: 17 },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  settingSwitch: { width: 44, height: 26, borderRadius: 13, padding: 3, justifyContent: "center" },
-  settingSwitchKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#FFFFFF" },
-  settingSwitchKnobOn: { alignSelf: "flex-end" },
   settingValue: { fontSize: 14, fontFamily: typo.data.family },
   notebookHead: {
     flexDirection: "row",
@@ -7844,7 +7733,7 @@ const s = StyleSheet.create({
   tinyDay: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     transform: [{ rotate: "1.5deg" }],
   },
   tinyDayText: { fontSize: 14, fontFamily: typo.data.family },
@@ -7858,7 +7747,7 @@ const s = StyleSheet.create({
     right: 7,
     top: 4,
     bottom: -7,
-    borderRadius: 4,
+    borderRadius: 모서리.표식,
     opacity: 0.95,
   },
   paperTripBackLeft: {
@@ -7874,7 +7763,7 @@ const s = StyleSheet.create({
     bottom: -8,
   },
   paperTrip: {
-    borderRadius: 4,
+    borderRadius: 모서리.표식,
     borderWidth: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -7887,35 +7776,37 @@ const s = StyleSheet.create({
     transform: [{ rotate: "-.35deg" }],
     overflow: "visible",
   },
-  paperTripMain: { borderRadius: 2 },
-  paperTripTexture: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 4 },
+  paperTripMain: { borderRadius: 모서리.표식 },
+  paperTripTexture: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 모서리.표식 },
   // 대표 사진이 있는 카드. 사진이 위쪽 모서리까지 닿아야 해서 종이의 안쪽 여백을
   // 걷어내고, 사진이 모서리 밖으로 삐져나가지 않게 잘라 낸다. 테이프가 없으니
   // 카드 밖으로 나가야 할 것도 없다.
   paperTripPhoto: {},
   // 종이에 붙인 사진. 살짝 기울여 손으로 붙인 것처럼 둔다.
   // 캘린더 아래, 고른 날의 일정·메모 한 줄.
-  calNoteRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginTop: 8 },
-  calNoteRail: { width: 4, alignSelf: "stretch", borderRadius: 2 },
+  calNoteRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 모서리.행, paddingVertical: 10, paddingHorizontal: 12, marginTop: 8 },
+  calNoteRail: { width: 4, alignSelf: "stretch", borderRadius: 모서리.원 },
   calNoteCopy: { flex: 1, minWidth: 0 },
   calNoteTitle: { fontSize: 14, fontFamily: typo.title.family },
   calNoteMeta: { fontSize: 12, marginTop: 2, fontFamily: typo.body.family },
-  calNoteWho: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
-  calNoteWhoText: { fontSize: 11.5, fontFamily: typo.label.family },
+  calNoteWho: { borderRadius: 모서리.원, paddingHorizontal: 9, paddingVertical: 3 },
+  calNoteWhoText: { fontSize: 12, fontFamily: typo.label.family },
   calNoteAdd: { alignSelf: "center", paddingVertical: 12 },
-  calNoteAddText: { fontSize: 13.5, fontFamily: typo.label.family },
+  /** 「＋ 무엇 추가」 한 줄. ＋ 는 쿠키런에 없는 글자라 Glyph 로 그린다. */
+  더하기줄: { flexDirection: "row", alignItems: "center", gap: 4 },
+  calNoteAddText: { fontSize: 14, fontFamily: typo.label.family },
   // 여행 탭 캘린더(아이폰 캘린더 결). `TripCalendar` 주석을 본다.
-  calCard: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
+  calCard: { borderRadius: 모서리.구역, borderWidth: 1, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
   calHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 10, paddingHorizontal: 4 },
   calYear: { fontSize: 12, fontFamily: typo.label.family },
   calMonth: { fontSize: 28, lineHeight: 34, fontFamily: typo.title.family },
   calControls: { flexDirection: "row", alignItems: "center", gap: 4 },
-  calTodayButton: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, marginRight: 4 },
-  calTodayText: { fontSize: 12.5, fontFamily: typo.label.family },
+  calTodayButton: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 11, paddingVertical: 5, marginRight: 4 },
+  calTodayText: { fontSize: 13, fontFamily: typo.label.family },
   calLegend: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 4, marginBottom: 8 },
   calLegendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-  calLegendDot: { width: 8, height: 8, borderRadius: 4 },
-  calLegendText: { fontSize: 11.5, fontFamily: typo.label.family },
+  calLegendDot: { width: 8, height: 8, borderRadius: 모서리.원 },
+  calLegendText: { fontSize: 12, fontFamily: typo.label.family },
   calWeekNames: { flexDirection: "row", marginBottom: 4 },
   calWeekName: { flex: 1, textAlign: "center", fontSize: 11, fontFamily: typo.label.family },
   calSunday: { color: "#B3413E" },
@@ -7923,20 +7814,20 @@ const s = StyleSheet.create({
   calWeek: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, position: "relative" },
   calDay: { flex: 1, alignItems: "center", paddingTop: 3 },
   calNumber: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
-  calDisk: { position: "absolute", top: 0, left: 0, width: 28, height: 28, borderRadius: 14 },
+  calDisk: { position: "absolute", top: 0, left: 0, width: 28, height: 28, borderRadius: 모서리.원 },
   calNumberText: { fontSize: 14, lineHeight: 18, fontFamily: typo.data.family },
   calNumberTextOn: { fontFamily: typo.title.family },
   calDots: { flexDirection: "row", gap: 3, marginTop: 2 },
-  calDot: { width: 5, height: 5, borderRadius: 3 },
-  calBar: { position: "absolute", height: 13, justifyContent: "center", paddingHorizontal: 5, marginHorizontal: 1 },
+  calDot: { width: 5, height: 5, borderRadius: 모서리.원 },
+  calBar: { position: "absolute", height: 15, justifyContent: "center", paddingHorizontal: 5, marginHorizontal: 1 },
   calBarStart: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4, marginLeft: 3 },
   calBarEnd: { borderTopRightRadius: 4, borderBottomRightRadius: 4, marginRight: 3 },
-  calBarText: { fontSize: 9.5, lineHeight: 12, fontFamily: typo.label.family },
+  calBarText: { fontSize: 11, lineHeight: 14, fontFamily: typo.label.family },
   paperTripSnap: { marginTop: 10, marginBottom: 12, alignItems: "center" },
   paperTripSnapFrame: {
     width: "100%",
     padding: 7,
-    borderRadius: 5,
+    borderRadius: 모서리.표식,
     borderWidth: 1,
     shadowColor: "#17233D",
     shadowOpacity: 0.16,
@@ -7948,7 +7839,7 @@ const s = StyleSheet.create({
   // 사진 자리. 카드를 깔면 이 안을 카드와 같은 배치로 나눈다(`homeCoverRows`).
   // 틀 색·스티커·날짜 도장은 그리지 않는다. 이만한 자리에 꾸밈까지 넣으면 지저분해지고,
   // 무엇이 찍힌 사진인지가 먼저 보여야 한다.
-  paperTripSnapImage: { width: "100%", aspectRatio: 1.62, borderRadius: 2, overflow: "hidden", gap: 2 },
+  paperTripSnapImage: { width: "100%", aspectRatio: 1.62, borderRadius: 모서리.표식, overflow: "hidden", gap: 2 },
   paperTripSnapRow: { flex: 1, flexDirection: "row", gap: 2 },
   paperTripSnapCell: { flex: 1, minWidth: 0, height: "100%", overflow: "hidden" },
   paperTripSnapFill: { width: "100%", height: "100%" },
@@ -7961,44 +7852,8 @@ const s = StyleSheet.create({
     opacity: 0.85,
     transform: [{ rotate: "-4.5deg" }],
   },
-  // 카드 높이의 55~60%. 폭을 따라가되 넓은 화면에서 혼자 커지지 않게 위를 막는다.
-  // 바탕은 어둡게 둔다. 사진이 깨져 안 그려져도 위에 얹은 흰 글자가 읽힌다.
-  paperTripShot: { width: "100%", aspectRatio: 1.5, maxHeight: 260, backgroundColor: "#2B2621" },
-  paperTripShotShade: { position: "absolute", left: 0, right: 0, bottom: 22, height: "44%" },
-  paperTripShotFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 22 },
-  // 오른쪽은 날짜 도장 자리만큼 비워 둔다. 이름이 길어도 도장을 밀지 않는다.
-  paperTripShotHead: { position: "absolute", left: 18, right: 82, bottom: 34 },
-  paperTripShotKicker: {
-    fontSize: 12,
-    fontFamily: typo.label.family,
-    marginBottom: 4,
-    color: "#EFE9DC",
-    textShadowColor: "rgba(12,10,8,.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  paperTripShotTitle: {
-    fontSize: 26,
-    fontFamily: typo.title.family,
-    letterSpacing: -0.5,
-    color: "#FFFDF8",
-    textShadowColor: "rgba(12,10,8,.45)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
-  // 사진 위에서는 테두리가 사진에 먹힌다. 밝은 종이 한 장을 깔고 그 위에 얹는다.
-  paperTripShotStamp: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    backgroundColor: "rgba(255,253,248,.93)",
-    borderColor: "rgba(40,48,70,.22)",
-  },
-  paperTripBody: { paddingHorizontal: 20, paddingTop: 14 },
   // 네 칸은 자기 음수 여백으로 카드 끝까지 닿는다. 그 기준이 될 여백만 준다.
   paperTripActionsBox: { paddingHorizontal: 20 },
-  // 이름이 사진 위로 올라가 날짜가 첫 줄이 됐다. 위로 띄울 것이 없다.
-  paperTripBodyDate: { marginTop: 0 },
   paperTripSoftLine: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(104, 139, 160, .10)" },
   paperTripMargin: { position: "absolute", top: 0, bottom: 0, left: 13, width: 1, backgroundColor: "rgba(196, 91, 81, .14)" },
   paperTape: {
@@ -8017,7 +7872,7 @@ const s = StyleSheet.create({
   paperTripHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   paperTripCopy: { flex: 1, paddingRight: 12 },
   paperKicker: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 6 },
-  paperTitle: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  paperTitle: { fontSize: 28, lineHeight: 39, fontFamily: typo.title.family, letterSpacing: -0.5 },
   paperDate: { fontSize: 11, marginTop: 6 },
   paperTripStub: {
     width: 92,
@@ -8027,15 +7882,15 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  paperTripStubMonth: { fontSize: 12.5, fontFamily: typo.data.family, letterSpacing: 1 },
+  paperTripStubMonth: { fontSize: 13, fontFamily: typo.data.family, letterSpacing: 1 },
   paperTripStubDay: { fontSize: 24, lineHeight: 28, fontFamily: typo.data.family },
-  paperTripStubLeft: { marginTop: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  paperTripStubLeft: { marginTop: 5, borderRadius: 모서리.원, paddingHorizontal: 9, paddingVertical: 3 },
   paperTripStubLeftText: { fontSize: 11, fontFamily: typo.label.family },
   // 뜯는 자리 위에 찍힌 홈. 종이 밖 색으로 파서 진짜로 뜯는 선처럼 보이게 한다.
-  paperTripNotch: { position: "absolute", top: -31, right: 105, width: 14, height: 14, borderRadius: 7 },
+  paperTripNotch: { position: "absolute", top: -31, right: 105, width: 14, height: 14, borderRadius: 모서리.원 },
   paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginTop: 16, marginBottom: 12 },
   paperStayBoard: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 0,
     paddingHorizontal: 0,
     paddingTop: 2,
@@ -8047,7 +7902,7 @@ const s = StyleSheet.create({
   paperStayIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -8059,7 +7914,7 @@ const s = StyleSheet.create({
   paperStayTime: {
     minWidth: 58,
     minHeight: 40,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     paddingHorizontal: 8,
     alignItems: "center",
@@ -8088,7 +7943,7 @@ const s = StyleSheet.create({
   paperTripActionBorder: { borderLeftWidth: 1, borderLeftColor: "rgba(118, 107, 83, .18)" },
   paperTripActionLabel: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 0 },
   paperTripActionMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
-  paperTripActionUnderline: { position: "absolute", width: 34, height: 8, bottom: 11, borderRadius: 2, transform: [{ rotate: "-1deg" }] },
+  paperTripActionUnderline: { position: "absolute", width: 34, height: 8, bottom: 11, borderRadius: 모서리.표식, transform: [{ rotate: "-1deg" }] },
   scrapTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -8097,18 +7952,15 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   noteTitleSmall: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 4 },
-  noteTitle: { fontSize: 20, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  noteTitle: { fontSize: 20, lineHeight: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   memoPaper: {
     marginTop: 0,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingLeft: 16,
     paddingRight: 4,
     overflow: "hidden",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.035,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    ...그림자.카드,
   },
   memoPaperSpine: { position: "absolute", left: 10, top: 0, bottom: 0, width: 1 },
   memoRow: {
@@ -8123,7 +7975,7 @@ const s = StyleSheet.create({
   memoCheck: {
     width: 4,
     height: 24,
-    borderRadius: 2,
+    borderRadius: 모서리.표식,
     borderWidth: 0,
     marginRight: 12,
     transform: [{ rotate: "-2deg" }],
@@ -8138,21 +7990,18 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   homeArchiveEyebrow: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 4 },
-  homeArchiveTitle: { fontSize: 18, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  homeArchiveTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family, letterSpacing: -0.5 },
   homeArchiveMore: { fontSize: 14, fontFamily: typo.label.family },
   homeArchiveRow: { flexDirection: "row", gap: 8 },
   homeArchiveCard: {
     flex: 1,
     minHeight: 132,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 12,
     paddingTop: 16,
     paddingBottom: 12,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    ...그림자.카드,
   },
   homeArchiveTape: {
     position: "absolute",
@@ -8167,44 +8016,16 @@ const s = StyleSheet.create({
   homeArchiveNote: { fontSize: 14, lineHeight: 19, marginTop: 4 },
   homeArchiveAction: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: "auto", paddingTop: 8 },
   homeArchiveActionText: { fontSize: 14, fontFamily: typo.label.family },
-  homeEmptyTrip: {
-    minHeight: 250,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.045,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 3 },
-  },
+  // 홈 한 장을 통째로 대신하는 자리라 빈 상자보다 높다. 모양은 `ui/EmptyState`.
+  homeEmptyTrip: { minHeight: 250 },
   homeEmptyTripMark: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
     transform: [{ rotate: "-2deg" }],
   },
-  homeEmptyTripTitle: { fontSize: 18, fontFamily: typo.title.family, textAlign: "center" },
-  homeEmptyTripCopy: {
-    maxWidth: 270,
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: "center",
-    marginTop: 6,
-  },
-  homeEmptyTripAction: {
-    minHeight: 높이.버튼,
-    borderRadius: 모서리.버튼,
-    paddingHorizontal: 여백.가로,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 16,
-  },
-  homeEmptyTripActionText: { fontSize: 14, fontFamily: typo.label.family },
   safe: {
     flex: 1,
     width: "100%",
@@ -8218,14 +8039,15 @@ const s = StyleSheet.create({
   },
   logo: {
     fontSize: 34,
+    lineHeight: 48,
     letterSpacing: -0.5,
     fontFamily: typo.hero.family,
   },
-  pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.985 }] },
   infoSheetBody: { paddingBottom: 8 },
   field: { marginBottom: 12 },
   fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
-  fieldLabelDot: { width: 5, height: 5, borderRadius: 2, marginRight: 6 },
+  fieldLabelDot: { width: 5, height: 5, borderRadius: 모서리.표식, marginRight: 6 },
   fieldLabel: {
     fontSize: 12,
     fontFamily: typo.label.family,
@@ -8237,7 +8059,7 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   choiceSelected: { borderColor: "#8B7CF6", backgroundColor: "#E9E5FF" },
-  choiceDisabled: { opacity: 0.55 },
+  choiceDisabled: { opacity: 불투명도.비활성 },
   choiceText: { fontSize: 14, fontFamily: typo.label.family },
   choiceTextSelected: { color: "#5546C8" },
   choiceMark: { width: 16, alignItems: "center", justifyContent: "center" },
@@ -8270,20 +8092,10 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
+    ...그림자.뜬것,
     shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
   },
-  mapTrayHandle: {
-    alignSelf: "center",
-    width: 34,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#D8DEDC",
-    marginBottom: 8,
-  },
+  mapTrayHandle: { alignSelf: "center", marginBottom: 8 },
   mapTrayHead: {
     flexDirection: "row",
     alignItems: "center",
@@ -8291,18 +8103,17 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 8,
   },
-  mapTrayTitle: { fontSize: 18, fontFamily: typo.title.family },
+  mapTrayTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   mapTrayCount: { fontSize: 14, marginTop: 2 },
   // 지도 위에 얹히는 닫기라 지도를 가리지 않게 작게 둔다. hitSlop 으로 44 를 채운다.
   mapTrayClose: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 모서리.원,
     backgroundColor: "#F0F3F2",
     alignItems: "center",
     justifyContent: "center",
   },
-  mapTrayCloseText: { fontSize: 20, lineHeight: 21 },
   mapTrayList: { paddingHorizontal: 12, gap: 8 },
   mapTrayCard: {
     width: 244,
@@ -8318,7 +8129,7 @@ const s = StyleSheet.create({
   mapTrayMark: {
     width: 43,
     height: 43,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -8326,7 +8137,6 @@ const s = StyleSheet.create({
   mapTrayCopy: { flex: 1, paddingHorizontal: 8 },
   mapTrayName: { fontSize: 14, fontFamily: typo.title.family },
   mapTrayDate: { fontSize: 11, marginTop: 4 },
-  mapTrayArrow: { color: "#159D8D", fontSize: 20 },
   mapTrayEmpty: {
     fontSize: 12,
     paddingHorizontal: 16,
@@ -8337,59 +8147,48 @@ const s = StyleSheet.create({
     transform: [{ translateX: -20 }, { translateY: -12 }],
     width: 40,
     height: 25,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 모서리.행,
     borderWidth: 1,
-    borderColor: "#A9D9D1",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 2,
   },
-  mapPinVisited: { backgroundColor: "#19B6A3", borderColor: "#FFFFFF" },
   mapPinActive: {
-    backgroundColor: "#FF6B5F",
-    borderColor: "#FFFFFF",
     transform: [{ translateX: -20 }, { translateY: -12 }, { scale: 1.08 }],
   },
   mapPinText: {
-    color: "#438178",
     fontSize: 12,
     lineHeight: 15,
     fontFamily: typo.label.family,
     maxWidth: 34,
     textAlign: "center",
   },
-  mapPinTextVisited: { color: "#FFFFFF" },
   pinCount: {
     position: "absolute",
     right: -5,
     top: -6,
     width: 18,
     height: 18,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
   },
-  pinCountText: { color: "#17233D", fontSize: 14, fontFamily: typo.data.family },
+  pinCountText: { fontSize: 14, fontFamily: typo.data.family },
   zoomControls: {
     position: "absolute",
     right: 5,
     bottom: 14,
     width: 40,
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#D9E2DF",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    elevation: 3,
+    ...그림자.뜬것,
     overflow: "hidden",
   },
   zoomControlsRaised: { bottom: 146 },
   zoomButton: { height: 높이.버튼, alignItems: "center", justifyContent: "center" },
-  zoomButtonDisabled: { opacity: 0.28 },
+  zoomButtonDisabled: { opacity: 불투명도.비활성 },
   zoomResetText: { fontSize: 12, fontFamily: typo.label.family },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 6 },
   calendarResults: { marginTop: 16 },
@@ -8411,103 +8210,15 @@ const s = StyleSheet.create({
     fontFamily: typo.label.family,
     marginTop: 8,
   },
-  regionChoiceActive: { borderColor: "#19A996", backgroundColor: "#DDF7F1" },
-  regionChoiceText: { color: "#7E8388", fontSize: 12, fontFamily: typo.label.family },
-  regionChoiceTextActive: { color: "#087D70" },
-  homeMetric: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "center",
-    gap: 4,
-  },
-  homeMetricValue: { fontSize: 18, fontFamily: typo.data.family },
-  homeMetricLabel: { color: "#AAB4C7", fontSize: 12, fontFamily: typo.label.family },
-  homeQuick: {
-    flex: 1,
-    height: 72,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#ECEAE5",
-  },
-  homeQuickEmbedded: {
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: "row",
-  },
-  homeQuickLarge: {
-    height: 124,
-    flex: 1.08,
-    borderRadius: 16,
-    flexDirection: "column",
-    alignItems: "flex-start",
-    paddingHorizontal: 16,
-    transform: [{ rotate: "-0.7deg" }],
-  },
-  homeQuickSmall: {
-    height: 58,
-    borderRadius: 16,
-    justifyContent: "flex-start",
-    paddingHorizontal: 12,
-  },
-  homeQuickRail: {
-    height: 54,
-    borderWidth: 0,
-    borderRadius: 12,
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  homeQuickIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
-  homeQuickIconEmbedded: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    borderWidth: 1,
-    marginBottom: 0,
-    marginRight: 6,
-  },
-  homeQuickIconLarge: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    marginRight: 0,
-    marginBottom: 12,
-  },
-  homeQuickIconRail: {
-    width: 25,
-    height: 25,
-    borderRadius: 12,
-    marginBottom: 0,
-    marginRight: 6,
-  },
-  homeQuickIconText: { fontSize: 16, fontFamily: typo.label.family },
-  homeQuickLabel: { color: "#414A59", fontSize: 14, fontFamily: typo.label.family },
-  homeQuickLabelEmbedded: { fontSize: 12, fontFamily: typo.label.family },
-  homeQuickLabelLarge: { fontSize: 16, fontFamily: typo.label.family },
-  homeQuickLabelRail: { fontSize: 12, fontFamily: typo.label.family },
   searchPage: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 100 },
   searchClear: {
     width: 25,
     height: 25,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "#EEF0EE",
     alignItems: "center",
     justifyContent: "center",
   },
-  searchClearText: { fontSize: 18, lineHeight: 20 },
-  searchCategoryText: { fontSize: 12, fontFamily: typo.label.family },
-  searchCategoryTextActive: { color: "#FFFFFF" },
   searchResultHead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -8520,9 +8231,6 @@ const s = StyleSheet.create({
   searchResultType: { fontSize: 12, fontFamily: typo.label.family },
   searchResultDetail: { fontSize: 12, marginTop: 4 },
   searchResultTrip: { fontSize: 12, marginTop: 2 },
-  searchResultArrow: { color: "#9AA1A8", fontSize: 20 },
-  searchEmptyTitle: { fontSize: 18, fontFamily: typo.title.family },
-  searchEmptyCopy: { fontSize: 14, marginTop: 6 },
   togetherHeadActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   // 오른쪽 아바타와 같은 크기·모서리로 맞춘다. 예전에는 테두리 있는 둥근 알약이라
   // 네모난 아바타와 따로 놀았다. 그림과 글자를 함께 두어 무엇인지 바로 보이게 한다.
@@ -8540,25 +8248,9 @@ const s = StyleSheet.create({
     marginTop: 24,
     marginBottom: 8,
   },
-  regionChoices: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    paddingTop: 6,
-    paddingBottom: 16,
-  },
-  regionChoice: {
-    borderWidth: 1,
-    borderColor: "#DEDCD5",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  regionMoreChoice: { borderStyle: "dashed" },
   themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   themeSwatches: { flexDirection: "row", gap: 4 },
-  themeSwatch: { width: 22, height: 22, borderRadius: 8 },
+  themeSwatch: { width: 22, height: 22, borderRadius: 모서리.상자 },
   themeOptionName: {
     fontSize: 14,
     fontFamily: typo.title.family,
@@ -8584,6 +8276,7 @@ const s = StyleSheet.create({
   },
   screenTitle: {
     fontSize: 28,
+    lineHeight: 39,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
     marginTop: 2,
@@ -8603,14 +8296,11 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 14,
     transform: [{ rotate: "0.5deg" }],
-    shadowColor: "#17233D",
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    ...그림자.카드,
   },
   viewSwitch: {
     flexDirection: "row",
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     padding: 2,
     marginBottom: 16,
@@ -8623,7 +8313,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   viewChoiceActive: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
   },
   tripFilters: {
@@ -8632,15 +8322,13 @@ const s = StyleSheet.create({
     gap: 4,
     marginBottom: 8,
   },
-  filter: { minHeight: 높이.버튼, paddingHorizontal: 14, borderRadius: 모서리.원, justifyContent: "center" },
-  filterText: { fontSize: 12, fontFamily: typo.label.family },
   tripRow: {
     minHeight: 72,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderBottomWidth: 1,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     paddingLeft: 12,
     paddingRight: 8,
     paddingVertical: 6,
@@ -8657,7 +8345,7 @@ const s = StyleSheet.create({
     borderBottomRightRadius: 3,
   },
   tripThumb: { width: 45, height: 52, marginRight: 2 },
-  tripArtSmall: { width: "100%", height: 52, borderRadius: 8, marginBottom: 0 },
+  tripArtSmall: { width: "100%", height: 52, borderRadius: 모서리.상자, marginBottom: 0 },
   tripInfo: { flex: 1, paddingLeft: 8 },
   tripName: { fontSize: 16, fontFamily: typo.title.family },
   tripDate: { fontSize: 12, marginTop: 2 },
@@ -8666,30 +8354,10 @@ const s = StyleSheet.create({
   tripRowArrow: {
     width: 25,
     height: 25,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
   },
-  tripRowArrowText: { fontSize: 18, lineHeight: 19, fontFamily: typo.label.family },
-  noTrips: {
-    minHeight: 190,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
-  noTripsTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 8 },
-  noTripsText: { fontSize: 12, textAlign: "center", marginTop: 4 },
-  emptyInlineAction: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginTop: 12,
-  },
-  emptyInlineActionText: { fontSize: 14, fontFamily: typo.label.family },
   // 달 이름 양옆의 화살표. 달 이름 줄 높이에 맞춰 작게 두고 hitSlop 으로 44 를 채운다.
   monthArrow: {
     width: 27,
@@ -8697,9 +8365,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  monthArrowText: { color: "#384052", fontSize: 24, fontWeight: "500", lineHeight: 26 },
   emptyDate: {
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     borderStyle: "dashed",
     padding: 16,
@@ -8713,23 +8380,9 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     marginTop: 16,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.055,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
+    ...그림자.카드,
   },
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
-  searchCategory: {
-    height: 높이.버튼,
-    minWidth: 61,
-    borderRadius: 모서리.원,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    flexDirection: "row",
-    gap: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   searchCategories: {
     width: "100%",
     marginTop: 4,
@@ -8742,21 +8395,6 @@ const s = StyleSheet.create({
     gap: 6,
     paddingVertical: 4,
   },
-  searchCategoryActive: {
-    shadowColor: "#17233D",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  searchCategoryCount: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  searchCategoryCountText: { fontSize: 14, fontFamily: typo.data.family },
   searchGuideHead: {
     height: 26,
     flexDirection: "row",
@@ -8787,7 +8425,6 @@ const s = StyleSheet.create({
     gap: 6,
   },
   searchSuggestionText: { fontSize: 12, fontFamily: typo.label.family },
-  searchSuggestionRemove: { fontSize: 16, lineHeight: 19, fontFamily: typo.label.family },
   searchRecentClear: { fontSize: 12, fontFamily: typo.label.family },
   searchRecentEmpty: { fontSize: 12, paddingVertical: 6 },
   searchResultsSheet: {
@@ -8796,14 +8433,11 @@ const s = StyleSheet.create({
   searchResultCard: {
     minHeight: 82,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     padding: 0,
     overflow: "hidden",
     position: "relative",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.035,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
+    ...그림자.카드,
   },
   searchMore: { minHeight: 높이.입력, borderTopWidth: 1, alignItems: "center", justifyContent: "center" },
   searchMoreText: { fontSize: 14, fontFamily: typo.label.family },
@@ -8826,7 +8460,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   searchResultTypeBadge: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
@@ -8848,15 +8482,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   searchResultActionText: { fontSize: 14, fontFamily: typo.label.family },
-  searchEmpty: {
-    minHeight: 190,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
   searchInputNew: { flex: 1, fontSize: 14, marginLeft: 8 },
   searchResultCopy: { flex: 1, paddingLeft: 4, paddingRight: 8 },
   historyHeading: {
@@ -8867,7 +8492,7 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   historyEyebrow: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 0.5 },
-  historyTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 4 },
+  historyTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family, marginTop: 4 },
   historyPeriod: { fontSize: 12, fontFamily: typo.label.family },
   historyUnit: { fontSize: 12, fontFamily: typo.label.family },
   togetherQuickRow: { flexDirection: "row", gap: 6, marginTop: 8 },
@@ -8884,17 +8509,16 @@ const s = StyleSheet.create({
   togetherQuickIcon: {
     width: 27,
     height: 27,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
   },
-  togetherQuickIconText: { fontSize: 12, fontFamily: typo.label.family },
   togetherQuickLabel: { maxWidth: "100%", fontSize: 12, fontFamily: typo.label.family },
   memberRoleText: { fontSize: 12, fontFamily: typo.label.family, marginTop: -7 },
   memberPermissionLabel: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 8 },
   settingGroup: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 16,
     borderWidth: 1,
     overflow: "hidden",
@@ -8902,7 +8526,7 @@ const s = StyleSheet.create({
   themeOption: {
     width: "48%",
     minHeight: 86,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     padding: 12,
     borderWidth: 1,
   },
@@ -8934,7 +8558,7 @@ const s = StyleSheet.create({
   navIconWrap: {
     width: 40,
     height: 34,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 2,
@@ -8954,21 +8578,17 @@ const s = StyleSheet.create({
   authAppIconFrame: {
     width: 72,
     height: 72,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
     marginBottom: 12,
-    shadowColor: "#17233D",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
+    ...그림자.뜬것,
   },
   authAppIcon: { width: "100%", height: "100%" },
-  authLogo: { fontSize: 28, fontFamily: typo.hero.family, letterSpacing: -0.5 },
+  authLogo: { fontSize: 28, lineHeight: 39, fontFamily: typo.hero.family, letterSpacing: -0.5 },
   authTagline: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 6 },
-  authCard: { borderRadius: 16, borderWidth: 1, padding: 20 },
-  authTitle: { fontSize: 20, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  authCard: { borderRadius: 모서리.구역, borderWidth: 1, padding: 20 },
+  authTitle: { fontSize: 20, lineHeight: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   authDescription: { fontSize: 14, lineHeight: 22, marginTop: 6, marginBottom: 20 },
   // 버튼 모양은 SocialLoginButton 이 제공자 가이드대로 정한다. 여기서는 세로로 쌓기만 한다.
   oauthGrid: { gap: 8 },
@@ -8995,16 +8615,16 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginTop: 12,
   },
-  authSubmitDisabled: { opacity: 0.38 },
+  authSubmitDisabled: { opacity: 불투명도.비활성 },
   authSubmitText: { fontSize: 14, fontFamily: typo.label.family },
-  authSwitch: { alignItems: "center", paddingTop: 16, paddingBottom: 2 },
+  authSwitch: { alignItems: "center", justifyContent: "flex-end", minHeight: 높이.버튼 + 16, paddingTop: 16, paddingBottom: 2 },
   authSwitchText: { fontSize: 12, fontFamily: typo.label.family },
   authConsentList: { borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: 6, marginBottom: 12 },
   authConsentRow: { minHeight: 높이.버튼, flexDirection: "row", alignItems: "center" },
   authConsentAll: { borderBottomWidth: 1, marginBottom: 4 },
   authConsentAllText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
-  authConsentCheck: { width: 22, height: 22, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center", marginRight: 8 },
-  authConsentTick: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
+  /** 체크 칸을 줄에서 띄우는 여백. 칸 자체는 `ui/CheckBox` 가 그린다. */
+  체크칸: { marginRight: 8 },
   authConsentText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
   authPrivacy: { fontSize: 12, lineHeight: 15, textAlign: "center", marginTop: 16 },
   accountLogout: {
@@ -9020,20 +8640,20 @@ const s = StyleSheet.create({
   accountDeleteText: { color: "#A36E67", fontSize: 12, fontFamily: typo.label.family, textDecorationLine: "underline" },
   groupChoice: {
     minHeight: 66,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     marginBottom: 8,
   },
-  groupChoiceAvatar: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  groupChoiceAvatar: { width: 36, height: 36, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   groupChoiceAvatarText: { fontSize: 14, fontFamily: typo.label.family },
   groupChoiceCopy: { flex: 1, marginLeft: 12 },
   groupChoiceName: { fontSize: 14, fontFamily: typo.title.family },
   groupChoiceMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 4 },
   groupChoiceCheck: { width: 18, alignItems: "center", justifyContent: "center" },
-  noticeCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 8 },
+  noticeCard: { borderRadius: 모서리.행, borderWidth: 1, padding: 14, marginBottom: 8 },
   noticeName: { fontSize: typo.title.size, lineHeight: typo.title.line, fontFamily: typo.title.family },
   noticeHolder: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 8 },
   noticeBody: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 6 },
@@ -9051,52 +8671,29 @@ const s = StyleSheet.create({
   togetherAccountInitial: { fontSize: 14, fontFamily: typo.label.family },
   workspaceCard: {
     minHeight: 86,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     marginTop: 16,
   },
-  workspaceMark: { width: 43, height: 43, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  workspaceMark: { width: 43, height: 43, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   workspaceMarkInitial: { fontSize: 18, fontFamily: typo.title.family },
   workspaceCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
   workspaceLabel: { fontSize: 12, fontFamily: typo.label.family },
   workspaceName: { fontSize: 14, fontFamily: typo.title.family, marginTop: 2 },
   workspaceMeta: { fontSize: 12, fontFamily: typo.caption.family, marginTop: 4 },
-  workspaceSwitchBadge: { height: 29, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  workspaceSwitchBadge: { height: 29, borderRadius: 모서리.상자, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   workspaceSwitchBadgeText: { fontSize: 12, fontFamily: typo.label.family },
-  groupTabs: {
-    flexDirection: "row",
-    gap: 6,
-    marginTop: 8,
-  },
-  groupTab: {
-    minWidth: 58,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  groupTabText: { fontSize: 12, fontFamily: typo.label.family },
-  groupTabMore: {
-    width: 34,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  groupTabMoreDots: { flexDirection: "row", alignItems: "center", gap: 3 },
-  groupTabMoreText: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 1 },
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
-  memberSectionTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 2 },
-  memberManageHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.세로좁게 },
+  memberSectionTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family, marginTop: 2 },
+  memberManageHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.가로좁게 },
   memberManageText: { fontSize: 12, fontFamily: typo.label.family, paddingVertical: 4 },
-  memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1 },
+  memberStrip: { minHeight: 84, borderRadius: 모서리.행, borderWidth: 1 },
   memberStripContent: { minWidth: "100%", paddingHorizontal: 10, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 6 },
   memberStripItem: { width: 54, alignItems: "center" },
-  memberStripAvatar: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  memberStripAvatar: { width: 38, height: 38, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   memberStripInitial: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
   memberStripName: { width: "100%", textAlign: "center", fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
   memberStripRole: {
@@ -9106,9 +8703,9 @@ const s = StyleSheet.create({
     fontFamily: typo.label.family,
     marginTop: 2,
   },
-  memberInviteAvatar: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
+  memberInviteAvatar: { width: 38, height: 38, borderRadius: 모서리.행, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   managementLabel: { fontSize: 12, fontFamily: typo.label.family, marginTop: 16, marginBottom: -2 },
-  historySummary: { minHeight: 73, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  historySummary: { minHeight: 73, borderRadius: 모서리.행, borderWidth: 1, flexDirection: "row", alignItems: "center" },
   historySummaryItem: { flex: 1, alignItems: "center", justifyContent: "center" },
   historySummaryValue: { fontSize: 16, fontFamily: typo.data.family },
   historySummaryLabel: { fontSize: 12, fontFamily: typo.label.family, marginTop: 4 },
@@ -9120,25 +8717,23 @@ const s = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 6,
   },
-  historyLatestDot: { width: 7, height: 7, borderRadius: 4 },
+  historyLatestDot: { width: 7, height: 7, borderRadius: 모서리.원 },
   historyLatestLabel: { fontSize: 12, fontFamily: typo.label.family },
   historyLatestName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
   historyLatestDate: { fontSize: 11, fontFamily: typo.caption.family },
   memberManagerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  memberManagerTitle: { fontSize: 18, fontFamily: typo.title.family },
+  memberManagerTitle: { fontSize: 18, lineHeight: 25, fontFamily: typo.title.family },
   memberManagerCopy: { fontSize: 14, fontFamily: typo.body.family, marginTop: 4 },
-  memberManagerInvite: { height: 34, borderRadius: 8, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
-  memberManagerInviteText: { fontSize: 12, fontFamily: typo.label.family },
-  memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 여백.세로좁게, marginBottom: 여백.세로 },
+  memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 여백.가로좁게, marginBottom: 여백.세로 },
   // 한 줄에 둘. `48.8%` 와 `gap: 8` 을 함께 쓰면 둘을 더한 값이 칸보다 넓어져
   // 좁은 화면에서 한 장씩 내려갔다. 여백을 뺀 폭으로 잡는다.
   memberManagerCard: { flexBasis: "47%", flexGrow: 1, maxWidth: "48%", minHeight: 61, borderRadius: 모서리.버튼, borderWidth: 1, paddingHorizontal: 여백.가로좁게, flexDirection: "row", alignItems: "center" },
-  memberManagerAvatar: { width: 33, height: 33, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  memberManagerAvatar: { width: 33, height: 33, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   memberManagerCardCopy: { flex: 1, minWidth: 0, marginLeft: 8 },
   memberManagerName: { fontSize: 14, fontFamily: typo.title.family },
   memberManagerRole: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
   appVersion: { fontSize: 12, textAlign: "center", marginTop: 18, marginBottom: 8, fontFamily: typo.caption.family },
-  helpItem: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 8 },
+  helpItem: { borderWidth: 1, borderRadius: 모서리.행, padding: 14, marginBottom: 8 },
   helpQuestion: { fontSize: 14, fontFamily: typo.title.family },
   helpAnswer: { fontSize: 13, lineHeight: 20, marginTop: 4, fontFamily: typo.body.family },
   // 구역 하나. 아래 여백이 없어 「선택한 멤버」·「나가기」·「초대」가 서로 맞붙어

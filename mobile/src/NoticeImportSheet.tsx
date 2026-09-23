@@ -9,7 +9,7 @@ import { Chip, ChipRow } from "./ui/Chip";
 import { SheetShell } from "./ui/SheetShell";
 import { AppTheme } from "./theme";
 import { status as statusColor } from "./theme/colors";
-import { 높이, 모서리, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 아이콘, 글자누름여유, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { DaymoApiError } from "./auth";
 import { josa } from "./tripExpenses";
@@ -589,7 +589,7 @@ export function NoticeImportSheet({
                 <Text style={[styles.checkText, { color: keepLeftovers ? theme.primary : theme.muted }]}>
                   여행 메모로 남기기
                 </Text>
-                {keepLeftovers && <Glyph name="check" size={16} color={theme.primary} weight={2.6} />}
+                {keepLeftovers && <Glyph name="check" size={아이콘.보통} color={theme.primary} weight={2.6} />}
               </Pressable>
             </View>
           )}
@@ -655,7 +655,7 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
           onPress={() => setAll(keys, chosen < rows.length)}
           accessibilityRole="button"
           accessibilityLabel={`${title} ${chosen < rows.length ? "모두 켜기" : "모두 끄기"}`}
-          hitSlop={8}
+          hitSlop={글자누름여유}
         >
           <Text style={[styles.sectionAction, { color: theme.primary }]}>
             {chosen < rows.length ? "모두 켜기" : "모두 끄기"}
@@ -688,7 +688,7 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
                   { borderColor: on ? theme.primary : theme.border, backgroundColor: on ? theme.primarySoft : "transparent" },
                 ]}
               >
-                {on && <Glyph name="check" size={13} color={theme.primary} weight={2.6} />}
+                {on && <Glyph name="check" size={아이콘.작게} color={theme.primary} weight={2.6} />}
               </Pressable>
               {row.rename ? (
                 <TextInput
@@ -733,7 +733,7 @@ function Rows({ theme, title, keys, rows, isOn, toggle, setAll, duplicates }: {
 const styles = StyleSheet.create({
   error: { fontSize: 12, lineHeight: 17, marginBottom: 10 },
   labelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 6 },
-  labelDot: { width: 5, height: 5, borderRadius: 2 },
+  labelDot: { width: 5, height: 5, borderRadius: 모서리.표식 },
   label: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
   // 공지 글 전체를 붙여넣는 칸이라 여러 줄이 들어간다. 높이 토큰의 한 줄짜리가 아니다.
   paste: {
@@ -753,19 +753,19 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 13, fontFamily: typo.title.family },
   sectionAction: { fontSize: 12, fontFamily: typo.label.family },
   summaryRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  countChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  countChip: { borderRadius: 모서리.원, paddingHorizontal: 10, paddingVertical: 5 },
   countText: { fontSize: 12, fontFamily: typo.data.family },
   row: { borderWidth: 1, borderRadius: 모서리.구역, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, gap: 6 },
   rowHead: { flexDirection: "row", alignItems: "center", gap: 10 },
   // 체크 상자는 글자 옆에 붙는 표시라 22px 이다. 칩 높이로 키우면 줄 이름을
   // 밀어내고 체크 표시만 커 보인다. 대신 hitSlop 으로 44 를 채운다.
-  check: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  check: { width: 22, height: 22, borderRadius: 모서리.상자, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   rowInput: { flex: 1, fontSize: 14, fontFamily: typo.title.family, paddingVertical: 2 },
   rowBadge: {
     fontSize: 11,
     fontFamily: typo.caption.family,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },

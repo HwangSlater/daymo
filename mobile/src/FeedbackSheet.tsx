@@ -7,7 +7,7 @@ import { FEEDBACK_KINDS, FEEDBACK_MAX, feedbackReady, sendFeedback, type Feedbac
 import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
-import { 모서리, 누름여유 } from "./theme/controls";
+import { 모서리, 불투명도, 아이콘, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { Chip, ChipRow } from "./ui/Chip";
 import { SheetShell } from "./ui/SheetShell";
@@ -92,14 +92,14 @@ export function FeedbackCard({ theme, onOpen, onHide }: { theme: AppTheme; onOpe
         hitSlop={누름여유(28)}
         style={({ pressed }) => [styles.cardClose, pressed && styles.pressed]}
       >
-        <Glyph name="close" size={13} color={theme.muted} />
+        <Glyph name="close" size={아이콘.작게} color={theme.muted} />
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  lead: { fontSize: 13.5, lineHeight: 20, fontFamily: typo.body.family, marginBottom: 14 },
+  lead: { fontSize: 14, lineHeight: 20, fontFamily: typo.body.family, marginBottom: 14 },
   input: {
     marginTop: 14,
     minHeight: 150,
@@ -126,10 +126,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   cardCopy: { flex: 1, gap: 4 },
-  cardTitle: { fontSize: 14.5, fontFamily: typo.title.family },
-  cardBody: { fontSize: 12.5, lineHeight: 18, fontFamily: typo.body.family },
+  cardTitle: { fontSize: 15, fontFamily: typo.title.family },
+  cardBody: { fontSize: 13, lineHeight: 18, fontFamily: typo.body.family },
   cardButton: { borderRadius: 모서리.원, paddingHorizontal: 14, paddingVertical: 9 },
   cardButtonText: { color: "#FFFFFF", fontSize: 13, fontFamily: typo.title.family },
   cardClose: { position: "absolute", top: 8, right: 10, padding: 4 },
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: 불투명도.눌림 },
 });

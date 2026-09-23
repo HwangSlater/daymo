@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 
 export type MemberRole = "관리자" | "편집 가능" | "보기만";
 
-export const memberRoles: readonly MemberRole[] = ["관리자", "편집 가능", "보기만"];
+const memberRoles: readonly MemberRole[] = ["관리자", "편집 가능", "보기만"];
 
 export type Member = {
   /** 서버의 membership id. 서버에서 받은 멤버에만 있다. */
@@ -189,7 +189,7 @@ export const defaultMe: Me = { name: "", email: "" };
 
 const meKey = "daymo.me.v1";
 
-export function parseMe(raw: string | null): Me | null {
+function parseMe(raw: string | null): Me | null {
   if (!raw) return defaultMe;
   let saved: unknown;
   try {

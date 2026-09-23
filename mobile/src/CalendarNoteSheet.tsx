@@ -190,7 +190,7 @@ export function CalendarNoteSheet({
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 12.5, fontFamily: typo.label.family, marginTop: 14, marginBottom: 7 },
+  label: { fontSize: 13, fontFamily: typo.label.family, marginTop: 14, marginBottom: 7 },
   input: {
     minHeight: 높이.입력,
     borderRadius: 모서리.버튼,

@@ -57,7 +57,7 @@ async function 보낸다(report: ErrorReport): Promise<void> {
  *
  * 같은 오류를 5분 안에 다시 보내지 않고, 한 시간에 열 번까지만 보낸다.
  */
-export function reportError(
+function reportError(
   error: unknown,
   kind: ErrorReport["kind"] = "crash",
   where?: string,

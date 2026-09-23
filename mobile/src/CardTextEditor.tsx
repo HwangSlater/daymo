@@ -27,6 +27,7 @@ import {
 import { INK, INK_FAINT, INK_SOFT } from "./cardToolColors";
 import { DECOR_FONT_FAMILY, useDecorFonts } from "./decorFonts";
 import { DecorBackSample, DecorTextPreview } from "./KeepsakeCardView";
+import { 높이, 모서리 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 /** 글자 창의 도구 탭. 글꼴(넷)과 색(여덟)은 고를 것이 적어 한 탭에 두 줄로 둔다. */
@@ -192,21 +193,21 @@ export function CardTextEditor({
 const styles = StyleSheet.create({
   textSheet: { flex: 1, backgroundColor: "rgba(10,10,14,0.86)" },
   textSheetTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 8, paddingTop: 8 },
-  textSheetSide: { minWidth: 64, minHeight: 44, justifyContent: "center", paddingHorizontal: 10 },
+  textSheetSide: { minWidth: 64, minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 10 },
   textSheetSideRight: { alignItems: "flex-end" },
   textSheetCancelText: { fontSize: 15, color: INK_SOFT, fontFamily: typo.label.family },
   textSheetDoneText: { color: "#FFFFFF", fontSize: 16, fontFamily: typo.title.family },
   // 미리보기·입력칸·도구를 가운데에 모은다. 키보드가 올라오면 남은 자리의 가운데로 올라간다.
   textSheetBody: { flex: 1, justifyContent: "center", paddingHorizontal: 16, gap: 10 },
   textPreview: { minHeight: 84, alignItems: "center", justifyContent: "center" },
-  textPreviewEmpty: { fontSize: 22, color: INK_FAINT, fontFamily: typo.title.family },
+  textPreviewEmpty: { fontSize: 20, lineHeight: 28, color: INK_FAINT, fontFamily: typo.title.family },
   // 실제로 글자를 받는 입력칸. 보이지 않게 두고, 보이는 글자를 누르면 여기로 간다.
   textHiddenInput: { position: "absolute", width: 1, height: 1, opacity: 0 },
   textSheetCount: { color: INK_FAINT, fontSize: 12, textAlign: "center", marginTop: 6, fontFamily: typo.label.family },
   textSheetWarn: { color: "#F2C27A" },
   // 탭과 그 탭의 고를 것. 아래 막대처럼 무엇을 고르는지 글로 적는다.
   textToolTabs: { flexDirection: "row", gap: 6, paddingHorizontal: 12 },
-  textToolTab: { flex: 1, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  textToolTab: { flex: 1, height: 36, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   textToolTabOn: { backgroundColor: "rgba(255,255,255,0.14)" },
   textToolTabText: { fontSize: 14, color: INK_FAINT, fontFamily: typo.label.family },
   textToolTabTextOn: { color: INK, fontFamily: typo.title.family },
@@ -215,16 +216,16 @@ const styles = StyleSheet.create({
   // 「글꼴·색」 탭에서 글꼴 줄과 색 줄을 나눈다.
   textToolBreak: { width: "100%", height: 2 },
   textToolHint: { width: "100%", fontSize: 12, color: INK_FAINT, fontFamily: typo.caption.family, marginTop: 2 },
-  textPill: { height: 36, paddingHorizontal: 15, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.12)", justifyContent: "center" },
+  textPill: { height: 36, paddingHorizontal: 15, borderRadius: 모서리.원, backgroundColor: "rgba(255,255,255,0.12)", justifyContent: "center" },
   textPillOn: { backgroundColor: "#F6F4F1" },
   textPillText: { fontSize: 15, color: "#F6F4F1", fontFamily: typo.label.family },
   textPillTextOn: { color: "#16151B" },
   // 바탕 견본 칩. 모양이 들어갈 만큼 넉넉하고, 고른 것은 흰 테두리로 가른다.
   backChip: {
     minWidth: 72,
-    height: 52,
+    height: 높이.입력,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
@@ -232,6 +233,6 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   backChipOn: { borderColor: "#F6F4F1", backgroundColor: "rgba(255,255,255,0.16)" },
-  textColor: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: "rgba(255,255,255,0.35)" },
+  textColor: { width: 34, height: 34, borderRadius: 모서리.원, borderWidth: 2, borderColor: "rgba(255,255,255,0.35)" },
   textColorOn: { borderWidth: 3, borderColor: "#FFFFFF", transform: [{ scale: 1.15 }] },
 });

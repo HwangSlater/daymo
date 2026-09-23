@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./AppText";
 import { Glyph } from "./Glyph";
 import { AppTheme } from "./theme";
+import { 높이, 모서리, 아이콘 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 /**
@@ -24,7 +25,7 @@ const 키로 = (date: Date) =>
 const 월일 = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
 
 /** 고른 기간을 한 줄로. 아직 고르지 않았으면 빈 글자를 돌려준다. */
-export function formatTripRange(start: string, end: string) {
+function formatTripRange(start: string, end: string) {
   const startDate = 날짜로(start);
   const endDate = 날짜로(end);
   if (!startDate) return "";
@@ -117,7 +118,7 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd, summa
       <View style={[styles.rangeCalendar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={styles.rangeMonthHead}>
           <Pressable hitSlop={7} accessibilityRole="button" accessibilityLabel="이전 달" onPress={() => move(-1)} style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}>
-            <Glyph name="chevronLeft" size={20} color={theme.text} />
+            <Glyph name="chevronLeft" size={아이콘.크게} color={theme.text} />
           </Pressable>
           <Pressable
             hitSlop={7}
@@ -131,10 +132,10 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd, summa
               {calendarMonth.year}. {String(calendarMonth.value).padStart(2, "0")}
             </Text>
             {/* 접기·펴기 표시는 시트의 선택 칸(`ui/OptionalFormSection`)과 같은 ＋·－ 로 맞춘다. */}
-            <Glyph name={monthPicker ? "minus" : "chevronDown"} size={14} color={theme.muted} />
+            <Glyph name={monthPicker ? "minus" : "chevronDown"} size={아이콘.작게} color={theme.muted} />
           </Pressable>
           <Pressable hitSlop={7} accessibilityRole="button" accessibilityLabel="다음 달" onPress={() => move(1)} style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}>
-            <Glyph name="chevronRight" size={20} color={theme.text} />
+            <Glyph name="chevronRight" size={아이콘.크게} color={theme.text} />
           </Pressable>
         </View>
         {monthPicker ? (
@@ -147,7 +148,7 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd, summa
                 onPress={() => setCalendarMonth((지금) => ({ ...지금, year: 지금.year - 1 }))}
                 style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}
               >
-                <Glyph name="chevronLeft" size={20} color={theme.text} />
+                <Glyph name="chevronLeft" size={아이콘.크게} color={theme.text} />
               </Pressable>
               <Text style={[styles.rangeMonthTitle, { color: theme.text }]}>{calendarMonth.year}년</Text>
               <Pressable
@@ -157,7 +158,7 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd, summa
                 onPress={() => setCalendarMonth((지금) => ({ ...지금, year: 지금.year + 1 }))}
                 style={[styles.rangeMonthButton, { backgroundColor: theme.surfaceAlt }]}
               >
-                <Glyph name="chevronRight" size={20} color={theme.text} />
+                <Glyph name="chevronRight" size={아이콘.크게} color={theme.text} />
               </Pressable>
             </View>
             <View style={styles.monthGrid}>
@@ -252,21 +253,21 @@ export function TripDateRangePicker({ theme, start, end, setStart, setEnd, summa
 const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontFamily: typo.label.family },
   rangeField: { marginBottom: 16 },
-  rangeSummary: { minHeight: 62, borderRadius: 16, paddingHorizontal: 12, gap: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
+  rangeSummary: { minHeight: 62, borderRadius: 모서리.구역, paddingHorizontal: 12, gap: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   rangeSummaryCopy: { flex: 1 },
   rangeSummaryLabel: { fontSize: 12, fontFamily: typo.label.family },
   rangeSummaryValue: { fontSize: 14, fontFamily: typo.data.family, marginTop: 4 },
-  rangeNights: { minWidth: 42, height: 30, borderRadius: 12, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  rangeNights: { minWidth: 42, height: 30, borderRadius: 모서리.행, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   rangeNightsText: { fontSize: 14, fontFamily: typo.data.family },
-  rangeCalendar: { marginTop: 8, borderRadius: 16, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderWidth: 1 },
+  rangeCalendar: { marginTop: 8, borderRadius: 모서리.구역, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, borderWidth: 1 },
   rangeMonthHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  rangeMonthButton: { width: 30, height: 30, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  rangeMonthButton: { width: 30, height: 30, borderRadius: 모서리.상자, alignItems: "center", justifyContent: "center" },
   rangeMonthTitleHit: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 30, paddingHorizontal: 8 },
   rangeMonthTitle: { fontSize: 18, lineHeight: 26, fontFamily: typo.title.family },
   monthPicker: { paddingBottom: 4 },
   monthGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   // 한 줄에 넷씩. 셋씩 놓으면 칸이 커져 달력보다 판이 길어지고, 여섯씩이면 손가락에 모자란다.
-  monthCell: { width: "23.5%", height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  monthCell: { width: "23.5%", height: 높이.버튼, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center" },
   monthCellText: { fontSize: 14, fontFamily: typo.label.family },
   rangeWeek: { flexDirection: "row", marginBottom: 2 },
   rangeWeekday: { width: "14.285%", fontSize: 12, fontFamily: typo.label.family, textAlign: "center" },
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
   rangeDayBandEnd: { borderTopRightRadius: 15, borderBottomRightRadius: 15 },
   rangeDayBandFirst: { left: "50%" },
   rangeDayBandLast: { right: "50%" },
-  rangeDayCircle: { width: 32, height: 32, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+  rangeDayCircle: { width: 32, height: 32, borderRadius: 모서리.원, alignItems: "center", justifyContent: "center" },
   rangeDayText: { fontSize: 14, lineHeight: 17, fontFamily: typo.data.family, textAlign: "center" },
   rangeDayTextActive: { fontFamily: typo.label.family },
 });

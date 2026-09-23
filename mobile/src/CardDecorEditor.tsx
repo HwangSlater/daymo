@@ -72,9 +72,11 @@ import {
   type KeepsakeSticker,
 } from "./cardDecor";
 import { Chip, ChipRow as SharedChipRow } from "./ui/Chip";
+import { SheetHandle } from "./ui/SheetHandle";
+import { Switch } from "./ui/Switch";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
-import { 높이, 모서리, 여백 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 여백 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import {
   isCutStyle,
@@ -220,9 +222,7 @@ function Toggle({
       style={({ pressed }) => [styles.toggleRow, pressed && styles.pressed]}
     >
       <Text style={styles.toggleLabel}>{label}</Text>
-      <View style={[styles.toggleTrack, on && { backgroundColor: accent }]}>
-        <View style={[styles.toggleKnob, on && styles.toggleKnobOn]} />
-      </View>
+      <Switch on={on} tone={accent} colors={{ off: CHIP, knob: on ? "#FFFFFF" : INK_FAINT }} />
     </Pressable>
   );
 }
@@ -831,7 +831,7 @@ export function CardDecorTools({
           <View style={styles.tip} accessibilityLiveRegion="polite">
             <Text style={styles.tipText}>{"사진을 꾹 누르면 자리를 바꿔요\n보일 부분은 「프레임」의 비율에서 맞춰요"}</Text>
             <Pressable onPress={사진_안내_닫기} accessibilityRole="button" accessibilityLabel="안내 닫기" hitSlop={10} style={styles.tipClose}>
-              <Glyph name="close" size={12} color="#FFFFFF" weight={2.4} />
+              <Glyph name="close" size={아이콘.작게} color="#FFFFFF" weight={2.4} />
             </Pressable>
           </View>
         )}
@@ -857,11 +857,11 @@ export function CardDecorTools({
               ]}
             >
               <View {...손잡이.panHandlers} style={styles.sheetGrip} accessibilityRole="adjustable" accessibilityLabel={`${tab} 도구 칸 크기`}>
-                <View style={styles.sheetHandle} />
+                <SheetHandle color="#4A4953" />
                 <View style={styles.sheetHead}>
                   <Text style={styles.sheetTitle}>{tab}</Text>
                   <Pressable onPress={() => setTab(null)} accessibilityRole="button" accessibilityLabel="도구 닫기" hitSlop={10}>
-                    <Glyph name="chevronDown" size={18} color={INK_FAINT} weight={2.2} />
+                    <Glyph name="chevronDown" size={아이콘.보통} color={INK_FAINT} weight={2.2} />
                   </Pressable>
                 </View>
               </View>
@@ -910,7 +910,7 @@ export function CardDecorTools({
                       accessibilityRole="button"
                       style={({ pressed }) => [styles.focusRow, pressed && styles.pressed]}
                     >
-                      <Glyph name="cardFrame" size={16} color={INK_SOFT} weight={2} />
+                      <Glyph name="cardFrame" size={아이콘.보통} color={INK_SOFT} weight={2} />
                       <Text style={styles.focusRowText}>사진 보일 부분 맞추기</Text>
                     </Pressable>
                   )}
@@ -1036,7 +1036,7 @@ export function CardDecorTools({
                     accessibilityState={{ disabled: 스티커_꽉_참 }}
                     style={({ pressed }) => [styles.addText, { backgroundColor: accent }, 스티커_꽉_참 && styles.pickBlocked, pressed && styles.pressed]}
                   >
-                    <Glyph name="textT" size={18} color={accentInk} weight={2.2} />
+                    <Glyph name="textT" size={아이콘.보통} color={accentInk} weight={2.2} />
                     <Text style={[styles.addTextLabel, { color: accentInk }]}>카드에 텍스트 넣기</Text>
                   </Pressable>
                   {/* 켜고 끄는 줄을 제목보다 위에 둔다. 아래에 있으면 제목을 다 적고
@@ -1210,7 +1210,7 @@ export function CardDecorTools({
                   accessibilityLabel={`${하나} 도구`}
                   style={({ pressed }) => [styles.toolBarItem, pressed && styles.pressed]}
                 >
-                  <Glyph name={TOOL_GLYPH[하나]} size={22} color={on ? ACCENT : INK_SOFT} weight={1.9} />
+                  <Glyph name={TOOL_GLYPH[하나]} size={아이콘.크게} color={on ? ACCENT : INK_SOFT} weight={1.9} />
                   <Text style={[styles.toolBarText, on && styles.toolBarTextOn]}>{하나}</Text>
                 </Pressable>
               );
@@ -1259,7 +1259,7 @@ const PAPER_SWATCH: Record<KeepsakePaperColor, string> = {
 
 const styles = StyleSheet.create({
   fill: { width: "100%", height: "100%" },
-  pressed: { opacity: 0.65 },
+  pressed: { opacity: 불투명도.눌림 },
   // 남는 칸을 다 쓴다. 이 칸의 크기로 카드를 얼마나 줄일지 정한다.
   stage: { flex: 1, alignItems: "center", justifyContent: "center", padding: STAGE_PAD },
   // 꾸미는 자리. 카드 뒤만 한 단계 밝혀 검은 카드의 가장자리도 보이게 한다(2026-09-22 시안 ①).
@@ -1275,25 +1275,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minHeight: 44,
+    minHeight: 높이.버튼,
     marginTop: 12,
     paddingHorizontal: 14,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: CHIP,
     alignSelf: "flex-start",
   },
-  focusRowText: { fontSize: 13.5, color: INK, fontFamily: typo.label.family },
+  focusRowText: { fontSize: 14, color: INK, fontFamily: typo.label.family },
   zoomReset: {
     position: "absolute",
     right: 12,
     bottom: 12,
     height: 32,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: 모서리.원,
     backgroundColor: "rgba(20,19,26,0.85)",
     justifyContent: "center",
   },
-  zoomResetText: { fontSize: 12.5, color: "#FFFFFF", fontFamily: typo.label.family },
+  zoomResetText: { fontSize: 13, color: "#FFFFFF", fontFamily: typo.label.family },
   // 처음 한 번 뜨는 안내. 카드 위쪽 가운데에 얹고, 카드를 가리는 폭은 짧게 둔다.
   tip: {
     position: "absolute",
@@ -1305,19 +1305,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingLeft: 14,
     paddingRight: 10,
-    borderRadius: 14,
+    borderRadius: 모서리.구역,
     backgroundColor: "rgba(20,19,26,0.92)",
   },
   tipText: { color: "#FFFFFF", fontSize: 13, lineHeight: 19, fontFamily: typo.label.family },
   tipClose: { padding: 4 },
   thumbStage: { flex: 1, alignItems: "center", justifyContent: "center" },
   panelPad: { paddingHorizontal: 14, paddingBottom: 16 },
-  panelLabel: { fontSize: 11.5, color: INK_FAINT, marginBottom: 8, marginTop: 13, fontFamily: typo.label.family },
-  panelHint: { fontSize: 11.5, color: INK_FAINT, marginTop: 9, lineHeight: 16, fontFamily: typo.caption.family },
+  panelLabel: { fontSize: 12, color: INK_FAINT, marginBottom: 8, marginTop: 13, fontFamily: typo.label.family },
+  panelHint: { fontSize: 12, color: INK_FAINT, marginTop: 9, lineHeight: 16, fontFamily: typo.caption.family },
   // 「지금 카드에 안 나오고 있다」는 말. 흐린 설명과 같은 색이면 설명으로 읽혀 지나친다.
-  panelWarn: { fontSize: 11.5, color: "#F0C27A", marginTop: 8, lineHeight: 16, fontFamily: typo.label.family },
+  panelWarn: { fontSize: 12, color: "#F0C27A", marginTop: 8, lineHeight: 16, fontFamily: typo.label.family },
   suggest: { paddingVertical: 8 },
-  suggestText: { fontSize: 11.5, color: ACCENT, fontFamily: typo.label.family },
+  suggestText: { fontSize: 12, color: ACCENT, fontFamily: typo.label.family },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1325,10 +1325,7 @@ const styles = StyleSheet.create({
     marginTop: 13,
     minHeight: 높이.버튼,
   },
-  toggleLabel: { fontSize: 12.5, color: INK_SOFT, fontFamily: typo.label.family },
-  toggleTrack: { width: 38, height: 22, borderRadius: 11, backgroundColor: CHIP, justifyContent: "center" },
-  toggleKnob: { width: 16, height: 16, borderRadius: 8, marginLeft: 3, backgroundColor: INK_FAINT },
-  toggleKnobOn: { marginLeft: 19, backgroundColor: "#FFFFFF" },
+  toggleLabel: { fontSize: 13, color: INK_SOFT, fontFamily: typo.label.family },
   field: {
     height: 높이.입력,
     borderRadius: 모서리.버튼,
@@ -1340,7 +1337,7 @@ const styles = StyleSheet.create({
   },
   pickRow: { gap: 8, paddingRight: 6, paddingVertical: 2 },
   // 꽉 차서 더 못 고르는 사진. 눌리지 않는다는 것이 눈에 보여야 한다.
-  pickBlocked: { opacity: 0.35 },
+  pickBlocked: { opacity: 불투명도.비활성 },
   // 시트의 자리. 끄는 동안에는 이 자리를 두고 안의 시트만 위로 겹쳐 올라간다.
   sheetSlot: { zIndex: 5 },
   sheetFloat: { position: "absolute", left: 0, right: 0, bottom: 0 },
@@ -1351,7 +1348,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   sheetGrip: { paddingTop: 8, paddingBottom: 4 },
-  sheetHandle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: "#4A4953" },
   sheetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 6 },
   sheetTitle: { fontSize: 15, color: INK, fontFamily: typo.title.family },
   sheetScroll: { flex: 1 },
@@ -1367,7 +1363,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
     zIndex: 6,
   },
-  toolBarItem: { alignItems: "center", gap: 3, minWidth: 56, minHeight: 44, justifyContent: "center" },
+  toolBarItem: { alignItems: "center", gap: 3, minWidth: 56, minHeight: 높이.버튼, justifyContent: "center" },
   toolBarText: { fontSize: 11, color: INK_SOFT, fontFamily: typo.label.family },
   toolBarTextOn: { color: ACCENT, fontFamily: typo.title.family },
   addText: {
@@ -1382,10 +1378,10 @@ const styles = StyleSheet.create({
   addTextLabel: { fontSize: 14, fontFamily: typo.title.family },
   swatchRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   stickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
-  stickerCell: { width: 60, height: 60, borderRadius: 12, backgroundColor: CHIP, alignItems: "center", justifyContent: "center" },
+  stickerCell: { width: 60, height: 60, borderRadius: 모서리.행, backgroundColor: CHIP, alignItems: "center", justifyContent: "center" },
   // 글씨 띠·테이프는 옆으로 길어 두 칸을 쓴다.
   stickerCellWide: { width: 128 },
-  swatch: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  swatch: { width: 36, height: 36, borderRadius: 모서리.원, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   // 남이 만든 카드. 도구 자리에 왜 못 고치는지만 적는다.
   readOnly: { minHeight: 64, justifyContent: "center", paddingHorizontal: 20, paddingBottom: 12 },
   readOnlyText: { fontSize: 12, color: INK_FAINT, textAlign: "center", fontFamily: typo.caption.family },

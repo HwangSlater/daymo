@@ -5,8 +5,6 @@ import { AppearanceMode, ThemeId, themeOptions } from "./theme";
 // 이 기기에만 남는 개인 설정이다. 여행, 준비물, 멤버처럼 함께 보는 값은 서버가
 // 원본이므로 여기에 넣지 않는다. docs/development/07-local-first-and-sync.md 2장.
 
-/** 여행 공간. 값 목록을 저장할 때도 확인해야 해서 저장소 쪽에 함께 둔다. */
-export const groupIds = ["ours", "friends", "family"] as const;
 export type GroupId = string;
 
 export type DeviceSettings = {

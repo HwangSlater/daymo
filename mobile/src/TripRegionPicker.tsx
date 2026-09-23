@@ -1,4 +1,6 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+
+import { Chip } from "./ui/Chip";
 import { Text } from "./AppText";
 import { AppTheme } from "./theme";
 import { typo } from "./theme/typography";
@@ -20,30 +22,23 @@ export function TripRegionPicker({ theme, value, onChange, expanded, setExpanded
           .map((region) => {
             const selected = value === region.name;
             return (
-              <Pressable
+              <Chip
                 key={region.name}
+                theme={theme}
+                label={region.name}
+                on={selected}
                 onPress={() => onChange(region.name)}
-                accessibilityRole="button"
                 accessibilityLabel={`${region.name} 지역`}
-                accessibilityState={{ selected }}
-                style={[
-                  styles.choice,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                  selected && { backgroundColor: theme.primarySoft, borderColor: theme.primary },
-                ]}
-              >
-                <Text style={[styles.choiceText, { color: selected ? theme.primary : theme.muted }]}>{region.name}</Text>
-              </Pressable>
+              />
             );
           })}
-        <Pressable
+        <Chip
+          theme={theme}
+          label={expanded ? "간단히 보기" : "전체 지역 보기"}
+          dashed
+          on={false}
           onPress={() => setExpanded(!expanded)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded }}
-          style={[styles.choice, styles.more, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
-        >
-          <Text style={[styles.choiceText, { color: theme.primary }]}>{expanded ? "간단히 보기" : "전체 지역 보기"}</Text>
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -52,7 +47,4 @@ export function TripRegionPicker({ theme, value, onChange, expanded, setExpanded
 const styles = StyleSheet.create({
   label: { fontSize: 12, fontFamily: typo.label.family },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 6, paddingBottom: 16 },
-  choice: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
-  more: { borderStyle: "dashed" },
-  choiceText: { fontSize: 12, fontFamily: typo.label.family },
 });

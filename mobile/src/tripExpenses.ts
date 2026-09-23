@@ -194,7 +194,7 @@ export function splitModeOf(item: Expense): SplitMode {
 }
 
 /** 정산과 합계에 드는 지출만. 「정산에서 빼기」 한 줄은 목록에만 남는다. */
-export function counted<T extends { excluded?: boolean }>(expenses: readonly T[]): T[] {
+function counted<T extends { excluded?: boolean }>(expenses: readonly T[]): T[] {
   return expenses.filter((item) => !item.excluded);
 }
 

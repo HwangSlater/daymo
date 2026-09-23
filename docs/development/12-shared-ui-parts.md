@@ -17,15 +17,22 @@
 | `SheetShell` | 아래에서 올라오는 창의 껍데기 전부. 덮개, 시트 상자, 끌어내려 닫기, 제목 줄, 본문 스크롤, 맨 아래 저장 버튼, 잠김 안내, 지우기 확인 | `mobile/src/ui/SheetShell.tsx` | 시트를 만들 때. 예외 없이 |
 | `sheetHeadStyles` | 머리를 직접 그리는 시트가 나눠 쓰는 제목 스타일 | 같은 파일 | `SheetShell` 의 `renderHead` 로 머리를 갈아 끼울 때 |
 | `submitLabelOf`·`sheetHintOf` | 시트 버튼 글과 그 위 한 줄을 고르는 순수 계산 | `mobile/src/ui/sheetText.ts` | 시트 글 규칙을 고칠 때. 시험은 `sheetText.test.ts` |
-| `Chip`·`ChipRow` | 고르는 칩 하나와 칩 줄. 켜짐·꺼짐, 누름 느낌, 접근성 라벨까지 | `mobile/src/ui/Chip.tsx` | 여섯 개 이상 중에 고르게 할 때 |
+| `Chip`·`ChipRow` | 고르는 칩 하나와 칩 줄. 켜짐·꺼짐, 누름 느낌, 접근성 라벨까지. `count` 로 이름 뒤 개수, `icon`·`trailing` 으로 앞뒤 기호, `dashed` 로 점선, `colors` 로 어두운 바탕 색, `disabled` 로 못 고르게 | `mobile/src/ui/Chip.tsx` | 여섯 개 이상 중에 고르게 할 때. 필터 줄, 태그 줄, 분류 줄 |
+| `Toast` | 떴다 사라지는 한 줄. 표식(점·체크), 되돌리기 단추, 어두운 바탕 색. **어디에 띄울지는 부르는 쪽이 `style` 로 정한다** | `mobile/src/ui/Toast.tsx` | 「지웠어요 · 되돌리기」처럼 묻지 않고 알릴 때 |
+| `EmptyState` | 아무것도 없을 때의 상자. 가로(목록 안 한 줄)와 세로(화면이 통째로 빌 때) 두 변형, 점선 테두리, `mark` 로 그림 갈아 끼우기 | `mobile/src/ui/EmptyState.tsx` | 빈 목록, 빈 화면 |
+| `CheckBox` | 체크 칸. 네모(고르기)와 원(했다/안 했다) 두 모양. **누르는 것은 부르는 쪽이 갖는다** — 줄 전체가 눌리는 목록과 칸만 눌리는 목록이 둘 다 있어서다 | `mobile/src/ui/CheckBox.tsx` | 고르는 목록, 동의 확인, 완료 표시 |
+| `Switch` | 켜고 끄는 막대(44×26). 누르는 것은 부르는 쪽이 갖는다 | `mobile/src/ui/Switch.tsx` | 설정 줄의 켜고 끄기 |
+| `SheetHandle` | 아래에서 올라온 창 맨 위의 손잡이(40×5) | `mobile/src/ui/SheetHandle.tsx` | 끌어 내려 닫는 창. `SheetShell` 이 이미 쓴다 |
 | `Segment`·`세그먼트_최대` | 한 줄 세그먼트. 배경 있는 트랙(높이 `높이.칩`, 모서리 `모서리.버튼`) 안에 같은 폭 칸, 고른 것만 흰 배경에 굵게. 옵션은 문자열이나 `{ value, label }`, 접근성은 `radiogroup`/`radio`. `disabled` 를 주면 고른 칸은 그대로 두고 흐려진다 | `mobile/src/ui/Segment.tsx` | 선택지가 다섯 개 이하이고 칸에 글자가 들어갈 때(날짜·종류·방향·나누기 방식·관계). 여섯 개부터나 말이 길면 `Chip`·`Choice` |
 | `OptionalFormSection` | 매번 쓰지 않는 칸을 「＋ 장소 · 메모 더 적기」 한 줄 아래로 접는다. `switchLabel` 을 주면 예약처럼 「있어요」 뜻이 담긴 상자가 된다. 고칠 때 값이 있으면 부르는 쪽이 펼친 채로 연다 | `mobile/src/ui/OptionalFormSection.tsx` | 시트의 선택 칸. `theme` 과 `editable` 을 넘긴다(`WarmTripDetail` 은 같은 이름의 얇은 껍데기가 문맥에서 꺼내 넘긴다) |
-| `높이`·`모서리`·`여백`·`누름여유` | 누르는 것의 크기 토큰. 칩 36, 버튼 44, 입력 52, 저장 56 | `mobile/src/theme/controls.ts` | 스타일시트에 크기를 적을 때마다 |
+| `높이`·`모서리`·`여백` | 누르는 것의 크기 토큰. 높이는 칩 36, 버튼 44, 입력 52, 저장 56. 모서리는 표식 4, 상자 8, 버튼 10, 행 12, 구역 16, 원 999 | `mobile/src/theme/controls.ts` | 스타일시트에 크기를 적을 때마다 |
+| `불투명도`·`아이콘`·`그림자` | 눌림 0.7 · 흐림 0.55 · 비활성 0.4, 아이콘 작게 14 · 보통 16 · 크게 20, 그림자 카드·뜬것 | 같은 파일 | 누름 느낌·꺼진 칸·기호 크기·뜬 정도를 적을 때 |
+| `누름여유`·`글자누름여유` | 44 보다 작게 그린 것에 줄 `hitSlop`. 글자 한 줄짜리 단추는 세로만 넓힌다(좌우까지 넓히면 나란한 단추끼리 겹친다) | 같은 파일 | 작게 그린 것을 누르게 만들 때 |
 | `typo`·`fonts`·`sizes` | 글자 역할(hero·title·data·label·body·caption)과 서체 | `mobile/src/theme/typography.ts` | `fontFamily`·`fontSize` 를 적을 때 |
 | `onAccent`·`status`·`domain`·`kindColor`·`tripTone`·`memoPaper` | 색. 강조색 위 글자색, 위험·경고색, 갈래별 색을 라이트/다크 둘 다 AA 로 맞춰 둔 것 | `mobile/src/theme/colors.ts` | 색값을 적을 때마다 |
 | `resolveTheme`·`themeOptions` | 테마 일곱 개를 라이트·다크로 푸는 곳 | `mobile/src/theme/index.ts` | 화면에 테마를 넘길 때 |
 | `Text`·`TextInput` | 웹에서 입력 칸 글자를 16px 아래로 내리지 않는 래퍼(아이폰 사파리 확대 막기) | `mobile/src/AppText.tsx` | 글자와 입력 칸 전부. `react-native` 것을 바로 쓰지 않는다 |
-| `Glyph` | 쿠키런에 없는 기호(화살표·체크·더하기 …)를 SVG 로 그린다 | `mobile/src/Glyph.tsx` | 기호가 필요할 때. 이모지·특수문자로 때우지 않는다. 같은 파일의 `Dot` 은 지금 아무도 쓰지 않는다(2026-09-23) |
+| `Glyph` | 쿠키런에 없는 기호(화살표·체크·더하기·닫기·크기 손잡이 …)를 SVG 로 그린다 | `mobile/src/Glyph.tsx` | 기호가 필요할 때. 이모지·특수문자로 때우지 않는다 |
 | `showAlert` | 묻고 답을 받는 창. 웹에서도 실제로 뜬다 | `mobile/src/showAlert.ts` | `Alert.alert` 을 쓰고 싶을 때마다 |
 | `useSheetDrag` | 손잡이를 끌어내려 창을 닫는다. 작성 중이면 먼저 묻게 넘길 수 있다 | `mobile/src/sheetDrag.ts` | `SheetShell` 이 이미 쓴다. 직접 쓸 일은 거의 없다 |
 | `useWebBackClose` | 웹에서 브라우저 뒤로 가기로 시트를 닫는다(페이지를 벗어나지 않게) | `mobile/src/useWebBackClose.ts` | `SheetShell` 이 이미 쓴다. 시트가 아닌 겹침 화면에는 직접 |
@@ -47,12 +54,11 @@
 | `TripRegionPicker` | 지역 고르기 | `mobile/src/TripRegionPicker.tsx` | 여행지를 고를 때 |
 | `SocialLoginButton` | 구글·카카오·네이버 버튼. 각 사의 표기 규정에 맞춰 둔 것 | `mobile/src/SocialLoginButton.tsx` | 로그인 화면 |
 | `PaperPeel` | 종이를 넘기는 듯한 전환 | `mobile/src/PaperPeel.tsx` | 여행 카드를 넘길 때 |
-| `EmptyState` | 아무것도 없을 때의 안내 상자와 만들기 버튼 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 빈 목록 |
 | `SectionLabel`·`TabActionHeader` | 구역 제목 한 줄과, 제목 + 개수 + 오른쪽 동작 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 목록 위 제목 줄 |
 | `OptionField` | 라벨 + 고르기. 선택지가 다섯 개 이하면 `Segment`, 여섯 개부터는 칩 줄로 스스로 고른다 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 시트 안에서 고르게 할 때 |
 | `TimeRow` | 「시간  11:00 ›」 한 줄. 안드로이드는 눌러서 돌리는 창, 그 밖에서는 자리에서 친다 | `mobile/src/WarmTripDetail.tsx` (같은 파일 안) | 시트 안의 시각 칸 |
 
-마지막 다섯 줄은 아직 `WarmTripDetail.tsx` 안에 있다. 다른 화면에서 쓰게 되면 그때 `ui/` 로 옮긴다.
+마지막 네 줄은 아직 `WarmTripDetail.tsx` 안에 있다. 다른 화면에서 쓰게 되면 그때 `ui/` 로 옮긴다.
 `OptionalFormSection` 이 그렇게 옮겨 간 첫 부품이다. 여행 목록의 새 여행 시트가 같은 줄을 쓴다.
 
 ## 추가·수정 시트의 배치
@@ -106,8 +112,9 @@
 크기와 색.
 
 ```tsx
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 여백, 불투명도, 누름여유 } from "./theme/controls";
 저장: { height: 높이.저장, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로 },
+눌림: { opacity: 불투명도.눌림 },
 <Pressable hitSlop={누름여유(높이.칩)} />
 ```
 
@@ -124,7 +131,8 @@ showAlert("지울까요?", "되돌릴 수 없어요", [
 ## 하지 말 것
 
 - **시트를 `Modal` 부터 짜지 않는다.** 껍데기를 또 복사하면 다음 변경 때 고칠 자리가 하나 더 는다. 실제로 그렇게 한 곳을 빠뜨렸다. `ui/SheetShell` 을 쓰고, 모자란 것이 있으면 부품에 prop 을 뚫는다.
-- **높이·모서리·여백 숫자를 스타일시트에 직접 적지 않는다.** 한 화면 안에 38·39·40·42·43·44 가 나란히 놓였던 적이 있다. 그 6px 차이에는 아무 뜻이 없었고 고칠 때 몇 군데를 고쳐야 하는지 알 수 없었다. `theme/controls.ts` 의 네 단계를 쓴다. 정말 달라야 하는 자리는 스타일 옆에 왜 다른지 적는다.
+- **높이·모서리·여백·불투명도·아이콘 크기를 스타일시트에 숫자로 적지 않는다.** 한 화면 안에 38·39·40·42·43·44 가 나란히 놓였던 적이 있다. 그 6px 차이에는 아무 뜻이 없었고 고칠 때 몇 군데를 고쳐야 하는지 알 수 없었다. 모서리도 같은 급 버튼이 8·10·12 로 갈려 있었다. `theme/controls.ts` 의 단계를 쓴다. 정말 달라야 하는 자리는 스타일 옆에 왜 다른지 적는다.
+- **쓰지 않는 스타일을 남기지 않는다.** `npm run lint` 의 `react-native/no-unused-styles` 가 잡는다. `KeepsakeCardView.tsx` 와 `CardOrderStrip.tsx` 만 예외다 — 그 둘은 `sheetOf(unit)`(`scaleStyles`)으로 스타일을 배수만큼 키워 `s.X` 로 써서 정적 분석에 안 잡힐 뿐이고, 지우면 카드가 통째로 깨진다.
 - **웹에서 `Alert.alert` 를 쓰지 않는다.** react-native-web 의 `Alert` 은 아무 일도 하지 않는 빈 함수다. 브라우저에서 「삭제」를 눌러도 확인창이 없고 아무 일도 일어나지 않는다. `showAlert` 을 쓴다.
 - **`react-native` 의 `Text`·`TextInput` 을 바로 가져오지 않는다.** 아이폰 사파리는 16px 보다 작은 입력 칸에 포커스하면 화면을 통째로 확대하고 그대로 남는다. `AppText` 의 것을 쓴다.
 - **화살표·체크를 이모지나 특수문자로 적지 않는다.** 쿠키런에 그 글리프가 없어 시스템 폰트로 떨어지고 플랫폼마다 모양이 달라진다. `Glyph` 를 쓴다.
@@ -141,4 +149,12 @@ showAlert("지울까요?", "되돌릴 수 없어요", [
 
 옮기면서 뜻 없이 달랐던 두 값은 부품 쪽에 맞췄다. 머리 아래 여백 20 → 16, 닫기 버튼의 `marginLeft: 8` 제거. 그만큼 시트 내용이 4px 위로 올라간다. 그 둘만 앞 모습에 맞춰 두고 찍으면 장소·일정·숙소·교통편·예약·지출·잠김·지우기 확인·저장 재확인·정보 패널 두 개, 열한 화면이 0픽셀로 같다.
 
-`CardDecorEditor.tsx` 와 `PhotoViewer.tsx` 의 칩은 아직 따로 있다. 둘은 사진 위에 얹는 어두운 칩이라 테마를 따르지 않는다. `Chip` 의 `colors` 로 받을 수 있다. 남은 복사본은 이 둘뿐이다.
+2026-09-23 에 칩·알림 줄·빈 상태·체크 칸·손잡이·스위치·닫기 기호를 `ui/` 로 모았다. 그때 세어 보니 「복사본은 둘뿐」이라고 적혀 있던 이 문단이 실제와 달랐다 — 칩만 열네 벌, 알림 줄 세 벌, 빈 상태 다섯 모양, 체크 칸 네 벌, 손잡이 세 벌, 스위치 두 벌이었다. 옮긴 만큼 로컬 스타일 185 개를 지웠고, `no-unused-styles` 규칙을 켜서 다시 쌓이지 않게 했다.
+
+아직 따로 있는 것:
+
+- `PhotoViewer.tsx` 의 칩 — 사진 위에 얹는 어두운 칩이라 `colors` 로 받을 수 있는데, `disabled` 로 못 고르게 막는 자리가 있어 남겨 뒀다.
+- `MapLink.tsx` 의 칩 — 지도 앱을 뜻하는 글자 배지(N·K)가 안에 들어간다. 고르는 칩이 아니라 링크다.
+- `CardTextEditor.tsx` 의 바탕 견본 칩 — 안에 글자가 아니라 그림이 들어간다.
+- 표시 전용 배지(사진 홈 표시, 개수 배지, 상태 태그) — 누르는 것이 아니라 `on`·`onPress` 가 뜻을 갖지 않는다. 필요해지면 `Chip` 이 아니라 별도 `Badge` 로 뽑는다.
+- 달력 한 칸의 빈 상태(`emptyDate`) — 날짜 칸 안에 들어가는 작은 상자라 `EmptyState` 의 18pt 제목이 들어가지 않는다.

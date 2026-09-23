@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import type { SocialProvider } from "./socialLogin";
+import { 모서리 } from "./theme/controls";
 
 // 로그인 화면의 소셜 로그인 버튼. 각 사 가이드가 정한 색·심볼·문구를 그대로 쓴다.
 //
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
     // 폭 140pt 에서도 그보다 넉넉히 남는다.
     paddingHorizontal: 16,
     // 카카오 가이드의 컨테이너 radius 12px. 네 버튼을 같은 모서리로 맞춘다.
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     overflow: "hidden",
   },
   pressed: { opacity: 0.85 },

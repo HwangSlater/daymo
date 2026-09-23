@@ -19,12 +19,13 @@ import { Glyph } from "../Glyph";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSheetDrag } from "../sheetDrag";
+import { SheetHandle } from "./SheetHandle";
 import { showAlert } from "../showAlert";
 import { useWebKeyboardFocus, useWebKeyboardOpen } from "./webKeyboardFocus";
 import { useWebBackClose } from "../useWebBackClose";
 import { AppTheme } from "../theme";
 import { onAccent, status as statusColor } from "../theme/colors";
-import { 높이, 모서리, 여백, 누름여유 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 여백, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 import { sheetHintOf, submitLabelOf } from "./sheetText";
 
@@ -344,7 +345,7 @@ export function SheetShell({
         ]}
       >
         <View {...drag.panHandlers} style={키보드_열림 ? styles.dragAreaCompact : styles.dragArea}>
-          {!키보드_열림 && <View style={styles.handle} />}
+          {!키보드_열림 && <SheetHandle />}
         </View>
         {/* 머리는 제목과 닫기 한 줄이다. 예전에는 "장소 · 추가" 와 "장소 추가" 가
             위아래로 겹쳐 있었고 그 둘을 테두리 상자로 묶어, 내용이 시작되기도 전에
@@ -364,7 +365,7 @@ export function SheetShell({
               accessibilityLabel={`${title} 닫기`}
               style={[styles.closeButton, theme && { backgroundColor: theme.surfaceAlt }]}
             >
-              <Text style={[styles.close, theme && { color: theme.primary }]}>×</Text>
+              <Glyph name="close" size={아이콘.크게} color={theme?.primary ?? "#3F4C8F"} weight={2.2} />
             </Pressable>
           </View>
         )}
@@ -413,7 +414,7 @@ export function SheetShell({
           >
             <Text style={[styles.submitText, { color: onAccent(Boolean(theme?.dark)) }]}>{submitLabel}</Text>
             <View style={styles.submitArrow}>
-              <Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} />
+              <Glyph name="arrowRight" size={아이콘.작게} color={onAccent(Boolean(theme?.dark))} />
             </View>
           </Pressable>
         ) : null}
@@ -478,11 +479,12 @@ export const sheetHeadStyles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  /** 제목만 한 덩어리로 왼쪽에 둘 때. */
+  /** 제목만 한 덩어리로 왼쪽에 둘 때. 머리를 갈아 끼우는 화면이 쓴다. */
+  // eslint-disable-next-line react-native/no-unused-styles -- 내보내서 `WarmTripDetail` 이 쓴다
   copy: { flex: 1 },
   // 줄 높이를 적어 둔다. 적지 않으면 iOS 가 글꼴이 말하는 만큼만 칸을 잡아,
   // 「함께하는 멤버」처럼 받침이 있는 한글의 아래가 잘린다(기기에서 확인).
-  title: { flex: 1, minWidth: 0, fontSize: 21, lineHeight: 29, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  title: { flex: 1, minWidth: 0, fontSize: 20, lineHeight: 29, fontFamily: typo.title.family, letterSpacing: -0.5 },
 });
 
 const styles = StyleSheet.create({
@@ -513,10 +515,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  handle: { width: 54, height: 5, borderRadius: 3, backgroundColor: "#C7C7C3" },
   headMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
   // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
-  kindBar: { width: 3, height: 19, borderRadius: 2 },
+  kindBar: { width: 3, height: 19, borderRadius: 모서리.표식 },
   // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
   subtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
   closeButton: {
@@ -526,7 +527,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  close: { fontSize: 24, lineHeight: 26, fontWeight: "500" },
   scroll: { flexGrow: 0, flexShrink: 1 },
   body: { paddingHorizontal: 2 },
   hint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   submitText: { fontSize: 14, fontFamily: typo.label.family },
-  submitDisabled: { opacity: 0.38 },
+  submitDisabled: { opacity: 불투명도.비활성 },
   submitArrow: {
     width: 높이.버튼,
     height: 높이.버튼,
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
+  pressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
   destructive: { height: 높이.버튼, alignItems: "center", justifyContent: "center", marginTop: 4 },
   destructiveText: { fontSize: 13, fontFamily: typo.label.family },
   confirm: { borderWidth: 1, borderRadius: 모서리.구역, padding: 12, marginTop: 8, gap: 10 },

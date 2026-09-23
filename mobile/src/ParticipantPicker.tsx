@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Glyph } from "./Glyph";
 import { Text } from "./AppText";
 import { AppTheme } from "./theme";
+import { 모서리, 아이콘 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 /**
@@ -69,7 +70,7 @@ export function ParticipantPicker({ theme, members, value, onChange, noteFor, hi
               {Boolean(note) && (
                 <Text numberOfLines={1} style={[styles.note, { color: theme.accent }]}>{note}</Text>
               )}
-              {joined && <Glyph name="check" size={16} color={theme.primary} weight={2.6} />}
+              {joined && <Glyph name="check" size={아이콘.보통} color={theme.primary} weight={2.6} />}
             </Pressable>
           );
         })}
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 48,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },

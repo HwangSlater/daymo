@@ -11,6 +11,7 @@ import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "./AppText";
 import { troubleHeadline } from "./listSync";
+import { 글자누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import type { AppTheme } from "./theme";
 import { useSyncTrouble } from "./useListSync";
@@ -44,7 +45,7 @@ export function SyncNotice({ theme, refreshing, onRefresh }: {
         <Pressable
           onPress={onRefresh}
           disabled={refreshing}
-          hitSlop={8}
+          hitSlop={글자누름여유}
           accessibilityRole="button"
           accessibilityLabel="새로고침"
         >

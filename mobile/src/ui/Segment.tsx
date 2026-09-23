@@ -2,7 +2,7 @@ import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from "react-native"
 
 import { Text } from "../AppText";
 import { AppTheme } from "../theme";
-import { 높이, 모서리 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /** 세그먼트로 둘 수 있는 선택지 수. 이보다 많으면 칸이 좁아져 글자가 잘린다. 칩(`Chip`)으로 간다. */
@@ -61,6 +61,7 @@ export function Segment({
             accessibilityRole="radio"
             accessibilityState={{ checked: on, selected: on, disabled: Boolean(disabled) }}
             accessibilityLabel={label ? `${label} ${text}` : text}
+            hitSlop={누름여유(높이.칩)}
             style={({ pressed }) => [
               styles.cell,
               on && styles.cellOn,
@@ -90,7 +91,7 @@ export function Segment({
 // 딱 붙으면 고른 칸이 트랙 위에 얹힌 것이 아니라 트랙이 끊긴 것처럼 보인다.
 const 트랙여유 = 2;
 
-export const segmentStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   track: {
     height: 높이.칩,
     borderRadius: 모서리.버튼,
@@ -117,8 +118,6 @@ export const segmentStyles = StyleSheet.create({
   },
   text: { fontSize: 13, fontFamily: typo.label.family, color: "#646C7A" },
   textOn: { fontFamily: typo.title.family, color: "#17233D" },
-  pressed: { opacity: 0.78 },
-  disabled: { opacity: 0.55 },
+  pressed: { opacity: 불투명도.눌림 },
+  disabled: { opacity: 불투명도.비활성 },
 });
-
-const styles = segmentStyles;
