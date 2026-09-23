@@ -844,6 +844,7 @@ export function PhotoViewerScreen({
               onPress={() => 다시_읽기(photo.id)}
               accessibilityRole="button"
               accessibilityLabel="사진 다시 시도"
+              hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.failureButton, pressed && styles.pressed]}
             >
               <Glyph name="retry" size={아이콘.작게} color={INK} weight={2.1} />
@@ -1366,7 +1367,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(28,27,34,0.96)",
     paddingVertical: 4,
   },
-  menuRow: { paddingVertical: 11, paddingHorizontal: 16 },
+  // 줄 하나가 손가락 하나만큼은 돼야 한다. 글자만 놓으면 40 밖에 안 됐다(2026-09-23 검토 #43).
+  menuRow: { minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 16 },
   menuText: { fontSize: 14, color: INK, fontFamily: typo.label.family },
   menuTextDanger: { color: DANGER_INK },
   // 사진 위에 떠 있는 넘기기 화살표. 사진을 가리지 않게 칩 크기로 두고
@@ -1434,7 +1436,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 4,
   },
-  decorHeadSide: { minWidth: 56, paddingVertical: 8, paddingHorizontal: 4 },
+  decorHeadSide: { minWidth: 56, minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 4 },
   decorHeadRight: { alignItems: "flex-end" },
   decorBack: { fontSize: 14, color: INK_SOFT, fontFamily: typo.label.family },
   decorTitle: { flex: 1, textAlign: "center", fontSize: 15, color: INK, fontFamily: typo.title.family },
@@ -1464,7 +1466,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
-  editHeadSide: { minWidth: 56, paddingVertical: 6 },
+  editHeadSide: { minWidth: 56, minHeight: 높이.버튼, justifyContent: "center" },
   editHeadRight: { alignItems: "flex-end" },
   editCancel: { fontSize: 14, color: INK_SOFT, fontFamily: typo.label.family },
   editTitle: { flex: 1, textAlign: "center", fontSize: 15, color: INK, fontFamily: typo.title.family },

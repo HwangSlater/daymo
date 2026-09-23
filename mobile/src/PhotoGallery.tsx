@@ -662,6 +662,8 @@ const Tile = memo(function Tile({
       accessibilityRole={selecting ? "checkbox" : "button"}
       accessibilityState={selecting ? { checked: chosen } : undefined}
       accessibilityLabel={selecting ? 이름 : `${이름} 크게 보기`}
+      // 길게 눌러 고르기는 눌러 보기 전에는 알 수 없다. 낭독기에게는 말로 알린다(2026-09-23 검토 #10).
+      accessibilityHint={selecting ? undefined : "길게 누르면 여러 장을 고를 수 있어요"}
       style={[styles.tile, { width: size, height: size, marginRight: last ? 0 : 틈, backgroundColor: surface }]}
     >
       <View style={[styles.tileInner, chosen && styles.tileChosen, { backgroundColor: photo.color }]}>
