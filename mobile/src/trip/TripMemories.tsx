@@ -1,4 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAnnounce } from "../announce";
 import { keepTripPhoto } from "../tripPhotos";
 import { DaymoApiError } from "../auth";
 import { retryBlockedRows, useSyncTrouble } from "../useListSync";
@@ -360,6 +361,14 @@ export function Memories({
     return new Set(photos.filter((photo) => 멈춘_것.has(photo.id)).map((photo) => photo.id));
   }, [photoUploadState.blocked, photos, syncTrouble]);
   const uploadHeadline = photoUploadHeadline({ ...photoUploadState, blocked: [...blockedPhotoIds] });
+  /**
+   * 올리기 진행을 낭독기에 한 줄로 읽어 준다(2026-09-23 검토 #29).
+   *
+   * 이 줄에 붙은 `accessibilityLiveRegion` 은 안드로이드만 듣는다. iOS VoiceOver 는
+   * 글이 새로 생겨도 손가락이 그 자리에 닿기 전에는 읽지 않아, 사진 스무 장을 고른
+   * 사람이 다 올라갔는지 막혔는지를 알 수 없었다. 글이 그대로면 다시 읽지 않는다.
+   */
+  useAnnounce(uploadHeadline);
   /** 크게 보고 있는 사진과 그 차례. 지우면 목록에서 사라지므로 창도 닫힌다. */
   const viewIndex = photos.findIndex((photo) => photo.id === viewingPhotoId);
   const viewing = viewIndex < 0 ? undefined : photos[viewIndex];
@@ -1455,21 +1464,26 @@ export function Memories({
         onClose={() => setPhotoEditing(false)}
         onSubmit={savePhoto}
       >
-        {/* 고른 사진들을 한 줄로 늘어놓고 옆으로 밀어 본다. */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.photoDraftRow}
-        >
-          {photoDrafts.map((고른_것, 차례) => (
-            <View key={`${고른_것.uri}:${차례}`} style={[styles.photoDraft, { borderColor: theme?.border ?? "#E5E1DC" }]}>
-              <Image source={{ uri: 고른_것.uri }} resizeMode="cover" style={공용스타일.memoryPhotoImage} />
-            </View>
-          ))}
-        </ScrollView>
+        {/* 새로 고를 때마다 줄을 새로 세운다. 그래야 앞서 밀어 둔 자리가 남지 않는다. */}
+        <PhotoDraftStrip
+          key={photoDrafts[0]?.uri ?? ""}
+          drafts={photoDrafts}
+          borderColor={theme?.border ?? "#E5E1DC"}
+        />
         <OptionField label="여행 날짜" options={photoDayOptions} labelOf={dayTextOf} value={photoDate} onChange={setPhotoDate} />
         <PhotoLinkField options={photoLinkOptions} value={photoLinks} onChange={setPhotoLinks} />
-        <DetailField label="사진 설명 (선택)" value={photoCaption} onChangeText={setPhotoCaption} placeholder="예: 도착하자마자 먹은 점심" maxLength={200} />
+        {/* 이 시트의 글자 칸은 이것 하나뿐이라 바로 「완료」로 넣는다. */}
+        <DetailField
+          label="사진 설명 (선택)"
+          value={photoCaption}
+          onChangeText={setPhotoCaption}
+          placeholder="예: 도착하자마자 먹은 점심"
+          maxLength={200}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (photoDrafts.length) void savePhoto();
+          }}
+        />
       </DetailSheet>
       <DetailSheet
         visible={diaryWriting}
@@ -1495,7 +1509,17 @@ export function Memories({
           open={diaryTitleOpen}
           onToggle={() => setDiaryTitleOpen((current) => !current)}
         >
-          <DetailField label="일기 제목 (선택)" value={diaryTitle} onChangeText={setDiaryTitle} placeholder="예: 비가 와서 더 좋았던 날" />
+          {/* 본문(여러 줄)에는 붙이지 않는다. 줄바꿈 키가 사라진다. 제목은 한 줄이라 붙인다. */}
+          <DetailField
+            label="일기 제목 (선택)"
+            value={diaryTitle}
+            onChangeText={setDiaryTitle}
+            placeholder="예: 비가 와서 더 좋았던 날"
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              if (diaryBody.trim()) saveDiary();
+            }}
+          />
         </OptionalFormSection>
         {reportSpaceId && editingDiaryId && isServerId(editingDiaryId) && (
           <ReportLink key={editingDiaryId} spaceId={reportSpaceId} targetType="diary" targetId={editingDiaryId} label="이 일기 신고하기" />
@@ -1605,7 +1629,55 @@ function MemoryTileImage({ photo, uploaded, busy }: { photo: MemoryPhoto; upload
   );
 }
 
-/** 어딘가에 붙은 사진 몇 장. 붙은 사진이 없으면 아무것도 그리지 않는다. */
+/**
+ * 방금 고른 사진들을 한 줄로 늘어놓고 옆으로 밀어 본다.
+ *
+ * 칸은 다 그리고 **사진만 보이는 자리 언저리에 얹는다**(2026-09-23 검토 #60).
+ * 한 번에 쉰 장까지 고를 수 있는데(`PHOTO_PICK_LIMIT`) 폰에서 고른 사진은 한 장이
+ * 수 MB 다. 쉰 장을 한꺼번에 얹으면 시트가 열리는 순간 그 전부를 풀어 놓는데,
+ * 화면에는 서너 칸밖에 안 보인다. 칸 자체는 그대로 둬서 줄 길이와 스크롤 자리가
+ * 전과 같고, 칸 크기가 고정(`DRAFT_THUMB`)이라 셈만으로 몇째 칸이 보이는지 안다
+ * (`PhotoViewer` 의 필름 스트립과 같은 길이다).
+ *
+ * 밀 때마다 바뀌는 자리를 기록 탭이 들고 있으면 손가락을 움직이는 동안 탭 전체가
+ * 다시 그려진다. 그래서 이 줄이 자기 자리를 들고 따로 선다.
+ */
+function PhotoDraftStrip({ drafts, borderColor }: { drafts: PickedPhoto[]; borderColor: string }) {
+  /** 지금 맨 왼쪽에 온 칸. 고르기를 새로 열면 줄도 새로 서서 0 부터 시작한다. */
+  const [첫칸, 첫칸_두기] = useState(0);
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.photoDraftRow}
+      scrollEventThrottle={64}
+      onScroll={(event) => {
+        const 첫 = Math.max(0, Math.floor(event.nativeEvent.contentOffset.x / (DRAFT_THUMB + DRAFT_GAP)));
+        if (첫 !== 첫칸) 첫칸_두기(첫);
+      }}
+    >
+      {drafts.map((고른_것, 차례) => {
+        // 앞쪽 두 칸까지 함께 그려 둔다. 되돌려 밀 때 빈 칸이 스치지 않는다.
+        const 그린다 = 차례 >= 첫칸 - 2 && 차례 <= 첫칸 + DRAFT_WINDOW;
+        return (
+          <View key={`${고른_것.uri}:${차례}`} style={[styles.photoDraft, { borderColor }]}>
+            {그린다 && <Image source={{ uri: 고른_것.uri }} resizeMode="cover" style={공용스타일.memoryPhotoImage} />}
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/**
+ * 새로 고른 사진 줄에서 한 번에 사진을 얹는 칸 수. 화면에 서너 칸 보이니 넉넉하다.
+ *
+ * 칸 크기와 사이는 스타일이 아니라 여기서 정한다. 몇째 칸이 보이는지를 셈으로
+ * 알아내는 데 같은 숫자가 필요해서, 두 군데에 따로 적으면 한쪽만 고쳐진다.
+ */
+const DRAFT_WINDOW = 10;
+const DRAFT_THUMB = 104;
+const DRAFT_GAP = 8;
 
 const styles = StyleSheet.create({
   diaryCard: {
@@ -1724,8 +1796,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(17,16,15,0.7)",
   },
   // 방금 고른 사진들. 한 줄로 늘어놓고 옆으로 밀어 본다.
-  photoDraftRow: { gap: 8, paddingRight: 6, paddingVertical: 2, marginBottom: 14 },
-  photoDraft: { width: 104, height: 104, borderRadius: 모서리.행, borderWidth: 1, overflow: "hidden" },
+  photoDraftRow: { gap: DRAFT_GAP, paddingRight: 6, paddingVertical: 2, marginBottom: 14 },
+  photoDraft: { width: DRAFT_THUMB, height: DRAFT_THUMB, borderRadius: 모서리.행, borderWidth: 1, overflow: "hidden" },
   uploadLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", rowGap: 2 },
   photoRepickText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   memoryTile: {
