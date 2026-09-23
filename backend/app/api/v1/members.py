@@ -7,7 +7,7 @@ from pydantic import Field
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_in_space, require
-from app.core.responses import ok
+from app.core.responses import Envelope, ok
 from app.models import MembershipRole, SpaceInvite
 from app.schemas.auth import _Camel
 from app.services import audit
@@ -33,6 +33,12 @@ class AcceptOut(_Camel):
     already_member: bool
 
 
+class RoleChangeOut(_Camel):
+    id: str
+    role: MembershipRole
+    my_role: MembershipRole
+
+
 class RoleRequest(_Camel):
     role: Literal["owner", "editor", "viewer"]
 
@@ -52,7 +58,7 @@ def _초대_응답(invite: SpaceInvite, token: str | None = None) -> dict:
     ).model_dump(by_alias=True, mode="json", exclude_none=True)
 
 
-@router.post("/spaces/{space_id}/invites", status_code=status.HTTP_201_CREATED)
+@router.post("/spaces/{space_id}/invites", status_code=status.HTTP_201_CREATED, response_model=Envelope[InviteOut])
 async def create_invite(space_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """owner·editor 가 만든다. 권한은 받지 않고 들어오는 사람은 늘 editor 다."""
     membership = await membership_in_space(db, user_id=caller.user.id, space_id=space_id)
@@ -61,6 +67,9 @@ async def create_invite(space_id: uuid.UUID, caller: CurrentCaller, db: DbSessio
     return ok(_초대_응답(invite, token))
 
 
+# `response_model` 을 안 붙인다. 목록의 초대는 `inviteUrl` 이 없어(원문을 다시 줄 수
+# 없다) `exclude_none=True` 로 그 칸을 통째로 뺀다. 스키마를 달면 FastAPI 가 `null` 을
+# 되살려 넣는다(`GET /spaces/{id}/members` 의 `leftAt` 과 같은 사정).
 @router.get("/spaces/{space_id}/invites")
 async def list_invites(space_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """아직 쓸 수 있는 초대. 보기만 하는 멤버에게는 보이지 않는다."""
@@ -78,7 +87,7 @@ async def revoke_invite(space_id: uuid.UUID, invite_id: uuid.UUID, caller: Curre
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/invites/accept")
+@router.post("/invites/accept", response_model=Envelope[AcceptOut])
 async def accept_invite(body: AcceptRequest, caller: CurrentCaller, db: DbSession) -> dict:
     """
     token 을 본문으로 받는다. 주소에 두면 접속 기록에 남는다.
@@ -93,7 +102,7 @@ async def accept_invite(body: AcceptRequest, caller: CurrentCaller, db: DbSessio
     )
 
 
-@router.patch("/spaces/{space_id}/members/{membership_id}")
+@router.patch("/spaces/{space_id}/members/{membership_id}", response_model=Envelope[RoleChangeOut])
 async def change_member_role(
     space_id: uuid.UUID, membership_id: uuid.UUID, body: RoleRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:
