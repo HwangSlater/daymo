@@ -53,6 +53,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import { Text } from "./AppText";
+import { Toast } from "./ui/Toast";
 import { CardDeveloping } from "./CardDeveloping";
 import { ACCENT as CARD_ACCENT } from "./cardToolColors";
 import { Glyph, type GlyphName } from "./Glyph";
@@ -1003,27 +1004,18 @@ export function PhotoViewerScreen({
         )}
 
         {Boolean(toast) && (
-          <View
+          <Toast
+            colors={{ background: "rgba(20,20,22,0.92)", text: INK }}
+            markColor="#7FD8A6"
+            mark="완료"
             style={styles.toast}
-            accessibilityLiveRegion="polite"
+            text={toast ?? ""}
+            action={toastAction?.label}
+            onAction={toastAction ? () => toastAction.onPress() : undefined}
             // 되돌리기 단추가 있을 때만 누름을 받는다. 그냥 알리는 줄이 사진 위를
             // 덮고 있으면 그 자리의 사진을 누를 수 없다.
             pointerEvents={toastAction ? "box-none" : "none"}
-          >
-            <Glyph name="check" size={아이콘.보통} color="#7FD8A6" weight={2.4} />
-            <Text style={styles.toastText}>{toast}</Text>
-            {Boolean(toastAction) && (
-              <Pressable
-                onPress={() => toastAction?.onPress()}
-                hitSlop={누름여유(높이.칩)}
-                accessibilityRole="button"
-                accessibilityLabel={toastAction?.label ?? ""}
-                style={({ pressed }) => [styles.toastAction, pressed && styles.pressed]}
-              >
-                <Text style={[styles.toastText, { color: EDIT_ACCENT }]}>{toastAction?.label}</Text>
-              </Pressable>
-            )}
-          </View>
+          />
         )}
         {Boolean(report) && <View style={styles.reportPanel}>{report}</View>}
         {/* 사진 정보는 이 창 위에 한 겹으로 얹힌다. 맨 마지막에 놓아야 위에 온다. */}
@@ -1290,10 +1282,14 @@ export function PhotoEditScreen({
           </View>
         </View>
         {Boolean(toast) && (
-          <View style={[styles.toast, styles.editToast]} accessibilityLiveRegion="polite" pointerEvents="none">
-            <Glyph name="check" size={아이콘.보통} color="#7FD8A6" weight={2.4} />
-            <Text style={styles.toastText}>{toast}</Text>
-          </View>
+          <Toast
+            colors={{ background: "rgba(20,20,22,0.92)", text: INK }}
+            markColor="#7FD8A6"
+            mark="완료"
+            style={[styles.toast, styles.editToast]}
+            text={toast ?? ""}
+            pointerEvents="none"
+          />
         )}
       </KeyboardAvoidingView>
     </View>
@@ -1412,22 +1408,8 @@ const styles = StyleSheet.create({
   },
   stripThumbOn: { opacity: 1, borderColor: INK },
   // 저장하고 나서 떴다 사라지는 한 줄. 묻는 창을 띄우지 않으려고 둔 자리다.
-  toast: {
-    position: "absolute",
-    alignSelf: "center",
-    maxWidth: "92%",
-    bottom: 190,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-    borderRadius: 모서리.원,
-    backgroundColor: "rgba(20,20,22,0.92)",
-  },
-  toastText: { fontSize: 14, color: INK, fontFamily: typo.label.family },
-  // 알림 줄 오른쪽 끝의 되돌리기. 글자만 두고 테두리는 주지 않는다.
-  toastAction: { paddingLeft: 4 },
+  // 사진과 도구 줄 사이에 띄운다. 모양은 `ui/Toast` 가 갖고 자리만 여기서 정한다.
+  toast: { alignSelf: "center", maxWidth: "92%", bottom: 190 },
   // 고치기 화면은 도구 칸이 아래를 차지해서 조금 더 위에 띄운다.
   editToast: { bottom: 210 },
   // 「꾸미기」 한 줄. 사진 아래에 놓여 눈에는 들되 사진을 가리지 않는다.

@@ -432,7 +432,7 @@ const DecorItem = memo(function DecorItem({
             accessibilityLabel="스티커 삭제"
             style={[s.decorHandle, 알, { left: 밖, top: 밖 }]}
           >
-            <Text style={[s.decorHandleMark, { fontSize: 손잡이 * 0.55 }]}>✕</Text>
+            <Glyph name="close" size={손잡이 * 0.5} color="#23211F" weight={2.2} />
           </Pressable>
           {/* 오른쪽 위는 복제. 떼기와 멀리, 크기 손잡이와는 세로로 떨어뜨린다. */}
           {edit.onDuplicate && (
@@ -465,7 +465,7 @@ const DecorItem = memo(function DecorItem({
             accessibilityLabel="끌어서 크기와 회전 바꾸기"
             style={[s.decorHandle, 알, { right: 밖, bottom: 밖 }]}
           >
-            <Text style={[s.decorHandleMark, { fontSize: 손잡이 * 0.5 }]}>⤢</Text>
+            <Glyph name="resize" size={손잡이 * 0.52} color="#23211F" weight={2.2} />
           </View>
         </>
       )}
@@ -590,7 +590,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
           style={s.cell}
         >
           <View style={[s.cellEmpty, { borderColor: look.sub }]}>
-            <Text style={[s.cellEmptyMark, { color: look.sub }]}>＋</Text>
+            <Glyph name="plus" size={18} color={look.sub} weight={2.2} />
           </View>
         </Pressable>
       );

@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "./AppText";
+import { Toast } from "./ui/Toast";
 import { Glyph } from "./Glyph";
 import {
   allChosen,
@@ -41,7 +42,7 @@ import { usePhotoThumb } from "./photoThumbnails";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
-import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
 
@@ -571,26 +572,14 @@ function GalleryBody({
         </View>
       )}
       {toast && (
-        <View
-          accessibilityLiveRegion="polite"
-          style={[styles.toast, { bottom: 아래_줄_높이 + 14, backgroundColor: ink }]}
-        >
-          <View style={[styles.toastMark, { backgroundColor: primary }]} />
-          <Text style={[styles.toastText, { color: bg }]}>{toast.message}</Text>
-          {toast.action && (
-            <Pressable
-              onPress={() => {
-                toast.action?.onPress();
-                onToast(null);
-              }}
-              accessibilityRole="button"
-              hitSlop={10}
-              style={({ pressed }) => [styles.toastAction, pressed && styles.pressed]}
-            >
-              <Text style={[styles.toastActionText, { color: bg }]}>{toast.action.label}</Text>
-            </Pressable>
-          )}
-        </View>
+        <Toast
+          colors={{ background: ink, text: bg }}
+          markColor={primary}
+          style={{ left: 20, right: 20, bottom: 아래_줄_높이 + 14 }}
+          text={toast.message}
+          action={toast.action?.label}
+          onAction={toast.action ? () => { toast.action?.onPress(); onToast(null); } : undefined}
+        />
       )}
       {children}
     </View>
@@ -814,22 +803,6 @@ const styles = StyleSheet.create({
   },
   barAction: { flex: 1, height: 높이.저장, alignItems: "center", justifyContent: "center", gap: 3 },
   barLabel: { fontSize: 12, fontFamily: typo.label.family },
-  toast: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    minHeight: 46,
-    borderRadius: 모서리.구역,
-    paddingHorizontal: 여백.가로,
-    paddingVertical: 여백.세로좁게,
-    flexDirection: "row",
-    alignItems: "center",
-    ...그림자.뜬것,
-  },
-  toastMark: { width: 7, height: 7, borderRadius: 모서리.원, marginRight: 8 },
-  toastText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
-  toastAction: { marginLeft: 12, paddingVertical: 6 },
-  toastActionText: { fontSize: 14, fontFamily: typo.title.family, textDecorationLine: "underline" },
   pressed: { opacity: 불투명도.눌림 },
   faded: { opacity: 불투명도.비활성 },
 });

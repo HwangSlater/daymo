@@ -161,6 +161,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { AppTheme } from "./theme";
 import { Text, TextInput } from "./AppText";
+import { Toast } from "./ui/Toast";
+import { EmptyState as SharedEmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import { shrinkForWeb } from "./webImage";
@@ -2838,7 +2840,9 @@ export function WarmTripDetail({
                 pressed && styles.controlPressed,
               ]}
             >
-              <Text style={[styles.memoAddPlus, appTheme && { color: appTheme.primary }]}>＋</Text>
+              <View style={styles.memoAddPlus}>
+                <Glyph name="plus" size={아이콘.크게} color={appTheme?.primary ?? "#3F4C8F"} weight={2.2} />
+              </View>
               <View style={styles.memoAddCopy}>
                 <Text style={[styles.memoAddTitle, appTheme && { color: appTheme.text }]}>새 메모 추가</Text>
                 <Text style={[styles.memoAddHint, appTheme && { color: appTheme.muted }]}>함께 볼 메모를 남겨 보세요</Text>
@@ -3146,31 +3150,13 @@ export function WarmTripDetail({
           )}
         </DetailSheet>
         {!!feedback && (
-          <View
-            accessibilityLiveRegion="polite"
-            style={[
-              styles.feedbackToast,
-              appTheme && { backgroundColor: appTheme.text },
-            ]}
-          >
-            <View style={[styles.feedbackToastMark, appTheme && { backgroundColor: appTheme.primary }]} />
-            <Text style={[styles.feedbackToastText, appTheme?.dark && { color: appTheme.background }]}>
-              {feedback}
-            </Text>
-            {알림_단추 && (
-              <Pressable
-                onPress={() => {
-                  알림_단추.onPress();
-                  setFeedback("");
-                }}
-                accessibilityRole="button"
-                hitSlop={10}
-                style={({ pressed }) => [styles.feedbackToastAction, pressed && styles.controlPressed]}
-              >
-                <Text style={[styles.feedbackToastActionText, appTheme?.dark && { color: appTheme.background }]}>{알림_단추.label}</Text>
-              </Pressable>
-            )}
-          </View>
+          <Toast
+            theme={appTheme}
+            style={styles.feedbackToast}
+            text={feedback}
+            action={알림_단추?.label}
+            onAction={알림_단추 ? () => { 알림_단추.onPress(); setFeedback(""); } : undefined}
+          />
         )}
       </SafeAreaView>
       </DetailEditableContext.Provider>
@@ -4441,7 +4427,7 @@ function TripOverview({
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.transportStopDelete, pressed && styles.controlPressed]}
             >
-              <Text style={[styles.transportStopDeleteText, theme && { color: theme.muted }]}>×</Text>
+              <Glyph name="close" size={아이콘.작게} color={theme?.muted ?? "#646C7A"} weight={2.4} />
             </Pressable>
           </View>
         ))}
@@ -4454,7 +4440,10 @@ function TripOverview({
             hitSlop={누름여유(높이.칩)}
             style={({ pressed }) => [styles.transportStopAdd, pressed && styles.controlPressed]}
           >
-            <Text style={[styles.transportStopAddText, { color: theme?.primary ?? "#3F4C8F" }]}>＋ 갈아타는 곳</Text>
+            <View style={styles.더하기줄}>
+              <Glyph name="plus" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
+              <Text style={[styles.transportStopAddText, { color: theme?.primary ?? "#3F4C8F" }]}>갈아타는 곳</Text>
+            </View>
           </Pressable>
         )}
         <OptionField
@@ -5519,7 +5508,10 @@ function Places({
                           pressed && styles.controlPressed,
                         ]}
                       >
-                        <Text style={[styles.placeMiniActionText, { color: theme?.secondary ?? "#2F7F76" }]}>＋ 대표 숙소</Text>
+                        <View style={styles.더하기줄}>
+                          <Glyph name="plus" size={아이콘.작게} color={theme?.secondary ?? "#2F7F76"} weight={2.4} />
+                          <Text style={[styles.placeMiniActionText, { color: theme?.secondary ?? "#2F7F76" }]}>대표 숙소</Text>
+                        </View>
                       </Pressable>
                     ) : (
                       <Pressable
@@ -5533,7 +5525,10 @@ function Places({
                           pressed && styles.controlPressed,
                         ]}
                       >
-                        <Text style={[styles.placeMiniActionText, { color: theme?.primary ?? "#3F4C8F" }]}>＋ 일정에 담기</Text>
+                        <View style={styles.더하기줄}>
+                          <Glyph name="plus" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
+                          <Text style={[styles.placeMiniActionText, { color: theme?.primary ?? "#3F4C8F" }]}>일정에 담기</Text>
+                        </View>
                       </Pressable>
                     )
                   ) : (
@@ -5556,7 +5551,10 @@ function Places({
                       hitSlop={누름여유(높이.칩)}
                       style={[styles.placeMiniMapButton, theme && { backgroundColor: theme.surfaceAlt }]}
                     >
-                      <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>＋ 링크</Text>
+                      <View style={styles.더하기줄}>
+                        <Glyph name="plus" size={아이콘.작게} color={theme?.muted ?? "#646C7A"} weight={2.4} />
+                        <Text style={[styles.placeMiniMapText, theme && { color: theme.muted }]}>링크</Text>
+                      </View>
                     </Pressable>
                   ) : null}
                 </View>
@@ -8340,35 +8338,14 @@ function Cooking({
         </View>
       )}
       {!activeRecipe ? (
-        <View
-          style={[
-            styles.emptyCooking,
-            theme && {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.emptyCookingTitle, theme && { color: theme.text }]}
-          >
-            만들 요리를 추가해 보세요.
-          </Text>
-          <Text
-            style={[styles.emptyCookingText, theme && { color: theme.muted }]}
-          >
-            요리별로 재료와 준비 방법을 나눌 수 있어요.
-          </Text>
-          {canEdit && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setAddingRecipe(true)}
-            style={[styles.emptyCookingAction, theme && { backgroundColor: theme.primarySoft }]}
-          >
-            <Text style={[styles.emptyCookingActionText, theme && { color: theme.primary }]}>첫 요리 추가</Text>
-          </Pressable>
-          )}
-        </View>
+        <SharedEmptyState
+          theme={theme ?? undefined}
+          모양="세로"
+          title="만들 요리를 추가해 보세요."
+          description="요리별로 재료와 준비 방법을 나눌 수 있어요."
+          action={canEdit ? "첫 요리 추가" : undefined}
+          onPress={canEdit ? () => setAddingRecipe(true) : undefined}
+        />
       ) : (
         <>
           <View
@@ -8431,7 +8408,10 @@ function Cooking({
               onPress={() => setAddingIngredient(true)}
               style={[styles.placeAdd, theme && { backgroundColor: theme.primarySoft }]}
             >
-              <Text style={[styles.placeAddText, theme && { color: theme.primary }]}>＋ 재료 추가</Text>
+              <View style={styles.더하기줄}>
+                <Glyph name="plus" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
+                <Text style={[styles.placeAddText, theme && { color: theme.primary }]}>재료 추가</Text>
+              </View>
             </Pressable>
             )}
           </View>
@@ -12229,13 +12209,17 @@ function TabActionHeader({
           pressed && styles.packingCardPressed,
         ]}
       >
-        <Text style={[styles.tabActionButtonText, theme && { color: onAccent(theme.dark) }]}>＋ {action}</Text>
+        <View style={styles.더하기줄}>
+          <Glyph name="plus" size={아이콘.작게} color={theme ? onAccent(theme.dark) : "#FFFFFF"} weight={2.4} />
+          <Text style={[styles.tabActionButtonText, theme && { color: onAccent(theme.dark) }]}>{action}</Text>
+        </View>
       </Pressable>
       )}
     </View>
   );
 }
 
+/** 이 화면의 테마를 문맥에서 꺼내 부품에 넘기는 얇은 껍데기다. */
 function EmptyState({
   title,
   description,
@@ -12250,26 +12234,13 @@ function EmptyState({
 }) {
   const theme = useContext(DetailThemeContext);
   return (
-    <View style={[styles.emptyState, theme && { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
-      <View style={[styles.emptyStateMark, theme && { backgroundColor: theme.primarySoft }]}>
-        <View style={[styles.emptyStateLine, theme && { backgroundColor: theme.primary }]} />
-        <View style={[styles.emptyStateLine, styles.emptyStateLineShort, theme && { backgroundColor: theme.primary }]} />
-      </View>
-      <View style={styles.emptyStateCopy}>
-        <Text style={[styles.emptyStateTitle, theme && { color: theme.text }]}>{title}</Text>
-        <Text style={[styles.emptyStateDescription, theme && { color: theme.muted }]}>{description}</Text>
-      </View>
-      {onPress && (
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={action}
-        style={[styles.emptyStateAction, theme && { backgroundColor: theme.primarySoft }]}
-      >
-        <Text style={[styles.emptyStateActionText, theme && { color: theme.primary }]}>＋ {action}</Text>
-      </Pressable>
-      )}
-    </View>
+    <SharedEmptyState
+      theme={theme ?? undefined}
+      title={title}
+      description={description}
+      action={action}
+      onPress={onPress}
+    />
   );
 }
 
@@ -13350,37 +13321,8 @@ function OptionField({
   );
 }
 
-/**
- * 모서리는 다섯 단계만 쓴다.
- *
- *   4    배지와 아주 작은 칩
- *   8    버튼, 선택 칩, 작은 판
- *   12   입력칸, 목록 행, 보통 카드
- *   16   큰 카드와 시트 안의 묶음
- *   999  알약과 원
- *
- * 예외는 높이의 절반이 곧 모양인 것들뿐이다. 2~3px 짜리 점과 얇은 줄, 진행
- * 막대가 거기 해당한다. 열네 가지가 돌면 같은 급의 것들이 미묘하게 달라 보이고,
- * 새 화면을 만들 때 무엇을 따라야 할지 알 수 없다.
- */
 const styles = StyleSheet.create({
-  feedbackToast: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 18,
-    minHeight: 46,
-    borderRadius: 모서리.구역,
-    backgroundColor: "#17233D",
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    ...그림자.뜬것,
-  },
-  feedbackToastMark: { width: 7, height: 7, borderRadius: 모서리.원, backgroundColor: "#FF6B63", marginRight: 8 },
-  feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
-  feedbackToastAction: { marginLeft: 12, paddingVertical: 6 },
-  feedbackToastActionText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.title.family, textDecorationLine: "underline" },
+  feedbackToast: { left: 20, right: 20, bottom: 18 },
   controlPressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
 
   detailTitleRow: {
@@ -13470,7 +13412,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  memoAddPlus: { fontSize: 24, lineHeight: 26, fontWeight: "500", marginRight: 8 },
+  memoAddPlus: { marginRight: 8 },
+  /** 「＋ 무엇 추가」 한 줄. ＋ 는 쿠키런에 없는 글자라 Glyph 로 그린다. */
+  더하기줄: { flexDirection: "row", alignItems: "center", gap: 4 },
   memoAddCopy: { flex: 1 },
   memoAddTitle: { fontSize: 14, fontFamily: typo.title.family },
   memoAddHint: { fontSize: 11, marginTop: 2 },
@@ -13550,7 +13494,6 @@ const styles = StyleSheet.create({
   transportStopName: { flex: 1, minWidth: 0, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14 },
   transportStopTime: { width: 74, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 6, fontSize: 13, textAlign: "center" },
   transportStopDelete: { width: 24, alignItems: "center", justifyContent: "center" },
-  transportStopDeleteText: { fontSize: 16, fontFamily: typo.label.family },
   transportStopAdd: { alignSelf: "flex-start", minHeight: 높이.칩, justifyContent: "center", marginTop: 6, marginBottom: 6 },
   transportStopAddText: { fontSize: 13, fontFamily: typo.label.family },
   transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 8, marginBottom: 8 },

@@ -364,7 +364,7 @@ export function SheetShell({
               accessibilityLabel={`${title} 닫기`}
               style={[styles.closeButton, theme && { backgroundColor: theme.surfaceAlt }]}
             >
-              <Text style={[styles.close, theme && { color: theme.primary }]}>×</Text>
+              <Glyph name="close" size={아이콘.크게} color={theme?.primary ?? "#3F4C8F"} weight={2.2} />
             </Pressable>
           </View>
         )}
@@ -526,7 +526,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  close: { fontSize: 24, lineHeight: 26, fontWeight: "500" },
   scroll: { flexGrow: 0, flexShrink: 1 },
   body: { paddingHorizontal: 2 },
   hint: { fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 4 },

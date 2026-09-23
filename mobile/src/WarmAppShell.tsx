@@ -67,6 +67,7 @@ import {
   useSaveSettings,
 } from "./deviceSettings";
 import { Text, TextInput } from "./AppText";
+import { EmptyState } from "./ui/EmptyState";
 import { Glyph } from "./Glyph";
 import { SheetShell } from "./ui/SheetShell";
 import { COVER_FOCUS_DEFAULT, coverLayout, sameFocus, tidyFocus, type CoverFocus } from "./coverCrop";
@@ -3149,37 +3150,23 @@ function NotebookHome({
         </View>
       )}
       {!trip && (
-        <View
-          style={[
-            s.homeEmptyTrip,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <View
-            style={[
-              s.homeEmptyTripMark,
-              { backgroundColor: theme.primarySoft },
-            ]}
-          >
-            <Glyph name="plus" size={아이콘.크게} color={theme.primary} weight={2.2} />
-          </View>
-          <Text style={[s.homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어 볼까요?</Text>
-          <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>
-            {canCreate
-              ? "여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요."
-              : "보기 전용 멤버는 여행을 만들 수 없어요. 관리자에게 권한을 부탁해 주세요."}
-          </Text>
-          {canCreate && (
-            <Pressable
-              onPress={goTrips}
-              accessibilityRole="button"
-              accessibilityLabel="새 여행 만들기"
-              style={[s.homeEmptyTripAction, { backgroundColor: theme.primary }]}
-            >
-              <Text style={[s.homeEmptyTripActionText, { color: onAccent(theme.dark) }]}>새 여행 만들기</Text>
-            </Pressable>
+        <EmptyState
+          theme={theme}
+          모양="세로"
+          강조
+          style={s.homeEmptyTrip}
+          title="다음 여행을 한 장 만들어 볼까요?"
+          description={canCreate
+            ? "여행지와 날짜만 정해도 준비를 바로 시작할 수 있어요."
+            : "보기 전용 멤버는 여행을 만들 수 없어요. 관리자에게 권한을 부탁해 주세요."}
+          action={canCreate ? "새 여행 만들기" : undefined}
+          onPress={goTrips}
+          mark={(
+            <View style={[s.homeEmptyTripMark, { backgroundColor: theme.primarySoft }]}>
+              <Glyph name="plus" size={아이콘.크게} color={theme.primary} weight={2.2} />
+            </View>
           )}
-        </View>
+        />
       )}
     </ScrollView>
   );
@@ -4051,7 +4038,10 @@ function TripsExplorer({
                 pressed && s.pressed,
               ]}
             >
-              <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>＋ 새 여행</Text>
+              <View style={s.더하기줄}>
+                <Glyph name="plus" size={아이콘.작게} color={onAccent(theme.dark)} weight={2.4} />
+                <Text style={[s.newTripText, { color: onAccent(theme.dark) }]}>새 여행</Text>
+              </View>
             </Pressable>
           )}
         </View>
@@ -4331,7 +4321,10 @@ function TripsExplorer({
                   hitSlop={6}
                   style={({ pressed }) => [s.calNoteAdd, pressed && s.pressed]}
                 >
-                  <Text style={[s.calNoteAddText, { color: theme.primary }]}>＋ 이날에 일정·메모 추가</Text>
+                  <View style={s.더하기줄}>
+                    <Glyph name="plus" size={아이콘.작게} color={theme.primary} weight={2.4} />
+                    <Text style={[s.calNoteAddText, { color: theme.primary }]}>이날에 일정·메모 추가</Text>
+                  </View>
                 </Pressable>
               )}
             </View>
@@ -4443,36 +4436,26 @@ function TripRows({
 }) {
   if (!items.length)
     return (
-      <View
-        style={[
-          s.noTrips,
-          { backgroundColor: theme.surface, borderColor: theme.border },
-        ]}
-      >
-        <Svg width={58} height={48} viewBox="0 0 58 48">
-          <Path
-            d="M16 16h26a4 4 0 0 1 4 4v20H12V20a4 4 0 0 1 4-4Zm7 0v-4a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4M20 24v9M38 24v9M8 40h42"
-            fill="none"
-            stroke={theme.primary}
-            strokeWidth={1.6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-        <Text style={[s.noTripsTitle, { color: theme.text }]}>아직 이곳에 여행이 없어요</Text>
-        <Text style={[s.noTripsText, { color: theme.muted }]}>다른 분류를 보거나 새로운 여행을 만들어 보세요.</Text>
-        {emptyAction && (
-          <Pressable
-            accessibilityRole="button"
-            onPress={emptyAction}
-            style={[s.emptyInlineAction, { backgroundColor: theme.primarySoft }]}
-          >
-            <Text style={[s.emptyInlineActionText, { color: theme.primary }]}>
-              {emptyActionLabel}
-            </Text>
-          </Pressable>
+      <EmptyState
+        theme={theme}
+        모양="세로"
+        title="아직 이곳에 여행이 없어요"
+        description="다른 분류를 보거나 새로운 여행을 만들어 보세요."
+        action={emptyAction ? emptyActionLabel : undefined}
+        onPress={emptyAction}
+        mark={(
+          <Svg width={58} height={48} viewBox="0 0 58 48">
+            <Path
+              d="M16 16h26a4 4 0 0 1 4 4v20H12V20a4 4 0 0 1 4-4Zm7 0v-4a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v4M20 24v9M38 24v9M8 40h42"
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={1.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
         )}
-      </View>
+      />
     );
   return (
     <>
@@ -4903,7 +4886,7 @@ function KoreaTripMap({
               accessibilityLabel={`${selected} 여행 창 닫기`}
               style={[s.mapTrayClose, { backgroundColor: theme.surfaceAlt }]}
             >
-              <Text style={[s.mapTrayCloseText, { color: theme.muted }]}>×</Text>
+              <Glyph name="close" size={아이콘.크게} color={theme.muted} weight={2.2} />
             </Pressable>
           </View>
           {results.length ? (
@@ -5374,7 +5357,7 @@ function Search({
               { backgroundColor: theme.surfaceAlt },
             ]}
           >
-            <Text style={[s.searchClearText, { color: theme.muted }]}>×</Text>
+            <Glyph name="close" size={아이콘.작게} color={theme.muted} weight={2.4} />
           </Pressable>
         )}
       </View>
@@ -5430,7 +5413,7 @@ function Search({
                   accessibilityRole="button"
                   accessibilityLabel={`${word} 최근 검색어 삭제`}
                 >
-                  <Text style={[s.searchSuggestionRemove, { color: theme.muted }]}>×</Text>
+                  <Glyph name="close" size={아이콘.작게} color={theme.muted} weight={2.4} />
                 </Pressable>
               </Pressable>
             ))}
@@ -5621,36 +5604,21 @@ function Search({
       </View>
       )}
       {!results.length && (
-        <View
-          style={[
-            s.searchEmpty,
-            { backgroundColor: theme.surface, borderColor: theme.border },
-          ]}
-        >
-          <Svg width={48} height={48} viewBox="0 0 48 48">
-            <Path d="m30 30 9 9M21 34a13 13 0 1 1 0-26 13 13 0 0 1 0 26Zm-5-14h10M21 15v10" fill="none" stroke={theme.primary} strokeWidth={1.6} strokeLinecap="round" />
-          </Svg>
-          <Text style={[s.searchEmptyTitle, { color: theme.text }]}>
-            {loading ? "기록을 불러오는 중이에요" : "찾는 기록이 없어요"}
-          </Text>
-          <Text style={[s.searchEmptyCopy, { color: theme.muted }]}>
-            {loading
-              ? "여행 기록을 불러오는 중이에요."
-              : "다른 단어나 카테고리로 검색해 보세요."}
-          </Text>
-          {(query || category !== "전체") && (
-            <Pressable
-              onPress={() => {
-                setQuery("");
-                setCategory("전체");
-              }}
-              accessibilityRole="button"
-              style={[s.emptyInlineAction, { backgroundColor: theme.primarySoft }]}
-            >
-              <Text style={[s.emptyInlineActionText, { color: theme.primary }]}>검색 초기화</Text>
-            </Pressable>
+        <EmptyState
+          theme={theme}
+          모양="세로"
+          title={loading ? "기록을 불러오는 중이에요" : "찾는 기록이 없어요"}
+          description={loading
+            ? "여행 기록을 불러오는 중이에요."
+            : "다른 단어나 카테고리로 검색해 보세요."}
+          action={query || category !== "전체" ? "검색 초기화" : undefined}
+          onPress={() => { setQuery(""); setCategory("전체"); }}
+          mark={(
+            <Svg width={48} height={48} viewBox="0 0 48 48">
+              <Path d="m30 30 9 9M21 34a13 13 0 1 1 0-26 13 13 0 0 1 0 26Zm-5-14h10M21 15v10" fill="none" stroke={theme.primary} strokeWidth={1.6} strokeLinecap="round" />
+            </Svg>
           )}
-        </View>
+        />
       )}
     </ScrollView>
   );
@@ -7890,6 +7858,8 @@ const s = StyleSheet.create({
   calNoteWho: { borderRadius: 모서리.원, paddingHorizontal: 9, paddingVertical: 3 },
   calNoteWhoText: { fontSize: 12, fontFamily: typo.label.family },
   calNoteAdd: { alignSelf: "center", paddingVertical: 12 },
+  /** 「＋ 무엇 추가」 한 줄. ＋ 는 쿠키런에 없는 글자라 Glyph 로 그린다. */
+  더하기줄: { flexDirection: "row", alignItems: "center", gap: 4 },
   calNoteAddText: { fontSize: 14, fontFamily: typo.label.family },
   // 여행 탭 캘린더(아이폰 캘린더 결). `TripCalendar` 주석을 본다.
   calCard: { borderRadius: 모서리.구역, borderWidth: 1, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
@@ -8148,22 +8118,14 @@ const s = StyleSheet.create({
   homeArchiveNote: { fontSize: 14, lineHeight: 19, marginTop: 4 },
   homeArchiveAction: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: "auto", paddingTop: 8 },
   homeArchiveActionText: { fontSize: 14, fontFamily: typo.label.family },
-  homeEmptyTrip: {
-    minHeight: 250,
-    borderRadius: 모서리.상자,
-    borderWidth: 1,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    ...그림자.카드,
-  },
+  // 홈 한 장을 통째로 대신하는 자리라 빈 상자보다 높다. 모양은 `ui/EmptyState`.
+  homeEmptyTrip: { minHeight: 250 },
   homeEmptyTripMark: {
     width: 42,
     height: 42,
     borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
     transform: [{ rotate: "-2deg" }],
   },
   homeEmptyTripTitle: { fontSize: 18, fontFamily: typo.title.family, textAlign: "center" },
@@ -8270,14 +8232,13 @@ const s = StyleSheet.create({
   mapTrayCount: { fontSize: 14, marginTop: 2 },
   // 지도 위에 얹히는 닫기라 지도를 가리지 않게 작게 둔다. hitSlop 으로 44 를 채운다.
   mapTrayClose: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 모서리.원,
     backgroundColor: "#F0F3F2",
     alignItems: "center",
     justifyContent: "center",
   },
-  mapTrayCloseText: { fontSize: 20, lineHeight: 21 },
   mapTrayList: { paddingHorizontal: 12, gap: 8 },
   mapTrayCard: {
     width: 244,
@@ -8477,7 +8438,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  searchClearText: { fontSize: 18, lineHeight: 20 },
   searchCategoryText: { fontSize: 12, fontFamily: typo.label.family },
   searchCategoryTextActive: { color: "#FFFFFF" },
   searchResultHead: {
@@ -8753,7 +8713,6 @@ const s = StyleSheet.create({
     gap: 6,
   },
   searchSuggestionText: { fontSize: 12, fontFamily: typo.label.family },
-  searchSuggestionRemove: { fontSize: 16, lineHeight: 19, fontFamily: typo.label.family },
   searchRecentClear: { fontSize: 12, fontFamily: typo.label.family },
   searchRecentEmpty: { fontSize: 12, paddingVertical: 6 },
   searchResultsSheet: {
