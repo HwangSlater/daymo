@@ -10,7 +10,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { cardDraftsKeyOf, parseStoredDrafts, serializeDrafts, type StoredCardDraft } from "./cardDrafts";
+import { cardDraftsKeyOf, isCardDraftsKey, parseStoredDrafts, serializeDrafts, type StoredCardDraft } from "./cardDrafts";
 
 /** 그 여행의 초안. 없거나 못 읽으면 빈 목록이다. */
 export async function readCardDrafts(tripId: string): Promise<StoredCardDraft[]> {
@@ -30,4 +30,19 @@ export async function writeCardDrafts(tripId: string, list: readonly StoredCardD
 /** 그 여행의 초안을 모두 지운다. */
 export async function removeCardDrafts(tripId: string): Promise<void> {
   await AsyncStorage.removeItem(cardDraftsKeyOf(tripId));
+}
+
+/**
+ * 이 기기에 있는 모든 여행의 초안을 지운다.
+ *
+ * 로그아웃하거나 다른 계정으로 로그인할 때 부른다. 초안에는 상대 사진이 들어 있을 수
+ * 있어 공유 기기에 남기면 안 된다(2026-09-23). 못 읽는 저장소에서는 조용히 넘어간다.
+ */
+export async function removeAllCardDrafts(): Promise<void> {
+  try {
+    const 열쇠들 = (await AsyncStorage.getAllKeys()).filter(isCardDraftsKey);
+    if (열쇠들.length) await AsyncStorage.multiRemove(열쇠들);
+  } catch {
+    // 지우지 못해도 로그아웃 자체는 이어 간다.
+  }
 }

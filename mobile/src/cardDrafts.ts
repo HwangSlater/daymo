@@ -45,6 +45,15 @@ export const CARD_DRAFTS_VERSION = 1;
 /** 여행마다 다른 저장 열쇠. */
 export const cardDraftsKeyOf = (tripId: string) => `daymo.card-drafts.v${CARD_DRAFTS_VERSION}.${tripId}`;
 
+/**
+ * 이 열쇠가 카드 초안인지.
+ *
+ * 계정이 바뀌거나 로그아웃할 때 초안을 한꺼번에 걷어 내는 데 쓴다. 남겨 두면 공유
+ * 기기에서 앞사람이 꾸미던 카드가 뒷사람에게 보인다(2026-09-23). 판 번호는 보지
+ * 않는다 — 형식이 올라가도 옛 판까지 함께 걷어 내야 남는 것이 없다.
+ */
+export const isCardDraftsKey = (key: string) => /^daymo\.card-drafts\.v\d+\./.test(key);
+
 /** 초안을 더하거나(같은 id 가 없으면) 바꾼다(있으면). 차례는 건드리지 않는다. */
 export function upsertDraft(
   list: readonly StoredCardDraft[],

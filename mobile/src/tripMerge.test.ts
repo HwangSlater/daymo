@@ -50,11 +50,20 @@ test("서버가 참가자만 들고 오면 참가자만 바뀌고 나머지 기�
   assert.deepEqual(mergeServerTrips(server, local)[0].planning, { memo: "주차는 뒤쪽", participants: ["하늘", "여울"] });
 });
 
-test("공간을 옮긴 여행도 기록을 잃지 않는다", () => {
+test("내 공간 사이를 옮긴 여행도 기록을 잃지 않는다", () => {
   const local = { spaceA: [{ id: "t1", name: "여행", planning: { memo: "남아야 한다" } }] };
-  const server = { spaceB: [{ id: "t1", name: "여행" }] };
+  const server = { spaceA: [], spaceB: [{ id: "t1", name: "여행" }] };
 
   assert.equal(mergeServerTripsByGroup<Trip>(server, local).spaceB[0].planning?.memo, "남아야 한다");
+});
+
+test("지금 계정에 없는 공간의 기록은 붙이지 않는다", () => {
+  // 한 기기를 두 계정이 번갈아 쓸 때, 앞사람 공간에 남아 있던 기록이 뒷사람 여행에
+  // 붙어 뒷사람 이름으로 올라가던 자리다(2026-09-23).
+  const local = { 앞사람_공간: [{ id: "t1", name: "여행", planning: { memo: "앞사람이 적은 것" } }] };
+  const server = { 내_공간: [{ id: "t1", name: "여행" }] };
+
+  assert.equal(mergeServerTripsByGroup<Trip>(server, local).내_공간[0].planning, undefined);
 });
 
 test("첫 쪽만 받았으면 아직 안 온 뒤쪽 여행을 버리지 않는다", () => {
