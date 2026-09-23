@@ -53,6 +53,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import { Text } from "./AppText";
+import { CardDeveloping } from "./CardDeveloping";
+import { ACCENT as CARD_ACCENT } from "./cardToolColors";
 import { Glyph, type GlyphName } from "./Glyph";
 import { swipeAxis, swipeCloses, swipeStep, type SwipeAxis } from "./photoSwipe";
 import { showAlert } from "./showAlert";
@@ -120,6 +122,8 @@ export type ViewerDecor = {
   body: React.ReactNode;
   /** 무언가 하는 중이라 화면을 통째로 덮어야 할 때 적을 말. */
   busyText?: string;
+  /** 그 동안 현상되듯 보여 줄 작은 카드와 크기(2026-09-23 시안 ①). 없으면 글자만 띄운다. */
+  busyCard?: { node: React.ReactNode; width: number; height: number };
 };
 
 /**
@@ -1029,6 +1033,11 @@ export function PhotoViewerScreen({
             넘치는 그 모습을 보일 까닭이 없어 통째로 덮고 무엇을 하는 중인지만 적는다. */}
         {Boolean(decorating && decor?.busyText) && (
           <View style={styles.busy} accessibilityLiveRegion="polite">
+            {decor?.busyCard && (
+              <CardDeveloping width={decor.busyCard.width} height={decor.busyCard.height} accent={CARD_ACCENT}>
+                {decor.busyCard.node}
+              </CardDeveloping>
+            )}
             <Text style={styles.busyText}>{decor?.busyText}</Text>
           </View>
         )}
@@ -1458,6 +1467,7 @@ const styles = StyleSheet.create({
     inset: 0,
     alignItems: "center",
     justifyContent: "center",
+    gap: 18,
     backgroundColor: "rgba(10,10,12,0.92)",
   },
   busyText: { fontSize: 14, color: INK, fontFamily: typo.label.family },

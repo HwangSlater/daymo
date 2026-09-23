@@ -921,7 +921,9 @@ export function TripCardsSection({
           : undefined,
         menu: cardMenu,
         viewMenu,
-        busyText: busy ? "사진으로 저장하는 중이에요" : undefined,
+        busyText: busy ? "사진으로 만드는 중이에요" : undefined,
+        // 기다리는 동안 지금 만드는 그 카드가 현상되듯 드러난다(2026-09-23 시안 ①).
+        busyCard: busy && card ? { node: <CardThumb {...faceOf(card)} />, ...현상_크기(card) } : undefined,
         body: card ? (
           <CardDecorTools
             card={card}
@@ -980,6 +982,16 @@ export function TripCardsSection({
  * 다시 불러오는데, 큰 사진 네 장이면 몇 초가 걸린다. 그전에 찍으면 썸네일이 들어가서 넉넉히
  * 15초까지 기다린다. 넘기면 그대로 찍는다(저장 자체를 막지 않는다).
  */
+/**
+ * 기다리는 동안 보여 줄 작은 카드의 크기. 카드 비율을 지켜 높이 150 에 맞춘다.
+ * 네컷처럼 아주 긴 카드는 폭이 너무 좁아지지 않게 막아 둔다.
+ */
+const 현상_크기 = (card: KeepsakeCard) => {
+  const size = keepsakeSizeOf(card.ratio, card.style);
+  const 높이 = 150;
+  return { width: Math.max(64, Math.round(높이 * (size.width / size.height))), height: 높이 };
+};
+
 const 그려질_때까지 = async (다_그렸나: () => boolean): Promise<boolean> => {
   for (let 번 = 0; 번 < 300; 번 += 1) {
     if (다_그렸나()) return true;
