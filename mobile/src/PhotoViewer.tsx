@@ -60,7 +60,7 @@ import { swipeAxis, swipeCloses, swipeStep, type SwipeAxis } from "./photoSwipe"
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
 import { useWebKeyboardFocus } from "./ui/webKeyboardFocus";
@@ -215,7 +215,7 @@ function HistoryButton({
       hitSlop={6}
       style={({ pressed }) => [styles.decorHistoryButton, !enabled && styles.decorHistoryOff, pressed && styles.pressed]}
     >
-      <Glyph name={glyph} size={18} color="#F6F4F1" weight={2.2} />
+      <Glyph name={glyph} size={아이콘.보통} color="#F6F4F1" weight={2.2} />
     </Pressable>
   );
 }
@@ -249,7 +249,7 @@ function BarButton({
         pressed && styles.pressed,
       ]}
     >
-      <Glyph name={glyph} size={23} color={INK} weight={2.1} />
+      <Glyph name={glyph} size={아이콘.크게} color={INK} weight={2.1} />
     </Pressable>
   );
 }
@@ -845,7 +845,7 @@ export function PhotoViewerScreen({
               accessibilityLabel="사진 다시 시도"
               style={({ pressed }) => [styles.failureButton, pressed && styles.pressed]}
             >
-              <Glyph name="retry" size={15} color={INK} weight={2.1} />
+              <Glyph name="retry" size={아이콘.작게} color={INK} weight={2.1} />
               <Text style={styles.failureButtonText}>다시 시도</Text>
             </Pressable>
           </View>
@@ -893,7 +893,7 @@ export function PhotoViewerScreen({
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepLeft, pressed && styles.pressed]}
             >
-              <Glyph name="chevronLeft" size={20} color={INK} />
+              <Glyph name="chevronLeft" size={아이콘.크게} color={INK} />
             </Pressable>
             <Pressable
               onPress={() => 칸으로(이웃칸(1))}
@@ -902,7 +902,7 @@ export function PhotoViewerScreen({
               hitSlop={누름여유(높이.칩)}
               style={({ pressed }) => [styles.step, styles.stepRight, pressed && styles.pressed]}
             >
-              <Glyph name="chevronRight" size={20} color={INK} />
+              <Glyph name="chevronRight" size={아이콘.크게} color={INK} />
             </Pressable>
           </>
         )}
@@ -959,7 +959,7 @@ export function PhotoViewerScreen({
               >
                 {/* 연필이 아니라 네모 넷이다. 연필은 「고치기」고 이것은 사진을
                     모아 카드를 만드는 일이다(`Glyph` 의 grid 주석). */}
-                <Glyph name="grid" size={17} color={INK} weight={1.8} />
+                <Glyph name="grid" size={아이콘.보통} color={INK} weight={1.8} />
                 <Text style={styles.decorateText}>카드 만들기</Text>
               </Pressable>
               <Text style={styles.decorateHint}>이 사진으로 추억 카드를 만들 수 있어요</Text>
@@ -1010,7 +1010,7 @@ export function PhotoViewerScreen({
             // 덮고 있으면 그 자리의 사진을 누를 수 없다.
             pointerEvents={toastAction ? "box-none" : "none"}
           >
-            <Glyph name="check" size={17} color="#7FD8A6" weight={2.4} />
+            <Glyph name="check" size={아이콘.보통} color="#7FD8A6" weight={2.4} />
             <Text style={styles.toastText}>{toast}</Text>
             {Boolean(toastAction) && (
               <Pressable
@@ -1282,7 +1282,7 @@ export function PhotoEditScreen({
                   accessibilityState={{ selected: on, disabled: !쓸 }}
                   style={({ pressed }) => [styles.editTool, pressed && styles.pressed]}
                 >
-                  <Glyph name={glyph} size={22} color={색} />
+                  <Glyph name={glyph} size={아이콘.크게} color={색} />
                   <Text style={[styles.editToolText, { color: 색 }]}>{label}</Text>
                 </Pressable>
               );
@@ -1291,7 +1291,7 @@ export function PhotoEditScreen({
         </View>
         {Boolean(toast) && (
           <View style={[styles.toast, styles.editToast]} accessibilityLiveRegion="polite" pointerEvents="none">
-            <Glyph name="check" size={17} color="#7FD8A6" weight={2.4} />
+            <Glyph name="check" size={아이콘.보통} color="#7FD8A6" weight={2.4} />
             <Text style={styles.toastText}>{toast}</Text>
           </View>
         )}
@@ -1324,8 +1324,8 @@ const styles = StyleSheet.create({
    */
   trackClip: { position: "absolute", inset: 0, overflow: "hidden" },
   fill: { position: "absolute", inset: 0, width: "100%", height: "100%" },
-  pressed: { opacity: 0.65 },
-  faded: { opacity: 0.4 },
+  pressed: { opacity: 불투명도.눌림 },
+  faded: { opacity: 불투명도.비활성 },
   // 석 장이 놓인 줄. 화면 폭의 세 배고 한 폭만큼 왼쪽에서 시작해, 손대지 않았을 때
   // 가운데 칸이 화면에 온다. 폭은 기기마다 달라 부르는 쪽이 넣는다.
   // 웹에서 마우스로 밀 때 사진이 선택되거나 브라우저의 그림 끌기가 먼저 잡지 않게 막는다.
@@ -1366,7 +1366,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 12,
     minWidth: 120,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "rgba(28,27,34,0.96)",
     paddingVertical: 4,
   },
@@ -1397,16 +1397,16 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === "ios" ? 32 : 20,
   },
   caption: { fontSize: 16, color: INK, fontFamily: typo.title.family },
-  meta: { fontSize: 12.5, color: INK_SOFT, marginTop: 3, fontFamily: typo.caption.family },
+  meta: { fontSize: 13, color: INK_SOFT, marginTop: 3, fontFamily: typo.caption.family },
   // 기한이 얼마 안 남았을 때. 검은 바탕이라 라이트·다크 토큰 대신 밝은 주황을 쓴다.
   metaSoon: { color: "#F0B27F" },
   strip: { gap: STRIP_GAP, marginTop: 15, paddingRight: 18 },
   stripThumb: {
     width: STRIP_THUMB,
     height: STRIP_THUMB,
-    borderRadius: 7,
+    borderRadius: 모서리.상자,
     overflow: "hidden",
-    opacity: 0.5,
+    opacity: 불투명도.흐림,
     borderWidth: 1.5,
     borderColor: "transparent",
   },
@@ -1422,10 +1422,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 11,
-    borderRadius: 22,
+    borderRadius: 모서리.원,
     backgroundColor: "rgba(20,20,22,0.92)",
   },
-  toastText: { fontSize: 13.5, color: INK, fontFamily: typo.label.family },
+  toastText: { fontSize: 14, color: INK, fontFamily: typo.label.family },
   // 알림 줄 오른쪽 끝의 되돌리기. 글자만 두고 테두리는 주지 않는다.
   toastAction: { paddingLeft: 4 },
   // 고치기 화면은 도구 칸이 아래를 차지해서 조금 더 위에 띄운다.
@@ -1443,7 +1443,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   decorateText: { fontSize: 14, color: INK, fontFamily: typo.title.family },
-  decorateHint: { fontSize: 11.5, color: INK_SOFT, textAlign: "center", marginTop: 7, fontFamily: typo.caption.family },
+  decorateHint: { fontSize: 12, color: INK_SOFT, textAlign: "center", marginTop: 7, fontFamily: typo.caption.family },
   // 꾸미기 머리줄. 보기의 아이콘 줄과 달리 흐르는 자리에 놓여 아래 카드를 밀어 준다.
   decorHead: {
     flexDirection: "row",
@@ -1454,12 +1454,12 @@ const styles = StyleSheet.create({
   },
   decorHeadSide: { minWidth: 56, paddingVertical: 8, paddingHorizontal: 4 },
   decorHeadRight: { alignItems: "flex-end" },
-  decorBack: { fontSize: 13.5, color: INK_SOFT, fontFamily: typo.label.family },
+  decorBack: { fontSize: 14, color: INK_SOFT, fontFamily: typo.label.family },
   decorTitle: { flex: 1, textAlign: "center", fontSize: 15, color: INK, fontFamily: typo.title.family },
   decorHistory: { flex: 1, flexDirection: "row", justifyContent: "center", gap: 8 },
-  decorHistoryButton: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#26252E" },
+  decorHistoryButton: { width: 40, height: 40, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center", backgroundColor: "#26252E" },
   // 되돌릴 것이 없으면 흐리게 둔다. 자리는 그대로라 누르던 손이 헤매지 않는다.
-  decorHistoryOff: { opacity: 0.35 },
+  decorHistoryOff: { opacity: 불투명도.비활성 },
   decorSave: { fontSize: 14, fontFamily: typo.label.family },
   // 카드를 찍는 동안 덮는 판. 화면 밖으로 넘친 카드를 가린다.
   busy: {
@@ -1488,7 +1488,7 @@ const styles = StyleSheet.create({
   editTitle: { flex: 1, textAlign: "center", fontSize: 15, color: INK, fontFamily: typo.title.family },
   editSave: { fontSize: 14, fontFamily: typo.label.family },
   editStage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, paddingVertical: 10 },
-  editShot: { width: "100%", height: "100%", borderRadius: 6, overflow: "hidden" },
+  editShot: { width: "100%", height: "100%", borderRadius: 모서리.표식, overflow: "hidden" },
   // 읽어야 하는 안내 글자라 INK_FAINT(약 3.0:1)로는 모자란다(2026-09-23 검토 #30).
   editStageHint: { fontSize: 12, color: INK_SOFT, textAlign: "center", paddingBottom: 8, fontFamily: typo.caption.family },
   // 도구 칸 맨 위의 한 줄. 이 칸이 무엇을 하는 자리인지 알린다.
@@ -1528,8 +1528,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#26252E",
   },
-  chipText: { fontSize: 12.5, color: "rgba(255,255,255,0.8)", fontFamily: typo.label.family },
+  chipText: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontFamily: typo.label.family },
   editToolRow: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4, marginTop: 4 },
   editTool: { alignItems: "center", gap: 6, minWidth: 54, paddingVertical: 2 },
-  editToolText: { fontSize: 11.5, fontFamily: typo.label.family },
+  editToolText: { fontSize: 12, fontFamily: typo.label.family },
 });

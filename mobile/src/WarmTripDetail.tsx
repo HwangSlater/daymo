@@ -165,7 +165,7 @@ import { Glyph } from "./Glyph";
 import { showAlert } from "./showAlert";
 import { shrinkForWeb } from "./webImage";
 import { useWebBackClose } from "./useWebBackClose";
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { kakaoInk, memoPaper, onAccent, status as statusColor } from "./theme/colors";
 import { parseNaverPlaceShare, resolveNaverPlaceShare } from "./naverPlaceResolver";
@@ -2424,7 +2424,7 @@ export function WarmTripDetail({
             accessibilityRole="button"
             accessibilityLabel="여행 목록으로 돌아가기"
           >
-            <Glyph name="chevronLeft" size={22} color={appTheme?.text ?? "#17233D"} />
+            <Glyph name="chevronLeft" size={아이콘.크게} color={appTheme?.text ?? "#17233D"} />
           </Pressable>
           <Text
             style={[styles.headerName, appTheme && { color: appTheme.text }]}
@@ -2448,7 +2448,7 @@ export function WarmTripDetail({
             accessibilityRole="button"
             accessibilityLabel="여행 정보 수정"
           >
-            <Glyph name="more" size={20} color={appTheme?.text ?? "#17233D"} weight={2.6} />
+            <Glyph name="more" size={아이콘.크게} color={appTheme?.text ?? "#17233D"} weight={2.6} />
           </Pressable>
           ) : (
             // 제목이 가운데에 머물도록 버튼 자리만 남긴다.
@@ -2498,7 +2498,7 @@ export function WarmTripDetail({
               </Text>
               <View style={styles.tripMemoBottom}>
                 <Text style={[styles.tripMemoButtonText, { color: memo.meta }]}>메모 {tripNotes.length}개</Text>
-                <Glyph name="chevronRight" size={14} color={memo.label} />
+                <Glyph name="chevronRight" size={아이콘.작게} color={memo.label} />
               </View>
               <View style={[styles.tripMemoFold, { backgroundColor: memo.fold }]} />
             </Pressable>
@@ -2780,7 +2780,7 @@ export function WarmTripDetail({
               pressed && styles.moneyFabPressed,
             ]}
           >
-            <Glyph name="plus" size={16} color={onAccent(appTheme?.dark ?? false)} weight={2.8} />
+            <Glyph name="plus" size={아이콘.보통} color={onAccent(appTheme?.dark ?? false)} weight={2.8} />
             <Text style={[styles.moneyFabText, { color: onAccent(appTheme?.dark ?? false) }]}>지출 추가</Text>
           </Pressable>
         )}
@@ -4103,7 +4103,7 @@ function TripOverview({
             ]}
           >
             <Text style={[styles.fullScheduleText, theme && { color: theme.text }]}>일정 {schedule.length}개 모두 보기</Text>
-            <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
+            <Glyph name="arrowRight" size={아이콘.보통} color={theme?.primary ?? "#3F4C8F"} />
           </Pressable>
         )}
       </View>
@@ -4245,7 +4245,7 @@ function TripOverview({
             준비물 {packingRemaining}개가 남아 있어요.
           </Text>
         </View>
-        <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
+        <Glyph name="arrowRight" size={아이콘.보통} color={theme?.primary ?? "#3F4C8F"} />
       </Pressable>
       )}
       <DetailSheet
@@ -5375,7 +5375,7 @@ function Places({
             hitSlop={누름여유(높이.칩)}
             style={[styles.placeFilterMoreButton, theme && { backgroundColor: theme.surfaceAlt }]}
           >
-            <Glyph name={placeFiltersOpen ? "chevronDown" : "search"} size={15} color={theme?.primary ?? "#3F4C8F"} weight={2.2} />
+            <Glyph name={placeFiltersOpen ? "chevronDown" : "search"} size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} weight={2.2} />
             <Text style={[styles.placeFilterMoreText, theme && { color: theme.primary }]}>찾기</Text>
           </Pressable>
         )}
@@ -5393,7 +5393,7 @@ function Places({
           },
         ]}
       >
-        <Glyph name="search" size={18} color={theme?.muted ?? "#646C7A"} weight={1.8} />
+        <Glyph name="search" size={아이콘.보통} color={theme?.muted ?? "#646C7A"} weight={1.8} />
         <TextInput
           accessibilityLabel="저장한 장소 검색"
           value={query}
@@ -5742,7 +5742,7 @@ function Places({
               <Text style={[styles.naverAutoFillTitle, theme && { color: theme.dark ? "#DDF7E9" : "#184D36" }]}>{resolvingNaver ? "장소 정보 가져오는 중…" : "지도 링크 붙여넣기"}</Text>
               <Text style={[styles.naverAutoFillText, theme && { color: theme.dark ? "#96B7A8" : "#648476" }]}>{resolvingNaver ? "이름과 주소를 확인하고 있어요" : "네이버·카카오 링크를 붙여넣어 주세요"}</Text>
             </View>
-            <Glyph name="chevronRight" size={16} color={theme?.dark ? "#96B7A8" : "#16844E"} />
+            <Glyph name="chevronRight" size={아이콘.보통} color={theme?.dark ? "#96B7A8" : "#16844E"} />
           </Pressable>
         )}
         <DetailField
@@ -5844,7 +5844,7 @@ function Places({
             {mapUrl && (
               <View style={[styles.naverConnected, theme && { backgroundColor: theme.surface }]}>
                 <View style={styles.naverConnectedCopy}>
-                  <Glyph name="check" size={15} color="#16844E" />
+                  <Glyph name="check" size={아이콘.작게} color="#16844E" />
                   <Text style={[styles.naverConnectedText, theme?.dark && { color: "#7ED9A7" }]}>{mapProviderName[mapProviderOf(mapUrl)]} 연결됨</Text>
                 </View>
                 <Pressable onPress={() => setMapUrl("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="지도 연결 해제">
@@ -6505,7 +6505,7 @@ function Preparation({
           ]}
         >
           {completed && (
-            <Glyph name="check" size={14} color="#FFFFFF" weight={2.6} />
+            <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
           )}
         </Pressable>
         <View style={styles.packingV2Body}>
@@ -6646,7 +6646,7 @@ function Preparation({
             <Text style={[styles.packingV2TagButtonText, theme && { color: theme.primary }]}>
               {ownerFilter === "전체" && tagFilter === "전체 태그" ? "필터" : "필터 적용 중"}
             </Text>
-            <Glyph name={packingFiltersOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
+            <Glyph name={packingFiltersOpen ? "chevronDown" : "chevronRight"} size={아이콘.작게} color={theme?.muted ?? "#646C7A"} />
           </Pressable>
         </View>
         {packingFiltersOpen && (
@@ -6685,7 +6685,7 @@ function Preparation({
           <Text style={[styles.packingV2TagChoiceValue, theme && { color: theme.text }]}>
             {tagFilter === "전체 태그" ? `전체 ${availableTags.length}개` : `# ${tagFilter}`}
           </Text>
-          <Glyph name="chevronRight" size={14} color={theme?.muted ?? "#646C7A"} />
+          <Glyph name="chevronRight" size={아이콘.작게} color={theme?.muted ?? "#646C7A"} />
         </Pressable>
         </>
         )}
@@ -6950,7 +6950,7 @@ function Preparation({
                   </View>
                   <Glyph
                     name={collapsed ? "chevronRight" : "chevronDown"}
-                    size={16}
+                    size={아이콘.보통}
                     color={theme?.muted ?? "#646C7A"}
                     weight={2.2}
                   />
@@ -7511,7 +7511,7 @@ function Preparation({
                     ]}
                   >
                     {selected && (
-                      <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />
+                      <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
                     )}
                   </View>
                   <View style={styles.cookingImportItemCopy}>
@@ -8260,7 +8260,7 @@ function Cooking({
                   accessibilityRole="button" onPress={() => setShowAllRecipes(true)}>
                   <View style={styles.inlineMore}>
                     <Text style={[styles.recipeSelectorMore, theme && { color: theme.primary }]}>전체 {recipes.length}개</Text>
-                    <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#3F4C8F"} />
+                    <Glyph name="chevronRight" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} />
                   </View>
                 </Pressable>
               )}
@@ -8335,7 +8335,7 @@ function Cooking({
               <Text style={[styles.myCookingTitle, theme && { color: theme.text }]}>전체 재료 {allCookingIngredients.length}개</Text>
               <Text numberOfLines={1} style={[styles.myCookingSummary, theme && { color: theme.muted }]}>현지 구매 {allCookingIngredients.filter((item) => item.owner === "구매").length}개 · 집에서 {allCookingIngredients.filter((item) => item.owner !== "구매").length}개</Text>
             </View>
-            <Glyph name="chevronRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
+            <Glyph name="chevronRight" size={아이콘.보통} color={theme?.primary ?? "#3F4C8F"} />
           </Pressable>
         </View>
       )}
@@ -8396,7 +8396,7 @@ function Cooking({
                   accessibilityRole="link"
                   style={styles.recipeLink}
                 >
-                  <Glyph name="play" size={13} color={theme?.primary ?? "#3F4C8F"} />
+                  <Glyph name="play" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} />
                   <Text style={[styles.recipeLinkText, theme && { color: theme.primary }]}>레시피 영상 보기</Text>
                 </Pressable>
               ) : null}
@@ -8412,7 +8412,7 @@ function Cooking({
                   theme && { backgroundColor: theme.surface },
                 ]}
               >
-                <Glyph name="more" size={18} color={theme?.muted ?? "#646C7A"} weight={2.6} />
+                <Glyph name="more" size={아이콘.보통} color={theme?.muted ?? "#646C7A"} weight={2.6} />
               </Pressable>
               )}
               <View style={[styles.cookV2ProgressBadge, theme && { backgroundColor: theme.primarySoft }]}>
@@ -8486,7 +8486,7 @@ function Cooking({
                 </View>
                 <View style={styles.cookV2SectionActions}>
                   <Text style={[styles.cookV2SectionCount, theme && { color: theme.muted }]}>{sectionReadyCount}/{sectionItems.length} 준비</Text>
-                  <Glyph name={collapsed ? "chevronRight" : "chevronDown"} size={16} color={theme?.muted ?? "#646C7A"} weight={2.2} />
+                  <Glyph name={collapsed ? "chevronRight" : "chevronDown"} size={아이콘.보통} color={theme?.muted ?? "#646C7A"} weight={2.2} />
                 </View>
               </Pressable>
               {!collapsed && sectionItems.map((item) => (
@@ -8524,7 +8524,7 @@ function Cooking({
                       ]}
                     >
                       {readyIngredientIds.includes(item.id) && (
-                        <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />
+                        <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
                       )}
                     </Pressable>
                     <View style={styles.ingredientBody}>
@@ -8736,7 +8736,7 @@ function Cooking({
                 <Text numberOfLines={1} style={[styles.myIngredientGroupTitle, theme && { color: theme.text }]}>{recipe.name}</Text>
                 <View style={styles.inlineMore}>
                   <Text style={[styles.myIngredientGroupCount, theme && { color: theme.primary }]}>{matching.length}개</Text>
-                  <Glyph name="chevronRight" size={13} color={theme?.primary ?? "#3F4C8F"} />
+                  <Glyph name="chevronRight" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} />
                 </View>
               </Pressable>
               {matching.map((item) => (
@@ -10244,7 +10244,7 @@ function Memories({
                       accessibilityLabel={`${tile.photo.caption || "사진"} 다시 시도`}
                       style={({ pressed }) => [styles.uploadRound, pressed && styles.controlPressed]}
                     >
-                      <Glyph name="retry" size={20} color="#FFFFFF" weight={2.2} />
+                      <Glyph name="retry" size={아이콘.크게} color="#FFFFFF" weight={2.2} />
                     </Pressable>
                   ) : (
                     <View style={styles.uploadBarTrack}>
@@ -10266,7 +10266,7 @@ function Memories({
                     hitSlop={8}
                     style={({ pressed }) => [styles.uploadCancel, pressed && styles.controlPressed]}
                   >
-                    <Glyph name="close" size={12} color="#FFFFFF" weight={2.6} />
+                    <Glyph name="close" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
                   </Pressable>
                 </View>
               )}
@@ -10305,7 +10305,7 @@ function Memories({
                   hitSlop={8}
                   style={({ pressed }) => [styles.uploadCancel, pressed && styles.controlPressed]}
                 >
-                  <Glyph name="close" size={12} color="#FFFFFF" weight={2.6} />
+                  <Glyph name="close" size={아이콘.작게} color="#FFFFFF" weight={2.6} />
                 </Pressable>
               )}
             </View>
@@ -10583,7 +10583,7 @@ function MemoryTileImage({ photo, uploaded, busy }: { photo: MemoryPhoto; upload
           accessibilityLabel={`${이름} 다시 시도`}
           style={({ pressed }) => [styles.uploadCover, pressed && styles.controlPressed]}
         >
-          <Glyph name="retry" size={18} color="#FFFFFF" weight={2.2} />
+          <Glyph name="retry" size={아이콘.보통} color="#FFFFFF" weight={2.2} />
           <Text numberOfLines={2} style={styles.uploadCoverText}>불러오지 못했어요</Text>
         </Pressable>
       )}
@@ -10661,7 +10661,7 @@ function SectionLabel({
             >
               {action}
             </Text>
-            <Glyph name="arrowRight" size={14} color={theme?.primary ?? "#3F4C8F"} />
+            <Glyph name="arrowRight" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} />
           </View>
         </Pressable>
       )}
@@ -11296,7 +11296,7 @@ function Money({
               style={({ pressed }) => [styles.moneyJump, pressed && styles.controlPressed]}
             >
               <Text style={[styles.moneyJumpText, theme && { color: theme.primary }]}>내역 {expenses.length}건</Text>
-              <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
+              <Glyph name="chevronDown" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />
             </Pressable>
           )}
         </View>
@@ -11320,7 +11320,7 @@ function Money({
                 ? "원"
                 : `${unit.code} · ${amountText(exchangeRate, 2)}원`}
             </Text>
-            {canEdit && <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />}
+            {canEdit && <Glyph name="chevronDown" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} />}
           </Pressable>
           {/* 누구끼리 나누는지가 정산의 전제다. 공간 멤버가 여럿이면 이번
               여행에 누가 갔는지부터 맞아야 아래 숫자가 뜻을 갖는다. */}
@@ -11339,7 +11339,7 @@ function Money({
             <Text numberOfLines={1} style={[styles.moneyCurrencyValue, theme && { color: theme.primary }]}>
               {participants.length}명
             </Text>
-            {canEdit && <Glyph name="chevronDown" size={14} color={theme?.primary ?? "#3F4C8F"} />}
+            {canEdit && <Glyph name="chevronDown" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} />}
           </Pressable>
           {/* 원이 아닐 때만 환산을 낸다. 원이면 같은 숫자를 두 번 보여줄 뿐이다. */}
           {foreign && (
@@ -11450,7 +11450,7 @@ function Money({
               <Text style={[styles.moneyOthersLabel, theme && { color: theme.muted }]}>
                 다른 사람들끼리 {otherTransfers.length}건
               </Text>
-              <Glyph name={othersOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
+              <Glyph name={othersOpen ? "chevronDown" : "chevronRight"} size={아이콘.작게} color={theme?.muted ?? "#646C7A"} />
             </Pressable>
           )}
           {othersOpen && otherTransfers.map((transfer) => (
@@ -11482,7 +11482,7 @@ function Money({
               <Text style={[styles.moneyOthersLabel, theme && { color: theme.muted }]}>
                 주고받은 것 {payments.length}건
               </Text>
-              <Glyph name={doneOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
+              <Glyph name={doneOpen ? "chevronDown" : "chevronRight"} size={아이콘.작게} color={theme?.muted ?? "#646C7A"} />
             </Pressable>
           )}
           {doneOpen && [...payments].reverse().map((payment) => (
@@ -11528,7 +11528,7 @@ function Money({
             <Text style={[styles.moneyOthersLabel, theme && { color: theme.muted }]}>
               낸 돈 · {paidRows.length}명
             </Text>
-            <Glyph name={paidOpen ? "chevronDown" : "chevronRight"} size={14} color={theme?.muted ?? "#646C7A"} />
+            <Glyph name={paidOpen ? "chevronDown" : "chevronRight"} size={아이콘.작게} color={theme?.muted ?? "#646C7A"} />
           </Pressable>
         </View>
         {paidOpen && (
@@ -11603,7 +11603,7 @@ function Money({
               pressed && quickNumber > 0 && styles.controlPressed,
             ]}
           >
-            <Glyph name="plus" size={16} color={quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE"} weight={2.6} />
+            <Glyph name="plus" size={아이콘.보통} color={quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE"} weight={2.6} />
             <Text style={[styles.quickAddButtonText, { color: quickNumber ? "#FFFFFF" : theme?.muted ?? "#9AA1AE" }]}>추가</Text>
           </Pressable>
         </View>
@@ -11694,7 +11694,7 @@ function Money({
             >
               <View style={styles.sectionActionRow}>
                 <Text style={[styles.sectionAction, theme && { color: theme.primary }]}>전체 보기</Text>
-                <Glyph name="arrowRight" size={14} color={theme?.primary ?? "#3F4C8F"} />
+                <Glyph name="arrowRight" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} />
               </View>
             </Pressable>
           )}
@@ -11797,7 +11797,7 @@ function Money({
               지출 {expenses.length}건과 정산을 표로 만들어 저장해요
             </Text>
           </View>
-          <Glyph name="arrowRight" size={16} color={theme?.primary ?? "#3F4C8F"} />
+          <Glyph name="arrowRight" size={아이콘.보통} color={theme?.primary ?? "#3F4C8F"} />
         </Pressable>
       )}
       <DetailSheet
@@ -11929,7 +11929,7 @@ function Money({
                       pressed && styles.controlPressed,
                     ]}
                   >
-                    {joined && <Glyph name="check" size={13} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
+                    {joined && <Glyph name="check" size={아이콘.작게} color={theme?.primary ?? "#3F4C8F"} weight={2.6} />}
                     <Text numberOfLines={1} style={[styles.splitPersonText, theme && { color: joined ? theme.primary : theme.muted }]}>
                       {person}
                     </Text>
@@ -12302,7 +12302,7 @@ function ListMoreButton({
       <Text style={[styles.listMoreText, theme && { color: theme.text }]}>{말}</Text>
       {opens ? (
         <View style={styles.listMoreGlyph}>
-          <Glyph name="chevronRight" size={14} color={theme?.primary ?? "#C0643F"} weight={2.2} />
+          <Glyph name="chevronRight" size={아이콘.작게} color={theme?.primary ?? "#C0643F"} weight={2.2} />
         </View>
       ) : (
         <Text style={[styles.listMoreChevron, theme && { color: theme.primary }]}>{expanded ? "↑" : "↓"}</Text>
@@ -12378,7 +12378,7 @@ function TravelInfoRow({
         </Pressable>
       )}
       <View style={[styles.travelInfoArrowBox, { backgroundColor: `${color}18` }]}>
-        <Glyph name="chevronRight" size={16} color={color} />
+        <Glyph name="chevronRight" size={아이콘.보통} color={color} />
       </View>
     </Pressable>
   );
@@ -12444,7 +12444,7 @@ function TransportCard({
         <View style={styles.transportRouteLine}>
           <View style={[styles.transportRouteDot, { backgroundColor: color }]} />
           <View style={[styles.transportRouteRule, theme && { backgroundColor: theme.border }]} />
-          <Glyph name="chevronRight" size={14} color={color} />
+          <Glyph name="chevronRight" size={아이콘.작게} color={color} />
         </View>
         <View style={[styles.transportStop, styles.transportStopEnd]}>
           <Text numberOfLines={1} style={[styles.transportPlace, theme && { color: theme.text }]}>{leg.arrival}</Text>
@@ -12496,7 +12496,7 @@ function TravelMiniCard({
       <Text numberOfLines={1} style={[styles.travelMiniTitle, theme && { color: theme.text }]}>{title}</Text>
       <View style={styles.travelMiniBottom}>
         <Text numberOfLines={1} style={[styles.travelMiniMeta, theme && { color: theme.muted }]}>{meta}</Text>
-        <Glyph name="chevronRight" size={16} color={color} />
+        <Glyph name="chevronRight" size={아이콘.보통} color={color} />
       </View>
     </Pressable>
   );
@@ -12627,7 +12627,7 @@ function PairedDetailField({
           hitSlop={{ top: 9, bottom: 9, left: 7, right: 7 }}
           style={[styles.pairedFieldArrow, { backgroundColor: accentSoft ?? theme?.primarySoft ?? "#FFF0ED" }]}
         >
-          <Glyph name="arrowRight" size={15} color={accentColor ?? theme?.primary ?? "#FF6B63"} />
+          <Glyph name="arrowRight" size={아이콘.작게} color={accentColor ?? theme?.primary ?? "#FF6B63"} />
         </Pressable>
         <TextInput
           accessibilityLabel={`${label} ${rightPlaceholder}`}
@@ -12790,7 +12790,7 @@ function TimeRow({
           <Text style={[styles.valueRowValue, theme && { color: value ? theme.text : theme.muted }]}>
             {value || "시간 미정"}
           </Text>
-          <Glyph name={열림 ? "chevronDown" : "chevronRight"} size={16} color={theme?.muted ?? "#9AA1AE"} />
+          <Glyph name={열림 ? "chevronDown" : "chevronRight"} size={아이콘.보통} color={theme?.muted ?? "#9AA1AE"} />
         </Pressable>
       </View>
       {열림 && (
@@ -13238,7 +13238,7 @@ function ReportForm({
 function CoverBadge() {
   return (
     <View style={styles.coverBadge} pointerEvents="none">
-      <Glyph name="home" size={9} color="#FFFFFF" />
+      <Glyph name="home" size={아이콘.작게} color="#FFFFFF" />
       <Text style={styles.coverBadgeText}>{COVER_BADGE}</Text>
     </View>
   );
@@ -13370,21 +13370,18 @@ const styles = StyleSheet.create({
     right: 20,
     bottom: 18,
     minHeight: 46,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     backgroundColor: "#17233D",
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 5,
+    ...그림자.뜬것,
   },
-  feedbackToastMark: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FF6B63", marginRight: 8 },
+  feedbackToastMark: { width: 7, height: 7, borderRadius: 모서리.원, backgroundColor: "#FF6B63", marginRight: 8 },
   feedbackToastText: { flex: 1, color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
   feedbackToastAction: { marginLeft: 12, paddingVertical: 6 },
   feedbackToastActionText: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.title.family, textDecorationLine: "underline" },
-  controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
+  controlPressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
 
   detailTitleRow: {
     position: "relative",
@@ -13393,7 +13390,7 @@ const styles = StyleSheet.create({
   tripMemoButton: {
     width: 102,
     minHeight: 72,
-    borderRadius: 4,
+    borderRadius: 모서리.표식,
     borderWidth: 1,
     borderColor: "#E6D38C",
     backgroundColor: "#FFF3B8",
@@ -13451,13 +13448,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 8,
   },
   tripMemoList: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "#FFFFFF",
     padding: 8,
     marginBottom: 16,
     gap: 8,
   },
-  tripMemoRow: { padding: 12, borderWidth: 1, borderColor: "#EEEAE5", borderRadius: 12 },
+  tripMemoRow: { padding: 12, borderWidth: 1, borderColor: "#EEEAE5", borderRadius: 모서리.행 },
   tripMemoRowHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   tripMemoActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   tripMemoEdit: { fontSize: 12, fontFamily: typo.label.family },
@@ -13477,7 +13474,7 @@ const styles = StyleSheet.create({
   memoAddCopy: { flex: 1 },
   memoAddTitle: { fontSize: 14, fontFamily: typo.title.family },
   memoAddHint: { fontSize: 11, marginTop: 2 },
-  memoEditor: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 },
+  memoEditor: { borderWidth: 1, borderRadius: 모서리.행, padding: 12, marginBottom: 12 },
   memoEditorHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   memoEditorTitle: { fontSize: 18, fontFamily: typo.title.family },
   memoEditorCancel: { fontSize: 12, fontFamily: typo.label.family },
@@ -13503,7 +13500,7 @@ const styles = StyleSheet.create({
     left: 28,
     width: 42,
     height: 10,
-    borderRadius: 2,
+    borderRadius: 모서리.표식,
     opacity: 0.22,
     transform: [{ rotate: "-2deg" }],
   },
@@ -13520,7 +13517,7 @@ const styles = StyleSheet.create({
   // 한 줄에 둘씩 놓는다. `maxWidth` 가 없으면 한 장뿐일 때 `flexGrow` 가 그 한 장을
   // 화면 폭까지 늘려, 같은 카드가 상황에 따라 두 배로 커 보인다. 둘일 때의 크기를
   // 그대로 지킨다.
-  transportCard: { flexGrow: 1, flexBasis: "46%", maxWidth: "48%", minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
+  transportCard: { flexGrow: 1, flexBasis: "46%", maxWidth: "48%", minWidth: 0, minHeight: 119, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, overflow: "hidden", position: "relative" },
   transportCardRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3 },
   transportCardHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   transportOwner: { fontSize: 12, fontFamily: typo.label.family },
@@ -13532,11 +13529,11 @@ const styles = StyleSheet.create({
   transportPlace: { fontSize: 12, fontFamily: typo.label.family },
   transportTime: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   transportRouteLine: { width: 31, flexDirection: "row", alignItems: "center", marginHorizontal: 2 },
-  transportRouteDot: { width: 4, height: 4, borderRadius: 999 },
+  transportRouteDot: { width: 4, height: 4, borderRadius: 모서리.원 },
   transportRouteRule: { flex: 1, height: 1 },
   transportRouteArrow: { fontSize: 12, lineHeight: 13, fontFamily: typo.label.family },
   transportReturn: { fontSize: 12, fontFamily: typo.label.family, marginTop: 8 },
-  transportFormPreview: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 },
+  transportFormPreview: { borderWidth: 1, borderRadius: 모서리.행, padding: 12, marginBottom: 16 },
   transportFormOwner: { fontSize: 12, fontFamily: typo.label.family },
   transportPreviewRouteRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
   transportFormRoute: { flex: 1, minWidth: 0, fontSize: 16, fontFamily: typo.label.family },
@@ -13546,14 +13543,14 @@ const styles = StyleSheet.create({
   transportSwitchHintArrow: { fontSize: 14, lineHeight: 16, fontFamily: typo.label.family },
   pairedFieldRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   pairedFieldInput: { flex: 1, minWidth: 0, height: 높이.입력, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14, textAlign: "center" },
-  pairedFieldArrow: { width: 27, height: 27, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  pairedFieldArrow: { width: 27, height: 27, borderRadius: 모서리.상자, alignItems: "center", justifyContent: "center" },
   pairedFieldArrowText: { fontSize: 14, lineHeight: 16, fontFamily: typo.label.family },
   transportStopRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
   transportStopMark: { width: 33, fontSize: 11, fontFamily: typo.caption.family, textAlign: "center" },
-  transportStopName: { flex: 1, minWidth: 0, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 13.5 },
+  transportStopName: { flex: 1, minWidth: 0, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 여백.가로좁게, fontSize: 14 },
   transportStopTime: { width: 74, height: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, paddingHorizontal: 6, fontSize: 13, textAlign: "center" },
   transportStopDelete: { width: 24, alignItems: "center", justifyContent: "center" },
-  transportStopDeleteText: { fontSize: 17, fontFamily: typo.label.family },
+  transportStopDeleteText: { fontSize: 16, fontFamily: typo.label.family },
   transportStopAdd: { alignSelf: "flex-start", minHeight: 높이.칩, justifyContent: "center", marginTop: 6, marginBottom: 6 },
   transportStopAddText: { fontSize: 13, fontFamily: typo.label.family },
   transportDetailBlock: { borderBottomWidth: 1, paddingBottom: 8, marginBottom: 8 },
@@ -13564,7 +13561,7 @@ const styles = StyleSheet.create({
   travelMiniCard: {
     minHeight: 86,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     padding: 12,
     position: "relative",
     overflow: "hidden",
@@ -13577,14 +13574,14 @@ const styles = StyleSheet.create({
     left: "38%",
     width: 27,
     height: 8,
-    borderRadius: 2,
+    borderRadius: 모서리.표식,
     transform: [{ rotate: "-4deg" }],
   },
   travelMiniTop: { flexDirection: "row", alignItems: "center", gap: 6 },
   travelMiniMark: {
     minWidth: 27,
     height: 24,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
@@ -13603,7 +13600,7 @@ const styles = StyleSheet.create({
   travelInfoRow: {
     minHeight: 62,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -13623,13 +13620,13 @@ const styles = StyleSheet.create({
     left: 22,
     width: 24,
     height: 7,
-    borderRadius: 2,
+    borderRadius: 모서리.표식,
     transform: [{ rotate: "-4deg" }],
   },
   travelInfoLabel: {
     width: 48,
     height: 45,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
@@ -13640,13 +13637,13 @@ const styles = StyleSheet.create({
   travelInfoCopy: { flex: 1, minWidth: 0 },
   travelInfoTitle: { fontSize: 14, fontFamily: typo.title.family },
   travelInfoTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  travelInfoBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  travelInfoBadge: { borderRadius: 모서리.표식, paddingHorizontal: 6, paddingVertical: 2 },
   travelInfoBadgeText: { fontSize: 12, fontFamily: typo.label.family },
   travelInfoMeta: { fontSize: 13, fontFamily: typo.caption.family, marginTop: 2 },
   travelInfoArrowBox: {
     width: 27,
     height: 27,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
@@ -13684,7 +13681,7 @@ const styles = StyleSheet.create({
   checkName: { color: "#593934", fontSize: 14, fontFamily: typo.title.family },
   checkNameDone: { color: "#B29B92", textDecorationLine: "line-through" },
   diaryCard: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E8E2DA",
     backgroundColor: "#FFFFFF",
@@ -13727,10 +13724,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   photoStrip: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 },
-  photoStripThumb: { width: 34, height: 34, borderRadius: 6, overflow: "hidden" },
+  photoStripThumb: { width: 34, height: 34, borderRadius: 모서리.표식, overflow: "hidden" },
   photoStripMore: { fontSize: 11, fontFamily: typo.label.family, color: "#6F7888" },
   memoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  memoryTilePhoto: { flex: 1, borderRadius: 4, overflow: "hidden" },
+  memoryTilePhoto: { flex: 1, borderRadius: 모서리.표식, overflow: "hidden" },
   memoryPhotoImage: { position: "absolute", inset: 0, width: "100%", height: "100%" },
   memoryTileGlow: {
     width: "70%",
@@ -13760,15 +13757,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 4,
     right: 4,
-    height: 16,
-    paddingHorizontal: 5,
-    borderRadius: 8,
+    height: 18,
+    paddingHorizontal: 6,
+    borderRadius: 모서리.원,
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
     backgroundColor: "rgba(17,16,15,0.72)",
   },
-  coverBadgeText: { fontSize: 9, color: "#FFFFFF", fontFamily: typo.label.family },
+  coverBadgeText: { fontSize: 11, color: "#FFFFFF", fontFamily: typo.label.family },
   // 아직 올라가는 중인 사진. 홈 표시와 같은 자리에 붙지만 둘이 겹칠 일은 없다
   // (올라가지 않은 사진은 홈에 깔 수 없다).
   uploadBadge: { left: 4, right: undefined },
@@ -13789,7 +13786,7 @@ const styles = StyleSheet.create({
   uploadRound: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(17,16,15,0.55)",
@@ -13799,11 +13796,11 @@ const styles = StyleSheet.create({
   uploadBarTrack: {
     width: "78%",
     height: 4,
-    borderRadius: 2,
+    borderRadius: 모서리.원,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.35)",
   },
-  uploadBarFill: { height: "100%", borderRadius: 2, backgroundColor: "#FFFFFF" },
+  uploadBarFill: { height: "100%", borderRadius: 모서리.표식, backgroundColor: "#FFFFFF" },
   uploadCoverText: { fontSize: 11, color: "#FFFFFF", fontFamily: typo.label.family },
   uploadCancel: {
     position: "absolute",
@@ -13811,7 +13808,7 @@ const styles = StyleSheet.create({
     right: 4,
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(17,16,15,0.7)",
@@ -13837,7 +13834,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  fieldLabelDot: { width: 5, height: 5, borderRadius: 2, marginRight: 6 },
+  fieldLabelDot: { width: 5, height: 5, borderRadius: 모서리.표식, marginRight: 6 },
   detailFieldLabel: {
     color: "#6F7888",
     fontSize: 12,
@@ -13876,7 +13873,7 @@ const styles = StyleSheet.create({
   timePickerIcon: {
     width: 34,
     height: 34,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -13895,7 +13892,7 @@ const styles = StyleSheet.create({
   pairedTimeLabel: { fontSize: 11, fontFamily: typo.label.family, paddingLeft: 2 },
   stayPicker: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 2,
@@ -13910,7 +13907,7 @@ const styles = StyleSheet.create({
   stayPickerValue: { fontSize: 14, fontFamily: typo.data.family },
   // 체크아웃 칸 아래 한 줄. 저장하면 대표 숙소가 어떻게 되는지 미리 말해 준다.
   stayPickerHint: { fontSize: 12, fontFamily: typo.body.family, lineHeight: 18, marginTop: -4, marginBottom: 16 },
-  sheetSubmitDisabled: { opacity: 0.38 },
+  sheetSubmitDisabled: { opacity: 불투명도.비활성 },
   infoLine: {
     minHeight: 58,
     borderBottomWidth: 1,
@@ -13928,7 +13925,7 @@ const styles = StyleSheet.create({
   },
   tripMetaBox: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     padding: 16,
     marginBottom: 16,
   },
@@ -13959,7 +13956,7 @@ const styles = StyleSheet.create({
   // 덩어리로 읽힌다. 전에는 남색 바탕에 반지름 20 이라 머리 밑에 목처럼 걸렸다.
   planPreview: {
     minHeight: 86,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     backgroundColor: "#FFFFFF",
     borderColor: "#E5E3DD",
@@ -13971,7 +13968,7 @@ const styles = StyleSheet.create({
   previewDate: {
     width: 58,
     height: 62,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "#3F4C8F",
     alignItems: "center",
     justifyContent: "center",
@@ -14023,7 +14020,7 @@ const styles = StyleSheet.create({
   savedPlaceChoiceWide: { width: "100%" },
   naverField: {
     backgroundColor: "#E6F5ED",
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
@@ -14080,7 +14077,7 @@ const styles = StyleSheet.create({
   naverLogo: {
     width: 30,
     height: 30,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#03C75A",
     alignItems: "center",
     justifyContent: "center",
@@ -14105,7 +14102,7 @@ const styles = StyleSheet.create({
   resultCount: {
     minWidth: 25,
     height: 25,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#F0EDFF",
     alignItems: "center",
     justifyContent: "center",
@@ -14126,7 +14123,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tagSuggestion: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#ECEAE5",
     borderWidth: 1,
     borderColor: "#DAD6CD",
@@ -14147,7 +14144,7 @@ const styles = StyleSheet.create({
   },
   draftTags: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
   draftTag: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#E9E5FF",
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -14155,7 +14152,7 @@ const styles = StyleSheet.create({
   draftTagText: { fontSize: 12, fontFamily: typo.label.family },
   deleteConfirm: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     padding: 12,
     marginTop: 8,
     gap: 10,
@@ -14181,21 +14178,21 @@ const styles = StyleSheet.create({
   moneyBlockHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 40 },
   moneyBlockTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   moneyBlockTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
-  moneyBlockMeta: { fontSize: 12, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, fontFamily: typo.data.family },
+  moneyBlockMeta: { fontSize: 12, borderRadius: 모서리.원, paddingHorizontal: 8, paddingVertical: 2, fontFamily: typo.data.family },
   moneyBlockAction: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 8 },
   moneyBlockActionText: { fontSize: 13, fontFamily: typo.label.family },
-  moneyBlockBody: { borderWidth: 1, borderRadius: 16, padding: 16 },
+  moneyBlockBody: { borderWidth: 1, borderRadius: 모서리.구역, padding: 16 },
   moneyTotal: { fontSize: 32, marginTop: 2, fontFamily: typo.data.family, letterSpacing: -0.5 },
   moneyTotalUnit: { fontSize: 16, fontFamily: typo.body.family },
   quickAddChips: { gap: 6, paddingVertical: 9, paddingRight: 4 },
-  quickAddChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  quickAddChipText: { fontSize: 12.5, fontFamily: typo.label.family },
+  quickAddChip: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 12, paddingVertical: 6 },
+  quickAddChipText: { fontSize: 13, fontFamily: typo.label.family },
   quickAddRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  quickAddInput: { flex: 1, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, fontFamily: typo.data.family },
-  quickAddButton: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 12, paddingLeft: 12, paddingRight: 14, paddingVertical: 11 },
+  quickAddInput: { flex: 1, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, fontFamily: typo.data.family },
+  quickAddButton: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 모서리.행, paddingLeft: 12, paddingRight: 14, paddingVertical: 11 },
   quickAddButtonText: { fontSize: 14, fontFamily: typo.label.family },
   quickAddHint: { fontSize: 11, marginTop: 8, fontFamily: typo.caption.family },
-  participantRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  participantRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 14, paddingVertical: 12 },
   participantName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
   participantWarn: { fontSize: 11, fontFamily: typo.caption.family },
   splitModes: { flexDirection: "row", gap: 6, marginTop: 8 },
@@ -14215,7 +14212,7 @@ const styles = StyleSheet.create({
   shareField: { marginBottom: 20 },
   shareRows: { gap: 8, marginTop: 10 },
   shareRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  shareName: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, minHeight: 44, minWidth: 72, alignItems: "center", justifyContent: "center" },
+  shareName: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 14, minHeight: 44, minWidth: 72, alignItems: "center", justifyContent: "center" },
   shareNameText: { fontSize: 13, fontFamily: typo.label.family },
   shareWeight: { flexDirection: "row", alignItems: "center", gap: 10 },
   shareWeightValue: { minWidth: 18, textAlign: "center", fontSize: 14, fontFamily: typo.data.family },
@@ -14226,26 +14223,26 @@ const styles = StyleSheet.create({
   moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
   moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.원, paddingLeft: 여백.가로좁게, paddingRight: 9 },
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
-  moneyCurrencyValue: { fontSize: 12.5, fontFamily: typo.label.family },
+  moneyCurrencyValue: { fontSize: 13, fontFamily: typo.label.family },
   moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
-  shoppingCost: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 },
+  shoppingCost: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 모서리.구역, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 },
   shoppingCostCopy: { flex: 1, minWidth: 0 },
   shoppingCostTitle: { fontSize: 13, fontFamily: typo.title.family },
   shoppingCostHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
-  shoppingCostInput: { width: 92, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, textAlign: "right", fontFamily: typo.data.family },
-  shoppingCostButton: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  shoppingCostInput: { width: 92, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, textAlign: "right", fontFamily: typo.data.family },
+  shoppingCostButton: { borderRadius: 모서리.행, paddingHorizontal: 14, paddingVertical: 9 },
   shoppingCostButtonText: { color: "#FFFFFF", fontSize: 13, fontFamily: typo.label.family },
   receiptRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-  receiptThumb: { width: 62, height: 62, borderRadius: 12, overflow: "hidden" },
+  receiptThumb: { width: 62, height: 62, borderRadius: 모서리.행, overflow: "hidden" },
   receiptEmpty: { borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   receiptEmptyText: { fontSize: 11, fontFamily: typo.caption.family },
   receiptActions: { flexDirection: "row", alignItems: "center", gap: 12 },
-  receiptButton: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  receiptButton: { borderRadius: 모서리.원, paddingHorizontal: 14, paddingVertical: 8 },
   receiptButtonText: { fontSize: 12, fontFamily: typo.label.family },
   receiptRemove: { fontSize: 12, fontFamily: typo.label.family },
   moneyBudgetLabel: { fontSize: 11, fontFamily: typo.label.family },
-  moneyBudgetTrack: { height: 7, borderRadius: 4, overflow: "hidden", marginTop: 7 },
-  moneyBudgetFill: { height: 7, borderRadius: 4 },
+  moneyBudgetTrack: { height: 7, borderRadius: 모서리.원, overflow: "hidden", marginTop: 7 },
+  moneyBudgetFill: { height: 7, borderRadius: 모서리.원 },
   moneyBudgetFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   moneyBudgetStatus: { fontSize: 11, fontFamily: typo.caption.family },
   moneyBudgetPercent: { fontSize: 11, fontFamily: typo.data.family },
@@ -14273,10 +14270,10 @@ const styles = StyleSheet.create({
   moneyOtherUndo: { fontSize: 13, fontFamily: typo.label.family },
   moneySettleCopyButton: { minHeight: 높이.버튼, borderWidth: 1, borderRadius: 모서리.버튼, alignItems: "center", justifyContent: "center", marginTop: 4 },
   moneySettleCopyText: { fontSize: 13, fontFamily: typo.label.family },
-  payWhy: { gap: 4, borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 16 },
+  payWhy: { gap: 4, borderWidth: 1, borderRadius: 모서리.행, padding: 14, marginBottom: 16 },
   payWhyLabel: { fontSize: 12, fontFamily: typo.caption.family },
   payWhyLine: { fontSize: 13, lineHeight: 19, fontFamily: typo.label.family },
-  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  moneySettle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderRadius: 모서리.행, paddingHorizontal: 14, paddingVertical: 12 },
   moneySettleText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
   moneySettleAmount: { fontSize: 20, fontFamily: typo.data.family },
   moneyInsightGrid: { flexDirection: "row" },
@@ -14288,8 +14285,8 @@ const styles = StyleSheet.create({
   moneyCategoryCard: { marginTop: 12 },
   moneyCategoryRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 높이.버튼, paddingHorizontal: 6, borderRadius: 모서리.버튼 },
   moneyCategoryName: { width: 44, fontSize: 12, fontFamily: typo.label.family },
-  moneyBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
-  moneyBarFill: { height: 6, borderRadius: 3 },
+  moneyBarTrack: { flex: 1, height: 6, borderRadius: 모서리.원, overflow: "hidden" },
+  moneyBarFill: { height: 6, borderRadius: 모서리.원 },
   moneyCategoryAmount: { minWidth: 58, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
   moneyCategoryPercent: { minWidth: 30, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
   moneyCategoryHint: { fontSize: 12, fontFamily: typo.caption.family, paddingHorizontal: 6, paddingTop: 4, paddingBottom: 7 },
@@ -14304,13 +14301,13 @@ const styles = StyleSheet.create({
   moneyGroupHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingHorizontal: 2 },
   moneyGroupDay: { fontSize: 13, fontFamily: typo.title.family },
   moneyGroupTotal: { fontSize: 12, fontFamily: typo.data.family },
-  moneyRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
-  moneyRowExcluded: { opacity: 0.45 },
+  moneyRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 11 },
+  moneyRowExcluded: { opacity: 불투명도.흐림 },
   moneyRowBody: { flex: 1, minWidth: 0 },
   moneyRowTitle: { fontSize: 14, fontFamily: typo.title.family },
   moneyRowMeta: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
   moneyRowAmount: { fontSize: 14, fontFamily: typo.data.family },
-  moneyExport: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 12 },
+  moneyExport: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 14, paddingVertical: 12, marginTop: 12 },
   moneyExportTitle: { fontSize: 13, fontFamily: typo.title.family },
   moneyExportHint: { fontSize: 11, marginTop: 2, fontFamily: typo.caption.family },
   fullScheduleList: { maxHeight: 520 },
@@ -14328,12 +14325,9 @@ const styles = StyleSheet.create({
   scheduleDayChipCount: { fontSize: 11, fontFamily: typo.data.family },
   scheduleDayGroup: {
     marginBottom: 18,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     overflow: "hidden",
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 3,
+    ...그림자.카드,
   },
   scheduleDayHead: {
     minHeight: 58,
@@ -14346,12 +14340,12 @@ const styles = StyleSheet.create({
   scheduleDayHeadCopy: { gap: 2 },
   scheduleDayLabel: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 0.5 },
   scheduleDayTitle: { fontSize: 16, fontFamily: typo.title.family },
-  scheduleDayCountBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
+  scheduleDayCountBadge: { borderRadius: 모서리.원, paddingHorizontal: 9, paddingVertical: 5 },
   scheduleDayCount: { fontSize: 11, fontFamily: typo.label.family },
   scheduleDayItem: { marginHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
   scheduleDayItemGap: { marginTop: 8 },
   planPlaceSummary: {
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     backgroundColor: "#E9E5FF",
     padding: 16,
     marginBottom: 20,
@@ -14374,14 +14368,14 @@ const styles = StyleSheet.create({
   packingManageHint: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
   packingShowAll: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   packingShowAllText: { fontSize: 12, fontFamily: typo.label.family },
   ownerStatSlot: { flex: 1, flexDirection: "row", alignItems: "center" },
   ownerStat: { flex: 1, alignItems: "center" },
-  ownerStatActive: { borderRadius: 8, paddingVertical: 8 },
+  ownerStatActive: { borderRadius: 모서리.상자, paddingVertical: 8 },
   ownerStatName: { fontSize: 14, fontFamily: typo.title.family },
   ownerStatCount: {
     color: "#89909C",
@@ -14393,7 +14387,7 @@ const styles = StyleSheet.create({
   ownerDivider: { width: 1, height: 26, backgroundColor: "#ECEAE5" },
   packingFilterBoard: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginBottom: 20,
@@ -14407,14 +14401,14 @@ const styles = StyleSheet.create({
   packingFilterScroll: { flex: 1 },
   packingFilterRule: { height: StyleSheet.hairlineWidth },
   packingFilterChip: {
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   packingFilterChipText: { fontSize: 12, fontFamily: typo.label.family },
   packingFilterMore: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
@@ -14425,7 +14419,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 2,
     borderLeftWidth: 4,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
@@ -14437,7 +14431,7 @@ const styles = StyleSheet.create({
   packingOwnerAvatar: {
     width: 31,
     height: 31,
-    borderRadius: 16,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
@@ -14461,11 +14455,11 @@ const styles = StyleSheet.create({
   },
   packingTagCount: { fontSize: 14, fontFamily: typo.data.family },
   packingCardDone: { backgroundColor: "#F1F0EC", opacity: 0.76 },
-  packingCardPressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
+  packingCardPressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
   completionMark: {
     width: 26,
     height: 26,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
@@ -14484,7 +14478,7 @@ const styles = StyleSheet.create({
   },
   packingTiming: { fontSize: 12, fontFamily: typo.label.family },
   packingOwnerChange: {
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -14493,7 +14487,7 @@ const styles = StyleSheet.create({
   packingJourney: {
     minHeight: 82,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     marginTop: 0,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -14503,7 +14497,7 @@ const styles = StyleSheet.create({
   packingJourneyStamp: {
     width: 49,
     height: 54,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -14522,7 +14516,7 @@ const styles = StyleSheet.create({
     width: 31,
     height: 34,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     overflow: "hidden",
     flexDirection: "row",
     justifyContent: "center",
@@ -14538,7 +14532,7 @@ const styles = StyleSheet.create({
     top: 5,
     width: 10,
     height: 10,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -14568,15 +14562,15 @@ const styles = StyleSheet.create({
   packingJourneyTrack: {
     flex: 1,
     height: 6,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     position: "relative",
     marginHorizontal: 6,
   },
   packingJourneyProgressRow: { flexDirection: "row", alignItems: "center" },
-  packingJourneyFill: { height: 6, borderRadius: 999 },
+  packingJourneyFill: { height: 6, borderRadius: 모서리.원 },
   packingV2Controls: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     marginTop: 12,
     marginBottom: 12,
     padding: 8,
@@ -14592,13 +14586,13 @@ const styles = StyleSheet.create({
   packingV2StatusChip: {
     minHeight: 높이.칩,
     borderRadius: 모서리.원,
-    paddingHorizontal: 여백.세로좁게,
+    paddingHorizontal: 여백.가로좁게,
     paddingVertical: 6,
     justifyContent: "center",
   },
   packingV2TagButton: {
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 6,
     flexDirection: "row",
@@ -14620,7 +14614,7 @@ const styles = StyleSheet.create({
   packingV2OwnerChip: {
     minWidth: 57,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 8,
     paddingVertical: 6,
     flexDirection: "row",
@@ -14632,7 +14626,7 @@ const styles = StyleSheet.create({
   packingV2OwnerCount: { fontSize: 14, fontFamily: typo.data.family },
   packingV2Group: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     overflow: "hidden",
   },
   packingV2GroupHead: {
@@ -14642,10 +14636,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  packingV2GroupHeadPressed: { opacity: 0.72 },
+  packingV2GroupHeadPressed: { opacity: 불투명도.눌림 },
   packingV2GroupTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   packingV2GroupSticker: {
-    borderRadius: 4,
+    borderRadius: 모서리.표식,
     paddingHorizontal: 6,
     paddingVertical: 2,
     transform: [{ rotate: "-2deg" }],
@@ -14671,7 +14665,7 @@ const styles = StyleSheet.create({
   packingV2GroupTitle: { fontSize: 14, fontFamily: typo.title.family },
   packingV2GroupProgress: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
   packingV2GroupCount: {
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -14686,7 +14680,7 @@ const styles = StyleSheet.create({
   packingV2Check: {
     width: 23,
     height: 23,
-    borderRadius: 12,
+    borderRadius: 모서리.원,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
@@ -14701,7 +14695,7 @@ const styles = StyleSheet.create({
   packingDuplicateHint: { fontSize: 12, fontFamily: typo.label.family, marginTop: -4, marginBottom: 12 },
   packingV2Assignee: {
     minWidth: 38,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     paddingHorizontal: 8,
     paddingVertical: 6,
     alignItems: "center",
@@ -14709,7 +14703,7 @@ const styles = StyleSheet.create({
   },
   packingV2Completed: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     overflow: "hidden",
   },
   packingV2CompletedHead: {
@@ -14764,7 +14758,7 @@ const styles = StyleSheet.create({
   assignmentOption: {
     minHeight: 68,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -14772,7 +14766,7 @@ const styles = StyleSheet.create({
   assignmentAvatar: {
     width: 39,
     height: 39,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -14784,24 +14778,24 @@ const styles = StyleSheet.create({
   assignmentRadio: {
     width: 20,
     height: 20,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
   },
-  assignmentRadioDot: { width: 10, height: 10, borderRadius: 999 },
+  assignmentRadioDot: { width: 10, height: 10, borderRadius: 모서리.원 },
   packingAssigneeOptions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   packingAssigneeOption: {
     minWidth: "22%",
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 8,
     paddingVertical: 8,
     alignItems: "center",
   },
   packingAssigneeOptionText: { maxWidth: 96, fontSize: 12, fontFamily: typo.label.family },
   cookingImportCallout: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E5E3DD",
     backgroundColor: "#F6F2ED",
@@ -14814,7 +14808,7 @@ const styles = StyleSheet.create({
   cookingImportTitle: { fontSize: 14, fontFamily: typo.title.family },
   cookingImportText: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
   cookingImportGroup: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E5E3DD",
     backgroundColor: "#FFFFFF",
@@ -14841,7 +14835,7 @@ const styles = StyleSheet.create({
   cookingImportCheck: {
     width: 21,
     height: 21,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     borderWidth: 1.5,
     borderColor: "#D7D4CE",
     alignItems: "center",
@@ -14863,7 +14857,7 @@ const styles = StyleSheet.create({
   cookV2ProgressBadge: {
     width: 64,
     minHeight: 58,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 8,
@@ -14885,7 +14879,7 @@ const styles = StyleSheet.create({
     width: 124,
     minHeight: 56,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -14900,7 +14894,7 @@ const styles = StyleSheet.create({
   cookV2MenuName: { fontSize: 14, fontFamily: typo.title.family },
   cookV2MenuNote: { fontSize: 14, fontFamily: typo.body.family, marginTop: 4 },
   recipeList: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E5DED6",
     backgroundColor: "#FFFFFF",
@@ -14916,7 +14910,7 @@ const styles = StyleSheet.create({
   recipeListNumber: {
     width: 27,
     height: 27,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#F6F2ED",
     alignItems: "center",
     justifyContent: "center",
@@ -14929,7 +14923,7 @@ const styles = StyleSheet.create({
   recipeListCount: { fontSize: 14, fontFamily: typo.data.family, marginLeft: 8 },
   recipeListArrow: { color: "#8C8580", fontSize: 18, fontFamily: typo.label.family, marginLeft: 6 },
   myCookingBox: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E5DED6",
     backgroundColor: "#FFFFFF",
@@ -14943,7 +14937,7 @@ const styles = StyleSheet.create({
   myCookingIcon: {
     width: 32,
     height: 32,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "#F0EDFF",
     alignItems: "center",
     justifyContent: "center",
@@ -14955,13 +14949,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 2,
   },
-  cookV2MemoDot: { width: 3, height: 3, borderRadius: 2 },
-  cookV2MemoRule: { width: 15, height: 1.5, borderRadius: 2, opacity: 0.5 },
+  cookV2MemoDot: { width: 3, height: 3, borderRadius: 모서리.원 },
+  cookV2MemoRule: { width: 15, height: 1.5, borderRadius: 모서리.원, opacity: 0.5 },
   cookV2MemoRuleShort: { width: 10 },
   cookV2MyEyebrow: { fontSize: 12, fontFamily: typo.label.family, letterSpacing: 0.5, marginBottom: 2 },
   myCookingCopy: { flex: 1, minWidth: 0 },
   myIngredientGroup: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E5DED6",
     backgroundColor: "#FFFFFF",
@@ -14987,7 +14981,7 @@ const styles = StyleSheet.create({
   myIngredientName: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typo.title.family },
   myIngredientQuantity: { flexShrink: 0, marginLeft: 8, fontSize: 14, fontFamily: typo.data.family },
   aiRecipeCallout: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E5DED6",
     backgroundColor: "#F6F2ED",
@@ -15000,14 +14994,14 @@ const styles = StyleSheet.create({
   aiRecipeTitle: { fontSize: 14, fontFamily: typo.title.family },
   aiRecipeText: { fontSize: 12, fontFamily: typo.label.family, lineHeight: 15, marginTop: 2 },
   aiRecipeButton: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#F0EDFF",
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
   aiRecipeButtonText: { fontSize: 14, fontFamily: typo.label.family },
   aiPromptBox: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#E5DED6",
     backgroundColor: "#F6F2ED",
@@ -15016,7 +15010,7 @@ const styles = StyleSheet.create({
   },
   aiPromptHead: { flexDirection: "row", alignItems: "center" },
   aiPromptCopyButton: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#17233D",
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -15047,7 +15041,7 @@ const styles = StyleSheet.create({
   recipeLinkText: { fontSize: 14, fontFamily: typo.label.family },
   emptyCooking: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     paddingVertical: 40,
     alignItems: "center",
     borderWidth: 1,
@@ -15074,7 +15068,7 @@ const styles = StyleSheet.create({
   cookingMoreButton: {
     width: 30,
     height: 24,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -15104,7 +15098,7 @@ const styles = StyleSheet.create({
   },
   cookV2SectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   cookV2SectionTitle: { marginBottom: 0 },
-  cookV2SectionLabel: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
+  cookV2SectionLabel: { borderRadius: 모서리.표식, paddingHorizontal: 6, paddingVertical: 4 },
   cookV2SectionLabelText: { fontSize: 12, fontFamily: typo.label.family },
   cookV2SectionActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   cookV2SectionCount: { fontSize: 14, fontFamily: typo.data.family },
@@ -15116,11 +15110,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#F2EEE9",
   },
-  cookV2IngredientDone: { opacity: 0.68 },
+  cookV2IngredientDone: { opacity: 불투명도.흐림 },
   cookV2IngredientCheck: {
     width: 23,
     height: 23,
-    borderRadius: 12,
+    borderRadius: 모서리.원,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",
@@ -15132,9 +15126,9 @@ const styles = StyleSheet.create({
   ingredientName: { fontSize: 14, fontFamily: typo.title.family },
   ingredientOwner: { fontSize: 12, marginTop: 2 },
   ingredientQuantity: { fontSize: 14, fontFamily: typo.data.family },
-  emptyState: { minHeight: 76, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center" },
-  emptyStateMark: { width: 34, height: 38, borderRadius: 8, paddingHorizontal: 6, justifyContent: "center", gap: 4, marginRight: 8, transform: [{ rotate: "-2deg" }] },
-  emptyStateLine: { height: 2, borderRadius: 2, opacity: 0.55 },
+  emptyState: { minHeight: 76, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", alignItems: "center" },
+  emptyStateMark: { width: 34, height: 38, borderRadius: 모서리.상자, paddingHorizontal: 6, justifyContent: "center", gap: 4, marginRight: 8, transform: [{ rotate: "-2deg" }] },
+  emptyStateLine: { height: 2, borderRadius: 모서리.원, opacity: 0.55 },
   emptyStateLineShort: { width: "65%" },
   emptyStateCopy: { flex: 1, minWidth: 0 },
   emptyStateTitle: { fontSize: 18, fontFamily: typo.title.family },
@@ -15180,13 +15174,13 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 20 },
   modeText: { color: "#7C8492", fontSize: 14, fontFamily: typo.label.family },
   /** 탭 이름 옆 개수. 들어가 보지 않아도 어디에 뭐가 있는지 알게 한다. */
-  modeCount: { color: "#8B92A0", fontSize: 10.5, fontFamily: typo.data.family, marginTop: 1 },
+  modeCount: { color: "#8B92A0", fontSize: 11, fontFamily: typo.data.family, marginTop: 1 },
   modeTextCurrent: { },
   sectionAction: { fontSize: 14, fontFamily: typo.label.family },
   dot: {
     width: 8,
     height: 8,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     backgroundColor: "#19B6A3",
     marginTop: 2,
   },
@@ -15209,7 +15203,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 13,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     backgroundColor: "#3F4C8F",
     shadowColor: "#17233D",
     shadowOpacity: 0.28,
@@ -15217,13 +15211,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 6,
   },
-  moneyFabPressed: { opacity: 0.85 },
+  moneyFabPressed: { opacity: 불투명도.눌림 },
   // 금액이 길어져도 바로 가기가 밀려나지 않게 금액 쪽이 줄어든다.
   moneyTotalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   moneyJump: { flexDirection: "row", alignItems: "center", gap: 3, paddingVertical: 4, flexShrink: 0 },
   moneyTotalShrink: { flexShrink: 1 },
   moneyJumpText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
-  moneyFabText: { fontSize: 13.5, fontFamily: typo.title.family },
+  moneyFabText: { fontSize: 14, fontFamily: typo.title.family },
   date: { fontSize: 11, fontFamily: typo.caption.family, letterSpacing: 0, marginBottom: 6 },
   title: { fontSize: 28, fontFamily: typo.title.family, letterSpacing: -0.5 },
   subtitle: { fontSize: 11, marginTop: 6 },
@@ -15234,7 +15228,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: 12,
     padding: 3,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#DEDCD5",
   },
@@ -15254,12 +15248,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   modeCurrent: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     borderWidth: 1,
     shadowOpacity: 0,
     elevation: 0,
   },
-  sectionActionHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.세로좁게 },
+  sectionActionHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.가로좁게 },
   sectionActionRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   sectionLabel: {
     minHeight: 42,
@@ -15284,7 +15278,7 @@ const styles = StyleSheet.create({
     fontFamily: typo.data.family,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     overflow: "hidden",
   },
   tabActionButton: {
@@ -15297,7 +15291,7 @@ const styles = StyleSheet.create({
   tabActionButtonText: { fontSize: 14, fontFamily: typo.label.family },
   tabActionReadOnly: { flexShrink: 1, marginLeft: 12, fontSize: 12, textAlign: "right", fontFamily: typo.caption.family },
   sectionTitle: { fontSize: 18, lineHeight: 23, fontFamily: typo.title.family, letterSpacing: -0.5 },
-  timelineCard: { borderRadius: 12, padding: 12, borderWidth: 1 },
+  timelineCard: { borderRadius: 모서리.행, padding: 12, borderWidth: 1 },
   fullScheduleButton: {
     height: 높이.버튼,
     borderRadius: 모서리.버튼,
@@ -15311,7 +15305,7 @@ const styles = StyleSheet.create({
   },
   readyNudge: {
     minHeight: 67,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     marginTop: 8,
     paddingHorizontal: 16,
     borderWidth: 1,
@@ -15321,7 +15315,7 @@ const styles = StyleSheet.create({
   },
   placeControlPanel: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     padding: 8,
     marginBottom: 12,
   },
@@ -15350,7 +15344,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     padding: 10,
     marginBottom: 12,
   },
@@ -15362,7 +15356,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  placeAdd: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  placeAdd: { borderRadius: 모서리.상자, paddingHorizontal: 12, paddingVertical: 8 },
   placeSearch: {
     height: 높이.버튼,
     borderRadius: 모서리.버튼,
@@ -15377,14 +15371,14 @@ const styles = StyleSheet.create({
   tagFilterChip: {
     height: 높이.칩,
     borderRadius: 모서리.원,
-    paddingHorizontal: 여백.세로좁게,
+    paddingHorizontal: 여백.가로좁게,
     alignItems: "center",
     justifyContent: "center",
   },
-  placeTag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
+  placeTag: { borderRadius: 모서리.표식, paddingHorizontal: 6, paddingVertical: 4 },
   ownerStats: {
     minHeight: 61,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -15392,7 +15386,7 @@ const styles = StyleSheet.create({
   },
   packingCard: {
     minHeight: 58,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderWidth: 1,
@@ -15400,13 +15394,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cookingHero: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     padding: 16,
     flexDirection: "row",
     justifyContent: "space-between",
   },
   cookingSection: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
@@ -15414,14 +15408,14 @@ const styles = StyleSheet.create({
   },
   photoPickerPreview: {
     height: 176,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     overflow: "hidden",
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
   },
-  photoPickerMark: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  photoPickerMark: { borderRadius: 모서리.원, paddingHorizontal: 16, paddingVertical: 8 },
   photoPickerMarkText: { fontSize: 12, fontFamily: typo.label.family },
   // 고치는 창의 사진. 세로로 긴 사진도 통째로 보이게 `contain` 으로 그리고, 높이는
   // 막아 둔다. 사진이 화면을 다 먹으면 아래의 날짜·설명·홈 지정이 보이지 않는다.
@@ -15429,7 +15423,7 @@ const styles = StyleSheet.create({
     width: "100%",
     aspectRatio: 1.2,
     maxHeight: 260,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     overflow: "hidden",
     alignItems: "center",
@@ -15443,7 +15437,7 @@ const styles = StyleSheet.create({
     marginTop: -16,
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 모서리.원,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(17,16,15,0.45)",
@@ -15454,14 +15448,14 @@ const styles = StyleSheet.create({
   photoViewerCaption: { flex: 1, fontSize: 13, fontFamily: typo.label.family },
   // 방금 고른 사진들. 한 줄로 늘어놓고 옆으로 밀어 본다.
   photoDraftRow: { gap: 8, paddingRight: 6, paddingVertical: 2, marginBottom: 14 },
-  photoDraft: { width: 104, height: 104, borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  photoDraft: { width: 104, height: 104, borderRadius: 모서리.행, borderWidth: 1, overflow: "hidden" },
   uploadLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", rowGap: 2 },
   photoRepick: { alignItems: "center", paddingVertical: 8 },
   photoRepickText: { fontSize: 13, color: "#3F4C8F", fontFamily: typo.label.family },
   // 홈 화면에 쓰는 줄. 켜지면 테두리와 글자 색이 함께 바뀐다.
   coverRow: {
     minHeight: 46,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     paddingHorizontal: 12,
     flexDirection: "row",
@@ -15474,7 +15468,7 @@ const styles = StyleSheet.create({
   memoryTile: {
     width: "31.4%",
     aspectRatio: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     padding: 8,
     justifyContent: "flex-end",
     transform: [{ rotate: "-.5deg" }],
@@ -15496,7 +15490,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   placeMiniCard: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 11,
@@ -15506,30 +15500,30 @@ const styles = StyleSheet.create({
     gap: 10,
     position: "relative",
   },
-  placeMiniTape: { position: "absolute", width: 38, height: 8, top: -4, left: 18, borderRadius: 2, transform: [{ rotate: "-3deg" }] },
+  placeMiniTape: { position: "absolute", width: 38, height: 8, top: -4, left: 18, borderRadius: 모서리.표식, transform: [{ rotate: "-3deg" }] },
   placeMiniTop: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center" },
-  placeMiniStamp: { width: 34, height: 34, borderRadius: 12, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-2deg" }] },
+  placeMiniStamp: { width: 34, height: 34, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-2deg" }] },
   placeMiniNumber: { fontSize: 14, fontFamily: typo.data.family },
   placeMiniInfo: { flex: 1, minWidth: 0 },
   placeMiniTitleRow: { flexDirection: "row", alignItems: "center" },
   placeMiniName: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: typo.title.family },
-  placeMiniStatus: { height: 21, borderRadius: 8, paddingHorizontal: 6, alignItems: "center", justifyContent: "center", marginLeft: 6 },
+  placeMiniStatus: { height: 21, borderRadius: 모서리.상자, paddingHorizontal: 6, alignItems: "center", justifyContent: "center", marginLeft: 6 },
   /** 제목 줄 오른쪽의 할 일. 배지와 같은 자리에 놓여 배지보다 조금 크다. 손가락 자리는 hitSlop 으로 채운다. */
-  placeMiniAction: { height: 28, borderRadius: 999, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", marginLeft: 8 },
+  placeMiniAction: { height: 28, borderRadius: 모서리.원, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", marginLeft: 8 },
   placeMiniActionText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniStatusText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMeta: { flexShrink: 1, fontSize: 11, fontFamily: typo.caption.family },
   placeMiniMemo: { fontSize: 12, fontFamily: typo.body.family, marginTop: 4 },
   // 예약 배지는 줄 하나를 통째로 쓰지 않는다. 글자만큼만 차지하게 왼쪽에 붙인다.
-  placeMiniBooking: { alignSelf: "flex-start", height: 21, borderRadius: 8, paddingHorizontal: 6, justifyContent: "center", marginTop: 4 },
+  placeMiniBooking: { alignSelf: "flex-start", height: 21, borderRadius: 모서리.상자, paddingHorizontal: 6, justifyContent: "center", marginTop: 4 },
   placeMiniBookingText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniTags: { minHeight: 22, flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
-  placeMiniTag: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4 },
+  placeMiniTag: { borderRadius: 모서리.표식, paddingHorizontal: 6, paddingVertical: 4 },
   placeMiniTagText: { fontSize: 12, fontFamily: typo.label.family },
   placeMiniMore: { fontSize: 14, fontFamily: typo.label.family, marginLeft: 2 },
   placeMiniMetaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
-  placeMiniIconButton: { minWidth: 47, height: 44, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniIconButton: { minWidth: 47, height: 44, borderRadius: 모서리.상자, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniEditText: { fontSize: 12, fontFamily: typo.label.family },
-  placeMiniMapButton: { height: 28, borderRadius: 7, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  placeMiniMapButton: { height: 28, borderRadius: 모서리.상자, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   placeMiniMapText: { fontSize: 12, fontFamily: typo.label.family },
 });

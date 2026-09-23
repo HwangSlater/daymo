@@ -6,6 +6,7 @@ import { DaymoApiError } from "./auth";
 import { trashLeftLabel, type ServerTrashItem } from "./memorySync";
 import { listTrash, restoreFromTrash } from "./serverData";
 import type { AppTheme } from "./theme";
+import { 모서리, 불투명도 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 type Props = {
@@ -98,7 +99,7 @@ export function TripTrash({ tripId, appTheme, onRestored, notify }: Props) {
                   hitSlop={8}
                   onPress={() => void restore(item)}
                 >
-                  <Text style={[styles.action, { color: primary }, busyId === item.id && { opacity: 0.5 }]}>되돌리기</Text>
+                  <Text style={[styles.action, { color: primary }, busyId === item.id && { opacity: 불투명도.흐림 }]}>되돌리기</Text>
                 </Pressable>
               ) : (
                 <Text style={[styles.meta, { color: muted }]}>올린 사람과 관리자만 되돌릴 수 있어요</Text>
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
   wrap: { marginBottom: 16 },
   toggle: { alignSelf: "flex-start", paddingVertical: 4 },
   toggleText: { fontSize: typo.label.size, fontFamily: typo.label.family },
-  list: { marginTop: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
+  list: { marginTop: 8, borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 4 },
   loading: { paddingVertical: 12 },
   empty: { fontSize: typo.caption.size, paddingVertical: 12, textAlign: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },

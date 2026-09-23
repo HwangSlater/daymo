@@ -78,7 +78,7 @@ import * as ExpoCrypto from "expo-crypto";
 import { Segment } from "./ui/Segment";
 import { OptionalFormSection } from "./ui/OptionalFormSection";
 import { showAlert } from "./showAlert";
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { domain, kindColor, onAccent, paperCard, status as statusColor, tripTone } from "./theme/colors";
 import { cancelAccountDeletion, changePassword, DaymoApiError, INSTALLATION_KEY, isEmailLike, isReconfirmCancelled, linkSocialAccount, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PRIVACY_URL, TERMS_URL, login, logout, refreshMe, requestAccountDeletion, requestEmailChange, requestPasswordReset, resendEmailVerification, restoreSession, signUp, socialLogin, socialProviders, updateDisplayName, type AuthUser, type Reconfirm, type RequestPace } from "./auth";
@@ -2182,7 +2182,7 @@ function AuthScreen({
                 style={[s.authConsentRow, s.authConsentAll, { borderBottomColor: theme.border }]}
               >
                 <View style={[s.authConsentCheck, { borderColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.border, backgroundColor: termsAgreed && privacyAgreed && ageAgreed ? theme.primary : theme.surface }]}>
-                  {termsAgreed && privacyAgreed && ageAgreed && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+                  {termsAgreed && privacyAgreed && ageAgreed && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
                 </View>
                 <Text style={[s.authConsentAllText, { color: theme.text }]}>모두 동의</Text>
               </Pressable>
@@ -2200,7 +2200,7 @@ function AuthScreen({
                     style={[s.authConsentRow, { flex: 1 }]}
                   >
                     <View style={[s.authConsentCheck, { borderColor: consent.checked ? theme.primary : theme.border, backgroundColor: consent.checked ? theme.primary : theme.surface }]}>
-                      {consent.checked && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+                      {consent.checked && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
                     </View>
                     <Text style={[s.authConsentText, { color: theme.text }]}>{consent.label}</Text>
                   </Pressable>
@@ -2605,7 +2605,7 @@ function AccountDeletionPanel({
         style={s.authConsentRow}
       >
         <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
-          {understood && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+          {understood && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
         </View>
         <Text style={[s.authConsentText, { color: theme.text }]}>위 내용을 확인했어요</Text>
       </Pressable>
@@ -3141,7 +3141,7 @@ function NotebookHome({
                   <Text numberOfLines={2} style={[s.homeArchiveNote, { color: theme.muted }]}>{item.note}</Text>
                   <View style={s.homeArchiveAction}>
                     <Text style={[s.homeArchiveActionText, { color: tripTone(item.tone, theme.dark).ink }]}>기록 보기</Text>
-                    <Glyph name="chevronRight" size={14} color={tripTone(item.tone, theme.dark).ink} />
+                    <Glyph name="chevronRight" size={아이콘.작게} color={tripTone(item.tone, theme.dark).ink} />
                   </View>
                 </Pressable>
               ))}
@@ -3161,7 +3161,7 @@ function NotebookHome({
               { backgroundColor: theme.primarySoft },
             ]}
           >
-            <Glyph name="plus" size={20} color={theme.primary} weight={2.2} />
+            <Glyph name="plus" size={아이콘.크게} color={theme.primary} weight={2.2} />
           </View>
           <Text style={[s.homeEmptyTripTitle, { color: theme.text }]}>다음 여행을 한 장 만들어 볼까요?</Text>
           <Text style={[s.homeEmptyTripCopy, { color: theme.muted }]}>
@@ -3392,7 +3392,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open, onDraggin
               }} />
             </PaperPeel>
             {!active && <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
-              backgroundColor: "#30271C", borderRadius: 4, opacity: motion.underShade,
+              backgroundColor: "#30271C", borderRadius: 모서리.표식, opacity: motion.underShade,
             }]} />}
           </View>;
         })}
@@ -3417,7 +3417,7 @@ function HomeTripCarousel({ trips, initialTrip, theme, todayKey, open, onDraggin
             style={{
               width: here ? 16 : 6,
               height: 6,
-              borderRadius: 999,
+              borderRadius: 모서리.원,
               backgroundColor: here ? theme.primary : theme.border,
             }}
           />;
@@ -3740,7 +3740,7 @@ function MemoRow({
           {meta}
         </Text>
       </View>
-      <Glyph name="chevronRight" size={16} color={theme.muted} />
+      <Glyph name="chevronRight" size={아이콘.보통} color={theme.muted} />
     </Pressable>
   );
 }
@@ -4510,7 +4510,7 @@ function TripRows({
               { backgroundColor: theme.primarySoft },
             ]}
           >
-            <Glyph name="chevronRight" size={16} color={theme.primary} />
+            <Glyph name="chevronRight" size={아이콘.보통} color={theme.primary} />
           </View>
         </Pressable>
       ))}
@@ -4935,7 +4935,7 @@ function KoreaTripMap({
                       {trip.date}
                     </Text>
                   </View>
-                  <Glyph name="chevronRight" size={18} color={theme.secondary} />
+                  <Glyph name="chevronRight" size={아이콘.보통} color={theme.secondary} />
                 </Pressable>
               ))}
             </ScrollView>
@@ -4964,7 +4964,7 @@ function KoreaTripMap({
             zoom <= 1 && s.zoomButtonDisabled,
           ]}
         >
-          <Glyph name="minus" size={18} color={theme.text} weight={2.4} />
+          <Glyph name="minus" size={아이콘.보통} color={theme.text} weight={2.4} />
         </Pressable>
         <View style={[s.zoomDivider, { backgroundColor: theme.border }]} />
         <Pressable
@@ -4987,7 +4987,7 @@ function KoreaTripMap({
             zoom >= MAP_MAX_ZOOM && s.zoomButtonDisabled,
           ]}
         >
-          <Glyph name="plus" size={16} color={theme.text} weight={2.2} />
+          <Glyph name="plus" size={아이콘.보통} color={theme.text} weight={2.2} />
         </Pressable>
       </View>
     </View>
@@ -5063,10 +5063,10 @@ function TripCalendar({
             <Text style={[s.calTodayText, { color: theme.primary }]}>오늘</Text>
           </Pressable>
           <Pressable onPress={() => move(-1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="이전 달" style={s.monthArrow}>
-            <Glyph name="chevronLeft" size={20} color={theme.primary} />
+            <Glyph name="chevronLeft" size={아이콘.크게} color={theme.primary} />
           </Pressable>
           <Pressable onPress={() => move(1)} hitSlop={누름여유(28)} accessibilityRole="button" accessibilityLabel="다음 달" style={s.monthArrow}>
-            <Glyph name="chevronRight" size={20} color={theme.primary} />
+            <Glyph name="chevronRight" size={아이콘.크게} color={theme.primary} />
           </Pressable>
         </View>
       </View>
@@ -5192,7 +5192,7 @@ function TripCalendar({
 /** 여행 막대가 놓이는 높이. 숫자(26)와 점 줄 아래다. */
 const CAL_BAR_TOP = 38;
 /** 막대 한 층의 높이(막대 13 + 사이 2). */
-const CAL_BAR_STEP = 15;
+const CAL_BAR_STEP = 17;
 
 function Search({
   open,
@@ -5562,7 +5562,7 @@ function Search({
                 ))}
               </View>
             </View>
-            <Glyph name="chevronRight" size={18} color={theme.muted} />
+            <Glyph name="chevronRight" size={아이콘.보통} color={theme.muted} />
           </Pressable>
           {item.type === "장소" && (
             <View
@@ -5969,7 +5969,7 @@ function Together({
               accessibilityLabel="설정 열기"
               style={[s.togetherSettingsButton, { backgroundColor: theme.surfaceAlt }]}
             >
-              <Glyph name="gear" size={17} color={theme.muted} weight={1.8} />
+              <Glyph name="gear" size={아이콘.보통} color={theme.muted} weight={1.8} />
               <Text style={[s.togetherSettingsText, { color: theme.muted }]}>설정</Text>
             </Pressable>
             <Pressable
@@ -6061,7 +6061,7 @@ function Together({
             onPress={() => setPanel("members")}
             style={s.memberStripItem}
           >
-            <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Glyph name="plus" size={16} color={theme.primary} weight={2.2} /></View>
+            <View style={[s.memberInviteAvatar, { borderColor: theme.border }]}><Glyph name="plus" size={아이콘.보통} color={theme.primary} weight={2.2} /></View>
             <Text style={[s.memberStripName, { color: theme.muted }]}>추가</Text>
             <Text style={[s.memberStripRole, { color: theme.muted }]}>멤버 관리</Text>
           </Pressable>
@@ -6092,7 +6092,7 @@ function Together({
               ]}
             >
               <View style={[s.togetherQuickIcon, { backgroundColor: theme.primarySoft }]}>
-                <Glyph name={action.icon} size={16} color={theme.primary} weight={2.2} />
+                <Glyph name={action.icon} size={아이콘.보통} color={theme.primary} weight={2.2} />
               </View>
               <Text numberOfLines={1} style={[s.togetherQuickLabel, { color: theme.text }]}>{action.label}</Text>
             </Pressable>
@@ -6270,7 +6270,7 @@ function Together({
                   </Text>
                 </View>
                 <View style={s.groupChoiceCheck}>
-                  {current && <Glyph name="check" size={14} color={theme.primary} weight={2.4} />}
+                  {current && <Glyph name="check" size={아이콘.작게} color={theme.primary} weight={2.4} />}
                 </View>
               </Pressable>
             );})}
@@ -6403,7 +6403,7 @@ function Together({
                     <Text numberOfLines={1} style={[s.memberManagerRole, { color: selectedMember === index ? theme.primary : theme.muted }]}>{roleLabel(member.role)}</Text>
                   </View>
                   <View style={selectedMember !== index && { opacity: 0 }}>
-                    <Glyph name="check" size={16} color={theme.primary} weight={2.4} />
+                    <Glyph name="check" size={아이콘.보통} color={theme.primary} weight={2.4} />
                   </View>
                 </Pressable>
               ))}
@@ -6536,7 +6536,7 @@ function Together({
                   {option.name}
                 </Text>
                 <View style={s.themeOptionCheck}>
-                  {themeId === option.id && <Glyph name="check" size={12} color={theme.text} weight={2.4} />}
+                  {themeId === option.id && <Glyph name="check" size={아이콘.작게} color={theme.text} weight={2.4} />}
                 </View>
               </Pressable>
             ))}
@@ -6611,7 +6611,7 @@ function Together({
                   <Text style={[s.noticeLinkText, { color: theme.primary }]}>
                     {notice.linkLabel}
                   </Text>
-                  <Glyph name="arrowRight" size={16} color={theme.primary} />
+                  <Glyph name="arrowRight" size={아이콘.보통} color={theme.primary} />
                 </Pressable>
               </View>
             ))}
@@ -6844,7 +6844,7 @@ function Setting({
             <View style={[s.settingSwitchKnob, on && s.settingSwitchKnobOn]} />
           </View>
         ) : (
-          <Glyph name="chevronRight" size={18} color={theme?.muted ?? "#646C7A"} />
+          <Glyph name="chevronRight" size={아이콘.보통} color={theme?.muted ?? "#646C7A"} />
         )}
       </View>
     </Pressable>
@@ -7011,7 +7011,7 @@ function SpaceDeletionPanel({
         style={s.authConsentRow}
       >
         <View style={[s.authConsentCheck, { borderColor: understood ? danger : theme.border, backgroundColor: understood ? danger : theme.surface }]}>
-          {understood && <Glyph name="check" size={12} color="#FFFFFF" weight={2.6} />}
+          {understood && <Glyph name="check" size={아이콘.작게} color="#FFFFFF" weight={2.6} />}
         </View>
         <Text style={[s.authConsentText, { color: theme.text }]}>삭제되는 범위를 확인했어요</Text>
       </Pressable>
@@ -7770,25 +7770,12 @@ function Choice({
         {label}
       </Text>
       <View style={s.choiceMark}>
-        {selected && <Glyph name="check" size={16} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />}
+        {selected && <Glyph name="check" size={아이콘.보통} color={theme?.primary ?? "#3F4C8F"} weight={2.4} />}
       </View>
     </Pressable>
   );
 }
 
-/**
- * 모서리는 다섯 단계만 쓴다.
- *
- *   4    배지와 아주 작은 칩
- *   8    버튼, 선택 칩, 작은 판
- *   12   입력칸, 목록 행, 보통 카드
- *   16   큰 카드와 시트 안의 묶음
- *   999  알약과 원
- *
- * 예외는 높이의 절반이 곧 모양인 것들뿐이다. 2~3px 짜리 점과 얇은 줄, 진행
- * 막대가 거기 해당한다. 열네 가지가 돌면 같은 급의 것들이 미묘하게 달라 보이고,
- * 새 화면을 만들 때 무엇을 따라야 할지 알 수 없다.
- */
 const s = StyleSheet.create({
   body: { flex: 1 },
   storageWarning: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 8 },
@@ -7799,7 +7786,7 @@ const s = StyleSheet.create({
   tripArt: {
     width: 121,
     height: 136,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     overflow: "hidden",
     position: "relative",
   },
@@ -7807,7 +7794,7 @@ const s = StyleSheet.create({
     position: "absolute",
     width: 107,
     height: 107,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     backgroundColor: "rgba(255,249,244,.45)",
     right: -38,
     top: -28,
@@ -7830,8 +7817,8 @@ const s = StyleSheet.create({
   settingCopy: { flex: 1, minWidth: 0, paddingRight: 10, paddingVertical: 9 },
   settingHint: { fontSize: 12, fontFamily: typo.body.family, marginTop: 3, lineHeight: 17 },
   settingRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  settingSwitch: { width: 44, height: 26, borderRadius: 13, padding: 3, justifyContent: "center" },
-  settingSwitchKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#FFFFFF" },
+  settingSwitch: { width: 44, height: 26, borderRadius: 모서리.원, padding: 3, justifyContent: "center" },
+  settingSwitchKnob: { width: 20, height: 20, borderRadius: 모서리.원, backgroundColor: "#FFFFFF" },
   settingSwitchKnobOn: { alignSelf: "flex-end" },
   settingValue: { fontSize: 14, fontFamily: typo.data.family },
   notebookHead: {
@@ -7844,7 +7831,7 @@ const s = StyleSheet.create({
   tinyDay: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     transform: [{ rotate: "1.5deg" }],
   },
   tinyDayText: { fontSize: 14, fontFamily: typo.data.family },
@@ -7858,7 +7845,7 @@ const s = StyleSheet.create({
     right: 7,
     top: 4,
     bottom: -7,
-    borderRadius: 4,
+    borderRadius: 모서리.표식,
     opacity: 0.95,
   },
   paperTripBackLeft: {
@@ -7874,7 +7861,7 @@ const s = StyleSheet.create({
     bottom: -8,
   },
   paperTrip: {
-    borderRadius: 4,
+    borderRadius: 모서리.표식,
     borderWidth: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -7887,35 +7874,35 @@ const s = StyleSheet.create({
     transform: [{ rotate: "-.35deg" }],
     overflow: "visible",
   },
-  paperTripMain: { borderRadius: 2 },
-  paperTripTexture: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 4 },
+  paperTripMain: { borderRadius: 모서리.표식 },
+  paperTripTexture: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, overflow: "hidden", borderRadius: 모서리.표식 },
   // 대표 사진이 있는 카드. 사진이 위쪽 모서리까지 닿아야 해서 종이의 안쪽 여백을
   // 걷어내고, 사진이 모서리 밖으로 삐져나가지 않게 잘라 낸다. 테이프가 없으니
   // 카드 밖으로 나가야 할 것도 없다.
   paperTripPhoto: {},
   // 종이에 붙인 사진. 살짝 기울여 손으로 붙인 것처럼 둔다.
   // 캘린더 아래, 고른 날의 일정·메모 한 줄.
-  calNoteRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginTop: 8 },
-  calNoteRail: { width: 4, alignSelf: "stretch", borderRadius: 2 },
+  calNoteRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 모서리.행, paddingVertical: 10, paddingHorizontal: 12, marginTop: 8 },
+  calNoteRail: { width: 4, alignSelf: "stretch", borderRadius: 모서리.원 },
   calNoteCopy: { flex: 1, minWidth: 0 },
   calNoteTitle: { fontSize: 14, fontFamily: typo.title.family },
   calNoteMeta: { fontSize: 12, marginTop: 2, fontFamily: typo.body.family },
-  calNoteWho: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
-  calNoteWhoText: { fontSize: 11.5, fontFamily: typo.label.family },
+  calNoteWho: { borderRadius: 모서리.원, paddingHorizontal: 9, paddingVertical: 3 },
+  calNoteWhoText: { fontSize: 12, fontFamily: typo.label.family },
   calNoteAdd: { alignSelf: "center", paddingVertical: 12 },
-  calNoteAddText: { fontSize: 13.5, fontFamily: typo.label.family },
+  calNoteAddText: { fontSize: 14, fontFamily: typo.label.family },
   // 여행 탭 캘린더(아이폰 캘린더 결). `TripCalendar` 주석을 본다.
-  calCard: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
+  calCard: { borderRadius: 모서리.구역, borderWidth: 1, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 6 },
   calHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 10, paddingHorizontal: 4 },
   calYear: { fontSize: 12, fontFamily: typo.label.family },
   calMonth: { fontSize: 28, lineHeight: 34, fontFamily: typo.title.family },
   calControls: { flexDirection: "row", alignItems: "center", gap: 4 },
-  calTodayButton: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, marginRight: 4 },
-  calTodayText: { fontSize: 12.5, fontFamily: typo.label.family },
+  calTodayButton: { borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 11, paddingVertical: 5, marginRight: 4 },
+  calTodayText: { fontSize: 13, fontFamily: typo.label.family },
   calLegend: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 4, marginBottom: 8 },
   calLegendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-  calLegendDot: { width: 8, height: 8, borderRadius: 4 },
-  calLegendText: { fontSize: 11.5, fontFamily: typo.label.family },
+  calLegendDot: { width: 8, height: 8, borderRadius: 모서리.원 },
+  calLegendText: { fontSize: 12, fontFamily: typo.label.family },
   calWeekNames: { flexDirection: "row", marginBottom: 4 },
   calWeekName: { flex: 1, textAlign: "center", fontSize: 11, fontFamily: typo.label.family },
   calSunday: { color: "#B3413E" },
@@ -7923,20 +7910,20 @@ const s = StyleSheet.create({
   calWeek: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, position: "relative" },
   calDay: { flex: 1, alignItems: "center", paddingTop: 3 },
   calNumber: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
-  calDisk: { position: "absolute", top: 0, left: 0, width: 28, height: 28, borderRadius: 14 },
+  calDisk: { position: "absolute", top: 0, left: 0, width: 28, height: 28, borderRadius: 모서리.원 },
   calNumberText: { fontSize: 14, lineHeight: 18, fontFamily: typo.data.family },
   calNumberTextOn: { fontFamily: typo.title.family },
   calDots: { flexDirection: "row", gap: 3, marginTop: 2 },
-  calDot: { width: 5, height: 5, borderRadius: 3 },
-  calBar: { position: "absolute", height: 13, justifyContent: "center", paddingHorizontal: 5, marginHorizontal: 1 },
+  calDot: { width: 5, height: 5, borderRadius: 모서리.원 },
+  calBar: { position: "absolute", height: 15, justifyContent: "center", paddingHorizontal: 5, marginHorizontal: 1 },
   calBarStart: { borderTopLeftRadius: 4, borderBottomLeftRadius: 4, marginLeft: 3 },
   calBarEnd: { borderTopRightRadius: 4, borderBottomRightRadius: 4, marginRight: 3 },
-  calBarText: { fontSize: 9.5, lineHeight: 12, fontFamily: typo.label.family },
+  calBarText: { fontSize: 11, lineHeight: 14, fontFamily: typo.label.family },
   paperTripSnap: { marginTop: 10, marginBottom: 12, alignItems: "center" },
   paperTripSnapFrame: {
     width: "100%",
     padding: 7,
-    borderRadius: 5,
+    borderRadius: 모서리.표식,
     borderWidth: 1,
     shadowColor: "#17233D",
     shadowOpacity: 0.16,
@@ -7948,7 +7935,7 @@ const s = StyleSheet.create({
   // 사진 자리. 카드를 깔면 이 안을 카드와 같은 배치로 나눈다(`homeCoverRows`).
   // 틀 색·스티커·날짜 도장은 그리지 않는다. 이만한 자리에 꾸밈까지 넣으면 지저분해지고,
   // 무엇이 찍힌 사진인지가 먼저 보여야 한다.
-  paperTripSnapImage: { width: "100%", aspectRatio: 1.62, borderRadius: 2, overflow: "hidden", gap: 2 },
+  paperTripSnapImage: { width: "100%", aspectRatio: 1.62, borderRadius: 모서리.표식, overflow: "hidden", gap: 2 },
   paperTripSnapRow: { flex: 1, flexDirection: "row", gap: 2 },
   paperTripSnapCell: { flex: 1, minWidth: 0, height: "100%", overflow: "hidden" },
   paperTripSnapFill: { width: "100%", height: "100%" },
@@ -7978,7 +7965,7 @@ const s = StyleSheet.create({
     textShadowRadius: 4,
   },
   paperTripShotTitle: {
-    fontSize: 26,
+    fontSize: 24,
     fontFamily: typo.title.family,
     letterSpacing: -0.5,
     color: "#FFFDF8",
@@ -8027,15 +8014,15 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  paperTripStubMonth: { fontSize: 12.5, fontFamily: typo.data.family, letterSpacing: 1 },
+  paperTripStubMonth: { fontSize: 13, fontFamily: typo.data.family, letterSpacing: 1 },
   paperTripStubDay: { fontSize: 24, lineHeight: 28, fontFamily: typo.data.family },
-  paperTripStubLeft: { marginTop: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  paperTripStubLeft: { marginTop: 5, borderRadius: 모서리.원, paddingHorizontal: 9, paddingVertical: 3 },
   paperTripStubLeftText: { fontSize: 11, fontFamily: typo.label.family },
   // 뜯는 자리 위에 찍힌 홈. 종이 밖 색으로 파서 진짜로 뜯는 선처럼 보이게 한다.
-  paperTripNotch: { position: "absolute", top: -31, right: 105, width: 14, height: 14, borderRadius: 7 },
+  paperTripNotch: { position: "absolute", top: -31, right: 105, width: 14, height: 14, borderRadius: 모서리.원 },
   paperRule: { borderTopWidth: 1, borderStyle: "dashed", marginTop: 16, marginBottom: 12 },
   paperStayBoard: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 0,
     paddingHorizontal: 0,
     paddingTop: 2,
@@ -8047,7 +8034,7 @@ const s = StyleSheet.create({
   paperStayIcon: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -8059,7 +8046,7 @@ const s = StyleSheet.create({
   paperStayTime: {
     minWidth: 58,
     minHeight: 40,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     paddingHorizontal: 8,
     alignItems: "center",
@@ -8088,7 +8075,7 @@ const s = StyleSheet.create({
   paperTripActionBorder: { borderLeftWidth: 1, borderLeftColor: "rgba(118, 107, 83, .18)" },
   paperTripActionLabel: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 0 },
   paperTripActionMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 2 },
-  paperTripActionUnderline: { position: "absolute", width: 34, height: 8, bottom: 11, borderRadius: 2, transform: [{ rotate: "-1deg" }] },
+  paperTripActionUnderline: { position: "absolute", width: 34, height: 8, bottom: 11, borderRadius: 모서리.표식, transform: [{ rotate: "-1deg" }] },
   scrapTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -8101,14 +8088,11 @@ const s = StyleSheet.create({
   memoPaper: {
     marginTop: 0,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingLeft: 16,
     paddingRight: 4,
     overflow: "hidden",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.035,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    ...그림자.카드,
   },
   memoPaperSpine: { position: "absolute", left: 10, top: 0, bottom: 0, width: 1 },
   memoRow: {
@@ -8123,7 +8107,7 @@ const s = StyleSheet.create({
   memoCheck: {
     width: 4,
     height: 24,
-    borderRadius: 2,
+    borderRadius: 모서리.표식,
     borderWidth: 0,
     marginRight: 12,
     transform: [{ rotate: "-2deg" }],
@@ -8145,14 +8129,11 @@ const s = StyleSheet.create({
     flex: 1,
     minHeight: 132,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 12,
     paddingTop: 16,
     paddingBottom: 12,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    ...그림자.카드,
   },
   homeArchiveTape: {
     position: "absolute",
@@ -8169,20 +8150,17 @@ const s = StyleSheet.create({
   homeArchiveActionText: { fontSize: 14, fontFamily: typo.label.family },
   homeEmptyTrip: {
     minHeight: 250,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     borderWidth: 1,
     paddingHorizontal: 24,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.045,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 3 },
+    ...그림자.카드,
   },
   homeEmptyTripMark: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -8221,11 +8199,11 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
     fontFamily: typo.hero.family,
   },
-  pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
+  pressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.985 }] },
   infoSheetBody: { paddingBottom: 8 },
   field: { marginBottom: 12 },
   fieldLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
-  fieldLabelDot: { width: 5, height: 5, borderRadius: 2, marginRight: 6 },
+  fieldLabelDot: { width: 5, height: 5, borderRadius: 모서리.표식, marginRight: 6 },
   fieldLabel: {
     fontSize: 12,
     fontFamily: typo.label.family,
@@ -8237,7 +8215,7 @@ const s = StyleSheet.create({
     marginBottom: 12,
   },
   choiceSelected: { borderColor: "#8B7CF6", backgroundColor: "#E9E5FF" },
-  choiceDisabled: { opacity: 0.55 },
+  choiceDisabled: { opacity: 불투명도.비활성 },
   choiceText: { fontSize: 14, fontFamily: typo.label.family },
   choiceTextSelected: { color: "#5546C8" },
   choiceMark: { width: 16, alignItems: "center", justifyContent: "center" },
@@ -8270,17 +8248,14 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
+    ...그림자.뜬것,
     shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
   },
   mapTrayHandle: {
     alignSelf: "center",
     width: 34,
     height: 4,
-    borderRadius: 2,
+    borderRadius: 모서리.원,
     backgroundColor: "#D8DEDC",
     marginBottom: 8,
   },
@@ -8318,7 +8293,7 @@ const s = StyleSheet.create({
   mapTrayMark: {
     width: 43,
     height: 43,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -8337,7 +8312,7 @@ const s = StyleSheet.create({
     transform: [{ translateX: -20 }, { translateY: -12 }],
     width: 40,
     height: 25,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#A9D9D1",
@@ -8366,7 +8341,7 @@ const s = StyleSheet.create({
     top: -6,
     width: 18,
     height: 18,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -8378,18 +8353,15 @@ const s = StyleSheet.create({
     bottom: 14,
     width: 40,
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     borderColor: "#D9E2DF",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    elevation: 3,
+    ...그림자.뜬것,
     overflow: "hidden",
   },
   zoomControlsRaised: { bottom: 146 },
   zoomButton: { height: 높이.버튼, alignItems: "center", justifyContent: "center" },
-  zoomButtonDisabled: { opacity: 0.28 },
+  zoomButtonDisabled: { opacity: 불투명도.비활성 },
   zoomResetText: { fontSize: 12, fontFamily: typo.label.family },
   zoomDivider: { height: 1, backgroundColor: "#E6E9E7", marginHorizontal: 6 },
   calendarResults: { marginTop: 16 },
@@ -8426,7 +8398,7 @@ const s = StyleSheet.create({
   homeQuick: {
     flex: 1,
     height: 72,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -8435,14 +8407,14 @@ const s = StyleSheet.create({
   },
   homeQuickEmbedded: {
     height: 42,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     flexDirection: "row",
   },
   homeQuickLarge: {
     height: 124,
     flex: 1.08,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     flexDirection: "column",
     alignItems: "flex-start",
     paddingHorizontal: 16,
@@ -8450,21 +8422,21 @@ const s = StyleSheet.create({
   },
   homeQuickSmall: {
     height: 58,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     justifyContent: "flex-start",
     paddingHorizontal: 12,
   },
   homeQuickRail: {
     height: 54,
     borderWidth: 0,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     justifyContent: "center",
     paddingHorizontal: 4,
   },
   homeQuickIcon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
@@ -8472,7 +8444,7 @@ const s = StyleSheet.create({
   homeQuickIconEmbedded: {
     width: 24,
     height: 24,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     borderWidth: 1,
     marginBottom: 0,
     marginRight: 6,
@@ -8480,14 +8452,14 @@ const s = StyleSheet.create({
   homeQuickIconLarge: {
     width: 38,
     height: 38,
-    borderRadius: 999,
+    borderRadius: 모서리.원,
     marginRight: 0,
     marginBottom: 12,
   },
   homeQuickIconRail: {
     width: 25,
     height: 25,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     marginBottom: 0,
     marginRight: 6,
   },
@@ -8500,7 +8472,7 @@ const s = StyleSheet.create({
   searchClear: {
     width: 25,
     height: 25,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "#EEF0EE",
     alignItems: "center",
     justifyContent: "center",
@@ -8551,14 +8523,14 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#DEDCD5",
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   regionMoreChoice: { borderStyle: "dashed" },
   themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   themeSwatches: { flexDirection: "row", gap: 4 },
-  themeSwatch: { width: 22, height: 22, borderRadius: 8 },
+  themeSwatch: { width: 22, height: 22, borderRadius: 모서리.상자 },
   themeOptionName: {
     fontSize: 14,
     fontFamily: typo.title.family,
@@ -8603,14 +8575,11 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 14,
     transform: [{ rotate: "0.5deg" }],
-    shadowColor: "#17233D",
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
+    ...그림자.카드,
   },
   viewSwitch: {
     flexDirection: "row",
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     padding: 2,
     marginBottom: 16,
@@ -8623,7 +8592,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   viewChoiceActive: {
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
   },
   tripFilters: {
@@ -8640,7 +8609,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderBottomWidth: 1,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     paddingLeft: 12,
     paddingRight: 8,
     paddingVertical: 6,
@@ -8657,7 +8626,7 @@ const s = StyleSheet.create({
     borderBottomRightRadius: 3,
   },
   tripThumb: { width: 45, height: 52, marginRight: 2 },
-  tripArtSmall: { width: "100%", height: 52, borderRadius: 8, marginBottom: 0 },
+  tripArtSmall: { width: "100%", height: 52, borderRadius: 모서리.상자, marginBottom: 0 },
   tripInfo: { flex: 1, paddingLeft: 8 },
   tripName: { fontSize: 16, fontFamily: typo.title.family },
   tripDate: { fontSize: 12, marginTop: 2 },
@@ -8666,14 +8635,14 @@ const s = StyleSheet.create({
   tripRowArrow: {
     width: 25,
     height: 25,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     alignItems: "center",
     justifyContent: "center",
   },
   tripRowArrowText: { fontSize: 18, lineHeight: 19, fontFamily: typo.label.family },
   noTrips: {
     minHeight: 190,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     borderStyle: "dashed",
     paddingHorizontal: 24,
@@ -8684,7 +8653,7 @@ const s = StyleSheet.create({
   noTripsTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 8 },
   noTripsText: { fontSize: 12, textAlign: "center", marginTop: 4 },
   emptyInlineAction: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginTop: 12,
@@ -8699,7 +8668,7 @@ const s = StyleSheet.create({
   },
   monthArrowText: { color: "#384052", fontSize: 24, fontWeight: "500", lineHeight: 26 },
   emptyDate: {
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: 1,
     borderStyle: "dashed",
     padding: 16,
@@ -8713,10 +8682,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     marginTop: 16,
-    shadowColor: "#17233D",
-    shadowOpacity: 0.055,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 4 },
+    ...그림자.카드,
   },
   searchIntro: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   searchCategory: {
@@ -8751,7 +8717,7 @@ const s = StyleSheet.create({
   searchCategoryCount: {
     minWidth: 18,
     height: 18,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
@@ -8796,14 +8762,11 @@ const s = StyleSheet.create({
   searchResultCard: {
     minHeight: 82,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     padding: 0,
     overflow: "hidden",
     position: "relative",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.035,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 3 },
+    ...그림자.카드,
   },
   searchMore: { minHeight: 높이.입력, borderTopWidth: 1, alignItems: "center", justifyContent: "center" },
   searchMoreText: { fontSize: 14, fontFamily: typo.label.family },
@@ -8826,7 +8789,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   searchResultTypeBadge: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
@@ -8852,7 +8815,7 @@ const s = StyleSheet.create({
     minHeight: 190,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
@@ -8884,7 +8847,7 @@ const s = StyleSheet.create({
   togetherQuickIcon: {
     width: 27,
     height: 27,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
@@ -8894,7 +8857,7 @@ const s = StyleSheet.create({
   memberRoleText: { fontSize: 12, fontFamily: typo.label.family, marginTop: -7 },
   memberPermissionLabel: { fontSize: 12, fontFamily: typo.label.family, marginBottom: 8 },
   settingGroup: {
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     paddingHorizontal: 16,
     borderWidth: 1,
     overflow: "hidden",
@@ -8902,7 +8865,7 @@ const s = StyleSheet.create({
   themeOption: {
     width: "48%",
     minHeight: 86,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     padding: 12,
     borderWidth: 1,
   },
@@ -8934,7 +8897,7 @@ const s = StyleSheet.create({
   navIconWrap: {
     width: 40,
     height: 34,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 2,
@@ -8954,20 +8917,16 @@ const s = StyleSheet.create({
   authAppIconFrame: {
     width: 72,
     height: 72,
-    borderRadius: 16,
+    borderRadius: 모서리.구역,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
     marginBottom: 12,
-    shadowColor: "#17233D",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
+    ...그림자.뜬것,
   },
   authAppIcon: { width: "100%", height: "100%" },
   authLogo: { fontSize: 28, fontFamily: typo.hero.family, letterSpacing: -0.5 },
   authTagline: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 6 },
-  authCard: { borderRadius: 16, borderWidth: 1, padding: 20 },
+  authCard: { borderRadius: 모서리.구역, borderWidth: 1, padding: 20 },
   authTitle: { fontSize: 20, fontFamily: typo.title.family, letterSpacing: -0.5 },
   authDescription: { fontSize: 14, lineHeight: 22, marginTop: 6, marginBottom: 20 },
   // 버튼 모양은 SocialLoginButton 이 제공자 가이드대로 정한다. 여기서는 세로로 쌓기만 한다.
@@ -8995,7 +8954,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     marginTop: 12,
   },
-  authSubmitDisabled: { opacity: 0.38 },
+  authSubmitDisabled: { opacity: 불투명도.비활성 },
   authSubmitText: { fontSize: 14, fontFamily: typo.label.family },
   authSwitch: { alignItems: "center", paddingTop: 16, paddingBottom: 2 },
   authSwitchText: { fontSize: 12, fontFamily: typo.label.family },
@@ -9003,7 +8962,7 @@ const s = StyleSheet.create({
   authConsentRow: { minHeight: 높이.버튼, flexDirection: "row", alignItems: "center" },
   authConsentAll: { borderBottomWidth: 1, marginBottom: 4 },
   authConsentAllText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
-  authConsentCheck: { width: 22, height: 22, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center", marginRight: 8 },
+  authConsentCheck: { width: 22, height: 22, borderRadius: 모서리.상자, borderWidth: 1, alignItems: "center", justifyContent: "center", marginRight: 8 },
   authConsentTick: { color: "#FFFFFF", fontSize: 12, fontFamily: typo.label.family },
   authConsentText: { flex: 1, fontSize: 12, fontFamily: typo.label.family },
   authPrivacy: { fontSize: 12, lineHeight: 15, textAlign: "center", marginTop: 16 },
@@ -9020,20 +8979,20 @@ const s = StyleSheet.create({
   accountDeleteText: { color: "#A36E67", fontSize: 12, fontFamily: typo.label.family, textDecorationLine: "underline" },
   groupChoice: {
     minHeight: 66,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     marginBottom: 8,
   },
-  groupChoiceAvatar: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  groupChoiceAvatar: { width: 36, height: 36, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   groupChoiceAvatarText: { fontSize: 14, fontFamily: typo.label.family },
   groupChoiceCopy: { flex: 1, marginLeft: 12 },
   groupChoiceName: { fontSize: 14, fontFamily: typo.title.family },
   groupChoiceMeta: { fontSize: 11, fontFamily: typo.caption.family, marginTop: 4 },
   groupChoiceCheck: { width: 18, alignItems: "center", justifyContent: "center" },
-  noticeCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 8 },
+  noticeCard: { borderRadius: 모서리.행, borderWidth: 1, padding: 14, marginBottom: 8 },
   noticeName: { fontSize: typo.title.size, lineHeight: typo.title.line, fontFamily: typo.title.family },
   noticeHolder: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 8 },
   noticeBody: { fontSize: typo.body.size, lineHeight: typo.body.line, fontFamily: typo.body.family, marginTop: 6 },
@@ -9051,20 +9010,20 @@ const s = StyleSheet.create({
   togetherAccountInitial: { fontSize: 14, fontFamily: typo.label.family },
   workspaceCard: {
     minHeight: 86,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     marginTop: 16,
   },
-  workspaceMark: { width: 43, height: 43, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  workspaceMark: { width: 43, height: 43, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   workspaceMarkInitial: { fontSize: 18, fontFamily: typo.title.family },
   workspaceCopy: { flex: 1, minWidth: 0, marginLeft: 12 },
   workspaceLabel: { fontSize: 12, fontFamily: typo.label.family },
   workspaceName: { fontSize: 14, fontFamily: typo.title.family, marginTop: 2 },
   workspaceMeta: { fontSize: 12, fontFamily: typo.caption.family, marginTop: 4 },
-  workspaceSwitchBadge: { height: 29, borderRadius: 8, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  workspaceSwitchBadge: { height: 29, borderRadius: 모서리.상자, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   workspaceSwitchBadgeText: { fontSize: 12, fontFamily: typo.label.family },
   groupTabs: {
     flexDirection: "row",
@@ -9074,7 +9033,7 @@ const s = StyleSheet.create({
   groupTab: {
     minWidth: 58,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     borderWidth: 1,
     paddingHorizontal: 12,
     alignItems: "center",
@@ -9091,12 +9050,12 @@ const s = StyleSheet.create({
   groupTabMoreText: { fontSize: 14, fontFamily: typo.label.family, letterSpacing: 1 },
   memberSectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   memberSectionTitle: { fontSize: 18, fontFamily: typo.title.family, marginTop: 2 },
-  memberManageHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.세로좁게 },
+  memberManageHit: { minHeight: 높이.버튼, justifyContent: "center", paddingLeft: 여백.가로좁게 },
   memberManageText: { fontSize: 12, fontFamily: typo.label.family, paddingVertical: 4 },
-  memberStrip: { minHeight: 84, borderRadius: 12, borderWidth: 1 },
+  memberStrip: { minHeight: 84, borderRadius: 모서리.행, borderWidth: 1 },
   memberStripContent: { minWidth: "100%", paddingHorizontal: 10, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 6 },
   memberStripItem: { width: 54, alignItems: "center" },
-  memberStripAvatar: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  memberStripAvatar: { width: 38, height: 38, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   memberStripInitial: { color: "#FFFFFF", fontSize: 14, fontFamily: typo.label.family },
   memberStripName: { width: "100%", textAlign: "center", fontSize: 14, fontFamily: typo.title.family, marginTop: 6 },
   memberStripRole: {
@@ -9106,9 +9065,9 @@ const s = StyleSheet.create({
     fontFamily: typo.label.family,
     marginTop: 2,
   },
-  memberInviteAvatar: { width: 38, height: 38, borderRadius: 12, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
+  memberInviteAvatar: { width: 38, height: 38, borderRadius: 모서리.행, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   managementLabel: { fontSize: 12, fontFamily: typo.label.family, marginTop: 16, marginBottom: -2 },
-  historySummary: { minHeight: 73, borderRadius: 12, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  historySummary: { minHeight: 73, borderRadius: 모서리.행, borderWidth: 1, flexDirection: "row", alignItems: "center" },
   historySummaryItem: { flex: 1, alignItems: "center", justifyContent: "center" },
   historySummaryValue: { fontSize: 16, fontFamily: typo.data.family },
   historySummaryLabel: { fontSize: 12, fontFamily: typo.label.family, marginTop: 4 },
@@ -9120,25 +9079,25 @@ const s = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 6,
   },
-  historyLatestDot: { width: 7, height: 7, borderRadius: 4 },
+  historyLatestDot: { width: 7, height: 7, borderRadius: 모서리.원 },
   historyLatestLabel: { fontSize: 12, fontFamily: typo.label.family },
   historyLatestName: { flex: 1, fontSize: 14, fontFamily: typo.title.family },
   historyLatestDate: { fontSize: 11, fontFamily: typo.caption.family },
   memberManagerHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   memberManagerTitle: { fontSize: 18, fontFamily: typo.title.family },
   memberManagerCopy: { fontSize: 14, fontFamily: typo.body.family, marginTop: 4 },
-  memberManagerInvite: { height: 34, borderRadius: 8, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+  memberManagerInvite: { height: 34, borderRadius: 모서리.상자, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   memberManagerInviteText: { fontSize: 12, fontFamily: typo.label.family },
-  memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 여백.세로좁게, marginBottom: 여백.세로 },
+  memberManagerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 여백.가로좁게, marginBottom: 여백.세로 },
   // 한 줄에 둘. `48.8%` 와 `gap: 8` 을 함께 쓰면 둘을 더한 값이 칸보다 넓어져
   // 좁은 화면에서 한 장씩 내려갔다. 여백을 뺀 폭으로 잡는다.
   memberManagerCard: { flexBasis: "47%", flexGrow: 1, maxWidth: "48%", minHeight: 61, borderRadius: 모서리.버튼, borderWidth: 1, paddingHorizontal: 여백.가로좁게, flexDirection: "row", alignItems: "center" },
-  memberManagerAvatar: { width: 33, height: 33, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  memberManagerAvatar: { width: 33, height: 33, borderRadius: 모서리.행, alignItems: "center", justifyContent: "center" },
   memberManagerCardCopy: { flex: 1, minWidth: 0, marginLeft: 8 },
   memberManagerName: { fontSize: 14, fontFamily: typo.title.family },
   memberManagerRole: { fontSize: 12, fontFamily: typo.label.family, marginTop: 2 },
   appVersion: { fontSize: 12, textAlign: "center", marginTop: 18, marginBottom: 8, fontFamily: typo.caption.family },
-  helpItem: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 8 },
+  helpItem: { borderWidth: 1, borderRadius: 모서리.행, padding: 14, marginBottom: 8 },
   helpQuestion: { fontSize: 14, fontFamily: typo.title.family },
   helpAnswer: { fontSize: 13, lineHeight: 20, marginTop: 4, fontFamily: typo.body.family },
   // 구역 하나. 아래 여백이 없어 「선택한 멤버」·「나가기」·「초대」가 서로 맞붙어

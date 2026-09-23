@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleProp, StyleSheet, View, ViewStyle } from "r
 
 import { Text } from "../AppText";
 import { AppTheme } from "../theme";
-import { 높이, 모서리, 누름여유 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /**
@@ -113,5 +113,5 @@ export const chipStyles = StyleSheet.create({
   },
   noBorder: { borderWidth: 0 },
   text: { fontSize: 12, fontFamily: typo.label.family },
-  pressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
+  pressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
 });

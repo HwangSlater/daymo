@@ -6,7 +6,7 @@ import { Glyph } from "./Glyph";
 import type { PastTripGroup } from "./pastTripImport";
 import { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
-import { 높이, 모서리, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 아이콘, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 
 /**
@@ -66,7 +66,7 @@ export function PastTripList<T extends { id: string; name: string }>({
     <View>
       <View style={styles.head}>
         <Pressable onPress={onBack} accessibilityRole="button" hitSlop={누름여유(높이.칩)} style={styles.headLink}>
-          <Glyph name="chevronLeft" size={13} color={primary} />
+          <Glyph name="chevronLeft" size={아이콘.작게} color={primary} />
           <Text style={[styles.headLinkText, { color: primary }]}>직접 입력</Text>
         </Pressable>
         {mode === "여럿" && pickable.length > 0 && onToggleAll ? (
@@ -121,7 +121,7 @@ export function PastTripList<T extends { id: string; name: string }>({
                       checked && { backgroundColor: primary },
                     ]}
                   >
-                    {checked && <Glyph name="check" size={12} color={onAccent(Boolean(theme?.dark))} weight={2.6} />}
+                    {checked && <Glyph name="check" size={아이콘.작게} color={onAccent(Boolean(theme?.dark))} weight={2.6} />}
                   </View>
                 ) : null}
                 <View style={styles.rowCopy}>
@@ -132,7 +132,7 @@ export function PastTripList<T extends { id: string; name: string }>({
                     <Text numberOfLines={1} style={[styles.rowMeta, { color: muted }]}>{note}</Text>
                   ) : null}
                 </View>
-                {mode === "하나" && !mine ? <Glyph name="plus" size={14} color={primary} /> : null}
+                {mode === "하나" && !mine ? <Glyph name="plus" size={아이콘.작게} color={primary} /> : null}
               </Pressable>
             );
           })}
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   check: {
     width: 21,
     height: 21,
-    borderRadius: 8,
+    borderRadius: 모서리.상자,
     borderWidth: 1.5,
     alignItems: "center",
     justifyContent: "center",

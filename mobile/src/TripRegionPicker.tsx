@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./AppText";
 import { AppTheme } from "./theme";
+import { 모서리 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { primaryTripRegions, tripRegions } from "./tripRegions";
 
@@ -52,7 +53,7 @@ export function TripRegionPicker({ theme, value, onChange, expanded, setExpanded
 const styles = StyleSheet.create({
   label: { fontSize: 12, fontFamily: typo.label.family },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 6, paddingBottom: 16 },
-  choice: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  choice: { borderWidth: 1, borderRadius: 모서리.행, paddingHorizontal: 12, paddingVertical: 8 },
   more: { borderStyle: "dashed" },
   choiceText: { fontSize: 12, fontFamily: typo.label.family },
 });

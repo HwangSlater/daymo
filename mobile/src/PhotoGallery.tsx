@@ -41,7 +41,7 @@ import { usePhotoThumb } from "./photoThumbnails";
 import { showAlert } from "./showAlert";
 import type { AppTheme } from "./theme";
 import { onAccent } from "./theme/colors";
-import { 높이, 모서리, 여백, 누름여유 } from "./theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 그림자, 여백, 누름여유 } from "./theme/controls";
 import { typo } from "./theme/typography";
 import { useWebBackClose } from "./useWebBackClose";
 
@@ -504,7 +504,7 @@ function GalleryBody({
               accessibilityLabel="사진 모두 보기 닫기"
               style={({ pressed }) => [styles.headBack, pressed && styles.pressed]}
             >
-              <Glyph name="chevronLeft" size={22} color={ink} weight={2.2} />
+              <Glyph name="chevronLeft" size={아이콘.크게} color={ink} weight={2.2} />
               <Text numberOfLines={1} style={[styles.headTitle, { color: ink }]}>{title}</Text>
             </Pressable>
             {photos.length > 0 && (
@@ -686,7 +686,7 @@ const Tile = memo(function Tile({
             accessibilityLabel={`${이름} 다시 시도`}
             style={({ pressed }) => [styles.uploadCover, styles.uploadCoverGap, pressed && styles.pressed]}
           >
-            <Glyph name="retry" size={16} color="#FFFFFF" weight={2.2} />
+            <Glyph name="retry" size={아이콘.보통} color="#FFFFFF" weight={2.2} />
             <Text numberOfLines={2} style={styles.uploadText}>다시 시도</Text>
           </Pressable>
         )}
@@ -701,7 +701,7 @@ const Tile = memo(function Tile({
           pointerEvents="none"
           style={[styles.check, chosen && { backgroundColor: primary, borderColor: primary }]}
         >
-          {chosen && <Glyph name="check" size={13} color={onAccent(false)} weight={2.8} />}
+          {chosen && <Glyph name="check" size={아이콘.작게} color={onAccent(false)} weight={2.8} />}
         </View>
       )}
     </Pressable>
@@ -734,7 +734,7 @@ function BarAction({
       accessibilityState={{ disabled: disabled || dim }}
       style={({ pressed }) => [styles.barAction, (disabled || dim) && styles.faded, pressed && styles.pressed]}
     >
-      <Glyph name={glyph} size={20} color={color} weight={1.9} />
+      <Glyph name={glyph} size={아이콘.크게} color={color} weight={1.9} />
       <Text numberOfLines={1} style={[styles.barLabel, { color }]}>{label}</Text>
     </Pressable>
   );
@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
   },
   headBack: { flex: 1, minHeight: 높이.버튼, flexDirection: "row", alignItems: "center", gap: 4 },
   headTitle: { flex: 1, fontSize: typo.title.size, fontFamily: typo.title.family },
-  headSide: { minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 여백.세로좁게 },
+  headSide: { minHeight: 높이.버튼, justifyContent: "center", paddingHorizontal: 여백.가로좁게 },
   headAction: { fontSize: 15, fontFamily: typo.title.family },
   // 선택 중 머리줄. 가운데 제목이 정말 가운데 오도록 양쪽 폭을 같게 잡는다.
   headTitleCenter: { textAlign: "center" },
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
   tile: { overflow: "hidden" },
   tileInner: { flex: 1, overflow: "hidden" },
   // 고른 사진은 안쪽으로 줄어 테두리가 생긴다. 구글 포토가 쓰는 표시라 색을 못 가려 보는 사람도 알아본다.
-  tileChosen: { margin: 8, borderRadius: 6 },
+  tileChosen: { margin: 8, borderRadius: 모서리.표식 },
   fill: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
   check: {
     position: "absolute",
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
     left: 5,
     width: 22,
     height: 22,
-    borderRadius: 11,
+    borderRadius: 모서리.원,
     borderWidth: 2,
     borderColor: "#FFFFFF",
     backgroundColor: "rgba(0,0,0,0.18)",
@@ -824,15 +824,12 @@ const styles = StyleSheet.create({
     paddingVertical: 여백.세로좁게,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#17233D",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 5,
+    ...그림자.뜬것,
   },
-  toastMark: { width: 7, height: 7, borderRadius: 4, marginRight: 8 },
+  toastMark: { width: 7, height: 7, borderRadius: 모서리.원, marginRight: 8 },
   toastText: { flex: 1, fontSize: 14, fontFamily: typo.label.family },
   toastAction: { marginLeft: 12, paddingVertical: 6 },
   toastActionText: { fontSize: 14, fontFamily: typo.title.family, textDecorationLine: "underline" },
-  pressed: { opacity: 0.65 },
-  faded: { opacity: 0.4 },
+  pressed: { opacity: 불투명도.눌림 },
+  faded: { opacity: 불투명도.비활성 },
 });

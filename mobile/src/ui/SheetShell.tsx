@@ -24,7 +24,7 @@ import { useWebKeyboardFocus, useWebKeyboardOpen } from "./webKeyboardFocus";
 import { useWebBackClose } from "../useWebBackClose";
 import { AppTheme } from "../theme";
 import { onAccent, status as statusColor } from "../theme/colors";
-import { 높이, 모서리, 여백, 누름여유 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 여백, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 import { sheetHintOf, submitLabelOf } from "./sheetText";
 
@@ -413,7 +413,7 @@ export function SheetShell({
           >
             <Text style={[styles.submitText, { color: onAccent(Boolean(theme?.dark)) }]}>{submitLabel}</Text>
             <View style={styles.submitArrow}>
-              <Glyph name="arrowRight" size={15} color={onAccent(Boolean(theme?.dark))} />
+              <Glyph name="arrowRight" size={아이콘.작게} color={onAccent(Boolean(theme?.dark))} />
             </View>
           </Pressable>
         ) : null}
@@ -482,7 +482,7 @@ export const sheetHeadStyles = StyleSheet.create({
   copy: { flex: 1 },
   // 줄 높이를 적어 둔다. 적지 않으면 iOS 가 글꼴이 말하는 만큼만 칸을 잡아,
   // 「함께하는 멤버」처럼 받침이 있는 한글의 아래가 잘린다(기기에서 확인).
-  title: { flex: 1, minWidth: 0, fontSize: 21, lineHeight: 29, fontFamily: typo.title.family, letterSpacing: -0.5 },
+  title: { flex: 1, minWidth: 0, fontSize: 20, lineHeight: 29, fontFamily: typo.title.family, letterSpacing: -0.5 },
 });
 
 const styles = StyleSheet.create({
@@ -513,10 +513,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  handle: { width: 54, height: 5, borderRadius: 3, backgroundColor: "#C7C7C3" },
+  handle: { width: 54, height: 5, borderRadius: 모서리.원, backgroundColor: "#C7C7C3" },
   headMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 },
   // 무슨 종류의 시트인지 남기는 색 막대. 제목 글자 높이에 맞춘다.
-  kindBar: { width: 3, height: 19, borderRadius: 2 },
+  kindBar: { width: 3, height: 19, borderRadius: 모서리.표식 },
   // 내용의 첫 줄로 내려왔다. 머리에 있을 때보다 아래 입력 칸에 가깝다.
   subtitle: { fontSize: 12, lineHeight: 17, marginBottom: 14 },
   closeButton: {
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   submitText: { fontSize: 14, fontFamily: typo.label.family },
-  submitDisabled: { opacity: 0.38 },
+  submitDisabled: { opacity: 불투명도.비활성 },
   submitArrow: {
     width: 높이.버튼,
     height: 높이.버튼,
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
+  pressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
   destructive: { height: 높이.버튼, alignItems: "center", justifyContent: "center", marginTop: 4 },
   destructiveText: { fontSize: 13, fontFamily: typo.label.family },
   confirm: { borderWidth: 1, borderRadius: 모서리.구역, padding: 12, marginTop: 8, gap: 10 },

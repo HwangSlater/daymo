@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "../AppText";
 import { Glyph } from "../Glyph";
 import { AppTheme } from "../theme";
-import { 높이, 모서리 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /**
@@ -59,7 +59,7 @@ export function OptionalFormSection({
           accessibilityLabel={`${label} ${open ? "접기" : "더 적기"}`}
           style={({ pressed }) => [styles.foldRow, pressed && styles.controlPressed]}
         >
-          <Glyph name={open ? "minus" : "plus"} size={14} color={theme?.primary ?? "#6556D8"} />
+          <Glyph name={open ? "minus" : "plus"} size={아이콘.작게} color={theme?.primary ?? "#6556D8"} />
           <Text style={[styles.foldText, theme && { color: theme.primary }]}>
             {open ? `${label} 접기` : `${label} 더 적기`}
           </Text>
@@ -98,7 +98,7 @@ export function OptionalFormSection({
           <Text numberOfLines={1} style={[styles.optionalSectionSwitchText, theme && { color: theme.primary }]}>
             {switchLabel(open)}
           </Text>
-          <Glyph name={open ? "minus" : "plus"} size={16} color={theme?.primary ?? "#6556D8"} />
+          <Glyph name={open ? "minus" : "plus"} size={아이콘.보통} color={theme?.primary ?? "#6556D8"} />
         </View>
       </Pressable>
       {open && (
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   // 높이 32 와 모서리 12 는 상자 안에 들어앉는 작은 단추라 네 단계에 들어가지 않는다.
   optionalSectionSwitch: {
     height: 32,
-    borderRadius: 12,
+    borderRadius: 모서리.행,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
@@ -154,5 +154,5 @@ const styles = StyleSheet.create({
   foldText: { fontSize: 14, fontFamily: typo.label.family },
   foldSummary: { flex: 1, minWidth: 0, textAlign: "right", fontSize: 11, fontFamily: typo.caption.family },
   foldBody: { paddingTop: 4 },
-  controlPressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
+  controlPressed: { opacity: 불투명도.눌림, transform: [{ scale: 0.99 }] },
 });

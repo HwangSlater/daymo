@@ -2,7 +2,7 @@ import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from "react-native"
 
 import { Text } from "../AppText";
 import { AppTheme } from "../theme";
-import { 높이, 모서리 } from "../theme/controls";
+import { 높이, 모서리, 불투명도 } from "../theme/controls";
 import { typo } from "../theme/typography";
 
 /** 세그먼트로 둘 수 있는 선택지 수. 이보다 많으면 칸이 좁아져 글자가 잘린다. 칩(`Chip`)으로 간다. */
@@ -117,8 +117,8 @@ export const segmentStyles = StyleSheet.create({
   },
   text: { fontSize: 13, fontFamily: typo.label.family, color: "#646C7A" },
   textOn: { fontFamily: typo.title.family, color: "#17233D" },
-  pressed: { opacity: 0.78 },
-  disabled: { opacity: 0.55 },
+  pressed: { opacity: 불투명도.눌림 },
+  disabled: { opacity: 불투명도.비활성 },
 });
 
 const styles = segmentStyles;
