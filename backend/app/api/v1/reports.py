@@ -6,7 +6,7 @@ from pydantic import Field
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import membership_in_space
-from app.core.responses import ok
+from app.core.responses import Envelope, ok
 from app.models import REPORT_DETAIL_MAX, ReportReason, ReportTargetType
 from app.schemas.auth import _Camel
 from app.services import moderation as moderation_service
@@ -44,7 +44,7 @@ class BlockOut(_Camel):
     blocked_at: datetime
 
 
-@router.post("/reports", status_code=status.HTTP_201_CREATED)
+@router.post("/reports", status_code=status.HTTP_201_CREATED, response_model=Envelope[ReportOut])
 async def create_report(body: ReportRequest, caller: CurrentCaller, db: DbSession, response: Response) -> dict:
     """
     공간 안의 메모·일기·사진·여행·멤버를 신고한다.
@@ -71,7 +71,7 @@ async def create_report(body: ReportRequest, caller: CurrentCaller, db: DbSessio
     )
 
 
-@router.post("/blocks", status_code=status.HTTP_201_CREATED)
+@router.post("/blocks", status_code=status.HTTP_201_CREATED, response_model=Envelope[BlockOut])
 async def block_member(body: BlockRequest, caller: CurrentCaller, db: DbSession, response: Response) -> dict:
     """함께 있는 공간의 멤버를 차단한다. 이미 차단했으면 200 이다."""
     차단, 이름, 만들었다 = await moderation_service.block(db, user=caller.user, membership_id=body.user_membership_id)
@@ -87,7 +87,7 @@ async def block_member(body: BlockRequest, caller: CurrentCaller, db: DbSession,
     )
 
 
-@router.get("/blocks")
+@router.get("/blocks", response_model=Envelope[list[BlockOut]])
 async def list_blocks(
     caller: CurrentCaller,
     db: DbSession,

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query, Response, status
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_calendar_note, membership_in_space, require
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import CalendarNote
 from app.schemas.calendar import CalendarNoteCreateRequest, CalendarNoteOut, CalendarNoteUpdateRequest
 from app.services import calendar_notes as note_service
@@ -32,7 +32,7 @@ def _응답(note: CalendarNote) -> dict:
     ).model_dump(by_alias=True, mode="json")
 
 
-@router.get("/spaces/{space_id}/calendar-notes")
+@router.get("/spaces/{space_id}/calendar-notes", response_model=Page[CalendarNoteOut])
 async def list_calendar_notes(
     space_id: uuid.UUID,
     caller: CurrentCaller,
@@ -45,7 +45,7 @@ async def list_calendar_notes(
     return page([_응답(note) for note in await note_service.list_notes(db, space_id, start, end)])
 
 
-@router.post("/spaces/{space_id}/calendar-notes", status_code=status.HTTP_201_CREATED)
+@router.post("/spaces/{space_id}/calendar-notes", status_code=status.HTTP_201_CREATED, response_model=Envelope[CalendarNoteOut])
 async def create_calendar_note(
     space_id: uuid.UUID,
     body: CalendarNoteCreateRequest,
@@ -72,7 +72,7 @@ async def create_calendar_note(
     return ok(_응답(note))
 
 
-@router.patch("/calendar-notes/{note_id}")
+@router.patch("/calendar-notes/{note_id}", response_model=Envelope[CalendarNoteOut])
 async def update_calendar_note(
     note_id: uuid.UUID, body: CalendarNoteUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:

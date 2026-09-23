@@ -4,7 +4,7 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_place, require
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.schemas.place import TripPlaceCreateRequest, TripPlaceOut, TripPlaceUpdateRequest
 from app.services import places as place_service
 from app.services.places import PlaceView
@@ -28,14 +28,14 @@ def _응답(view: PlaceView) -> dict:
     ).model_dump(by_alias=True)
 
 
-@router.get("/trips/{trip_id}/places")
+@router.get("/trips/{trip_id}/places", response_model=Page[TripPlaceOut])
 async def list_places(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """여행에 담은 장소 전부. 한 여행에 담는 장소는 많아야 수십 개라 나눠 주지 않는다."""
     _, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([_응답(view) for view in await place_service.list_for_trip(db, trip)])
 
 
-@router.post("/trips/{trip_id}/places", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/places", status_code=status.HTTP_201_CREATED, response_model=Envelope[TripPlaceOut])
 async def create_place(
     trip_id: uuid.UUID,
     body: TripPlaceCreateRequest,
@@ -70,7 +70,7 @@ async def create_place(
     return ok(_응답(await place_service.view_of(db, trip_place)))
 
 
-@router.patch("/trip-places/{trip_place_id}")
+@router.patch("/trip-places/{trip_place_id}", response_model=Envelope[TripPlaceOut])
 async def update_place(
     trip_place_id: uuid.UUID, body: TripPlaceUpdateRequest, caller: CurrentCaller, db: DbSession
 ) -> dict:

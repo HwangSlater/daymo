@@ -7,9 +7,10 @@ from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_row, require
 from app.api.v1.memories import _메모_응답
 from app.api.v1.photos import _한_장
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Memo, Photo
-from app.schemas.memory import TrashItemOut
+from app.schemas.memory import MemoOut, TrashItemOut
+from app.schemas.photo import PhotoOut
 from app.services import audit
 from app.services import trash as trash_service
 from app.services.memories import author_names, name_of
@@ -33,7 +34,7 @@ def _휴지통_줄(item: Memo | Photo, names: dict, *, can_restore: bool) -> dic
     ).model_dump(by_alias=True, mode="json")
 
 
-@router.get("/trips/{trip_id}/trash")
+@router.get("/trips/{trip_id}/trash", response_model=Page[TrashItemOut])
 async def list_trash(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """7일 안에 지운 메모와 사진. 최근에 지운 것부터. owner·editor 만."""
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
@@ -47,7 +48,7 @@ async def list_trash(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -
     return page([줄 for _, 줄 in 줄들])
 
 
-@router.post("/trash/{target_type}/{target_id}/restore")
+@router.post("/trash/{target_type}/{target_id}/restore", response_model=Envelope[MemoOut | PhotoOut])
 async def restore(
     target_type: Literal["memo", "photo"], target_id: uuid.UUID, caller: CurrentCaller, db: DbSession
 ) -> dict:
