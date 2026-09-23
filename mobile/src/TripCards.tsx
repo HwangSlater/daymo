@@ -400,7 +400,16 @@ export function TripCardsSection({
     const 전 = 지금_카드.current;
     if (전) 역사_바꾸기((h) => recordChange(h, 전, Date.now(), sameKeepsakeCard));
   }, []);
+  /**
+   * 이 초안을 사용자가 손댔는지. 손대기 전에는 기기에 적지 않는다(2026-09-23 검토).
+   *
+   * 초안을 그릴 때는 지금 기기에 파일이 있는 사진만 남기고 거른다(`keepsakeCardOf`). 상대가
+   * 올린 사진이 아직 안 왔거나 웹에서 새로 고친 직후에는 그 사진이 빠진 카드가 열리는데,
+   * 그대로 적으면 **열기만 해도** 사진이 빠진 채 덮어써졌다. 되돌릴 길이 없다.
+   */
+  const 손댔다 = useRef(false);
   const tune = useCallback((change: Partial<KeepsakeCard>) => {
+    손댔다.current = true;
     // 사진이 바뀌면 다시 그려질 때까지 기다린다.
     if (change.photoIds) {
       drawn.current = new Set();
@@ -410,12 +419,14 @@ export function TripCardsSection({
     setDraft((current) => (current ? { ...current, ...change } : current));
   }, [쌓기]);
   const onDecor = useCallback((change: (list: CardDecor[]) => CardDecor[]) => {
+    손댔다.current = true;
     쌓기();
     setDraft((current) => (current ? { ...current, decor: change(current.decor) } : current));
   }, [쌓기]);
   /** ↶ ↷. 사진이 바뀌면 다시 그려질 때까지 기다리는 것도 `tune` 과 같다. */
   const 옮겨_가기 = (결과: { history: UndoHistory<KeepsakeCard>; value: KeepsakeCard } | undefined) => {
     if (!결과) return;
+    손댔다.current = true;
     if (draft && 결과.value.photoIds.join() !== draft.photoIds.join()) {
       drawn.current = new Set();
       setDrawnKeys([]);
@@ -433,7 +444,7 @@ export function TripCardsSection({
    * 그려질 까닭이 없다. 목록은 창을 닫을 때 맞춘다(`closeAll`).
    */
   useEffect(() => {
-    if (!openId || !draft || !tripId || !loaded) return;
+    if (!openId || !draft || !tripId || !loaded || !손댔다.current) return;
     const 적어_둔_것 = draftsRef.current.some((줄) => 줄.id === openId);
     if (!적어_둔_것 && draft.photoIds.length === 0) return;
     const 지금 = draft;
@@ -446,6 +457,7 @@ export function TripCardsSection({
 
   /** 초안을 창에 올리고 도구를 편다. */
   const openCard = useCallback((id: string, start: KeepsakeCard, createdAt: string, from: string | null) => {
+    손댔다.current = false;
     drawn.current = new Set();
     setDrawnKeys([]);
     setDraft(start);
@@ -526,12 +538,14 @@ export function TripCardsSection({
    * 사진을 보다가 시작한 카드면 그 사진 앞으로 돌아간다.
    */
   const closeAll = (돌아갈_사진: string | null = startedFrom) => {
-    if (openId && draft) {
+    // 손대지 않았으면 적어 둔 것을 건드리지 않는다(위 `손댔다` 주석).
+    if (openId && draft && 손댔다.current) {
       const 적어_둔_것 = drafts.some((줄) => 줄.id === openId);
       if (적어_둔_것 || draft.photoIds.length > 0) {
         persist(upsertDraft(drafts, { id: openId, card: draft, createdAt: openedAt }, tripName));
       }
     }
+    손댔다.current = false;
     setOpenId(null);
     setDraft(null);
     setExporting(false);
@@ -677,7 +691,12 @@ export function TripCardsSection({
     }
   };
 
+  /** 완료가 도는 중인지. 상태(`busy`)는 확인창이 떠 있는 동안의 렌더에 기대므로 ref 로 잠근다. */
+  const 완료_중 = useRef(false);
   const finishCard = async (id: string, 지금: KeepsakeCard) => {
+    // iOS 는 확인창을 큐에 쌓아, 「완료」를 빠르게 두 번 누르면 창이 두 번 뜨고 사진이 두 장 된다.
+    if (완료_중.current) return;
+    완료_중.current = true;
     // 그리는 동안은 창을 닫지 않는다. 찍을 카드가 이 창에 떠 있어야 한다.
     setBusy(true);
     let 찍음: { 찍은_것: string; 원본_못_받음: boolean } | undefined;
@@ -685,11 +704,16 @@ export function TripCardsSection({
     try {
       찍음 = await 원본으로_찍기();
       넣었다 = await onFinish({ uri: 찍음.찍은_것, caption: finishedCaptionOf(지금, tripName) });
+      // 실패 알림은 여행 화면 바닥으로 가는데 이 창이 그것을 가린다. 창 안에서 한 번 더 알린다.
+      if (!넣었다) viewerRef.current.onNotice("사진으로 저장하지 못했어요. 잠시 후 다시 시도해 주세요");
+      // 원본 보관 기간(30일)이 지난 사진은 줄인 사본뿐이다. 조용히 넘기지 않는다.
+      else if (찍음.원본_못_받음) notify("원본이 없는 사진은 줄인 화질로 들어갔어요");
     } catch {
       viewerRef.current.onNotice("저장할 이미지를 만들지 못했어요");
     } finally {
       if (찍음) releaseCapture(찍음.찍은_것);
       setBusy(false);
+      완료_중.current = false;
     }
     if (!넣었다) return;
     // 사진이 됐으니 초안은 지운다. 목록에서 먼저 빼야 `closeAll` 이 도로 적지 않는다.
