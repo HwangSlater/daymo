@@ -25,7 +25,7 @@ const 키로 = (date: Date) =>
 const 월일 = (date: Date) => `${date.getMonth() + 1}월 ${date.getDate()}일`;
 
 /** 고른 기간을 한 줄로. 아직 고르지 않았으면 빈 글자를 돌려준다. */
-export function formatTripRange(start: string, end: string) {
+function formatTripRange(start: string, end: string) {
   const startDate = 날짜로(start);
   const endDate = 날짜로(end);
   if (!startDate) return "";

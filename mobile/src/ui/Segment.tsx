@@ -90,7 +90,7 @@ export function Segment({
 // 딱 붙으면 고른 칸이 트랙 위에 얹힌 것이 아니라 트랙이 끊긴 것처럼 보인다.
 const 트랙여유 = 2;
 
-export const segmentStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   track: {
     height: 높이.칩,
     borderRadius: 모서리.버튼,
@@ -120,5 +120,3 @@ export const segmentStyles = StyleSheet.create({
   pressed: { opacity: 불투명도.눌림 },
   disabled: { opacity: 불투명도.비활성 },
 });
-
-const styles = segmentStyles;

@@ -81,7 +81,7 @@ export function coverLayout(photo: Box | undefined, frame: Box, focus: CoverFocu
 }
 
 /** 지금 그려진 자리에서 실제로 쓰이고 있는 값. 틀에 붙들린 뒤의 자리다. */
-export function focusOfLayout(layout: CoverLayout, frame: Box, zoom: number): CoverFocus {
+function focusOfLayout(layout: CoverLayout, frame: Box, zoom: number): CoverFocus {
   if (!(layout.width > 0) || !(layout.height > 0)) return { ...COVER_FOCUS_DEFAULT, zoom };
   return {
     x: 사이((frame.width / 2 - layout.left) / layout.width, 0, 1),

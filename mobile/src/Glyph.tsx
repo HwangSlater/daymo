@@ -173,11 +173,3 @@ export function Glyph({
   );
 }
 
-/** 불릿. 원래 • 선이 아니라 점이라 따로 둔다. */
-export function Dot({ size = 4, color }: { size?: number; color: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 4 4">
-      <Path d="M2 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4z" fill={color} />
-    </Svg>
-  );
-}

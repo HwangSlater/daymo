@@ -99,7 +99,7 @@ export function ChipRow({
   return <View style={[chipStyles.row, style]}>{children}</View>;
 }
 
-export const chipStyles = StyleSheet.create({
+const chipStyles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingRight: 6 },
   // 좌우 여백은 `여백.가로좁게`(12) 가 아니라 10 이다. 칩은 글자가 두세 자라
   // 12 를 주면 알약이 동그래져 무엇을 고르는 줄인지보다 모양이 먼저 보인다.

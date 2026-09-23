@@ -478,7 +478,8 @@ export const sheetHeadStyles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
-  /** 제목만 한 덩어리로 왼쪽에 둘 때. */
+  /** 제목만 한 덩어리로 왼쪽에 둘 때. 머리를 갈아 끼우는 화면이 쓴다. */
+  // eslint-disable-next-line react-native/no-unused-styles -- 내보내서 `WarmTripDetail` 이 쓴다
   copy: { flex: 1 },
   // 줄 높이를 적어 둔다. 적지 않으면 iOS 가 글꼴이 말하는 만큼만 칸을 잡아,
   // 「함께하는 멤버」처럼 받침이 있는 한글의 아래가 잘린다(기기에서 확인).
