@@ -8,7 +8,7 @@ from app.api.deps import CurrentCaller, DbSession
 from app.api.permissions import WRITERS, membership_for_trip, membership_for_trip_row, require
 from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
-from app.core.responses import ok, page
+from app.core.responses import Envelope, Page, ok, page
 from app.models import Membership, TripCard
 from app.schemas.trip import TripCardCreateRequest, TripCardOut, TripCardUpdateRequest
 from app.services import photo_files
@@ -34,14 +34,14 @@ def _응답(card: TripCard, membership: Membership) -> dict:
     ).model_dump(by_alias=True, mode="json")
 
 
-@router.get("/trips/{trip_id}/cards")
+@router.get("/trips/{trip_id}/cards", response_model=Page[TripCardOut])
 async def list_trip_cards(trip_id: uuid.UUID, caller: CurrentCaller, db: DbSession) -> dict:
     """만든 차례대로. 공간 멤버면 남이 만든 카드도 본다."""
     membership, trip = await membership_for_trip(db, user_id=caller.user.id, trip_id=trip_id)
     return page([_응답(card, membership) for card in await card_service.list_cards(db, trip)])
 
 
-@router.post("/trips/{trip_id}/cards", status_code=status.HTTP_201_CREATED)
+@router.post("/trips/{trip_id}/cards", status_code=status.HTTP_201_CREATED, response_model=Envelope[TripCardOut])
 async def create_trip_card(
     trip_id: uuid.UUID,
     body: TripCardCreateRequest,
@@ -63,7 +63,7 @@ async def create_trip_card(
     return ok(_응답(card, membership))
 
 
-@router.patch("/trip-cards/{card_id}")
+@router.patch("/trip-cards/{card_id}", response_model=Envelope[TripCardOut])
 async def update_trip_card(
     card_id: uuid.UUID,
     body: TripCardUpdateRequest,
@@ -105,7 +105,7 @@ async def delete_trip_card(card_id: uuid.UUID, caller: CurrentCaller, db: DbSess
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.put("/trip-cards/{card_id}/image")
+@router.put("/trip-cards/{card_id}/image", response_model=Envelope[TripCardOut])
 async def upload_trip_card_image(
     card_id: uuid.UUID,
     request: Request,
