@@ -142,10 +142,23 @@ export type ViewerDecor = {
  */
 const LIFT = Platform.OS === "web" ? ({ willChange: "transform" } as object) : null;
 
-/** 검은 바탕 위의 흰 글자. 테마를 타지 않는 값이라 한곳에 모아 둔다. */
+/**
+ * 검은 바탕 위의 흰 글자. 테마를 타지 않는 값이라 한곳에 모아 둔다.
+ *
+ * 흐린 글이 0.34 였을 때 검은 바탕에서 대비가 3.0:1 이라, 밝은 데서는 안내 글이
+ * 아예 안 보였다(2026-09-23 검토 #30). 불투명도를 눈대중으로 적지 않고
+ * `controls.불투명도` 단계에 맞춘다 — 흐림(0.55)이 검정 위 약 6.2:1 로 AA 를 넘는다.
+ */
 const INK = "#FFFFFF";
-const INK_SOFT = "rgba(255,255,255,0.62)";
-const INK_FAINT = "rgba(255,255,255,0.34)";
+/** 설명·안내처럼 읽어야 하지만 본문보다 한 겹 뒤인 글. */
+const INK_SOFT = `rgba(255,255,255,${불투명도.흐림})`;
+/**
+ * 누를 수 없는 도구.
+ *
+ * 여기만 더 옅다. 꺼져 있음이 한눈에 보이는 것이 읽히는 것보다 앞서고, WCAG 도
+ * 꺼진 칸은 대비에서 뺀다. 읽어야 하는 글에는 쓰지 않는다.
+ */
+const INK_OFF = `rgba(255,255,255,${불투명도.비활성})`;
 /** 고치기 화면의 강조색과 위험색. 어두운 바탕에서 읽히는 값으로 따로 둔다. */
 const EDIT_ACCENT = "#A7B3EE";
 const DANGER_INK = "#F08A82";
@@ -1231,7 +1244,7 @@ export function PhotoEditScreen({
                 onChangeText={onCaption}
                 editable={!readOnly}
                 placeholder="예: 도착하자마자 먹은 점심"
-                placeholderTextColor={INK_FAINT}
+                placeholderTextColor={INK_SOFT}
                 maxLength={200}
                 accessibilityLabel="사진 설명 (선택)"
                 style={styles.editField}
@@ -1268,7 +1281,7 @@ export function PhotoEditScreen({
               const on = 켜졌나(key);
               const 쓸 = 쓸_수_있나(key);
               const 위험 = key === "삭제";
-              const 색 = !쓸 ? INK_FAINT : 위험 ? DANGER_INK : on ? EDIT_ACCENT : INK_SOFT;
+              const 색 = !쓸 ? INK_OFF : 위험 ? DANGER_INK : on ? EDIT_ACCENT : INK_SOFT;
               return (
                 <Pressable
                   key={key}
@@ -1465,7 +1478,7 @@ const styles = StyleSheet.create({
   editSave: { fontSize: 14, fontFamily: typo.label.family },
   editStage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, paddingVertical: 10 },
   editShot: { width: "100%", height: "100%", borderRadius: 모서리.표식, overflow: "hidden" },
-  // 읽어야 하는 안내 글자라 INK_FAINT(약 3.0:1)로는 모자란다(2026-09-23 검토 #30).
+  // 읽어야 하는 안내 글자라 꺼진 칸 색(INK_OFF)으로는 모자란다(2026-09-23 검토 #30).
   editStageHint: { fontSize: 12, color: INK_SOFT, textAlign: "center", paddingBottom: 8, fontFamily: typo.caption.family },
   // 도구 칸 맨 위의 한 줄. 이 칸이 무엇을 하는 자리인지 알린다.
   editPanelLead: { fontSize: 12, color: INK_SOFT, marginBottom: 8, fontFamily: typo.caption.family },
