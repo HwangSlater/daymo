@@ -208,10 +208,20 @@ export function photoCodec(
   serverTargetIds: ReadonlySet<string> = new Set(),
 ): Codec<PhotoRow, PhotoBody, ServerPhoto> {
   const keyByDayLabel = new Map(tripDates.map((key) => [dayLabelOf(key), key]));
+  /**
+   * 적어 둔 날짜 이름표를 이번 기간에서 못 찾는지.
+   *
+   * 지출과 같은 사정이다. 여행 기간을 옮기면 옛 이름표가 새 기간에 없어지는데, 그대로
+   * 보내면 `date: null` 이 올라가 서버의 날짜가 지워졌다(2026-09-23). 날짜를 고르지
+   * 않은 사진(`날짜 미정`)과는 구별한다.
+   */
+  const 날짜를_잃음 = (date: string) => Boolean(date) && date !== PHOTO_UNDATED && !keyByDayLabel.has(date);
   return {
-    syncable: (photo) => isServerId(photo.id) && (Boolean(photo.uri) || knownIds.has(photo.id)),
-    // blockReason 은 두지 않는다. 웹은 올린 직후 파일을 비우는데, 서버 id 가 syncedIds
-    // 에 적히기 전 한순간 "파일 없음" 으로 보여 배지가 깜빡인다.
+    syncable: (photo) =>
+      isServerId(photo.id) && (Boolean(photo.uri) || knownIds.has(photo.id)) && !날짜를_잃음(photo.date),
+    // 파일이 없어 못 올리는 것은 까닭을 붙이지 않는다. 웹은 올린 직후 파일을 비우는데,
+    // 서버 id 가 syncedIds 에 적히기 전 한순간 "파일 없음" 으로 보여 배지가 깜빡인다.
+    blockReason: (photo) => (isServerId(photo.id) && 날짜를_잃음(photo.date) ? "여행 기간 밖의 날짜예요" : undefined),
     idOf: (photo) => photo.id,
     toBody: (photo) => ({
       caption: blank(photo.caption, 200),

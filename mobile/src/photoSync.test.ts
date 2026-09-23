@@ -70,6 +70,26 @@ test("올린 사람은 서버에서 받아 두지만 서버로 보내지 않는�
   assert.equal(hasWork(planListSync([local], codec, confirmed)), false);
 });
 
+test("기간 밖 이름표는 올리지 않고, 날짜를 옮기면 새 이름표로 간다", () => {
+  const codec = photoCodec(dates, new Set([A]));
+  // 여행 기간을 옮기면 옛 이름표가 기간에서 사라진다. 그때 date: null 로 올려 서버의
+  // 날짜를 지우던 것을 막는다(2026-09-23).
+  const 잃은_것: PhotoRow = { id: A, color: "#fff", date: "9일(금)", caption: "", uri: "file:///p.jpg" };
+  assert.equal(codec.syncable(잃은_것), false);
+  assert.equal(codec.blockReason?.(잃은_것), "여행 기간 밖의 날짜예요");
+  assert.deepEqual(planListSync([잃은_것], codec, new Map()), { creates: [], updates: [], deletes: [] });
+  // 날짜를 고르지 않은 사진은 그대로 올린다. 파일이 없어 못 올리는 것에는 까닭을 붙이지 않는다.
+  const 미정: PhotoRow = { id: A, color: "#fff", date: PHOTO_UNDATED, caption: "", uri: "file:///p.jpg" };
+  assert.equal(codec.syncable(미정), true);
+  assert.equal(codec.toBody(미정).date, null);
+  assert.equal(photoCodec(dates, new Set()).blockReason?.({ id: A, color: "#fff", date: "", caption: "" }), undefined);
+
+  // 화면이 이름표를 새 기간으로 옮기고 나면 그 날짜로 올라간다.
+  const 옮긴_뒤 = photoCodec(tripDateKeys("2026-10-08", "2026-10-10"), new Set([A]));
+  assert.equal(옮긴_뒤.syncable(잃은_것), true);
+  assert.equal(옮긴_뒤.toBody(잃은_것).date, "2026-10-09");
+});
+
 test("색은 id 로 정해져 기기마다 같다", () => {
   assert.equal(colorOfId(A), colorOfId(A));
   assert.ok(PHOTO_PALETTE.includes(colorOfId("22222222-2222-4222-8222-222222222222")));

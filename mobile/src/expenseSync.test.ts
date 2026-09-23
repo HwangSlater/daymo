@@ -100,6 +100,24 @@ test("나간 멤버가 낸 서버 지출은 목록에 남고 서버에서 지우
   assert.deepEqual(planListSync([back], codec, new Map([[A, { key: "x", version: 1 }]])).deletes, []);
 });
 
+test("기간 밖 이름표는 올리지 않고, 날짜를 옮기면 새 이름표로 간다", () => {
+  const codec = expenseCodec(dates, roster);
+  // 여행 기간을 옮기면 옛 이름표가 기간에서 사라진다. 그때 date: null 로 올려 서버의
+  // 날짜를 지우던 것을 막는다(2026-09-23).
+  const 잃은_것 = expense({ day: "9일(금)" });
+  assert.equal(codec.syncable(잃은_것), false);
+  assert.equal(codec.blockReason?.(잃은_것), "여행 기간 밖의 날짜예요");
+  assert.deepEqual(planListSync([잃은_것], codec, new Map()), { creates: [], updates: [], deletes: [] });
+  // 날짜를 아직 고르지 않은 지출은 그대로 올린다.
+  assert.equal(codec.syncable(expense({ day: "" })), true);
+  assert.equal(codec.toBody(expense({ day: "" })).date, null);
+
+  // 화면이 이름표를 새 기간으로 옮기고 나면 그 날짜로 올라간다.
+  const 옮긴_뒤 = expenseCodec(tripDateKeys("2026-10-08", "2026-10-10"), roster);
+  assert.equal(옮긴_뒤.syncable(잃은_것), true);
+  assert.equal(옮긴_뒤.toBody(잃은_것).date, "2026-10-09");
+});
+
 test("주고받은 기록은 이름과 시각을 오간다", () => {
   const codec = paymentCodec(roster);
   const at = Date.UTC(2026, 9, 3, 1, 2, 3);
