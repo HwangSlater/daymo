@@ -144,8 +144,6 @@ import { Cooking } from "./trip/TripCooking";
 import { Memories } from "./trip/TripMemories";
 import { Money } from "./trip/TripMoney";
 
-
-
 /** 탭에 찍히는 이름. 내부 값과 다른 것만 적는다. 첫 탭은 일정을 담고 있어 「일정」이라 부른다. */
 const MODE_LABEL: Partial<Record<ViewMode, string>> = { 여행: "일정" };
 const modeLabelOf = (mode: ViewMode) => MODE_LABEL[mode] ?? mode;
@@ -167,7 +165,6 @@ const saveErrorMessage = (caught: unknown) =>
   caught instanceof DaymoApiError && caught.status !== 0
     ? caught.message
     : "저장하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요";
-
 
 type Props = {
   done: string[];
@@ -255,8 +252,6 @@ type Props = {
 
 // 날짜 선택지는 "9월 24일 (목)" 꼴이다. 미리보기 칸에는 일 숫자만 크게 쓴다.
 
-
-
 /**
  * 여행 기간을 읽을 수 없을 때 날짜 고르개가 잠깐 쓰는 날.
  *
@@ -264,8 +259,6 @@ type Props = {
  * 놓는다. 여기 적은 날은 코덱이 「여행 기간 밖」으로 보아 서버로 올리지 않는다.
  */
 const 기간_없는_여행의_날짜 = [0, 1, 2].map((더할_날) => shiftDateKey(dateKey(new Date()), 더할_날));
-
-
 
 /**
  * 사진 파일을 실제로 서버에 보내는 길. 앱 전역 대기열에 끼워 준다.
@@ -276,7 +269,6 @@ const 기간_없는_여행의_날짜 = [0, 1, 2].map((더할_날) => shiftDateKe
 
 const sendPhotoFile = (job: PhotoUploadJob, 알림?: UploadNotice) =>
   uploadPhoto(job.tripId, job.photoId, job.uri, job.body, 알림);
-
 
 export function WarmTripDetail({
   done,
@@ -2227,7 +2219,6 @@ export function WarmTripDetail({
     </DetailThemeContext.Provider>
   );
 }
-
 
 const styles = StyleSheet.create({
   feedbackToast: { left: 20, right: 20, bottom: 18 },

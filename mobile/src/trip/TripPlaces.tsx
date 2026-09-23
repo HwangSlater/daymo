@@ -1259,7 +1259,6 @@ export function Places({
   );
 }
 
-
 const styles = StyleSheet.create({
   // 체크아웃 칸 아래 한 줄. 저장하면 대표 숙소가 어떻게 되는지 미리 말해 준다.
   stayPickerHint: { fontSize: 12, fontFamily: typo.body.family, lineHeight: 18, marginTop: -4, marginBottom: 16 },

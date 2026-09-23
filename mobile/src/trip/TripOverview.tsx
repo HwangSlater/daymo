@@ -1683,7 +1683,6 @@ export function TripOverview({
   );
 }
 
-
 const styles = StyleSheet.create({
   travelTimelineCard: { padding: 0, marginBottom: 22, overflow: "hidden" },
   travelTimelineHead: {

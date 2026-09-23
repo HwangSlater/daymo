@@ -815,7 +815,6 @@ export function TimeRow({
   );
 }
 
-
 /**
  * 뒤 시각이 앞 시각보다 빨라지는 순간 한 번 알린다.
  *
@@ -1336,7 +1335,6 @@ export function OptionField({
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   travelMomentCompact: { minHeight: 높이.저장 },

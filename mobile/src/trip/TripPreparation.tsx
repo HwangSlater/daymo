@@ -1514,7 +1514,6 @@ export function Preparation({
   );
 }
 
-
 const styles = StyleSheet.create({
   checkName: { color: "#593934", fontSize: 14, fontFamily: typo.title.family },
   checkNameDone: { color: "#B29B92", textDecorationLine: "line-through" },
