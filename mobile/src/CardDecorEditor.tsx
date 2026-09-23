@@ -229,7 +229,8 @@ function Toggle({
  * 자르는 층을 작게 먼저 그려 사진이 흐려졌다. 웹의 캡처는 화면에 그려진 크기 그대로 찍으므로
  * 예전처럼 제 크기(1)로 두고 카드 자신을 찍는다.
  */
-function shotLayoutOf(size: { width: number; exportWidth: number }, exporting: boolean) {
+/** 찍을 때의 배치. 폰은 카드를 찍힐 크기로 키워 그린다(`unit`). 찍는 쪽이 글자 재기를 기다릴 때도 쓴다. */
+export function shotLayoutOf(size: { width: number; exportWidth: number }, exporting: boolean) {
   const native = Platform.OS !== "web";
   const unit = exporting && native ? keepsakeShotScale(size, PixelRatio.get()) : 1;
   return { native, unit };

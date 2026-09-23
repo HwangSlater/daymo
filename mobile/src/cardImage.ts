@@ -132,8 +132,26 @@ async function 옛_버전_지우기(folder: string, cardId: string, version: num
  * 작은 사본을 미리 받아 둔다. 격자에 보이는 카드와 크게 볼 때의 양옆 카드가 대상이다.
  * 못 받아도 그만이다 — 열 때 다시 받는다.
  */
-export async function prefetchCardImage(cardId: string, version: number): Promise<void> {
-  await downloadCardImage(cardId, version, "small").catch(() => undefined);
+export async function prefetchCardImage(cardId: string, version: number): Promise<string | undefined> {
+  return downloadCardImage(cardId, version, "small").catch(() => undefined);
+}
+
+/**
+ * 이 카드의 받아 둔 그림을 모두 버린다. 새 그림을 올린 뒤에 부른다 — 같은 버전 번호로 그림만
+ * 바뀌는 때가 있어서(그 기능 전에 만든 카드에 그림을 만들어 올릴 때), 버전만 보면 옛 그림을 쓴다.
+ */
+export async function forgetCardImage(cardId: string): Promise<void> {
+  for (const key of [...웹_캐시.keys()]) {
+    if (key.startsWith(`${cardId}-v`)) 웹_캐시.delete(key);
+  }
+  if (Platform.OS === "web" || !FileSystem.cacheDirectory) return;
+  const folder = `${FileSystem.cacheDirectory}${CARD_DIRECTORY}/`;
+  const 이름들 = await FileSystem.readDirectoryAsync(folder).catch(() => [] as string[]);
+  await Promise.all(
+    이름들
+      .filter((이름) => 이름.startsWith(`${cardId}-v`))
+      .map((이름) => FileSystem.deleteAsync(`${folder}${이름}`, { idempotent: true }).catch(() => undefined)),
+  );
 }
 
 /**

@@ -504,8 +504,8 @@ export function PhotoViewerScreen({
     });
     const 제자리로 = () => {
       Animated.parallel([
-        Animated.spring(slideX, { toValue: 0, bounciness: 2, useNativeDriver: true }),
-        Animated.spring(slideY, { toValue: 0, bounciness: 2, useNativeDriver: true }),
+        Animated.spring(slideX, { toValue: 0, bounciness: 2, useNativeDriver: false }),
+        Animated.spring(slideY, { toValue: 0, bounciness: 2, useNativeDriver: false }),
       ]).start();
     };
     /**
@@ -621,11 +621,14 @@ export function PhotoViewerScreen({
          * 끝으로 갈수록 느려지게(`Easing.out`) 한다. 손을 뗀 뒤에도 같은 속도로 딱
          * 멈추면 밀던 손과 화면이 따로 노는 느낌이 난다.
          */
+        // 줄은 기기가 아니라 자바스크립트가 움직인다(2026-09-23). 기기가 움직이는 값이면 다 간
+        // 뒤 `useLayoutEffect` 가 0 으로 되돌리는 것과 새 자리를 그리는 것이 다른 길로 가서,
+        // 되돌림이 한 프레임 먼저 닿아 옛 사진이 제자리에 스치듯 보였다. 같은 길이면 한 프레임이다.
         Animated.timing(slideX, {
           toValue: 걸음 > 0 ? -폭 : 폭,
           duration: 200,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }).start(({ finished }) => {
           if (finished) 옮긴다(옆칸(걸음));
         });
@@ -770,6 +773,19 @@ export function PhotoViewerScreen({
           {[-1, 0, 1].map((자리) => {
             // 한 칸뿐이면 옆 칸은 비운다. 같은 카드를 옆에 두 번 더 그릴 까닭이 없다.
             const 칸 = 자리 === 0 ? (previewing ? undefined : 이웃칸(0)) : 칸들.length > 1 ? 이웃칸(자리) : undefined;
+            /*
+             * 칸의 열쇠는 자리(왼쪽·가운데·오른쪽)가 아니라 **무엇을 담았는지**다.
+             *
+             * 밀어 넘기면 오른쪽 칸의 것이 가운데 칸의 것이 된다. 열쇠가 자리면 React 는 가운데
+             * 칸의 내용을 새로 만들고, 새 Image 는 같은 파일이라도 뜨기까지 한 프레임 비어
+             * 검게 깜빡인다(2026-09-23, 카드에서 눈에 띄었다). 열쇠가 내용이면 칸을 그대로
+             * 옮겨 쓰므로 그림이 한 번도 안 사라진다. 두 칸뿐일 때는 양옆이 같은 것이라
+             * 자리를 덧붙여 가른다.
+             */
+            const 담은_것 = 자리 === 0 && previewing ? 이웃칸(0) : 칸;
+            const 열쇠 = 담은_것
+              ? `${담은_것.kind === "사진" ? "사진" : "카드"}:${담은_것.kind === "사진" ? 담은_것.photo.id : 담은_것.id}${칸들.length <= 2 && 자리 !== 0 ? `:${자리}` : ""}`
+              : `빈:${자리}`;
             const 한장 = 칸?.kind === "사진" ? 칸.photo : undefined;
             // 카드는 위 아이콘 줄과 아래 설명·스트립을 비운 칸에 통째로 담는다. 사진처럼
             // 화면을 꽉 채우면 틀 아래의 글이 스트립에 가린다. 지금 보는 카드도 이 줄의
@@ -779,7 +795,7 @@ export function PhotoViewerScreen({
               : 칸?.kind === "카드" ? decor?.renderCard?.(칸.id) : undefined;
             return (
               <View
-                key={자리}
+                key={열쇠}
                 style={[
                   styles.cell,
                   { width },

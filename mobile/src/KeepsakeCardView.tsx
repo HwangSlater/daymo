@@ -228,6 +228,7 @@ const DecorItem = memo(function DecorItem({
   cardHeight,
   unit = 1,
   edit,
+  onDrawn,
 }: {
   decor: CardDecor;
   cardWidth: number;
@@ -235,6 +236,12 @@ const DecorItem = memo(function DecorItem({
   /** 카드를 키워 배치한 배(`KeepsakeCardView` 의 `unit`). 글자 그림자도 같이 키운다. */
   unit?: number;
   edit?: DecorEdit;
+  /**
+   * 글자를 이 배율로 다 쟀다고 알린다(`글자:<id>:<unit>`). 찍는 쪽이 이것을 기다린다.
+   * 카드를 찍을 크기로 키우면 글자도 커지는데, 새로 재기 전에 찍으면 옛 상자 높이에 글자가
+   * 잘려 들어갔다(2026-09-23, 「또 가자」의 아래 절반이 없었다).
+   */
+  onDrawn?: (key: string) => void;
 }) {
   const s = sheetOf(unit);
   // 글자는 글이 차지하는 너비를 재서 그만큼만 상자로 잡는다. 카드 너비만큼
@@ -245,6 +252,7 @@ const DecorItem = memo(function DecorItem({
   const 글자_재기 = (폭: number, 높이: number) => {
     글자폭재기(폭);
     글자높이재기(높이);
+    onDrawn?.(`글자:${decor.id}:${unit}`);
   };
   const box = 상자_재기(decor, cardWidth, cardHeight, 글자폭, 글자높이);
   const left = box.cx - box.width / 2;
@@ -381,10 +389,11 @@ const DecorItem = memo(function DecorItem({
       style={[
         s.decor,
         {
-          // 글자는 재기 전까지 너비를 비워 둔다. 그래야 글만큼만 차지한다.
+          // 글자는 재기 전까지 너비를 비워 둔다. 그래야 글만큼만 차지한다. 높이도 글이 정한다 —
+          // 잰 높이로 못 박으면 배율이 바뀌어 다시 재는 사이에 글자가 잘린다.
           width: decor.kind === "글자" ? undefined : box.width,
           maxWidth: cardWidth,
-          height: box.height,
+          height: decor.kind === "글자" ? undefined : box.height,
           opacity: decor.kind === "글자" && !글자폭 ? 0 : 1,
           transform: [
             { translateX: spot.x },
@@ -720,6 +729,7 @@ export const KeepsakeCardView = memo(function KeepsakeCardView({
             cardHeight={size.height}
             unit={unit}
             edit={edit}
+            onDrawn={onPhotoReady}
           />
         ))}
       </View>
