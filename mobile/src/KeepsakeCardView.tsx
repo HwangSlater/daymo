@@ -998,6 +998,9 @@ function FocusedPhoto({
           const { width, height } = event.nativeEvent.source ?? {};
           사진재기(width && height ? { width, height } : { width: 1, height: 1 });
         }}
+        // Expo Go에서는 캐시에 있던 파일이 화면에는 그려져도 onLoad가 빠지고
+        // onLoadEnd만 오는 경우가 있다. 크기를 못 받은 때만 완료 표시를 보충한다.
+        onLoadEnd={() => 사진재기((지금) => 지금 ?? { width: 1, height: 1 })}
         // 못 읽은 사진도 「다 놓였다」로 친다(2026-09-23 검토 #52). 그러지 않으면 다 그려지기를
         // 기다리는 「완료」가 영영 막히고, 왜 막혔는지도 알 수 없다. 알리는 것은 따로 한다.
         onError={() => {
