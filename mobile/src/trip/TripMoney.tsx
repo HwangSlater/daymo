@@ -796,7 +796,7 @@ export function Money({
             <Text style={[styles.moneyBudgetPercent, theme && { color: theme.muted }]}>{Math.round(budgetProgress * 100)}%</Text>
           </View>
         </>) : canEdit ? (
-          <Text style={[공용스타일.settingHint, theme && { color: theme.muted }]}>
+          <Text style={[공용스타일.settingHint, styles.moneyBudgetHint, theme && { color: theme.muted }]}>
             예산을 정하면 얼마나 썼는지 막대로 보여 줘요
           </Text>
         ) : null}
@@ -1688,6 +1688,8 @@ const styles = StyleSheet.create({
   moneyBudgetFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   moneyBudgetStatus: { fontSize: 11, fontFamily: typo.caption.family },
   moneyBudgetPercent: { fontSize: 11, fontFamily: typo.data.family },
+  // 공용 안내문은 앞 요소 쪽으로 당겨 쓰지만, 여기서는 작은 설정 버튼의 터치 영역과 겹치지 않게 띄운다.
+  moneyBudgetHint: { marginTop: 8 },
   moneyPaidTable: { marginTop: 16 },
   moneyPaidHead: { flexDirection: "row", alignItems: "center", paddingBottom: 6 },
   moneyPaidHeadName: { flex: 1, fontSize: 12, fontFamily: typo.caption.family },
