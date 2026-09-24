@@ -728,8 +728,8 @@ export function Money({
           )}
         </View>
         <View style={styles.moneyCurrencyRow}>
-          {/* 글자만 두면 누를 수 있는 줄 모른다. 테두리와 화살표를 줘서 고르는
-              칸이라는 걸 보이게 한다. 자리는 늘 왼쪽으로 고정한다. */}
+          {/* 총액 아래의 보조 설정은 카드처럼 크게 보이면 총액과 경쟁한다.
+              배경과 테두리를 빼고 글자·화살표만 남기되, 누르는 범위는 44pt로 둔다. */}
           <Pressable
             onPress={openCurrency}
             disabled={!canEdit}
@@ -737,8 +737,7 @@ export function Money({
             accessibilityRole="button"
             accessibilityLabel={`여행 통화 ${unit.code} ${unit.label}, 눌러서 바꾸기`}
             style={({ pressed }) => [
-              styles.moneyCurrencyChip,
-              theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft },
+              styles.moneyCurrencyAction,
               pressed && 공용스타일.controlPressed,
             ]}
           >
@@ -759,8 +758,7 @@ export function Money({
             accessibilityRole="button"
             accessibilityLabel={`이번 여행 참가자 ${participants.length}명, 눌러서 바꾸기`}
             style={({ pressed }) => [
-              styles.moneyCurrencyChip,
-              theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft },
+              styles.moneyCurrencyAction,
               pressed && 공용스타일.controlPressed,
             ]}
           >
@@ -1669,10 +1667,10 @@ const styles = StyleSheet.create({
   amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: -4, marginBottom: 18 },
   amountStep: { minHeight: 높이.버튼, borderWidth: 1, borderColor: "transparent", borderRadius: 모서리.원, paddingHorizontal: 여백.가로, alignItems: "center", justifyContent: "center" },
   amountStepText: { fontSize: 14, fontFamily: typo.label.family },
-  moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
-  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 6, height: 높이.칩, borderWidth: 1, borderRadius: 모서리.원, paddingLeft: 여백.가로좁게, paddingRight: 9 },
+  moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 여백.가로, marginTop: 4 },
+  moneyCurrencyAction: { flexDirection: "row", alignItems: "center", gap: 4, height: 높이.칩 },
   moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
-  moneyCurrencyValue: { fontSize: 13, fontFamily: typo.label.family },
+  moneyCurrencyValue: { fontSize: 12, fontFamily: typo.label.family },
   moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
   receiptRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
   receiptThumb: { width: 62, height: 62, borderRadius: 모서리.행, overflow: "hidden" },
