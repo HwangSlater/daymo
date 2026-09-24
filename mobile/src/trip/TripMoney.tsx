@@ -728,16 +728,17 @@ export function Money({
           )}
         </View>
         <View style={styles.moneyCurrencyRow}>
-          {/* 총액 아래의 보조 설정은 카드처럼 크게 보이면 총액과 경쟁한다.
-              배경과 테두리를 빼고 글자·화살표만 남기되, 누르는 범위는 44pt로 둔다. */}
+          {/* 총액 아래의 보조 설정이라 버튼 모양은 유지하되 작게 그린다.
+              실제 누르는 범위는 hitSlop으로 44pt를 확보한다. */}
           <Pressable
             onPress={openCurrency}
             disabled={!canEdit}
-            hitSlop={누름여유(높이.칩)}
+            hitSlop={누름여유(28)}
             accessibilityRole="button"
             accessibilityLabel={`여행 통화 ${unit.code} ${unit.label}, 눌러서 바꾸기`}
             style={({ pressed }) => [
-              styles.moneyCurrencyAction,
+              styles.moneyCurrencyChip,
+              theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft },
               pressed && 공용스타일.controlPressed,
             ]}
           >
@@ -754,11 +755,12 @@ export function Money({
           <Pressable
             onPress={openPeople}
             disabled={!canEdit}
-            hitSlop={누름여유(높이.칩)}
+            hitSlop={누름여유(28)}
             accessibilityRole="button"
             accessibilityLabel={`이번 여행 참가자 ${participants.length}명, 눌러서 바꾸기`}
             style={({ pressed }) => [
-              styles.moneyCurrencyAction,
+              styles.moneyCurrencyChip,
+              theme && { borderColor: theme.primary, backgroundColor: theme.primarySoft },
               pressed && 공용스타일.controlPressed,
             ]}
           >
@@ -1667,9 +1669,10 @@ const styles = StyleSheet.create({
   amountSteps: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: -4, marginBottom: 18 },
   amountStep: { minHeight: 높이.버튼, borderWidth: 1, borderColor: "transparent", borderRadius: 모서리.원, paddingHorizontal: 여백.가로, alignItems: "center", justifyContent: "center" },
   amountStepText: { fontSize: 14, fontFamily: typo.label.family },
-  moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 여백.가로, marginTop: 4 },
-  moneyCurrencyAction: { flexDirection: "row", alignItems: "center", gap: 4, height: 높이.칩 },
-  moneyCurrencyLabel: { fontSize: 11, fontFamily: typo.caption.family },
+  moneyCurrencyRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
+  // 총액보다 눈에 띄지 않는 작은 보조 설정이다. 28pt로 그리고 hitSlop으로 누르는 범위만 넓힌다.
+  moneyCurrencyChip: { flexDirection: "row", alignItems: "center", gap: 4, height: 28, borderWidth: 1, borderRadius: 모서리.원, paddingHorizontal: 8 },
+  moneyCurrencyLabel: { fontSize: 10, fontFamily: typo.caption.family },
   moneyCurrencyValue: { fontSize: 12, fontFamily: typo.label.family },
   moneyConverted: { flex: 1, textAlign: "right", fontSize: 12, fontFamily: typo.data.family },
   receiptRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
