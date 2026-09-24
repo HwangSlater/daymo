@@ -26,7 +26,7 @@ import { CheckBox } from "../ui/CheckBox";
 import { EmptyState as SharedEmptyState } from "../ui/EmptyState";
 import { Glyph } from "../Glyph";
 import { showAlert } from "../showAlert";
-import { 높이, 모서리, 불투명도, 아이콘, 누름여유 } from "../theme/controls";
+import { 높이, 모서리, 불투명도, 아이콘, 여백, 누름여유 } from "../theme/controls";
 import { typo } from "../theme/typography";
 import { 공용스타일 } from "./styles";
 import {
@@ -1533,6 +1533,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginVertical: 여백.세로,
   },
   cookingTip: { fontSize: 12 },
   cookingSectionTitle: {
