@@ -15,6 +15,272 @@
 <path fill="#fcfbf8" stroke="#f3e8d7" stroke-width="2" d="M88.62,-107.63C88.62,-107.63 757.25,-107.63 757.25,-107.63 763.25,-107.63 769.25,-113.63 769.25,-119.63 769.25,-119.63 769.25,-1909.63 769.25,-1909.63 769.25,-1915.63 763.25,-1921.63 757.25,-1921.63 757.25,-1921.63 88.62,-1921.63 88.62,-1921.63 82.62,-1921.63 76.62,-1915.63 76.62,-1909.63 76.62,-1909.63 76.62,-119.63 76.62,-119.63 76.62,-113.63 82.62,-107.63 88.62,-107.63"/>
 <text xml:space="preserve" text-anchor="middle" x="422.94" y="-1903.38" font-family="Arial" font-size="15.00" fill="#292929">기록 · 추억</text>
 </g>
+<!-- memos&#45;&gt;memberships -->
+<g id="edge7" class="edge">
+<title>memos:p_author_membership_id&#45;&gt;memberships:p_id</title>
+<g id="a_edge7"><a xlink:title="fk_memos_author_membership_id_memberships">
+<path fill="none" stroke="#5575a5" d="M533.83,-1806.67C534.06,-1826.9 534.75,-1887.13 534.75,-1887.13 534.75,-1887.13 741.75,-1887.13 741.75,-1887.13 741.75,-1887.13 944,-1738.63 944,-1738.63 944,-1738.63 998.62,-1149.16 1004.81,-1082.39"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="533.83,-1806.66 536.54,-1800.43 533.79,-1803.23 533.76,-1800.79 533.76,-1800.79 533.76,-1800.79 533.79,-1803.23 530.96,-1800.49 533.83,-1806.66"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1002.23,-1076.58 1008.4,-1077.16 1008.29,-1078.39 1002.12,-1077.82 1002.23,-1076.58"/>
+<polyline fill="none" stroke="#5575a5" points="1005.38,-1076.25 1005.09,-1079.34"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1001.94,-1079.67 1008.12,-1080.24 1008,-1081.48 1001.83,-1080.9 1001.94,-1079.67"/>
+<polyline fill="none" stroke="#5575a5" points="1005.09,-1079.34 1004.8,-1082.43"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1845.98" font-family="Arial" font-size="8.00" fill="#5575a5">author_membership_id · SET NULL</text>
+</g>
+<!-- memos&#45;&gt;memberships -->
+<g id="edge9" class="edge">
+<title>memos:p_deleted_by&#45;&gt;memberships:p_id</title>
+<g id="a_edge9"><a xlink:title="fk_memos_deleted_by_memberships">
+<path fill="none" stroke="#5575a5" d="M533.81,-1697.69C534.02,-1674.44 534.75,-1596.13 534.75,-1596.13 534.75,-1596.13 769.25,-1583.63 769.25,-1583.63 769.25,-1583.63 944,-1563.63 944,-1563.63 944,-1563.63 997.72,-1137.05 1004.64,-1082.06"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="533.81,-1697.59 530.96,-1703.77 533.78,-1701.03 533.76,-1703.46 533.76,-1703.46 533.76,-1703.46 533.78,-1701.03 536.54,-1703.82 533.81,-1697.59"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1002.22,-1076.48 1008.37,-1077.25 1008.22,-1078.48 1002.07,-1077.71 1002.22,-1076.48"/>
+<polyline fill="none" stroke="#5575a5" points="1005.38,-1076.25 1004.99,-1079.33"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1001.83,-1079.56 1007.99,-1080.33 1007.83,-1081.56 1001.68,-1080.79 1001.83,-1079.56"/>
+<polyline fill="none" stroke="#5575a5" points="1004.99,-1079.33 1004.6,-1082.4"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1582.16" font-family="Arial" font-size="8.00" fill="#5575a5">deleted_by · SET NULL</text>
+</g>
+<!-- memos&#45;&gt;trips -->
+<g id="edge10" class="edge">
+<title>memos:p_trip_id&#45;&gt;trips:p_id</title>
+<g id="a_edge10"><a xlink:title="fk_memos_trip_id_trips">
+<path fill="none" stroke="#c65d3b" d="M533.85,-1830.4C534.1,-1846.33 534.75,-1887.13 534.75,-1887.13 534.75,-1887.13 741.75,-1887.13 741.75,-1887.13 741.75,-1887.13 799.25,-1722.88 799.25,-1722.88 799.25,-1722.88 944,-1595.63 944,-1595.63 944,-1595.63 977.82,-1022.18 981.65,-957.22"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="533.85,-1830.66 536.54,-1824.42 533.8,-1827.23 533.76,-1824.79 533.76,-1824.79 533.76,-1824.79 533.8,-1827.23 530.97,-1824.5 533.85,-1830.66"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="978.87,-951.69 985.06,-952.05 984.99,-953.29 978.8,-952.93 978.87,-951.69"/>
+<polyline fill="none" stroke="#c65d3b" points="982,-951.25 981.82,-954.35"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="978.69,-954.78 984.88,-955.15 984.8,-956.39 978.61,-956.02 978.69,-954.78"/>
+<polyline fill="none" stroke="#c65d3b" points="981.82,-954.35 981.63,-957.44"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1725.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
+</g>
+<!-- memos&#45;&gt;users -->
+<g id="edge8" class="edge">
+<title>memos:p_created_by&#45;&gt;users:p_id</title>
+<g id="a_edge8"><a xlink:title="fk_memos_created_by_users">
+<path fill="none" stroke="#5575a5" d="M596.26,-1594.72C628.21,-1592.67 769.25,-1583.63 769.25,-1583.63 769.25,-1583.63 799.25,-1547.88 799.25,-1547.88 799.25,-1547.88 944,-1518.63 944,-1518.63 944,-1518.63 982,-854.63 982,-854.63 982,-854.63 1004.39,-782.56 1011.04,-761.17"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="596.4,-1594.71 590.03,-1592.32 592.97,-1594.93 590.54,-1595.08 590.54,-1595.08 590.54,-1595.08 592.97,-1594.93 590.39,-1597.89 596.4,-1594.71"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1009.73,-754.92 1015.65,-756.76 1015.28,-757.95 1009.36,-756.11 1009.73,-754.92"/>
+<polyline fill="none" stroke="#5575a5" points="1012.88,-755.25 1011.96,-758.21"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1008.81,-757.88 1014.73,-759.72 1014.36,-760.91 1008.44,-759.07 1008.81,-757.88"/>
+<polyline fill="none" stroke="#5575a5" points="1011.96,-758.21 1011.04,-761.17"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1550.03" font-family="Arial" font-size="8.00" fill="#5575a5">created_by · SET NULL</text>
+</g>
+<!-- diaries&#45;&gt;memberships -->
+<g id="edge3" class="edge">
+<title>diaries:p_author_membership_id&#45;&gt;memberships:p_id</title>
+<g id="a_edge3"><a xlink:title="fk_diaries_author_membership_id_memberships">
+<path fill="none" stroke="#5575a5" d="M527.45,-886.67C527.68,-906.9 528.38,-967.13 528.38,-967.13 528.38,-967.13 769.25,-979.63 769.25,-979.63 769.25,-979.63 944,-990.88 944,-990.88 944,-990.88 989.33,-1053.93 1002.08,-1071.66"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="527.45,-886.66 530.17,-880.43 527.41,-883.23 527.38,-880.79 527.38,-880.79 527.38,-880.79 527.41,-883.23 524.59,-880.49 527.45,-886.66"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1007.53,-1073.94 1002.5,-1077.56 1001.77,-1076.55 1006.81,-1072.93 1007.53,-1073.94"/>
+<polyline fill="none" stroke="#5575a5" points="1005.38,-1076.25 1003.57,-1073.73"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1005.72,-1071.42 1000.69,-1075.04 999.96,-1074.03 1005,-1070.42 1005.72,-1071.42"/>
+<polyline fill="none" stroke="#5575a5" points="1003.57,-1073.73 1001.76,-1071.22"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-993.03" font-family="Arial" font-size="8.00" fill="#5575a5">author_membership_id · SET NULL</text>
+</g>
+<!-- diaries&#45;&gt;trips -->
+<g id="edge5" class="edge">
+<title>diaries:p_trip_id&#45;&gt;trips:p_id</title>
+<g id="a_edge5"><a xlink:title="fk_diaries_trip_id_trips">
+<path fill="none" stroke="#c65d3b" d="M527.47,-910.4C527.73,-926.33 528.38,-967.13 528.38,-967.13 528.38,-967.13 748.12,-967.13 748.12,-967.13 748.12,-967.13 799.25,-949.88 799.25,-949.88 799.25,-949.88 944,-949.88 944,-949.88 944,-949.88 965.38,-950.65 976.06,-951.04"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="527.48,-910.66 530.17,-904.42 527.42,-907.23 527.39,-904.79 527.39,-904.79 527.39,-904.79 527.42,-907.23 524.59,-904.5 527.48,-910.66"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="981.49,-948.13 981.27,-954.33 980.03,-954.28 980.25,-948.09 981.49,-948.13"/>
+<polyline fill="none" stroke="#c65d3b" points="982,-951.25 978.9,-951.14"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="978.39,-948.02 978.17,-954.22 976.93,-954.17 977.16,-947.97 978.39,-948.02"/>
+<polyline fill="none" stroke="#c65d3b" points="978.9,-951.14 975.8,-951.03"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-952.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
+</g>
+<!-- diaries&#45;&gt;users -->
+<g id="edge4" class="edge">
+<title>diaries:p_created_by&#45;&gt;users:p_id</title>
+<g id="a_edge4"><a xlink:title="fk_diaries_created_by_users">
+<path fill="none" stroke="#5575a5" d="M589.75,-699.16C619.82,-699.35 748.12,-700.13 748.12,-700.13 748.12,-700.13 799.25,-726.63 799.25,-726.63 799.25,-726.63 973.19,-749.93 1007.16,-754.49"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="590.03,-699.17 583.85,-696.34 586.6,-699.14 584.17,-699.13 584.17,-699.13 584.17,-699.13 586.6,-699.14 583.82,-701.92 590.03,-699.17"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1012.67,-752.1 1011.85,-758.24 1010.62,-758.08 1011.44,-751.93 1012.67,-752.1"/>
+<polyline fill="none" stroke="#5575a5" points="1012.88,-755.25 1009.8,-754.84"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1009.6,-751.69 1008.78,-757.83 1007.55,-757.67 1008.37,-751.52 1009.6,-751.69"/>
+<polyline fill="none" stroke="#5575a5" points="1009.8,-754.84 1006.73,-754.43"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-748.01" font-family="Arial" font-size="8.00" fill="#5575a5">created_by · SET NULL</text>
+</g>
+<!-- photos&#45;&gt;memberships -->
+<g id="edge12" class="edge">
+<title>photos:p_deleted_by&#45;&gt;memberships:p_id</title>
+<g id="a_edge12"><a xlink:title="fk_photos_deleted_by_memberships">
+<path fill="none" stroke="#5575a5" d="M518.45,-1069.53C518.69,-1049.73 519.38,-992.13 519.38,-992.13 519.38,-992.13 757.12,-992.13 757.12,-992.13 757.12,-992.13 799.25,-1006.63 799.25,-1006.63 799.25,-1006.63 967.08,-1063.32 999.86,-1074.39"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="518.45,-1069.59 515.59,-1075.76 518.41,-1073.03 518.38,-1075.46 518.38,-1075.46 518.38,-1075.46 518.41,-1073.03 521.17,-1075.82 518.45,-1069.59"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1005.78,-1073.12 1003.8,-1078.99 1002.62,-1078.59 1004.6,-1072.72 1005.78,-1073.12"/>
+<polyline fill="none" stroke="#5575a5" points="1005.38,-1076.25 1002.44,-1075.26"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1002.84,-1072.12 1000.86,-1078 999.68,-1077.6 1001.67,-1071.73 1002.84,-1072.12"/>
+<polyline fill="none" stroke="#5575a5" points="1002.44,-1075.26 999.5,-1074.27"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1056.72" font-family="Arial" font-size="8.00" fill="#5575a5">deleted_by · SET NULL</text>
+</g>
+<!-- photos&#45;&gt;memberships -->
+<g id="edge14" class="edge">
+<title>photos:p_uploader_membership_id&#45;&gt;memberships:p_id</title>
+<g id="a_edge14"><a xlink:title="fk_photos_uploader_membership_id_memberships">
+<path fill="none" stroke="#5575a5" d="M518.45,-1490.67C518.68,-1510.9 519.38,-1571.13 519.38,-1571.13 519.38,-1571.13 757.12,-1571.13 757.12,-1571.13 757.12,-1571.13 799.25,-1506.88 799.25,-1506.88 799.25,-1506.88 944,-1387.63 944,-1387.63 944,-1387.63 995.72,-1125.24 1004.2,-1082.19"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="518.45,-1490.66 521.17,-1484.43 518.41,-1487.23 518.38,-1484.79 518.38,-1484.79 518.38,-1484.79 518.41,-1487.23 515.59,-1484.49 518.45,-1490.66"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1002.21,-1076.26 1008.3,-1077.46 1008.06,-1078.68 1001.97,-1077.48 1002.21,-1076.26"/>
+<polyline fill="none" stroke="#5575a5" points="1005.38,-1076.25 1004.78,-1079.29"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1001.61,-1079.3 1007.7,-1080.5 1007.46,-1081.72 1001.37,-1080.52 1001.61,-1079.3"/>
+<polyline fill="none" stroke="#5575a5" points="1004.78,-1079.29 1004.18,-1082.33"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1509.03" font-family="Arial" font-size="8.00" fill="#5575a5">uploader_membership_id · SET NULL</text>
+</g>
+<!-- photos&#45;&gt;trips -->
+<g id="edge13" class="edge">
+<title>photos:p_trip_id&#45;&gt;trips:p_id</title>
+<g id="a_edge13"><a xlink:title="fk_photos_trip_id_trips">
+<path fill="none" stroke="#c65d3b" d="M518.47,-1514.4C518.73,-1530.33 519.38,-1571.13 519.38,-1571.13 519.38,-1571.13 757.12,-1571.13 757.12,-1571.13 757.12,-1571.13 799.25,-1371.88 799.25,-1371.88 799.25,-1371.88 944,-1275.63 944,-1275.63 944,-1275.63 976.16,-1001.12 981.31,-957.16"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="518.48,-1514.66 521.17,-1508.42 518.42,-1511.23 518.39,-1508.79 518.39,-1508.79 518.39,-1508.79 518.42,-1511.23 515.59,-1508.5 518.48,-1514.66"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="978.85,-951.51 985.01,-952.23 984.86,-953.46 978.7,-952.74 978.85,-951.51"/>
+<polyline fill="none" stroke="#c65d3b" points="982,-951.25 981.64,-954.33"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="978.49,-954.59 984.65,-955.31 984.5,-956.54 978.34,-955.82 978.49,-954.59"/>
+<polyline fill="none" stroke="#c65d3b" points="981.64,-954.33 981.28,-957.41"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1374.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
+</g>
+<!-- photo_links&#45;&gt;photos -->
+<g id="edge11" class="edge">
+<title>photo_links:p_photo_id&#45;&gt;photos:p_id</title>
+<g id="a_edge11"><a xlink:title="fk_photo_links_photo_id_photos">
+<path fill="none" stroke="#c65d3b" d="M83.72,-1538.4C83.98,-1554.33 84.62,-1595.13 84.62,-1595.13 84.62,-1595.13 249.62,-1595.13 249.62,-1595.13 249.62,-1595.13 473.21,-1542.71 512.51,-1533.5"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="83.73,-1538.66 86.42,-1532.42 83.67,-1535.23 83.64,-1532.79 83.64,-1532.79 83.64,-1532.79 83.67,-1535.23 80.84,-1532.5 83.73,-1538.66"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="517.06,-1529.25 518.48,-1535.29 517.27,-1535.57 515.86,-1529.53 517.06,-1529.25"/>
+<polyline fill="none" stroke="#c65d3b" points="518.38,-1532.13 515.36,-1532.83"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="514.05,-1529.96 515.46,-1535.99 514.25,-1536.28 512.84,-1530.24 514.05,-1529.96"/>
+<polyline fill="none" stroke="#c65d3b" points="515.36,-1532.83 512.34,-1533.54"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="424.75" y="-1568.47" font-family="Arial" font-size="8.00" fill="#c65d3b">photo_id · CASCADE</text>
+</g>
+<!-- audit_logs&#45;&gt;memberships -->
+<g id="edge1" class="edge">
+<title>audit_logs:p_actor_membership_id&#45;&gt;memberships:p_id</title>
+<g id="a_edge1"><a xlink:title="fk_audit_logs_actor_membership_id_memberships">
+<path fill="none" stroke="#5575a5" d="M528.58,-254.67C528.81,-274.9 529.5,-335.13 529.5,-335.13 529.5,-335.13 769.25,-347.63 769.25,-347.63 769.25,-347.63 944,-433.88 944,-433.88 944,-433.88 982,-1002.63 982,-1002.63 982,-1002.63 998.03,-1053.12 1003.54,-1070.47"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="528.58,-254.66 531.29,-248.43 528.54,-251.23 528.51,-248.79 528.51,-248.79 528.51,-248.79 528.54,-251.23 525.71,-248.49 528.58,-254.66"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1008.14,-1074.72 1002.23,-1076.6 1001.86,-1075.42 1007.77,-1073.54 1008.14,-1074.72"/>
+<polyline fill="none" stroke="#5575a5" points="1005.38,-1076.25 1004.44,-1073.3"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1007.2,-1071.77 1001.29,-1073.64 1000.92,-1072.46 1006.83,-1070.59 1007.2,-1071.77"/>
+<polyline fill="none" stroke="#5575a5" points="1004.44,-1073.3 1003.5,-1070.34"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-436.03" font-family="Arial" font-size="8.00" fill="#5575a5">actor_membership_id · SET NULL</text>
+</g>
+<!-- audit_logs&#45;&gt;spaces -->
+<g id="edge2" class="edge">
+<title>audit_logs:p_space_id&#45;&gt;spaces:p_id</title>
+<g id="a_edge2"><a xlink:title="fk_audit_logs_space_id_spaces">
+<path fill="none" stroke="#5575a5" d="M528.6,-278.4C528.85,-294.33 529.5,-335.13 529.5,-335.13 529.5,-335.13 747,-335.13 747,-335.13 747,-335.13 969.14,-281.76 1007.32,-272.59"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="528.6,-278.66 531.29,-272.42 528.55,-275.23 528.51,-272.79 528.51,-272.79 528.51,-272.79 528.55,-275.23 525.72,-272.5 528.6,-278.66"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1011.55,-268.38 1013,-274.41 1011.79,-274.7 1010.34,-268.67 1011.55,-268.38"/>
+<polyline fill="none" stroke="#5575a5" points="1012.88,-271.25 1009.86,-271.98"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1008.53,-269.11 1009.98,-275.14 1008.78,-275.42 1007.33,-269.4 1008.53,-269.11"/>
+<polyline fill="none" stroke="#5575a5" points="1009.86,-271.98 1006.85,-272.7"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-324.61" font-family="Arial" font-size="8.00" fill="#5575a5">space_id · SET NULL</text>
+</g>
+<!-- trip_cards&#45;&gt;memberships -->
+<g id="edge15" class="edge">
+<title>trip_cards:p_created_by_membership_id&#45;&gt;memberships:p_id</title>
+<g id="a_edge15"><a xlink:title="fk_trip_cards_created_by_membership_id_memberships">
+<path fill="none" stroke="#5575a5" d="M514.33,-594.67C514.56,-614.9 515.25,-675.13 515.25,-675.13 515.25,-675.13 769.25,-687.63 769.25,-687.63 769.25,-687.63 944,-715.88 944,-715.88 944,-715.88 982,-1002.63 982,-1002.63 982,-1002.63 998.03,-1053.12 1003.54,-1070.47"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="514.33,-594.66 517.04,-588.43 514.29,-591.23 514.26,-588.79 514.26,-588.79 514.26,-588.79 514.29,-591.23 511.46,-588.49 514.33,-594.66"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1008.14,-1074.72 1002.23,-1076.6 1001.86,-1075.42 1007.77,-1073.54 1008.14,-1074.72"/>
+<polyline fill="none" stroke="#5575a5" points="1005.38,-1076.25 1004.44,-1073.3"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1007.2,-1071.77 1001.29,-1073.64 1000.92,-1072.46 1006.83,-1070.59 1007.2,-1071.77"/>
+<polyline fill="none" stroke="#5575a5" points="1004.44,-1073.3 1003.5,-1070.34"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-718.03" font-family="Arial" font-size="8.00" fill="#5575a5">created_by_membership_id · SET NULL</text>
+</g>
+<!-- trip_cards&#45;&gt;trips -->
+<g id="edge17" class="edge">
+<title>trip_cards:p_trip_id&#45;&gt;trips:p_id</title>
+<g id="a_edge17"><a xlink:title="fk_trip_cards_trip_id_trips">
+<path fill="none" stroke="#c65d3b" d="M514.35,-618.4C514.6,-634.33 515.25,-675.13 515.25,-675.13 515.25,-675.13 944,-675.88 944,-675.88 944,-675.88 975.61,-904.97 981.17,-945.24"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="514.35,-618.66 517.04,-612.42 514.3,-615.23 514.26,-612.79 514.26,-612.79 514.26,-612.79 514.3,-615.23 511.47,-612.5 514.35,-618.66"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="984.99,-950.21 978.84,-951.06 978.67,-949.83 984.82,-948.99 984.99,-950.21"/>
+<polyline fill="none" stroke="#c65d3b" points="982,-951.25 981.58,-948.18"/>
+<polygon fill="#c65d3b" stroke="#c65d3b" points="984.56,-947.14 978.42,-947.99 978.25,-946.76 984.39,-945.91 984.56,-947.14"/>
+<polyline fill="none" stroke="#c65d3b" points="981.58,-948.18 981.15,-945.11"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-678.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
+</g>
+<!-- trip_cards&#45;&gt;users -->
+<g id="edge16" class="edge">
+<title>trip_cards:p_created_by&#45;&gt;users:p_id</title>
+<g id="a_edge16"><a xlink:title="fk_trip_cards_created_by_users">
+<path fill="none" stroke="#5575a5" d="M587.29,-359.16C619.43,-359.34 761.25,-360.13 761.25,-360.13 761.25,-360.13 799.25,-449.63 799.25,-449.63 799.25,-449.63 944,-594.88 944,-594.88 944,-594.88 998.63,-722.09 1010.58,-749.92"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="587.41,-359.16 581.22,-356.34 583.97,-359.14 581.54,-359.13 581.54,-359.13 581.54,-359.13 583.97,-359.14 581.19,-361.92 587.41,-359.16"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1015.48,-753.46 1009.78,-755.91 1009.29,-754.77 1014.99,-752.32 1015.48,-753.46"/>
+<polyline fill="none" stroke="#5575a5" points="1012.88,-755.25 1011.65,-752.4"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="1014.26,-750.61 1008.56,-753.06 1008.07,-751.92 1013.77,-749.47 1014.26,-750.61"/>
+<polyline fill="none" stroke="#5575a5" points="1011.65,-752.4 1010.43,-749.56"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-597.03" font-family="Arial" font-size="8.00" fill="#5575a5">created_by · SET NULL</text>
+</g>
+<!-- expenses&#45;&gt;photos -->
+<g id="edge6" class="edge">
+<title>expenses:p_receipt_photo_id&#45;&gt;photos:p_id</title>
+<g id="a_edge6"><a xlink:title="fk_expenses_receipt_photo_id_photos">
+<path fill="none" stroke="#5575a5" d="M90.17,-29.94C90.46,-19.55 91,0 91,0 91,0 243.25,0 243.25,0 243.25,0 334.25,-103.63 334.25,-103.63 334.25,-103.63 504.62,-1425.39 517.59,-1526.07"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="90.18,-29.72 87.22,-35.84 90.09,-33.15 90.02,-35.58 90.02,-35.58 90.02,-35.58 90.09,-33.15 92.8,-35.99 90.18,-29.72"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="521.37,-1531.11 515.22,-1531.91 515.06,-1530.68 521.21,-1529.88 521.37,-1531.11"/>
+<polyline fill="none" stroke="#5575a5" points="518.38,-1532.13 517.98,-1529.05"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="520.97,-1528.04 514.82,-1528.83 514.67,-1527.6 520.82,-1526.81 520.97,-1528.04"/>
+<polyline fill="none" stroke="#5575a5" points="517.98,-1529.05 517.58,-1525.98"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="424.75" y="-1199.67" font-family="Arial" font-size="8.00" fill="#5575a5">receipt_photo_id · SET NULL</text>
+</g>
+<!-- trips&#45;&gt;photos -->
+<g id="edge19" class="edge">
+<title>trips:p_cover_photo_id&#45;&gt;photos:p_id</title>
+<g id="a_edge19"><a xlink:title="fk_trips_cover_photo_id_photos">
+<path fill="none" stroke="#5575a5" d="M980.37,-933.41C973.09,-960.86 944,-1070.63 944,-1070.63 944,-1070.63 799.25,-1259.88 799.25,-1259.88 799.25,-1259.88 757.12,-1571.13 757.12,-1571.13 757.12,-1571.13 519.38,-1571.13 519.38,-1571.13 519.38,-1571.13 518.81,-1549.19 518.53,-1538.22"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="980.33,-933.57 984.61,-928.29 981.21,-930.25 981.83,-927.9 981.83,-927.9 981.83,-927.9 981.21,-930.25 979.22,-926.86 980.33,-933.57"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="515.29,-1532.83 521.49,-1532.67 521.52,-1533.91 515.32,-1534.06 515.29,-1532.83"/>
+<polyline fill="none" stroke="#5575a5" points="518.38,-1532.13 518.45,-1535.22"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="515.37,-1535.92 521.57,-1535.77 521.6,-1537 515.4,-1537.16 515.37,-1535.92"/>
+<polyline fill="none" stroke="#5575a5" points="518.45,-1535.22 518.53,-1538.32"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1262.03" font-family="Arial" font-size="8.00" fill="#5575a5">cover_photo_id · SET NULL</text>
+</g>
+<!-- trips&#45;&gt;trip_cards -->
+<g id="edge18" class="edge">
+<title>trips:p_cover_card_id&#45;&gt;trip_cards:p_id</title>
+<g id="a_edge18"><a xlink:title="fk_trips_cover_card_id_trip_cards">
+<path fill="none" stroke="#5575a5" d="M980.98,-896.74C974.94,-858.04 944,-659.88 944,-659.88 944,-659.88 799.25,-659.88 799.25,-659.88 799.25,-659.88 761.25,-675.13 761.25,-675.13 761.25,-675.13 515.25,-675.13 515.25,-675.13 515.25,-675.13 514.69,-653.19 514.41,-642.22"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="980.99,-896.8 979.19,-903.35 981.52,-900.19 981.9,-902.59 981.9,-902.59 981.9,-902.59 981.52,-900.19 984.7,-902.49 980.99,-896.8"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="511.17,-636.83 517.36,-636.67 517.4,-637.91 511.2,-638.06 511.17,-636.83"/>
+<polyline fill="none" stroke="#5575a5" points="514.25,-636.13 514.33,-639.22"/>
+<polygon fill="#5575a5" stroke="#5575a5" points="511.25,-639.92 517.44,-639.77 517.48,-641 511.28,-641.16 511.25,-639.92"/>
+<polyline fill="none" stroke="#5575a5" points="514.33,-639.22 514.41,-642.32"/>
+</a>
+</g>
+<text xml:space="preserve" text-anchor="middle" x="871.62" y="-662.03" font-family="Arial" font-size="8.00" fill="#5575a5">cover_card_id · SET NULL</text>
+</g>
 <!-- memos -->
 <g id="node1" class="node">
 <title>memos</title>
@@ -88,119 +354,6 @@
 <polygon fill="none" stroke="#b8b8b8" points="712.5,-1596.13 712.5,-1620.13 741.75,-1620.13 741.75,-1596.13 712.5,-1596.13"/>
 <text xml:space="preserve" text-anchor="start" x="722.25" y="-1605.63" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">FK</text>
 </g>
-<!-- memberships -->
-<g id="node8" class="node">
-<title>memberships</title>
-<polygon fill="#f2f2f2" stroke="none" points="1006.38,-1088.25 1006.38,-1115.25 1104.62,-1115.25 1104.62,-1088.25 1006.38,-1088.25"/>
-<polygon fill="none" stroke="#b8b8b8" points="1006.38,-1088.25 1006.38,-1115.25 1104.62,-1115.25 1104.62,-1088.25 1006.38,-1088.25"/>
-<text xml:space="preserve" text-anchor="start" x="1012.38" y="-1097.9" font-family="Arial" font-weight="bold" font-size="13.00">memberships</text>
-<polygon fill="none" stroke="#b8b8b8" points="1006.38,-1064.25 1006.38,-1088.25 1030.88,-1088.25 1030.88,-1064.25 1006.38,-1064.25"/>
-<text xml:space="preserve" text-anchor="start" x="1012.38" y="-1072.5" font-family="Arial" font-size="10.00">id</text>
-<polygon fill="none" stroke="#b8b8b8" points="1030.88,-1064.25 1030.88,-1088.25 1073.38,-1088.25 1073.38,-1064.25 1030.88,-1064.25"/>
-<text xml:space="preserve" text-anchor="start" x="1036.88" y="-1072.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
-<polygon fill="none" stroke="#b8b8b8" points="1073.38,-1064.25 1073.38,-1088.25 1104.62,-1088.25 1104.62,-1064.25 1073.38,-1064.25"/>
-<text xml:space="preserve" text-anchor="start" x="1084.38" y="-1073.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
-<polygon fill="none" stroke="#b8b8b8" points="1006.38,-1040 1006.38,-1064.25 1104.62,-1064.25 1104.62,-1040 1006.38,-1040"/>
-<text xml:space="preserve" text-anchor="start" x="1012.38" y="-1048.5" font-family="Arial" font-size="10.00" fill="#888888">… 10개 컬럼</text>
-</g>
-<!-- memos&#45;&gt;memberships -->
-<g id="edge7" class="edge">
-<title>memos:w&#45;&gt;memberships:e</title>
-<g id="a_edge7"><a xlink:title="fk_memos_author_membership_id_memberships">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M533.84,-1807.54C534.08,-1828.58 534.75,-1887.13 534.75,-1887.13 534.75,-1887.13 741.75,-1887.13 741.75,-1887.13 741.75,-1887.13 944,-1738.63 944,-1738.63 944,-1738.63 1020.11,-1151.6 1029.03,-1082.81"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="533.84,-1807.53 536.9,-1800.49 533.79,-1803.63 533.76,-1800.93 533.76,-1800.93 533.76,-1800.93 533.79,-1803.63 530.6,-1800.56 533.84,-1807.53"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1026.31,-1076.5 1033.26,-1077.4 1033.08,-1078.78 1026.13,-1077.88 1026.31,-1076.5"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.88,-1076.25 1029.42,-1079.72"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1025.86,-1079.97 1032.81,-1080.87 1032.63,-1082.26 1025.68,-1081.36 1025.86,-1079.97"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.42,-1079.72 1028.97,-1083.19"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1845.98" font-family="Arial" font-size="8.00" fill="#5575a5">author_membership_id · SET NULL</text>
-</g>
-<!-- memos&#45;&gt;memberships -->
-<g id="edge9" class="edge">
-<title>memos:w&#45;&gt;memberships:e</title>
-<g id="a_edge9"><a xlink:title="fk_memos_deleted_by_memberships">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M533.82,-1696.7C534.04,-1672.3 534.75,-1596.13 534.75,-1596.13 534.75,-1596.13 769.25,-1583.63 769.25,-1583.63 769.25,-1583.63 944,-1563.63 944,-1563.63 944,-1563.63 1018.22,-1142.38 1028.66,-1083.14"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="533.82,-1696.72 530.6,-1703.7 533.78,-1700.63 533.76,-1703.32 533.76,-1703.32 533.76,-1703.32 533.78,-1700.63 536.9,-1703.75 533.82,-1696.72"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1026.31,-1076.33 1033.2,-1077.55 1032.96,-1078.93 1026.06,-1077.71 1026.31,-1076.33"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.88,-1076.25 1029.27,-1079.7"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1025.7,-1079.78 1032.59,-1081 1032.35,-1082.37 1025.46,-1081.16 1025.7,-1079.78"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.27,-1079.7 1028.66,-1083.15"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1582.16" font-family="Arial" font-size="8.00" fill="#5575a5">deleted_by · SET NULL</text>
-</g>
-<!-- trips -->
-<g id="node10" class="node">
-<title>trips</title>
-<polygon fill="#f2f2f2" stroke="none" points="982,-963.25 982,-990.25 1129,-990.25 1129,-963.25 982,-963.25"/>
-<polygon fill="none" stroke="#b8b8b8" points="982,-963.25 982,-990.25 1129,-990.25 1129,-963.25 982,-963.25"/>
-<text xml:space="preserve" text-anchor="start" x="988" y="-972.9" font-family="Arial" font-weight="bold" font-size="13.00">trips</text>
-<polygon fill="none" stroke="#b8b8b8" points="982,-939.25 982,-963.25 1060,-963.25 1060,-939.25 982,-939.25"/>
-<text xml:space="preserve" text-anchor="start" x="988" y="-947.5" font-family="Arial" font-size="10.00">id</text>
-<polygon fill="none" stroke="#b8b8b8" points="1060,-939.25 1060,-963.25 1102.75,-963.25 1102.75,-939.25 1060,-939.25"/>
-<text xml:space="preserve" text-anchor="start" x="1066" y="-947.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
-<polygon fill="none" stroke="#b8b8b8" points="1102.75,-939.25 1102.75,-963.25 1129,-963.25 1129,-939.25 1102.75,-939.25"/>
-<text xml:space="preserve" text-anchor="start" x="1108.75" y="-948.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
-<polygon fill="none" stroke="#b8b8b8" points="982,-915.25 982,-939.25 1060,-939.25 1060,-915.25 982,-915.25"/>
-<text xml:space="preserve" text-anchor="start" x="988" y="-923.5" font-family="Arial" font-size="10.00">cover_photo_id</text>
-<polygon fill="none" stroke="#b8b8b8" points="1060,-915.25 1060,-939.25 1102.75,-939.25 1102.75,-915.25 1060,-915.25"/>
-<text xml:space="preserve" text-anchor="start" x="1066" y="-923.5" font-family="Arial" font-size="10.00" fill="#666666">UUID?</text>
-<polygon fill="none" stroke="#b8b8b8" points="1102.75,-915.25 1102.75,-939.25 1129,-939.25 1129,-915.25 1102.75,-915.25"/>
-<text xml:space="preserve" text-anchor="start" x="1109.5" y="-924.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">FK</text>
-<polygon fill="none" stroke="#b8b8b8" points="982,-891.25 982,-915.25 1060,-915.25 1060,-891.25 982,-891.25"/>
-<text xml:space="preserve" text-anchor="start" x="988" y="-899.5" font-family="Arial" font-size="10.00">cover_card_id</text>
-<polygon fill="none" stroke="#b8b8b8" points="1060,-891.25 1060,-915.25 1102.75,-915.25 1102.75,-891.25 1060,-891.25"/>
-<text xml:space="preserve" text-anchor="start" x="1066" y="-899.5" font-family="Arial" font-size="10.00" fill="#666666">UUID?</text>
-<polygon fill="none" stroke="#b8b8b8" points="1102.75,-891.25 1102.75,-915.25 1129,-915.25 1129,-891.25 1102.75,-891.25"/>
-<text xml:space="preserve" text-anchor="start" x="1109.5" y="-900.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">FK</text>
-<polygon fill="none" stroke="#b8b8b8" points="982,-867 982,-891.25 1129,-891.25 1129,-867 982,-867"/>
-<text xml:space="preserve" text-anchor="start" x="988" y="-875.5" font-family="Arial" font-size="10.00" fill="#888888">… 23개 컬럼</text>
-</g>
-<!-- memos&#45;&gt;trips -->
-<g id="edge10" class="edge">
-<title>memos:w&#45;&gt;trips:e</title>
-<g id="a_edge10"><a xlink:title="fk_memos_trip_id_trips">
-<path fill="none" stroke="#c65d3b" stroke-width="1.2" d="M533.86,-1831.35C534.13,-1847.9 534.75,-1887.13 534.75,-1887.13 534.75,-1887.13 741.75,-1887.13 741.75,-1887.13 741.75,-1887.13 799.25,-1722.88 799.25,-1722.88 799.25,-1722.88 944,-1595.63 944,-1595.63 944,-1595.63 982,-1027.63 982,-1027.63 982,-1027.63 1037.84,-972.24 1054.41,-955.8"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="533.87,-1831.53 536.91,-1824.48 533.81,-1827.63 533.76,-1824.93 533.76,-1824.93 533.76,-1824.93 533.81,-1827.63 530.61,-1824.58 533.87,-1831.53"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1056.04,-949.26 1060.97,-954.23 1059.97,-955.22 1055.04,-950.25 1056.04,-949.26"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1059,-951.25 1056.52,-953.72"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1053.55,-951.72 1058.48,-956.69 1057.49,-957.68 1052.56,-952.71 1053.55,-951.72"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1056.52,-953.72 1054.03,-956.18"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1725.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
-</g>
-<!-- users -->
-<g id="node11" class="node">
-<title>users</title>
-<polygon fill="#f2f2f2" stroke="none" points="1013.88,-767.25 1013.88,-794.25 1097.12,-794.25 1097.12,-767.25 1013.88,-767.25"/>
-<polygon fill="none" stroke="#b8b8b8" points="1013.88,-767.25 1013.88,-794.25 1097.12,-794.25 1097.12,-767.25 1013.88,-767.25"/>
-<text xml:space="preserve" text-anchor="start" x="1019.88" y="-776.9" font-family="Arial" font-weight="bold" font-size="13.00">users</text>
-<polygon fill="none" stroke="#b8b8b8" points="1013.88,-743.25 1013.88,-767.25 1033.38,-767.25 1033.38,-743.25 1013.88,-743.25"/>
-<text xml:space="preserve" text-anchor="start" x="1019.88" y="-751.5" font-family="Arial" font-size="10.00">id</text>
-<polygon fill="none" stroke="#b8b8b8" points="1033.38,-743.25 1033.38,-767.25 1070.88,-767.25 1070.88,-743.25 1033.38,-743.25"/>
-<text xml:space="preserve" text-anchor="start" x="1039.38" y="-751.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
-<polygon fill="none" stroke="#b8b8b8" points="1070.88,-743.25 1070.88,-767.25 1097.12,-767.25 1097.12,-743.25 1070.88,-743.25"/>
-<text xml:space="preserve" text-anchor="start" x="1076.88" y="-752.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
-<polygon fill="none" stroke="#b8b8b8" points="1013.88,-719 1013.88,-743.25 1097.12,-743.25 1097.12,-719 1013.88,-719"/>
-<text xml:space="preserve" text-anchor="start" x="1019.88" y="-727.5" font-family="Arial" font-size="10.00" fill="#888888">… 14개 컬럼</text>
-</g>
-<!-- memos&#45;&gt;users -->
-<g id="edge8" class="edge">
-<title>memos:w&#45;&gt;users:e</title>
-<g id="a_edge8"><a xlink:title="fk_memos_created_by_users">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M534.37,-1600.73C534.57,-1598.26 534.75,-1596.13 534.75,-1596.13 534.75,-1596.13 769.25,-1583.63 769.25,-1583.63 769.25,-1583.63 799.25,-1547.88 799.25,-1547.88 799.25,-1547.88 944,-1518.63 944,-1518.63 944,-1518.63 982,-854.63 982,-854.63 982,-854.63 1018.2,-783.22 1029.22,-761.47"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="534.36,-1600.75 530.64,-1607.46 534.04,-1604.64 533.82,-1607.33 533.82,-1607.33 533.82,-1607.33 534.04,-1604.64 536.92,-1607.99 534.36,-1600.75"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1028.94,-754.29 1035.18,-757.46 1034.55,-758.71 1028.3,-755.54 1028.94,-754.29"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1032.38,-755.25 1030.79,-758.37"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1027.35,-757.42 1033.6,-760.58 1032.96,-761.83 1026.72,-758.66 1027.35,-757.42"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1030.79,-758.37 1029.21,-761.5"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1550.03" font-family="Arial" font-size="8.00" fill="#5575a5">created_by · SET NULL</text>
-</g>
 <!-- diaries -->
 <g id="node2" class="node">
 <title>diaries</title>
@@ -267,48 +420,6 @@
 <text xml:space="preserve" text-anchor="start" x="644.62" y="-708.38" font-family="Arial" font-size="10.00" fill="#666666">UUID?</text>
 <polygon fill="none" stroke="#b8b8b8" points="721.88,-700.13 721.88,-724.13 748.12,-724.13 748.12,-700.13 721.88,-700.13"/>
 <text xml:space="preserve" text-anchor="start" x="728.62" y="-709.63" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">FK</text>
-</g>
-<!-- diaries&#45;&gt;memberships -->
-<g id="edge3" class="edge">
-<title>diaries:w&#45;&gt;memberships:e</title>
-<g id="a_edge3"><a xlink:title="fk_diaries_author_membership_id_memberships">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M527.46,-887.54C527.7,-908.58 528.38,-967.13 528.38,-967.13 528.38,-967.13 769.25,-979.63 769.25,-979.63 769.25,-979.63 944,-990.88 944,-990.88 944,-990.88 1007.42,-1053.93 1025.26,-1071.66"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="527.46,-887.53 530.53,-880.49 527.42,-883.63 527.38,-880.93 527.38,-880.93 527.38,-880.93 527.42,-883.63 524.23,-880.56 527.46,-887.53"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1031.85,-1073.28 1026.91,-1078.24 1025.92,-1077.25 1030.85,-1072.29 1031.85,-1073.28"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.88,-1076.25 1027.39,-1073.78"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1029.36,-1070.81 1024.43,-1075.77 1023.44,-1074.79 1028.37,-1069.82 1029.36,-1070.81"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1027.39,-1073.78 1024.91,-1071.32"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-993.03" font-family="Arial" font-size="8.00" fill="#5575a5">author_membership_id · SET NULL</text>
-</g>
-<!-- diaries&#45;&gt;trips -->
-<g id="edge5" class="edge">
-<title>diaries:w&#45;&gt;trips:e</title>
-<g id="a_edge5"><a xlink:title="fk_diaries_trip_id_trips">
-<path fill="none" stroke="#c65d3b" stroke-width="1.2" d="M527.49,-911.35C527.75,-927.9 528.38,-967.13 528.38,-967.13 528.38,-967.13 748.12,-967.13 748.12,-967.13 748.12,-967.13 799.25,-949.88 799.25,-949.88 799.25,-949.88 944,-949.88 944,-949.88 944,-949.88 1027.39,-950.87 1052.15,-951.17"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="527.49,-911.53 530.53,-904.48 527.43,-907.63 527.39,-904.93 527.39,-904.93 527.39,-904.93 527.43,-907.63 524.23,-904.58 527.49,-911.53"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1058.34,-947.74 1058.26,-954.74 1056.86,-954.73 1056.94,-947.73 1058.34,-947.74"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1059,-951.25 1055.5,-951.21"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1054.84,-947.7 1054.76,-954.7 1053.36,-954.68 1053.44,-947.69 1054.84,-947.7"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1055.5,-951.21 1052,-951.17"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-952.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
-</g>
-<!-- diaries&#45;&gt;users -->
-<g id="edge4" class="edge">
-<title>diaries:w&#45;&gt;users:e</title>
-<g id="a_edge4"><a xlink:title="fk_diaries_created_by_users">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M527.99,-704.73C528.2,-702.26 528.38,-700.13 528.38,-700.13 528.38,-700.13 748.12,-700.13 748.12,-700.13 748.12,-700.13 799.25,-726.63 799.25,-726.63 799.25,-726.63 987.43,-749.73 1025.65,-754.43"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="527.99,-704.75 524.27,-711.46 527.67,-708.64 527.44,-711.33 527.44,-711.33 527.44,-711.33 527.67,-708.64 530.55,-711.99 527.99,-704.75"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1032.11,-751.69 1031.25,-758.64 1029.86,-758.47 1030.72,-751.52 1032.11,-751.69"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1032.38,-755.25 1028.9,-754.83"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1028.63,-751.27 1027.78,-758.21 1026.39,-758.04 1027.24,-751.1 1028.63,-751.27"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1028.9,-754.83 1025.43,-754.4"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-746.14" font-family="Arial" font-size="8.00" fill="#5575a5">created_by · SET NULL</text>
 </g>
 <!-- photos -->
 <g id="node3" class="node">
@@ -455,48 +566,6 @@
 <polygon fill="none" stroke="#b8b8b8" points="727.88,-992.13 727.88,-1016.13 757.12,-1016.13 757.12,-992.13 727.88,-992.13"/>
 <text xml:space="preserve" text-anchor="start" x="748.12" y="-1000.38" font-family="Arial" font-size="10.00" fill="#8a4f31"> </text>
 </g>
-<!-- photos&#45;&gt;memberships -->
-<g id="edge12" class="edge">
-<title>photos:w&#45;&gt;memberships:e</title>
-<g id="a_edge12"><a xlink:title="fk_photos_deleted_by_memberships">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M518.46,-1068.67C518.71,-1048.11 519.38,-992.13 519.38,-992.13 519.38,-992.13 757.12,-992.13 757.12,-992.13 757.12,-992.13 799.25,-1006.63 799.25,-1006.63 799.25,-1006.63 985.41,-1062.83 1023.22,-1074.24"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="518.46,-1068.73 515.23,-1075.69 518.42,-1072.63 518.38,-1075.32 518.38,-1075.32 518.38,-1075.32 518.42,-1072.63 521.53,-1075.76 518.46,-1068.73"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1030.22,-1072.7 1028.19,-1079.4 1026.85,-1079 1028.88,-1072.29 1030.22,-1072.7"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.88,-1076.25 1026.52,-1075.24"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1026.87,-1071.69 1024.84,-1078.39 1023.5,-1077.98 1025.53,-1071.28 1026.87,-1071.69"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1026.52,-1075.24 1023.17,-1074.23"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1052.45" font-family="Arial" font-size="8.00" fill="#5575a5">deleted_by · SET NULL</text>
-</g>
-<!-- photos&#45;&gt;memberships -->
-<g id="edge14" class="edge">
-<title>photos:w&#45;&gt;memberships:e</title>
-<g id="a_edge14"><a xlink:title="fk_photos_uploader_membership_id_memberships">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M518.46,-1491.54C518.7,-1512.58 519.38,-1571.13 519.38,-1571.13 519.38,-1571.13 757.12,-1571.13 757.12,-1571.13 757.12,-1571.13 799.25,-1506.88 799.25,-1506.88 799.25,-1506.88 944,-1387.63 944,-1387.63 944,-1387.63 1015.75,-1127.47 1028.08,-1082.76"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="518.46,-1491.53 521.53,-1484.49 518.42,-1487.63 518.38,-1484.93 518.38,-1484.93 518.38,-1484.93 518.42,-1487.63 515.23,-1484.56 518.46,-1491.53"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1026.31,-1076 1033.06,-1077.86 1032.69,-1079.21 1025.94,-1077.35 1026.31,-1076"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.88,-1076.25 1028.94,-1079.63"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1025.38,-1079.37 1032.13,-1081.23 1031.76,-1082.58 1025.01,-1080.72 1025.38,-1079.37"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1028.94,-1079.63 1028.01,-1083"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1509.03" font-family="Arial" font-size="8.00" fill="#5575a5">uploader_membership_id · SET NULL</text>
-</g>
-<!-- photos&#45;&gt;trips -->
-<g id="edge13" class="edge">
-<title>photos:w&#45;&gt;trips:e</title>
-<g id="a_edge13"><a xlink:title="fk_photos_trip_id_trips">
-<path fill="none" stroke="#c65d3b" stroke-width="1.2" d="M518.49,-1515.35C518.75,-1531.9 519.38,-1571.13 519.38,-1571.13 519.38,-1571.13 757.12,-1571.13 757.12,-1571.13 757.12,-1571.13 799.25,-1371.88 799.25,-1371.88 799.25,-1371.88 944,-1275.63 944,-1275.63 944,-1275.63 982,-1027.63 982,-1027.63 982,-1027.63 1037.84,-972.24 1054.41,-955.8"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="518.49,-1515.53 521.53,-1508.48 518.43,-1511.63 518.39,-1508.93 518.39,-1508.93 518.39,-1508.93 518.43,-1511.63 515.23,-1508.58 518.49,-1515.53"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1056.04,-949.26 1060.97,-954.23 1059.97,-955.22 1055.04,-950.25 1056.04,-949.26"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1059,-951.25 1056.52,-953.72"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1053.55,-951.72 1058.48,-956.69 1057.49,-957.68 1052.56,-952.71 1053.55,-951.72"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1056.52,-953.72 1054.03,-956.18"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1374.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
-</g>
 <!-- photo_links -->
 <g id="node4" class="node">
 <title>photo_links</title>
@@ -539,20 +608,6 @@
 <text xml:space="preserve" text-anchor="start" x="151.38" y="-1432.38" font-family="Arial" font-size="10.00" fill="#666666">DATETIME</text>
 <polygon fill="none" stroke="#b8b8b8" points="223.38,-1424.13 223.38,-1448.13 249.62,-1448.13 249.62,-1424.13 223.38,-1424.13"/>
 <text xml:space="preserve" text-anchor="start" x="240.62" y="-1432.38" font-family="Arial" font-size="10.00" fill="#8a4f31"> </text>
-</g>
-<!-- photo_links&#45;&gt;photos -->
-<g id="edge11" class="edge">
-<title>photo_links:w&#45;&gt;photos:e</title>
-<g id="a_edge11"><a xlink:title="fk_photo_links_photo_id_photos">
-<path fill="none" stroke="#c65d3b" stroke-width="1.2" d="M83.74,-1539.35C84,-1555.9 84.62,-1595.13 84.62,-1595.13 84.62,-1595.13 249.62,-1595.13 249.62,-1595.13 249.62,-1595.13 580.01,-1541.59 631.63,-1533.22"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="83.74,-1539.53 86.78,-1532.48 83.68,-1535.63 83.64,-1532.93 83.64,-1532.93 83.64,-1532.93 83.68,-1535.63 80.48,-1532.58 83.74,-1539.53"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="637.12,-1528.78 638.24,-1535.69 636.86,-1535.92 635.74,-1529.01 637.12,-1528.78"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="638.38,-1532.13 634.92,-1532.69"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="633.67,-1529.34 634.79,-1536.25 633.41,-1536.48 632.29,-1529.57 633.67,-1529.34"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="634.92,-1532.69 631.47,-1533.25"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="424.75" y="-1576.39" font-family="Arial" font-size="8.00" fill="#c65d3b">photo_id · CASCADE</text>
 </g>
 <!-- audit_logs -->
 <g id="node5" class="node">
@@ -608,49 +663,6 @@
 <text xml:space="preserve" text-anchor="start" x="640.5" y="-124.38" font-family="Arial" font-size="10.00" fill="#666666">DATETIME</text>
 <polygon fill="none" stroke="#b8b8b8" points="717.75,-116.13 717.75,-140.13 747,-140.13 747,-116.13 717.75,-116.13"/>
 <text xml:space="preserve" text-anchor="start" x="723.75" y="-125.63" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">IDX</text>
-</g>
-<!-- audit_logs&#45;&gt;memberships -->
-<g id="edge1" class="edge">
-<title>audit_logs:w&#45;&gt;memberships:e</title>
-<g id="a_edge1"><a xlink:title="fk_audit_logs_actor_membership_id_memberships">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M528.59,-255.54C528.83,-276.58 529.5,-335.13 529.5,-335.13 529.5,-335.13 769.25,-347.63 769.25,-347.63 769.25,-347.63 944,-433.88 944,-433.88 944,-433.88 982,-1002.63 982,-1002.63 982,-1002.63 1014.83,-1053.12 1026.12,-1070.47"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="528.59,-255.53 531.65,-248.49 528.54,-251.63 528.51,-248.93 528.51,-248.93 528.51,-248.93 528.54,-251.63 525.35,-248.56 528.59,-255.53"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1032.43,-1073.76 1026.56,-1077.57 1025.8,-1076.4 1031.66,-1072.58 1032.43,-1073.76"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.88,-1076.25 1027.97,-1073.32"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1030.52,-1070.82 1024.65,-1074.64 1023.89,-1073.47 1029.76,-1069.65 1030.52,-1070.82"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1027.97,-1073.32 1026.06,-1070.38"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-436.03" font-family="Arial" font-size="8.00" fill="#5575a5">actor_membership_id · SET NULL</text>
-</g>
-<!-- spaces -->
-<g id="node9" class="node">
-<title>spaces</title>
-<polygon fill="#f2f2f2" stroke="none" points="1013.88,-283.25 1013.88,-310.25 1097.12,-310.25 1097.12,-283.25 1013.88,-283.25"/>
-<polygon fill="none" stroke="#b8b8b8" points="1013.88,-283.25 1013.88,-310.25 1097.12,-310.25 1097.12,-283.25 1013.88,-283.25"/>
-<text xml:space="preserve" text-anchor="start" x="1019.88" y="-292.9" font-family="Arial" font-weight="bold" font-size="13.00">spaces</text>
-<polygon fill="none" stroke="#b8b8b8" points="1013.88,-259.25 1013.88,-283.25 1033.38,-283.25 1033.38,-259.25 1013.88,-259.25"/>
-<text xml:space="preserve" text-anchor="start" x="1019.88" y="-267.5" font-family="Arial" font-size="10.00">id</text>
-<polygon fill="none" stroke="#b8b8b8" points="1033.38,-259.25 1033.38,-283.25 1070.88,-283.25 1070.88,-259.25 1033.38,-259.25"/>
-<text xml:space="preserve" text-anchor="start" x="1039.38" y="-267.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
-<polygon fill="none" stroke="#b8b8b8" points="1070.88,-259.25 1070.88,-283.25 1097.12,-283.25 1097.12,-259.25 1070.88,-259.25"/>
-<text xml:space="preserve" text-anchor="start" x="1076.88" y="-268.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
-<polygon fill="none" stroke="#b8b8b8" points="1013.88,-235 1013.88,-259.25 1097.12,-259.25 1097.12,-235 1013.88,-235"/>
-<text xml:space="preserve" text-anchor="start" x="1019.88" y="-243.5" font-family="Arial" font-size="10.00" fill="#888888">… 10개 컬럼</text>
-</g>
-<!-- audit_logs&#45;&gt;spaces -->
-<g id="edge2" class="edge">
-<title>audit_logs:w&#45;&gt;spaces:e</title>
-<g id="a_edge2"><a xlink:title="fk_audit_logs_space_id_spaces">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M528.61,-279.35C528.88,-295.9 529.5,-335.13 529.5,-335.13 529.5,-335.13 747,-335.13 747,-335.13 747,-335.13 982.39,-282.44 1025.6,-272.77"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="528.62,-279.53 531.66,-272.48 528.56,-275.63 528.51,-272.93 528.51,-272.93 528.51,-272.93 528.56,-275.63 525.36,-272.58 528.62,-279.53"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1030.93,-267.99 1032.46,-274.82 1031.09,-275.13 1029.56,-268.3 1030.93,-267.99"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1032.38,-271.25 1028.96,-272.02"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1027.51,-268.75 1029.04,-275.58 1027.67,-275.89 1026.15,-269.06 1027.51,-268.75"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1028.96,-272.02 1025.54,-272.78"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-324.61" font-family="Arial" font-size="8.00" fill="#5575a5">space_id · SET NULL</text>
 </g>
 <!-- trip_cards -->
 <g id="node6" class="node">
@@ -731,48 +743,6 @@
 <polygon fill="none" stroke="#b8b8b8" points="735,-360.13 735,-384.13 761.25,-384.13 761.25,-360.13 735,-360.13"/>
 <text xml:space="preserve" text-anchor="start" x="741.75" y="-369.63" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">FK</text>
 </g>
-<!-- trip_cards&#45;&gt;memberships -->
-<g id="edge15" class="edge">
-<title>trip_cards:w&#45;&gt;memberships:e</title>
-<g id="a_edge15"><a xlink:title="fk_trip_cards_created_by_membership_id_memberships">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M514.34,-595.54C514.58,-616.58 515.25,-675.13 515.25,-675.13 515.25,-675.13 769.25,-687.63 769.25,-687.63 769.25,-687.63 944,-715.88 944,-715.88 944,-715.88 982,-1002.63 982,-1002.63 982,-1002.63 1014.83,-1053.12 1026.12,-1070.47"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="514.34,-595.53 517.4,-588.49 514.29,-591.63 514.26,-588.93 514.26,-588.93 514.26,-588.93 514.29,-591.63 511.1,-588.56 514.34,-595.53"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1032.43,-1073.76 1026.56,-1077.57 1025.8,-1076.4 1031.66,-1072.58 1032.43,-1073.76"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1029.88,-1076.25 1027.97,-1073.32"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1030.52,-1070.82 1024.65,-1074.64 1023.89,-1073.47 1029.76,-1069.65 1030.52,-1070.82"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1027.97,-1073.32 1026.06,-1070.38"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-718.03" font-family="Arial" font-size="8.00" fill="#5575a5">created_by_membership_id · SET NULL</text>
-</g>
-<!-- trip_cards&#45;&gt;trips -->
-<g id="edge17" class="edge">
-<title>trip_cards:w&#45;&gt;trips:e</title>
-<g id="a_edge17"><a xlink:title="fk_trip_cards_trip_id_trips">
-<path fill="none" stroke="#c65d3b" stroke-width="1.2" d="M514.36,-619.35C514.63,-635.9 515.25,-675.13 515.25,-675.13 515.25,-675.13 944,-675.88 944,-675.88 944,-675.88 982,-806.63 982,-806.63 982,-806.63 1041.48,-918.35 1055.89,-945.4"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="514.37,-619.53 517.41,-612.48 514.31,-615.63 514.26,-612.93 514.26,-612.93 514.26,-612.93 514.31,-615.63 511.11,-612.58 514.37,-619.53"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1061.76,-948.99 1055.58,-952.28 1054.92,-951.04 1061.1,-947.75 1061.76,-948.99"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1059,-951.25 1057.36,-948.16"/>
-<polygon fill="#c65d3b" stroke="#c65d3b" stroke-width="1.2" points="1060.12,-945.9 1053.94,-949.19 1053.28,-947.95 1059.46,-944.66 1060.12,-945.9"/>
-<polyline fill="none" stroke="#c65d3b" stroke-width="1.2" points="1057.36,-948.16 1055.71,-945.07"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-678.03" font-family="Arial" font-size="8.00" fill="#c65d3b">trip_id · CASCADE</text>
-</g>
-<!-- trip_cards&#45;&gt;users -->
-<g id="edge16" class="edge">
-<title>trip_cards:w&#45;&gt;users:e</title>
-<g id="a_edge16"><a xlink:title="fk_trip_cards_created_by_users">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M514.87,-364.73C515.07,-362.26 515.25,-360.13 515.25,-360.13 515.25,-360.13 761.25,-360.13 761.25,-360.13 761.25,-360.13 799.25,-449.63 799.25,-449.63 799.25,-449.63 944,-594.88 944,-594.88 944,-594.88 1012.88,-719.87 1029.02,-749.16"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="514.86,-364.75 511.14,-371.46 514.54,-368.64 514.32,-371.33 514.32,-371.33 514.32,-371.33 514.54,-368.64 517.42,-371.99 514.86,-364.75"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1035.1,-752.95 1028.97,-756.33 1028.3,-755.1 1034.43,-751.72 1035.1,-752.95"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1032.38,-755.25 1030.69,-752.19"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="1033.41,-749.88 1027.28,-753.26 1026.61,-752.04 1032.74,-748.66 1033.41,-749.88"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="1030.69,-752.19 1029,-749.12"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-597.03" font-family="Arial" font-size="8.00" fill="#5575a5">created_by · SET NULL</text>
-</g>
 <!-- expenses -->
 <g id="node7" class="node">
 <title>expenses</title>
@@ -794,47 +764,77 @@
 <polygon fill="none" stroke="#b8b8b8" points="91,0 91,-24.25 243.25,-24.25 243.25,0 91,0"/>
 <text xml:space="preserve" text-anchor="start" x="97" y="-8.5" font-family="Arial" font-size="10.00" fill="#888888">… 14개 컬럼</text>
 </g>
-<!-- expenses&#45;&gt;photos -->
-<g id="edge6" class="edge">
-<title>expenses:w&#45;&gt;photos:e</title>
-<g id="a_edge6"><a xlink:title="fk_expenses_receipt_photo_id_photos">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M90.2,-28.92C90.49,-18.32 91,0 91,0 91,0 243.25,0 243.25,0 243.25,0 334.25,-103.63 334.25,-103.63 334.25,-103.63 515.25,-979.63 515.25,-979.63 515.25,-979.63 623.01,-1463.2 636.91,-1525.54"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="90.2,-28.85 86.86,-35.76 90.1,-32.75 90.02,-35.45 90.02,-35.45 90.02,-35.45 90.1,-32.75 93.16,-35.94 90.2,-28.85"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="641.64,-1530.68 634.81,-1532.2 634.5,-1530.84 641.33,-1529.31 641.64,-1530.68"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="638.38,-1532.13 637.61,-1528.71"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="640.88,-1527.27 634.05,-1528.79 633.74,-1527.42 640.57,-1525.9 640.88,-1527.27"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="637.61,-1528.71 636.85,-1525.29"/>
-</a>
+<!-- memberships -->
+<g id="node8" class="node">
+<title>memberships</title>
+<polygon fill="#f2f2f2" stroke="none" points="1006.38,-1088.25 1006.38,-1115.25 1104.62,-1115.25 1104.62,-1088.25 1006.38,-1088.25"/>
+<polygon fill="none" stroke="#b8b8b8" points="1006.38,-1088.25 1006.38,-1115.25 1104.62,-1115.25 1104.62,-1088.25 1006.38,-1088.25"/>
+<text xml:space="preserve" text-anchor="start" x="1012.38" y="-1097.9" font-family="Arial" font-weight="bold" font-size="13.00">memberships</text>
+<polygon fill="none" stroke="#b8b8b8" points="1006.38,-1064.25 1006.38,-1088.25 1030.88,-1088.25 1030.88,-1064.25 1006.38,-1064.25"/>
+<text xml:space="preserve" text-anchor="start" x="1012.38" y="-1072.5" font-family="Arial" font-size="10.00">id</text>
+<polygon fill="none" stroke="#b8b8b8" points="1030.88,-1064.25 1030.88,-1088.25 1073.38,-1088.25 1073.38,-1064.25 1030.88,-1064.25"/>
+<text xml:space="preserve" text-anchor="start" x="1036.88" y="-1072.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
+<polygon fill="none" stroke="#b8b8b8" points="1073.38,-1064.25 1073.38,-1088.25 1104.62,-1088.25 1104.62,-1064.25 1073.38,-1064.25"/>
+<text xml:space="preserve" text-anchor="start" x="1084.38" y="-1073.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
+<polygon fill="none" stroke="#b8b8b8" points="1006.38,-1040 1006.38,-1064.25 1104.62,-1064.25 1104.62,-1040 1006.38,-1040"/>
+<text xml:space="preserve" text-anchor="start" x="1012.38" y="-1048.5" font-family="Arial" font-size="10.00" fill="#888888">… 10개 컬럼</text>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="424.75" y="-792.56" font-family="Arial" font-size="8.00" fill="#5575a5">receipt_photo_id · SET NULL</text>
+<!-- spaces -->
+<g id="node9" class="node">
+<title>spaces</title>
+<polygon fill="#f2f2f2" stroke="none" points="1013.88,-283.25 1013.88,-310.25 1097.12,-310.25 1097.12,-283.25 1013.88,-283.25"/>
+<polygon fill="none" stroke="#b8b8b8" points="1013.88,-283.25 1013.88,-310.25 1097.12,-310.25 1097.12,-283.25 1013.88,-283.25"/>
+<text xml:space="preserve" text-anchor="start" x="1019.88" y="-292.9" font-family="Arial" font-weight="bold" font-size="13.00">spaces</text>
+<polygon fill="none" stroke="#b8b8b8" points="1013.88,-259.25 1013.88,-283.25 1033.38,-283.25 1033.38,-259.25 1013.88,-259.25"/>
+<text xml:space="preserve" text-anchor="start" x="1019.88" y="-267.5" font-family="Arial" font-size="10.00">id</text>
+<polygon fill="none" stroke="#b8b8b8" points="1033.38,-259.25 1033.38,-283.25 1070.88,-283.25 1070.88,-259.25 1033.38,-259.25"/>
+<text xml:space="preserve" text-anchor="start" x="1039.38" y="-267.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
+<polygon fill="none" stroke="#b8b8b8" points="1070.88,-259.25 1070.88,-283.25 1097.12,-283.25 1097.12,-259.25 1070.88,-259.25"/>
+<text xml:space="preserve" text-anchor="start" x="1076.88" y="-268.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
+<polygon fill="none" stroke="#b8b8b8" points="1013.88,-235 1013.88,-259.25 1097.12,-259.25 1097.12,-235 1013.88,-235"/>
+<text xml:space="preserve" text-anchor="start" x="1019.88" y="-243.5" font-family="Arial" font-size="10.00" fill="#888888">… 10개 컬럼</text>
 </g>
-<!-- trips&#45;&gt;photos -->
-<g id="edge19" class="edge">
-<title>trips:w&#45;&gt;photos:e</title>
-<g id="a_edge19"><a xlink:title="fk_trips_cover_photo_id_photos">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M980.06,-934.3C972.32,-962.5 944,-1065.63 944,-1065.63 944,-1065.63 799.25,-1259.88 799.25,-1259.88 799.25,-1259.88 667.07,-1486.37 643.84,-1526.19"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="980.04,-934.39 984.93,-928.47 981.07,-930.63 981.79,-928.03 981.79,-928.03 981.79,-928.03 981.07,-930.63 978.86,-926.8 980.04,-934.39"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="643.75,-1533.29 637.7,-1529.76 638.41,-1528.55 644.46,-1532.08 643.75,-1533.29"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="640.38,-1532.13 642.14,-1529.1"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="645.51,-1530.26 639.47,-1526.73 640.17,-1525.53 646.22,-1529.05 645.51,-1530.26"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="642.14,-1529.1 643.9,-1526.08"/>
-</a>
+<!-- trips -->
+<g id="node10" class="node">
+<title>trips</title>
+<polygon fill="#f2f2f2" stroke="none" points="982,-963.25 982,-990.25 1129,-990.25 1129,-963.25 982,-963.25"/>
+<polygon fill="none" stroke="#b8b8b8" points="982,-963.25 982,-990.25 1129,-990.25 1129,-963.25 982,-963.25"/>
+<text xml:space="preserve" text-anchor="start" x="988" y="-972.9" font-family="Arial" font-weight="bold" font-size="13.00">trips</text>
+<polygon fill="none" stroke="#b8b8b8" points="982,-939.25 982,-963.25 1060,-963.25 1060,-939.25 982,-939.25"/>
+<text xml:space="preserve" text-anchor="start" x="988" y="-947.5" font-family="Arial" font-size="10.00">id</text>
+<polygon fill="none" stroke="#b8b8b8" points="1060,-939.25 1060,-963.25 1102.75,-963.25 1102.75,-939.25 1060,-939.25"/>
+<text xml:space="preserve" text-anchor="start" x="1066" y="-947.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
+<polygon fill="none" stroke="#b8b8b8" points="1102.75,-939.25 1102.75,-963.25 1129,-963.25 1129,-939.25 1102.75,-939.25"/>
+<text xml:space="preserve" text-anchor="start" x="1108.75" y="-948.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
+<polygon fill="none" stroke="#b8b8b8" points="982,-915.25 982,-939.25 1060,-939.25 1060,-915.25 982,-915.25"/>
+<text xml:space="preserve" text-anchor="start" x="988" y="-923.5" font-family="Arial" font-size="10.00">cover_photo_id</text>
+<polygon fill="none" stroke="#b8b8b8" points="1060,-915.25 1060,-939.25 1102.75,-939.25 1102.75,-915.25 1060,-915.25"/>
+<text xml:space="preserve" text-anchor="start" x="1066" y="-923.5" font-family="Arial" font-size="10.00" fill="#666666">UUID?</text>
+<polygon fill="none" stroke="#b8b8b8" points="1102.75,-915.25 1102.75,-939.25 1129,-939.25 1129,-915.25 1102.75,-915.25"/>
+<text xml:space="preserve" text-anchor="start" x="1109.5" y="-924.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">FK</text>
+<polygon fill="none" stroke="#b8b8b8" points="982,-891.25 982,-915.25 1060,-915.25 1060,-891.25 982,-891.25"/>
+<text xml:space="preserve" text-anchor="start" x="988" y="-899.5" font-family="Arial" font-size="10.00">cover_card_id</text>
+<polygon fill="none" stroke="#b8b8b8" points="1060,-891.25 1060,-915.25 1102.75,-915.25 1102.75,-891.25 1060,-891.25"/>
+<text xml:space="preserve" text-anchor="start" x="1066" y="-899.5" font-family="Arial" font-size="10.00" fill="#666666">UUID?</text>
+<polygon fill="none" stroke="#b8b8b8" points="1102.75,-891.25 1102.75,-915.25 1129,-915.25 1129,-891.25 1102.75,-891.25"/>
+<text xml:space="preserve" text-anchor="start" x="1109.5" y="-900.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">FK</text>
+<polygon fill="none" stroke="#b8b8b8" points="982,-867 982,-891.25 1129,-891.25 1129,-867 982,-867"/>
+<text xml:space="preserve" text-anchor="start" x="988" y="-875.5" font-family="Arial" font-size="10.00" fill="#888888">… 23개 컬럼</text>
 </g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-1262.03" font-family="Arial" font-size="8.00" fill="#5575a5">cover_photo_id · SET NULL</text>
-</g>
-<!-- trips&#45;&gt;trip_cards -->
-<g id="edge18" class="edge">
-<title>trips:w&#45;&gt;trip_cards:e</title>
-<g id="a_edge18"><a xlink:title="fk_trips_cover_card_id_trip_cards">
-<path fill="none" stroke="#5575a5" stroke-width="1.2" d="M980.86,-895.97C974.54,-855.47 944,-659.88 944,-659.88 944,-659.88 698.38,-640.2 654.25,-636.67"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="980.86,-895.94 978.83,-903.34 981.46,-899.79 981.88,-902.46 981.88,-902.46 981.88,-902.46 981.46,-899.79 985.05,-902.37 980.86,-895.94"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="647.92,-639.67 648.48,-632.69 649.87,-632.8 649.31,-639.78 647.92,-639.67"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="647.5,-636.13 650.99,-636.41"/>
-<polygon fill="#5575a5" stroke="#5575a5" stroke-width="1.2" points="651.41,-639.95 651.97,-632.97 653.36,-633.08 652.8,-640.06 651.41,-639.95"/>
-<polyline fill="none" stroke="#5575a5" stroke-width="1.2" points="650.99,-636.41 654.48,-636.68"/>
-</a>
-</g>
-<text xml:space="preserve" text-anchor="middle" x="871.62" y="-662.03" font-family="Arial" font-size="8.00" fill="#5575a5">cover_card_id · SET NULL</text>
+<!-- users -->
+<g id="node11" class="node">
+<title>users</title>
+<polygon fill="#f2f2f2" stroke="none" points="1013.88,-767.25 1013.88,-794.25 1097.12,-794.25 1097.12,-767.25 1013.88,-767.25"/>
+<polygon fill="none" stroke="#b8b8b8" points="1013.88,-767.25 1013.88,-794.25 1097.12,-794.25 1097.12,-767.25 1013.88,-767.25"/>
+<text xml:space="preserve" text-anchor="start" x="1019.88" y="-776.9" font-family="Arial" font-weight="bold" font-size="13.00">users</text>
+<polygon fill="none" stroke="#b8b8b8" points="1013.88,-743.25 1013.88,-767.25 1033.38,-767.25 1033.38,-743.25 1013.88,-743.25"/>
+<text xml:space="preserve" text-anchor="start" x="1019.88" y="-751.5" font-family="Arial" font-size="10.00">id</text>
+<polygon fill="none" stroke="#b8b8b8" points="1033.38,-743.25 1033.38,-767.25 1070.88,-767.25 1070.88,-743.25 1033.38,-743.25"/>
+<text xml:space="preserve" text-anchor="start" x="1039.38" y="-751.5" font-family="Arial" font-size="10.00" fill="#666666">UUID</text>
+<polygon fill="none" stroke="#b8b8b8" points="1070.88,-743.25 1070.88,-767.25 1097.12,-767.25 1097.12,-743.25 1070.88,-743.25"/>
+<text xml:space="preserve" text-anchor="start" x="1076.88" y="-752.75" font-family="Arial" font-weight="bold" font-size="10.00" fill="#8a4f31">PK</text>
+<polygon fill="none" stroke="#b8b8b8" points="1013.88,-719 1013.88,-743.25 1097.12,-743.25 1097.12,-719 1013.88,-719"/>
+<text xml:space="preserve" text-anchor="start" x="1019.88" y="-727.5" font-family="Arial" font-size="10.00" fill="#888888">… 14개 컬럼</text>
 </g>
 <!-- legend -->
 <g id="node12" class="node">

@@ -157,10 +157,10 @@ def graph(tables: list[dict], *, title: str, mode: str, selected: set[str] | Non
     lines = [
         "digraph daymo_erd {",
         '  graph [rankdir=LR, bgcolor="#FCFBF8", pad="0.35", nodesep="0.35", ranksep="1.05",',
-        '         splines=polyline, overlap=false, newrank=true, fontname="Arial",',
+        '         splines=polyline, overlap=false, newrank=true, outputorder=edgesfirst, fontname="Arial",',
         f'         label="{esc(title)}", labelloc=t, fontsize=22, fontcolor="#292929"];',
         '  node [shape=plain, fontname="Arial", fontsize=10];',
-        '  edge [fontname="Arial", fontsize=8, arrowsize=0.7, penwidth=1.2];',
+        '  edge [fontname="Arial", fontsize=8, arrowsize=0.62, penwidth=1.0];',
     ]
     for key, (label, color, names) in DOMAINS.items():
         own = [name for name in names if name in selected]
@@ -193,8 +193,8 @@ def graph(tables: list[dict], *, title: str, mode: str, selected: set[str] | Non
         color = DELETE_COLORS.get(delete, DELETE_COLORS["NO ACTION"])
         label = f'{rel["source_column"]} · {delete}'
         lines.append(
-            f'  "{rel["source_table"]}":{port(rel["source_column"])}:w -> '
-            f'"{rel["target_table"]}":{port(rel["target_column"])}:e '
+            f'  "{rel["source_table"]}":{port(rel["source_column"])} -> '
+            f'"{rel["target_table"]}":{port(rel["target_column"])} '
             f'[label="{esc(label)}", color="{color}", fontcolor="{color}", '
             f'arrowhead=teetee, arrowtail=crow, dir=both, tooltip="{esc(rel["name"])}"];'
         )

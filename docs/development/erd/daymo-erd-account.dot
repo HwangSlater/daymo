@@ -1,9 +1,9 @@
 digraph daymo_erd {
   graph [rankdir=LR, bgcolor="#FCFBF8", pad="0.35", nodesep="0.35", ranksep="1.05",
-         splines=polyline, overlap=false, newrank=true, fontname="Arial",
+         splines=polyline, overlap=false, newrank=true, outputorder=edgesfirst, fontname="Arial",
          label="Daymo ERD · 계정 · 인증", labelloc=t, fontsize=22, fontcolor="#292929"];
   node [shape=plain, fontname="Arial", fontsize=10];
-  edge [fontname="Arial", fontsize=8, arrowsize=0.7, penwidth=1.2];
+  edge [fontname="Arial", fontsize=8, arrowsize=0.62, penwidth=1.0];
   subgraph cluster_account {
     label="계정 · 인증"; color="#DCEBFF"; penwidth=2; style="rounded";
     fontname="Arial"; fontsize=15;
@@ -43,44 +43,44 @@ digraph daymo_erd {
   "trip_places" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>trip_places</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD PORT="p_created_by" ALIGN="LEFT">created_by</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID?</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>FK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 9개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
   "trips" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>trips</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD PORT="p_created_by" ALIGN="LEFT">created_by</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID?</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>FK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 24개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
   "user_blocks" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>user_blocks</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD PORT="p_blocker_user_id" ALIGN="LEFT">blocker_user_id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>FK</B></FONT></TD></TR><TR><TD PORT="p_blocked_user_id" ALIGN="LEFT">blocked_user_id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>FK · IDX</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 2개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
-  "calendar_notes":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_calendar_notes_created_by_users"];
-  "checklist_items":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_created_by_users"];
-  "checklists":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklists_created_by_users"];
-  "devices":p_user_id:w -> "users":p_id:e [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_devices_user_id_users"];
-  "diaries":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_created_by_users"];
-  "email_change_tokens":p_user_id:w -> "users":p_id:e [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_email_change_tokens_user_id_users"];
-  "email_verification_tokens":p_user_id:w -> "users":p_id:e [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_email_verification_tokens_user_id_users"];
-  "expenses":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_expenses_created_by_users"];
-  "external_links":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_external_links_created_by_users"];
-  "feedback":p_user_id:w -> "users":p_id:e [label="user_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_feedback_user_id_users"];
-  "ingredients":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_created_by_users"];
-  "memberships":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memberships_created_by_users"];
-  "memberships":p_removed_by:w -> "users":p_id:e [label="removed_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memberships_removed_by_users"];
-  "memberships":p_user_id:w -> "users":p_id:e [label="user_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memberships_user_id_users"];
-  "memos":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_created_by_users"];
-  "oauth_accounts":p_user_id:w -> "users":p_id:e [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_oauth_accounts_user_id_users"];
-  "password_reset_tokens":p_user_id:w -> "users":p_id:e [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_password_reset_tokens_user_id_users"];
-  "payments":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_payments_created_by_users"];
-  "payments":p_deleted_by:w -> "users":p_id:e [label="deleted_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_payments_deleted_by_users"];
-  "reauth_proofs":p_user_id:w -> "users":p_id:e [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_reauth_proofs_user_id_users"];
-  "recipes":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_recipes_created_by_users"];
-  "refresh_tokens":p_device_id:w -> "devices":p_id:e [label="device_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_refresh_tokens_device_id_devices"];
-  "refresh_tokens":p_replaced_by:w -> "refresh_tokens":p_id:e [label="replaced_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_refresh_tokens_replaced_by_refresh_tokens"];
-  "refresh_tokens":p_user_id:w -> "users":p_id:e [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_refresh_tokens_user_id_users"];
-  "reports":p_reporter_user_id:w -> "users":p_id:e [label="reporter_user_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_reports_reporter_user_id_users"];
-  "reservations":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_reservations_created_by_users"];
-  "schedule_items":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_schedule_items_created_by_users"];
-  "spaces":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_spaces_created_by_users"];
-  "spaces":p_owner_id:w -> "users":p_id:e [label="owner_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_spaces_owner_id_users"];
-  "stays":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_stays_created_by_users"];
-  "tags":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_tags_created_by_users"];
-  "transports":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_transports_created_by_users"];
-  "trip_cards":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_created_by_users"];
-  "trip_participants":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_participants_created_by_users"];
-  "trip_places":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_places_created_by_users"];
-  "trips":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trips_created_by_users"];
-  "user_blocks":p_blocked_user_id:w -> "users":p_id:e [label="blocked_user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_user_blocks_blocked_user_id_users"];
-  "user_blocks":p_blocker_user_id:w -> "users":p_id:e [label="blocker_user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_user_blocks_blocker_user_id_users"];
+  "calendar_notes":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_calendar_notes_created_by_users"];
+  "checklist_items":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_created_by_users"];
+  "checklists":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklists_created_by_users"];
+  "devices":p_user_id -> "users":p_id [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_devices_user_id_users"];
+  "diaries":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_created_by_users"];
+  "email_change_tokens":p_user_id -> "users":p_id [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_email_change_tokens_user_id_users"];
+  "email_verification_tokens":p_user_id -> "users":p_id [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_email_verification_tokens_user_id_users"];
+  "expenses":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_expenses_created_by_users"];
+  "external_links":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_external_links_created_by_users"];
+  "feedback":p_user_id -> "users":p_id [label="user_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_feedback_user_id_users"];
+  "ingredients":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_created_by_users"];
+  "memberships":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memberships_created_by_users"];
+  "memberships":p_removed_by -> "users":p_id [label="removed_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memberships_removed_by_users"];
+  "memberships":p_user_id -> "users":p_id [label="user_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memberships_user_id_users"];
+  "memos":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_created_by_users"];
+  "oauth_accounts":p_user_id -> "users":p_id [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_oauth_accounts_user_id_users"];
+  "password_reset_tokens":p_user_id -> "users":p_id [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_password_reset_tokens_user_id_users"];
+  "payments":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_payments_created_by_users"];
+  "payments":p_deleted_by -> "users":p_id [label="deleted_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_payments_deleted_by_users"];
+  "reauth_proofs":p_user_id -> "users":p_id [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_reauth_proofs_user_id_users"];
+  "recipes":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_recipes_created_by_users"];
+  "refresh_tokens":p_device_id -> "devices":p_id [label="device_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_refresh_tokens_device_id_devices"];
+  "refresh_tokens":p_replaced_by -> "refresh_tokens":p_id [label="replaced_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_refresh_tokens_replaced_by_refresh_tokens"];
+  "refresh_tokens":p_user_id -> "users":p_id [label="user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_refresh_tokens_user_id_users"];
+  "reports":p_reporter_user_id -> "users":p_id [label="reporter_user_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_reports_reporter_user_id_users"];
+  "reservations":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_reservations_created_by_users"];
+  "schedule_items":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_schedule_items_created_by_users"];
+  "spaces":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_spaces_created_by_users"];
+  "spaces":p_owner_id -> "users":p_id [label="owner_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_spaces_owner_id_users"];
+  "stays":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_stays_created_by_users"];
+  "tags":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_tags_created_by_users"];
+  "transports":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_transports_created_by_users"];
+  "trip_cards":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_created_by_users"];
+  "trip_participants":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_participants_created_by_users"];
+  "trip_places":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_places_created_by_users"];
+  "trips":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trips_created_by_users"];
+  "user_blocks":p_blocked_user_id -> "users":p_id [label="blocked_user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_user_blocks_blocked_user_id_users"];
+  "user_blocks":p_blocker_user_id -> "users":p_id [label="blocker_user_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_user_blocks_blocker_user_id_users"];
   legend [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#BBBBBB">
     <TR><TD BGCOLOR="#EEEEEE"><B>범례</B></TD></TR>
     <TR><TD ALIGN="LEFT">PK 기본키 · FK 외래키 · UK 고유키 · IDX 단일 컬럼 인덱스 · ? NULL 허용</TD></TR>

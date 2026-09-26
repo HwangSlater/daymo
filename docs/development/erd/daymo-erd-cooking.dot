@@ -1,9 +1,9 @@
 digraph daymo_erd {
   graph [rankdir=LR, bgcolor="#FCFBF8", pad="0.35", nodesep="0.35", ranksep="1.05",
-         splines=polyline, overlap=false, newrank=true, fontname="Arial",
+         splines=polyline, overlap=false, newrank=true, outputorder=edgesfirst, fontname="Arial",
          label="Daymo ERD · 준비물 · 요리", labelloc=t, fontsize=22, fontcolor="#292929"];
   node [shape=plain, fontname="Arial", fontsize=10];
-  edge [fontname="Arial", fontsize=8, arrowsize=0.7, penwidth=1.2];
+  edge [fontname="Arial", fontsize=8, arrowsize=0.62, penwidth=1.0];
   subgraph cluster_cooking {
     label="준비물 · 요리"; color="#FCE3EC"; penwidth=2; style="rounded";
     fontname="Arial"; fontsize=15;
@@ -15,18 +15,18 @@ digraph daymo_erd {
   "memberships" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>memberships</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 10개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
   "trips" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>trips</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 25개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
   "users" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>users</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 14개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
-  "checklist_items":p_checklist_id:w -> "checklists":p_id:e [label="checklist_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_checklist_id_checklists"];
-  "checklist_items":p_completed_by:w -> "memberships":p_id:e [label="completed_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_completed_by_memberships"];
-  "checklist_items":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_created_by_users"];
-  "checklist_items":p_owner_membership_id:w -> "memberships":p_id:e [label="owner_membership_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_owner_membership_id_memberships"];
-  "checklist_items":p_source_ingredient_id:w -> "ingredients":p_id:e [label="source_ingredient_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_source_ingredient_id_ingredients"];
-  "checklists":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklists_created_by_users"];
-  "checklists":p_trip_id:w -> "trips":p_id:e [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklists_trip_id_trips"];
-  "ingredients":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_created_by_users"];
-  "ingredients":p_owner_membership_id:w -> "memberships":p_id:e [label="owner_membership_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_owner_membership_id_memberships"];
-  "ingredients":p_recipe_id:w -> "recipes":p_id:e [label="recipe_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_recipe_id_recipes"];
-  "recipes":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_recipes_created_by_users"];
-  "recipes":p_trip_id:w -> "trips":p_id:e [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_recipes_trip_id_trips"];
+  "checklist_items":p_checklist_id -> "checklists":p_id [label="checklist_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_checklist_id_checklists"];
+  "checklist_items":p_completed_by -> "memberships":p_id [label="completed_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_completed_by_memberships"];
+  "checklist_items":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_created_by_users"];
+  "checklist_items":p_owner_membership_id -> "memberships":p_id [label="owner_membership_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_owner_membership_id_memberships"];
+  "checklist_items":p_source_ingredient_id -> "ingredients":p_id [label="source_ingredient_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklist_items_source_ingredient_id_ingredients"];
+  "checklists":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklists_created_by_users"];
+  "checklists":p_trip_id -> "trips":p_id [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_checklists_trip_id_trips"];
+  "ingredients":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_created_by_users"];
+  "ingredients":p_owner_membership_id -> "memberships":p_id [label="owner_membership_id · RESTRICT", color="#9A6A21", fontcolor="#9A6A21", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_owner_membership_id_memberships"];
+  "ingredients":p_recipe_id -> "recipes":p_id [label="recipe_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_ingredients_recipe_id_recipes"];
+  "recipes":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_recipes_created_by_users"];
+  "recipes":p_trip_id -> "trips":p_id [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_recipes_trip_id_trips"];
   legend [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#BBBBBB">
     <TR><TD BGCOLOR="#EEEEEE"><B>범례</B></TD></TR>
     <TR><TD ALIGN="LEFT">PK 기본키 · FK 외래키 · UK 고유키 · IDX 단일 컬럼 인덱스 · ? NULL 허용</TD></TR>

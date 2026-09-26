@@ -1,9 +1,9 @@
 digraph daymo_erd {
   graph [rankdir=LR, bgcolor="#FCFBF8", pad="0.35", nodesep="0.35", ranksep="1.05",
-         splines=polyline, overlap=false, newrank=true, fontname="Arial",
+         splines=polyline, overlap=false, newrank=true, outputorder=edgesfirst, fontname="Arial",
          label="Daymo ERD · 기록 · 추억", labelloc=t, fontsize=22, fontcolor="#292929"];
   node [shape=plain, fontname="Arial", fontsize=10];
-  edge [fontname="Arial", fontsize=8, arrowsize=0.7, penwidth=1.2];
+  edge [fontname="Arial", fontsize=8, arrowsize=0.62, penwidth=1.0];
   subgraph cluster_memory {
     label="기록 · 추억"; color="#F3E8D7"; penwidth=2; style="rounded";
     fontname="Arial"; fontsize=15;
@@ -19,25 +19,25 @@ digraph daymo_erd {
   "spaces" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>spaces</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 10개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
   "trips" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>trips</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD PORT="p_cover_photo_id" ALIGN="LEFT">cover_photo_id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID?</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>FK</B></FONT></TD></TR><TR><TD PORT="p_cover_card_id" ALIGN="LEFT">cover_card_id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID?</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>FK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 23개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
   "users" [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#B8B8B8"><TR><TD BGCOLOR="#F2F2F2" COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="13"><B>users</B></FONT></TD></TR><TR><TD PORT="p_id" ALIGN="LEFT">id</TD><TD ALIGN="LEFT"><FONT COLOR="#666666">UUID</FONT></TD><TD ALIGN="RIGHT"><FONT COLOR="#8A4F31"><B>PK</B></FONT></TD></TR><TR><TD COLSPAN="3" ALIGN="LEFT"><FONT COLOR="#888888">… 14개 컬럼</FONT></TD></TR></TABLE>>, opacity=0.72];
-  "audit_logs":p_actor_membership_id:w -> "memberships":p_id:e [label="actor_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_audit_logs_actor_membership_id_memberships"];
-  "audit_logs":p_space_id:w -> "spaces":p_id:e [label="space_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_audit_logs_space_id_spaces"];
-  "diaries":p_author_membership_id:w -> "memberships":p_id:e [label="author_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_author_membership_id_memberships"];
-  "diaries":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_created_by_users"];
-  "diaries":p_trip_id:w -> "trips":p_id:e [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_trip_id_trips"];
-  "expenses":p_receipt_photo_id:w -> "photos":p_id:e [label="receipt_photo_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_expenses_receipt_photo_id_photos"];
-  "memos":p_author_membership_id:w -> "memberships":p_id:e [label="author_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_author_membership_id_memberships"];
-  "memos":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_created_by_users"];
-  "memos":p_deleted_by:w -> "memberships":p_id:e [label="deleted_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_deleted_by_memberships"];
-  "memos":p_trip_id:w -> "trips":p_id:e [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_trip_id_trips"];
-  "photo_links":p_photo_id:w -> "photos":p_id:e [label="photo_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photo_links_photo_id_photos"];
-  "photos":p_deleted_by:w -> "memberships":p_id:e [label="deleted_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photos_deleted_by_memberships"];
-  "photos":p_trip_id:w -> "trips":p_id:e [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photos_trip_id_trips"];
-  "photos":p_uploader_membership_id:w -> "memberships":p_id:e [label="uploader_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photos_uploader_membership_id_memberships"];
-  "trip_cards":p_created_by_membership_id:w -> "memberships":p_id:e [label="created_by_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_created_by_membership_id_memberships"];
-  "trip_cards":p_created_by:w -> "users":p_id:e [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_created_by_users"];
-  "trip_cards":p_trip_id:w -> "trips":p_id:e [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_trip_id_trips"];
-  "trips":p_cover_card_id:w -> "trip_cards":p_id:e [label="cover_card_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trips_cover_card_id_trip_cards"];
-  "trips":p_cover_photo_id:w -> "photos":p_id:e [label="cover_photo_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trips_cover_photo_id_photos"];
+  "audit_logs":p_actor_membership_id -> "memberships":p_id [label="actor_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_audit_logs_actor_membership_id_memberships"];
+  "audit_logs":p_space_id -> "spaces":p_id [label="space_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_audit_logs_space_id_spaces"];
+  "diaries":p_author_membership_id -> "memberships":p_id [label="author_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_author_membership_id_memberships"];
+  "diaries":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_created_by_users"];
+  "diaries":p_trip_id -> "trips":p_id [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_diaries_trip_id_trips"];
+  "expenses":p_receipt_photo_id -> "photos":p_id [label="receipt_photo_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_expenses_receipt_photo_id_photos"];
+  "memos":p_author_membership_id -> "memberships":p_id [label="author_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_author_membership_id_memberships"];
+  "memos":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_created_by_users"];
+  "memos":p_deleted_by -> "memberships":p_id [label="deleted_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_deleted_by_memberships"];
+  "memos":p_trip_id -> "trips":p_id [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_memos_trip_id_trips"];
+  "photo_links":p_photo_id -> "photos":p_id [label="photo_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photo_links_photo_id_photos"];
+  "photos":p_deleted_by -> "memberships":p_id [label="deleted_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photos_deleted_by_memberships"];
+  "photos":p_trip_id -> "trips":p_id [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photos_trip_id_trips"];
+  "photos":p_uploader_membership_id -> "memberships":p_id [label="uploader_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_photos_uploader_membership_id_memberships"];
+  "trip_cards":p_created_by_membership_id -> "memberships":p_id [label="created_by_membership_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_created_by_membership_id_memberships"];
+  "trip_cards":p_created_by -> "users":p_id [label="created_by · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_created_by_users"];
+  "trip_cards":p_trip_id -> "trips":p_id [label="trip_id · CASCADE", color="#C65D3B", fontcolor="#C65D3B", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trip_cards_trip_id_trips"];
+  "trips":p_cover_card_id -> "trip_cards":p_id [label="cover_card_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trips_cover_card_id_trip_cards"];
+  "trips":p_cover_photo_id -> "photos":p_id [label="cover_photo_id · SET NULL", color="#5575A5", fontcolor="#5575A5", arrowhead=teetee, arrowtail=crow, dir=both, tooltip="fk_trips_cover_photo_id_photos"];
   legend [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#BBBBBB">
     <TR><TD BGCOLOR="#EEEEEE"><B>범례</B></TD></TR>
     <TR><TD ALIGN="LEFT">PK 기본키 · FK 외래키 · UK 고유키 · IDX 단일 컬럼 인덱스 · ? NULL 허용</TD></TR>
