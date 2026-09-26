@@ -17,6 +17,7 @@
 11. [소유자 준비 안내](./11-owner-setup-guide.md): 개발 환경, 계정, 시크릿과 로컬 사진 저장 선택
 12. [공통 부품 목록](./12-shared-ui-parts.md): 화면을 새로 만들기 전에 보는 부품 표, 쓰는 법, 하지 말 것
 13. [문구 사전](./13-copy-glossary.md): 사용자 문구의 용어·어미 기준. `npm test`의 `copyGlossary` 검사가 지킨다
+14. [현재 운영 DB ERD](./15-current-database-erd.md): 운영 스키마의 전체 관계, PK·FK·CHECK·UNIQUE·인덱스와 보강 후보
 
 ## 문서 상태
 
