@@ -4,6 +4,8 @@
 > 기준 DB: 운영 PostgreSQL 16.10, Alembic `d3a8f1c6b2e4`  
 > 확인 방법: 운영 DB의 `pg_dump --schema-only`와 `backend/app/models` 메타데이터를 비교했다. 실제 사용자 행과 값은 조회하지 않았다.
 
+> **시각화 자료:** [브라우저용 ERD 탐색 화면](./erd/index.html) · [전체 개요 SVG](./erd/daymo-erd-overview.svg) · [전체 컬럼 PDF](./erd/daymo-erd-full.pdf) · [사용 안내](./erd/README.md)
+
 ## 한눈에 보기
 
 | 항목 | 수 |
@@ -1599,4 +1601,3 @@ CREATE INDEX ix_photos_original_expiry
 3. 생성 후 `pg_stat_user_indexes`의 `idx_scan`, 크기, 쓰기 부하를 관찰한다.
 4. SQLAlchemy 모델과 Alembic 마이그레이션 양쪽에 같은 이름·열 순서·부분 조건을 선언한다.
 5. 사용하지 않는 인덱스를 지울 때도 먼저 통계 기간을 확보하고 `DROP INDEX CONCURRENTLY`를 사용한다.
-

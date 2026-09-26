@@ -1,0 +1,7196 @@
+[
+  {
+    "name": "audit_logs",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "actor_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "action",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_type",
+        "type": "VARCHAR(30)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "metadata",
+        "type": "JSONB",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_audit_logs_actor_membership_id_memberships",
+        "columns": [
+          "actor_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_audit_logs_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_audit_logs",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_audit_logs_created_at",
+        "columns": [
+          "created_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_audit_logs_space_time",
+        "columns": [
+          "space_id",
+          "created_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_audit_logs_target",
+        "columns": [
+          "target_type",
+          "target_id"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "calendar_notes",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "kind",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "start_date",
+        "type": "DATE",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "end_date",
+        "type": "DATE",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "time",
+        "type": "TIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_calendar_notes_calendarnotekind",
+        "expression": "calendar_notes.kind IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_calendar_notes_dates_in_order",
+        "expression": "end_date >= start_date"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_calendar_notes_memo_has_no_member",
+        "expression": "kind <> 'memo' OR membership_id IS NULL"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_calendar_notes_title_length",
+        "expression": "char_length(title) BETWEEN 1 AND 60"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_calendar_notes_created_by_membership_id_memberships",
+        "columns": [
+          "created_by_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_calendar_notes_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_calendar_notes_membership_id_memberships",
+        "columns": [
+          "membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_calendar_notes_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_calendar_notes",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_calendar_notes_space_start",
+        "columns": [
+          "space_id",
+          "start_date"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "checklist_items",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "checklist_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "checklists.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "quantity",
+        "type": "VARCHAR(60)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "owner_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "is_shared",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "completed_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "completed_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "source_ingredient_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "ingredients.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "sort_order",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_checklist_items_completed_by_needs_time",
+        "expression": "completed_at IS NOT NULL OR completed_by IS NULL"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_checklist_items_shared_has_no_owner",
+        "expression": "NOT is_shared OR owner_membership_id IS NULL"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_checklist_items_checklist_id_checklists",
+        "columns": [
+          "checklist_id"
+        ],
+        "targets": [
+          "checklists.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_checklist_items_completed_by_memberships",
+        "columns": [
+          "completed_by"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_checklist_items_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_checklist_items_owner_membership_id_memberships",
+        "columns": [
+          "owner_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_checklist_items_source_ingredient_id_ingredients",
+        "columns": [
+          "source_ingredient_id"
+        ],
+        "targets": [
+          "ingredients.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_checklist_items",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_checklist_items_list",
+        "columns": [
+          "checklist_id",
+          "sort_order"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_checklist_items_source_ingredient_id",
+        "columns": [
+          "source_ingredient_id"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "checklists",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(40)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "kind",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_checklists_checklistkind",
+        "expression": "checklists.kind IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_checklists_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_checklists_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_checklists",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_checklists_trip",
+        "columns": [
+          "trip_id",
+          "kind"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "devices",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "installation_id",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "platform",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "app_version",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "display_name",
+        "type": "VARCHAR(40)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "last_seen_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "revoked_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_devices_deviceplatform",
+        "expression": "devices.platform IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_devices_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_devices",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_devices_user_seen",
+        "columns": [
+          "user_id",
+          "last_seen_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_devices_installation",
+        "columns": [
+          "user_id",
+          "installation_id"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "diaries",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "author_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(60)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "body",
+        "type": "TEXT",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "written_on",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_diaries_author_membership_id_memberships",
+        "columns": [
+          "author_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_diaries_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_diaries_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_diaries",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_diaries_trip_day",
+        "columns": [
+          "trip_id",
+          "written_on"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "email_change_tokens",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "new_email",
+        "type": "VARCHAR(320)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "token_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "used_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "revoked_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_email_change_tokens_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_email_change_tokens",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_email_change_tokens_user",
+        "columns": [
+          "user_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_email_change_tokens_hash",
+        "columns": [
+          "token_hash"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "email_verification_tokens",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "token_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "used_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "revoked_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_email_verification_tokens_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_email_verification_tokens",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_email_verification_tokens_user",
+        "columns": [
+          "user_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_email_verification_tokens_hash",
+        "columns": [
+          "token_hash"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "expense_shares",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expense_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "expenses.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "membership_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "weight",
+        "type": "NUMERIC(14, 4)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_expense_shares_weight_not_negative",
+        "expression": "weight >= 0"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_expense_shares_expense_id_expenses",
+        "columns": [
+          "expense_id"
+        ],
+        "targets": [
+          "expenses.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_expense_shares_membership_id_memberships",
+        "columns": [
+          "membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_expense_shares",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "uq_expense_shares_member",
+        "columns": [
+          "expense_id",
+          "membership_id"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "expenses",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "trip_day_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trip_days.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "amount",
+        "type": "NUMERIC(14, 2)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "category",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "payer_membership_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "split_mode",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "memo",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "receipt_photo_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "photos.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "excluded",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "transport_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_expenses_amount_positive",
+        "expression": "amount > 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_expenses_expensecategory",
+        "expression": "expenses.category IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_expenses_splitmode",
+        "expression": "expenses.split_mode IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_expenses_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_expenses_payer_membership_id_memberships",
+        "columns": [
+          "payer_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_expenses_receipt_photo_id_photos",
+        "columns": [
+          "receipt_photo_id"
+        ],
+        "targets": [
+          "photos.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_expenses_trip_day_id_trip_days",
+        "columns": [
+          "trip_day_id"
+        ],
+        "targets": [
+          "trip_days.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_expenses_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_expenses",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_expenses_payer_membership_id",
+        "columns": [
+          "payer_membership_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_expenses_trip",
+        "columns": [
+          "trip_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_expenses_trip_day",
+        "columns": [
+          "trip_day_id"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "external_links",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_type",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "url",
+        "type": "VARCHAR(2048)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "label",
+        "type": "VARCHAR(40)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_external_links_linkprovider",
+        "expression": "external_links.provider IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_external_links_linktargettype",
+        "expression": "external_links.target_type IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_external_links_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_external_links",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_external_links_target",
+        "columns": [
+          "target_type",
+          "target_id"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "feedback",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "kind",
+        "type": "VARCHAR(16)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "body",
+        "type": "TEXT",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "platform",
+        "type": "VARCHAR(16)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "app_version",
+        "type": "VARCHAR(32)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_feedback_body_length",
+        "expression": "char_length(body) BETWEEN 1 AND 2000"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_feedback_kind_known",
+        "expression": "kind IN ('problem', 'idea', 'other')"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_feedback_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_feedback",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_feedback_time",
+        "columns": [
+          "created_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_feedback_user_time",
+        "columns": [
+          "user_id",
+          "created_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "ingredients",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "recipe_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "recipes.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "quantity",
+        "type": "VARCHAR(60)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "category",
+        "type": "VARCHAR(30)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "procurement",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "owner_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "completed_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "sort_order",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_ingredients_owner_only_when_bringing",
+        "expression": "procurement = 'bring' OR owner_membership_id IS NULL"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_ingredients_procurement",
+        "expression": "ingredients.procurement IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_ingredients_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_ingredients_owner_membership_id_memberships",
+        "columns": [
+          "owner_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_ingredients_recipe_id_recipes",
+        "columns": [
+          "recipe_id"
+        ],
+        "targets": [
+          "recipes.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_ingredients",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_ingredients_recipe",
+        "columns": [
+          "recipe_id",
+          "sort_order"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "memberships",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "role",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "nickname",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "joined_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "left_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "removed_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_memberships_membershiprole",
+        "expression": "memberships.role IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memberships_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memberships_removed_by_users",
+        "columns": [
+          "removed_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memberships_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memberships_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_memberships",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_memberships_space_active",
+        "columns": [
+          "space_id",
+          "left_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_memberships_active",
+        "columns": [
+          "space_id",
+          "user_id"
+        ],
+        "unique": true,
+        "where": "left_at IS NULL"
+      }
+    ]
+  },
+  {
+    "name": "memos",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "author_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "body",
+        "type": "TEXT",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "edited_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_memos_deleted_by_needs_time",
+        "expression": "deleted_at IS NOT NULL OR deleted_by IS NULL"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memos_author_membership_id_memberships",
+        "columns": [
+          "author_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memos_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memos_deleted_by_memberships",
+        "columns": [
+          "deleted_by"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_memos_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_memos",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_memos_deleted_at",
+        "columns": [
+          "deleted_at"
+        ],
+        "unique": false,
+        "where": "deleted_at IS NOT NULL"
+      },
+      {
+        "name": "ix_memos_trip_alive",
+        "columns": [
+          "trip_id",
+          "deleted_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "oauth_accounts",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "provider",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider_subject",
+        "type": "VARCHAR(255)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider_email",
+        "type": "VARCHAR(320)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_oauth_accounts_oauthprovider",
+        "expression": "oauth_accounts.provider IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_oauth_accounts_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_oauth_accounts",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_oauth_accounts_user",
+        "columns": [
+          "user_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_oauth_accounts_subject",
+        "columns": [
+          "provider",
+          "provider_subject"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "oauth_pending_logins",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider_subject",
+        "type": "VARCHAR(255)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider_email",
+        "type": "VARCHAR(320)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "email_verified",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "display_name",
+        "type": "VARCHAR(50)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "code_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "code_challenge",
+        "type": "VARCHAR(128)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "used_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "link_token_hash",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "link_expires_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "linked_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_oauth_pending_logins_oauthprovider",
+        "expression": "oauth_pending_logins.provider IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "PK",
+        "name": "pk_oauth_pending_logins",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_oauth_pending_logins_expires",
+        "columns": [
+          "expires_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_oauth_pending_logins_code",
+        "columns": [
+          "code_hash"
+        ],
+        "unique": true,
+        "where": null
+      },
+      {
+        "name": "uq_oauth_pending_logins_link",
+        "columns": [
+          "link_token_hash"
+        ],
+        "unique": true,
+        "where": "link_token_hash IS NOT NULL"
+      }
+    ]
+  },
+  {
+    "name": "oauth_states",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "state_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "nonce",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "app_redirect_uri",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "app_state",
+        "type": "VARCHAR(128)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "code_challenge",
+        "type": "VARCHAR(128)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "used_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_oauth_states_oauthprovider",
+        "expression": "oauth_states.provider IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "PK",
+        "name": "pk_oauth_states",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_oauth_states_expires",
+        "columns": [
+          "expires_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_oauth_states_hash",
+        "columns": [
+          "state_hash"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "password_reset_tokens",
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "token_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "used_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "revoked_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_password_reset_tokens_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_password_reset_tokens",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_password_reset_tokens_user",
+        "columns": [
+          "user_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_password_reset_tokens_hash",
+        "columns": [
+          "token_hash"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "payments",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "from_membership_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "to_membership_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "amount",
+        "type": "NUMERIC(14, 2)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "paid_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_payments_amount_positive",
+        "expression": "amount > 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_payments_from_is_not_to",
+        "expression": "from_membership_id <> to_membership_id"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_payments_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_payments_deleted_by_users",
+        "columns": [
+          "deleted_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_payments_from_membership_id_memberships",
+        "columns": [
+          "from_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_payments_to_membership_id_memberships",
+        "columns": [
+          "to_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_payments_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_payments",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_payments_trip_alive",
+        "columns": [
+          "trip_id",
+          "deleted_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "photo_links",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "photo_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "photos.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "target_type",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_photo_links_phototargettype",
+        "expression": "photo_links.target_type IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_photo_links_photo_id_photos",
+        "columns": [
+          "photo_id"
+        ],
+        "targets": [
+          "photos.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_photo_links",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_photo_links_target",
+        "columns": [
+          "target_type",
+          "target_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_photo_links_target",
+        "columns": [
+          "photo_id",
+          "target_type",
+          "target_id"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "photos",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "uploader_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "original_path",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "display_path",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "thumbnail_path",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "taken_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "caption",
+        "type": "VARCHAR(200)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "width",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "height",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "original_bytes",
+        "type": "BIGINT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "checksum",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "taken_on",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "original_mime",
+        "type": "VARCHAR(30)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "stored_bytes",
+        "type": "BIGINT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "original_expires_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "is_receipt",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_photos_bytes_positive",
+        "expression": "original_bytes IS NULL OR original_bytes > 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_photos_deleted_by_needs_time",
+        "expression": "deleted_at IS NOT NULL OR deleted_by IS NULL"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_photos_height_positive",
+        "expression": "height IS NULL OR height > 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_photos_photostatus",
+        "expression": "photos.status IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_photos_width_positive",
+        "expression": "width IS NULL OR width > 0"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_photos_deleted_by_memberships",
+        "columns": [
+          "deleted_by"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_photos_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_photos_uploader_membership_id_memberships",
+        "columns": [
+          "uploader_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_photos",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_photos_checksum",
+        "columns": [
+          "checksum"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_photos_deleted_at",
+        "columns": [
+          "deleted_at"
+        ],
+        "unique": false,
+        "where": "deleted_at IS NOT NULL"
+      },
+      {
+        "name": "ix_photos_trip_status",
+        "columns": [
+          "trip_id",
+          "status"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "places",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "address",
+        "type": "VARCHAR(300)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "latitude",
+        "type": "NUMERIC(8, 6)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "longitude",
+        "type": "NUMERIC(9, 6)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "provider_place_id",
+        "type": "VARCHAR(100)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_places_coordinates_together",
+        "expression": "(latitude IS NULL) = (longitude IS NULL)"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_places_latitude_in_range",
+        "expression": "latitude IS NULL OR (latitude >= -90 AND latitude <= 90)"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_places_longitude_in_range",
+        "expression": "longitude IS NULL OR (longitude >= -180 AND longitude <= 180)"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_places_placeprovider",
+        "expression": "places.provider IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "PK",
+        "name": "pk_places",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "uq_places_provider_place",
+        "columns": [
+          "provider",
+          "provider_place_id"
+        ],
+        "unique": true,
+        "where": "provider_place_id IS NOT NULL"
+      }
+    ]
+  },
+  {
+    "name": "reauth_proofs",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "action",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "nonce",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "token_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "used_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_reauth_proofs_sensitiveaction",
+        "expression": "reauth_proofs.action IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_reauth_proofs_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_reauth_proofs",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_reauth_proofs_user",
+        "columns": [
+          "user_id",
+          "action"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_reauth_proofs_hash",
+        "columns": [
+          "token_hash"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "recipes",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "memo",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "source_url",
+        "type": "VARCHAR(2048)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "servings",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "sort_order",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_recipes_servings_positive",
+        "expression": "servings IS NULL OR servings > 0"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_recipes_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_recipes_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_recipes",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_recipes_trip",
+        "columns": [
+          "trip_id",
+          "sort_order"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "refresh_tokens",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "device_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "devices.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "token_family_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "token_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "last_used_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "replaced_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "refresh_tokens.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "revoked_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "revoke_reason",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_refresh_tokens_revokereason",
+        "expression": "refresh_tokens.revoke_reason IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_refresh_tokens_device_id_devices",
+        "columns": [
+          "device_id"
+        ],
+        "targets": [
+          "devices.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_refresh_tokens_replaced_by_refresh_tokens",
+        "columns": [
+          "replaced_by"
+        ],
+        "targets": [
+          "refresh_tokens.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_refresh_tokens_user_id_users",
+        "columns": [
+          "user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_refresh_tokens",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_refresh_tokens_family",
+        "columns": [
+          "token_family_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_refresh_tokens_user_alive",
+        "columns": [
+          "user_id",
+          "revoked_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_refresh_tokens_hash",
+        "columns": [
+          "token_hash"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "relationship_profiles",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "started_on",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_relationship_profiles_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_relationship_profiles",
+        "columns": [
+          "id"
+        ]
+      },
+      {
+        "kind": "UNIQUE",
+        "name": "uq_relationship_profiles_space",
+        "columns": [
+          "space_id"
+        ]
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "name": "reports",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "reporter_user_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "target_type",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "reason",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "detail",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "resolved_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_reports_detail_length",
+        "expression": "detail IS NULL OR char_length(detail) <= 1000"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_reports_reportreason",
+        "expression": "reports.reason IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_reports_reportstatus",
+        "expression": "reports.status IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_reports_reporttargettype",
+        "expression": "reports.target_type IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_reports_reporter_user_id_users",
+        "columns": [
+          "reporter_user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_reports_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_reports",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_reports_reporter_time",
+        "columns": [
+          "reporter_user_id",
+          "created_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_reports_status_time",
+        "columns": [
+          "status",
+          "created_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "reservations",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "target_type",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "party_size",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "party_label",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "reserved_on",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "reserved_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "booking_url",
+        "type": "VARCHAR(2048)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "show_in_schedule",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_reservations_party_size_positive",
+        "expression": "party_size IS NULL OR party_size > 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_reservations_reservationstatus",
+        "expression": "reservations.status IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_reservations_reservationtargettype",
+        "expression": "reservations.target_type IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_reservations_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_reservations_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_reservations",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_reservations_target",
+        "columns": [
+          "target_type",
+          "target_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_reservations_trip",
+        "columns": [
+          "trip_id",
+          "reserved_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "schedule_items",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "trip_day_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trip_days.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "trip_place_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trip_places.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "start_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "end_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "type",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "sort_order",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_schedule_items_scheduleitemtype",
+        "expression": "schedule_items.type IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_schedule_items_times_in_order",
+        "expression": "end_at IS NULL OR start_at IS NULL OR end_at >= start_at"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_schedule_items_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_schedule_items_trip_day_id_trip_days",
+        "columns": [
+          "trip_day_id"
+        ],
+        "targets": [
+          "trip_days.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_schedule_items_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_schedule_items_trip_place_id_trip_places",
+        "columns": [
+          "trip_place_id"
+        ],
+        "targets": [
+          "trip_places.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_schedule_items",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_schedule_items_day",
+        "columns": [
+          "trip_day_id",
+          "sort_order"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_schedule_items_trip_id",
+        "columns": [
+          "trip_id"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "space_invites",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "token_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": true,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "max_uses",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "used_count",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "revoked_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_space_invites_uses_within_limit",
+        "expression": "used_count >= 0 AND used_count <= max_uses"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_space_invites_created_by_membership_id_memberships",
+        "columns": [
+          "created_by_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_space_invites_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_space_invites",
+        "columns": [
+          "id"
+        ]
+      },
+      {
+        "kind": "UNIQUE",
+        "name": "uq_space_invites_token_hash",
+        "columns": [
+          "token_hash"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_space_invites_space",
+        "columns": [
+          "space_id",
+          "revoked_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "spaces",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(40)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "relationship_type",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "owner_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "timezone",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deletion_requested_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deletion_scheduled_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_spaces_relationshiptype",
+        "expression": "spaces.relationship_type IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_spaces_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_spaces_owner_id_users",
+        "columns": [
+          "owner_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_spaces",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": []
+  },
+  {
+    "name": "stays",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "trip_place_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trip_places.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "check_in_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "check_out_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "has_kitchen",
+        "type": "BOOLEAN",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "booking_url",
+        "type": "VARCHAR(2048)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "show_in_schedule",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_stays_checkout_after_checkin",
+        "expression": "check_out_at IS NULL OR check_in_at IS NULL OR check_out_at > check_in_at"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_stays_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_stays_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_stays_trip_place_id_trip_places",
+        "columns": [
+          "trip_place_id"
+        ],
+        "targets": [
+          "trip_places.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_stays",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_stays_trip",
+        "columns": [
+          "trip_id",
+          "check_in_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "taggings",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "tag_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "tags.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "target_type",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "target_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_taggings_tagscope",
+        "expression": "taggings.target_type IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_taggings_tag_id_tags",
+        "columns": [
+          "tag_id"
+        ],
+        "targets": [
+          "tags.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_taggings",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_taggings_target",
+        "columns": [
+          "target_type",
+          "target_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_taggings_target",
+        "columns": [
+          "tag_id",
+          "target_type",
+          "target_id"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "tags",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "scope",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "color",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_tags_tagscope",
+        "expression": "tags.scope IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_tags_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_tags_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_tags",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "uq_tags_space_scope_name",
+        "columns": [
+          "space_id",
+          "scope",
+          "name"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "throttle_counters",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "scope",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "key_hash",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "attempts",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "window_started_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "last_attempt_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "blocked_until",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_throttle_counters_attempts_not_negative",
+        "expression": "attempts >= 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_throttle_counters_throttlescope",
+        "expression": "throttle_counters.scope IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "PK",
+        "name": "pk_throttle_counters",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_throttle_window",
+        "columns": [
+          "window_started_at"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_throttle_scope_key",
+        "columns": [
+          "scope",
+          "key_hash"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "transports",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "owner_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "direction",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "method",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "travel_on",
+        "type": "DATE",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "departure_name",
+        "type": "VARCHAR(40)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "departure_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "arrival_name",
+        "type": "VARCHAR(40)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "arrival_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "stops",
+        "type": "JSONB",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "booking_status",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "show_in_schedule",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_transports_arrival_after_departure",
+        "expression": "arrival_at IS NULL OR departure_at IS NULL OR arrival_at >= departure_at"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_transports_bookingstatus",
+        "expression": "transports.booking_status IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_transports_transportdirection",
+        "expression": "transports.direction IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_transports_transportmethod",
+        "expression": "transports.method IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_transports_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_transports_owner_membership_id_memberships",
+        "columns": [
+          "owner_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_transports_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_transports",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_transports_trip",
+        "columns": [
+          "trip_id",
+          "departure_at"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "trip_cards",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "created_by_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "settings",
+        "type": "JSONB",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "sort_order",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "image_path",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "image_version",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "image_bytes",
+        "type": "BIGINT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_trip_cards_created_by_membership_id_memberships",
+        "columns": [
+          "created_by_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_cards_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_cards_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_trip_cards",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_trip_cards_trip_sort",
+        "columns": [
+          "trip_id",
+          "sort_order"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "trip_days",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "date",
+        "type": "DATE",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "day_index",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_trip_days_day_index_positive",
+        "expression": "day_index >= 1"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_days_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_trip_days",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "uq_trip_days_date",
+        "columns": [
+          "trip_id",
+          "date"
+        ],
+        "unique": true,
+        "where": null
+      },
+      {
+        "name": "uq_trip_days_index",
+        "columns": [
+          "trip_id",
+          "day_index"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "trip_participants",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "membership_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "sort_order",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "removed_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "FK",
+        "name": "fk_trip_participants_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_participants_membership_id_memberships",
+        "columns": [
+          "membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_participants_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_trip_participants",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "uq_trip_participants_active",
+        "columns": [
+          "trip_id",
+          "membership_id"
+        ],
+        "unique": true,
+        "where": "removed_at IS NULL"
+      }
+    ]
+  },
+  {
+    "name": "trip_places",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "trip_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trips.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "place_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "places.id",
+            "ondelete": "RESTRICT",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "category",
+        "type": "VARCHAR(30)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "area",
+        "type": "VARCHAR(30)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "memo",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_trip_places_tripplacestatus",
+        "expression": "trip_places.status IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_places_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_places_place_id_places",
+        "columns": [
+          "place_id"
+        ],
+        "targets": [
+          "places.id"
+        ],
+        "ondelete": "RESTRICT",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trip_places_trip_id_trips",
+        "columns": [
+          "trip_id"
+        ],
+        "targets": [
+          "trips.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_trip_places",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_trip_places_place_id",
+        "columns": [
+          "place_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "ix_trip_places_trip_status",
+        "columns": [
+          "trip_id",
+          "status"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_trip_places_place",
+        "columns": [
+          "trip_id",
+          "place_id"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "trips",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "space_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "spaces.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(60)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "region_code",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "region_name",
+        "type": "VARCHAR(40)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "start_date",
+        "type": "DATE",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "end_date",
+        "type": "DATE",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "summary",
+        "type": "TEXT",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "cooking_enabled",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "currency_code",
+        "type": "VARCHAR(3)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "exchange_rate",
+        "type": "NUMERIC(18, 6)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "budget",
+        "type": "NUMERIC(14, 2)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "simplify_settlement",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "cover_photo_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "photos.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "cover_card_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "trip_cards.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "cover_focus_x",
+        "type": "FLOAT",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "cover_focus_y",
+        "type": "FLOAT",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "cover_zoom",
+        "type": "FLOAT",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "archived_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deletion_scheduled_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_by",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_trips_budget_not_negative",
+        "expression": "budget IS NULL OR budget >= 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_trips_dates_in_order",
+        "expression": "end_date >= start_date"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_trips_exchange_rate_positive",
+        "expression": "exchange_rate IS NULL OR exchange_rate > 0"
+      },
+      {
+        "kind": "CHECK",
+        "name": "ck_trips_tripstatus",
+        "expression": "trips.status IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trips_cover_card_id_trip_cards",
+        "columns": [
+          "cover_card_id"
+        ],
+        "targets": [
+          "trip_cards.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trips_cover_photo_id_photos",
+        "columns": [
+          "cover_photo_id"
+        ],
+        "targets": [
+          "photos.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trips_created_by_users",
+        "columns": [
+          "created_by"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_trips_space_id_spaces",
+        "columns": [
+          "space_id"
+        ],
+        "targets": [
+          "spaces.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_trips",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_trips_space_start_date",
+        "columns": [
+          "space_id",
+          "start_date"
+        ],
+        "unique": false,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "user_blocks",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "blocker_user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "blocked_user_id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "users.id",
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "blocked_membership_id",
+        "type": "UUID",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": [
+          {
+            "target": "memberships.id",
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ]
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_user_blocks_not_self",
+        "expression": "blocker_user_id <> blocked_user_id"
+      },
+      {
+        "kind": "FK",
+        "name": "fk_user_blocks_blocked_membership_id_memberships",
+        "columns": [
+          "blocked_membership_id"
+        ],
+        "targets": [
+          "memberships.id"
+        ],
+        "ondelete": "SET NULL",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_user_blocks_blocked_user_id_users",
+        "columns": [
+          "blocked_user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "FK",
+        "name": "fk_user_blocks_blocker_user_id_users",
+        "columns": [
+          "blocker_user_id"
+        ],
+        "targets": [
+          "users.id"
+        ],
+        "ondelete": "CASCADE",
+        "onupdate": null
+      },
+      {
+        "kind": "PK",
+        "name": "pk_user_blocks",
+        "columns": [
+          "id"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_user_blocks_blocked",
+        "columns": [
+          "blocked_user_id"
+        ],
+        "unique": false,
+        "where": null
+      },
+      {
+        "name": "uq_user_blocks_pair",
+        "columns": [
+          "blocker_user_id",
+          "blocked_user_id"
+        ],
+        "unique": true,
+        "where": null
+      }
+    ]
+  },
+  {
+    "name": "users",
+    "columns": [
+      {
+        "name": "id",
+        "type": "UUID",
+        "nullable": false,
+        "primary_key": true,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "email",
+        "type": "VARCHAR(320)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": true,
+        "foreign_keys": []
+      },
+      {
+        "name": "email_verified_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "password_hash",
+        "type": "VARCHAR(255)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "display_name",
+        "type": "VARCHAR(50)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "terms_version",
+        "type": "VARCHAR(20)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "terms_agreed_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "avatar_path",
+        "type": "VARCHAR(500)",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "timezone",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deletion_requested_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deletion_scheduled_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "deleted_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false,
+        "unique": null,
+        "foreign_keys": []
+      }
+    ],
+    "constraints": [
+      {
+        "kind": "CHECK",
+        "name": "ck_users_userstatus",
+        "expression": "users.status IN (__[POSTCOMPILE_param_1])"
+      },
+      {
+        "kind": "PK",
+        "name": "pk_users",
+        "columns": [
+          "id"
+        ]
+      },
+      {
+        "kind": "UNIQUE",
+        "name": "uq_users_email",
+        "columns": [
+          "email"
+        ]
+      }
+    ],
+    "indexes": [
+      {
+        "name": "ix_users_deletion_due",
+        "columns": [
+          "deletion_scheduled_at"
+        ],
+        "unique": false,
+        "where": "deletion_scheduled_at IS NOT NULL"
+      }
+    ]
+  }
+]

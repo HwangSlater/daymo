@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daymo 운영 DB ERD</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+    body { margin: 0; background: #f5f3ee; color: #292929; }
+    header { padding: 24px 28px 14px; }
+    h1 { margin: 0 0 7px; font-size: 24px; }
+    p { margin: 0; color: #666; }
+    nav { display: flex; gap: 8px; padding: 12px 28px 18px; overflow-x: auto; }
+    button, a { font: inherit; }
+    button { border: 1px solid #ccc; border-radius: 999px; background: white; color: #333; padding: 8px 13px; white-space: nowrap; cursor: pointer; }
+    button.active { background: #292929; color: white; border-color: #292929; }
+    main { margin: 0 28px 28px; height: calc(100vh - 145px); min-height: 620px; border: 1px solid #d3d0c9; border-radius: 16px; overflow: hidden; background: #fcfbf8; }
+    object { width: 100%; height: 100%; }
+    .links { position: fixed; right: 40px; top: 24px; display: flex; gap: 12px; }
+    .links a { color: #315d86; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1d1d1b; color: #eee; }
+      p { color: #aaa; }
+      button { background: #30302d; color: #eee; border-color: #555; }
+      button.active { background: #eee; color: #222; }
+      main { border-color: #444; }
+      .links a { color: #9bc8f0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Daymo 운영 DB ERD</h1>
+    <p>44개 테이블 · 475개 컬럼 · 95개 물리 FK · 2026-09-26 기준</p>
+    <div class="links"><a id="svg-link" href="daymo-erd-overview.svg">SVG 열기</a><a id="pdf-link" href="daymo-erd-overview.pdf">PDF 받기</a></div>
+  </header>
+  <nav id="tabs"></nav>
+  <main><object id="viewer" data="daymo-erd-overview.svg" type="image/svg+xml"></object></main>
+  <script>
+    const views = [
+      ["overview", "전체 개요"], ["full", "전체 컬럼"], ["account", "계정·인증"],
+      ["space", "공간·운영"], ["trip", "여행·일정"], ["place", "장소·태그"],
+      ["cooking", "준비물·요리"], ["expense", "비용·정산"], ["memory", "기록·추억"]
+    ];
+    const tabs = document.querySelector("#tabs");
+    const viewer = document.querySelector("#viewer");
+    const svgLink = document.querySelector("#svg-link");
+    const pdfLink = document.querySelector("#pdf-link");
+    for (const [key, label] of views) {
+      const button = document.createElement("button");
+      button.textContent = label;
+      button.className = key === "overview" ? "active" : "";
+      button.onclick = () => {
+        document.querySelectorAll("button").forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+        const base = `daymo-erd-${key}`;
+        viewer.data = `${base}.svg`;
+        svgLink.href = `${base}.svg`;
+        pdfLink.href = `${base}.pdf`;
+      };
+      tabs.append(button);
+    }
+  </script>
+</body>
+</html>
